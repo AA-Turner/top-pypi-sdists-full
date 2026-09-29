@@ -84,6 +84,12 @@ class SelfCalibrator:
         """
         ...
 
+    def failed(self: Any) -> bool:
+        """
+        True once no camera will come from paint: declared permanent, or out of attempts.
+        """
+        ...
+
     def observe_frame(self: Any, frame: Any.Any) -> None:
         """
         Feed one frame into the background model. Cheap; safe to call per frame.

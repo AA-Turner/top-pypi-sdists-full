@@ -15,15 +15,14 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    pyudev.core
-    ===========
+pyudev.core
+===========
 
-    Core types and functions of :mod:`pyudev`.
+Core types and functions of :mod:`pyudev`.
 
-    .. moduleauthor::  Sebastian Wiesner  <lunaryorn@gmail.com>
+.. moduleauthor::  Sebastian Wiesner  <lunaryorn@gmail.com>
 """
 
-# isort: LOCAL
 from pyudev._ctypeslib.libudev import ERROR_CHECKERS, SIGNATURES
 from pyudev._ctypeslib.utils import load_ctypes_library
 from pyudev._errors import DeviceNotFoundAtPathError
@@ -98,7 +97,7 @@ class Context:
     @property
     def log_priority(self):
         """
-        The logging priority of the interal logging facitility of udev as
+        The logging priority of the internal logging facility of udev as
         integer with a standard :mod:`syslog` priority.  Assign to this
         property to change the logging priority.
 
@@ -193,13 +192,13 @@ class Enumerator:
 
         - The value for the keyword argument ``subsystem`` is forwarded to
           :meth:`match_subsystem()`.
-        - The value for the keyword argument ``sys_name`` is forwared to
+        - The value for the keyword argument ``sys_name`` is forwarded to
           :meth:`match_sys_name()`.
-        - The value for the keyword argument ``tag`` is forwared to
+        - The value for the keyword argument ``tag`` is forwarded to
           :meth:`match_tag()`.
-        - The value for the keyword argument ``parent`` is forwared to
+        - The value for the keyword argument ``parent`` is forwarded to
           :meth:`match_parent()`.
-        - All other keyword arguments are forwareded one by one to
+        - All other keyword arguments are forwarded one by one to
           :meth:`match_property()`.  The keyword argument itself is interpreted
           as property name, the value of the keyword argument as the property
           value.
@@ -278,7 +277,7 @@ class Enumerator:
         - :func:`int`
         - :func:`bool`
         - A byte string
-        - Anything convertable to a unicode string (including a unicode string
+        - Anything convertible to a unicode string (including a unicode string
           itself)
 
         Return the instance again.
@@ -299,7 +298,7 @@ class Enumerator:
         - :func:`int`,
         - :func:`bool`
         - A byte string
-        - Anything convertable to a unicode string (including a unicode string
+        - Anything convertible to a unicode string (including a unicode string
           itself)
 
         If ``nomatch`` is ``True`` (default is ``False``), the match is

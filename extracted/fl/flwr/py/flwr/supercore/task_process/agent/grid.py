@@ -23,7 +23,7 @@ from logging import DEBUG
 from typing import cast
 
 from flwr.agentapp import AgentEvents, AgentGrid
-from flwr.app import ConfigRecord, Message, RecordDict
+from flwr.app import ConfigRecord, Message, Metadata, RecordDict
 from flwr.common.constant import SUPERLINK_NODE_ID
 from flwr.serverapp import Grid
 from flwr.supercore import log
@@ -39,7 +39,7 @@ from flwr.supercore.typing import JSONObject
 from flwr.supercore.utils import strict_json_dumps, strict_json_loads
 
 _GRID_TOOL_NAMES = {"get_nodes", "push_messages", "pull_messages"}
-_SUPERNODE_GRID_TOOL_NAMES = {"push_messages"}
+_SUPERNODE_GRID_TOOL_NAMES = {"push_reply_message"}
 
 
 def _grid_tools() -> list[JSONObject]:
@@ -103,8 +103,10 @@ def _grid_tools() -> list[JSONObject]:
             "push_messages",
             (
                 "Send messages to nodes in the federation (SuperLink or SuperNodes) "
-                "and return one result per message in the same order. Pass accepted "
-                "message IDs to pull_messages if replies are required."
+                "and return one result per message in the same order. When replying, "
+                "copy the received message_id exactly into reply_to_message_id and "
+                "send only one message for that ID; do not resend earlier replies. "
+                "Pass accepted message IDs to pull_messages if replies are required."
             ),
             properties={
                 "messages": {
@@ -123,8 +125,9 @@ def _grid_tools() -> list[JSONObject]:
                                 "type": ["string", "null"],
                                 "minLength": 1,
                                 "description": (
-                                    "ID of the message being replied to, or null when "
-                                    "sending a new message."
+                                    "Copy the message_id of the message being "
+                                    "replied to exactly, or use null for a new "
+                                    "message."
                                 ),
                             },
                         },
@@ -166,6 +169,33 @@ def _grid_tools() -> list[JSONObject]:
                     }
                 },
                 "required": ["results"],
+                "additionalProperties": False,
+            },
+            strict=True,
+        ),
+        function_tool(
+            "push_reply_message",
+            (
+                "Send one reply to the last instruction message received for this "
+                "task. Do not resend a reply already sent."
+            ),
+            properties={
+                "payload": string_property("Reply payload to send."),
+            },
+            required=["payload"],
+            output_schema={
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": ["string", "null"],
+                        "description": "Accepted reply ID, or null if rejected.",
+                    },
+                    "error": {
+                        "type": ["string", "null"],
+                        "description": "Failure reason, or null if accepted.",
+                    },
+                },
+                "required": ["message_id", "error"],
                 "additionalProperties": False,
             },
             strict=True,
@@ -248,13 +278,20 @@ def _grid_tools() -> list[JSONObject]:
 class RuntimeAgentGrid(AgentGrid):
     """Expose selected Grid operations as model tools."""
 
-    def __init__(self, grid: Grid, events: AgentEvents, node_id: int) -> None:
+    def __init__(
+        self,
+        grid: Grid,
+        events: AgentEvents,
+        node_id: int,
+        instruction_metadata: Metadata | None = None,
+    ) -> None:
         self._grid = grid
         self._events = events
         self._is_superlink = node_id == SUPERLINK_NODE_ID
         self._tool_names = (
             _GRID_TOOL_NAMES if self._is_superlink else _SUPERNODE_GRID_TOOL_NAMES
         )
+        self._instruction_metadata = instruction_metadata
 
     def tools(self) -> list[JSONObject]:
         """Return model-facing Grid tool schemas."""
@@ -314,6 +351,26 @@ class RuntimeAgentGrid(AgentGrid):
         }
 
     def _push_messages(self, messages: list[JSONObject]) -> JSONObject:
+        return {"results": self._send_messages(messages)}
+
+    def _push_reply_message(self, payload: str) -> JSONObject:
+        if self._instruction_metadata is None:
+            return {
+                "message_id": None,
+                "error": (
+                    "No instruction message to reply to. "
+                    "You may have already replied to it once."
+                ),
+            }
+        message: JSONObject = {
+            "dst_node_id": str(self._instruction_metadata.src_node_id),
+            "payload": payload,
+            "reply_to_message_id": self._instruction_metadata.message_id,
+        }
+        self._instruction_metadata = None
+        return self._send_messages([message])[0]
+
+    def _send_messages(self, messages: list[JSONObject]) -> list[JSONObject]:
         if not messages:
             raise ValueError("At least one message is required.")
 
@@ -342,15 +399,13 @@ class RuntimeAgentGrid(AgentGrid):
         message_ids = list(self._grid.push_messages(outgoing))
         if len(message_ids) != len(outgoing):
             raise RuntimeError("Grid returned an unexpected number of message IDs.")
-        return {
-            "results": [
-                {
-                    "message_id": message_id or None,
-                    "error": None if message_id else "Message was not accepted.",
-                }
-                for message_id in message_ids
-            ]
-        }
+        return [
+            {
+                "message_id": message_id or None,
+                "error": None if message_id else "Message was not accepted.",
+            }
+            for message_id in message_ids
+        ]
 
     def _pull_messages(self, message_ids: list[str], timeout: float) -> JSONObject:
         if not 0 <= timeout <= 300:

@@ -503,7 +503,7 @@ class TasksManager(TasksBase):
         from datetime import UTC, datetime
 
         _, error = await self._write_visible(
-            "delete_task", task_id, {"deleted_at": datetime.now(UTC)}
+            "delete_task", task_id, dict(deleted_at=datetime.now(UTC))
         )
         if error is not None:
             return error

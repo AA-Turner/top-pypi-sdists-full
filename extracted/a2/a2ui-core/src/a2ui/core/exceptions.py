@@ -1,10 +1,10 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,8 @@
 """Custom exceptions for the A2UI SDK."""
 
 import dataclasses
+import enum
+import re
 
 
 @dataclasses.dataclass(frozen=True)
@@ -57,19 +59,73 @@ class A2uiCatalogError(A2uiError):
     pass
 
 
-class A2uiIntegrityError(A2uiError):
+class A2uiStateError(A2uiError):
+    """Exception raised for UI tree structural errors."""
+
+    pass
+
+
+class A2uiIntegrityError(A2uiValidationError):
     """Exception raised when layout graph integrity or relationship checks fail."""
 
     pass
 
 
-class A2uiRecursionError(A2uiError):
+class A2uiRecursionError(A2uiValidationError):
     """Exception raised when recursive or traversal limits are exceeded."""
 
     pass
 
 
-class A2uiCompileError(A2uiError):
-    """Exception raised when compiling or translating alternative UI formats/DSLs."""
+class A2uiDataError(A2uiError):
+    """Exception raised when accessing or mutating data model with invalid paths or types."""
+
+    def __init__(
+        self,
+        message: str,
+        path: str | None = None,
+        details: list[A2uiErrorDetail] | None = None,
+    ) -> None:
+        super().__init__(message, details=details)
+        self.path: str | None = path
+
+
+class A2uiExpressionError(A2uiError):
+    """Exception raised when parsing or evaluating expressions and functions."""
 
     pass
+
+
+class RpcErrorCode(str, enum.Enum):
+    """RPC error codes matching A2UI protocol specification."""
+
+    INVALID_FUNCTION_CALL = "INVALID_FUNCTION_CALL"
+    EXECUTION_ERROR = "EXECUTION_ERROR"
+    UNKNOWN_FUNCTION = "UNKNOWN_FUNCTION"
+    UNKNOWN_ERROR = "UNKNOWN_ERROR"
+    CANCELLED = "CANCELLED"
+    TIMEOUT = "TIMEOUT"
+    DISPOSED = "DISPOSED"
+    NO_LISTENER = "NO_LISTENER"
+    DUPLICATE = "DUPLICATE"
+
+
+class A2uiRpcError(A2uiError):
+    """Exception raised when an RPC function execution fails."""
+
+    def __init__(
+        self,
+        message: str | RpcErrorCode,
+        code: str | RpcErrorCode = RpcErrorCode.UNKNOWN_ERROR,
+        function_call_id: str | None = None,
+        details: list[A2uiErrorDetail] | None = None,
+    ) -> None:
+        code_str = code.value if isinstance(code, RpcErrorCode) else str(code)
+        msg_str = message.value if isinstance(message, RpcErrorCode) else str(message)
+        is_first_known_code = msg_str in RpcErrorCode._value2member_map_
+        is_second_like_message = bool(re.search(r"[a-z\s]", code_str)) or code_str == ""
+        if is_first_known_code and is_second_like_message:
+            msg_str, code_str = code_str, msg_str
+        super().__init__(msg_str, details=details)
+        self.code: str = code_str
+        self.function_call_id: str | None = function_call_id

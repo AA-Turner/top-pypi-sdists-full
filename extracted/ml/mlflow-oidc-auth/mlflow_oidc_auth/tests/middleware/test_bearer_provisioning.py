@@ -1,5 +1,6 @@
 """Layer 2 of the #262 fix: opt-in, hardened auto-provisioning on bearer authentication."""
 
+import importlib
 import sys
 import types
 from types import SimpleNamespace
@@ -23,7 +24,8 @@ def provider_carries_the_configured_scoping(monkeypatch):
     meaning what it did.
     """
     import mlflow_oidc_auth.auth as auth_module
-    import mlflow_oidc_auth.middleware.auth_middleware as middleware_module
+
+    middleware_module = importlib.import_module("mlflow_oidc_auth.middleware.auth_middleware")
 
     def resolve(token):
         cfg = middleware_module.config
@@ -49,6 +51,7 @@ def _cfg(mock_config, **over):
     mock_config.OIDC_GROUP_DETECTION_PLUGIN = None
     mock_config.OIDC_GROUPS_ATTRIBUTE = "groups"
     mock_config.OIDC_GROUP_NAME = ["mlflow-users"]
+    mock_config.OIDC_GROUP_NAME_PATTERN = []
     mock_config.OIDC_ADMIN_GROUP_NAME = ["mlflow-admins"]
     mock_config.OIDC_TRUST_BEARER_GROUP_CLAIMS = False
     for k, v in over.items():
@@ -104,6 +107,20 @@ class TestAuthorizationGate:
             _cfg(cfg)
             store.has_user.return_value = False
             _mw()._maybe_provision_bearer_user("a@x.com", "tok", {"groups": ["some-other-group"]})
+            create_user.assert_not_called()
+
+    @pytest.mark.parametrize("groups", [None, [""]])
+    def test_missing_or_empty_groups_fail_closed(self, groups):
+        with (
+            patch("mlflow_oidc_auth.middleware.auth_middleware.config") as cfg,
+            patch("mlflow_oidc_auth.middleware.auth_middleware.store") as store,
+            patch("mlflow_oidc_auth.user.create_user") as create_user,
+        ):
+            _cfg(cfg, OIDC_GROUP_NAME_PATTERN=["*"])
+            store.has_user.return_value = False
+
+            _mw()._maybe_provision_bearer_user("a@x.com", "tok", {"groups": groups})
+
             create_user.assert_not_called()
 
     def test_allowed_group_member_provisioned_non_admin(self):
@@ -186,6 +203,27 @@ class TestGroupDetectionPlugin:
 
         assert received["access_token"] == "tok-new"
         assert received["token_response"] == {"access_token": "tok-new", "claims": payload}
+
+    def test_group_pattern_member_is_provisioned(self):
+        with (
+            patch("mlflow_oidc_auth.middleware.auth_middleware.config") as cfg,
+            patch("mlflow_oidc_auth.middleware.auth_middleware.store") as store,
+            patch("mlflow_oidc_auth.user.create_user") as create_user,
+            patch("mlflow_oidc_auth.user.populate_groups") as populate_groups,
+            patch("mlflow_oidc_auth.user.update_user") as update_user,
+            patch("mlflow_oidc_auth.middleware.auth_middleware.emit_audit_event") as audit_event,
+        ):
+            _cfg(cfg, OIDC_GROUP_NAME_PATTERN=["mlflow-*"])
+            store.has_user.return_value = False
+            groups = ["mlflow-new-team", "shared-data-platform"]
+
+            _mw()._maybe_provision_bearer_user("a@x.com", "tok", {"groups": groups, "name": "Alice"})
+
+            create_user.assert_called_once_with(username="a@x.com", display_name="Alice", is_admin=False, written_by="oidc:default")
+            assert populate_groups.call_args.kwargs["group_names"] == groups
+            assert update_user.call_args.kwargs["group_names"] == groups
+            (call,) = [c for c in audit_event.call_args_list if c.args[0] == "auth.admitted_by_group_pattern"]
+            assert call.kwargs["detail"]["pattern"] == "mlflow-*" and call.kwargs["detail"]["method"] == "bearer"
 
 
 class TestAdminElevation:

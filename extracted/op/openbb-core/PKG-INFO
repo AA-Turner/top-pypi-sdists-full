@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openbb-core
-Version: 2.0.0
+Version: 2.0.1
 Summary: OpenBB package with core functionality.
 Author-email: OpenBB Team <hello@openbb.co>
 License: Apache-2.0

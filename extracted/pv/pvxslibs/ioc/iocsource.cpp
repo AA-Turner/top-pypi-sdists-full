@@ -121,7 +121,7 @@ void getArrayValue(dbChannel* pChannel,
                          Value& value)
 {
     auto final_type(dbChannelFinalFieldType(pChannel));
-    auto buf(std::make_shared<std::vector<char>>(dbChannelFinalElements(pChannel) * dbChannelFinalFieldSize(pChannel)));
+    auto buf(std::make_shared<std::vector<char>>(dbChannelFinalElements(pChannel) * dbValueSize(final_type)));
     long nReq = dbChannelFinalElements(pChannel);
 
     DBErrorMessage dbErrorMessage(dbChannelGet(pChannel, final_type,
@@ -288,9 +288,9 @@ void getProperties(dbChannel* pChannel, db_field_log *pfl, Value& node)
         if(options & DBR_GR_DOUBLE) {
             dlL = meta.lower_disp_limit;
             node["display.limitHigh"] = meta.upper_disp_limit;
-            if(options & DBR_PRECISION) {
-                node["display.precision"] = int32_t(meta.precision.dp);
-            }
+        }
+        if(options & DBR_PRECISION) {
+            node["display.precision"] = int32_t(meta.precision.dp);
         }
         if(options & DBR_CTRL_DOUBLE) {
             node["control.limitLow"] = meta.lower_ctrl_limit;
@@ -362,9 +362,7 @@ void IOCSource::get(Value& node, // node within top level structure addressed by
 void
 IOCSource::doPreProcessing(dbChannel* pDbChannel, SecurityLogger& securityLogger, const Credentials& credentials,
         const SecurityClient& securityClient) {
-    if (pDbChannel->addr.special == SPC_ATTRIBUTE) {
-        throw std::runtime_error("Unable to put value: Modifications not allowed: S_db_noMod");
-    } else if (pDbChannel->addr.precord->disp && pDbChannel->addr.pfield != &pDbChannel->addr.precord->disp) {
+    if (pDbChannel->addr.precord->disp && pDbChannel->addr.pfield != &pDbChannel->addr.precord->disp) {
         throw std::runtime_error("Unable to put value: Field Disabled: S_db_putDisabled");
     }
 

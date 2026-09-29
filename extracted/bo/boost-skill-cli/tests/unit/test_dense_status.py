@@ -352,7 +352,64 @@ def test_doctor_names_the_live_provider_on_a_provider_change(boost, sandbox,
     _write_store(provider="voyage", model="voyage-4", dim=1024)
     res = boost("doctor", expect=None)
     assert res.rc == 1
-    assert "live key is openai" in res.out
+    assert "live provider is openai" in res.out
+    # "live key is" named a key on the reason a *lost* key reaches, where
+    # there may be no key at all. Pinned as an absence too, because the
+    # wording it replaced still reads correctly to a reviewer.
+    assert "live key is" not in res.out
+
+
+def test_doctor_names_the_live_model_on_a_model_change(boost, sandbox, keyed):
+    """The sibling line, which said "live key is" for the same reason."""
+    _write_store(provider="voyage", model="voyage-3", dim=1024)
+    res = boost("doctor", expect=None)
+    assert res.rc == 1
+    assert "live model is voyage-4" in res.out
+    assert "live key is" not in res.out
+
+
+def test_doctor_names_both_steps_when_a_preferred_key_displaced_the_store(
+        boost, sandbox, monkeypatch):
+    """The end-to-end shape of the two-condition remedy.
+
+    An OpenAI-built store on a machine holding only a Voyage key. Doctor is
+    where a user meets this, and the export alone moves nothing.
+    """
+    monkeypatch.setenv("VOYAGE_API_KEY", "v-test")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    _write_store(provider="openai", model="text-embedding-3-small", dim=1536,
+                 chunks=5)
+    res = boost("doctor", expect=None)
+    assert res.rc == 1
+    assert "export OPENAI_API_KEY=..." in res.out
+    assert "unset VOYAGE_API_KEY" in res.out
+
+
+def test_doctor_hands_a_local_store_the_unset_not_the_bill(
+        boost, sandbox, monkeypatch):
+    """The end-to-end shape of the direction that costs money.
+
+    A `boost quickstart` machine: keyless 384-d shards imported, then a
+    Voyage key exported for something unrelated. `embed.provider` prefers the
+    key, dense goes quiet, and the table's row would re-embed every vector
+    through the very API whose key caused it. `local_installed` is forced on
+    because CI has no `[rag]` extra and the assertion must not flip with the
+    interpreter it runs under.
+    """
+    monkeypatch.setattr(embed, "local_available", lambda: True)
+    monkeypatch.setattr(embed, "local_installed", lambda: True)
+    monkeypatch.setenv("VOYAGE_API_KEY", "v-test")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    _write_store(provider="local", model="BAAI/bge-small-en-v1.5", dim=384,
+                 chunks=7)
+    res = boost("doctor", expect=None)
+    assert res.rc == 1
+    assert "unset VOYAGE_API_KEY" in res.out
+    # The two wordings that would be wrong here, pinned as absences: this
+    # store has no key of its own to export, and leading with the rebuild is
+    # the bill the whole branch exists to avoid.
+    assert "export VOYAGE_API_KEY" not in res.out
+    assert "own key" not in res.out
 
 
 def test_doctor_says_an_empty_store_holds_no_vectors(boost, sandbox, keyed):

@@ -34,6 +34,7 @@ from matrx_scraper.parser.core import ParserOrchestrator
 from matrx_scraper.parser.extraction_rules import rules
 from matrx_scraper.parser.overrides import overrides
 from matrx_scraper.seo_audit import security_response_headers
+from matrx_scraper.rate_limiter import header_value
 from matrx_utils.block_sink import announce_block
 from matrx_scraper.user_agents import normalize_user_agent
 from matrx_scraper.scraper import (
@@ -178,6 +179,10 @@ class ScrapeResult:
     # transport recorded no headers at all (a cached rebuild), which the security
     # checks answer `n_a` for; `{}` means the server sent none of them.
     security_headers: dict[str, str] | None = None
+    # The origin's raw ``Retry-After`` header, when it sent one (429/503). The
+    # crawler parses it (``rate_limiter.parse_retry_after``) to pause the whole
+    # crawl for exactly as long as the site asked. None = no header.
+    retry_after: str | None = None
 
     # TRUE time to first byte in ms, straight from the transport (curl's
     # STARTTRANSFER_TIME_T, or the httpx streamed-headers timestamp), redirect
@@ -320,6 +325,7 @@ def _build_result_from_response(response: Response, fast: bool = False) -> Scrap
     # failed fetches (an HSTS header on a 404 is still the site's HSTS policy).
     if getattr(response, "response_headers", None) is not None:
         result.security_headers = security_response_headers(response.response_headers)
+        result.retry_after = header_value(response.response_headers, "retry-after")
 
     # True TTFB — carried for every content type and for failed fetches too: a
     # 500 that took nine seconds to answer is exactly the evidence worth keeping.

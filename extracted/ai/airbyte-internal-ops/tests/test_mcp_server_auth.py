@@ -85,7 +85,7 @@ def test_main_http_delegates_to_mcp_http_server(
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(server, "_load_env", lambda: None)
-    monkeypatch.setattr(server, "init_sentry_tracking", lambda: None)
+    monkeypatch.setattr(server, "init_sentry_tracking", lambda *a, **k: None)
     monkeypatch.setattr(server, "set_hosted_mcp_mode", lambda: None)
     monkeypatch.setattr(server, "register_landing_page", lambda *args, **kwargs: None)
     monkeypatch.setenv(server.MCP_SERVER_URL_ENV, "http://localhost:8080")
@@ -447,7 +447,7 @@ def test_main_http_passes_version_to_landing_page(
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(server, "_load_env", lambda: None)
-    monkeypatch.setattr(server, "init_sentry_tracking", lambda: None)
+    monkeypatch.setattr(server, "init_sentry_tracking", lambda *a, **k: None)
     monkeypatch.setattr(server, "set_hosted_mcp_mode", lambda: None)
     monkeypatch.setattr(server, "run_mcp_http_server", lambda *a, **k: None)
     monkeypatch.setenv(server.MCP_SERVER_URL_ENV, "http://localhost:8080")

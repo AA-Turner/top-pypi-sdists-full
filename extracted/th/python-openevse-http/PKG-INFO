@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python_openevse_http
-Version: 1.6.0
+Version: 1.7.1
 Summary: Python wrapper for OpenEVSE HTTP API
 Home-page: https://github.com/firstof9/python-openevse-http
 Download-URL: https://github.com/firstof9/python-openevse-http
@@ -51,6 +51,9 @@ A Python library for communicating with [OpenEVSE](https://www.openevse.com/) ch
     - Control charging claims and limits.
     - Handle schedules.
     - **Shaper Toggle**: Enable or disable the grid shaper feature (requires firmware 4.0.0+).
+    - **Time Synchronization & RTC**: Manage time, timezone, and NTP sync (requires firmware 4.0.0+).
+    - **Event Logs**: Retrieve diagnostic log blocks and log event history (requires firmware 4.0.0+).
+    - **Certificates**: Manage SSL/TLS Root CA and client certificates (requires firmware 4.0.0+).
 
 ## Installation
 
@@ -116,6 +119,25 @@ To bypass certificate verification:
         )
 ```
 
+### GitHub API Token (Optional)
+
+When performing firmware update checks (`charger.firmware_check()`) or automatic firmware updates (`charger.update_firmware()`), the library queries GitHub's Releases API. To avoid hitting unauthenticated rate limits (60 requests/hour), you can supply a GitHub personal access token (PAT):
+
+```python
+        # Provide a GitHub token during client initialization
+        charger = OpenEVSE(
+            "192.168.1.30",
+            session=session,
+            github_token="ghp_your_github_token_here",
+        )
+
+        # Or set / update dynamically via property
+        charger.github_token = "ghp_your_github_token_here"
+
+        # Or pass per-call
+        latest = await charger.firmware_check(github_token="ghp_your_github_token_here")
+```
+
 ## API Support Matrix
 
 | Endpoint | Methods | Supported | Description |
@@ -124,22 +146,27 @@ To bypass certificate verification:
 | `/config` | GET, POST | ✅ | System and WiFi configuration |
 | `/override` | GET, POST, PATCH, DELETE | ✅ | Manual charging overrides & current limits |
 | `/claims` | GET, POST, DELETE | ✅ | Client-based charging claims |
-| `/schedule` | GET, POST | ⚠️ | Charging schedule management (Retrieval only) |
+| `/schedule` | GET, POST, DELETE | ✅ | Charging schedule management (v4.0.0+) |
 | `/limit` | GET, POST, DELETE | ✅ | Charge limits (Time, Energy, SoC) |
 | `/shaper` | POST | ✅ | Grid shaper control (v4.0.0+) |
 | `/restart` | POST | ✅ | Reboot WiFi gateway or EVSE module |
 | `/divertmode` | POST | ✅ | Solar divert mode control |
 | `/r` (RAPI) | POST | ✅ | Direct RAPI command interface |
 | `/ws` | GET | ✅ | WebSocket real-time updates |
-| `/time` | GET, POST | ❌ | RTC and NTP time settings |
-| `/logs` | GET | ❌ | System and debug event logs |
+| `/time` | GET, POST | ✅ | RTC and NTP time settings (v4.0.0+) |
+| `/settime` | POST | ✅ | Legacy time setting interface (v3.x / fallback to `$S1` on v2.x) |
+| `/logs` | GET | ✅ | Event log block bounds and block events (v4.0.0+) |
 | `/emeter` | DELETE | ❌ | Energy meter reset |
 | `/wifi` | GET, POST | ❌ | Network scanning and AP configuration |
 | `/tesla` | GET | ❌ | Tesla vehicle integration |
-| `/certificates`| GET, POST, DELETE | ❌ | SSL/TLS certificate management |
-| `/schedule/plan`| GET | ❌ | Schedule planning and optimization |
+| `/certificates`| GET, POST, DELETE | ✅ | SSL/TLS certificate management (v4.0.0+) |
+| `/schedule/plan`| GET | ✅ | Schedule planning and optimization (v4.1.0+) |
 | `/update` | POST | ✅ | Firmware update interface |
-| `/rfid/add` | POST | ❌ | RFID tag management |
+| `/relay/recovery` | POST | ✅ | Stuck relay recovery cycle (v5.1.0+ / `$FK`) |
+| `/relay/reset` | POST | ✅ | Relay contact-life health estimation reset (v5.1.0+ / `$FH`) |
+| `/cabletemp` | GET, POST | ✅ | Cable temperature monitor configuration and status (v5.1.0+) |
+| `/rfid/add` | POST | ✅ | RFID tag pairing mode (v4.0.0+) |
+| `/rfid/users` | GET, POST, DELETE | ✅ | RFID tag to user mappings (v5.0.0+) |
 
 ✅ = Fully Supported \| ⚠️ = Partial Support \| ❌ = Not yet implemented
 

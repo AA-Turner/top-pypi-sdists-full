@@ -2,6 +2,7 @@
 
 #include "binder/expression/expression_util.h"
 #include "common/file_system/virtual_file_system.h"
+#include "main/client_context.h"
 #include "processor/execution_context.h"
 #include "storage/buffer_manager/memory_manager.h"
 #include "storage/local_storage/local_node_table.h"
@@ -14,6 +15,9 @@ using namespace lbug::storage;
 
 namespace lbug {
 namespace processor {
+
+static constexpr double MORSELS_PER_THREAD_TARGET = 8.0;
+
 std::unique_ptr<TableScanState> createNodeTableScanState(NodeTable* table,
     ValueVector* nodeIDVector, const std::vector<ValueVector*>& outVectors,
     MemoryManager* memoryManager) {
@@ -48,10 +52,21 @@ std::string ScanNodeTablePrintInfo::toString() const {
 }
 
 void ScanNodeTableSharedState::initialize(const transaction::Transaction* transaction,
-    NodeTable* table, ScanNodeTableProgressSharedState& progressSharedState) {
+    NodeTable* table, ScanNodeTableProgressSharedState& progressSharedState,
+    main::ClientContext* context) {
     this->table = table;
     this->currentCommittedGroupIdx = 0;
     this->currentUnCommittedGroupIdx = 0;
+    this->currentGroupNextRow = 0;
+    this->committedMorselSize = common::INVALID_ROW_IDX;
+    // This shared state is shared across cached physical plan clones (see
+    // ScanNodeTable::copy), so every per-execution field must be reset here. In
+    // particular numUnCommittedNodeGroups must not survive a write transaction: a later
+    // read would otherwise be handed an UNCOMMITTED morsel whose local table is gone
+    // (see https://github.com/LadybugDB/ladybug/issues/1030).
+    this->numCommittedNodeGroups = 0;
+    this->numUnCommittedNodeGroups = 0;
+    this->committedGroupNumRows.clear();
 
     // Initialize table-specific scan coordination (e.g., for IceDiskNodeTable)
     table->initializeScanCoordination(transaction);
@@ -83,7 +98,43 @@ void ScanNodeTableSharedState::initialize(const transaction::Transaction* transa
             this->numUnCommittedNodeGroups = localNodeTable.getNumNodeGroups();
         }
     }
-    progressSharedState.numMorsels += numCommittedNodeGroups;
+    // Native tables only: when the table has fewer node groups than worker threads, one
+    // morsel per node group leaves downstream traversals (rel scans, extends, builds)
+    // mostly serial, because those pipelines can only draw parallelism from this scan's
+    // morsels. Split each node group into smaller row-range morsels instead.
+    auto numMorsels = numCommittedNodeGroups;
+    const auto subMorselEnabled =
+        context == nullptr || context->isSubNodeGroupMorselEnabled(
+                                  transaction != nullptr && transaction->isWriteTransaction());
+    if (subMorselEnabled && numCommittedNodeGroups > 0 &&
+        dynamic_cast<ArrowNodeTable*>(table) == nullptr &&
+        dynamic_cast<IceDiskNodeTable*>(table) == nullptr) {
+        const auto maxNumThreads = context != nullptr ? context->getMaxNumThreadForExec() : 1;
+        if (numCommittedNodeGroups < maxNumThreads) {
+            common::row_idx_t totalRows = 0;
+            committedGroupNumRows.reserve(numCommittedNodeGroups);
+            for (auto groupIdx = 0u; groupIdx < numCommittedNodeGroups; groupIdx++) {
+                const auto numRows = table->getNumTuplesInNodeGroup(groupIdx);
+                committedGroupNumRows.push_back(numRows);
+                totalRows += numRows;
+            }
+            // Aim for enough morsels to keep all workers busy without making the per-morsel
+            // setup cost dominate. Morsels are aligned to chunked group capacity boundaries.
+            const auto targetNumMorsels =
+                static_cast<common::row_idx_t>(maxNumThreads * MORSELS_PER_THREAD_TARGET);
+            auto morselSize = (totalRows + targetNumMorsels - 1) / targetNumMorsels;
+            const auto alignment = common::StorageConfig::CHUNKED_NODE_GROUP_CAPACITY;
+            morselSize = (morselSize + alignment - 1) / alignment * alignment;
+            this->committedMorselSize = std::max<common::row_idx_t>(morselSize, alignment);
+            numMorsels = 0;
+            for (auto numRows : committedGroupNumRows) {
+                numMorsels +=
+                    (numRows == 0) ? 0 : (numRows + committedMorselSize - 1) / committedMorselSize;
+            }
+            numMorsels = std::max<common::node_group_idx_t>(numMorsels, 1);
+        }
+    }
+    progressSharedState.numMorsels += numMorsels;
 }
 
 void ScanNodeTableSharedState::nextMorsel(TableScanState& scanState,
@@ -106,14 +157,37 @@ void ScanNodeTableSharedState::nextMorsel(TableScanState& scanState,
 
     auto& nodeScanState = scanState.cast<NodeTableScanState>();
     if (currentCommittedGroupIdx < numCommittedNodeGroups) {
-        nodeScanState.nodeGroupIdx = currentCommittedGroupIdx++;
+        nodeScanState.nodeGroupIdx = currentCommittedGroupIdx;
         progressSharedState.numMorselsScanned++;
         nodeScanState.source = TableScanSource::COMMITTED;
+        if (committedMorselSize == common::INVALID_ROW_IDX) {
+            // One node group per morsel.
+            nodeScanState.scanStartRowInGroup = 0;
+            nodeScanState.scanEndRowInGroup = common::INVALID_ROW_IDX;
+            currentCommittedGroupIdx++;
+        } else {
+            // Sub-node-group morsel: a row range [start, start + morselSize) within the
+            // current group. The last morsel of a group scans to the actual end of the
+            // group, so it stays correct even if `committedGroupNumRows` is stale.
+            const auto startRow = currentGroupNextRow;
+            nodeScanState.scanStartRowInGroup = startRow;
+            currentGroupNextRow += committedMorselSize;
+            const auto numRowsInGroup = committedGroupNumRows[currentCommittedGroupIdx];
+            if (currentGroupNextRow >= numRowsInGroup) {
+                nodeScanState.scanEndRowInGroup = common::INVALID_ROW_IDX;
+                currentCommittedGroupIdx++;
+                currentGroupNextRow = 0;
+            } else {
+                nodeScanState.scanEndRowInGroup = startRow + committedMorselSize;
+            }
+        }
         return;
     }
     if (currentUnCommittedGroupIdx < numUnCommittedNodeGroups) {
         nodeScanState.nodeGroupIdx = currentUnCommittedGroupIdx++;
         nodeScanState.source = TableScanSource::UNCOMMITTED;
+        nodeScanState.scanStartRowInGroup = 0;
+        nodeScanState.scanEndRowInGroup = common::INVALID_ROW_IDX;
         return;
     }
     nodeScanState.source = TableScanSource::NONE;
@@ -159,9 +233,14 @@ void ScanNodeTable::initCurrentTable(ExecutionContext* context) {
 
 void ScanNodeTable::initGlobalStateInternal(ExecutionContext* context) {
     DASSERT(sharedStates.size() == tableInfos.size());
+    // The progress state is shared across cached physical plan clones, so reset it per
+    // execution (ScanNodeTableSharedState::initialize only accumulates into it).
+    progressSharedState->numMorsels = 0;
+    progressSharedState->numMorselsScanned = 0;
     for (auto i = 0u; i < tableInfos.size(); i++) {
         sharedStates[i]->initialize(transaction::Transaction::Get(*context->clientContext),
-            tableInfos[i].table->ptrCast<NodeTable>(), *progressSharedState);
+            tableInfos[i].table->ptrCast<NodeTable>(), *progressSharedState,
+            context->clientContext);
     }
 }
 

@@ -42,6 +42,16 @@ class VehicleSpeedEstimationConfig(BaseConfig):
         calibration_max_attempts: int = 5,
         max_vp2_diagonals: float = 20.0,
         max_f_sensitivity_pct: float = 2.0,
+        box3d_fallback_enabled: bool = True,
+        box3d_fallback_after_seconds: float = 60.0,
+        box3d_ground_indices: Optional[List[int]] = None,
+        box3d_calibration_categories: Optional[List[str]] = None,
+        box3d_car_length_m: float = 4.5,
+        box3d_car_width_m: float = 1.8,
+        box3d_min_footprints: int = 300,
+        box3d_min_tracks: int = 20,
+        box3d_min_corner_conf: float = 0.5,
+        box3d_min_footprint_px: float = 12.0,
         **kwargs: Any,
     ) -> None:
         super().__init__(usecase=usecase, category=category, **kwargs)
@@ -68,6 +78,26 @@ class VehicleSpeedEstimationConfig(BaseConfig):
         self.calibration_max_attempts = calibration_max_attempts
         self.max_vp2_diagonals = max_vp2_diagonals
         self.max_f_sensitivity_pct = max_f_sensitivity_pct
+        #: Fallback when the paint calibration has produced no camera after
+        #: ``box3d_fallback_after_seconds`` of frame time (or has given up): calibrate from
+        #: the vehicles' own 3D-box footprints instead. Needs a detector that sends 8 box
+        #: corners per vehicle as ``keypoints`` (UrbanOmniDetect); without them it simply
+        #: never triggers. See ``utils/speed_box3d_utils.py``.
+        self.box3d_fallback_enabled = box3d_fallback_enabled
+        self.box3d_fallback_after_seconds = box3d_fallback_after_seconds
+        #: Which 4 of the 8 keypoints touch the road, in cyclic order. UrbanOmniDetect v2
+        #: puts them FIRST (0-3 ground, 4-7 roof); v1 models used 4-7.
+        self.box3d_ground_indices = list(box3d_ground_indices or [0, 1, 2, 3])
+        #: Classes whose footprints set the scale. One consistent size, so cars only:
+        #: trucks and buses are still measured, they just do not calibrate.
+        self.box3d_calibration_categories = list(box3d_calibration_categories or ["car"])
+        #: The assumed footprint of that class. Every fallback speed is linear in it.
+        self.box3d_car_length_m = box3d_car_length_m
+        self.box3d_car_width_m = box3d_car_width_m
+        self.box3d_min_footprints = box3d_min_footprints
+        self.box3d_min_tracks = box3d_min_tracks
+        self.box3d_min_corner_conf = box3d_min_corner_conf
+        self.box3d_min_footprint_px = box3d_min_footprint_px
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise every field, not only the ones ``BaseConfig`` declares.
@@ -104,6 +134,12 @@ class VehicleSpeedEstimationConfig(BaseConfig):
             errors.append("min_baseline_seconds must be positive")
         if self.max_plausible_speed <= 0.0:
             errors.append("max_plausible_speed must be positive")
+        if self.box3d_fallback_after_seconds < 0.0:
+            errors.append("box3d_fallback_after_seconds must not be negative")
+        if len(self.box3d_ground_indices) != 4 or len(set(self.box3d_ground_indices)) != 4:
+            errors.append("box3d_ground_indices must name 4 distinct keypoints")
+        if min(self.box3d_car_length_m, self.box3d_car_width_m) <= 0.0:
+            errors.append("box3d_car_length_m and box3d_car_width_m must be positive")
         return errors
 
 
@@ -157,6 +193,26 @@ VEHICLE_SPEED_ESTIMATION_SCHEMA: Dict[str, Any] = {
             "minimum": 1,
             "default": 25,
             "description": "Vehicle tracks needed before the traffic direction is fitted.",
+        },
+        "box3d_fallback_enabled": {
+            "type": "boolean",
+            "default": True,
+            "description": (
+                "When road markings give no camera in time, calibrate from vehicle 3D-box "
+                "footprints (needs 8 box corners per vehicle as keypoints)."
+            ),
+        },
+        "box3d_fallback_after_seconds": {
+            "type": "number",
+            "minimum": 0.0,
+            "default": 60.0,
+            "description": "Frame-time seconds to wait for the road-marking calibration.",
+        },
+        "box3d_car_length_m": {
+            "type": "number",
+            "minimum": 0.1,
+            "default": 4.5,
+            "description": "Assumed car footprint length; fallback speeds are linear in it.",
         },
     },
 }

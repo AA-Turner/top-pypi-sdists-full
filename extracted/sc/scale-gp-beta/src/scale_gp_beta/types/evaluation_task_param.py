@@ -361,6 +361,30 @@ class AgentexOutputEvaluationTaskConfiguration(TypedDict, total=False):
     input_column: Required[Union[str, Dict[str, object], Iterable[object]]]
     """The dataset column to use as input for the agent"""
 
+    agent_task_params: Union[Dict[str, object], ItemLocator]
+    """
+    Extra params merged into the Agentex `task/create` call's `params` object and
+    forwarded verbatim to the agent. Required by agents that demand configuration at
+    task creation -- the golden agent, for example, rejects any task whose params
+    omit `config_id`. SGP always pins `is_eval: true`; a caller-supplied
+    `description` overrides the SGP default. Nested `item.`-prefixed strings and
+    `{{item.x}}` templates are resolved per evaluation item, so a per-row
+    `config_id` can come from a dataset column.
+    """
+
+    completion_mode: Literal["first_message", "turn_quiescence"]
+    """How the agent's first turn is judged finished.
+
+    `first_message` (the default) grades the first non-empty agent text message
+    after the input, which is cheap but grades a streaming harness on whatever text
+    block streamed first. `turn_quiescence` keeps listening while the agent is still
+    producing messages and grades once at least one agent text message exists and
+    nothing new has arrived for `quiescence_seconds` -- the right choice for
+    tool-using agents. Neither mode requires the agent to mark the task complete; a
+    terminal task status always ends the wait, and `timeout_seconds` always bounds
+    it.
+    """
+
     deployment_id: str
     """Optional Agentex deployment ID to pin the eval to a specific deployment.
 
@@ -371,12 +395,34 @@ class AgentexOutputEvaluationTaskConfiguration(TypedDict, total=False):
     """
 
     include_traces: Union[bool, ItemLocator]
-    """Whether to include trace data in the evaluation results"""
+    """Whether to include trace data in the evaluation results.
+
+    Traces are read from SGP's own span store for the agent's trace, not from
+    Agentex.
+    """
+
+    input_mode: Literal["text", "data"]
+    """How the resolved `input_column` is delivered to the agent.
+
+    `text` (the default) sends a TextContent message with the value stringified.
+    `data` sends a DataContent message whose `data` is the value as a JSON object;
+    the resolved value must be an object, or a string that parses to one. Most
+    agents accept text only and reject `data`.
+    """
+
+    quiescence_seconds: Union[int, ItemLocator]
+    """
+    Seconds of no new messages before `completion_mode: turn_quiescence` considers
+    the turn finished. Ignored in `first_message` mode. Should exceed the agent's
+    longest expected gap between messages (a slow tool call), or the turn is graded
+    early.
+    """
 
     timeout_seconds: Union[int, ItemLocator]
-    """Maximum seconds to wait for agent completion per item.
+    """Maximum seconds to wait for the agent's first-turn response per item.
 
-    If not set, the server-side default of 60s applies.
+    If not set, the server-side default of 600s applies. Capped at 1500s to stay
+    within the evaluation item activity's 1800s start-to-close budget.
     """
 
 

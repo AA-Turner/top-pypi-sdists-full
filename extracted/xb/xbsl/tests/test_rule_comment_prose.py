@@ -3,7 +3,8 @@
 A comment of an element description and a comment of a resource file need no Element data -
 the first is cut out with the yaml composer, the second with the resource scanner - so most of
 the tests here run in a public checkout. A module is read by the lexer, which takes its words
-from the dataset: those tests are marked `needs_data`.
+from the dataset, and a query cited in a comment is told by the keyword table of the dataset:
+those tests are marked `needs_data`.
 """
 
 import pytest
@@ -284,7 +285,9 @@ def test_emphasis_caps_fix_lands_on_the_file_with_crlf(tmp_path):
     "# строки ТЧ и таблица СУБД",
     "# ответ в JSON, запрос в SQL",
     "# СКЛАД ЗАКРЫТ НА ПЕРЕУЧЁТ",
-    "# условие ГДЕ НЕ Удалён",
+    # The words of a cited query come from the keyword table of the dataset; the same line runs
+    # without the data in test_comment_emphasis_caps_wider, against a table of its own.
+    pytest.param("# условие ГДЕ НЕ Удалён", marks=pytest.mark.needs_data),
     "# подпись \"НЕ ТРОГАТЬ\" показывается как есть",
     "# константа НОВАЯ_СТРОКА",
 ))
@@ -324,3 +327,20 @@ def test_emphasis_caps_in_a_doc_comment_of_a_module(tmp_path):
     assert fixer.fix_source(engine.load(path), diags).text.startswith(
         "/*\n * Метод не доступен с клиента\n"
     )
+
+
+@pytest.mark.needs_data
+def test_emphasis_caps_leaves_the_start_of_a_doc_tag_text_alone():
+    # The text of a documentation tag opens a sentence of its own: a preposition in capitals
+    # right after "@параметр Имя - " is its first word, not a stress.
+    text = (
+        "/// Страница списка.\n///\n"
+        "/// @параметр Страница - С первой страницей список открывается сразу.\n"
+        "/// @параметр Размер - В строках, не больше ста.\n"
+        "/// @возвращает В порядке добавления.\n"
+        "метод Страница(Страница: Число, Размер: Число): Строка\n    возврат \"\"\n;\n"
+    )
+
+    assert _lint("Склады.xbsl", text, CAPS) == []
+    stressed = text.replace("не больше ста", "НЕ больше ста")
+    assert [d.line for d in _lint("Склады.xbsl", stressed, CAPS)] == [4]

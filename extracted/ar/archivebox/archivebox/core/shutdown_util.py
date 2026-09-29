@@ -1,3 +1,28 @@
+"""Shared foreground signal and child-process cleanup contracts.
+
+Shutdown intent and process exit are separate: takeover must preserve the
+replacement owner's work, while a user abort must not later resume the crawl.
+Callers own that policy; this module preserves the received signal and stops
+only the process objects they explicitly supply.
+
+Cooperative boundaries are essential, not just quieter exception handling.
+A real Linux CI regression interrupted Popen.poll() with SIGINT and stranded
+its wait lock. SIGKILL stopped the child (it became a zombie), but Popen.wait()
+still timed out. Raising a different exception or waiting longer cannot repair
+that interrupted critical section. Polling loops must record the signal first
+and honor it between operations; async owners may cancel their own task while
+their loop is running. Once exiting, the last-resort process cleanup must stay
+synchronous: the original loop may be closed, and creating a replacement loop
+cannot recover tasks or resources owned by it.
+
+Keep immediate signal notices and repeated-signal force exit independent of
+the event bus: it may already be draining or closed during shutdown. Resumable
+pause/retry/skip belongs to the existing crawl controller and must not set
+sticky command-shutdown state. See foreground_shutdown_signals below for both
+cooperative and legacy blocking callers; do not change all callers' policy at
+once without supplying their interruption boundaries.
+"""
+
 from __future__ import annotations
 
 import os
@@ -23,7 +48,7 @@ _active_shutdown_state: ShutdownSignalState | None = None
 
 
 def raise_if_shutdown_requested() -> None:
-    """Let long foreground loops honor a signal even if Python ignored it once."""
+    """Honor sticky shutdown intent at a caller-owned interruption boundary."""
 
     if _active_shutdown_state and _active_shutdown_state.signal_name:
         raise KeyboardInterrupt
@@ -48,14 +73,37 @@ def wait_popen_and_kill_children(
     timeout: float,
     kill_timeout: float = 2.0,
 ) -> None:
-    """Wait for a Popen parent and then hard-kill any surviving descendants."""
+    """Reap our own Popen child and stop its explicitly captured descendants.
+
+    A dead child still needs its parent to reap it. Keep wait failures visible;
+    bypassing Popen's lock would hide the interrupted-owner bug described above.
+    Descendants must still be cleaned up when that wait fails.
+    """
 
     try:
-        proc.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait(timeout=kill_timeout)
-    kill_remaining_processes(children, timeout=kill_timeout)
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=kill_timeout)
+    except subprocess.TimeoutExpired as err:
+        try:
+            state = psutil.Process(proc.pid).as_dict(attrs=["pid", "ppid", "status", "num_threads", "cpu_times"])
+        except psutil.NoSuchProcess:
+            state = {"pid": proc.pid, "status": "exited"}
+        err.add_note(f"Process state after SIGKILL: {state}")
+        # A locked Popen wait can time out even after the OS process exits.
+        # Inspect CPython's lock only for diagnostics; never release it here.
+        waitpid_lock = getattr(proc, "_waitpid_lock", None)
+        err.add_note(
+            f"Popen state: returncode={proc.returncode}, "
+            f"waitpid_lock_locked={waitpid_lock.locked() if waitpid_lock is not None else None}, "
+            f"threads={[thread.name for thread in threading.enumerate()]}",
+        )
+        raise
+    finally:
+        # A parent that cannot be reaped must not leave its descendants running.
+        kill_remaining_processes(children, timeout=kill_timeout)
 
 
 def wait_psutil_and_kill_children(
@@ -104,11 +152,14 @@ def foreground_shutdown_signals(
     interrupt_handlers: dict[signal.Signals, Callable[[], None]] | None = None,
     raise_on_first_signal: bool = True,
 ) -> Iterator[ShutdownSignalState]:
-    """Install foreground signal handlers that print an immediate exit notice.
+    """Keep shutdown intent visible until the owning foreground command unwinds.
 
-    Some log-tail loops intentionally swallow KeyboardInterrupt so that callers
-    can centralize cleanup in finally blocks. The handler writes the signal name
-    immediately, then raises KeyboardInterrupt to break out of the blocking read.
+    Signal state was added because inner loops can swallow KeyboardInterrupt
+    while their caller still needs to stop its children. Cooperative callers use
+    raise_on_first_signal=False and check raise_if_shutdown_requested() between
+    operations, or cancel their owned async task through on_signal. Raising from
+    the handler can otherwise interrupt library locks or partially sent I/O.
+    Blocking callers without a cooperative boundary retain immediate exceptions.
     """
 
     global _active_shutdown_state

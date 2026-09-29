@@ -600,6 +600,90 @@ def test_sqlite_data_version_degrades_to_a_constant_on_an_empty_result(monkeypat
     assert sql.sqlite_data_version(object()) == "0"
 
 
+# ── reclaim_space (#3469) ─────────────────────────────────────────────────
+
+
+def test_reclaim_space_sqlite_runs_vacuum(tmp_path):
+    conn = sqlite3.connect(str(tmp_path / "reclaim.db"))
+    try:
+        conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY)")
+        conn.execute("INSERT INTO t (id) VALUES (1)")
+        conn.commit()
+        sql.reclaim_space(conn)  # must not raise
+    finally:
+        conn.close()
+
+
+class _FakeSqliteReclaimConnection(_FakeConnection):
+    """Spies on `commit` -- the SQLite branch must commit any pending work
+    before `VACUUM`, mirroring the Postgres branch below, rather than
+    relying on every caller having already committed (#3469 review nit:
+    every current caller does, but the asymmetry made the SQLite path
+    fragile to a future one that doesn't)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.commit_calls = 0
+
+    def commit(self):
+        self.commit_calls += 1
+
+
+_FakeSqliteReclaimConnection.__module__ = "sqlite3"
+
+
+def test_reclaim_space_sqlite_commits_pending_work_before_vacuum():
+    conn = _FakeSqliteReclaimConnection()
+
+    sql.reclaim_space(conn)
+
+    assert conn.commit_calls == 1
+    assert conn.cur.executed == [("VACUUM", ())]
+
+
+class _FakePostgresReclaimConnection(_FakeConnection):
+    """Spies on `commit`/`autocommit` -- `sql.reclaim_space`'s Postgres
+    branch must commit any pending work, flip `autocommit` on for the
+    `VACUUM` itself (Postgres refuses to run one inside a transaction
+    block), and restore the connection's prior `autocommit` setting
+    afterward."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.commit_calls = 0
+        self.autocommit = False
+
+    def commit(self):
+        self.commit_calls += 1
+
+
+_FakePostgresReclaimConnection.__module__ = "psycopg"
+
+
+def test_reclaim_space_postgres_commits_and_toggles_autocommit_for_vacuum():
+    conn = _FakePostgresReclaimConnection()
+
+    sql.reclaim_space(conn)
+
+    assert conn.commit_calls == 1
+    assert conn.autocommit is False  # restored after the call
+    assert conn.cur.executed == [("VACUUM", ())]
+
+
+def test_reclaim_space_postgres_leaves_autocommit_on_if_it_was_already_on():
+    conn = _FakePostgresReclaimConnection()
+    conn.autocommit = True
+
+    sql.reclaim_space(conn)
+
+    assert conn.autocommit is True
+
+
+def test_reclaim_space_unknown_dialect_raises():
+    with pytest.raises(sql.UnsupportedDialectError):
+        sql.reclaim_space(_FakeUnknownConnection())
+
+
 # ── row factory ──────────────────────────────────────────────────────────
 
 

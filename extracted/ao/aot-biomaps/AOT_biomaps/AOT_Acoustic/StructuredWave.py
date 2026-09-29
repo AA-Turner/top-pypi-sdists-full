@@ -3,7 +3,7 @@ import warnings
 from AOT_biomaps.Config import config
 from ._mainAcoustic import KWAVE_AVAILABLE, AcousticField
 from .AcousticEnums import TypeSim, WaveType
-from .AcousticTools import detect_space_0_and_space_1, get_angle, get_frequency, format_angle, compute_field_numba
+from .AcousticTools import detect_space_0_and_space_1, get_angle, get_frequency, format_angle, compute_field_numba, get_piezo_to_grid_mapping
 
 import os
 import numpy as np
@@ -244,40 +244,25 @@ class StructuredWave(AcousticField):
         if el_width_px < 1:
             el_width_px = 1
             
-        half_width_px = el_width_px // 2
 
-        # 1. Create a signal matrix for the ENTIRE x-grid
         grid_signals = np.zeros((Nx, num_time_steps))
+        mappings = get_piezo_to_grid_mapping(
+            Nx=Nx, 
+            dx=dx, 
+            num_elements=num_elements, 
+            element_width=element_width, 
+            pitch=pitch, 
+            probe_start_x=probe_start_x, 
+            active_list=active_list
+        )
 
-        # --- ARITHMETIC CORRECTION ---
-        # Calculate the theoretical integer ratio of pixels per pitch
-        pixels_per_pitch = int(np.round(pitch / dx))
-        
-        # Anchor the position of the VERY FIRST element of the probe (i=0)
-        # Add +1e-9 to force the rounding behavior and avoid the .5 ambiguity
-        first_element_center_x = probe_start_x + (element_width / 2.0)
-        idx_start_global = int(np.round((first_element_center_x / dx) + 1e-9))
+        # 2. Assign signals with spatial weights
+        for (elem_idx, pixel_idx, weight) in mappings:
+            source.p_mask[pixel_idx, 0] = True
+            grid_signals[pixel_idx, :] += element_signals[elem_idx, :] * weight
 
-        for i in range(num_elements):
-            if active_list[i] == 1:
-                # 2. Forced continuity: advance using integers only
-                idx_center = idx_start_global + (i * pixels_per_pitch)
-                
-                idx_start = max(0, idx_center - half_width_px)
-                idx_end = min(Nx, idx_start + el_width_px)
-
-                if idx_start < idx_end:
-                    # Activate the spatial mask
-                    source.p_mask[idx_start:idx_end, 0] = True
-                    
-                    # Sum the signal on the corresponding pixels (superposition)
-                    for j in range(idx_start, idx_end):
-                        grid_signals[j, :] += element_signals[i, :]
-
-        # 3. Dynamically extract signals where the mask is active
+        # 3. Apply global amplitude for k-Wave
         active_indices = np.where(source.p_mask[:, 0])[0]
-        
-        # Apply global amplitude and final formatting for k-Wave
         source.p = voltage * sensitivity * grid_signals[active_indices, :]
         
         return source

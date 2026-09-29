@@ -24,7 +24,7 @@ from urllib.parse import quote
 
 import httpx
 import yaml
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, JsonValue, ValidationError
 from rich.console import Console
 
 from plato._generated.api.v1.cluster import prefetch_snapshot
@@ -2003,6 +2003,7 @@ class SandboxClient:
         target: str | None = None,
         mcp: ArtifactMcpConfig | None = None,
         description: str | None = None,
+        additional_metadata: dict[str, JsonValue] | None = None,
     ) -> CreateCheckpointRequest:
         """Build the checkpoint payload; config mode packs local plato-config.yml + flows.
 
@@ -2014,12 +2015,15 @@ class SandboxClient:
         ``description`` is free text stored on the artifact (shown in listings) — how a
         throwaway or gate snapshot is told apart from a real one later.
 
+        ``additional_metadata`` is a freeform JSON object stored on the artifact
+        as-is (never inherited from the parent artifact).
+
         ``mcp`` is the artifact-level MCP endpoint config (enabled/port/path),
         which overrides the simulator's field by field. Also independent of
         ``mode``; when omitted — or when every one of its fields is unset — it
         is left off the request and the backend inherits the parent artifact's.
         """
-        checkpoint_request = CreateCheckpointRequest()
+        checkpoint_request = CreateCheckpointRequest.model_validate({"additional_metadata": additional_metadata})
         if description:
             checkpoint_request.description = description
         if target:
@@ -2090,8 +2094,11 @@ class SandboxClient:
         target: str | None = None,
         mcp: ArtifactMcpConfig | None = None,
         description: str | None = None,
+        additional_metadata: dict[str, JsonValue] | None = None,
     ) -> AppApiV2SchemasSessionCreateSnapshotResponse:
-        checkpoint_request = self._build_checkpoint_request(mode, dataset, target, mcp, description)
+        checkpoint_request = self._build_checkpoint_request(
+            mode, dataset, target, mcp, description, additional_metadata
+        )
 
         response = sessions_snapshot.sync(
             client=self._http,
@@ -2152,6 +2159,7 @@ class SandboxClient:
         target: str | None = None,
         mcp: ArtifactMcpConfig | None = None,
         description: str | None = None,
+        additional_metadata: dict[str, JsonValue] | None = None,
     ) -> CreateSnapshotResult:
         """Full snapshot (disk + memory) of a single job — the per-job
         analog of the session-level snapshot.
@@ -2163,7 +2171,9 @@ class SandboxClient:
         ``mode="config"`` packs the local plato-config.yml + flows just like
         the session-level snapshot.
         """
-        checkpoint_request = self._build_checkpoint_request(mode, dataset, target, mcp, description)
+        checkpoint_request = self._build_checkpoint_request(
+            mode, dataset, target, mcp, description, additional_metadata
+        )
         snapshot_request = AppApiV2SchemasSessionCreateSnapshotRequest(
             **checkpoint_request.model_dump(exclude_none=True)
         )
@@ -2187,6 +2197,7 @@ class SandboxClient:
         target: str | None = None,
         mcp: ArtifactMcpConfig | None = None,
         description: str | None = None,
+        additional_metadata: dict[str, JsonValue] | None = None,
     ) -> CreateCheckpointResult:
         """Checkpoint a single job (one env in a multi-env session).
 
@@ -2199,7 +2210,7 @@ class SandboxClient:
         response = jobs_checkpoint.sync(
             client=self._http,
             job_id=job_id,
-            body=self._build_checkpoint_request(mode, dataset, target, mcp, description),
+            body=self._build_checkpoint_request(mode, dataset, target, mcp, description, additional_metadata),
             x_api_key=self.api_key,
         )
 

@@ -1,3 +1,4 @@
+import textwrap
 from typing import Optional
 import asyncclick as click
 
@@ -24,45 +25,38 @@ class CustomGroup(click.Group):
 
         url1 = "https://developerdocs.instructure.com/services/dap/dap-cli-readme/dap-cli-reference"
         url2 = "https://developerdocs.instructure.com/services/dap/query-api"
-        self._write_text_with_non_wrapped_parts(
+        self._write_text_without_breaking_urls(
             formatter,
             f"For more information and examples, check the reference at {url1} "
             f"and the OpenAPI specification for DAP API at {url2}.",
-            non_wrapped_parts=[url1, url2],
         )
 
     def list_commands(self, ctx: click.Context) -> list[str]:
         # This overrides the default alphabetical ordering of commands with the order in which they were added
         return list(self.commands.keys())
 
-    def _write_text_with_non_wrapped_parts(
+    def _write_text_without_breaking_urls(
         self,
         formatter: click.HelpFormatter,
         text: str,
-        non_wrapped_parts: list[str] = [],
     ) -> None:
         """
-        Writes text into the formatter, replacing non-wrapped parts with placeholders
-        to prevent them from being wrapped by the formatter. Then it replaces the placeholders
-        back with the original parts after the text has been written to the formatter.
+        Writes text into the formatter like ``HelpFormatter.write_text``, but never
+        splits a URL (or any other single "word") across lines: a word wider than the
+        available width overflows the target width instead of being cut apart.
         """
 
-        placeholders: dict[str, str] = {}
-
-        for i in range(len(non_wrapped_parts)):
-            part = non_wrapped_parts[i]
-            placeholder = part.replace("-", "_").replace(" ", "_")
-            placeholders[part] = placeholder
-
-        for part, placeholder in placeholders.items():
-            text = text.replace(part, placeholder)
-
-        formatter.write_text(text)
-
-        for part, placeholder in placeholders.items():
-            formatter.buffer = [
-                line.replace(placeholder, part) for line in formatter.buffer
-            ]
+        indent = " " * formatter.current_indent
+        wrapper = textwrap.TextWrapper(
+            width=formatter.width,
+            initial_indent=indent,
+            subsequent_indent=indent,
+            replace_whitespace=False,
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+        formatter.write(wrapper.fill(text))
+        formatter.write("\n")
 
 
 @click.group(

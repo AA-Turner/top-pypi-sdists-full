@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.1054"
+version = "0.4.1057"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -28,7 +28,14 @@ dependencies = [
     # gdal binary now comes from conda-forge (pixi); loose pin so the conda
     # libgdal build satisfies the editable self-dep. Was pinned to the cgohlke
     # wheel 3.10.2 (win) / system libgdal 3.11.0 (HPC) â€” both obsolete under pixi.
-    "gdal>=3.10",
+    # Floor = 3.8, the lowest version exercised in practice (Ubuntu 24.04 /
+    # Google Colab ship 3.8.4; the HPC and pixi envs run 3.11-3.12). geocif
+    # itself never imports osgeo, and geoprepare only uses GDAL 2.x-era APIs
+    # (Open/Warp/Translate/BuildVRT) in its download modules, so older
+    # versions would probably work but are untested. The former >=3.10 floor
+    # was an artifact of the pixi migration and blocked pip installs next to
+    # a system GDAL 3.8.4; 0.4.1056 briefly used >=3.4.
+    "gdal>=3.8",
     # NOTE: pyeogpr was removed as a dependency (2026-08-22). It was never
     # imported anywhere in geocif, AND it was deleted from PyPI (404), which
     # made every fresh resolve of geocif fail ("pyeogpr was not found in the
@@ -58,6 +65,13 @@ dependencies = [
     "statsmodels>=0.14.6",
     "palettable>=3.3.3",
     "seaborn>=0.13.2",
+    # Default map backend of viz/plot.py (_plot_map_pygmt). Pure-Python wheel
+    # that imports without GMT; rendering needs GMT >= 6.5 on PATH (conda-forge
+    # `gmt` under pixi, `apt install gmt gmt-dcw gmt-gshhg` on Ubuntu/Colab) and
+    # _gmt_available() falls back to matplotlib/cartopy when it is absent. Was
+    # only a [tool.pixi.dependencies] entry before 0.4.1056, so pip installs
+    # silently lost the PyGMT backend.
+    "pygmt>=0.14",
     "scikit-misc>=0.5.2",
     "setuptools<81",
     "choix>=0.3.4",

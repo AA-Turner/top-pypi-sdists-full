@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 
 from public import public
 
-from flufl.i18n.types import TranslationStrategy
+from flufl.i18n._types import TranslationStrategy
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from types import ModuleType

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fast-agent-mcp
-Version: 0.10.37
+Version: 0.10.39
 Summary: Code, Build and Evaluate agents - excellent Model and Skills/MCP/ACP/A2A Support
 Author-email: Shaun Smith <fastagent@llmindset.co.uk>
 License:                                  Apache License
@@ -223,7 +223,7 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: a2a-sdk==1.1.4
 Requires-Dist: agent-client-protocol==0.12.1
 Requires-Dist: aiohttp==3.14.3
-Requires-Dist: anthropic[vertex]==1.8.0
+Requires-Dist: anthropic[vertex]==1.9.0
 Requires-Dist: email-validator==2.3.0
 Requires-Dist: fastapi==0.141.1
 Requires-Dist: fastmcp-slim[server]==4.0.5

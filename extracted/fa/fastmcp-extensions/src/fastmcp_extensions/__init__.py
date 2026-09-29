@@ -14,6 +14,7 @@ with FastMCP 2.0, including:
 """
 
 from fastmcp_extensions._telemetry import (
+    DEFAULT_SEGMENT_USER_ID,
     TelemetryConfig,
     TelemetryRecord,
     TelemetrySinks,
@@ -22,6 +23,7 @@ from fastmcp_extensions._telemetry_middleware import (
     ToolCallTelemetryMiddleware,
     ToolCallTelemetryRecord,
     register_tool_call_telemetry,
+    tool_telemetry_properties,
 )
 from fastmcp_extensions.auth import (
     ClientCredentials,
@@ -36,10 +38,14 @@ from fastmcp_extensions.capability_tokens import (
     DEFAULT_EXTENSIONS_HEADER,
     CapabilityTokenMiddleware,
     RejectEventStreamGetMiddleware,
+    SessionToken,
     client_declared_extensions_from_headers,
     client_supports_extension,
     decode_capability_token,
+    decode_session_token,
     encode_capability_token,
+    encode_session_token,
+    session_token_from_headers,
 )
 from fastmcp_extensions.client_credentials_middleware import (
     ClientCredentialsExchangeMiddleware,
@@ -101,7 +107,12 @@ from fastmcp_extensions.tool_filters import (
     interactive_ui_filter,
     is_trusted_execution_enabled,
 )
-from fastmcp_extensions.tool_traits import Capability, ToolTraits, get_tool_traits
+from fastmcp_extensions.tool_traits import (
+    Capability,
+    MutationClass,
+    ToolTraits,
+    get_tool_traits,
+)
 from fastmcp_extensions.user_facing_errors import (
     UserFacingErrorFormatter,
     UserFacingErrorMiddleware,
@@ -111,6 +122,7 @@ __all__ = [
     "DEFAULT_EXTENSIONS_HEADER",
     "DEFAULT_HASH_ALGORITHM",
     "DEFAULT_KEY_PREFIX",
+    "DEFAULT_SEGMENT_USER_ID",
     "DEFAULT_STATE_SECRET_ENV_VAR",
     "DEFAULT_STATE_TTL",
     "DEFAULT_UVICORN_CONFIG",
@@ -130,11 +142,13 @@ __all__ = [
     "LandingPageContent",
     "MCPServerConfig",
     "MCPServerConfigArg",
+    "MutationClass",
     "NormalizedKeysWrapper",
     "OIDCAuthConfig",
     "PromptDef",
     "RejectEventStreamGetMiddleware",
     "ResourceDef",
+    "SessionToken",
     "TelemetryConfig",
     "TelemetryRecord",
     "TelemetrySinks",
@@ -153,8 +167,10 @@ __all__ = [
     "client_supports_extension",
     "decode_capability_token",
     "decode_session_state",
+    "decode_session_token",
     "encode_capability_token",
     "encode_session_state",
+    "encode_session_token",
     "extension_tool_filter",
     "fetch_client_credentials_token",
     "get_mcp_config",
@@ -175,5 +191,7 @@ __all__ = [
     "register_tool_call_telemetry",
     "render_default_landing_html",
     "run_mcp_http_server",
+    "session_token_from_headers",
+    "tool_telemetry_properties",
     "wrap_client_credentials",
 ]

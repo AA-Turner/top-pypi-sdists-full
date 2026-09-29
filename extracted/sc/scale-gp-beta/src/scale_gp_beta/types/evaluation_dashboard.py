@@ -28,7 +28,7 @@ class EvaluationDashboard(BaseModel):
     name: str
     """Dashboard name"""
 
-    tags: List[str]
+    tags: Optional[List[str]] = None
     """The tags associated with the entity"""
 
     updated_at: datetime

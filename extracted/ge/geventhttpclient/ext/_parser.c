@@ -22,62 +22,54 @@ typedef struct {
 
 static int on_message_begin(llhttp_t* parser)
 {
-    int fail = 0;
     PyHTTPResponseParser *self = (PyHTTPResponseParser*) parser->data;
     PyObject* callable = PyObject_GetAttrString((PyObject*)self, "_on_message_begin");
-    if (callable) {
-        PyObject* result = PyObject_CallObject(callable, NULL);
-        PyObject* exception = PyErr_Occurred();
-        if (exception != NULL) {
-            fail = -1;
-        } else {
-            if (PyObject_IsTrue(result))
-                fail = -1;
-        }
-        Py_XDECREF(result);
-        Py_DECREF(callable);
+    if (callable == NULL) {
+        return -1;
     }
+    PyObject* result = PyObject_CallObject(callable, NULL);
+    Py_DECREF(callable);
+    if (result == NULL) {
+        return -1;
+    }
+    int fail = PyObject_IsTrue(result) ? -1 : 0;
+    Py_DECREF(result);
     return fail;
 }
 
 static int on_message_complete(llhttp_t* parser)
 {
-    int fail = 0;
     PyHTTPResponseParser *self = (PyHTTPResponseParser*) parser->data;
     self->should_keep_alive = llhttp_should_keep_alive(parser) ? KA_TRUE : KA_FALSE;
     PyObject* callable = PyObject_GetAttrString((PyObject*)self, "_on_message_complete");
-    if (callable) {
-        PyObject* result = PyObject_CallObject(callable, NULL);
-        PyObject* exception = PyErr_Occurred();
-        if (exception != NULL) {
-            fail = -1;
-        } else {
-            if (PyObject_IsTrue(result))
-                fail = -1;
-        }
-        Py_XDECREF(result);
-        Py_DECREF(callable);
+    if (callable == NULL) {
+        return -1;
     }
+    PyObject* result = PyObject_CallObject(callable, NULL);
+    Py_DECREF(callable);
+    if (result == NULL) {
+        return -1;
+    }
+    int fail = PyObject_IsTrue(result) ? -1 : 0;
+    Py_DECREF(result);
     return fail;
 }
 
 static int on_headers_complete(llhttp_t* parser)
 {
     /* 1 => skip body, 2 => upgrade, 0 => continue, -1 => error */
-    int skip_body = 0;
     PyHTTPResponseParser *self = (PyHTTPResponseParser*) parser->data;
     PyObject* callable = PyObject_GetAttrString((PyObject*)self, "_on_headers_complete");
-    if (callable) {
-        PyObject* result = PyObject_CallObject(callable, NULL);
-        PyObject* exception = PyErr_Occurred();
-        if (exception != NULL) {
-            skip_body = -1;
-        } else if (PyObject_IsTrue(result)) {
-            skip_body = 1;
-        }
-        Py_XDECREF(result);
-        Py_DECREF(callable);
+    if (callable == NULL) {
+        return -1;
     }
+    PyObject* result = PyObject_CallObject(callable, NULL);
+    Py_DECREF(callable);
+    if (result == NULL) {
+        return -1;
+    }
+    int skip_body = PyObject_IsTrue(result) ? 1 : 0;
+    Py_DECREF(result);
     return skip_body;
 }
 
@@ -86,20 +78,34 @@ static int on_http_data_cb(llhttp_t* parser, const char *at, size_t length, cons
     int fail = 0;
     PyHTTPResponseParser *self = (PyHTTPResponseParser*) parser->data;
     PyObject* callable = PyObject_GetAttrString((PyObject*)self, python_cb);
-    if (callable) {
-        PyObject* args = Py_BuildValue("(s#)", at, length);
-        PyObject* result = PyObject_CallObject(callable, args);
-        PyObject* exception = PyErr_Occurred();
-        if (exception != NULL) {
-            fail = -1;
-        } else {
-            if (PyObject_IsTrue(result))
-                fail = -1;
-        }
-        Py_XDECREF(result);
-        Py_DECREF(callable);
-        Py_DECREF(args);
+    if (callable == NULL) {
+        return -1;
     }
+    /* Header fields and values are opaque octet sequences per RFC 9110.
+     * Decode as latin-1, which maps every byte 1:1 and never fails. This
+     * matches the behavior of http.client in the standard library. Decoding
+     * as UTF-8 here used to segfault the interpreter on non-UTF-8 bytes. */
+    PyObject* data = PyUnicode_DecodeLatin1(at, length, NULL);
+    if (data == NULL) {
+        Py_DECREF(callable);
+        return -1;
+    }
+    PyObject* args = PyTuple_Pack(1, data);
+    Py_DECREF(data);
+    if (args == NULL) {
+        Py_DECREF(callable);
+        return -1;
+    }
+    PyObject* result = PyObject_CallObject(callable, args);
+    Py_DECREF(args);
+    if (result == NULL) {
+        fail = -1;
+    } else {
+        if (PyObject_IsTrue(result))
+            fail = -1;
+        Py_DECREF(result);
+    }
+    Py_DECREF(callable);
     return fail;
 }
 
@@ -120,36 +126,36 @@ static int on_header_value(llhttp_t* parser, const char *at, size_t length)
 
 static int on_body(llhttp_t* parser, const char *at, size_t length)
 {
-    int fail = 0;
     PyHTTPResponseParser *self = (PyHTTPResponseParser*) parser->data;
     PyObject* callable = PyObject_GetAttrString((PyObject*)self, "_on_body");
-    if (callable) {
-        PyObject* bytearray = PyByteArray_FromStringAndSize(at, length);
-        PyObject* result = PyObject_CallFunctionObjArgs(
-            callable, bytearray, NULL);
-        PyObject* exception = PyErr_Occurred();
-        if (exception != NULL) {
-            fail = -1;
-        } else {
-            if (PyObject_IsTrue(result))
-                fail = -1;
-        }
-        Py_XDECREF(result);
-        Py_DECREF(callable);
-        Py_DECREF(bytearray);
+    if (callable == NULL) {
+        return -1;
     }
+    PyObject* bytearray = PyByteArray_FromStringAndSize(at, length);
+    if (bytearray == NULL) {
+        Py_DECREF(callable);
+        return -1;
+    }
+    PyObject* result = PyObject_CallFunctionObjArgs(
+        callable, bytearray, NULL);
+    Py_DECREF(bytearray);
+    Py_DECREF(callable);
+    if (result == NULL) {
+        return -1;
+    }
+    int fail = PyObject_IsTrue(result) ? -1 : 0;
+    Py_DECREF(result);
     return fail;
 }
 
-static llhttp_settings_t _parser_settings = {
-    on_message_begin,
-    NULL, // on_url
-    on_status,
-    on_header_field,
-    on_header_value,
-    on_headers_complete,
-    on_body,
-    on_message_complete
+static const llhttp_settings_t _parser_settings = {
+    .on_message_begin = on_message_begin,
+    .on_status = on_status,
+    .on_header_field = on_header_field,
+    .on_header_value = on_header_value,
+    .on_headers_complete = on_headers_complete,
+    .on_body = on_body,
+    .on_message_complete = on_message_complete,
 };
 
 static PyObject*

@@ -23,7 +23,6 @@ imports (package boundary).
 from __future__ import annotations
 
 import ast
-import importlib
 import importlib.util
 import typing
 from pathlib import Path
@@ -31,6 +30,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from matrx_ai.tools.declared import declared_tools
+from matrx_utils.module_loading import load_declared_module
 
 DISPATCH_FIELDS = ("action", "command", "op", "operation")
 
@@ -157,7 +157,7 @@ def derive_str_actions(module: str, func: str, field: str) -> set[str]:
 
 def _registry_actions(tool: str) -> list[str]:
     module, fn, attr, fixed = REGISTRY_DISPATCH[tool]
-    entries = getattr(importlib.import_module(module), fn)()
+    entries = getattr(load_declared_module(module), fn)()
     return sorted({*fixed, *(str(getattr(e, attr)) for e in entries)})
 
 

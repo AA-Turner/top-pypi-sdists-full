@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 # limitations under the License.
 
 import pytest
-from a2ui.core.basic_catalog.expression_parser import ExpressionParser
+from a2ui.core.exceptions import A2uiExpressionError
+from a2ui.core.expressions.expression_parser import ExpressionParser
 
 
 @pytest.fixture
@@ -60,8 +61,50 @@ def test_parses_keywords(parser):
 
 
 def test_returns_error_on_max_depth_exceeded(parser):
-    with pytest.raises(ValueError, match="Max recursion depth reached"):
-        parser.parse("depth", 11)
+    with pytest.raises(A2uiExpressionError, match="Max recursion depth reached"):
+        parser.parse("depth", ExpressionParser.MAX_DEPTH + 1)
+
+
+def test_accepts_interpolations_nested_to_the_maximum_depth(parser):
+    depth = ExpressionParser.MAX_DEPTH
+    assert parser.parse("${" * depth + '"x"' + "}" * depth) == ["x"]
+
+
+def test_rejects_interpolations_one_level_past_the_maximum_depth(parser):
+    depth = ExpressionParser.MAX_DEPTH + 1
+    with pytest.raises(A2uiExpressionError, match="Max recursion depth reached"):
+        parser.parse("${" * depth + '"x"' + "}" * depth)
+
+
+def _nested_calls(calls: int) -> str:
+    """Returns '${f(a: f(a: ... 1 ...))}'.
+
+    The interpolation is itself a level, so the result nests `calls + 1` deep.
+    """
+    return "${" + "f(a: " * calls + "1" + ")" * calls + "}"
+
+
+def _nested_interpolations(depth: int) -> str:
+    """Returns '${${... "x" ...}}' nested to depth levels."""
+    return "${" * depth + '"x"' + "}" * depth
+
+
+def test_accepts_function_arguments_nested_to_the_maximum_depth(parser):
+    assert parser.parse(_nested_calls(ExpressionParser.MAX_DEPTH - 1))
+
+
+def test_rejects_function_arguments_one_level_past_the_maximum_depth(parser):
+    with pytest.raises(A2uiExpressionError, match="Max recursion depth reached"):
+        parser.parse(_nested_calls(ExpressionParser.MAX_DEPTH))
+
+
+def test_rejects_pathological_nesting_instead_of_overflowing_the_stack(parser):
+    # Deep enough to exhaust the interpreter stack were the guard unreachable.
+    # Asserted on the error kind rather than its message, matching TS test parity.
+    with pytest.raises(A2uiExpressionError):
+        parser.parse(_nested_calls(50000))
+    with pytest.raises(A2uiExpressionError):
+        parser.parse(_nested_interpolations(50000))
 
 
 def test_handles_deep_recursion_gracefully(parser):
@@ -69,17 +112,17 @@ def test_handles_deep_recursion_gracefully(parser):
 
 
 def test_returns_error_on_unclosed_interpolation(parser):
-    with pytest.raises(ValueError, match="Unclosed interpolation"):
+    with pytest.raises(A2uiExpressionError, match="Unclosed interpolation"):
         parser.parse("hello ${world")
 
 
 def test_returns_error_on_invalid_function_syntax(parser):
-    with pytest.raises(ValueError, match="Expected '\\)'"):
+    with pytest.raises(A2uiExpressionError, match="Expected '\\)'"):
         parser.parse("${add(a: 1, b: 2}")
 
 
 def test_returns_error_on_unexpected_characters_at_end(parser):
-    with pytest.raises(ValueError, match="Unexpected characters"):
+    with pytest.raises(A2uiExpressionError, match="Unexpected characters"):
         parser.parse("${true false}")
 
 
@@ -104,5 +147,41 @@ def test_handles_parsing_paths_with_special_characters(parser):
 
 
 def test_returns_error_on_missing_colon_in_function_args(parser):
-    with pytest.raises(ValueError, match="Expected ':'"):
+    with pytest.raises(A2uiExpressionError, match="Expected ':'"):
         parser.parse_expression("add(a 10, b: 20)")
+
+
+def test_parses_valid_numeric_literals_including_trailing_point(parser):
+    assert parser.parse_expression("42") == 42
+    assert parser.parse_expression("-42") == -42
+    assert parser.parse_expression("+42") == 42
+    assert parser.parse_expression("3.14") == 3.14
+    assert parser.parse_expression("-0.5") == -0.5
+    assert parser.parse_expression("1e5") == 100000.0
+    assert parser.parse_expression("-2.5e-3") == -0.0025
+    assert parser.parse_expression("1.") == 1.0
+    assert parser.parse_expression("-42.") == -42.0
+    assert parser.parse_expression("+0.") == 0.0
+
+
+def test_rejects_numbers_with_multiple_decimal_dots(parser):
+    from a2ui.core.exceptions import A2uiExpressionError
+
+    with pytest.raises(A2uiExpressionError, match="Invalid number literal"):
+        parser.parse_expression("1.2.3")
+
+
+def test_rejects_expression_template_exceeding_max_length(parser):
+    from a2ui.core.expressions.expression_parser import MAX_EXPRESSION_TEMPLATE_LENGTH
+
+    oversized = "a" * (MAX_EXPRESSION_TEMPLATE_LENGTH + 1)
+    with pytest.raises(A2uiExpressionError, match="exceeds maximum limit"):
+        parser.parse(oversized)
+
+
+def test_rejects_expression_parts_exceeding_max_limit(parser):
+    from a2ui.core.expressions.expression_parser import MAX_EXPRESSION_PARTS
+
+    too_many_parts = "${x}" * (MAX_EXPRESSION_PARTS + 1)
+    with pytest.raises(A2uiExpressionError, match="parts count exceeds maximum limit"):
+        parser.parse(too_many_parts)

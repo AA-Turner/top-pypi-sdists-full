@@ -321,73 +321,75 @@ def export_from_registries(
                 resource_group=cron.resources.resource_group,
             )
 
-        crons.append(
-            CronQuery(
-                name=cron.name,
-                cron=timedelta_to_duration(cron.cron) if isinstance(cron.cron, timedelta) else cron.cron,
-                file_name=cron.filename,
-                output=[str(f) for f in cron.output],
-                max_samples=cron.max_samples,
-                recompute=RecomputeSettings(
-                    feature_fqns=(
-                        list(cron.recompute_features) if isinstance(cron.recompute_features, Collection) else None
-                    ),
-                    all_features=(
-                        cron.recompute_features  # pyright: ignore[reportArgumentType]
-                        if isinstance(cron.recompute_features, bool)
-                        else None
-                    ),
+        cron_proto = CronQuery(
+            name=cron.name,
+            cron=timedelta_to_duration(cron.cron) if isinstance(cron.cron, timedelta) else cron.cron,
+            file_name=cron.filename,
+            output=[str(f) for f in cron.output],
+            max_samples=cron.max_samples,
+            recompute=RecomputeSettings(
+                feature_fqns=(
+                    list(cron.recompute_features) if isinstance(cron.recompute_features, Collection) else None
                 ),
-                lower_bound=(
-                    datetime_to_proto_timestamp(cron.lower_bound) if isinstance(cron.lower_bound, datetime) else None
-                ),
-                observed_at_lower_bound=(
-                    TIMEDELTA_PREFIX + timedelta_to_duration(cron.lower_bound)
-                    if isinstance(cron.lower_bound, timedelta)
+                all_features=(
+                    cron.recompute_features  # pyright: ignore[reportArgumentType]
+                    if isinstance(cron.recompute_features, bool)
                     else None
                 ),
-                upper_bound=(
-                    datetime_to_proto_timestamp(cron.upper_bound) if isinstance(cron.upper_bound, datetime) else None
-                ),
-                observed_at_upper_bound=(
-                    TIMEDELTA_PREFIX + timedelta_to_duration(cron.upper_bound)
-                    if isinstance(cron.upper_bound, timedelta)
-                    else None
-                ),
-                tags=cron.tags,
-                required_resolver_tags=cron.required_resolver_tags,
-                store_online=cron.store_online,
-                store_offline=cron.store_offline,
-                incremental_sources=cron.incremental_resolvers,
-                resource_group=cron.resource_group,
-                planner_options=cron.planner_options,
-                completion_deadline=(
-                    timedelta_to_proto_duration(cron.completion_deadline)
-                    if cron.completion_deadline is not None
-                    else cron.completion_deadline
-                ),
-                num_shards=cron.num_shards,
-                num_workers=cron.num_workers,
-                input_sql=cron.input_sql,
-                unload_resolvers=[
-                    UnloadResolverSpec(
-                        fqn="all" if "any" in spec else spec["fqn"],
-                        partition_by=[] if "any" in spec else spec.get("partition_by", []),
-                    )
-                    for spec in (cron.unload_resolvers or [])
-                ],
-                max_retries=cron.max_retries,
-                resources=resources_proto,
-                environment_override=cron.environment,
-                dataset_name=cron.dataset_name,
-                write_to=(ProtoOfflineQueryWriteTo(uri=cron.write_to) if cron.write_to is not None else None),
-                # Checks declared with `with_checks(...)`, serialized so the engine can read
-                # them off the query. This is the only way they reach it: the engine builds its
-                # graph from this artifact and never imports this module, so the in-process
-                # registry `_register_with_engine` populates is empty on its side.
-                data_quality_check_specs=[json.dumps(spec) for spec in check_specs({cron.name: cron})],
-            )
+            ),
+            lower_bound=(
+                datetime_to_proto_timestamp(cron.lower_bound) if isinstance(cron.lower_bound, datetime) else None
+            ),
+            observed_at_lower_bound=(
+                TIMEDELTA_PREFIX + timedelta_to_duration(cron.lower_bound)
+                if isinstance(cron.lower_bound, timedelta)
+                else None
+            ),
+            upper_bound=(
+                datetime_to_proto_timestamp(cron.upper_bound) if isinstance(cron.upper_bound, datetime) else None
+            ),
+            observed_at_upper_bound=(
+                TIMEDELTA_PREFIX + timedelta_to_duration(cron.upper_bound)
+                if isinstance(cron.upper_bound, timedelta)
+                else None
+            ),
+            tags=cron.tags,
+            required_resolver_tags=cron.required_resolver_tags,
+            store_online=cron.store_online,
+            store_offline=cron.store_offline,
+            incremental_sources=cron.incremental_resolvers,
+            resource_group=cron.resource_group,
+            planner_options=cron.planner_options,
+            env_overrides=cron.env_overrides,
+            completion_deadline=(
+                timedelta_to_proto_duration(cron.completion_deadline)
+                if cron.completion_deadline is not None
+                else cron.completion_deadline
+            ),
+            num_shards=cron.num_shards,
+            num_workers=cron.num_workers,
+            input_sql=cron.input_sql,
+            unload_resolvers=[
+                UnloadResolverSpec(
+                    fqn="all" if "any" in spec else spec["fqn"],
+                    partition_by=[] if "any" in spec else spec.get("partition_by", []),
+                )
+                for spec in (cron.unload_resolvers or [])
+            ],
+            max_retries=cron.max_retries,
+            resources=resources_proto,
+            environment_override=cron.environment,
+            dataset_name=cron.dataset_name,
+            write_to=(ProtoOfflineQueryWriteTo(uri=cron.write_to) if cron.write_to is not None else None),
+            # Checks declared with `with_checks(...)`, serialized so the engine can read
+            # them off the query. This is the only way they reach it: the engine builds its
+            # graph from this artifact and never imports this module, so the in-process
+            # registry `_register_with_engine` populates is empty on its side.
+            data_quality_check_specs=[json.dumps(spec) for spec in check_specs({cron.name: cron})],
         )
+        if cron.use_metaplanner is not None:
+            cron_proto.use_metaplanner = cron.use_metaplanner
+        crons.append(cron_proto)
 
     cron_aggregate_backfills: List[cron_aggregate_backfill_pb.CronAggregateBackfill] = []
     for backfill in scheduled_aggregate_backfill_registry.values():

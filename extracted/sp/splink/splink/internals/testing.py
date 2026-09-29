@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Union
-
-import pyarrow as pa
+from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 from splink.internals.comparison_creator import ComparisonCreator
 from splink.internals.comparison_level_creator import ComparisonLevelCreator
@@ -11,12 +9,17 @@ from splink.internals.misc import ascii_uid, ensure_is_list
 from splink.internals.pipeline import CTEPipeline
 from splink.internals.settings import ColumnInfoSettings
 
+if TYPE_CHECKING:
+    import pyarrow as pa
+
 
 def is_in_level(
     comparison_level: ComparisonLevelCreator,
     literal_values: Union[Dict[str, Any], List[Dict[str, Any]], pa.Table],
     db_api: DatabaseAPISubClass,
 ) -> bool | List[bool]:
+    import pyarrow as pa
+
     sqlglot_dialect = db_api.sql_dialect.sqlglot_dialect
     sql_cond = comparison_level.get_comparison_level(sqlglot_dialect).sql_condition
     if sql_cond == "ELSE":
@@ -37,7 +40,7 @@ def is_in_level(
 
     db_api.delete_table_from_database(table_name)
 
-    result = [bool(row["result"]) for row in res.as_record_dict()]
+    result = [bool(row["result"]) for row in res.as_record_list()]
     return result[0] if isinstance(literal_values, dict) else result
 
 
@@ -46,10 +49,12 @@ def comparison_vector_value(
     literal_values: Union[Dict[str, Any], List[Dict[str, Any]], pa.Table],
     db_api: DatabaseAPISubClass,
 ) -> Dict[str, Any] | List[Dict[str, Any]]:
+    import pyarrow as pa
+
     sqlglot_dialect = db_api.sql_dialect.sqlglot_dialect
 
     mock_column_info_settings = ColumnInfoSettings(
-        bayes_factor_column_prefix="bm_",
+        match_weight_column_prefix="matchw_",
         term_frequency_adjustment_column_prefix="tf_",
         comparison_vector_value_column_prefix="cv_",
         unique_id_column_name="unique_id",
@@ -77,7 +82,7 @@ def comparison_vector_value(
 
     db_api.delete_table_from_database(table_name)
 
-    result_dicts = res.as_record_dict()
+    result_dicts = res.as_record_list()
 
     instantiated_levels = comparison_internal.comparison_levels
     cvv_label_lookup = {

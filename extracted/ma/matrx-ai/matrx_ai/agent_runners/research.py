@@ -52,6 +52,25 @@ def _stamp_web_research_source() -> None:
     stamp_source_context(source_app="matrx-ai", source_feature="web_research")
 
 
+def _condenser_offered(scraped_content: str, ctx: ToolContext | None) -> dict[str, Any]:
+    """Mapping-only facts the condenser call site holds beside its Inputs.
+
+    Declared ``mapped_offer`` on the host's ``research.scrape_condensation``
+    Provision: no Holder receives them unless its binding maps them, so the
+    default-pin payload is unchanged. Absent values are omitted, never blanked.
+    """
+    offered: dict[str, Any] = {"scraped_content_char_count": len(scraped_content or "")}
+    for attr, name in (
+        ("call_id", "tool_call_id"),
+        ("tool_name", "calling_tool_name"),
+        ("parent_agent_name", "calling_agent_name"),
+    ):
+        value = getattr(ctx, attr, None)
+        if isinstance(value, str) and value:
+            offered[name] = value
+    return offered
+
+
 def _to_agent_result(run: AgentRunResult, label: str) -> AgentResult:
     if not run.success:
         vcprint(f"{label} failed: {run.error}", color="red")
@@ -82,6 +101,7 @@ async def scrape_research_condenser_agent_1(
             queries=queries,
             search_results=search_results,
         ),
+        offered=_condenser_offered(scraped_content, ctx),
         # NESTED-AGENT STREAM LEAK: the condensers run inside the
         # research_web TOOL while the calling agent streams to a user, so
         # unmuted their condensed text pours onto the caller's user-facing
@@ -107,6 +127,7 @@ async def scrape_research_condenser_agent_2(
             queries=queries,
             search_results=search_results,
         ),
+        offered=_condenser_offered(scraped_content, ctx),
         # NESTED-AGENT STREAM LEAK: the condensers run inside the
         # research_web TOOL while the calling agent streams to a user, so
         # unmuted their condensed text pours onto the caller's user-facing

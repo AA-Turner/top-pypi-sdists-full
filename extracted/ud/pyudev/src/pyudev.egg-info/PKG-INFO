@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: pyudev
-Version: 0.24.4
+Version: 0.24.5
 Summary: A libudev binding
-Home-page: http://github.com/pyudev/pyudev
-Author: Sebastian Wiesner
-Author-email: lunaryorn@gmail.com
-License: LGPL 2.1+
+Author-email: Sebastian Wiesner <lunaryorn@gmail.com>
+License-Expression: LGPL-2.1-or-later
+Project-URL: Homepage, http://github.com/pyudev/pyudev
 Platform: Linux
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -17,7 +16,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Hardware
 Classifier: Topic :: System :: Operating System Kernels :: Linux
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: COPYING
 Dynamic: license-file

@@ -234,6 +234,7 @@ class Session:
         self._heartbeat_task: asyncio.Task | None = None
         self._heartbeat_interval = 30
         self._envs: list[Environment] | None = None
+        self._agent_desktop_job_ids: set[str] = set()
         self._network_requested = False
         self._network_connected = False
         self._network_result: dict[str, Any] | None = None
@@ -684,11 +685,32 @@ class Session:
 
     @property
     def desktop_env(self) -> Environment | None:
-        """The desktop VM environment, or None."""
+        """The desktop VM environment, or None.
+
+        Execution-scoped agent desktops (see ``register_agent_desktop``) are
+        skipped; they belong to an agent run, not to the world's apps.
+        """
         for env in self.envs:
-            if env.is_desktop:
+            if env.is_desktop and not self.is_agent_desktop(env):
                 return env
         return None
+
+    def register_agent_desktop(self, job_id: str) -> None:
+        """Mark ``job_id`` as an SDK-provisioned, execution-scoped agent desktop.
+
+        Ownership is tracked by job id, never inferred from an alias, so an
+        env a user created with any alias is still logged into and still
+        discoverable through ``desktop_env``.
+        """
+        self._agent_desktop_job_ids.add(job_id)
+
+    def unregister_agent_desktop(self, job_id: str) -> None:
+        """Forget ``job_id`` once the owned desktop has been removed."""
+        self._agent_desktop_job_ids.discard(job_id)
+
+    def is_agent_desktop(self, env: Environment) -> bool:
+        """Whether ``env`` is an SDK-owned agent desktop (``register_agent_desktop``)."""
+        return env.job_id in self._agent_desktop_job_ids
 
     async def reset(self, **kwargs) -> ResetSessionResponse:
         """Reset all environments in the session to initial state.
@@ -1438,6 +1460,8 @@ class Session:
         else:
             target_envs = []
             for e in self.envs:
+                if self.is_agent_desktop(e):
+                    continue
                 if is_proctor_env(e):
                     logger.info("Skipping login for %s (proctor service)", e.alias)
                     continue
@@ -1758,6 +1782,8 @@ class Session:
 
         logged_in: list[str] = []
         for idx, env in enumerate(self.envs):
+            if env_alias is None and self.is_agent_desktop(env):
+                continue
             if not env.artifact_id:
                 # Resource/compute envs have no login flow — skip cleanly so
                 # callers can pass ``session.envs`` without pre-filtering.

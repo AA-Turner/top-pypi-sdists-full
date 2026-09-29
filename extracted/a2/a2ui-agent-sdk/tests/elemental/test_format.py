@@ -26,12 +26,11 @@ from a2ui.inference_formats.experimental.elemental.prompt_generator import (
     ElementalPromptGenerator,
 )
 
-SPEC_DIR = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__), "..", "..", "..", "..", "..", "specification", "v1_0"
-    )
-)
-CATALOG_PATH = os.path.join(SPEC_DIR, "catalogs", "basic", "catalog.json")
+from a2ui.schema.utils import find_repo_root, get_spec_dir
+
+REPO_ROOT = find_repo_root(os.path.dirname(__file__)) or ""
+SPEC_DIR = get_spec_dir("v1_0")
+CATALOG_PATH = os.path.join(REPO_ROOT, "catalogs", "basic", "v1", "catalog.json")
 
 
 class TestElementalFormat(unittest.TestCase):
@@ -40,7 +39,7 @@ class TestElementalFormat(unittest.TestCase):
     def setUp(self):
         with open(CATALOG_PATH, "r", encoding="utf-8") as f:
             catalog_dict = json.load(f)
-        self.catalog = Catalog.from_json(catalog_dict, spec_version="0.9.1")
+        self.catalog = Catalog.from_json(catalog_dict, protocol_version="0.9.1")
 
     def test_ensure_catalog_error(self):
         """Verifies that accessing parser or prompt_generator raises ValueError when catalog is missing."""

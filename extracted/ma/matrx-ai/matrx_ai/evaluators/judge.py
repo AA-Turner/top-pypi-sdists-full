@@ -346,6 +346,37 @@ def _user_message(
     return "\n\n".join(parts)
 
 
+def _judge_offer(
+    contract: JudgeContract,
+    subject: JudgeSubject,
+    reference: JudgeSubject | None,
+    context: dict[str, Any] | None,
+    composed: str,
+) -> dict[str, Any]:
+    """The judge's inputs value by value (absent ones omitted)."""
+    offer: dict[str, Any] = {
+        "composed_message": composed,
+        "judge_key": str(contract.key),
+        "judge_version": str(contract.version),
+        "judge_mode": str(contract.mode),
+        "question_text": str(contract.question),
+        "subject_content": _format_output(subject.content),
+        "web_access": bool(contract.web_access),
+    }
+    optional: dict[str, Any] = {
+        "rubric_name": contract.rubric_name if contract.rubric else None,
+        "rubric_text": contract.rubric or None,
+        "subject_label": subject.label or None,
+    }
+    if reference is not None:
+        optional.update(
+            reference_label=reference.label or None,
+            reference_content=_format_output(reference.content),
+        )
+    offer.update({k: v for k, v in optional.items() if v})
+    return offer
+
+
 class Judge:
     """Runs one :class:`JudgeContract`, then writes the accuracy ledger.
 
@@ -484,6 +515,7 @@ class Judge:
         mandate_key = (
             COMPARATIVE_JUDGE_MANDATE if contract.mode == "comparative" else RUBRIC_JUDGE_MANDATE
         )
+        user_message = _user_message(contract, subject, reference, context)
         try:
             held = await hold_code_call(
                 mandate_key,
@@ -494,6 +526,9 @@ class Judge:
                 variables={
                     "allowed_verdicts": ", ".join(repr(v) for v in contract.verdict_values),
                     **({} if contract.web_access else {"web_clause": ""}),
+                    # Offered for mapping only (pass_by_name=False in the host's
+                    # provision): the current default-pin Holder never gets these.
+                    **_judge_offer(contract, subject, reference, context, user_message),
                 },
                 metadata={
                     "source_app": "matrx-ai",
@@ -509,7 +544,7 @@ class Judge:
         try:
             verdict = await run_held_pydantic(
                 held,
-                user=_user_message(contract, subject, reference, context),
+                user=user_message,
                 output_cls=_verdict_model(contract),
                 model=contract.model,
                 max_tokens=contract.max_tokens,

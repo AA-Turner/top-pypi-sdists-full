@@ -8,8 +8,8 @@ use super::point_group::{iter_trans_mat_basis, iter_unimodular_trans_mat};
 use super::rotation_type::identify_rotation_type;
 use super::space_group::{SpaceGroup, match_origin_shift};
 use crate::base::{
-    Lattice, MagneticOperations, MoyoError, Operation, Operations, Rotation, Translation,
-    UnimodularTransformation, project_rotations,
+    Lattice, MagneticOperations, MoyoError, Operation, Operations, ProperUnimodularTransformation,
+    Rotation, Translation, UnimodularTransformation, project_rotations,
 };
 use crate::data::{
     ConstructType, HallSymbol, MagneticHallSymbol, MagneticHallSymbolEntry, Setting, UNINumber,
@@ -27,7 +27,9 @@ impl MagneticSpaceGroup {
     /// Identify the magnetic space group type from the primitive magnetic operations.
     /// epsilon: tolerance for comparing translation parts
     ///
-    /// Be careful that the input primitive magnetic operations should be in a reduced basis.
+    /// The input primitive magnetic operations must use a reduced basis with a
+    /// right-handed reference orientation. Use [`Self::from_lattice`] when the
+    /// input lattice is available.
     pub fn new(prim_mag_operations: &MagneticOperations, epsilon: f64) -> Result<Self, MoyoError> {
         let (ref_spg, construct_type) =
             identify_reference_space_group(prim_mag_operations, epsilon)
@@ -142,6 +144,12 @@ impl MagneticSpaceGroup {
         Err(MoyoError::MagneticSpaceGroupTypeIdentificationError)
     }
 
+    /// Identify primitive magnetic operations expressed in either handedness.
+    ///
+    /// The returned `(P, p)` maps the original input to the database primitive
+    /// setting: `A_db = A_input P` and `x_db = P^-1 (x_input - p)`.
+    /// Its determinant has the sign of the input basis determinant. A passive
+    /// basis change leaves time-reversal flags unchanged.
     pub fn from_lattice(
         lattice: &Lattice,
         prim_mag_operations: &MagneticOperations,
@@ -155,7 +163,7 @@ impl MagneticSpaceGroup {
         let reduced_magnetic_space_group = Self::new(&reduced_prim_mag_operations, epsilon)?;
         Ok(Self {
             uni_number: reduced_magnetic_space_group.uni_number,
-            transformation: reduced_magnetic_space_group.transformation * to_reduced,
+            transformation: to_reduced * reduced_magnetic_space_group.transformation,
         })
     }
 
@@ -332,7 +340,7 @@ fn find_conjugator_type4(
     src_translation: &Translation,
     dst_translation: &Translation,
     epsilon: f64,
-) -> Option<UnimodularTransformation> {
+) -> Option<ProperUnimodularTransformation> {
     let stabilized_prim_rotations = project_rotations(stabilized_prim_operations);
     let stabilized_prim_rotation_generators = project_rotations(stabilized_prim_generators);
 
@@ -358,7 +366,10 @@ fn find_conjugator_type4(
                 stabilized_prim_generators,
                 epsilon,
             ) {
-                return Some(UnimodularTransformation::new(prim_trans_mat, origin_shift));
+                return Some(ProperUnimodularTransformation::new(
+                    prim_trans_mat,
+                    origin_shift,
+                ));
             }
         }
     }

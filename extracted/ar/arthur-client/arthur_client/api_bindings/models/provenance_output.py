@@ -31,8 +31,8 @@ class ProvenanceOutput(BaseModel):
     """
     Where an agent was found and what it runs on.  The single source of truth for both: there is no flat ``infrastructure`` enum beside it and no standalone ``location`` object. Set on the task at resolution time and served through the API intact.
     """ # noqa: E501
-    sources: Annotated[List[ProvenanceSource], Field(min_length=1)] = Field(description="Every sensor that has reported this agent, one entry each. Grows as sensors corroborate.")
-    runs_on: Optional[RunsOn] = Field(default=None, description="Deployment substrate the agent runs on. Scalar, unlike sources: where an agent runs is one fact even when several sensors report it, and the more specific answer wins. Defaults to UNKNOWN, which for a SIEM row is usually the honest answer and for a managed laptop is simply correct.")
+    sources: Annotated[List[ProvenanceSource], Field(min_length=1)] = Field(description="Every source that has reported this agent, one entry each. Grows as sources corroborate.")
+    runs_on: Optional[RunsOn] = Field(default=None, description="Deployment substrate the agent runs on. Scalar, unlike sources: where an agent runs is one fact even when several sources report it, and the more specific answer wins. Defaults to UNKNOWN, which for a SIEM row is usually the honest answer and for a managed laptop is simply correct.")
     platform: Optional[Platform] = None
     source_classes: List[SourceClass] = Field(description="Distinct source classes behind this agent, in first-seen order.  Derived so it cannot disagree with ``sources``, and serialized because it backs the inventory's \"Found by\" column and filter.")
     __properties: ClassVar[List[str]] = ["sources", "runs_on", "platform", "source_classes"]

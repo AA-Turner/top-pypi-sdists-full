@@ -638,6 +638,7 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
 
         lookup: dict[str, ModelPricing] = {}
         orphan_models: list[str] = []
+        parked_models: list[str] = []
         for model in models:
             offerings = ai_catalog_manager.offerings_for(str(model.id))
             if not offerings:
@@ -648,7 +649,17 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
                 if not getattr(model, "is_deprecated", False) and not getattr(
                     model, "retired_at", None
                 ):
-                    orphan_models.append(f"{getattr(model, 'name', '') or '<unnamed>'} ({model.id})")
+                    label = f"{getattr(model, 'name', '') or '<unnamed>'} ({model.id})"
+                    # PARKED is not ORPHANED. A model whose real offering exists and
+                    # was deliberately marked unavailable (no harness yet, invite-only
+                    # access — the reason lives in ai.offering.notes) is a recorded
+                    # decision every picker already honours; "INSERT an offering" is
+                    # the wrong remedy for it. Only a model with NO well-formed
+                    # offering at all is a dead row.
+                    if ai_catalog_manager.parked_offerings_for(str(model.id)):
+                        parked_models.append(label)
+                    else:
+                        orphan_models.append(label)
                 continue
             priced_offerings: list[ModelPricing] = []
             for offering in offerings:
@@ -666,6 +677,12 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
             if priced_offerings and all(item == priced_offerings[0] for item in priced_offerings):
                 lookup[model.name] = priced_offerings[0]
 
+        if parked_models:
+            vcprint(
+                f"[Pricing] {len(parked_models)} model(s) parked — offering deliberately "
+                f"unavailable (reason in ai.offering.notes): {', '.join(parked_models)}",
+                color="cyan",
+            )
         if orphan_models:
             detail = "\n".join(f"    ● {name}" for name in orphan_models)
             vcprint(

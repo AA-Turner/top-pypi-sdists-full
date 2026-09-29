@@ -29,10 +29,10 @@ from pikepdf import (
     unparse_content_stream,
 )
 
+from ocrmypdf._annots import link_annotations, transfer_link_annotations
 from ocrmypdf._jobcontext import PdfContext
 from ocrmypdf._options import ProcessingMode
 from ocrmypdf._pipeline import VECTOR_PAGE_DPI
-from ocrmypdf.helpers import pikepdf_get_dict
 
 
 class RenderMode(Enum):
@@ -176,6 +176,9 @@ PIECEINFO_SEARCHINDEX = NamePath.PieceInfo.SearchIndex
 
 #: A page's font resources.
 RESOURCES_FONT = NamePath.Resources.Font
+
+#: A page's graphics state resources.
+RESOURCES_EXTGSTATE = NamePath.Resources.ExtGState
 
 
 def _ensure_dictionary(obj: Dictionary | Stream, name: Name):
@@ -422,7 +425,8 @@ def discard_structure_tree(pdf: Pdf) -> bool:
     When OCRmyPDF rasterizes pages (force) or strips and rewrites the text layer
     (redo), those MCIDs are destroyed or renumbered, leaving the tree dangling
     and inconsistent with the new content. We cannot rebuild it to match, so we
-    discard it; the page-level ``/StructParents`` keys go too. Returns True if
+    discard it; the page-level ``/StructParents`` keys and the annotations'
+    ``/StructParent`` keys go too. Returns True if
     the catalog was modified.
     """
     modified = False
@@ -437,6 +441,10 @@ def discard_structure_tree(pdf: Pdf) -> bool:
             if Name.StructParents in page.obj:
                 del page.obj[Name.StructParents]
                 modified = True
+            for annot in page.obj.get(Name.Annots, []):
+                if isinstance(annot, Dictionary) and Name.StructParent in annot:
+                    del annot[Name.StructParent]
+                    modified = True
     except (KeyError, TypeError, AttributeError):
         return modified
     if modified:
@@ -454,7 +462,7 @@ class OcrGrafter:
         self.context = context
         self.path_base = context.origin
 
-        self.pdf_base = Pdf.open(self.path_base)
+        self.pdf_base = Pdf.open(self.path_base, conversion_mode='explicit')
 
         self.pdfinfo = context.pdfinfo
         self.output_file = context.get_path('graft_layers.pdf')
@@ -509,7 +517,15 @@ class OcrGrafter:
             # We are updating the old page with a rasterized PDF of the new
             # page (without changing objgen, to preserve references)
             log.debug("Emplacement update")
-            with Pdf.open(path_image) as pdf_image:
+            base_page = self.pdf_base.pages[pageno]
+            links = []
+            if self.context.options.mode != ProcessingMode.force_ocr_no_links:
+                links = link_annotations(base_page)
+            old_mediabox = cast(
+                tuple[float, float, float, float],
+                tuple(float(v) for v in base_page.mediabox),
+            )
+            with Pdf.open(path_image, conversion_mode='explicit') as pdf_image:
                 self.emplacements += 1
                 foreign_image_page = pdf_image.pages[0]
                 self.pdf_base.pages.append(foreign_image_page)
@@ -519,6 +535,25 @@ class OcrGrafter:
                 )
                 del self.pdf_base.pages[-1]
             emplaced_page = True
+            if links:
+                # The image page shows the old page as displayed, then turned
+                # by the orientation correction.
+                transfer_link_annotations(
+                    links,
+                    self.pdf_base.pages[pageno],
+                    old_mediabox=old_mediabox,
+                    rotation=(content_rotation - autorotate_correction) % 360,
+                )
+
+        # Apply the orientation correction whether or not a text layer is
+        # grafted, since OCR may have timed out or been skipped after
+        # orientation detection. Text layers are aligned by their own
+        # transform and do not depend on the page's /Rotate.
+        page_rotation = _compute_page_rotation(
+            content_rotation, autorotate_correction, emplaced_page
+        )
+        if emplaced_page or page_rotation != content_rotation:
+            self.pdf_base.pages[pageno].Rotate = page_rotation
 
         if self.use_sandwich_renderer:
             # Sandwich renderer: graft pre-rendered PDF immediately
@@ -531,15 +566,11 @@ class OcrGrafter:
                     textpdf=ocr_output,
                     text_rotation=text_misaligned,
                 )
-                page_rotation = _compute_page_rotation(
-                    content_rotation, autorotate_correction, emplaced_page
-                )
-                self.pdf_base.pages[pageno].Rotate = page_rotation
         else:
             # fpdf2 renderer: accumulate page info for batch rendering.
             # The hOCR coordinates are in the corrected (upright) coordinate system.
-            # We store autorotate_correction and emplaced_page to set the final
-            # page /Rotate tag after grafting.
+            # We store autorotate_correction and emplaced_page to align the text
+            # layer when grafting.
             if ocr_tree:
                 self.fpdf2_parsed_pages.append(
                     Fpdf2ParsedPage(
@@ -547,7 +578,11 @@ class OcrGrafter:
                         pageno=pageno,
                         autorotate_correction=autorotate_correction,
                         emplaced_page=emplaced_page,
-                        dpi=self.pdfinfo[pageno].dpi.to_scalar(),
+                        # Vector-only pages have no image DPI in pdfinfo, so
+                        # prefer the DPI the OCR engine saw, as for hOCR below.
+                        dpi=ocr_tree.dpi
+                        or self.pdfinfo[pageno].dpi.to_scalar()
+                        or float(VECTOR_PAGE_DPI),
                     )
                 )
             if ocr_output:
@@ -577,7 +612,8 @@ class OcrGrafter:
 
         discard_text_search_index(self.pdf_base)
         discard_page_thumbnails(self.pdf_base)
-        if self.context.options.mode in (ProcessingMode.force, ProcessingMode.redo):
+        options = self.context.options
+        if options.is_force_mode or options.mode == ProcessingMode.redo:
             discard_structure_tree(self.pdf_base)
         self.pdf_base.save(self.output_file)
         self.pdf_base.close()
@@ -641,7 +677,7 @@ class OcrGrafter:
         renderer.render(multi_page_pdf_path)
 
         # Now graft each page from the multi-page PDF
-        with Pdf.open(multi_page_pdf_path) as pdf_text:
+        with Pdf.open(multi_page_pdf_path, conversion_mode='explicit') as pdf_text:
             for idx, parsed in enumerate(self.fpdf2_parsed_pages):
                 # Copy page from multi-page PDF
                 text_page = pdf_text.pages[idx]
@@ -653,13 +689,6 @@ class OcrGrafter:
                     parsed.emplaced_page,
                 )
                 self._graft_fpdf2_text_layer(parsed.pageno, text_page, text_misaligned)
-
-                page_rotation = _compute_page_rotation(
-                    content_rotation,
-                    parsed.autorotate_correction,
-                    parsed.emplaced_page,
-                )
-                self.pdf_base.pages[parsed.pageno].Rotate = page_rotation
 
         # Clean up multi-page PDF if not keeping temp files
         if not self.context.options.keep_temporary_files:
@@ -707,13 +736,12 @@ class OcrGrafter:
 
         # Copy resources from text page's Resources to xobj
         # We need to handle this carefully since text_page is from a foreign PDF
-        text_resources = pikepdf_get_dict(text_page.obj, Name.Resources)
-        if text_resources:
+        if text_page.obj.get_dict(Name.Resources):
             # Create empty Resources dictionary for xobj
             xobj_resources = _ensure_dictionary(xobj, Name.Resources)
 
             # Copy fonts if they exist
-            text_fonts = pikepdf_get_dict(text_resources, Name.Font)
+            text_fonts = text_page.obj.get_dict(RESOURCES_FONT)
             if text_fonts:
                 xobj_fonts = _ensure_dictionary(xobj_resources, Name.Font)
                 # Copy each font from the foreign PDF
@@ -721,7 +749,7 @@ class OcrGrafter:
                     xobj_fonts[font_name] = self.pdf_base.copy_foreign(font_obj)
 
             # Copy ExtGState (graphics state) if it exists - needed for transparency
-            text_extstates = pikepdf_get_dict(text_resources, Name.ExtGState)
+            text_extstates = text_page.obj.get_dict(RESOURCES_EXTGSTATE)
             if text_extstates:
                 xobj_extstates = _ensure_dictionary(xobj_resources, Name.ExtGState)
                 # Copy each graphics state from the foreign PDF
@@ -777,17 +805,16 @@ class OcrGrafter:
             return
 
         try:
-            with Pdf.open(textpdf) as pdf_text:
+            with Pdf.open(textpdf, conversion_mode='explicit') as pdf_text:
                 pdf_text_contents = pdf_text.pages[0].Contents.read_bytes()
 
                 base_page = self.pdf_base.pages[pageno]
 
                 # Get font from the text PDF
-                pdf_text_fonts = pikepdf_get_dict(pdf_text.pages[0].obj, RESOURCES_FONT)
                 font = None
                 font_key = None
                 for f in ('/f-0-0', '/F1'):
-                    pdf_text_font = pdf_text_fonts.get(f, None)
+                    pdf_text_font = pdf_text.pages[0].obj.get(RESOURCES_FONT(f))
                     if pdf_text_font is not None:
                         font_key = Name(f)
                         font = self.pdf_base.copy_foreign(pdf_text_font)

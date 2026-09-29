@@ -84,6 +84,35 @@ _emit_failed() {
     done
 }
 
+# What a REAL pytest run prints when a test exercises an error path and logs
+# it: the "Captured log call" block renders each record at column 0 with the
+# level name padded to eight characters. Verbatim shape from
+# tests/test_venv_live_install_2121.py on a red macOS baseline (#3470).
+_emit_captured_error_log() {
+    printf -- '------------------------------ Captured log call -------------------------------\n'
+    printf 'ERROR    coord.agent_update:agent_update.py:643 perform_update refused: 1 live process(es)\n'
+}
+
+# What a REAL pytest run prints when a module fails to import: a session-level
+# ERRORS section plus the "Interrupted" banner. Nothing ran.
+_emit_collection_error() {
+    printf '==================================== ERRORS ====================================\n'
+    printf -- '_______________ ERROR collecting tests/test_ambient.py ________________\n'
+    printf "ImportError: no module named nope\n"
+    printf '!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n'
+    printf 'ERROR tests/test_ambient.py - ImportError: no module named nope\n'
+}
+
+# #3470: the collection-error classifier. The runner pipes its OWN python
+# source in on stdin and passes the captured pytest output as argv[1], so
+# hand the whole invocation to a real interpreter — what is under test is
+# `coord.test_report.pytest_has_collection_error`'s verdict on real pytest
+# output, not a canned exit code. FAKE_REAL_PYTHON is the test session's
+# interpreter, which can import `coord`.
+if [[ "$1" == "-" ]]; then
+    exec "${FAKE_REAL_PYTHON:?FAKE_REAL_PYTHON must be set}" "$@"
+fi
+
 if [[ "$1" == "-c" ]]; then
     case "$2" in
         *xdist*)
@@ -115,12 +144,48 @@ if [[ "$1" == "-m" && "$2" == "pytest" ]]; then
     # An invocation carrying node ids is a targeted re-run (the flake filter, or
     # the baseline comparison); one without is the full-suite run.
     _targeted=0
+    _ids=""
     for arg in "$@"; do
-        case "$arg" in *::*) _targeted=1 ;; esac
+        case "$arg" in *::*) _targeted=1; _ids+="$arg"$'\n' ;; esac
     done
+    _ids="$(printf '%s' "$_ids" | sort | tr '\n' ' ')"
 
     if [[ "$_here" == "$_wt" ]]; then
         # ── the BRANCH's own worktree ────────────────────────────────────────
+        if [[ "$_targeted" -eq 1 && -n "${FAKE_PYTEST_IDS_LOG:-}" ]]; then
+            printf 'branch-targeted %s\n' "${_ids% }" >> "$FAKE_PYTEST_IDS_LOG"
+        fi
+        if [[ "$_targeted" -eq 0 && "${FAKE_BRANCH_COLLECTION_ERROR:-0}" == "1" ]]; then
+            _emit_collection_error
+            exit 2
+        fi
+        # #3470: the CONFIRMING branch re-run — the runner re-runs just the node
+        # ids that passed on the merge-base, against the branch, before letting
+        # them defeat a BASELINE-RED downgrade. Recognised by its exact node-id
+        # SET, not by call order, so it can never be confused with the earlier
+        # isolation re-run (which is handed the full FAKE_BRANCH_FAILED set):
+        # if the runner ever stopped narrowing the set, this arm would simply
+        # not match and the test would fail rather than pass vacuously.
+        if [[ "$_targeted" -eq 1 && -n "${FAKE_CONFIRM_IDS:-}" ]]; then
+            _want=""
+            for id in $FAKE_CONFIRM_IDS; do _want+="$id"$'\n'; done
+            _want="$(printf '%s' "$_want" | sort | tr '\n' ' ')"
+            if [[ "$_ids" == "$_want" ]]; then
+                case "${FAKE_CONFIRM_RESULT:-pass}" in
+                    pass)
+                        # Passes on the branch too ⇒ the branch does not own it.
+                        printf '1 passed\n'; exit 0 ;;
+                    error)
+                        _emit_collection_error; exit 2 ;;
+                    noparse)
+                        printf 'INTERNALERROR> boom\n'; exit 3 ;;
+                    *)
+                        # Still fails on the branch ⇒ genuinely branch-owned.
+                        _emit_failed "$FAKE_CONFIRM_RESULT"
+                        printf '1 failed\n'; exit 1 ;;
+                esac
+            fi
+        fi
         if [[ "$_targeted" -eq 1 && "${FAKE_RERUN_PASSES:-0}" == "1" ]]; then
             printf '%s passed\n' "2"
             exit 0
@@ -134,6 +199,9 @@ if [[ "$1" == "-m" && "$2" == "pytest" ]]; then
             printf '1 failed, 1 passed\n'
             exit 1
         fi
+        if [[ "${FAKE_BRANCH_LOG_NOISE:-0}" == "1" ]]; then
+            _emit_captured_error_log
+        fi
         _emit_failed "${FAKE_BRANCH_FAILED:-}"
         printf '2 failed\n'
         exit 1
@@ -141,8 +209,11 @@ if [[ "$1" == "-m" && "$2" == "pytest" ]]; then
 
     # ── the BASELINE worktree ────────────────────────────────────────────────
     if [[ "${FAKE_BASELINE_ERROR:-0}" == "1" ]]; then
-        printf 'ERROR tests/test_ambient.py - ImportError: no module named nope\n'
+        _emit_collection_error
         exit 2
+    fi
+    if [[ "${FAKE_BASELINE_LOG_NOISE:-0}" == "1" ]]; then
+        _emit_captured_error_log
     fi
     if [[ -z "${FAKE_BASELINE_FAILED:-}" ]]; then
         printf '2 passed\n'
@@ -243,6 +314,10 @@ def repo(tmp_path: Path) -> Path:
 def _run(repo: Path, **fake_env: str) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env.setdefault("FAKE_BRANCH_FAILED", BRANCH_FAILED)
+    # #3470: the fake interpreter delegates the runner's collection-error
+    # classifier to a real one, so the tested parser in coord/test_report.py
+    # is what decides — see `_FAKE_PYTHON`'s `"$1" == "-"` arm.
+    env.setdefault("FAKE_REAL_PYTHON", sys.executable)
     env.update(fake_env)
     return subprocess.run(
         ["bash", str(SCRIPT), str(repo), "--base-ref", "base", "--repo", "code-coordinator"],
@@ -343,6 +418,130 @@ def test_partial_overlap_is_a_branch_failure(repo: Path) -> None:
     assert "test_two PASSES on the merge-base" in result.stdout
 
 
+# ── #3470: one flake must not re-attribute a red baseline to the branch ─────
+#
+# The failure these close, from this repo's own #3470 Test leg. 92 tests failed
+# on a macOS box with no `restic`/`docker` and systemd-shaped assertions; 91
+# were plainly pre-existing. The 92nd,
+# `test_agent_app.py::test_worktree_clean_does_not_block_concurrent_health`,
+# asserts a wall-clock bound (`/health` under 2.0s) and flaked TWICE under
+# `-n auto` on a loaded box — so #2562's isolation prune did not drop it — then
+# passed once on the merge-base. #2170's downgrade is unanimous, so that single
+# node id turned 91 environment failures into `FAIL (python)` and burned a fix
+# round on a branch that had broken nothing. The runner now asks the branch a
+# second time before letting a node id defeat the downgrade.
+
+
+def test_a_flake_surviving_isolation_does_not_defeat_a_red_baseline(repo: Path) -> None:
+    """The headline case: one of two failures passes on the merge-base, but it
+    also passes on the BRANCH when re-run — so the branch does not own it, and
+    the remaining failure is baseline-red.
+
+    Note what is NOT relaxed: the flake is excluded because the branch itself
+    could not reproduce it, which is positive evidence, not an assumption.
+    """
+    result = _run(
+        repo,
+        FAKE_BASELINE_FAILED="tests/test_ambient.py::test_one",
+        FAKE_CONFIRM_IDS="tests/test_ambient.py::test_two",
+        FAKE_CONFIRM_RESULT="pass",
+    )
+
+    assert result.returncode == 4, (result.returncode, result.stdout, result.stderr)
+    assert "RESULT: BASELINE-RED (python)" in result.stdout
+    assert "RESULT: FAIL" not in result.stdout
+    # The count describes the comparison that actually happened — ONE confirmed
+    # id, not the two the arm started with. "all 2" here would be a false claim
+    # about test_two, which was never confirmed red on the base.
+    assert "BASELINE-RED(python): all 1 failing test(s) fail identically" in result.stdout
+    assert "test_two" in result.stdout
+    assert "PASSES on the branch when re-run" in result.stdout
+    # And it is booked as a flake, so the run is not silently laundered.
+    assert "flakes tolerated this run" in result.stdout
+
+
+def test_a_failure_that_reproduces_on_the_branch_stays_the_branch_s(repo: Path) -> None:
+    """The gate can still fail. Same shape as the test above — one failure
+    passes on the merge-base — except the confirming branch re-run FAILS it
+    again. That is a real regression and must not be downgraded.
+
+    Without this the test above would only prove the permissive branch exists.
+    """
+    result = _run(
+        repo,
+        FAKE_BASELINE_FAILED="tests/test_ambient.py::test_one",
+        FAKE_CONFIRM_IDS="tests/test_ambient.py::test_two",
+        FAKE_CONFIRM_RESULT="tests/test_ambient.py::test_two",
+    )
+
+    assert result.returncode == 1, (result.returncode, result.stdout, result.stderr)
+    assert "RESULT: FAIL (python)" in result.stdout
+    assert "BASELINE-RED" not in result.stdout
+    assert "test_two PASSES on the merge-base" in result.stdout
+
+
+@pytest.mark.parametrize("confirm_result", ["error", "noparse"])
+def test_an_inconclusive_confirming_rerun_keeps_the_branch_failure(
+    repo: Path, confirm_result: str
+) -> None:
+    """A confirming re-run that cannot answer (collection/import error, or a
+    non-zero exit with no parseable ``FAILED`` lines) must not clear anything —
+    same refusal direction as every other unanswerable question in this
+    function. Otherwise a broken confirming run would become a free pass.
+    """
+    result = _run(
+        repo,
+        FAKE_BASELINE_FAILED="tests/test_ambient.py::test_one",
+        FAKE_CONFIRM_IDS="tests/test_ambient.py::test_two",
+        FAKE_CONFIRM_RESULT=confirm_result,
+    )
+
+    assert result.returncode == 1, (result.returncode, result.stdout, result.stderr)
+    assert "RESULT: FAIL (python)" in result.stdout
+    assert "BASELINE-RED" not in result.stdout
+    # `warn` goes to stderr, same as the other refusals in this function.
+    both_streams = result.stderr + result.stdout
+    assert "confirming branch re-run" in both_streams
+    assert "uncompared" in both_streams
+
+
+def test_the_confirming_rerun_is_scoped_to_the_ids_that_passed_on_the_base(
+    repo: Path,
+) -> None:
+    """It re-runs ONLY the node ids the merge-base cleared, not the whole
+    failing set.
+
+    Load-bearing for cost (re-running the whole failing set a third time is
+    what the arms above already paid for) and for correctness: handing it every
+    id would mean a still-failing baseline-red test kept the flake's blame
+    alive, and the downgrade could never happen.
+
+    Asserted by recording every targeted node-id set the fake interpreter is
+    handed, then reading back the branch-side ones — so this observes the
+    invocation the runner actually made rather than a canned verdict.
+    """
+    log = repo / "pytest-argv.log"
+    result = _run(
+        repo,
+        FAKE_BASELINE_FAILED="tests/test_ambient.py::test_one",
+        FAKE_CONFIRM_IDS="tests/test_ambient.py::test_two",
+        FAKE_CONFIRM_RESULT="pass",
+        FAKE_PYTEST_IDS_LOG=str(log),
+    )
+    assert result.returncode == 4, (result.returncode, result.stdout, result.stderr)
+
+    lines = [ln for ln in log.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    branch_targeted = [
+        ids.split(" ", 1)[1] for ids in lines if ids.startswith("branch-targeted ")
+    ]
+    # Two targeted branch runs: #2562's isolation re-run over the full failing
+    # set, then #3470's confirming re-run over just the merge-base-cleared id.
+    assert branch_targeted == [
+        "tests/test_ambient.py::test_one tests/test_ambient.py::test_two",
+        "tests/test_ambient.py::test_two",
+    ], lines
+
+
 def test_branch_new_test_file_can_never_be_baseline_red(repo: Path) -> None:
     """A test the branch ADDED cannot have been failing already.
 
@@ -379,6 +578,92 @@ def test_inconclusive_baseline_run_is_not_baseline_red(repo: Path) -> None:
     assert "RESULT: FAIL (python)" in result.stdout
     assert "BASELINE-RED" not in result.stdout
     assert "says nothing about these tests" in result.stderr + result.stdout
+
+
+# ── #3470: an ERROR-level log record is not a collection error ──────────────
+#
+# THE BUG. The runner classified "did the suite fail to START?" with
+# `grep -qE "^(ERROR|INTERNALERROR)"`. pytest's "Captured log call" block
+# prints records at column 0 with the level name padded to eight characters
+# ("ERROR    coord.agent_update:…"), so any suite containing a test that
+# exercises an error path and logs it matched. The run was reported as
+# `FAIL(python): collection/import error` and returned BEFORE the flake filter
+# and before #2170's baseline comparison — so on #3470 a machine whose own
+# baseline was red (91 pre-existing failures in dr_verify / deploy /
+# fleet_watchdog / venv_live_install, none of them the branch's) blamed the
+# branch, exactly the outcome #2170 exists to prevent.
+#
+# Both directions are asserted: the false positive must be gone, AND a genuine
+# collection error must still be caught — a classifier whose failing verdict
+# has become unreachable is not a fix.
+
+
+def test_error_level_log_output_does_not_masquerade_as_a_collection_error(
+    repo: Path,
+) -> None:
+    """The headline regression. Same red-baseline run as
+    `test_baseline_red_when_every_failure_reproduces_on_the_merge_base`, except
+    the pytest output also carries a captured ERROR-level log record — which is
+    what every real suite that tests an error path emits. The verdict must be
+    unchanged by it.
+    """
+    result = _run(
+        repo,
+        FAKE_BASELINE_FAILED=BRANCH_FAILED,
+        FAKE_BRANCH_LOG_NOISE="1",
+        FAKE_BASELINE_LOG_NOISE="1",
+    )
+
+    assert result.returncode == 4, (result.returncode, result.stdout, result.stderr)
+    assert "RESULT: BASELINE-RED (python)" in result.stdout
+    assert "collection/import error" not in result.stdout
+    assert "could not classify" not in result.stdout
+    assert "RESULT: FAIL" not in result.stdout
+
+
+def test_error_level_log_output_on_the_branch_alone_is_still_a_genuine_failure(
+    repo: Path,
+) -> None:
+    """The same noise with a GREEN baseline still reaches the ordinary verdict:
+    the fix must not have turned the log line into a free pass either."""
+    result = _run(repo, FAKE_BRANCH_LOG_NOISE="1")
+
+    assert result.returncode == 1
+    assert "FAIL(python): 2 test(s) fail on re-run — genuine" in result.stdout
+    assert "collection/import error" not in result.stdout
+
+
+def test_a_real_collection_error_is_still_classified_as_one(repo: Path) -> None:
+    """The failing verdict is still reachable. A module that will not import
+    produces pytest's own "=== ERRORS ===" / "Interrupted: 1 error during
+    collection" markers and no FAILED lines — never flake-retried, never
+    compared against the baseline."""
+    result = _run(repo, FAKE_BRANCH_COLLECTION_ERROR="1")
+
+    assert result.returncode == 1
+    assert "FAIL(python): collection/import error" in result.stdout
+    assert "BASELINE-RED" not in result.stdout
+    # It short-circuits: no isolation re-run, no baseline worktree.
+    assert "re-running them in isolation" not in result.stdout
+    assert "baseline: comparing against" not in result.stdout
+
+
+def test_an_unclassifiable_run_fails_closed_rather_than_guessing(repo: Path) -> None:
+    """`pytest_collection_error_verdict` has a third answer — `unknown`, when
+    the branch venv cannot import `coord.test_report` at all. It must not
+    collapse into whichever of yes/no is convenient: a run nobody could
+    classify is a FAIL that says so, not a silently-downgraded BASELINE-RED.
+    """
+    result = _run(
+        repo,
+        FAKE_BASELINE_FAILED=BRANCH_FAILED,
+        FAKE_REAL_PYTHON="/nonexistent/python-that-cannot-import-coord",
+    )
+
+    assert result.returncode == 1
+    assert "could not classify the run" in result.stdout
+    assert "coord.test_report" in result.stdout
+    assert "BASELINE-RED" not in result.stdout
 
 
 def test_comparison_is_skipped_when_the_venv_resolves_coord_wrongly(repo: Path) -> None:
@@ -488,7 +773,8 @@ def test_missing_base_ref_reports_fail_uncompared(repo: Path) -> None:
         encoding="utf-8",
         timeout=120,
         env={**os.environ, "FAKE_BRANCH_FAILED": BRANCH_FAILED,
-             "FAKE_BASELINE_FAILED": BRANCH_FAILED},
+             "FAKE_BASELINE_FAILED": BRANCH_FAILED,
+             "FAKE_REAL_PYTHON": sys.executable},
     )
 
     assert result.returncode == 1

@@ -505,7 +505,11 @@ def _check_ref(
 
 async def validate_plan_agents(plan: AgentPlan, app_ctx: Any) -> list[PlanIssue]:
     """Agent-aware validation. Requires host-injected DB models (agx managers)."""
-    from matrx_ai.db.agx_manager import agx_agent_manager_instance
+    # ACCESS IS RLS'S (chair ruling 2026-09-27): each agent is loaded AS THE
+    # PERSON through the one shared door agent_call uses, so a plan can name
+    # exactly the agents the caller may run — no owner comparison, no
+    # has_access call here. Hidden and missing are one answer naming the id.
+    from matrx_ai.tools.implementations.agent_call import load_agent_as_the_person
 
     issues: list[PlanIssue] = []
     rows: dict[str, Any] = {}
@@ -514,13 +518,21 @@ async def validate_plan_agents(plan: AgentPlan, app_ctx: Any) -> list[PlanIssue]
         if agent_id in rows:
             continue
         try:
-            rows[agent_id] = await agx_agent_manager_instance.load_by_id(agent_id)
-        except Exception as e:  # noqa: BLE001 — manager raises on missing/DB error
+            rows[agent_id] = await load_agent_as_the_person(agent_id, app_ctx)
+        except Exception as e:  # noqa: BLE001 — a failed read is reported, never skipped
             rows[agent_id] = None
             issues.append(
                 PlanIssue(
                     path=f"steps[{s.step}].agent_id", step=s.step,
                     message=f"agent {agent_id} could not be loaded: {type(e).__name__}: {e}",
+                )
+            )
+            continue
+        if rows[agent_id] is None:
+            issues.append(
+                PlanIssue(
+                    path=f"steps[{s.step}].agent_id", step=s.step,
+                    message=f"agent {agent_id} was not found, or you do not have access to it.",
                 )
             )
 
@@ -558,25 +570,6 @@ async def validate_plan_agents(plan: AgentPlan, app_ctx: Any) -> list[PlanIssue]
         if row is None:
             continue
 
-        # Access: admin / owner / canonical viewer-level access — same policy as
-        # agent_call._can_access (viewer access = may run, per the 2026-08-12
-        # is_public-cut ruling; iam.has_access_for owns the ladder).
-        from matrx_connect import admin_surface_active
-
-        is_admin = admin_surface_active(app_ctx)  # admin reach only on an admin surface
-        user_id = getattr(app_ctx, "user_id", None)
-        is_owner = bool(user_id) and str(getattr(row, "created_by", "") or "") == str(user_id)
-        has_viewer = False
-        if not (is_admin or is_owner) and user_id:
-            from matrx_ai.db.agx_manager import agent_viewer_access
-
-            has_viewer = await agent_viewer_access(str(s.agent_id), str(user_id))
-        if not (is_admin or is_owner or has_viewer):
-            issues.append(
-                PlanIssue(path=f"{prefix}.agent_id", step=s.step,
-                          message=f"you do not have access to agent {s.agent_id}.")
-            )
-            continue
         if getattr(row, "is_active", True) is False or getattr(row, "is_archived", False):
             issues.append(
                 PlanIssue(path=f"{prefix}.agent_id", step=s.step,

@@ -69,6 +69,8 @@ _UNDECLARED_ACTOR_MARKERS: tuple[str, ...] = (
     "x-matrx-actor-system",
 )
 
+_EXECUTOR_GENERIC_PLACEHOLDER = "Check the error details and try with different parameters."
+
 
 def error_remedy_for(message: str | None) -> ErrorRemedy | None:
     """The remedy for a failure class we can name, or None.
@@ -94,6 +96,8 @@ def annotate_tool_error(error: Any) -> Any:
     it as ``"<tool's own> Also: <remedy>"``: the tool names the next call with
     its argument names, which this generic ladder cannot know, so overwriting
     it would hand the model a vaguer instruction than the one it had.
+    The executor's own catch-all placeholder is not a tool's instruction and
+    is replaced.
     """
     remedy = error_remedy_for(getattr(error, "message", None))
     if remedy is None:
@@ -101,6 +105,8 @@ def annotate_tool_error(error: Any) -> Any:
     error.message = remedy.prefix(error.message)
     own = (getattr(error, "suggested_action", None) or "").strip()
     if not own:
+        error.suggested_action = remedy.remedy
+    elif own == _EXECUTOR_GENERIC_PLACEHOLDER:
         error.suggested_action = remedy.remedy
     elif remedy.remedy not in own:
         error.suggested_action = f"{own} Also: {remedy.remedy}"

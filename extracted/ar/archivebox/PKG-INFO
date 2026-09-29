@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: archivebox
-Version: 0.9.70
+Version: 0.9.71
 Summary: Self-hosted internet archiving solution.
 Keywords: internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author-Email: Nick Sweeting <pyproject.toml@archivebox.io>
@@ -71,10 +71,10 @@ Requires-Dist: dateparser>=1.2.0
 Requires-Dist: croniter>=6.0.0
 Requires-Dist: tzdata>=2024.2
 Requires-Dist: w3lib>=2.2.1
-Requires-Dist: abxbus==2.5.65
-Requires-Dist: abxpkg==1.13.11
-Requires-Dist: abx-plugins[opencode]==1.13.81
-Requires-Dist: abx-dl==1.13.58
+Requires-Dist: abxbus==2.5.70
+Requires-Dist: abxpkg==1.13.21
+Requires-Dist: abx-plugins[opencode]==1.13.109
+Requires-Dist: abx-dl==1.13.79
 Requires-Dist: uuid7>=0.1.0; python_version < "3.14"
 Requires-Dist: browser-cookie3>=0.20.1
 Provides-Extra: sonic
@@ -198,12 +198,11 @@ curl -fsSL 'https://get.archivebox.io' | bash
 </details>
 <br/>
 
-
 <div align="center" style="text-align: center">
 <br/><br/>
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/b2765a33-0d1e-4019-a1db-920c7e00e20e" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic">
 <br/><br/>
-<small><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></small>
+<small><a href="https://demo.archivebox.io">Demo</a> | <a href="https://archivebox.io/screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></small>
 <br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
@@ -474,7 +473,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 > *Warning: These are contributed by external volunteers and may lag behind the official Docker and `uv` channels.*
 
 <ul>
-<li><s>TrueNAS: <a href="https://truecharts.org/charts/stable/archivebox/">Official ArchiveBox TrueChart</a> / <a href="https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788">Custom App Guide</a></s> (<a href="https://truecharts.org/news/scale-deprecation/">TrueCharts is discontinued</a>, wait for <a href="https://forums.truenas.com/t/the-future-of-electric-eel-and-apps/5409/">Electric Eel</a>)</li>
+<li><a href="https://apps.truenas.com/catalog/archivebox_community/">TrueNAS</a></li>
 <li><a href="https://unraid.net/community/apps?q=archivebox#r">UnRaid</a></li>
 <li><a href="https://community-scripts.github.io/ProxmoxVE/scripts?id=archivebox">Proxmox</a></li>
 <li><a href="https://github.com/YunoHost-Apps/archivebox_ynh">Yunohost</a></li>

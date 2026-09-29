@@ -12,10 +12,13 @@ The kind is the CANONICAL declaration: the same schema the frontend renders
 against and the workflow scheduler validates against, so the model's output,
 the validator, and the renderer can never drift.
 
-The kind's emitted schema is run through the ``matrx_ai.schema`` lint gate and
-its ``portable_schema`` is used (additionalProperties:false + all-required on
-every object node, ``__kind`` re-hoisted first), so the binding satisfies OpenAI
-strict + Anthropic + Gemini. ``$defs`` are deliberately LEFT IN PLACE — an
+The kind's emitted schema is run through the ``matrx_ai.schema`` lint gate to
+decide whether it can be bound, and the envelope then carries the kind's OWN
+schema (``__kind`` hoisted first): since 2026-09-28 every provider translator
+derives its own wire copy from it (``schema.lint.make_portable`` —
+additionalProperties:false, all-required with optional fields nullable where
+that provider can afford it), and the answer is checked against, and pruned back
+to, the kind's schema — never a portable copy of it. ``$defs`` are deliberately LEFT IN PLACE — an
 earlier version of this note claimed they were inlined; they are not, and
 inlining them would not help, because providers expand ``$ref`` themselves
 (measured 2026-08-24, ``matrx_ai.schema.grammar_budget``).
@@ -105,10 +108,12 @@ async def response_format_for_kind(slug: str) -> ResponseFormatJsonSchema | None
         # NOTE: {} is a REGISTERED schema ("any value") — it falls through to
         # the portable gate below and declines there, loudly.
         return None
+    # The envelope carries the KIND's own schema — the author's contract, which
+    # the answer is checked against and pruned back to. Each provider translator
+    # derives its wire copy from it (``schema.lint.make_portable``); the lint
+    # report only decides whether the kind can be bound at all.
     report = lint_output_schema(entry.json_schema)
-    schema = report.portable_schema if report.portable_schema is not None else None
-    if schema is None and report.ok:
-        schema = entry.json_schema
+    schema = entry.json_schema if (report.portable_schema is not None or report.ok) else None
     if schema is None:
         logger.error(
             "response_format_for_kind: kind '%s' emitted_json_schema cannot be "

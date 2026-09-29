@@ -12,25 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import yaml
 import pytest
-
-
-def _get_conformance_path(filename):
-    return os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../../../../../conformance", filename)
-    )
-
-
-def load_tests(filename):
-    path = _get_conformance_path(filename)
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+from .conformance_helpers import get_conformance_path, load_conformance_yaml
 
 
 def get_conformance_cases(filename):
-    cases = load_tests(filename)
+    cases = load_conformance_yaml(filename)
     return [(case["name"], case) for case in cases]
 
 
@@ -64,18 +51,19 @@ def test_a2a_integration_conformance(name, test_case):
         assert is_a2ui_part(part)
         expect = test_case["expect"]
         data_part = get_a2ui_datapart(part)
-        assert data_part.metadata.get("mimeType") == expect["mime_type"]
+        exp_mime = expect.get("mimeType")
+        assert data_part.metadata.get("mimeType") == exp_mime
 
     elif action == "is_a2ui_part":
-        mime_type = args["mime_type"]
+        mime_type = args.get("mimeType")
         part = Part(root=DataPart(data={}, metadata={"mimeType": mime_type}))
         result = is_a2ui_part(part)
         assert result == test_case["expect"]
 
     elif action == "get_extension":
         version = args["version"]
-        accepts_inline_catalogs = args.get("accepts_inline_catalogs")
-        supported_catalog_ids = args.get("supported_catalog_ids")
+        accepts_inline_catalogs = args.get("acceptsInlineCatalogs")
+        supported_catalog_ids = args.get("supportedCatalogIds")
 
         kwargs = {}
         if accepts_inline_catalogs is not None:

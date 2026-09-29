@@ -142,14 +142,18 @@ class EvaluationGroupsResource(SyncAPIResource):
         Fetch a single evaluation group by its ID.
 
         By default only non-archived groups are returned; set include_deleted to also
-        resolve a soft-deleted group. The views parameter optionally expands the
-        response with the group's members and/or row_identifiers, and when members are
-        loaded they are enriched with each member evaluation's name, tags, and creation
-        time. Use the schema endpoint instead when you need the per-evaluation column
-        schemas of the group's members.
+        resolve a soft-deleted group, whose response includes its soft-deleted member
+        rows.
+
+        `members` is always returned, so a client can confirm membership without passing
+        a view, and `views` adds further expansions on top (e.g. views=row_identifiers).
+        The full member set is returned with no cap, and each member is enriched with
+        its evaluation's name, tags, and creation time where that evaluation is readable
+        from this account; those fields are null otherwise. Use the schema endpoint
+        instead when you need the per-evaluation column schemas of the group's members.
 
         Args:
-          views: Optional relationships to include: 'members', 'row_identifiers'
+          views: Additional relationships to include; 'members' is always returned
 
           extra_headers: Send extra headers
 
@@ -594,14 +598,18 @@ class AsyncEvaluationGroupsResource(AsyncAPIResource):
         Fetch a single evaluation group by its ID.
 
         By default only non-archived groups are returned; set include_deleted to also
-        resolve a soft-deleted group. The views parameter optionally expands the
-        response with the group's members and/or row_identifiers, and when members are
-        loaded they are enriched with each member evaluation's name, tags, and creation
-        time. Use the schema endpoint instead when you need the per-evaluation column
-        schemas of the group's members.
+        resolve a soft-deleted group, whose response includes its soft-deleted member
+        rows.
+
+        `members` is always returned, so a client can confirm membership without passing
+        a view, and `views` adds further expansions on top (e.g. views=row_identifiers).
+        The full member set is returned with no cap, and each member is enriched with
+        its evaluation's name, tags, and creation time where that evaluation is readable
+        from this account; those fields are null otherwise. Use the schema endpoint
+        instead when you need the per-evaluation column schemas of the group's members.
 
         Args:
-          views: Optional relationships to include: 'members', 'row_identifiers'
+          views: Additional relationships to include; 'members' is always returned
 
           extra_headers: Send extra headers
 

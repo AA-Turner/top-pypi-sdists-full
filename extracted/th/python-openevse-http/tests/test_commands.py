@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
@@ -26,6 +27,17 @@ TEST_URL_CONFIG = "http://openevse.test.tld/config"
 TEST_URL_DIVERT = "http://openevse.test.tld/divertmode"
 TEST_URL_RESTART = "http://openevse.test.tld/restart"
 TEST_URL_CLAIMS_TARGET = "http://openevse.test.tld/claims/target"
+TEST_URL_RELAY_RECOVERY = "http://openevse.test.tld/relay/recovery"
+TEST_URL_RELAY_RESET = "http://openevse.test.tld/relay/reset"
+TEST_URL_CABLE_TEMP = "http://openevse.test.tld/cabletemp"
+TEST_URL_TIME = "http://openevse.test.tld/time"
+TEST_URL_SETTIME = "http://openevse.test.tld/settime"
+TEST_URL_LOGS = "http://openevse.test.tld/logs"
+TEST_URL_CERTIFICATES = "http://openevse.test.tld/certificates"
+TEST_URL_RFID_ADD = "http://openevse.test.tld/rfid/add"
+TEST_URL_RFID_USERS = "http://openevse.test.tld/rfid/users"
+TEST_URL_SCHEDULE = "http://openevse.test.tld/schedule"
+TEST_URL_SCHEDULE_PLAN = "http://openevse.test.tld/schedule/plan"
 SERVER_URL = "openevse.test.tld"
 
 
@@ -661,6 +673,17 @@ async def test_restart_wifi(test_charger_modified_ver, mock_aioclient, caplog):
         await test_charger_modified_ver.restart_wifi()
     assert "Restart response: restart gateway" in caplog.text
 
+    # Also verify standard ESP32 gateway response `{"msg": "restart gateway"}`
+    caplog.clear()
+    mock_aioclient.post(
+        TEST_URL_RESTART,
+        status=200,
+        body='{"msg": "restart gateway"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger_modified_ver.restart_wifi()
+    assert "WiFi Restart response: restart gateway" in caplog.text
+
 
 async def test_restart_wifi_fail(test_charger, mock_aioclient, caplog):
     """Test restart_wifi failure."""
@@ -871,7 +894,9 @@ async def test_set_led_brightness(
     with pytest.raises(UnsupportedFeature):
         with caplog.at_level(logging.DEBUG):
             await test_charger_v2.set_led_brightness(255)
-    assert "Feature not supported for older firmware." in caplog.text
+    assert (
+        "set_led_brightness requires gateway firmware 4.1.0 or higher." in caplog.text
+    )
 
 
 async def test_set_led_brightness_fail(test_charger_new, mock_aioclient, caplog):
@@ -1172,6 +1197,34 @@ async def test_update_firmware_auto(test_charger, mock_aioclient, caplog):
         assert test_charger.ota_update is True
 
 
+async def test_update_firmware_auto_github_token(test_charger, mock_aioclient):
+    """Test update_firmware forwards github_token to firmware_check."""
+    test_charger._config = {"version": "4.1.7", "buildenv": "openevse_esp32-gateway"}
+    github_response = {
+        "tag_name": "v4.1.2",
+        "body": "release notes",
+        "html_url": "https://github.com/OpenEVSE/releases/v4.1.2",
+        "assets": [
+            {
+                "name": "openevse_esp32-gateway.bin",
+                "browser_download_url": "https://github.com/OpenEVSE/releases/download/v4.1.2/openevse_esp32-gateway.bin",
+            },
+        ],
+    }
+    url = "https://api.github.com/repos/OpenEVSE/ESP32_WiFi_V4.x/releases/latest"
+    mock_aioclient.get(url, status=200, body=json.dumps(github_response))
+    mock_aioclient.post(
+        "http://openevse.test.tld/update",
+        status=200,
+        body='{"msg":"started"}',
+    )
+
+    response = await test_charger.update_firmware(github_token="ghp_firmwaretoken")
+    assert response == {"msg": "started"}
+    last_github_call = [call for call in mock_aioclient.requests if call[1] == url][-1]
+    assert last_github_call[2]["headers"]["Authorization"] == "Bearer ghp_firmwaretoken"
+
+
 async def test_update_firmware_auto_missing_buildenv(
     test_charger, mock_aioclient, caplog
 ):
@@ -1415,3 +1468,1308 @@ async def test_set_rfid_enabled(test_charger, test_charger_new, mock_aioclient, 
     )
     with pytest.raises(CommandFailedError):
         await test_charger_new.set_rfid_enabled(True)
+
+
+# ── run_stuck_relay_recovery ─────────────────────────────────────────
+
+
+async def test_run_stuck_relay_recovery_http(test_charger_new, mock_aioclient, caplog):
+    """Test run_stuck_relay_recovery via HTTP on v5.1.0+ with controller 9.3.0+."""
+    await test_charger_new.update()
+
+    # Older controller firmware (< 9.3.0) raises UnsupportedFeature
+    with pytest.raises(
+        UnsupportedFeature, match="requires OpenEVSE controller firmware 9.3.0"
+    ):
+        await test_charger_new.run_stuck_relay_recovery()
+
+    # Update controller firmware to 9.3.0
+    test_charger_new._config["firmware"] = "9.3.0"
+
+    # Success
+    mock_aioclient.post(
+        TEST_URL_RELAY_RECOVERY,
+        status=200,
+        body='{"msg": "done"}',
+        headers={"Content-Type": "application/json"},
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger_new.run_stuck_relay_recovery()
+    assert "Running stuck-relay recovery via HTTP" in caplog.text
+    last_req = mock_aioclient.requests[-1]
+    headers = last_req[2].get("headers", {})
+    assert headers.get("X-Requested-With") == "OpenEVSE"
+    assert "python-openevse-http" in headers.get("User-Agent", "")
+
+    # Failure
+    mock_aioclient.post(
+        TEST_URL_RELAY_RECOVERY,
+        status=200,
+        body='{"msg": "error"}',
+    )
+    with pytest.raises(
+        CommandFailedError, match="Problem running stuck-relay recovery"
+    ):
+        await test_charger_new.run_stuck_relay_recovery()
+
+
+async def test_run_stuck_relay_recovery_rapi(test_charger, mock_aioclient, caplog):
+    """Test run_stuck_relay_recovery via RAPI on older gateway firmware with controller 9.3.0+."""
+    await test_charger.update()
+
+    # Controller firmware 7.1.3 (< 9.3.0) raises UnsupportedFeature
+    with pytest.raises(
+        UnsupportedFeature, match="requires OpenEVSE controller firmware 9.3.0"
+    ):
+        await test_charger.run_stuck_relay_recovery()
+
+    # Update controller firmware to 9.3.1
+    test_charger._config["firmware"] = "9.3.1"
+
+    # Success
+    mock_aioclient.post(
+        TEST_URL_RAPI,
+        status=200,
+        body='{"cmd": "OK", "ret": "$OK"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger.run_stuck_relay_recovery()
+    assert "Running stuck-relay recovery via RAPI" in caplog.text
+
+    # Failure ($NK when EV is connected)
+    mock_aioclient.post(
+        TEST_URL_RAPI,
+        status=200,
+        body='{"cmd": "NK", "ret": "$NK"}',
+    )
+    with pytest.raises(
+        CommandFailedError, match="Problem running stuck-relay recovery via RAPI"
+    ):
+        await test_charger.run_stuck_relay_recovery()
+
+    # Failure (RAPI queue error)
+    mock_aioclient.post(
+        TEST_URL_RAPI,
+        status=200,
+        body='{"cmd": false, "msg": "RAPI_RESPONSE_QUEUE_FULL"}',
+    )
+    with pytest.raises(
+        CommandFailedError, match="Problem running stuck-relay recovery via RAPI"
+    ):
+        await test_charger.run_stuck_relay_recovery()
+
+
+# ── reset_relay_health ───────────────────────────────────────────────
+
+
+async def test_reset_relay_health_http(test_charger_new, mock_aioclient, caplog):
+    """Test reset_relay_health via HTTP on v5.1.0+ with controller 9.3.0+."""
+    await test_charger_new.update()
+
+    # Older controller firmware (< 9.3.0) raises UnsupportedFeature
+    with pytest.raises(
+        UnsupportedFeature, match="requires OpenEVSE controller firmware 9.3.0"
+    ):
+        await test_charger_new.reset_relay_health()
+
+    # Update controller firmware to 9.3.0
+    test_charger_new._config["firmware"] = "9.3.0"
+
+    # Success
+    mock_aioclient.post(
+        TEST_URL_RELAY_RESET,
+        status=200,
+        body='{"msg": "done"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger_new.reset_relay_health()
+    assert "Resetting relay health via HTTP" in caplog.text
+    last_req = mock_aioclient.requests[-1]
+    headers = last_req[2].get("headers", {})
+    assert headers.get("X-Requested-With") == "OpenEVSE"
+    assert "python-openevse-http" in headers.get("User-Agent", "")
+
+    # Failure
+    mock_aioclient.post(
+        TEST_URL_RELAY_RESET,
+        status=200,
+        body='{"msg": "error"}',
+    )
+    with pytest.raises(CommandFailedError, match="Problem resetting relay health"):
+        await test_charger_new.reset_relay_health()
+
+
+async def test_reset_relay_health_rapi(test_charger, mock_aioclient, caplog):
+    """Test reset_relay_health via RAPI on older gateway firmware with controller 9.3.0+."""
+    await test_charger.update()
+
+    # Controller firmware 7.1.3 (< 9.3.0) raises UnsupportedFeature
+    with pytest.raises(
+        UnsupportedFeature, match="requires OpenEVSE controller firmware 9.3.0"
+    ):
+        await test_charger.reset_relay_health()
+
+    # Update controller firmware to 9.3.0
+    test_charger._config["firmware"] = "9.3.0"
+
+    # Success
+    mock_aioclient.post(
+        TEST_URL_RAPI,
+        status=200,
+        body='{"cmd": "OK", "ret": "$OK"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger.reset_relay_health()
+    assert "Resetting relay health via RAPI" in caplog.text
+
+    # Failure ($NK)
+    mock_aioclient.post(
+        TEST_URL_RAPI,
+        status=200,
+        body='{"cmd": "NK", "ret": "$NK"}',
+    )
+    with pytest.raises(
+        CommandFailedError, match="Problem resetting relay health via RAPI"
+    ):
+        await test_charger.reset_relay_health()
+
+    # Failure (RAPI queue error)
+    mock_aioclient.post(
+        TEST_URL_RAPI,
+        status=200,
+        body='{"cmd": false, "msg": "RAPI_RESPONSE_TIMEOUT"}',
+    )
+    with pytest.raises(
+        CommandFailedError, match="Problem resetting relay health via RAPI"
+    ):
+        await test_charger.reset_relay_health()
+
+
+# ── cable_temp ───────────────────────────────────────────────────────
+
+
+async def test_get_cable_temp(test_charger, test_charger_new, mock_aioclient, caplog):
+    """Test get_cable_temp endpoint."""
+    await test_charger.update()
+
+    # Controller firmware < 9.4.0 raises UnsupportedFeature
+    with pytest.raises(
+        UnsupportedFeature, match="requires OpenEVSE controller firmware 9.4.0"
+    ):
+        await test_charger.get_cable_temp()
+
+    test_charger._config["firmware"] = "9.4.0"
+    # Gateway firmware < 5.1.0 raises UnsupportedFeature
+    with pytest.raises(UnsupportedFeature, match="requires gateway firmware 5.1.0"):
+        await test_charger.get_cable_temp()
+
+    await test_charger_new.update()
+    test_charger_new._config["firmware"] = "9.4.0"
+
+    # Success
+    payload = {
+        "supported": True,
+        "enabled": True,
+        "sources": [
+            {
+                "source": 0,
+                "name": "ev1",
+                "pin": 2,
+                "status": 0,
+                "temperature": 45.2,
+                "r25": 10000,
+                "beta": 3443,
+                "offset_c10": 0,
+                "panic_c10": 900,
+            }
+        ],
+    }
+    mock_aioclient.get(
+        TEST_URL_CABLE_TEMP,
+        status=200,
+        body=json.dumps(payload),
+    )
+    result = await test_charger_new.get_cable_temp()
+    assert result["supported"] is True
+    assert result["sources"][0]["name"] == "ev1"
+
+    # Invalid non-dict response
+    mock_aioclient.get(
+        TEST_URL_CABLE_TEMP,
+        status=200,
+        body="invalid non json",
+    )
+    with pytest.raises(CommandFailedError, match="Invalid response from /cabletemp"):
+        await test_charger_new.get_cable_temp()
+
+
+async def test_set_cable_temp(test_charger, test_charger_new, mock_aioclient):
+    """Test set_cable_temp command."""
+    await test_charger.update()
+    with pytest.raises(
+        UnsupportedFeature, match="requires OpenEVSE controller firmware 9.4.0"
+    ):
+        await test_charger.set_cable_temp(0, 1)
+
+    test_charger._config["firmware"] = "9.4.0"
+    with pytest.raises(UnsupportedFeature, match="requires gateway firmware 5.1.0"):
+        await test_charger.set_cable_temp(0, 1)
+
+    await test_charger_new.update()
+    test_charger_new._config["firmware"] = "9.4.0"
+
+    # Input validation
+    with pytest.raises(ValueError, match="source must be an integer between 0 and 3"):
+        await test_charger_new.set_cable_temp(4, 1)
+    with pytest.raises(ValueError, match="source must be an integer between 0 and 3"):
+        await test_charger_new.set_cable_temp(True, 1)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="pin must be an integer between 0 and 2"):
+        await test_charger_new.set_cable_temp(0, 3)
+
+    # Incomplete calibration parameters
+    with pytest.raises(ValueError, match="must all be provided together"):
+        await test_charger_new.set_cable_temp(0, 1, r25=10000, beta=3443)
+
+    # Type check calibration parameters
+    with pytest.raises(TypeError, match="r25 must be an integer"):
+        await test_charger_new.set_cable_temp(
+            0,
+            1,
+            r25="bad",
+            beta=3443,
+            offset_c10=0,
+            panic_c10=900,  # type: ignore[arg-type]
+        )
+
+    # Success pin only
+    mock_aioclient.post(
+        TEST_URL_CABLE_TEMP,
+        status=200,
+        body='{"msg": "done"}',
+    )
+    await test_charger_new.set_cable_temp(0, 2)
+    last_req = mock_aioclient.requests[-1]
+    assert last_req[2]["json"] == {"source": 0, "pin": 2}
+    headers = last_req[2].get("headers", {})
+    assert headers.get("X-Requested-With") == "OpenEVSE"
+    assert "python-openevse-http" in headers.get("User-Agent", "")
+
+    # Success full calibration
+    mock_aioclient.post(
+        TEST_URL_CABLE_TEMP,
+        status=200,
+        body='{"msg": "done"}',
+    )
+    await test_charger_new.set_cable_temp(
+        0, 2, r25=10000, beta=3443, offset_c10=5, panic_c10=900
+    )
+    last_req = mock_aioclient.requests[-1]
+    assert last_req[2]["json"] == {
+        "source": 0,
+        "pin": 2,
+        "r25": 10000,
+        "beta": 3443,
+        "offset_c10": 5,
+        "panic_c10": 900,
+    }
+
+    # Failure response
+    mock_aioclient.post(
+        TEST_URL_CABLE_TEMP,
+        status=200,
+        body='{"msg": "error"}',
+    )
+    with pytest.raises(
+        CommandFailedError, match="Problem configuring cable temperature"
+    ):
+        await test_charger_new.set_cable_temp(0, 2)
+
+
+async def test_set_cable_temp_enabled(test_charger, test_charger_new, mock_aioclient):
+    """Test set_cable_temp_enabled command."""
+    await test_charger.update()
+    with pytest.raises(
+        UnsupportedFeature, match="requires OpenEVSE controller firmware 9.4.0"
+    ):
+        await test_charger.set_cable_temp_enabled(True)
+
+    await test_charger_new.update()
+    test_charger_new._config["firmware"] = "9.4.0"
+
+    with pytest.raises(TypeError, match="Value must be a boolean"):
+        await test_charger_new.set_cable_temp_enabled("invalid")  # type: ignore[arg-type]
+
+    # Success
+    mock_aioclient.post(
+        TEST_URL_CONFIG,
+        status=200,
+        body='{"msg": "OK"}',
+    )
+    await test_charger_new.set_cable_temp_enabled(True)
+    assert test_charger_new._config["cable_temp"] is True
+
+    # Failure
+    mock_aioclient.post(
+        TEST_URL_CONFIG,
+        status=200,
+        body='{"msg": "error"}',
+    )
+    with pytest.raises(CommandFailedError, match="Problem toggling cable_temp"):
+        await test_charger_new.set_cable_temp_enabled(False)
+
+
+# ── time endpoints (/time, /settime, sync_time) ──────────────────────
+
+
+async def test_get_time(test_charger, test_charger_v2, mock_aioclient):
+    """Test get_time across firmware versions."""
+    await test_charger.update()
+
+    # Success on v4.x
+    mock_aioclient.get(
+        TEST_URL_TIME,
+        status=200,
+        body=json.dumps(
+            {
+                "time": "2026-03-25T15:30:00Z",
+                "offset": "-0700",
+                "time_zone": "America/Phoenix|MST7",
+                "sntp_enabled": True,
+            }
+        ),
+    )
+    res = await test_charger.get_time()
+    assert res["time"] == "2026-03-25T15:30:00Z"
+    assert res["offset"] == "-0700"
+    assert res["sntp_enabled"] is True
+
+    # Invalid response on v4.x
+    mock_aioclient.get(
+        TEST_URL_TIME,
+        status=200,
+        body="invalid json string",
+    )
+    with pytest.raises(CommandFailedError, match="Invalid response from /time"):
+        await test_charger.get_time()
+
+    # Legacy fallback on v2.x
+    await test_charger_v2.update()
+    legacy_time = await test_charger_v2.get_time()
+    assert legacy_time["time"] is None
+    assert legacy_time["offset"] is None
+
+
+async def test_set_time_v4(test_charger, mock_aioclient):
+    """Test set_time on v4.x firmware."""
+    await test_charger.update()
+
+    # Invalid argument types
+    with pytest.raises(TypeError, match="sntp must be a boolean"):
+        await test_charger.set_time(sntp="yes")  # type: ignore[arg-type]
+
+    with pytest.raises(TypeError, match="timezone_str must be a string"):
+        await test_charger.set_time(timezone_str=123)  # type: ignore[arg-type]
+
+    with pytest.raises(
+        TypeError, match="target_time must be a datetime or ISO-8601 string"
+    ):
+        await test_charger.set_time(target_time=12345)  # type: ignore[arg-type]
+
+    # Success with datetime object
+    mock_aioclient.post(
+        TEST_URL_TIME,
+        status=200,
+        body='{"msg": "done"}',
+    )
+    dt = datetime(2026, 3, 25, 12, 0, 0, tzinfo=timezone.utc)
+    await test_charger.set_time(
+        target_time=dt,
+        timezone_str="UTC0",
+        sntp=False,
+    )
+    assert test_charger._config["sntp_enabled"] is False
+    assert test_charger._config["time_zone"] == "UTC0"
+
+    # Success with string and default sntp
+    mock_aioclient.post(
+        TEST_URL_TIME,
+        status=200,
+        body='{"msg": "set"}',
+    )
+    await test_charger.set_time(
+        target_time="2026-03-25T12:00:00Z",
+        timezone_str="America/New_York|EST5EDT",
+        sntp=True,
+    )
+    assert test_charger._config["sntp_enabled"] is True
+    assert test_charger._config["time_zone"] == "America/New_York|EST5EDT"
+
+    # Success with target_time=None and sntp=False (auto UTC now)
+    mock_aioclient.post(
+        TEST_URL_TIME,
+        status=200,
+        body='{"msg": "done"}',
+    )
+    await test_charger.set_time(sntp=False)
+
+    # Failure response
+    mock_aioclient.post(
+        TEST_URL_TIME,
+        status=200,
+        body='{"msg": "error"}',
+    )
+    with pytest.raises(CommandFailedError, match="Problem setting time"):
+        await test_charger.set_time(sntp=True)
+
+
+async def test_set_time_v3(test_charger, mock_aioclient):
+    """Test set_time on legacy v3.x firmware using /settime."""
+    await test_charger.update()
+    test_charger._config["version"] = "3.3.1"
+
+    # Invalid target_time
+    with pytest.raises(
+        TypeError, match="target_time must be a datetime or ISO-8601 string"
+    ):
+        await test_charger.set_time(target_time=12345)  # type: ignore[arg-type]
+
+    # Success with datetime and sntp=False
+    mock_aioclient.post(
+        TEST_URL_SETTIME,
+        status=200,
+        body='{"msg": "done"}',
+    )
+    dt = datetime(2026, 3, 25, 15, 0, 0, tzinfo=timezone.utc)
+    await test_charger.set_time(target_time=dt, timezone_str="UTC0", sntp=False)
+
+    # Success with sntp=False and target_time=None
+    mock_aioclient.post(
+        TEST_URL_SETTIME,
+        status=200,
+        body='{"msg": "set"}',
+    )
+    await test_charger.set_time(sntp=False)
+
+    # Failure response
+    mock_aioclient.post(
+        TEST_URL_SETTIME,
+        status=200,
+        body='{"msg": "error"}',
+    )
+    with pytest.raises(CommandFailedError, match="Problem setting time"):
+        await test_charger.set_time(sntp=False)
+
+
+async def test_set_time_v2(test_charger_v2, mock_aioclient):
+    """Test set_time fallback to RAPI $S1 on legacy v2.x firmware."""
+    await test_charger_v2.update()
+
+    # Invalid string format
+    with pytest.raises(ValueError, match="Could not parse date string"):
+        await test_charger_v2.set_time(target_time="not-a-date")
+
+    with pytest.raises(
+        TypeError, match="target_time must be a datetime or ISO-8601 string"
+    ):
+        await test_charger_v2.set_time(target_time=9999)  # type: ignore[arg-type]
+
+    # Success with string
+    mock_aioclient.post(
+        TEST_URL_RAPI,
+        status=200,
+        body='{"cmd": "OK", "ret": "$OK"}',
+    )
+    await test_charger_v2.set_time(target_time="2026-03-25T15:30:45Z")
+
+    # Success with datetime
+    mock_aioclient.post(
+        TEST_URL_RAPI,
+        status=200,
+        body='{"cmd": "OK", "ret": "$OK"}',
+    )
+    dt = datetime(2026, 3, 25, 15, 30, 45, tzinfo=timezone.utc)
+    await test_charger_v2.set_time(target_time=dt)
+
+    # Success with target_time=None (auto UTC now)
+    mock_aioclient.post(
+        TEST_URL_RAPI,
+        status=200,
+        body='{"cmd": "OK", "ret": "$OK"}',
+    )
+    await test_charger_v2.set_time(target_time=None)
+
+    # Failure with RAPI rejection
+    mock_aioclient.post(
+        TEST_URL_RAPI,
+        status=200,
+        body='{"cmd": "NK", "ret": "$NK"}',
+    )
+    with pytest.raises(CommandFailedError, match="Problem setting RTC via RAPI"):
+        await test_charger_v2.set_time(target_time=dt)
+
+
+async def test_sync_time_unsupported(test_charger_v2):
+    """Test sync_time on older firmware raises UnsupportedFeature."""
+    await test_charger_v2.update()
+    with pytest.raises(
+        UnsupportedFeature, match="sync_time requires gateway firmware 4.0.0 or higher"
+    ):
+        await test_charger_v2.sync_time()
+
+
+async def test_sync_time(test_charger, mock_aioclient):
+    """Test sync_time command on supported firmware."""
+    await test_charger.update()
+
+    # Success
+    mock_aioclient.post(
+        TEST_URL_TIME,
+        status=200,
+        body='{"msg": "done"}',
+    )
+    await test_charger.sync_time()
+
+    # Failure
+    mock_aioclient.post(
+        TEST_URL_TIME,
+        status=200,
+        body='{"msg": "error"}',
+    )
+    with pytest.raises(CommandFailedError, match="Problem triggering NTP sync"):
+        await test_charger.sync_time()
+
+
+# ── logs endpoint (/logs, /logs/{index}) ─────────────────────────────
+
+
+async def test_get_logs_unsupported(test_charger_v2):
+    """Test get_logs on older firmware raises UnsupportedFeature."""
+    await test_charger_v2.update()
+    with pytest.raises(
+        UnsupportedFeature, match="get_logs requires gateway firmware 4.0.0 or higher"
+    ):
+        await test_charger_v2.get_logs()
+
+
+async def test_get_logs(test_charger, mock_aioclient):
+    """Test get_logs endpoint on supported firmware."""
+    await test_charger.update()
+
+    # Invalid index type
+    with pytest.raises(TypeError, match="index must be an integer"):
+        await test_charger.get_logs(index="0")  # type: ignore[arg-type]
+
+    with pytest.raises(TypeError, match="index must be an integer"):
+        await test_charger.get_logs(index=True)  # type: ignore[arg-type]
+
+    # Success: block index range (index is None)
+    mock_aioclient.get(
+        TEST_URL_LOGS,
+        status=200,
+        body=json.dumps({"min": 0, "max": 15}),
+    )
+    res_range = await test_charger.get_logs()
+    assert res_range == {"min": 0, "max": 15}
+
+    # Invalid non-dict response for block index range
+    mock_aioclient.get(
+        TEST_URL_LOGS,
+        status=200,
+        body="invalid response",
+    )
+    with pytest.raises(CommandFailedError, match="Invalid response from /logs"):
+        await test_charger.get_logs()
+
+    # Success: specific log event block
+    events = [
+        {
+            "time": "2026-03-25T15:30:00Z",
+            "type": "notification",
+            "evseState": 1,
+            "pilot": 32,
+            "energy": 12500,
+        },
+        {
+            "time": "2026-03-25T15:35:00Z",
+            "type": "information",
+            "evseState": 2,
+            "pilot": 32,
+            "energy": 12600,
+        },
+    ]
+    mock_aioclient.get(
+        f"{TEST_URL_LOGS}/2",
+        status=200,
+        body=json.dumps(events),
+    )
+    res_events = await test_charger.get_logs(index=2)
+    assert len(res_events) == 2
+    assert res_events[0]["type"] == "notification"
+    assert res_events[1]["pilot"] == 32
+
+    # Invalid non-list response for specific block
+    mock_aioclient.get(
+        f"{TEST_URL_LOGS}/3",
+        status=200,
+        body='{"msg": "not a list"}',
+    )
+    with pytest.raises(CommandFailedError, match="Invalid response from /logs/3"):
+        await test_charger.get_logs(index=3)
+
+
+# ── certificates ─────────────────────────────────────────────────────
+
+
+async def test_certificates_unsupported(test_charger_v2):
+    """Test certificate methods on older firmware raise UnsupportedFeature."""
+    await test_charger_v2.update()
+
+    with pytest.raises(
+        UnsupportedFeature,
+        match="get_certificates requires gateway firmware 4.0.0 or higher",
+    ):
+        await test_charger_v2.get_certificates()
+
+    with pytest.raises(
+        UnsupportedFeature,
+        match="get_root_ca requires gateway firmware 4.0.0 or higher",
+    ):
+        await test_charger_v2.get_root_ca()
+
+    with pytest.raises(
+        UnsupportedFeature,
+        match="add_certificate requires gateway firmware 4.0.0 or higher",
+    ):
+        await test_charger_v2.add_certificate("test", "cert")
+
+    with pytest.raises(
+        UnsupportedFeature,
+        match="delete_certificate requires gateway firmware 4.0.0 or higher",
+    ):
+        await test_charger_v2.delete_certificate("133e62267a1a5cf8")
+
+
+async def test_get_certificates(test_charger, mock_aioclient, caplog):
+    """Test get_certificates for all certificates and specific certificate."""
+    await test_charger.update()
+
+    # 1. Validation errors
+    with pytest.raises(TypeError, match="certificate_id must be a non-empty string"):
+        await test_charger.get_certificates(certificate_id="")
+    with pytest.raises(TypeError, match="certificate_id must be a non-empty string"):
+        await test_charger.get_certificates(certificate_id=123)  # type: ignore
+
+    # 2. Get all certificates list
+    certs_list = [
+        {
+            "id": "133e62267a1a5cf8",
+            "type": "client",
+            "name": "Self Signed Test",
+            "certificate": "-----BEGIN CERTIFICATE-----\n...",
+            "key": "__REDACTED__",
+        },
+        {
+            "id": "1154b5ac394",
+            "type": "root",
+            "name": "GlobalSign",
+            "certificate": "-----BEGIN CERTIFICATE-----\n...",
+        },
+    ]
+    mock_aioclient.get(
+        TEST_URL_CERTIFICATES,
+        status=200,
+        body=json.dumps(certs_list),
+    )
+    with caplog.at_level(logging.DEBUG):
+        result = await test_charger.get_certificates()
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert result[0]["id"] == "133e62267a1a5cf8"
+    assert "Querying certificates: http://openevse.test.tld/certificates" in caplog.text
+
+    # 3. Invalid non-list response for all certificates
+    mock_aioclient.get(
+        TEST_URL_CERTIFICATES,
+        status=200,
+        body='{"msg": "unexpected dict"}',
+    )
+    with pytest.raises(CommandFailedError, match="Invalid response from /certificates"):
+        await test_charger.get_certificates()
+
+    # 4. Get specific certificate by ID
+    single_cert = certs_list[0]
+    mock_aioclient.get(
+        f"{TEST_URL_CERTIFICATES}/133e62267a1a5cf8",
+        status=200,
+        body=json.dumps(single_cert),
+    )
+    with caplog.at_level(logging.DEBUG):
+        single_res = await test_charger.get_certificates(
+            certificate_id="133e62267a1a5cf8"
+        )
+    assert isinstance(single_res, dict)
+    assert single_res["name"] == "Self Signed Test"
+
+    # 5. Invalid non-dict response for single certificate
+    mock_aioclient.get(
+        f"{TEST_URL_CERTIFICATES}/bad_cert",
+        status=200,
+        body="[1, 2, 3]",
+    )
+    with pytest.raises(
+        CommandFailedError, match="Invalid response from /certificates/bad_cert"
+    ):
+        await test_charger.get_certificates(certificate_id="bad_cert")
+
+
+async def test_get_root_ca(test_charger, mock_aioclient, caplog):
+    """Test get_root_ca retrieving root CA bundle text."""
+    await test_charger.update()
+
+    pem_bundle = (
+        "-----BEGIN CERTIFICATE-----\nROOT_CA_1\n-----END CERTIFICATE-----\n"
+        "-----BEGIN CERTIFICATE-----\nROOT_CA_2\n-----END CERTIFICATE-----\n"
+    )
+    mock_aioclient.get(
+        f"{TEST_URL_CERTIFICATES}/root",
+        status=200,
+        body=pem_bundle,
+    )
+    with caplog.at_level(logging.DEBUG):
+        root_ca = await test_charger.get_root_ca()
+    assert root_ca == pem_bundle
+    assert "Querying root CA certificates" in caplog.text
+
+    # Invalid non-str response
+    mock_aioclient.get(
+        f"{TEST_URL_CERTIFICATES}/root",
+        status=200,
+        body='{"error": "bad"}',
+    )
+    # Note: If JSON body is returned and auto-parsed as dict, get_root_ca raises CommandFailedError
+    with pytest.raises(
+        CommandFailedError, match="Invalid response from /certificates/root"
+    ):
+        await test_charger.get_root_ca()
+
+
+async def test_add_certificate(test_charger, mock_aioclient, caplog):
+    """Test add_certificate for root CA and client cert with private key."""
+    await test_charger.update()
+
+    # 1. Type validation
+    with pytest.raises(TypeError, match="name must be a non-empty string"):
+        await test_charger.add_certificate("", "cert")
+    with pytest.raises(TypeError, match="certificate must be a non-empty string"):
+        await test_charger.add_certificate("test", "")
+    with pytest.raises(TypeError, match="key must be a non-empty string or None"):
+        await test_charger.add_certificate("test", "cert", key="")
+
+    # 2. Add root certificate (no key)
+    mock_aioclient.post(
+        TEST_URL_CERTIFICATES,
+        status=200,
+        body='{"id": "1154b5ac394", "msg": "done"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        res = await test_charger.add_certificate(
+            name="My Root CA", certificate="-----BEGIN CERTIFICATE-----\n..."
+        )
+    assert res["id"] == "1154b5ac394"
+    assert res["msg"] == "done"
+    assert "Adding certificate 'My Root CA'" in caplog.text
+
+    # 3. Add client certificate (with key)
+    mock_aioclient.post(
+        TEST_URL_CERTIFICATES,
+        status=200,
+        body='{"id": "133e62267a1a5cf8", "msg": "done"}',
+    )
+    res_client = await test_charger.add_certificate(
+        name="Client Cert",
+        certificate="-----BEGIN CERTIFICATE-----\n...",
+        key="-----BEGIN PRIVATE KEY-----\n...",
+    )
+    assert res_client["id"] == "133e62267a1a5cf8"
+
+    # 4. Error response
+    mock_aioclient.post(
+        TEST_URL_CERTIFICATES,
+        status=200,
+        body='{"msg": "Could not add certificate"}',
+    )
+    with pytest.raises(
+        CommandFailedError,
+        match="Problem adding certificate: {'msg': 'Could not add certificate'}",
+    ):
+        await test_charger.add_certificate("bad", "bad_cert")
+
+
+async def test_delete_certificate(test_charger, mock_aioclient, caplog):
+    """Test delete_certificate."""
+    await test_charger.update()
+
+    # 1. Type validation
+    with pytest.raises(TypeError, match="certificate_id must be a non-empty string"):
+        await test_charger.delete_certificate("")
+    with pytest.raises(TypeError, match="certificate_id must be a non-empty string"):
+        await test_charger.delete_certificate(12345)  # type: ignore
+
+    # 2. Successful deletion
+    mock_aioclient.delete(
+        f"{TEST_URL_CERTIFICATES}/133e62267a1a5cf8",
+        status=200,
+        body='{"msg": "done"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger.delete_certificate("133e62267a1a5cf8")
+    assert (
+        "Deleting certificate http://openevse.test.tld/certificates/133e62267a1a5cf8"
+        in caplog.text
+    )
+
+    # 3. Failed deletion
+    mock_aioclient.delete(
+        f"{TEST_URL_CERTIFICATES}/not_found",
+        status=404,
+        body='{"msg": "Not found"}',
+    )
+    with pytest.raises(
+        CommandFailedError, match="Problem deleting certificate: {'msg': 'Not found'}"
+    ):
+        await test_charger.delete_certificate("not_found")
+
+
+# ── rfid endpoints ───────────────────────────────────────────────────
+
+
+async def test_add_rfid_tag(test_charger, test_charger_v2, mock_aioclient, caplog):
+    """Test add_rfid_tag."""
+    await test_charger.update()
+    await test_charger_v2.update()
+
+    # 1. Firmware version check (requires >= 4.0.0)
+    with pytest.raises(
+        UnsupportedFeature, match="add_rfid_tag requires gateway firmware 4.0.0"
+    ):
+        await test_charger_v2.add_rfid_tag()
+
+    # 2. Successful add tag mode
+    mock_aioclient.post(
+        TEST_URL_RFID_ADD,
+        status=200,
+        body='{"msg": "OK"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger.add_rfid_tag()
+    assert (
+        "Triggering RFID add tag mode: http://openevse.test.tld/rfid/add" in caplog.text
+    )
+
+    # 3. Failed add tag mode
+    mock_aioclient.post(
+        TEST_URL_RFID_ADD,
+        status=500,
+        body='{"msg": "Failed"}',
+    )
+    with pytest.raises(
+        CommandFailedError, match="Problem adding RFID tag: {'msg': 'Failed'}"
+    ):
+        await test_charger.add_rfid_tag()
+
+
+async def test_get_rfid_users(test_charger, test_charger_new, mock_aioclient, caplog):
+    """Test get_rfid_users."""
+    await test_charger.update()
+    await test_charger_new.update()
+
+    # 1. Firmware version check (requires >= 5.0.0)
+    with pytest.raises(
+        UnsupportedFeature, match="get_rfid_users requires gateway firmware 5.0.0"
+    ):
+        await test_charger.get_rfid_users()
+
+    # 2. Successful fetch
+    users_data = {
+        "01020304": "Alice",
+        "05060708": "Bob",
+    }
+    mock_aioclient.get(
+        TEST_URL_RFID_USERS,
+        status=200,
+        body=json.dumps(users_data),
+    )
+    with caplog.at_level(logging.DEBUG):
+        result = await test_charger_new.get_rfid_users()
+    assert result == {"01020304": "Alice", "05060708": "Bob"}
+    assert "Fetching RFID users from http://openevse.test.tld/rfid/users" in caplog.text
+
+    # 3. Invalid non-mapping response
+    mock_aioclient.get(
+        TEST_URL_RFID_USERS,
+        status=200,
+        body="invalid",
+    )
+    with pytest.raises(
+        CommandFailedError,
+        match="Invalid response format for /rfid/users: invalid",
+    ):
+        await test_charger_new.get_rfid_users()
+
+
+async def test_set_rfid_user(test_charger, test_charger_new, mock_aioclient, caplog):
+    """Test set_rfid_user."""
+    await test_charger.update()
+    await test_charger_new.update()
+
+    # 1. Firmware version check (requires >= 5.0.0)
+    with pytest.raises(
+        UnsupportedFeature, match="set_rfid_user requires gateway firmware 5.0.0"
+    ):
+        await test_charger.set_rfid_user("01020304", "Alice")
+
+    # 2. Input validation
+    with pytest.raises(TypeError, match="rfid must be a non-empty string."):
+        await test_charger_new.set_rfid_user("", "Alice")
+    with pytest.raises(TypeError, match="rfid must be a non-empty string."):
+        await test_charger_new.set_rfid_user(12345, "Alice")  # type: ignore
+    with pytest.raises(TypeError, match="name must be a non-empty string."):
+        await test_charger_new.set_rfid_user("01020304", "")
+    with pytest.raises(TypeError, match="name must be a non-empty string."):
+        await test_charger_new.set_rfid_user("01020304", None)  # type: ignore
+
+    # 3. Successful set user
+    mock_aioclient.post(
+        TEST_URL_RFID_USERS,
+        status=200,
+        body='{"msg": "User name saved"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger_new.set_rfid_user("01020304", "Alice")
+    assert "Setting RFID user 'Alice' for tag '01020304'" in caplog.text
+
+    # 4. Failed set user
+    mock_aioclient.post(
+        TEST_URL_RFID_USERS,
+        status=500,
+        body='{"msg": "Failed"}',
+    )
+    with pytest.raises(
+        CommandFailedError, match="Problem setting RFID user: {'msg': 'Failed'}"
+    ):
+        await test_charger_new.set_rfid_user("01020304", "Alice")
+
+
+async def test_delete_rfid_user(test_charger, test_charger_new, mock_aioclient, caplog):
+    """Test delete_rfid_user."""
+    await test_charger.update()
+    await test_charger_new.update()
+
+    # 1. Firmware version check (requires >= 5.0.0)
+    with pytest.raises(
+        UnsupportedFeature, match="delete_rfid_user requires gateway firmware 5.0.0"
+    ):
+        await test_charger.delete_rfid_user("01020304")
+
+    # 2. Input validation
+    with pytest.raises(TypeError, match="rfid must be a non-empty string."):
+        await test_charger_new.delete_rfid_user("")
+    with pytest.raises(TypeError, match="rfid must be a non-empty string."):
+        await test_charger_new.delete_rfid_user(12345)  # type: ignore
+
+    # 3. Successful delete user
+    mock_aioclient.delete(
+        f"{TEST_URL_RFID_USERS}?rfid=01020304",
+        status=200,
+        body='{"msg": "User name removed"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger_new.delete_rfid_user("01020304")
+    assert "Deleting RFID user for tag '01020304'" in caplog.text
+
+    # 4. Failed delete user
+    mock_aioclient.delete(
+        f"{TEST_URL_RFID_USERS}?rfid=01020304",
+        status=500,
+        body='{"msg": "Failed"}',
+    )
+    with pytest.raises(
+        CommandFailedError, match="Problem deleting RFID user: {'msg': 'Failed'}"
+    ):
+        await test_charger_new.delete_rfid_user("01020304")
+
+
+# ── schedule commands ────────────────────────────────────────────────
+
+
+async def test_get_schedule(test_charger, test_charger_v2, mock_aioclient, caplog):
+    """Test get_schedule across scenarios."""
+    await test_charger.update()
+    await test_charger_v2.update()
+
+    # 1. Firmware version check (requires >= 4.0.0)
+    with pytest.raises(
+        UnsupportedFeature, match="get_schedule requires gateway firmware 4.0.0"
+    ):
+        await test_charger_v2.get_schedule()
+
+    # 2. Input validation for event_id
+    with pytest.raises(TypeError, match="event_id must be an integer."):
+        await test_charger.get_schedule(event_id="invalid")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="event_id must be an integer."):
+        await test_charger.get_schedule(event_id=True)  # type: ignore[arg-type]
+
+    # 3. GET /schedule success (list of events)
+    schedule_data = [
+        {"id": 1, "state": "active", "time": "01:00:00", "days": ["Monday", "Tuesday"]},
+        {
+            "id": 2,
+            "state": "disabled",
+            "time": "06:00:00",
+            "days": ["Monday", "Tuesday"],
+        },
+    ]
+    mock_aioclient.get(
+        TEST_URL_SCHEDULE,
+        status=200,
+        body=json.dumps(schedule_data),
+    )
+    with caplog.at_level(logging.DEBUG):
+        result = await test_charger.get_schedule()
+    assert result == schedule_data
+    assert "Getting schedule from http://openevse.test.tld/schedule" in caplog.text
+
+    # 4. GET /schedule/{event_id} success (single event dict)
+    single_event = {
+        "id": 1,
+        "state": "active",
+        "time": "01:00:00",
+        "days": ["Monday", "Tuesday"],
+    }
+    mock_aioclient.get(
+        f"{TEST_URL_SCHEDULE}/1",
+        status=200,
+        body=json.dumps(single_event),
+    )
+    result_event = await test_charger.get_schedule(event_id=1)
+    assert result_event == single_event
+
+    # 5. GET /schedule/{event_id} not found
+    mock_aioclient.get(
+        f"{TEST_URL_SCHEDULE}/99",
+        status=404,
+        body='{"msg":"Not found"}',
+    )
+    with pytest.raises(
+        CommandFailedError, match="Schedule event not found: {'msg': 'Not found'}"
+    ):
+        await test_charger.get_schedule(event_id=99)
+
+    # 6. Fallback from GET (405 Method Not Allowed) to POST
+    mock_aioclient.get(
+        TEST_URL_SCHEDULE,
+        status=405,
+        body='{"msg":"Method not allowed"}',
+    )
+    mock_aioclient.post(
+        TEST_URL_SCHEDULE,
+        status=200,
+        body=json.dumps(schedule_data),
+    )
+    result_fallback = await test_charger.get_schedule()
+    assert result_fallback == schedule_data
+
+    # 7. Invalid non-collection response format
+    mock_aioclient.get(
+        TEST_URL_SCHEDULE,
+        status=200,
+        body="invalid",
+    )
+    with pytest.raises(
+        CommandFailedError, match="Invalid response format for /schedule: invalid"
+    ):
+        await test_charger.get_schedule()
+
+
+async def test_set_schedule(test_charger, test_charger_v2, mock_aioclient, caplog):
+    """Test set_schedule across scenarios."""
+    await test_charger.update()
+    await test_charger_v2.update()
+
+    # 1. Firmware version check (requires >= 4.0.0)
+    with pytest.raises(
+        UnsupportedFeature, match="set_schedule requires gateway firmware 4.0.0"
+    ):
+        await test_charger_v2.set_schedule(
+            {"state": "active", "time": "01:00:00", "days": ["Monday"]}
+        )
+
+    # 2. Input validation
+    with pytest.raises(TypeError, match="event_id must be an integer."):
+        await test_charger.set_schedule({"state": "active"}, event_id="invalid")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="event_id must be an integer."):
+        await test_charger.set_schedule({"state": "active"}, event_id=False)  # type: ignore[arg-type]
+    with pytest.raises(
+        TypeError, match="event must be a mapping when event_id is specified."
+    ):
+        await test_charger.set_schedule(["not", "a", "mapping"], event_id=1)  # type: ignore[arg-type]
+    with pytest.raises(
+        TypeError, match="event must be a mapping or a list of mappings."
+    ):
+        await test_charger.set_schedule("invalid_event")  # type: ignore[arg-type]
+
+    # 3. Successful POST /schedule (single event)
+    event_payload = {
+        "id": 1,
+        "state": "active",
+        "time": "02:00:00",
+        "days": ["Wednesday"],
+    }
+    mock_aioclient.post(
+        TEST_URL_SCHEDULE,
+        status=200,
+        body='{"msg": "done"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger.set_schedule(event_payload)
+    assert "Setting schedule on http://openevse.test.tld/schedule" in caplog.text
+
+    # 4. Successful POST /schedule/{event_id} (update specific event)
+    mock_aioclient.post(
+        f"{TEST_URL_SCHEDULE}/1",
+        status=200,
+        body='{"msg": "done"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger.set_schedule(event_payload, event_id=1)
+    assert "Setting schedule on http://openevse.test.tld/schedule/1" in caplog.text
+
+    # 5. Successful POST /schedule (batch list of events)
+    batch_payload = [
+        {"id": 1, "state": "active", "time": "01:00:00", "days": ["Monday"]},
+        {"id": 2, "state": "disabled", "time": "07:00:00", "days": ["Monday"]},
+    ]
+    mock_aioclient.post(
+        TEST_URL_SCHEDULE,
+        status=200,
+        body='{"msg": "done"}',
+    )
+    await test_charger.set_schedule(batch_payload)
+
+    # 6. Successful POST /schedule with empty list (clearing schedule batch)
+    mock_aioclient.post(
+        TEST_URL_SCHEDULE,
+        status=200,
+        body='{"msg": "done"}',
+    )
+    await test_charger.set_schedule([])
+
+    # 7. Failed POST /schedule
+    mock_aioclient.post(
+        TEST_URL_SCHEDULE,
+        status=500,
+        body='{"msg": "Could not parse JSON"}',
+    )
+    with pytest.raises(
+        CommandFailedError,
+        match="Problem setting schedule: {'msg': 'Could not parse JSON'}",
+    ):
+        await test_charger.set_schedule(event_payload)
+
+
+async def test_delete_schedule(test_charger, test_charger_v2, mock_aioclient, caplog):
+    """Test delete_schedule across scenarios."""
+    await test_charger.update()
+    await test_charger_v2.update()
+
+    # 1. Firmware version check (requires >= 4.0.0)
+    with pytest.raises(
+        UnsupportedFeature, match="delete_schedule requires gateway firmware 4.0.0"
+    ):
+        await test_charger_v2.delete_schedule(1)
+
+    # 2. Input validation
+    with pytest.raises(TypeError, match="event_id must be an integer."):
+        await test_charger.delete_schedule("1")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="event_id must be an integer."):
+        await test_charger.delete_schedule(True)  # type: ignore[arg-type]
+
+    # 3. Successful DELETE /schedule/{event_id}
+    mock_aioclient.delete(
+        f"{TEST_URL_SCHEDULE}/1",
+        status=200,
+        body='{"msg": "done"}',
+    )
+    with caplog.at_level(logging.DEBUG):
+        await test_charger.delete_schedule(1)
+    assert (
+        "Deleting schedule event 1 on http://openevse.test.tld/schedule/1"
+        in caplog.text
+    )
+
+    # 4. Failed DELETE (404 Not found)
+    mock_aioclient.delete(
+        f"{TEST_URL_SCHEDULE}/99",
+        status=404,
+        body='{"msg": "Not found"}',
+    )
+    with pytest.raises(
+        CommandFailedError,
+        match="Problem deleting schedule event 99: {'msg': 'Not found'}",
+    ):
+        await test_charger.delete_schedule(99)
+
+
+async def test_get_schedule_plan(test_charger, test_charger_v2, mock_aioclient, caplog):
+    """Test get_schedule_plan across scenarios."""
+    await test_charger.update()
+    await test_charger_v2.update()
+
+    # 1. Firmware version check (requires >= 4.1.0)
+    with pytest.raises(
+        UnsupportedFeature, match="get_schedule_plan requires gateway firmware 4.1.0"
+    ):
+        await test_charger_v2.get_schedule_plan()
+
+    # 2. Successful GET /schedule/plan
+    plan_data = {
+        "current_day": "Monday",
+        "current_offset": 3600,
+        "next_event_delay": 7200,
+        "current_event": {
+            "id": 1,
+            "state": "active",
+            "time": "01:00:00",
+            "day": "Monday",
+        },
+        "next_event": {
+            "id": 2,
+            "state": "disabled",
+            "time": "03:00:00",
+            "day": "Monday",
+        },
+        "Monday": [{"id": 1, "state": "active", "time": "01:00:00"}],
+    }
+    mock_aioclient.get(
+        TEST_URL_SCHEDULE_PLAN,
+        status=200,
+        body=json.dumps(plan_data),
+    )
+    with caplog.at_level(logging.DEBUG):
+        result = await test_charger.get_schedule_plan()
+    assert result == plan_data
+    assert (
+        "Getting schedule plan from http://openevse.test.tld/schedule/plan"
+        in caplog.text
+    )
+
+    # 3. Invalid non-mapping response
+    mock_aioclient.get(
+        TEST_URL_SCHEDULE_PLAN,
+        status=200,
+        body="invalid",
+    )
+    with pytest.raises(
+        CommandFailedError, match="Invalid response format for /schedule/plan: invalid"
+    ):
+        await test_charger.get_schedule_plan()

@@ -23,6 +23,8 @@ import sys
 
 import pytest
 
+pytest.importorskip("hypothesis")  # imported by crosshair.inputgen
+
 import crosshair.core_and_libs  # noqa: F401  -- ensure patches/plugins load
 from crosshair.behavior_compare import run_differential
 from crosshair.inputgen import catalog, inputs_for
@@ -173,8 +175,6 @@ KNOWN_FAILURES = {
     # symbolic datetime methods diverge from concrete (surfaced by making the
     # datetime receiver types drivable).
     "datetime.date.__sub__": "symbolic date - datetime returns a timedelta instead of raising TypeError",
-    "datetime.date.isocalendar": "symbolic date.isocalendar() diverges from concrete (IsoCalendarDate)",
-    "datetime.datetime.isocalendar": "symbolic datetime.isocalendar() diverges from concrete (IsoCalendarDate)",
     # --- surfaced by driving optional / keyword-only arguments (the shape-list
     # refactor: an op is now driven once per call shape, including a MAXIMAL shape
     # that fills the defaulted tail).  Each is a pre-existing model gap that the
@@ -206,9 +206,6 @@ KNOWN_FAILURES = {
     # byte-range fix); the resulting array is left unrealizable.
     "array.array.extend": "symbolic array.extend skips the element range check (should raise OverflowError)",
     "array.array.fromlist": "symbolic array.fromlist skips the element range check (should raise OverflowError)",
-    # symbolic list slicing with a large negative step returns the whole list
-    # instead of the correct (often empty) slice.
-    "list.__getitem__": "symbolic list slicing diverges for a large negative step",
 }
 
 # Divergences that surface only on Windows (issue #467, the Windows op triage).

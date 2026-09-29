@@ -29,6 +29,29 @@ from matrx_ai.tools.implementations.kind_shared import (
 from matrx_ai.tools.models import ToolContext
 
 
+@pytest.fixture(autouse=True)
+def _writes_run_in_a_person_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Certified kind tables are written in the caller's RLS session (kind_shared.
+    writing_as_the_person); these unit tests hold a pass-through session and a
+    no-op admin lane. Tests that prove a refusal replace or remove it."""
+    import contextlib
+
+    import matrx_orm
+
+    from matrx_ai import _ext
+
+    @contextlib.asynccontextmanager
+    async def _session(_ctx=None):
+        yield
+
+    @contextlib.asynccontextmanager
+    async def _lane(*_a, **_k):
+        yield
+
+    monkeypatch.setitem(_ext._registry, "acting_as_caller", _session)
+    monkeypatch.setattr(matrx_orm, "admin_lane", _lane, raising=False)
+
+
 def make_ctx() -> ToolContext:
     return ToolContext(call_id=str(uuid4()), tool_name="test")
 

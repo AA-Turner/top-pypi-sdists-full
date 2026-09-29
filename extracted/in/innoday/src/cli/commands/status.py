@@ -18,6 +18,7 @@ from rich.table import Table
 
 from src.cli.client import APIError, InnoDayAPIClient
 from src.cli.config import CLIConfig
+from src.cli.utils import guidance
 from src.cli.utils.formatters import format_datetime, format_error
 from src.cli.utils.presentation import (
     make_console,
@@ -106,6 +107,27 @@ class StatusCommands:
             else:
                 console.print(format_error(message))
             return 1
+
+        # A token but no stored identity -- e.g. right after a fresh config,
+        # which is what a set-aside unreadable one leaves (PF-466). Ask the API
+        # who the token is, as `whoami` does, instead of showing "None <None>"
+        # and empty tables (PF-468).
+        if has_token and not user_info.get("id"):
+            from src.cli.commands.session import _fetch_me, _persist_user
+
+            me = await _fetch_me(
+                api_url, config.get_cli_token(), config.get_team_secret()
+            )
+            if me:
+                _persist_user(config, me)
+                user_info = config.get_user_info()
+            else:
+                message = guidance.SIGN_IN_REJECTED
+                if args.json:
+                    print(json.dumps({"error": message, "project": context_block}))
+                else:
+                    console.print(format_error(message))
+                return 1
 
         # Best-effort: which stored CLI token is active, and when it expires.
         token_block = await StatusCommands._token_info(api_url, config)

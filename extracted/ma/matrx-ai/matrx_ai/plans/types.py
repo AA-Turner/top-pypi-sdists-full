@@ -215,15 +215,14 @@ class AgentPlan(BaseModel):
 
 
 def plan_json_schema() -> dict[str, Any]:
-    """The JSON Schema a planner agent is given as its output_schema.
+    """The JSON Schema a planner agent is given as its output_schema — the
+    AUTHOR's (``AgentPlan``'s own), never the portable copy.
 
-    Routed through the provider-aware schema gate's portable derivation
-    (matrx_ai.schema) so the raw Pydantic dump — which leaves defaulted
-    fields out of ``required`` — becomes valid for OpenAI strict, Anthropic
-    and Gemini alike. Never hand-massage provider rules here.
+    Each provider translator derives its own strict wire copy at the boundary
+    (``matrx_ai.schema.lint.make_portable``), and the dispatch seam prunes the
+    answer back to THIS contract, so a defaulted field the model answers ``null``
+    arrives absent and the Pydantic default applies. A stored portable copy would
+    declare every defaulted field "required and nullable" and the seam could never
+    prune it (SCHEMA-TRANSLATION.md §13).
     """
-    from matrx_ai.schema import lint_output_schema
-
-    raw = AgentPlan.model_json_schema()
-    portable = lint_output_schema(raw).portable_schema
-    return portable if isinstance(portable, dict) else raw
+    return AgentPlan.model_json_schema()

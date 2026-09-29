@@ -1,3 +1,4 @@
+import contextlib
 import json
 import warnings
 from packaging.version import Version
@@ -15,8 +16,10 @@ from geopandas.array import from_shapely, from_wkb
 
 from .file import _expand_user
 
-METADATA_VERSION = "1.0.0"
-SUPPORTED_VERSIONS_LITERAL = Literal["0.1.0", "0.4.0", "1.0.0-beta.1", "1.0.0", "1.1.0"]
+METADATA_VERSION = "1.1.0"
+SUPPORTED_VERSIONS_LITERAL = Literal[
+    "0.1.0", "0.4.0", "1.0.0-beta.1", "1.0.0", "1.1.0", "2.0.0"
+]
 SUPPORTED_VERSIONS = list(get_args(SUPPORTED_VERSIONS_LITERAL))
 GEOARROW_ENCODINGS = [
     "point",
@@ -58,11 +61,7 @@ PARQUET_GEOMETRY_ENCODINGS = Literal["WKB", "geoarrow"]
 
 
 def _is_fsspec_url(url):
-    return (
-        isinstance(url, str)
-        and "://" in url
-        and not url.startswith(("http://", "https://"))
-    )
+    return isinstance(url, str) and "://" in url
 
 
 def _remove_id_from_member_of_ensembles(json_dict):
@@ -120,7 +119,7 @@ def _create_metadata(
     Parameters
     ----------
     df : GeoDataFrame
-    schema_version : {'0.1.0', '0.4.0', '1.0.0-beta.1', '1.0.0', '1.1.0', None}
+    schema_version : {'0.1.0', '0.4.0', '1.0.0-beta.1', '1.0.0', '1.1.0', '2.0.0', None}
         GeoParquet specification version; if not provided will default to
         latest supported version.
     geometry_encoding : dict, default None
@@ -136,16 +135,17 @@ def _create_metadata(
     dict
     """
     if schema_version is None:
-        if geometry_encoding and any(
-            encoding != "WKB" for encoding in geometry_encoding.values()
-        ):
-            schema_version = "1.1.0"
-        else:
-            schema_version = METADATA_VERSION
+        schema_version = METADATA_VERSION
 
     if schema_version not in SUPPORTED_VERSIONS:
         raise ValueError(
             f"schema_version must be one of: {', '.join(SUPPORTED_VERSIONS)}"
+        )
+
+    if write_covering_bbox and schema_version < "1.1.0":
+        raise ValueError(
+            "Writing a bounding box column is only supported since GeoParquet 1.1.0, "
+            f"while a {schema_version=} is specified."
         )
 
     # Construct metadata for each geometry
@@ -169,12 +169,21 @@ def _create_metadata(
                 crs = series.crs.to_json_dict()
                 _remove_id_from_member_of_ensembles(crs)
 
+        encoding = (
+            geometry_encoding[col]
+            if geometry_encoding and col in geometry_encoding
+            else "WKB"
+        )
+
+        if schema_version == "2.0.0" and encoding != "WKB":
+            raise ValueError(
+                "When writing GeoParquet 2.0.0 files, only the 'WKB' encoding is "
+                "supported. Specify `schema_version='1.1.0'` to use the 'geoarrow' "
+                "encoding."
+            )
+
         column_metadata[col] = {
-            "encoding": (
-                geometry_encoding[col]
-                if geometry_encoding and col in geometry_encoding
-                else "WKB"
-            ),
+            "encoding": encoding,
             "crs": crs,
             geometry_types_name: geometry_types,
         }
@@ -328,6 +337,50 @@ def _validate_geo_metadata(metadata):
                         raise ValueError("Metadata for bbox column is malformed.")
 
 
+@contextlib.contextmanager
+def _ensure_geoarrow_wkb_ext_type_registered():
+    """Ensure that the GeoArrow WKB extension type is registered.
+
+    Either uses an already registered extension type, or temporarily registers
+    a small dummy one with enough functionality for the writing to succeed.
+
+    This is needed for writing GeoParquet 2.0 files to ensure the pyarrow.parquet
+    writer will use the Geometry logical type. It does only do that for input
+    that actually uses an extension type (just a binary field with the extension
+    type metadata is not sufficient to trigger the logical type).
+    """
+    import pyarrow
+
+    class _WkbExtensionType(pyarrow.ExtensionType):
+        def __init__(self, metadata=b""):
+            self._metadata = metadata
+
+            super().__init__(
+                pyarrow.binary(),
+                "geoarrow.wkb",
+            )
+
+        def __arrow_ext_serialize__(self) -> bytes:
+            return self._metadata
+
+        @classmethod
+        def __arrow_ext_deserialize__(cls, storage_type, serialized):
+            return _WkbExtensionType(serialized)
+
+    try:
+        pyarrow.register_extension_type(_WkbExtensionType())
+    except Exception:
+        # already registered by other package -> use that one
+        yield
+        return
+
+    # otherwise we have registered our dummy -> unregister at the end
+    try:
+        yield
+    finally:
+        pyarrow.unregister_extension_type("geoarrow.wkb")
+
+
 def _geopandas_to_arrow(
     df,
     index=None,
@@ -339,6 +392,7 @@ def _geopandas_to_arrow(
 
     Helper function with main, shared logic for to_parquet/to_feather.
     """
+    import pyarrow as pa
     from pyarrow import StructArray
 
     from geopandas.io._geoarrow import geopandas_to_arrow
@@ -350,6 +404,11 @@ def _geopandas_to_arrow(
             raise ValueError(
                 "'geoarrow' encoding is only supported with schema version >= 1.1.0"
             )
+        if schema_version == "2.0.0" and Version(pa.__version__) < Version("21.0.0"):
+            raise ValueError(
+                "Writing GeoParquet 2.0 files requires pyarrow>=21.0, while pyarrow "
+                f"{pa.__version__} is installed."
+            )
 
     table, geometry_encoding_dict = geopandas_to_arrow(
         df, geometry_encoding=geometry_encoding, index=index, interleaved=False
@@ -360,6 +419,19 @@ def _geopandas_to_arrow(
         geometry_encoding=geometry_encoding_dict,
         write_covering_bbox=write_covering_bbox,
     )
+    if schema_version == "2.0.0":
+        # ensure `table` uses extension types and not just extension field metadata
+        # such that pyarrow.parquet will write the Geometry logical type
+        with _ensure_geoarrow_wkb_ext_type_registered():
+            for col, encoding in geometry_encoding_dict.items():
+                if encoding == "WKB":
+                    geom_ext = pa.table(table.select([col]))
+
+                    table = table.set_column(
+                        table.schema.get_field_index(col),
+                        geom_ext.schema.field(col),
+                        geom_ext[col],
+                    )
 
     if write_covering_bbox:
         if "bbox" in df.columns:
@@ -378,6 +450,11 @@ def _geopandas_to_arrow(
     # This must be done AFTER creating the table or it is not persisted
     metadata = table.schema.metadata
     metadata.update({b"geo": _encode_metadata(geo_metadata)})
+
+    # Store attributes in metadata if exists
+    if df.attrs:
+        df_metadata = {"PANDAS_ATTRS": json.dumps(df.attrs)}
+        metadata |= df_metadata
 
     return table.replace_schema_metadata(metadata)
 
@@ -399,7 +476,7 @@ def _to_parquet(
 
     Requires 'pyarrow'.
 
-    This is tracking version 1.0.0 of the GeoParquet specification at:
+    This is tracking version 1.1.0 of the GeoParquet specification at:
     https://github.com/opengeospatial/geoparquet. Writing older versions is
     supported using the `schema_version` keyword.
 
@@ -422,7 +499,7 @@ def _to_parquet(
         The encoding to use for the geometry columns. Defaults to "WKB"
         for maximum interoperability. Specify "geoarrow" to use one of the
         native GeoArrow-based single-geometry type encodings.
-    schema_version : {'0.1.0', '0.4.0', '1.0.0', '1.1.0', None}
+    schema_version : {'0.1.0', '0.4.0', '1.0.0', '1.1.0', '2.0.0', None}
         GeoParquet specification version; if not provided will default to
         latest supported version.
     write_covering_bbox : bool, default False
@@ -455,7 +532,7 @@ def _to_feather(df, path, index=None, compression=None, schema_version=None, **k
 
     Requires 'pyarrow' >= 0.17.
 
-    This is tracking version 1.0.0 of the GeoParquet specification for
+    This is tracking version 1.1.0 of the GeoParquet specification for
     the metadata at: https://github.com/opengeospatial/geoparquet. Writing
     older versions is supported using the `schema_version` keyword.
 
@@ -475,7 +552,7 @@ def _to_feather(df, path, index=None, compression=None, schema_version=None, **k
     compression : {'zstd', 'lz4', 'uncompressed'}, optional
         Name of the compression to use. Use ``"uncompressed"`` for no
         compression. By default uses LZ4 if available, otherwise uncompressed.
-    schema_version : {'0.1.0', '0.4.0', '1.0.0', '1.1.0', None}
+    schema_version : {'0.1.0', '0.4.0', '1.0.0', '1.1.0', '2.0.0', None}
         GeoParquet specification version for the metadata; if not provided
         will default to latest supported version.
     kwargs
@@ -490,7 +567,7 @@ def _to_feather(df, path, index=None, compression=None, schema_version=None, **k
     feather.write_feather(table, path, compression=compression, **kwargs)
 
 
-def _arrow_to_geopandas(table, geo_metadata=None, to_pandas_kwargs=None):
+def _arrow_to_geopandas(table, geo_metadata=None, to_pandas_kwargs=None, df_attrs=None):
     """Convert a pyarrow Table to a GeoDataFrame.
 
     Helper function with main, shared logic for read_parquet/read_feather.
@@ -559,6 +636,10 @@ def _arrow_to_geopandas(table, geo_metadata=None, to_pandas_kwargs=None):
             )
 
         df.insert(result_column_names.index(col), col, geom_arr)
+
+    # Add dataframe attrs
+    if df_attrs:
+        df.attrs = json.loads(df_attrs)
 
     return GeoDataFrame(df, geometry=geometry)
 
@@ -635,38 +716,97 @@ def _validate_and_decode_metadata(metadata):
     return decoded_geo_metadata
 
 
-def _read_parquet_schema_and_metadata(path, filesystem):
-    """Open the Parquet file/dataset a first time to get the schema and metadata.
+def _open_parquet_dataset(path, filesystem, kwargs, bbox):
+    """Open the Parquet file/dataset and get the schema and metadata.
 
-    TODO: we should look into how we can reuse opened dataset for reading the
-    actual data, to avoid discovering the dataset twice (problem right now is
-    that the ParquetDataset interface doesn't allow passing the filters on read)
+    This has a fallback ParquetFile in case pyarrow.dataset is not available,
+    mimicking the logic of pyarrow.parquet.read_table().
 
+    TODO: unless pyarrow.parquet starts to provide more of this functionality
+    out of the box, we should deprecate the fallback here (indicating in the
+    warning / error that you should ensure to have pyarrow.dataset available)
     """
     import pyarrow
     from pyarrow import parquet
 
-    kwargs = {}
-    if Version(pyarrow.__version__) < Version("15.0.0"):
-        kwargs = dict(use_legacy_dataset=False)
-
     try:
-        schema = parquet.ParquetDataset(path, filesystem=filesystem, **kwargs).schema
-    except Exception:
-        schema = parquet.read_schema(path, filesystem=filesystem)
+        try:
+            dataset = parquet.ParquetDataset(path, filesystem=filesystem, **kwargs)
+            schema = dataset.schema
+        except ImportError:
+            # the above can fail if pyarrow.dataset submodule is not available
+            if kwargs.get("filters") is not None:
+                raise ValueError(
+                    "the 'filters' keyword is not supported when the "
+                    "pyarrow.dataset module is not available"
+                )
+            if bbox is not None:
+                raise ValueError(
+                    "the 'bbox' keyword is not supported when the "
+                    "pyarrow.dataset module is not available"
+                )
 
-    metadata = schema.metadata
+            if filesystem is not None:
+                pa_filesystem = _ensure_arrow_fs(filesystem)
+                source = pa_filesystem.open_input_file(path)
+            else:
+                source = path
+            dataset = parquet.ParquetFile(source, **kwargs)
+            schema = dataset.schema_arrow
+    except OSError as exc:
+        if "Thrift LogicalType that is not recognized" in str(exc):
+            raise OSError(
+                "Reading GeoParquet 2.0 files with Parquet Geometry/Geography logical "
+                "types requires pyarrow>=20.0, while pyarrow "
+                f"{pyarrow.__version__} is installed."
+            ) from exc
+        raise
+
+    metadata = schema.metadata or {}
 
     # read metadata separately to get the raw Parquet FileMetaData metadata
     # (pyarrow doesn't properly exposes those in schema.metadata for files
     # created by GDAL - https://issues.apache.org/jira/browse/ARROW-16688)
-    if metadata is None or b"geo" not in metadata:
+    if b"geo" not in metadata:
         try:
             metadata = parquet.read_metadata(path, filesystem=filesystem).metadata
         except Exception:
             pass
 
-    return schema, metadata
+    return dataset, schema, metadata
+
+
+def _add_index_columns_from_pandas_metadata(columns, metadata):
+    """
+    When a user specifies a subset of columns to read, we by default still
+    include the index columns in the read as well to be able to restore the
+    index.
+
+    Adapted from pyarrow.parquet.core.ParquetDataset.read()
+    """
+    if metadata and b"pandas" in metadata:
+        pandas_metadata = _decode_metadata(metadata[b"pandas"])
+
+        # RangeIndex can be represented as dict instead of column name
+        index_columns = [
+            col for col in pandas_metadata["index_columns"] if not isinstance(col, dict)
+        ]
+        columns = list(columns) + list(set(index_columns) - set(columns))
+    return columns
+
+
+def _restore_pandas_metadata(table, metadata):
+    """
+    If use_pandas_metadata, restore the pandas metadata (which gets
+    lost if doing a specific `columns` selection in to_table).
+
+    Adapted from pyarrow.parquet.core.ParquetDataset.read()
+    """
+    if b"pandas" in metadata:
+        new_metadata = table.schema.metadata or {}
+        new_metadata.update({b"pandas": metadata[b"pandas"]})
+        table = table.replace_schema_metadata(new_metadata)
+    return table
 
 
 def _read_parquet(
@@ -690,7 +830,7 @@ def _read_parquet(
       columns, the first available geometry column will be set as the geometry
       column of the returned GeoDataFrame.
 
-    Supports versions 0.1.0, 0.4.0 and 1.0.0 of the GeoParquet
+    Supports versions 0.1.0, 0.4.0, 1.0.0, 1.1.0 and 2.0.0 of the GeoParquet
     specification at: https://github.com/opengeospatial/geoparquet
 
     If 'crs' key is not present in the GeoParquet metadata associated with the
@@ -724,8 +864,10 @@ def _read_parquet(
         the ``filesystem`` keyword if you wish to use its implementation.
     bbox : tuple, optional
         Bounding box to be used to filter selection from geoparquet data. This
-        is only usable if the data was saved with the bbox covering metadata.
-        Input is of the tuple format (xmin, ymin, xmax, ymax).
+        is only usable if the data was saved with the bbox covering metadata
+        or with GeoParquet >= 2.0 files.
+        Input is of the tuple format (xmin, ymin, xmax, ymax). Filtering on Z
+        or M coordinates is not supported.
     to_pandas_kwargs : dict, optional
         Arguments passed to the `pa.Table.to_pandas` method for non-geometry columns.
         This can be used to control the behavior of the conversion of the non-geometry
@@ -760,7 +902,6 @@ def _read_parquet(
     parquet = import_optional_dependency(
         "pyarrow.parquet", extra="pyarrow is required for Parquet support."
     )
-    import geopandas.io._pyarrow_hotfix  # noqa: F401
 
     # TODO(https://github.com/pandas-dev/pandas/pull/41194): see if pandas
     # adds filesystem as a keyword and match that.
@@ -769,7 +910,12 @@ def _read_parquet(
         path, filesystem=filesystem, storage_options=storage_options
     )
     path = _expand_user(path)
-    schema, metadata = _read_parquet_schema_and_metadata(path, filesystem)
+
+    # those keywords are used at read() time
+    use_pandas_metadata = kwargs.pop("use_pandas_metadata", True)
+    use_threads = kwargs.pop("use_threads", True)
+
+    dataset, schema, metadata = _open_parquet_dataset(path, filesystem, kwargs, bbox)
 
     geo_metadata = _validate_and_decode_metadata(metadata)
     if len(geo_metadata["columns"]) == 0:
@@ -789,21 +935,84 @@ def _read_parquet(
     # columns are read in if it exists.
     if not columns and if_bbox_column_exists:
         columns = _get_non_bbox_columns(schema, geo_metadata)
+    elif columns is not None and use_pandas_metadata:
+        columns = _add_index_columns_from_pandas_metadata(columns, metadata)
+
+    filters = kwargs.pop("filters", None)
+    if filters is not None:
+        # support both old-style [(..)] filters and pyarrow expressions
+        filters = parquet.filters_to_expression(filters)
 
     # if both bbox and filters kwargs are used, must splice together.
-    if "filters" in kwargs:
-        filters_kwarg = kwargs.pop("filters")
-        filters = _splice_bbox_and_filters(filters_kwarg, bbox_filter)
+    if bbox_filter is not None:
+        if filters is not None:
+            filters = bbox_filter & filters
+        else:
+            filters = bbox_filter
+
+    if isinstance(dataset, parquet.ParquetFile):
+        table = dataset.read(columns=columns, use_threads=use_threads)
     else:
-        filters = bbox_filter
+        dsdataset = dataset._dataset
 
-    kwargs["use_pandas_metadata"] = True
+        if bbox is not None and bbox_filter is None:
+            # if bbox is specified, but the dataset does not have a bbox column,
+            # we need to filter the row groups manually.
+            import pyarrow.dataset as ds
 
-    table = parquet.read_table(
-        path, columns=columns, filesystem=filesystem, filters=filters, **kwargs
-    )
+            geometry = geo_metadata["primary_column"]
 
-    return _arrow_to_geopandas(table, geo_metadata, to_pandas_kwargs)
+            filtered_fragments = []
+            for fragment in dataset.fragments:
+                geometry_idx = fragment.metadata.schema.names.index(geometry)
+                row_group_ids = [
+                    rg.id
+                    for rg in fragment.row_groups
+                    if _bbox_intersects(
+                        rg.metadata.column(geometry_idx).geo_statistics, bbox
+                    )
+                ]
+                fragment_filtered = fragment.subset(row_group_ids=row_group_ids)
+
+                filtered_fragments.append(fragment_filtered)
+
+            dsdataset = ds.FileSystemDataset(
+                filtered_fragments,
+                dsdataset.schema,
+                dsdataset.format,
+                filesystem=dsdataset.filesystem,
+                root_partition=dsdataset.partition_expression,
+            )
+
+        table = dsdataset.to_table(
+            columns=columns, filter=filters, use_threads=use_threads
+        )
+
+    if use_pandas_metadata:
+        table = _restore_pandas_metadata(table, metadata)
+
+    if metadata and b"PANDAS_ATTRS" in metadata:
+        df_attrs = metadata[b"PANDAS_ATTRS"]
+    else:
+        df_attrs = None
+
+    result = _arrow_to_geopandas(table, geo_metadata, to_pandas_kwargs, df_attrs)
+
+    if bbox is not None and bbox_filter is None:
+        # post-filtering step: manual filtering above only filtered up to the row group
+        # level -> further filter at the row level to give consistent behaviour
+        bbox_bounds = result.bounds
+        result_bbox = shapely.box(
+            bbox_bounds["minx"],
+            bbox_bounds["miny"],
+            bbox_bounds["maxx"],
+            bbox_bounds["maxy"],
+        )
+        result = result[
+            shapely.intersects(result_bbox, shapely.box(*bbox))
+        ].reset_index(drop=True)
+
+    return result
 
 
 def _read_feather(path, columns=None, to_pandas_kwargs=None, **kwargs):
@@ -871,7 +1080,6 @@ def _read_feather(path, columns=None, to_pandas_kwargs=None, **kwargs):
     feather = import_optional_dependency(
         "pyarrow.feather", extra="pyarrow is required for Feather support."
     )
-    import geopandas.io._pyarrow_hotfix  # noqa: F401
 
     path = _expand_user(path)
 
@@ -896,10 +1104,15 @@ def _get_parquet_bbox_filter(geo_metadata, bbox):
             & (pc.field((primary_column, "y")) <= bbox[3])
         )
 
+    elif geo_metadata["version"] == "2.0.0":
+        # this case gets handled later manually
+        return None
+
     else:
         raise ValueError(
             "Specifying 'bbox' not supported for this Parquet file (it should either "
-            "have a bbox covering column or use 'point' encoding)."
+            "have a bbox covering column, use 'point' encoding, or use GeoParquet 2.0 "
+            "logical geometry types)."
         )
 
 
@@ -932,12 +1145,17 @@ def _get_non_bbox_columns(schema, geo_metadata):
     return columns
 
 
-def _splice_bbox_and_filters(kwarg_filters, bbox_filter):
-    parquet = import_optional_dependency(
-        "pyarrow.parquet", extra="pyarrow is required for Parquet support."
+def _bbox_intersects(geo_stats, bbox):
+    stats_xmin, stats_ymin, stats_xmax, stats_ymax = (
+        geo_stats.xmin,
+        geo_stats.ymin,
+        geo_stats.xmax,
+        geo_stats.ymax,
     )
-    if bbox_filter is None:
-        return kwarg_filters
-
-    filters_expression = parquet.filters_to_expression(kwarg_filters)
-    return bbox_filter & filters_expression
+    xmin, ymin, xmax, ymax = bbox
+    return (
+        (stats_xmin <= xmax)
+        and (stats_xmax >= xmin)
+        and (stats_ymin <= ymax)
+        and (stats_ymax >= ymin)
+    )

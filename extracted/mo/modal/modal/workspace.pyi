@@ -12,8 +12,12 @@ class ProxyTokenInfo:
     token_id: str
     created_at: datetime.datetime
     scoped: bool
+    name: str
+    created_by: str
 
-    def __init__(self, token_id: str, created_at: datetime.datetime, scoped: bool) -> None:
+    def __init__(
+        self, token_id: str, created_at: datetime.datetime, scoped: bool, name: str = "", created_by: str = ""
+    ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
@@ -395,29 +399,72 @@ class WorkspaceProxyTokenManager:
         ...
 
     class __create_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> modal.types.TokenData:
+        def __call__(self, /, name: str = "") -> modal.types.TokenData:
             """Create a new proxy token for the Workspace.
+
+            Args:
+                name: An optional name to help identify the token.
 
             Examples:
                 ```python notest
-                token = modal.Workspace.from_context().proxy_tokens.create()
+                token = modal.Workspace.from_context().proxy_tokens.create(name="production-webhooks")
                 print(token.token_id, token.token_secret)
                 ```
             """
             ...
 
-        async def aio(self, /) -> modal.types.TokenData:
+        async def aio(self, /, name: str = "") -> modal.types.TokenData:
             """Create a new proxy token for the Workspace.
+
+            Args:
+                name: An optional name to help identify the token.
 
             Examples:
                 ```python notest
-                token = modal.Workspace.from_context().proxy_tokens.create()
+                token = modal.Workspace.from_context().proxy_tokens.create(name="production-webhooks")
                 print(token.token_id, token.token_secret)
                 ```
             """
             ...
 
     create: __create_spec
+
+    class __update_spec(typing_extensions.Protocol):
+        def __call__(self, /, proxy_token_id: str, *, name: str) -> None:
+            """Update a proxy token in the Workspace.
+
+            An empty name removes the token's name.
+
+            Args:
+                proxy_token_id: The token ID (`wk-...`) to update.
+                name: The updated name for the token.
+
+            Examples:
+                ```python notest
+                ws = modal.Workspace.from_context()
+                ws.proxy_tokens.update(token_id, name="production-webhooks")
+                ```
+            """
+            ...
+
+        async def aio(self, /, proxy_token_id: str, *, name: str) -> None:
+            """Update a proxy token in the Workspace.
+
+            An empty name removes the token's name.
+
+            Args:
+                proxy_token_id: The token ID (`wk-...`) to update.
+                name: The updated name for the token.
+
+            Examples:
+                ```python notest
+                ws = modal.Workspace.from_context()
+                ws.proxy_tokens.update(token_id, name="production-webhooks")
+                ```
+            """
+            ...
+
+    update: __update_spec
 
     class __list_spec(typing_extensions.Protocol):
         def __call__(self, /, environment_name: typing.Optional[str] = None) -> list[modal.types.ProxyTokenInfo]:

@@ -3,7 +3,7 @@ from cftime import datetime as datetimex
 from cftime import real_datetime
 from cftime import (Datetime360Day, DatetimeAllLeap,
                     DatetimeGregorian, DatetimeJulian, DatetimeNoLeap,
-                    DatetimeProlepticGregorian, _parse_date,
+                    DatetimeProlepticGregorian, DatetimeTAI, _parse_date,
                     date2index, date2num, num2date,  UNIT_CONVERSION_FACTORS)
 import copy
 import unittest
@@ -204,6 +204,9 @@ class cftimeTestCase(unittest.TestCase):
         self.assertTrue(d.strftime(dateformat) == d2.strftime(dateformat))
         # make sure two digit years work in strftime (issue #362)
         self.assertTrue(d.strftime(dateformat2) == d2.strftime(dateformat2))
+        # issue #401 (check for %y not y)
+        t = cftime.DatetimeGregorian(2026,4,14,0)
+        self.assertTrue(t.strftime('year=%Y') == 'year=2026')
         # check day of year.
         ndayr = d.timetuple()[7]
         self.assertTrue(ndayr == 125)
@@ -2170,6 +2173,22 @@ def test_date2num_missing_data():
     assert out is np.ma.masked
 
 
+def test_date2num_numpy_datetime64():
+    # Array
+    array = np.array([
+        np.datetime64(123, "s"),
+        np.datetime64(124, "s"),
+        np.datetime64(125, "s")
+    ])
+    out = date2num(array, units="seconds since 1970-01-01T00:00:00", calendar="gregorian")
+    assert ((out == np.array([123, 124, 125]))).all()
+
+    # Scalar
+    array = np.datetime64(123, "s")
+    out = date2num(array, units="seconds since 1970-01-01T00:00:00", calendar="gregorian")
+    assert out == np.int64(123)
+
+
 def test_num2date_preserves_shape():
     # The optimized num2date algorithm operates on a flattened array.  This
     # check ensures that the original shape of the times is restored in the
@@ -2247,6 +2266,77 @@ def test_num2date_precision():
             date2 = num2date(num, units, calendar=cc)
             assert np.ma.is_masked(date2[0])
             assert date[1] == date2[1]
+
+# NOTE: using pytest style tests -- these won't run without pytest
+#       but it looks like you're using pytest, so this is cleaner and easier
+
+#       There's really no reason to put these in a class, but it does organize things
+class Test_tai:
+    """
+    tests specific to the tai calendar
+    """
+    def test_dateparse_valid(self):
+        """
+        It should raise for an epoch before 1958
+        """
+        # This is directly testing the _dateparse function
+        # Which is a "proper" unit test, but also testing an internal function.
+        timestring = "seconds since 1958-01-01T00:00:00"
+        basedate = cftime._dateparse(timestring, 'tai')
+
+        print(repr(basedate))
+
+        assert basedate == cftime.datetime(1958, 1, 1, 0, 0, 0, 0, calendar='tai', has_year_zero=False)
+
+    def test_dateparse_before_1958(self):
+        """
+        It should raise for an epoch before 1958
+        """
+        # This is directly testing the _dateparse function
+        # Which is a "proper" unit test, but also testing an internal function.
+        timestring = "seconds since 1957-01-01T00:00:00"
+        with pytest.raises(ValueError):
+            basedate = cftime._dateparse(timestring, 'tai')
+            # cftime._dateparse(timestring, 'tai', has_year_zero=None)
+            print(basedate)
+
+    def test_dateparse_with_offset(self):
+        """
+        It should raise if there's an offset
+        """
+        # This is directly testing the _dateparse function
+        # Which is a "proper" unit test, but also testing an internal function.
+        timestring = "seconds since 1965-01-01T00:00:00+08:00"
+        with pytest.raises(ValueError):
+            basedate = cftime._dateparse(timestring, 'tai')
+            # cftime._dateparse(timestring, 'tai', has_year_zero=None)
+            print(basedate)
+
+    def test_year_zero(self):
+        """
+        tai does not have a year zero -- not sure this is worth testing, but for full coverage.
+        """
+        # This is directly testing the _dateparse function
+        # Which is a "proper" unit test, but also testing an internal function.
+        timestring = "seconds since 1965-01-01T00:00:00"
+        with pytest.raises(ValueError):
+            basedate = cftime._dateparse(timestring, 'tai', has_year_zero=True)
+            # cftime._dateparse(timestring, 'tai', has_year_zero=None)
+            print(basedate)
+
+    def test_creation_valid(self):
+        dt = DatetimeTAI(2025, 1, 9, 14, 18)
+
+        assert dt.calendar == 'tai'
+        assert dt.has_year_zero is False
+
+        print(repr(dt))
+
+    def test_creation_before_1958(self):
+        with pytest.raises(ValueError):
+            dt = DatetimeTAI(1957, 1, 9, 14, 18)
+            print(repr(dt))
+
 
 
 if __name__ == '__main__':

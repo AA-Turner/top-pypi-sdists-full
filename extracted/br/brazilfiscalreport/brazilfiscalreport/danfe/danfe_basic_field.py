@@ -1,5 +1,3 @@
-from typing import Optional
-
 from fpdf import FPDF
 from fpdf.enums import MethodReturnValue
 
@@ -17,7 +15,7 @@ class DanfeBasicField(Element):
         description: str,
         content: str,
         pdf: FPDF,
-        type: Optional[str] = "",
+        type: str | None = "",
         border: str = "0",
         new_x: str = "RIGHT",
         new_y: str = "TOP",

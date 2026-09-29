@@ -223,6 +223,29 @@ def get_programmatic_agent_prepare_hook() -> Any:
     return _registry.get(_PROGRAMMATIC_AGENT_PREPARE_HOOK_KEY)
 
 
+# The PRE-SUBSTITUTION step (one source input, USI-2b). Some variable values are
+# pointers only the host can turn into text — a ``sources`` variable carries a
+# ``source_set`` envelope the host resolves to grounded text. That must happen
+# BEFORE ``{{name}}`` substitution, so ``Agent.prepare_variables()`` awaits this
+# hook and every matrx-ai door (``execute``, ``from_agent(variables=…)``, batch
+# render, held mandate calls) calls ``prepare_variables()`` before
+# ``apply_variables()``.
+#
+# Contract:
+#   * OPTIONAL. Standalone hosts continue unchanged (the substitution tripwire
+#     still keeps an unresolved envelope away from the model).
+#   * Signature: ``async hook(*, agent, app_ctx) -> None``. The hook writes
+#     resolved values back into ``agent.variable_values`` and may leave
+#     host-owned context on the agent for the later prepare hook.
+
+_PROGRAMMATIC_AGENT_PRE_SUBSTITUTION_HOOK_KEY = "programmatic_agent_pre_substitution_hook"
+
+
+def get_programmatic_agent_pre_substitution_hook() -> Any:
+    """Return the host pre-substitution hook, or None when unset."""
+    return _registry.get(_PROGRAMMATIC_AGENT_PRE_SUBSTITUTION_HOOK_KEY)
+
+
 # ---------------------------------------------------------------------------
 # Conversation-value writer (reference-mode agent results)
 # ---------------------------------------------------------------------------
@@ -804,6 +827,33 @@ _CONVERSATION_HISTORY_WINDOW_KEY = "conversation_history_window"
 def get_conversation_history_window() -> Any:
     """Return the host-injected conversation history window, or None when unset."""
     return _registry.get(_CONVERSATION_HISTORY_WINDOW_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Perishable state marker (which conversations mark old workspace readings stale)
+# ---------------------------------------------------------------------------
+#
+# On a conversation that never ends, an ``fs_list`` / ``shell_execute`` /
+# browser result from turns ago reads exactly like one from this turn, and the
+# model answers "what files do I have?" from the old one (measured on the
+# Personal Staff thread, 2026-09-26/28). ``config/perishable_state.py`` marks
+# such results stale in memory at the send boundary. WHICH conversations get
+# that treatment is the host's call — only the host knows a staff thread.
+#
+# Contract:
+#   * OPTIONAL. Unconfigured → nothing is marked (matrx-ai stays standalone).
+#   * AWAITED once per resolution, inside ``prepare_for_send`` (resolve stage).
+#   * Signature: ``async marker(*, conversation_id: str) -> bool``. MUST be cheap
+#     and MUST answer False for conversations it has no opinion about.
+#   * A raise is announced by the send boundary and the step is skipped — this
+#     is shaping, never a reason to lose a turn.
+
+_PERISHABLE_STATE_MARKER_KEY = "perishable_state_marker"
+
+
+def get_perishable_state_marker() -> Any:
+    """Return the host-injected perishable-state decider, or None when unset."""
+    return _registry.get(_PERISHABLE_STATE_MARKER_KEY)
 
 
 # ---------------------------------------------------------------------------

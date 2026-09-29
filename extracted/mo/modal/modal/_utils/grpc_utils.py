@@ -24,12 +24,18 @@ from grpclib.config import Configuration
 from grpclib.encoding.base import CodecBase, StatusDetailsCodecBase
 from grpclib.exceptions import StreamTerminatedError
 from grpclib.protocol import H2Protocol
+from h2.exceptions import ProtocolError as H2ProtocolError
 
-from modal.exception import ClientClosed, ConnectionError
+from modal.exception import (
+    ClientClosed,
+    ConnectionError,
+    NotFoundError,
+    TimeoutError as ModalTimeoutError,
+)
 from modal_proto import api_pb2
 from modal_version import __version__
 
-from .._traceback import suppress_tb_frame
+from .._traceback import print_server_warning, suppress_tb_frame
 from ..config import config
 from .async_utils import TaskContext, retry
 from .logger import logger
@@ -121,15 +127,33 @@ class ModalChannel(grpclib.client.Channel):
         self.__target_host = host
         self.__target_port = port
         self.__ssl_context = ssl_context
-        self.__closed = False
-        self.__closed_error_message = closed_error_message
+        self._permanently_closed = False
+        self._closed_error_message = closed_error_message
 
     async def __connect__(self):
-        if self.__closed and self.__closed_error_message is not None:
-            raise ClientClosed(self.__closed_error_message)
+        if self._permanently_closed and self._closed_error_message is not None:
+            raise ClientClosed(self._closed_error_message)
         return await super().__connect__()
 
     async def _create_connection(self) -> H2Protocol:
+        target = self._path if self.__use_unix_socket else f"{self.__target_host}:{self.__target_port}"
+        tls = self.__ssl_context is not None
+        started_at = time.monotonic()
+        # Logged before awaiting: a reconnect is invisible until it resolves, which
+        # can be long after the RPC waiting on it appears to hang.
+        logger.debug(f"Starting connection attempt to {target} (TLS={tls})")
+        try:
+            protocol = await self._open_connection()
+        except (asyncio.CancelledError, Exception) as exc:
+            outcome = "cancelled" if isinstance(exc, asyncio.CancelledError) else "failed"
+            elapsed = time.monotonic() - started_at
+            logger.debug(f"Connection attempt to {target} {outcome} after {elapsed:.3f}s: {exc!r}")
+            raise
+        elapsed = time.monotonic() - started_at
+        logger.debug(f"Connection to {target} established after {elapsed:.3f}s")
+        return protocol
+
+    async def _open_connection(self) -> H2Protocol:
         if self.__use_unix_socket:
             return await super()._create_connection()
 
@@ -161,8 +185,13 @@ class ModalChannel(grpclib.client.Channel):
             and not self._protocol.connection.is_closing()
         )
 
+    def release_connection(self):
+        """Release the connection while leaving the channel reusable."""
+        return super().close()
+
     def close(self):
-        self.__closed = True
+        """Close the channel permanently."""
+        self._permanently_closed = True
         return super().close()
 
 
@@ -199,16 +228,23 @@ class ConnectionManager:
         self._client = client
         # This metadata is injected into all requests on all channels created by this manager.
         self._metadata = metadata
-        self._channels: dict[str, grpclib.client.Channel] = {}
+        self._channels: dict[str, asyncio.Future[grpclib.client.Channel]] = {}
 
     async def get_or_create_channel(self, server_url: str) -> grpclib.client.Channel:
-        if server_url not in self._channels:
-            self._channels[server_url] = await create_channel_with_fallbacks(server_url, self._metadata)
-        return self._channels[server_url]
+        fut = self._channels.get(server_url)
+        if fut is None or (fut.done() and (fut.cancelled() or fut.exception() is not None)):
+            # Cache the attempt rather than the channel, so callers racing to connect share one.
+            fut = asyncio.ensure_future(create_channel_with_fallbacks(server_url, self._metadata))
+            self._channels[server_url] = fut
+        # Shielded so one caller giving up doesn't cancel the connection for the others.
+        return await asyncio.shield(fut)
 
     def close(self):
-        for channel in self._channels.values():
-            channel.close()
+        for fut in self._channels.values():
+            if fut.done() and not fut.cancelled() and fut.exception() is None:
+                fut.result().close()
+            else:
+                fut.cancel()
         self._channels.clear()
 
 
@@ -265,19 +301,58 @@ class CustomProtoStatusDetailsCodec(StatusDetailsCodecBase):
 custom_detail_codec = CustomProtoStatusDetailsCodec()
 
 
-def create_channel_config() -> grpclib.config.Configuration:
+def create_channel_config(*, sustained_keepalive: bool = False) -> grpclib.config.Configuration:
     """Shared grpclib channel settings for Modal client connections.
 
     HTTP/2 keepalive probes keep idle transports warm through stateful
     middleboxes and surface dead connections before retries reuse them.
+
+    `sustained_keepalive` clears the two grpclib defaults such that a probe
+    actually goes out every `_keepalive_time`, for as long as the connection is
+    open.
     """
+    ping_throttle_overrides: dict[str, Any] = {}
+    if sustained_keepalive:
+        ping_throttle_overrides = {
+            # Default 2: probing stops after two probes with no request sent in
+            # between. Requests reset the count, acks don't. 0 = no cap.
+            "_http2_max_pings_without_data": 0,
+            # Default 300s floor between probes, applied regardless of data
+            # despite the name, so it has to stay under `_keepalive_time`.
+            "_http2_min_sent_ping_interval_without_data": GRPC_KEEPALIVE_TIME_SECS / 2,
+        }
+
     return grpclib.config.Configuration(
         _keepalive_time=GRPC_KEEPALIVE_TIME_SECS,
         _keepalive_timeout=GRPC_KEEPALIVE_TIMEOUT_SECS,
         _keepalive_permit_without_calls=True,
         http2_connection_window_size=GRPC_WINDOW_SIZE,
         http2_stream_window_size=GRPC_WINDOW_SIZE,
+        **ping_throttle_overrides,
     )
+
+
+# Header the server uses to attach a non-fatal message to any response, one entry per
+# percent-encoded warning. It rides in the trailing metadata, which grpclib also
+# surfaces for trailers-only responses, i.e. failed requests.
+SERVER_WARNING_HEADER = "x-modal-warning"
+
+
+def _issue_server_warnings(metadata: Any) -> None:
+    """Issue the warnings in a response's metadata, which `print_server_warning` deduplicates."""
+    for key, encoded_message in metadata.items():
+        if key != SERVER_WARNING_HEADER:
+            continue
+        print_server_warning(urllib.parse.unquote(encoded_message))
+
+
+def listen_for_server_warnings(channel: grpclib.client.Channel) -> None:
+    """Surface warnings the server attaches to any response on this channel."""
+
+    async def recv_trailing_metadata(event: grpclib.events.RecvTrailingMetadata) -> None:
+        _issue_server_warnings(event.metadata)
+
+    grpclib.events.listen(channel, grpclib.events.RecvTrailingMetadata, recv_trailing_metadata)
 
 
 def create_channel(
@@ -327,6 +402,7 @@ def create_channel(
             logger.debug(f"Sending request to {event.method_name} ({idempotency_key[:8]})")
 
     grpclib.events.listen(channel, grpclib.events.SendRequest, send_request)
+    listen_for_server_warnings(channel)
 
     return channel
 
@@ -415,6 +491,26 @@ class Retry:
     warning_message: RetryWarningMessage | None = None
 
 
+class RetryTimeoutError(ModalTimeoutError):
+    """Raised by `_retry_transient_errors` when `Retry.total_timeout` is spent before an attempt succeeds.
+
+    Internal: callers with a user-supplied timeout should convert this into a plain `modal.exception.TimeoutError`
+    with a message referring to that timeout. `final_exception` is the failure of the last attempt (server errors
+    already converted to their `modal.exception` type), which the caller can inspect to decide how to report the
+    timeout.
+    """
+
+    final_exception: Exception
+
+    def __init__(self, final_exception: Exception):
+        super().__init__(
+            "The operation timed out after repeated failures "
+            f"(last error: {type(final_exception).__name__}: {final_exception}). "
+            "Please try again, and contact Modal support if the problem persists."
+        )
+        self.final_exception = final_exception
+
+
 async def retry_transient_errors(
     fn: "grpclib.client.UnaryUnaryMethod[RequestType, ResponseType]",
     req: RequestType,
@@ -425,6 +521,15 @@ async def retry_transient_errors(
     Used by modal server.
     """
     return await _retry_transient_errors(fn, req, retry=Retry(max_retries=max_retries))
+
+
+def is_class_function_lookup_error(exc: NotFoundError) -> bool:
+    """Whether a function lookup failed because the requested name identifies a class."""
+    return any(
+        isinstance(detail, api_pb2.FunctionLookupError)
+        and detail.reason == api_pb2.FunctionLookupError.REASON_CLASS_NAME_USED
+        for detail in (getattr(exc, "_grpc_details", None) or [])
+    )
 
 
 def get_server_retry_policy(exc: Exception) -> api_pb2.RPCRetryPolicy | None:
@@ -447,17 +552,27 @@ def process_exception_before_retry(
     delay: float,
     idempotency_key: str,
     rpc_elapsed: float,
+    total_deadline_reached: bool = False,
 ):
     """Process exception before retry, used by `_retry_transient_errors`."""
     with suppress_tb_frame():
         if final_attempt:
+            reason = "total deadline consumed" if total_deadline_reached else "max retries reached"
             logger.debug(
-                f"Final attempt failed with {repr(exc)} {n_retries=} {delay=} {rpc_elapsed=:0.2f}s "
+                f"Final attempt failed ({reason}) with {repr(exc)} {n_retries=} {delay=} {rpc_elapsed=:0.2f}s "
                 f"for {fn_name} ({idempotency_key[:8]})"
             )
+            if total_deadline_reached:
+                import modal._grpc_client
+
+                if isinstance(exc, GRPCError):
+                    exc = modal._grpc_client.grpc_error_to_modal_exception(exc)
+                raise RetryTimeoutError(exc) from exc
             if isinstance(exc, OSError):
                 raise ConnectionError(str(exc))
             elif isinstance(exc, asyncio.TimeoutError):
+                raise ConnectionError(str(exc))
+            elif isinstance(exc, H2ProtocolError):
                 raise ConnectionError(str(exc))
             else:
                 raise exc
@@ -546,6 +661,7 @@ async def _retry_transient_errors(
             OSError,
             asyncio.TimeoutError,
             AttributeError,
+            H2ProtocolError,
         ) as exc:
             # Note that we only catch AttributeError to handle a specific case that works around a bug
             # in grpclib<=0.4.7. See above (search for `write_appdata`).
@@ -581,6 +697,7 @@ async def _retry_transient_errors(
                         server_delay,
                         idempotency_key,
                         elapsed_time,
+                        total_deadline_reached=total_timeout_will_be_reached,
                     )
 
                 if last_server_retry_warning_time is None or (
@@ -604,12 +721,12 @@ async def _retry_transient_errors(
             # Client handles retry
             if isinstance(exc, GRPCError) and exc.status not in status_codes:
                 raise exc
-            if retry.max_retries is not None and n_retries >= retry.max_retries:
-                final_attempt = True
-            elif total_deadline is not None and time.time() + delay + retry.attempt_timeout_floor >= total_deadline:
-                final_attempt = True
-            else:
-                final_attempt = False
+            max_retries_reached = retry.max_retries is not None and n_retries >= retry.max_retries
+            total_deadline_reached = total_deadline is not None and (
+                time.time() >= total_deadline
+                or (not max_retries_reached and time.time() + delay + retry.attempt_timeout_floor >= total_deadline)
+            )
+            final_attempt = max_retries_reached or total_deadline_reached
 
             with suppress_tb_frame():
                 process_exception_before_retry(
@@ -620,6 +737,7 @@ async def _retry_transient_errors(
                     delay,
                     idempotency_key,
                     time.monotonic() - attempt_started_at,
+                    total_deadline_reached=total_deadline_reached,
                 )
 
             n_retries += 1

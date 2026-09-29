@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 #include "binder/expression/expression_util.h"
@@ -170,10 +171,15 @@ void SimpleAggregateSharedState::SimpleAggregatePartitioningData::appendTuples(
     auto numBytesPerTuple = factorizedTable.getTableSchema()->getNumBytesPerTuple();
     for (ft_tuple_idx_t tupleIdx = 0; tupleIdx < factorizedTable.getNumTuples(); tupleIdx++) {
         auto tuple = factorizedTable.getTuple(tupleIdx);
-        auto hash = *reinterpret_cast<common::hash_t*>(tuple + hashOffset);
-        auto& partition =
-            sharedState->globalPartitions[(hash >> sharedState->shiftForPartitioning) %
-                                          sharedState->globalPartitions.size()];
+        // Tuples are packed without alignment padding; use memcpy for the hash load.
+        common::hash_t hash;
+        memcpy(&hash, tuple + hashOffset, sizeof(common::hash_t));
+        // shiftForPartitioning is 64 with a single partition; shifting by 64 is UB.
+        const auto partitionIdx =
+            sharedState->shiftForPartitioning >= 64 ?
+                0 :
+                (hash >> sharedState->shiftForPartitioning) % sharedState->globalPartitions.size();
+        auto& partition = sharedState->globalPartitions[partitionIdx];
         partition.distinctTables[functionIdx].queue->appendTuple(
             std::span(tuple, numBytesPerTuple));
     }

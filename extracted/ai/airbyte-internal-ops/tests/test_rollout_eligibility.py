@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import pytest
+import sqlalchemy.exc
+from airbyte.exceptions import PyAirbyteInputError
 
 from airbyte_ops_mcp.cloud_admin.version_overrides import ResolvedCloudAuth
 from airbyte_ops_mcp.connector_ops.rollouts import _helpers, autopilot
@@ -25,6 +27,10 @@ from airbyte_ops_mcp.connector_ops.rollouts.models import (
 from airbyte_ops_mcp.connector_ops.rollouts.paused_report import SessionLookup
 from airbyte_ops_mcp.devin_api import DevinSessionRef
 from airbyte_ops_mcp.slack_posting import SlackPostResult
+from airbyte_ops_mcp.tier_cache import (
+    TierExportUnavailableError,
+    TierExportValidationError,
+)
 
 
 @pytest.mark.unit
@@ -177,38 +183,74 @@ def test_parse_db_timestamp(value: object, expected: datetime | None) -> None:
 @pytest.mark.parametrize(
     "exc",
     [
-        pytest.param(RuntimeError("tier cache unavailable"), id="tier_cache_runtime"),
-        pytest.param(ValueError("bad input"), id="reraised_unexpected"),
+        pytest.param(
+            PyAirbyteInputError(message="No connector version found"),
+            id="version_not_in_replica",
+        ),
+        pytest.param(
+            sqlalchemy.exc.OperationalError("SELECT 1", {}, Exception("57014")),
+            id="replica_read_failure",
+        ),
+        pytest.param(
+            TierExportUnavailableError("GCS tier refresh failed"),
+            id="tier_export_unavailable",
+        ),
+        pytest.param(
+            TierExportValidationError("malformed tier export"),
+            id="tier_export_untrustworthy",
+        ),
     ],
 )
-def test_safe_estimate_falls_back_on_estimate_failure(
+def test_safe_estimate_returns_unavailable_for_handled_failures(
     monkeypatch: pytest.MonkeyPatch,
     exc: Exception,
 ) -> None:
-    """A tier-cache `RuntimeError` yields an unavailable estimate; other errors propagate."""
+    """Each handled failure degrades the estimate rather than propagating."""
 
     def _raise(**_: object) -> TierEligibilityEstimate:
         raise exc
 
     monkeypatch.setattr(autopilot, "estimate_tier_eligible_actors", _raise)
 
-    if isinstance(exc, RuntimeError):
-        estimate = autopilot._safe_estimate(
+    estimate = autopilot._safe_estimate(
+        actor_definition_id="def-1",
+        docker_repository="airbyte/source-faker",
+        tier="TIER_2",
+        action="advance",
+    )
+
+    assert estimate.eligible_actor_count == -1
+    assert estimate.disposition == "normal"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "exc",
+    [
+        pytest.param(ValueError("bad input"), id="value_error"),
+        # A bare RuntimeError is no longer assumed to be a tier-cache failure;
+        # tier_cache raises TierExport*Error, so this is a genuine bug.
+        pytest.param(RuntimeError("a real bug"), id="bare_runtime_error"),
+    ],
+)
+def test_safe_estimate_propagates_unexpected_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    exc: Exception,
+) -> None:
+    """An unrecognized failure must not be reported as an unavailable estimate."""
+
+    def _raise(**_: object) -> TierEligibilityEstimate:
+        raise exc
+
+    monkeypatch.setattr(autopilot, "estimate_tier_eligible_actors", _raise)
+
+    with pytest.raises(type(exc)):
+        autopilot._safe_estimate(
             actor_definition_id="def-1",
             docker_repository="airbyte/source-faker",
             tier="TIER_2",
             action="advance",
         )
-        assert estimate.eligible_actor_count == -1
-        assert estimate.disposition == "normal"
-    else:
-        with pytest.raises(ValueError):
-            autopilot._safe_estimate(
-                actor_definition_id="def-1",
-                docker_repository="airbyte/source-faker",
-                tier="TIER_2",
-                action="advance",
-            )
 
 
 @pytest.mark.unit

@@ -111,3 +111,55 @@ def test_annotate_is_idempotent() -> None:
     err.message = LIVE_REFUSAL  # a second pass over the same class
     annotate_tool_error(err)
     assert err.suggested_action == once
+
+
+def test_a_rebuilt_turn_replays_the_remedy_and_recovery_it_was_shown_live() -> None:
+    """The error row the logger persists is what a LATER turn's model sees
+    (``_synthesise_error_content`` replays ``error_type: error_message``). It must
+    carry the suggested action and the recovery handle, not the bare message."""
+    from types import SimpleNamespace
+
+    from matrx_ai.db._conversation_rebuild_impl import _synthesise_error_content
+    from matrx_ai.tools.models import ToolError, ToolRecovery
+
+    error = ToolError(
+        error_type="provider_failed",
+        message="The keyword lookup failed at the provider.",
+        suggested_action="Call seo_keywords action 'research' again with resume=abc.",
+        recovery=ToolRecovery(handle_type="collection_run", handle="abc", resume_cost="free"),
+    )
+    row = SimpleNamespace(
+        error_type=error.error_type, error_message=error.persisted_message(), tool_name="seo"
+    )
+    replayed = _synthesise_error_content(row)
+    assert "Suggested action: Call seo_keywords" in replayed
+    assert "Recovery: call again with collection_run=abc (free)" in replayed
+
+
+@pytest.mark.asyncio
+async def test_the_logger_persists_the_instruction_lines(monkeypatch) -> None:
+    from matrx_ai.tools.logger import ToolExecutionLogger
+    from matrx_ai.tools.models import ToolError, ToolRecovery, ToolResult
+
+    written: list[dict] = []
+
+    async def capture(self, row_id, data, coordinator=None):
+        written.append(data)
+
+    monkeypatch.setattr(ToolExecutionLogger, "_update_row", capture)
+    result = ToolResult(
+        success=False,
+        error=ToolError(
+            error_type="provider_failed",
+            message="The lookup failed.",
+            suggested_action="Call it again with resume=abc.",
+            recovery=ToolRecovery(handle_type="collection_run", handle="abc", resume_cost="free"),
+        ),
+        tool_name="seo_keywords",
+        call_id="call-1",
+    )
+    await ToolExecutionLogger().log_error("row-1", result)
+    stored = written[-1]["error_message"]
+    assert stored.startswith("The lookup failed.")
+    assert "Suggested action: Call it again with resume=abc." in stored
+    assert "Recovery: call again with collection_run=abc (free)" in stored

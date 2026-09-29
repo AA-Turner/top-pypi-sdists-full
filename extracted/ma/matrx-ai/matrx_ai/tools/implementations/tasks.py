@@ -10,10 +10,8 @@ answers ``no_access``.
 
 from __future__ import annotations
 
-import functools
 import time
 import traceback
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 from pydantic import ValidationError
@@ -22,6 +20,7 @@ from matrx_ai.config.read_only_resources import READ_ONLY_TOOL_MESSAGE, is_resou
 from matrx_ai.tools._dispatch_util import format_args_error
 from matrx_ai.tools.arg_models import TaskArgs
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
+from matrx_ai.tools.person_session import acts_as_the_person
 
 
 def _read_only_result(tool_name: str, started_at: float, ctx: ToolContext) -> ToolResult:
@@ -44,62 +43,9 @@ def _manager_error_type(result: dict[str, Any], default: str) -> str:
     return error_type if error_type in _ACCESS_ERROR_TYPES else default
 
 
-class _RollBack(Exception):
-    """Leave the person's session with a ROLLBACK, carrying the refusal out."""
-
-    def __init__(self, result: ToolResult) -> None:
-        super().__init__(result.error.message if result.error else "")
-        self.result = result
-
-
-_ToolFn = Callable[[dict[str, Any], ToolContext], Awaitable[ToolResult]]
-
-
-def _acts_as_the_person(tool_name: str) -> Callable[[_ToolFn], _ToolFn]:
-    """Run the action inside the caller's RLS session; RLS decides access.
-
-    A failed action leaves through ROLLBACK, so nothing half-done commits. If
-    the session cannot be opened the action REFUSES — it never runs on the
-    privileged connection.
-    """
-
-    def wrap(fn: _ToolFn) -> _ToolFn:
-        @functools.wraps(fn)
-        async def run(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-            from matrx_ai.tools.person_session import PersonSessionUnavailable, as_the_person
-
-            started_at = time.time()
-            try:
-                async with as_the_person():
-                    result = await fn(args, ctx)
-                    if not result.success:
-                        raise _RollBack(result)
-                    return result
-            except _RollBack as refused:
-                return refused.result
-            except PersonSessionUnavailable as e:
-                return ToolResult(
-                    success=False,
-                    error=ToolError(error_type="unavailable", message=str(e)),
-                    started_at=started_at, completed_at=time.time(),
-                    tool_name=tool_name, call_id=ctx.call_id,
-                )
-            except Exception as e:
-                return ToolResult(
-                    success=False,
-                    error=ToolError(
-                        error_type="execution",
-                        message=f"Could not act on your tasks: {e}",
-                        traceback=traceback.format_exc(),
-                        is_retryable=True,
-                    ),
-                    started_at=started_at, completed_at=time.time(),
-                    tool_name=tool_name, call_id=ctx.call_id,
-                )
-
-        return run
-
-    return wrap
+def _acts_as_the_person(tool_name: str):
+    """The shared ``acts_as_the_person`` wrapper (``matrx_ai.tools.person_session``)."""
+    return acts_as_the_person(tool_name, subject="your tasks")
 
 
 @_acts_as_the_person("task_get")

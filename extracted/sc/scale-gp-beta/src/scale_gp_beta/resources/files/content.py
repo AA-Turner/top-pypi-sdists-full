@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import httpx
 
-from ..._types import Body, Query, Headers, NotGiven, not_given
-from ..._utils import path_template
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, strip_not_given
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -43,6 +43,7 @@ class ContentResource(SyncAPIResource):
         self,
         file_id: str,
         *,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -54,8 +55,9 @@ class ContentResource(SyncAPIResource):
         Download the raw bytes of a file by id.
 
         Streams the stored object's content back directly (not a redirect or signed
-        URL), with the response Content-Type set to the file's stored MIME type. Use the
-        metadata endpoint for size, filename, and other attributes.
+        URL), with the response Content-Type set to the file's stored MIME type and
+        Content-Disposition set to attachment. Use the metadata endpoint for size,
+        filename, and other attributes.
 
         Args:
           extra_headers: Send extra headers
@@ -68,6 +70,7 @@ class ContentResource(SyncAPIResource):
         """
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._get(
             path_template("/v5/files/{file_id}/content", file_id=file_id),
             options=make_request_options(
@@ -101,6 +104,7 @@ class AsyncContentResource(AsyncAPIResource):
         self,
         file_id: str,
         *,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -112,8 +116,9 @@ class AsyncContentResource(AsyncAPIResource):
         Download the raw bytes of a file by id.
 
         Streams the stored object's content back directly (not a redirect or signed
-        URL), with the response Content-Type set to the file's stored MIME type. Use the
-        metadata endpoint for size, filename, and other attributes.
+        URL), with the response Content-Type set to the file's stored MIME type and
+        Content-Disposition set to attachment. Use the metadata endpoint for size,
+        filename, and other attributes.
 
         Args:
           extra_headers: Send extra headers
@@ -126,6 +131,7 @@ class AsyncContentResource(AsyncAPIResource):
         """
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return await self._get(
             path_template("/v5/files/{file_id}/content", file_id=file_id),
             options=make_request_options(

@@ -6,13 +6,20 @@ from geopandas.array import points_from_xy
 
 from geopandas.io.file import _read_file as read_file
 from geopandas.io.file import _list_layers as list_layers
+from geopandas.io.file import _read_file_info as read_file_info
 from geopandas.io.arrow import _read_parquet as read_parquet
 from geopandas.io.arrow import _read_feather as read_feather
 from geopandas.io.sql import _read_postgis as read_postgis
-from geopandas.tools import sjoin, sjoin_nearest
-from geopandas.tools import overlay
+from geopandas.tools import (
+    sjoin,
+    sjoin_nearest,
+    overlay,
+    clip,
+    geocode,
+    make_grid,
+    reverse_geocode,
+)
 from geopandas.tools._show_versions import show_versions
-from geopandas.tools import clip
 
 
 import geopandas.datasets
@@ -24,6 +31,4 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 
-from . import _version
-
-__version__ = _version.get_versions()["version"]
+from geopandas._version import __version__

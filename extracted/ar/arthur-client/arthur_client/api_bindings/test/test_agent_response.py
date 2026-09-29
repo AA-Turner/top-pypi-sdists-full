@@ -47,11 +47,12 @@ class TestAgentResponse(unittest.TestCase):
                             source_id = '', 
                             vendor = '', 
                             address = arthur_client.api_bindings.models.source_address.SourceAddress(
-                                instance = '', 
+                                instance = '0', 
                                 scope = '', 
                                 resource_kind = '', 
-                                resource_id = '', 
-                                query = '', ), )
+                                resource_id = '0', 
+                                query = '', ), 
+                            last_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                         ], 
                     runs_on = 'aws', 
                     platform = 'darwin', ),
@@ -117,6 +118,9 @@ class TestAgentResponse(unittest.TestCase):
                         url = '', )
                     ],
                 infrastructure = 'aws',
+                mute_reason = '',
+                muted_by = '',
+                muted_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 is_stale = True,
                 source_ids = [
                     ''

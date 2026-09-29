@@ -809,7 +809,6 @@ class BrowserWorker:
         self._bootstrap_activation_key = None
         self._bootstrap_lifecycle = "idle"
 
-    @_serialized_control
     async def bootstrap(
         self, request: M.BootstrapRequest, *, bearer: str | None = None
     ) -> M.BootstrapResponse:
@@ -862,7 +861,11 @@ class BrowserWorker:
             response = await asyncio.shield(owner)
             return response.model_copy(update={"replayed": True}) if joined else response
         except asyncio.CancelledError:
-            await asyncio.shield(owner)
+            # The request is gone, but the activation owner is deliberately
+            # still running under ``shield``.  Do not wait for it here: doing
+            # so retains ``_control_gate`` until Chromium finishes launching,
+            # which prevents a competing activation and shutdown from seeing
+            # the truthful ``bootstrap_in_progress`` state.
             raise
 
     async def _bootstrap_owner(self, request: M.BootstrapRequest) -> M.BootstrapResponse:
@@ -1770,6 +1773,12 @@ class BrowserWorker:
             and self._session is not None
         ):
             try:
+                # A click can synchronously replace the page's form, but the
+                # browser protocol may acknowledge the input before the new
+                # document snapshot reaches our next locator query.  Cross one
+                # rendered frame before classifying an authentication surface;
+                # this is a state boundary, not a blind timeout.
+                await self._session.page.evaluate("() => new Promise(requestAnimationFrame)")
                 # A numeric input or a name merely containing ``code`` is not
                 # authentication evidence. Those broad selectors classified
                 # ordinary ZIP/postal-code fields as MFA and permanently

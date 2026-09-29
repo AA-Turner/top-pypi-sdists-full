@@ -1,0 +1,1 @@
+function e(e){let t=`${e??``}`,n=t.length;for(;n>0&&t.charAt(n-1)===`/`;)n--;return t.slice(0,n)}const t=e=>e.replace(/%/g,`%25`).replace(/\//g,`%2F`).replace(/\?/g,`%3F`).replace(/#/g,`%23`),n=(e,n,r=``)=>`/${e.replace(/^\/+/,``)}/${t(n)}${r}`;export{t as n,e as r,n as t};

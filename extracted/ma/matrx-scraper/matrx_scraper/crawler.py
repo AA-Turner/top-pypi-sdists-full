@@ -27,7 +27,7 @@ import re
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 from urllib import robotparser
 from urllib.parse import urljoin, urlparse
@@ -77,7 +77,8 @@ from matrx_scraper.host_pacing import (
 )
 from matrx_scraper.host_platform import detect_platform
 from matrx_scraper.robots_txt import parse_robots_txt
-from matrx_scraper.rate_limiter import HostRateLimiter, host_key
+from matrx_scraper.parser.knobs import KnobScope, parser_knob, scoped_parser_knobs
+from matrx_scraper.rate_limiter import CrawlPause, HostRateLimiter, host_key, parse_retry_after
 from matrx_scraper.recipes import RecipeBackend
 from matrx_scraper.sampling import StableHashSampler, stable_hash_sample
 from matrx_scraper.scraper import (
@@ -90,6 +91,7 @@ from matrx_scraper.scraper import (
     detect_response_content_type,
     get_required_random_proxy,
     primary_failure_reason,
+    wall_reason_from_status,
 )
 from matrx_scraper.seo_audit import IMAGE_INVENTORY_LIMIT, audit_html
 from matrx_scraper.user_agents import normalize_user_agent
@@ -242,7 +244,8 @@ VALID_RENDER_MODES = {
 # times. These are CODE CONSTANTS (behavior, not per-deployment config) — never
 # env vars. Tune here and ship a build; that beats a silent env drift.
 RATE_LIMIT_STATUSES = frozenset({429, 503})
-MAX_RATE_LIMIT_RETRIES = 5
+# How many times one URL is retried after a rate-limit answer, the crawl-wide
+# pause, and when the crawl stops are `crawl.*` knobs — see CrawlKnobs below.
 RATE_LIMIT_THROTTLE_FACTOR = 0.5  # multiply host rps by this on each 429
 RATE_LIMIT_MIN_RPS = 0.5  # never throttle a host below this
 
@@ -483,6 +486,87 @@ async def _discover_sitemap_urls(
 # ---------------------------------------------------------------------------
 
 
+#: KNOB MIRROR: knowledge.scraper.crawl.* — the values the registry rows were seeded
+#: with (migration 20260928160000_laneh_osp_crawl_knobs.sql). Used only when no
+#: host bound a reader, and announced when it is (parser/knobs.py).
+CRAWL_KNOB_MIRRORS: dict[str, Any] = {
+    "crawl.rate_limit_initial_interval_ms": 1000,
+    "crawl.rate_limit_max_interval_s": 30,
+    "crawl.retry_after_default_s": 30,
+    "crawl.max_consecutive_429": 3,
+    "crawl.max_cooldown_minutes": 30,
+    "crawl.max_retries_per_url": 3,
+    "crawl.html_max_bytes": 1_048_576,
+    "crawl.link_first": True,
+}
+
+
+@dataclass(frozen=True)
+class CrawlKnobs:
+    """The crawler's politeness and size limits — `platform.feature_knob` rows.
+
+    Feature ``knowledge.scraper``, keys ``crawl.*`` (OPENSEO-TOOLS-SPEC §8.1/§10),
+    read through the host-bound reader (``parser/knobs.py``) ONCE per crawl, so
+    an admin's change applies to the next crawl with no deploy. Each mirror
+    below is the value the registry row was seeded with (KNOB MIRROR) — used
+    only when no host bound a reader, and announced when it is.
+    """
+
+    #: Opening interval between requests to a host we know nothing about.
+    rate_limit_initial_interval_ms: float
+    #: The slowest the ramp ever goes (its floor), as an interval.
+    rate_limit_max_interval_s: float
+    #: Crawl-wide pause after a 429 without Retry-After: this × 2^(n−1).
+    retry_after_default_s: float
+    #: More consecutive 429s than this and the crawl stops as `partial`.
+    max_consecutive_429: int
+    #: More cumulative rate-limit cooldown than this and the crawl stops.
+    max_cooldown_minutes: float
+    #: Rate-limit retries per URL before it fails `RateLimited`.
+    max_retries_per_url: int
+    #: A page body larger than this is truncated (with a page notice).
+    html_max_bytes: int
+    #: Fetch link-discovered URLs before sitemap-only URLs.
+    link_first: bool
+
+    @classmethod
+    def from_values(cls, values: dict[str, Any]) -> CrawlKnobs:
+        return cls(
+            rate_limit_initial_interval_ms=float(values["crawl.rate_limit_initial_interval_ms"]),
+            rate_limit_max_interval_s=float(values["crawl.rate_limit_max_interval_s"]),
+            retry_after_default_s=float(values["crawl.retry_after_default_s"]),
+            max_consecutive_429=int(values["crawl.max_consecutive_429"]),
+            max_cooldown_minutes=float(values["crawl.max_cooldown_minutes"]),
+            max_retries_per_url=int(values["crawl.max_retries_per_url"]),
+            html_max_bytes=int(values["crawl.html_max_bytes"]),
+            link_first=bool(values["crawl.link_first"]),
+        )
+
+    @classmethod
+    def load(cls) -> CrawlKnobs:
+        """The PLATFORM values (sync). A crawl that knows its organization
+        re-resolves with :meth:`load_for` at the start of its run."""
+        return cls.from_values(
+            {key: parser_knob(key, mirror) for key, mirror in CRAWL_KNOB_MIRRORS.items()}
+        )
+
+    @classmethod
+    async def load_for(cls, scope: KnobScope | None) -> CrawlKnobs:
+        """The values FOR this organization / person / site — one host call per run."""
+        return cls.from_values(await scoped_parser_knobs(CRAWL_KNOB_MIRRORS, scope))
+
+    def pacing(self, base: PacingKnobs) -> PacingKnobs:
+        """The ramp's knobs with the opening and slowest rates from the registry.
+
+        The ramp itself is kept ("detected and probed, start low" — Arman,
+        2026-08-20); only its floor and opening rate become knobs.
+        """
+        floor_rps = 1000.0 / max(self.rate_limit_initial_interval_ms, 1.0)
+        min_rps = 1.0 / max(self.rate_limit_max_interval_s, 0.001)
+        min_rps = min(min_rps, floor_rps, base.max_rps)
+        return replace(base, floor_rps=min(floor_rps, base.max_rps), min_rps=min_rps)
+
+
 @dataclass
 class SiteCrawlerConfig:
     base_url: str
@@ -556,6 +640,7 @@ class SiteCrawler:
         retain_results: bool = True,
         pacing_knobs: PacingKnobs | None = None,
         remembered_pacing: RememberedPacing | None = None,
+        knob_scope: KnobScope | None = None,
     ) -> None:
         if config.render_mode not in VALID_RENDER_MODES:
             raise ValueError(
@@ -602,7 +687,20 @@ class SiteCrawler:
         # this crawl never planned for (a followed subdomain, an off-site
         # redirect) is the one we know least about, so it gets the most
         # cautious rate rather than the most aggressive one.
-        self._pacing_knobs = pacing_knobs or DEFAULT_KNOBS
+        # Platform values now; `run()` re-resolves them for `knob_scope` (the
+        # crawl's organization, person and site) so their overrides apply to
+        # this crawl and nobody else's. Resolved ONCE per run.
+        self._knob_scope = knob_scope
+        self._explicit_pacing_knobs = pacing_knobs
+        self._knobs = CrawlKnobs.load()
+        self._pacing_knobs = pacing_knobs or self._knobs.pacing(DEFAULT_KNOBS)
+        # ONE crawl-wide pause on 429 (Retry-After honoured), and the stop rule
+        # that ends a futile crawl as `partial` instead of grinding on.
+        self._pause = self._new_pause()
+        self._stop_reason: str | None = None
+        self._stop_detail: str | None = None
+        # Sitemap URLs held back until link discovery drains (crawl.link_first).
+        self._deferred_sitemap_urls: list[str] = []
         self._remembered_pacing = remembered_pacing
         self._adaptive_pacing = config.adaptive_pacing
         self._rate_limiter = HostRateLimiter(
@@ -867,8 +965,28 @@ class SiteCrawler:
                 out[key] = memory
         return out
 
+    def _new_pause(self) -> CrawlPause:
+        return CrawlPause(
+            default_s=self._knobs.retry_after_default_s,
+            max_consecutive=self._knobs.max_consecutive_429,
+            max_cooldown_s=self._knobs.max_cooldown_minutes * 60.0,
+        )
+
+    async def _resolve_scoped_knobs(self) -> None:
+        """Re-read the `crawl.*` knobs for THIS crawl's organization / person / site."""
+        if self._knob_scope is None:
+            return
+        self._knobs = await CrawlKnobs.load_for(self._knob_scope)
+        if self._explicit_pacing_knobs is None:
+            self._pacing_knobs = self._knobs.pacing(DEFAULT_KNOBS)
+            if self._adaptive_pacing:
+                self._rate_limiter.default_rps = self._pacing_knobs.floor_rps
+                self._rate_limiter.default_burst = max(1.0, self._pacing_knobs.floor_rps * 2.0)
+        self._pause = self._new_pause()
+
     async def run(self) -> dict[str, ScrapeResult]:
         self._started_at = time.monotonic()
+        await self._resolve_scoped_knobs()
 
         # Should be unreachable (CrawlStartRequest 422s invalid patterns), but
         # if a non-contract caller got one past __init__, the skip must be a
@@ -906,14 +1024,23 @@ class SiteCrawler:
                         user_agent=self.user_agent,
                         max_urls=self.config.max_pages,
                     )
-                    # A sitemap routinely carries thousands of URLs — the same
-                    # O(1)-events-per-batch rule applies here as for page links.
-                    seeded_from_sitemap = await self._classify_and_enqueue_batch(
-                        list(sitemap_urls),
-                        depth=0,
-                        parent_url=None,
-                        source="sitemap",
-                    )
+                    if self._knobs.link_first:
+                        # crawl.link_first: link-discovered URLs are fetched
+                        # first; sitemap-only URLs wait until link discovery
+                        # drains (a URL also found by a link is then already
+                        # known and never fetched twice). OpenSEO's order —
+                        # the link graph is what a visitor and Google walk.
+                        self._deferred_sitemap_urls = list(sitemap_urls)
+                        seeded_from_sitemap = len(self._deferred_sitemap_urls)
+                    else:
+                        # A sitemap routinely carries thousands of URLs — the same
+                        # O(1)-events-per-batch rule applies here as for page links.
+                        seeded_from_sitemap = await self._classify_and_enqueue_batch(
+                            list(sitemap_urls),
+                            depth=0,
+                            parent_url=None,
+                            source="sitemap",
+                        )
                 except Exception as exc:
                     await self._emit(
                         CrawlWarningEvent(
@@ -967,6 +1094,32 @@ class SiteCrawler:
                 # Stop conditions: no work in flight AND queue is empty AND we hit
                 # max_pages OR queue is just empty.
                 qd, inflight = await self.queue.counts()
+                if self._stop_reason is not None:
+                    # A rate-limit stop: workers take no new work; let the
+                    # in-flight fetches settle, then drain the frontier below.
+                    if inflight == 0 and self._pages_reserved == 0:
+                        break
+                    await asyncio.sleep(0.1)
+                    continue
+                if (
+                    qd == 0
+                    and inflight == 0
+                    and self._pages_reserved == 0
+                    and self._deferred_sitemap_urls
+                    and self._pages_fetched < self.config.max_pages
+                ):
+                    # Link discovery drained — now the sitemap-only URLs.
+                    deferred, self._deferred_sitemap_urls = self._deferred_sitemap_urls, []
+                    await self._classify_and_enqueue_batch(
+                        deferred, depth=0, parent_url=None, source="sitemap"
+                    )
+                    # Workers exit on an empty frontier; start fresh ones.
+                    workers = [w for w in workers if not w.done()]
+                    workers += [
+                        asyncio.create_task(self._worker())
+                        for _ in range(self.config.concurrency - len(workers))
+                    ]
+                    continue
                 if qd == 0 and inflight == 0 and self._pages_reserved == 0:
                     break
                 # The page-budget stop MUST also wait for reserved slots to
@@ -995,8 +1148,15 @@ class SiteCrawler:
                 w.cancel()
             await asyncio.gather(*workers, return_exceptions=True)
 
+        if self._stop_reason is not None and not self._cancel.is_set():
+            await self._drain_frontier_after_stop()
+
         duration_ms = int((time.monotonic() - (self._started_at or time.monotonic())) * 1000)
         status = "canceled" if self._cancel.is_set() else "completed"
+        if status == "completed" and self._stop_reason is not None:
+            # Ended by the crawler itself, not finished: `partial` + stop_reason,
+            # never a false "complete" (OPENSEO-TOOLS-SPEC §8.1).
+            status = "stopped"
         remaining_queue_depth = await self.queue.queue_depth()
         remaining_in_flight = await self.queue.in_flight_count()
         limit_reached = self._pages_fetched >= self.config.max_pages and remaining_queue_depth > 0
@@ -1099,10 +1259,119 @@ class SiteCrawler:
                 coverage_complete=coverage_complete,
                 limit_reached=limit_reached,
                 remaining_queue_depth=remaining_queue_depth,
-                error_message=truncation_error,
+                error_message=truncation_error or self._stop_detail,
+                stop_reason=self._stop_reason if status == "stopped" else None,
             )
         )
         return self.results
+
+    async def _cap_page_body(self, result: ScrapeResult, item: QueueItem) -> None:
+        """Hold a STORED page body to ``crawl.html_max_bytes``, with a page notice.
+
+        Runs after the page summary is built, so the audit and the link edges
+        come from the whole page; only the body we archive is cut. Never silent:
+        the notice names the page, its real size, and the knob.
+        """
+        cap = self._knobs.html_max_bytes
+        if cap <= 0:
+            return
+        original: int | None = None
+        for attr in ("raw_html", "raw_body"):
+            body = getattr(result, attr, None)
+            if isinstance(body, str):
+                encoded = body.encode("utf-8", errors="ignore")
+                if len(encoded) > cap:
+                    original = max(original or 0, len(encoded))
+                    setattr(result, attr, encoded[:cap].decode("utf-8", errors="ignore"))
+            elif isinstance(body, bytes) and len(body) > cap and "html" in str(
+                result.content_type or ""
+            ):
+                original = max(original or 0, len(body))
+                setattr(result, attr, body[:cap])
+        if original is None:
+            return
+        await self._emit(
+            CrawlWarningEvent(
+                run_id=self.run_id,
+                message=(
+                    f"{item.url} — page body is {original:,} bytes, over the "
+                    f"{cap:,}-byte limit; only the first {cap:,} bytes were stored (the "
+                    "audit and the link graph read the whole page). The limit is the "
+                    "crawl.html_max_bytes setting."
+                ),
+                context={
+                    "url": item.url,
+                    "signal": "html_truncated",
+                    "original_bytes": original,
+                    "kept_bytes": cap,
+                },
+            )
+        )
+
+    async def _stop_for_rate_limits(self, reason_text: str) -> None:
+        """End the crawl gracefully: the site's rate limits made going on futile."""
+        if self._stop_reason is not None:
+            return
+        self._stop_reason = "rate_limited"
+        self._stop_detail = (
+            f"Crawl stopped early: {reason_text}. Pages not yet fetched are recorded "
+            "RateLimitTimeout; re-run the crawl later or lower the crawl rate."
+        )
+        self._pause.halt()
+        logger.warning("crawl %s stopped: %s", self.run_id, self._stop_detail)
+        await self._emit(
+            CrawlWarningEvent(
+                run_id=self.run_id,
+                message=self._stop_detail,
+                context={
+                    "stop_reason": self._stop_reason,
+                    "consecutive_429": self._pause.consecutive,
+                    "cooldown_seconds": round(self._pause.total_cooldown_s, 1),
+                },
+            )
+        )
+
+    async def _record_rate_limit_timeout(self, item: QueueItem) -> None:
+        """A URL the crawl never fetched because it stopped on rate limiting."""
+        await self._emit(
+            CrawlPageFailedEvent(
+                run_id=self.run_id,
+                url=item.url,
+                error_class="RateLimitTimeout",
+                error_message=(
+                    f"not fetched — the crawl stopped on the site's rate limits "
+                    f"({self._stop_detail or 'rate limited'})"
+                ),
+            )
+        )
+        await self.queue.mark_failed(item.url, "rate_limit_stop", will_retry=False)
+        self._pages_failed += 1
+
+    async def _drain_frontier_after_stop(self) -> None:
+        """Record every URL left on the frontier as RateLimitTimeout, honestly.
+
+        A durable frontier holds a requeued item back for a short retry backoff,
+        so an empty dequeue with work still queued waits briefly (bounded) rather
+        than leaving those URLs unrecorded.
+        """
+        deadline = time.monotonic() + 15.0
+        while True:
+            item = await self.queue.dequeue()
+            if item is None:
+                if await self.queue.queue_depth() > 0 and time.monotonic() < deadline:
+                    await asyncio.sleep(0.5)
+                    continue
+                return
+            await self._emit(
+                CrawlPageDiscoveredEvent(
+                    run_id=self.run_id,
+                    url=item.url,
+                    depth=item.depth,
+                    parent_url=item.parent_url,
+                    source=item.source,  # type: ignore[arg-type]
+                )
+            )
+            await self._record_rate_limit_timeout(item)
 
     def cancel(self) -> None:
         self._cancel.set()
@@ -1112,7 +1381,7 @@ class SiteCrawler:
     # ------------------------------------------------------------------
 
     async def _worker(self) -> None:
-        while not self._cancel.is_set():
+        while not self._cancel.is_set() and self._stop_reason is None:
             if not await self._reserve_page_slot():
                 return
             try:
@@ -1175,6 +1444,13 @@ class SiteCrawler:
         if self.config.politeness_delay_ms > 0:
             await asyncio.sleep(self.config.politeness_delay_ms / 1000.0)
 
+        # Crawl-wide pause: a 429 stops ALL new requests until the cooldown the
+        # site asked for (Retry-After) is over — not just this worker's host.
+        await self._pause.wait()
+        if self._stop_reason is not None:
+            await self._record_rate_limit_timeout(item)
+            return
+
         # Per-host rate limit — applied to ALL workers, so concurrency=8 against
         # the same host doesn't exceed `host_rps`. Times out cleanly if the
         # bucket can't refill in time; treat that as a transient skip.
@@ -1188,13 +1464,13 @@ class SiteCrawler:
             # one page. Retries are warnings; only exhaustion is a failure.
             attempts = self._rate_limit_attempts.get(item.url, 0) + 1
             self._rate_limit_attempts[item.url] = attempts
-            if attempts <= MAX_RATE_LIMIT_RETRIES:
+            if attempts <= self._knobs.max_retries_per_url:
                 await self._emit(
                     CrawlWarningEvent(
                         run_id=self.run_id,
                         message=(
                             f"{item.url} — per-host rate limit timed out; requeued "
-                            f"(attempt {attempts}/{MAX_RATE_LIMIT_RETRIES})"
+                            f"(attempt {attempts}/{self._knobs.max_retries_per_url})"
                         ),
                     )
                 )
@@ -1207,7 +1483,7 @@ class SiteCrawler:
                     error_class="RateLimitTimeout",
                     error_message=(
                         f"per-host rate limit timed out for {item.url} after "
-                        f"{MAX_RATE_LIMIT_RETRIES} retries"
+                        f"{self._knobs.max_retries_per_url} retries"
                     ),
                 )
             )
@@ -1350,6 +1626,13 @@ class SiteCrawler:
                         browser_failure_reasons.append(
                             {FailureReason.BAD_STATUS: f"Status code {captured.status_code}"}
                         )
+                        # The same header/status wall rule as the HTTP path
+                        # (cf-mitigated → cloudflare_block, 401/403 → blocked).
+                        wall = wall_reason_from_status(captured.status_code, captured.headers)
+                        if wall is not None and not any(
+                            wall[0] in r for r in browser_failure_reasons
+                        ):
+                            browser_failure_reasons.append({wall[0]: wall[1]})
                     response = Response(
                         request_url=item.url,
                         proxy_used=use_proxy,
@@ -1556,15 +1839,37 @@ class SiteCrawler:
                     ramp = self._ramp_for(item.url)
                     if ramp is not None:
                         new_rps = ramp.current_rps
-                    if attempts <= MAX_RATE_LIMIT_RETRIES:
+                    pause_note = ""
+                    pause_context: dict[str, Any] = {}
+                    if status == 429:
+                        # A 429 pauses EVERY new request of the crawl — for the
+                        # Retry-After the site sent, else the default backoff.
+                        retry_after_s = parse_retry_after(result.retry_after)
+                        delay = self._pause.record_limit(retry_after_s)
+                        source = "Retry-After" if retry_after_s is not None else "backoff"
+                        pause_note = f"; every request paused {delay:.1f}s ({source})"
+                        pause_context = {
+                            "url": item.url,
+                            "http_status": status,
+                            "retry_after": result.retry_after,
+                            "pause_seconds": round(delay, 3),
+                            "pause_source": source,
+                            "consecutive_429": self._pause.consecutive,
+                        }
+                        stop_text = self._pause.stop_reason()
+                        if stop_text is not None:
+                            await self._stop_for_rate_limits(stop_text)
+                    if attempts <= self._knobs.max_retries_per_url:
                         await self._emit(
                             CrawlWarningEvent(
                                 run_id=self.run_id,
                                 message=(
                                     f"{item.url} — rate limited (HTTP {status}); throttled "
                                     f"{urlparse(item.url).netloc} to {new_rps:.2f} rps and "
-                                    f"requeued (attempt {attempts}/{MAX_RATE_LIMIT_RETRIES})"
+                                    f"requeued (attempt {attempts}/{self._knobs.max_retries_per_url})"
+                                    f"{pause_note}"
                                 ),
+                                context=pause_context,
                             )
                         )
                         await self.queue.mark_failed(item.url, f"http_{status}", will_retry=True)
@@ -1588,7 +1893,7 @@ class SiteCrawler:
                                 run_id=self.run_id,
                                 message=(
                                     f"{item.url} — still HTTP {status} after "
-                                    f"{MAX_RATE_LIMIT_RETRIES} throttled retries; "
+                                    f"{self._knobs.max_retries_per_url} throttled retries; "
                                     "trying the browser once before failing it."
                                 ),
                                 context={
@@ -1609,7 +1914,7 @@ class SiteCrawler:
                                 error_class="RateLimited",
                                 error_message=(
                                     f"HTTP {status}: host kept rate-limiting after "
-                                    f"{MAX_RATE_LIMIT_RETRIES} throttled retries"
+                                    f"{self._knobs.max_retries_per_url} throttled retries"
                                 ),
                                 attempt=attempts,
                             )
@@ -1628,6 +1933,10 @@ class SiteCrawler:
                     self._bytes_downloaded += bytes_total
                     response_ms = int((time.monotonic() - t0) * 1000)
 
+                if status != 429:
+                    # Any answer that is not "too many requests" ends the run
+                    # of consecutive 429s the stop rule counts.
+                    self._pause.record_success()
                 await self._emit(
                     CrawlPageFetchedEvent(
                         run_id=self.run_id,
@@ -1704,6 +2013,11 @@ class SiteCrawler:
                 # web persistence needs the extracted signals to create the
                 # immutable snapshot in the same operation as its artifacts.
                 summary = self._build_summary(result, item, response_ms, bytes_total, None)
+                # The byte cap bounds what is STORED, after the whole page was
+                # read: every link on the page becomes an edge and every check
+                # sees the whole page. Capping before the summary lost the links
+                # past the cap, so the pages they point at read as orphans.
+                await self._cap_page_body(result, item)
                 await enrich_image_inventory(summary.image_inventory)
 
                 # Persist body + screenshots (storage + canonical snapshot via host)

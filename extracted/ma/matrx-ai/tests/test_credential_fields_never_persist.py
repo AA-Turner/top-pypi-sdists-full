@@ -7,6 +7,8 @@ wholesale at the end of every turn.
 
 from __future__ import annotations
 
+from matrx_utils.source_guard import stable_source
+
 import pytest
 
 from matrx_ai.utils.credential_fields import is_credential_field, without_credential_fields
@@ -55,11 +57,10 @@ def test_a_real_turn_record_loses_only_the_token() -> None:
 
 
 def test_both_durable_request_writes_filter_their_metadata() -> None:
-    import inspect
 
     from matrx_ai.db import persistence
 
-    source = inspect.getsource(persistence)
+    source = stable_source(persistence)
     assert source.count("without_credential_fields(") >= 2
 
 

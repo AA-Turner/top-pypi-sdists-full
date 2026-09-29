@@ -13,7 +13,7 @@ from modal._utils.async_utils import synchronizer
 from modal._utils.browser_utils import open_url_and_display
 from modal._utils.time_utils import timestamp_to_localized_str
 from modal.cli._download import _volume_download
-from modal.cli.utils import display_table, env_option, yes_option
+from modal.cli.utils import display_table, env_option, humanize_filesize, yes_option
 from modal.output import OutputManager
 from modal.volume import _AbstractVolumeUploadContextManager, _Volume
 from modal_proto import api_pb2
@@ -30,16 +30,19 @@ volume_cli = ModalGroup(
 )
 
 
-def humanize_filesize(value: int) -> str:
-    if value < 0:
-        raise ValueError("value should be >= 0")
-    base = 1024
-    size = float(value)
-    for unit in ("B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"):
-        if size < base:
-            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
-        size /= base
-    return f"{size:.1f} ZiB"
+@volume_cli.command("list", help="List the details of all modal.Volume volumes in an Environment.", panel="Management")
+@env_option
+@click.option("--json", is_flag=True, default=False)
+@synchronizer.create_blocking
+async def list_(env: str | None = None, json: bool = False):
+    env = ensure_env(env)
+    volumes = await _Volume.objects.list(environment_name=env)
+    rows = []
+    for obj in volumes:
+        info = await obj.info()
+        rows.append((info.name, timestamp_to_localized_str(info.created_at.timestamp(), json), info.created_by))
+
+    display_table(["Name", "Created at", "Created by"], rows, json)
 
 
 @volume_cli.command("create", help="Create a named, persistent modal.Volume.", panel="Management", no_args_is_help=True)
@@ -63,6 +66,127 @@ def some_func():
     output.print(f"Created Volume '{name}' in environment '{env_name}'. \n\nCode example:\n")
     usage = Syntax(usage_code, "python")
     output.print(usage)
+
+
+@volume_cli.command("rename", help="Rename a modal.Volume.", panel="Management", no_args_is_help=True)
+@click.argument("old_name")
+@click.argument("new_name")
+@yes_option
+@env_option
+@synchronizer.create_blocking
+async def rename(
+    old_name: str,
+    new_name: str,
+    yes: bool = False,
+    env: str | None = None,
+):
+    if not yes:
+        click.confirm(
+            f"Are you sure you want rename the modal.Volume '{old_name}'? This may break any Apps currently using it.",
+            default=False,
+            abort=True,
+        )
+
+    await _Volume.rename(old_name, new_name, environment_name=env)
+
+
+@volume_cli.command(
+    "dashboard", help="Open the Volume's dashboard page in your web browser.", panel="Management", no_args_is_help=True
+)
+@click.argument("volume_name")
+@env_option
+@synchronizer.create_blocking
+async def dashboard(
+    volume_name: str,
+    env: str | None = None,
+):
+    """Open a Volume's dashboard page in your web browser.
+
+    Examples:
+
+    ```
+    modal volume dashboard my-volume
+    ```
+    """
+    env = ensure_env(env)
+    volume = await _Volume.from_name(volume_name, environment_name=env).hydrate()
+
+    url = f"https://modal.com/id/{volume.object_id}"
+    open_url_and_display(url, "Volume dashboard")
+
+
+@volume_cli.command(
+    "delete", help="Delete a named Volume and all of its data.", panel="Management", no_args_is_help=True
+)
+@click.argument("name")
+@click.option("--allow-missing", is_flag=True, default=False, help="Don't error if the Volume doesn't exist.")
+@yes_option
+@env_option
+@synchronizer.create_blocking
+async def delete(
+    name: str,
+    *,
+    allow_missing: bool = False,
+    yes: bool = False,
+    env: str | None = None,
+):
+    env = ensure_env(env)
+    if not yes:
+        click.confirm(
+            f"Are you sure you want to irrevocably delete the modal.Volume '{name}'?",
+            default=False,
+            abort=True,
+        )
+
+    await _Volume.objects.delete(name, environment_name=env, allow_missing=allow_missing)
+
+
+@volume_cli.command(
+    "ls", help="List files and directories in a modal.Volume volume.", panel="File operations", no_args_is_help=True
+)
+@click.argument("volume_name")
+@click.argument("path", default="/")
+@click.option("--json", is_flag=True, default=False)
+@env_option
+@synchronizer.create_blocking
+async def ls(
+    volume_name: str,
+    path: str = "/",
+    json: bool = False,
+    env: str | None = None,
+):
+    ensure_env(env)
+    vol = _Volume.from_name(volume_name, environment_name=env)
+    entries = await vol.listdir(path)
+
+    if not json and not sys.stdout.isatty():
+        # Legacy behavior -- I am not sure why exactly we did this originally but I don't want to break it
+        for entry in entries:
+            print(entry.path)  # noqa: T201
+    else:
+        rows = []
+        for entry in entries:
+            if entry.type == api_pb2.FileEntry.FileType.DIRECTORY:
+                filetype = "dir"
+            elif entry.type == api_pb2.FileEntry.FileType.SYMLINK:
+                filetype = "link"
+            elif entry.type == api_pb2.FileEntry.FileType.FIFO:
+                filetype = "fifo"
+            elif entry.type == api_pb2.FileEntry.FileType.SOCKET:
+                filetype = "socket"
+            else:
+                filetype = "file"
+            rows.append(
+                (
+                    entry.path.encode("unicode_escape").decode("utf-8"),
+                    filetype,
+                    timestamp_to_localized_str(entry.mtime, json),
+                    entry.size if json else humanize_filesize(entry.size),
+                )
+            )
+        columns = ["Filename", "Type", "Created/Modified", "Size"]
+        title = f"Directory listing of '{path}' in '{volume_name}'"
+        display_table(columns, rows, json, title=title)
 
 
 @volume_cli.command("get", panel="File operations", no_args_is_help=True)
@@ -106,69 +230,6 @@ async def get(
             progress_cb=progress.progress,
         )
     output.step_completed("Finished downloading files to local!")
-
-
-@volume_cli.command("list", help="List the details of all modal.Volume volumes in an Environment.", panel="Management")
-@env_option
-@click.option("--json", is_flag=True, default=False)
-@synchronizer.create_blocking
-async def list_(env: str | None = None, json: bool = False):
-    env = ensure_env(env)
-    volumes = await _Volume.objects.list(environment_name=env)
-    rows = []
-    for obj in volumes:
-        info = await obj.info()
-        rows.append((info.name, timestamp_to_localized_str(info.created_at.timestamp(), json), info.created_by))
-
-    display_table(["Name", "Created at", "Created by"], rows, json)
-
-
-@volume_cli.command(
-    "ls", help="List files and directories in a modal.Volume volume.", panel="File operations", no_args_is_help=True
-)
-@click.argument("volume_name")
-@click.argument("path", default="/")
-@click.option("--json", is_flag=True, default=False)
-@env_option
-@synchronizer.create_blocking
-async def ls(
-    volume_name: str,
-    path: str = "/",
-    json: bool = False,
-    env: str | None = None,
-):
-    ensure_env(env)
-    vol = _Volume.from_name(volume_name, environment_name=env)
-    entries = await vol.listdir(path)
-
-    if not json and not sys.stdout.isatty():
-        # Legacy behavior -- I am not sure why exactly we did this originally but I don't want to break it
-        for entry in entries:
-            print(entry.path)  # noqa: T201
-    else:
-        rows = []
-        for entry in entries:
-            if entry.type == api_pb2.FileEntry.FileType.DIRECTORY:
-                filetype = "dir"
-            elif entry.type == api_pb2.FileEntry.FileType.SYMLINK:
-                filetype = "link"
-            elif entry.type == api_pb2.FileEntry.FileType.FIFO:
-                filetype = "fifo"
-            elif entry.type == api_pb2.FileEntry.FileType.SOCKET:
-                filetype = "socket"
-            else:
-                filetype = "file"
-            rows.append(
-                (
-                    entry.path.encode("unicode_escape").decode("utf-8"),
-                    filetype,
-                    timestamp_to_localized_str(entry.mtime, False),
-                    humanize_filesize(entry.size),
-                )
-            )
-        columns = ["Filename", "Type", "Created/Modified", "Size"]
-        title = f"Directory listing of '{path}' in '{volume_name}'"
-        display_table(columns, rows, json, title=title)
 
 
 @volume_cli.command("put", panel="File operations", no_args_is_help=True)
@@ -233,26 +294,6 @@ async def put(
         output.step_completed(f"Uploaded file '{local_path}' to '{remote_path}'")
 
 
-@volume_cli.command(
-    "rm", help="Delete a file or directory from a modal.Volume.", panel="File operations", no_args_is_help=True
-)
-@click.argument("volume_name")
-@click.argument("remote_path")
-@click.option("-r", "--recursive", is_flag=True, default=False, help="Delete directory recursively")
-@env_option
-@synchronizer.create_blocking
-async def rm(
-    volume_name: str,
-    remote_path: str,
-    recursive: bool = False,
-    env: str | None = None,
-):
-    ensure_env(env)
-    volume = _Volume.from_name(volume_name, environment_name=env)
-    await volume.remove_file(remote_path, recursive=recursive)
-    OutputManager.get().step_completed(f"{remote_path} was deleted successfully!")
-
-
 @volume_cli.command("cp", panel="File operations", no_args_is_help=True)
 @click.argument("volume_name")
 @click.argument("paths", nargs=-1, required=True)
@@ -276,73 +317,20 @@ async def cp(
 
 
 @volume_cli.command(
-    "delete", help="Delete a named Volume and all of its data.", panel="Management", no_args_is_help=True
-)
-@click.argument("name")
-@click.option("--allow-missing", is_flag=True, default=False, help="Don't error if the Volume doesn't exist.")
-@yes_option
-@env_option
-@synchronizer.create_blocking
-async def delete(
-    name: str,
-    *,
-    allow_missing: bool = False,
-    yes: bool = False,
-    env: str | None = None,
-):
-    env = ensure_env(env)
-    if not yes:
-        click.confirm(
-            f"Are you sure you want to irrevocably delete the modal.Volume '{name}'?",
-            default=False,
-            abort=True,
-        )
-
-    await _Volume.objects.delete(name, environment_name=env, allow_missing=allow_missing)
-
-
-@volume_cli.command("rename", help="Rename a modal.Volume.", panel="Management", no_args_is_help=True)
-@click.argument("old_name")
-@click.argument("new_name")
-@yes_option
-@env_option
-@synchronizer.create_blocking
-async def rename(
-    old_name: str,
-    new_name: str,
-    yes: bool = False,
-    env: str | None = None,
-):
-    if not yes:
-        click.confirm(
-            f"Are you sure you want rename the modal.Volume '{old_name}'? This may break any Apps currently using it.",
-            default=False,
-            abort=True,
-        )
-
-    await _Volume.rename(old_name, new_name, environment_name=env)
-
-
-@volume_cli.command(
-    "dashboard", help="Open the Volume's dashboard page in your web browser.", panel="Management", no_args_is_help=True
+    "rm", help="Delete a file or directory from a modal.Volume.", panel="File operations", no_args_is_help=True
 )
 @click.argument("volume_name")
+@click.argument("remote_path")
+@click.option("-r", "--recursive", is_flag=True, default=False, help="Delete directory recursively")
 @env_option
 @synchronizer.create_blocking
-async def dashboard(
+async def rm(
     volume_name: str,
+    remote_path: str,
+    recursive: bool = False,
     env: str | None = None,
 ):
-    """Open a Volume's dashboard page in your web browser.
-
-    Examples:
-
-    ```
-    modal volume dashboard my-volume
-    ```
-    """
-    env = ensure_env(env)
-    volume = await _Volume.from_name(volume_name, environment_name=env).hydrate()
-
-    url = f"https://modal.com/id/{volume.object_id}"
-    open_url_and_display(url, "Volume dashboard")
+    ensure_env(env)
+    volume = _Volume.from_name(volume_name, environment_name=env)
+    await volume.remove_file(remote_path, recursive=recursive)
+    OutputManager.get().step_completed(f"{remote_path} was deleted successfully!")

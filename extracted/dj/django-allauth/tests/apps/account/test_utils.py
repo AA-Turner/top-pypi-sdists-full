@@ -130,32 +130,26 @@ def test_username_validation_rejects_db_collation_collision(db):
             get_adapter().clean_username("ádmin")
 
 
-@override_settings(ALLOWED_HOSTS=["allowed_host", "testserver"])
-def test_is_safe_url_no_wildcard():
+@pytest.mark.parametrize(
+    ("allowed_hosts", "url", "expected"),
+    [
+        (["allowed_host", "testserver"], "http://allowed_host/", True),
+        (["allowed_host", "testserver"], "http://other_host/", False),
+        ([".example.com", "testserver"], "http://bla.example.com", True),
+        ([".example.com", "testserver"], "http://example.com", True),
+        ([".example.com", "testserver"], "http://not-example.com", False),
+        (["*", "allowed_host"], "http://testserver/", True),
+        (["*", "allowed_host"], "http://allowed_host/", True),
+        (["*", "allowed_host"], "/foo/bar", True),
+        (["*", "allowed_host"], "http://foobar.com/", False),
+        (["*", "allowed_host"], "http://other_host/", False),
+        (["allowed_host", "testserver"], "/foo/bar", True),
+    ],
+)
+def test_is_safe_url(settings, allowed_hosts, url, expected):
+    settings.ALLOWED_HOSTS = allowed_hosts
     with context.request_context(RequestFactory().get("/")):
-        assert get_adapter().is_safe_url("http://allowed_host/")
-        assert not get_adapter().is_safe_url("http://other_host/")
-
-
-def test_is_safe_url_subdomain(settings):
-    settings.ALLOWED_HOSTS = [".example.com", "testserver"]
-    with context.request_context(RequestFactory().get("/")):
-        assert get_adapter().is_safe_url("http://bla.example.com")
-        assert get_adapter().is_safe_url("http://example.com")
-        assert not get_adapter().is_safe_url("http://not-example.com")
-
-
-@override_settings(ALLOWED_HOSTS=["*"])
-def test_is_safe_url_wildcard():
-    with context.request_context(RequestFactory().get("/")):
-        assert get_adapter().is_safe_url("http://foobar.com/")
-        assert get_adapter().is_safe_url("http://other_host/")
-
-
-@override_settings(ALLOWED_HOSTS=["allowed_host", "testserver"])
-def test_is_safe_url_relative_path():
-    with context.request_context(RequestFactory().get("/")):
-        assert get_adapter().is_safe_url("/foo/bar")
+        assert get_adapter().is_safe_url(url) is expected
 
 
 def test_redirect_noreversematch(auth_client):

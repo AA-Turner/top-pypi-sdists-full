@@ -51,6 +51,9 @@ def _get_metadata(
     version: str,
     oauth_credentials: typing.Optional[_OAuthCredentials] = None,
 ) -> dict[str, str]: ...
+def _warn_internal_api(name: str) -> None:
+    """Warn that user code is accessing Modal's internal gRPC API."""
+    ...
 
 T = typing.TypeVar("T")
 
@@ -65,7 +68,7 @@ class _Client:
     _client_from_env_lock: typing.ClassVar[typing.Optional[asyncio.locks.Lock]]
     _cancellation_context: modal._utils.async_utils.TaskContext
     _cancellation_context_event_loop: typing.Optional[asyncio.events.AbstractEventLoop]
-    _stub: typing.Optional[modal_proto.modal_api_grpc.ModalClientModal]
+    _control_plane_stub: typing.Optional[modal_proto.modal_api_grpc.ModalClientModal]
     _auth_token_manager: typing.Optional[modal._utils.auth_token_manager._AuthTokenManager]
     _snapshotted: bool
     _connection_manager: typing.Optional[modal._utils.grpc_utils.ConnectionManager]
@@ -77,7 +80,7 @@ class _Client:
         server_url: str,
         client_type: int,
         credentials: typing.Optional[tuple[str, str]],
-        version: str = "1.5.5",
+        version: str = "1.6.0",
         *,
         oauth_credentials: typing.Optional[_OAuthCredentials] = None,
     ):
@@ -100,25 +103,35 @@ class _Client:
         ...
 
     @property
+    def _stub(self) -> modal_proto.modal_api_grpc.ModalClientModal:
+        """Retrieve the cached gRPC stub for the control plane."""
+        ...
+
+    async def _get_stub(self, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal:
+        """Get a gRPC stub for a specific server URL.
+
+        Stubs are cached per server URL, since constructing one is O(n) in the number of RPCs in ModalClient.
+        """
+        ...
+
+    @property
     def stub(self) -> modal_proto.modal_api_grpc.ModalClientModal:
         """mdmd:hidden
-        The default stub. Stubs can safely be used across forks / client snapshots.
+        Low-level gRPC stub for Modal's control plane API.
 
-        This is useful if you want to make requests to the default Modal server in us-east, for example
-        control plane requests.
-
-        This is equivalent to client.get_stub(default_server_url), but it's cached, so it's a bit faster.
+        **This is not a supported interface.** Modal's gRPC API is internal and may change or be
+        removed at any time, without notice or a deprecation period. Use the methods on Modal
+        SDK objects instead.
         """
         ...
 
     async def get_stub(self, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal:
         """mdmd:hidden
-        Get a stub for a specific server URL. Stubs can safely be used across forks / client snapshots.
+        Get a gRPC stub for a specific server URL.
 
-        This is useful if you want to make requests to a regional Modal server, for example low-latency
-        function calls in us-west.
-
-        This function is O(n) where n is the number of RPCs in ModalClient.
+        **This is not a supported interface.** Modal's gRPC API is internal and may change or be
+        removed at any time, without notice or a deprecation period. Use the methods on Modal
+        SDK objects instead.
         """
         ...
 
@@ -265,7 +278,7 @@ class Client:
     _client_from_env_lock: typing.ClassVar[typing.Optional[asyncio.locks.Lock]]
     _cancellation_context: modal._utils.async_utils.TaskContext
     _cancellation_context_event_loop: typing.Optional[asyncio.events.AbstractEventLoop]
-    _stub: typing.Optional[modal_proto.modal_api_grpc.ModalClientModal]
+    _control_plane_stub: typing.Optional[modal_proto.modal_api_grpc.ModalClientModal]
     _auth_token_manager: typing.Optional[modal._utils.auth_token_manager._AuthTokenManager]
     _snapshotted: bool
     _connection_manager: typing.Optional[modal._utils.grpc_utils.ConnectionManager]
@@ -277,7 +290,7 @@ class Client:
         server_url: str,
         client_type: int,
         credentials: typing.Optional[tuple[str, str]],
-        version: str = "1.5.5",
+        version: str = "1.6.0",
         *,
         oauth_credentials: typing.Optional[_OAuthCredentials] = None,
     ):
@@ -300,37 +313,56 @@ class Client:
         ...
 
     @property
+    def _stub(self) -> modal_proto.modal_api_grpc.ModalClientModal:
+        """Retrieve the cached gRPC stub for the control plane."""
+        ...
+
+    class ___get_stub_spec(typing_extensions.Protocol):
+        def __call__(self, /, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal:
+            """Get a gRPC stub for a specific server URL.
+
+            Stubs are cached per server URL, since constructing one is O(n) in the number of RPCs in ModalClient.
+            """
+            ...
+
+        async def aio(self, /, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal:
+            """Get a gRPC stub for a specific server URL.
+
+            Stubs are cached per server URL, since constructing one is O(n) in the number of RPCs in ModalClient.
+            """
+            ...
+
+    _get_stub: ___get_stub_spec
+
+    @property
     def stub(self) -> modal_proto.modal_api_grpc.ModalClientModal:
         """mdmd:hidden
-        The default stub. Stubs can safely be used across forks / client snapshots.
+        Low-level gRPC stub for Modal's control plane API.
 
-        This is useful if you want to make requests to the default Modal server in us-east, for example
-        control plane requests.
-
-        This is equivalent to client.get_stub(default_server_url), but it's cached, so it's a bit faster.
+        **This is not a supported interface.** Modal's gRPC API is internal and may change or be
+        removed at any time, without notice or a deprecation period. Use the methods on Modal
+        SDK objects instead.
         """
         ...
 
     class __get_stub_spec(typing_extensions.Protocol):
         def __call__(self, /, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal:
             """mdmd:hidden
-            Get a stub for a specific server URL. Stubs can safely be used across forks / client snapshots.
+            Get a gRPC stub for a specific server URL.
 
-            This is useful if you want to make requests to a regional Modal server, for example low-latency
-            function calls in us-west.
-
-            This function is O(n) where n is the number of RPCs in ModalClient.
+            **This is not a supported interface.** Modal's gRPC API is internal and may change or be
+            removed at any time, without notice or a deprecation period. Use the methods on Modal
+            SDK objects instead.
             """
             ...
 
         async def aio(self, /, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal:
             """mdmd:hidden
-            Get a stub for a specific server URL. Stubs can safely be used across forks / client snapshots.
+            Get a gRPC stub for a specific server URL.
 
-            This is useful if you want to make requests to a regional Modal server, for example low-latency
-            function calls in us-west.
-
-            This function is O(n) where n is the number of RPCs in ModalClient.
+            **This is not a supported interface.** Modal's gRPC API is internal and may change or be
+            removed at any time, without notice or a deprecation period. Use the methods on Modal
+            SDK objects instead.
             """
             ...
 

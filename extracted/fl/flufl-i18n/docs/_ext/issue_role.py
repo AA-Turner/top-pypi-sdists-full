@@ -5,7 +5,9 @@ from sphinx.roles import ReferenceRole
 from sphinx.util.typing import ExtensionMetadata
 
 
-BASE_URL = 'https://gitlab.com/warsaw/flufl.i18n/-/issues/'
+# GitLab renamed issues to work items, and the /-/issues list route now 404s outright.  The
+# per-issue legacy route still redirects, but publishing the current form avoids the round trip.
+BASE_URL = 'https://gitlab.com/flufl/flufl.i18n/-/work_items/'
 
 
 class IssueRole(ReferenceRole):

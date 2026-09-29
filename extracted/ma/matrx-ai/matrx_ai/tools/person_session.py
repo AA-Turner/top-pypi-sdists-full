@@ -39,12 +39,16 @@ PERSON_SESSION_UNAVAILABLE_MESSAGE = (
 
 
 @asynccontextmanager
-async def as_the_person() -> AsyncIterator[None]:
-    """Hold the calling person's RLS session for the enclosed ORM work."""
+async def as_the_person(app_ctx: Any = None) -> AsyncIterator[None]:
+    """Hold the calling person's RLS session for the enclosed ORM work.
+
+    ``app_ctx`` names the person when the caller holds their context explicitly
+    (default: the ambient request context the host reads).
+    """
     factory = get_acting_as_caller()
     if factory is None:
         raise PersonSessionUnavailable(PERSON_SESSION_UNAVAILABLE_MESSAGE)
-    async with factory():
+    async with factory(app_ctx) if app_ctx is not None else factory():
         yield
 
 

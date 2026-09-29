@@ -189,3 +189,112 @@ def test_href_to_page():
     assert ex._href_to_page("/docs/help/topics/x") == "topics/x"
     assert ex._href_to_page("https://external/x") is None
     assert ex._href_to_page("") is None
+
+
+# --- the whole build over a mini distribution ------------------------------------------
+
+def _page(title: str, body: str = "") -> str:
+    return (f'<article><div class="theme-doc-markdown markdown"><header><h1>{title}</h1></header>'
+            f"{body}</div></article>")
+
+
+def test_build_takes_the_property_reference_panels(tmp_path):
+    """The property references are panels of their own; their pages and sections land in the base.
+
+    A panel the bundle lacks (an older distribution) yields no section, and the order of the
+    sections is that of SIDEBARS - the order of the site menu.
+    """
+    import sqlite3
+    import zipfile
+
+    prop = "stdlib/element/ProjectElements/Std/Enums/EventImportance_ru"
+    js = (
+        'x={"developer":[{"type":"link","label":"Обзор","href":"/docs/help/topics/overview"}],'
+        '"projectElementsStdlib":[{"type":"category","label":"Перечисления",'
+        '"href":"/docs/help/stdlib/element/ProjectElements/Std/Enums/","items":['
+        f'{{"type":"link","label":"ВажностьСобытия","href":"/docs/help/{prop}"}}]}}]}}'
+    )
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    with zipfile.ZipFile(dist / "element-server-with-ide-1.0.0-x.car", "w") as car:
+        car.writestr(ex.SITE_ROOT + "assets/js/sidebars.js", js)
+        car.writestr(ex.SITE_ROOT + "topics/overview/index.html", _page("Обзор"))
+        car.writestr(ex.SITE_ROOT + "stdlib/element/ProjectElements/Std/Enums/index.html",
+                     _page("Перечисления"))
+        car.writestr(ex.SITE_ROOT + prop + "/index.html", _page(
+            "ВажностьСобытия", '<h2 id="литералы">Литералы</h2><h4 id="изконструктора">ИзКонструктора</h4>'))
+    out = tmp_path / "data" / "docs.sqlite"
+    out.parent.mkdir()
+    pages, _nodes = ex.build(dist, out)
+    assert pages == 3
+    con = sqlite3.connect(out)
+    try:
+        assert con.execute("SELECT title FROM pages WHERE id = ?", (prop,)).fetchone() == ("ВажностьСобытия",)
+        sections = [row[0] for row in con.execute("SELECT label FROM tree WHERE parent IS NULL ORDER BY ord")]
+        link = con.execute("SELECT kind FROM tree WHERE page = ? AND anchor IS NULL", (prop,)).fetchone()
+    finally:
+        con.close()
+    assert sections == ["Руководство разработчика", "Свойства элементов проекта"]
+    assert link == ("link",)
+    assert [label for key, label in ex.SIDEBARS if key.endswith("Stdlib")] == [
+        "Типы языка 1С:Элемент", "Свойства элементов проекта", "Свойства компонентов интерфейса",
+        "Схема процесса интеграции", "Язык запросов",
+    ]
+
+
+def _glossary_dist(tmp_path):
+    """A distribution whose overview links to a glossary term, the term under the glossary panel."""
+    import zipfile
+
+    term = "topics/terms/tenant"
+    js = (
+        'x={"developer":[{"type":"link","label":"Обзор","href":"/docs/help/topics/overview"}],'
+        '"glossary":[{"type":"category","label":"А","items":['
+        f'{{"type":"link","label":"Абонент","href":"/docs/help/{term}"}}]}}]}}'
+    )
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    with zipfile.ZipFile(dist / "element-server-with-ide-1.0.0-x.car", "w") as car:
+        car.writestr(ex.SITE_ROOT + "assets/js/sidebars.js", js)
+        car.writestr(ex.SITE_ROOT + "topics/overview/index.html",
+                     _page("Обзор", f'<p><a href="/docs/help/{term}">Абонент</a></p>'))
+        car.writestr(ex.SITE_ROOT + term + "/index.html",
+                     _page("Абонент", "<p>Клиент сервиса.</p>"))
+    return dist, term
+
+
+def _built(tmp_path, dist) -> tuple[list[str], list[str]]:
+    """(page ids, section labels) of a database built from the distribution."""
+    import sqlite3
+
+    out = tmp_path / "data" / "docs.sqlite"
+    out.parent.mkdir(exist_ok=True)
+    ex.build(dist, out)
+    con = sqlite3.connect(out)
+    try:
+        ids = [row[0] for row in con.execute("SELECT id FROM pages ORDER BY id")]
+        roots = con.execute("SELECT label FROM tree WHERE parent IS NULL ORDER BY ord")
+        sections = [row[0] for row in roots]
+    finally:
+        con.close()
+    return ids, sections
+
+
+def test_build_takes_the_glossary_panel(tmp_path, monkeypatch):
+    """The pages of the property references link to the terms of the glossary, a panel of its
+    own; without the panel those links led nowhere. It stands last, as in the site menu.
+
+    The control builds the same distribution without the panel: the term is not taken, so it is
+    the panel that brings it.
+    """
+    dist, term = _glossary_dist(tmp_path)
+
+    ids, sections = _built(tmp_path, dist)
+    assert term in ids
+    assert sections == ["Руководство разработчика", "Глоссарий"]
+    assert ex.SIDEBARS[-1] == ("glossary", "Глоссарий")
+
+    monkeypatch.setattr(ex, "SIDEBARS", [pair for pair in ex.SIDEBARS if pair[0] != "glossary"])
+    ids, sections = _built(tmp_path, dist)
+    assert term not in ids
+    assert sections == ["Руководство разработчика"]

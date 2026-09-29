@@ -227,7 +227,11 @@ class OpenAIChat:
         speed = compiled.speed if compiled is not None else unified_config.speech_speed
         if speed is not None:
             speech_kwargs["speed"] = speed
-        response = await self.client.audio.speech.create(**speech_kwargs)
+        response = await self.client.audio.speech.create(
+            **route_undeclared_params(
+                self.client.audio.speech.create, speech_kwargs, provider="openai"
+            )
+        )
 
         # ── Paid call returned. Storage retries alone; nothing below may
         # re-buy the audio (matrx_ai.providers.paid_output). ──

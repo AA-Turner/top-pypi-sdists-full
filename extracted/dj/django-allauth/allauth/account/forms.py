@@ -415,7 +415,13 @@ class BaseSignupForm(base_signup_form_class()):  # type: ignore[misc]
             raise ValueError(email)
         adapter = get_adapter()
         user = adapter.new_user(request)
-        adapter.save_user(request, user, self)
+        saved_user = adapter.save_user(request, user, self)
+        # NOTE: `save_user()` always returns a `User` instance. However, as this
+        # returned instance was ignored up until 65.19.4 we take precaution here
+        # to deal with possible custom adapters that do not respect this
+        # contract.
+        if saved_user is not None:
+            user = saved_user
         self.custom_signup(request, user)
         # TODO: Move into adapter `save_user` ?
         setup_user_email(request, user, [EmailAddress(email=email)] if email else [])

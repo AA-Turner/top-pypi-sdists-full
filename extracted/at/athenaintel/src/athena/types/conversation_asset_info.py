@@ -19,7 +19,7 @@ class ConversationAssetInfo(UniversalBaseModel):
 
     athena_metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field(default=None)
     """
-    Complete athena metadata for the conversation asset
+    Athena metadata for the conversation asset. Stored credentials are masked and last_read_at holds only the caller's own read receipt.
     """
 
     conversation_asset_id: str = pydantic.Field()

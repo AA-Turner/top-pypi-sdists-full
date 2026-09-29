@@ -59,8 +59,12 @@ uint64_t AggregateHashTable::append(const std::vector<ValueVector*>& keyVectors,
 }
 
 hash_t getHash(const FactorizedTable& table, ft_tuple_idx_t tupleIdx) {
-    return *(hash_t*)(table.getTuple(tupleIdx) + table.getTableSchema()->getColOffset(
-                                                     table.getTableSchema()->getNumColumns() - 1));
+    hash_t hash;
+    memcpy(&hash,
+        table.getTuple(tupleIdx) +
+            table.getTableSchema()->getColOffset(table.getTableSchema()->getNumColumns() - 1),
+        sizeof(hash_t));
+    return hash;
 }
 
 void AggregateHashTable::merge(FactorizedTable&& table) {
@@ -72,8 +76,12 @@ void AggregateHashTable::merge(FactorizedTable&& table) {
         auto numTuplesToScan =
             std::min(table.getNumTuples() - startTupleIdx, DEFAULT_VECTOR_CAPACITY);
         findHashSlots(table, startTupleIdx, numTuplesToScan);
-        auto aggregateStateOffset = aggStateColOffsetInFT;
-        for (auto& aggregateFunction : aggregateFunctions) {
+        for (size_t funcIdx = 0; funcIdx < aggregateFunctions.size(); funcIdx++) {
+            auto& aggregateFunction = aggregateFunctions[funcIdx];
+            // Use the schema column offset (columns are 8-byte aligned) rather than a
+            // packed sum of state sizes.
+            auto aggregateStateOffset =
+                getTableSchema()->getColOffset(aggStateColIdxInFT + funcIdx);
             // We'll update the distinct state at the end.
             // The distinct data gets merged separately, and only after the main data so that
             // we can guarantee that there is a group available in teh hash table for any given
@@ -86,7 +94,6 @@ void AggregateHashTable::merge(FactorizedTable&& table) {
                         factorizedTable->getInMemOverflowBuffer());
                 }
             }
-            aggregateStateOffset += aggregateFunction.getAggregateStateSize();
         }
         startTupleIdx += numTuplesToScan;
     }
@@ -105,8 +112,8 @@ void AggregateHashTable::mergeDistinctAggregateInfo() {
     vectors.emplace_back(nullptr);
     vectorPtrs.emplace_back(nullptr);
 
-    auto aggStateColOffset = aggStateColOffsetInFT;
     for (size_t distinctIdx = 0; distinctIdx < distinctHashTables.size(); distinctIdx++) {
+        // Use the schema column offset (columns are 8-byte aligned).
         auto& distinctHashTable = distinctHashTables[distinctIdx];
         if (distinctHashTable) {
             // Distinct key type is always the last key type in the distinct table
@@ -152,6 +159,8 @@ void AggregateHashTable::mergeDistinctAggregateInfo() {
                                    1, 0) == 0;
                     });
                     DASSERT(entry != nullptr);
+                    auto aggStateColOffset =
+                        getTableSchema()->getColOffset(aggStateColIdxInFT + distinctIdx);
                     aggregateFunctions[distinctIdx].updatePosState(entry + aggStateColOffset,
                         vectors.back().get() /*aggregateVector*/,
                         1 /* Distinct aggregate should ignore multiplicity since they are known to
@@ -162,7 +171,6 @@ void AggregateHashTable::mergeDistinctAggregateInfo() {
                 distinctHashEntriesProcessed[distinctIdx] += numTuplesToScan;
             }
         }
-        aggStateColOffset += aggregateFunctions[distinctIdx].getAggregateStateSize();
     }
 }
 
@@ -170,10 +178,10 @@ void AggregateHashTable::finalizeAggregateStates() {
     if (!aggregateFunctions.empty()) {
         for (auto i = 0u; i < getNumEntries(); ++i) {
             auto entry = factorizedTable->getTuple(i);
-            auto aggregateStatesOffset = aggStateColOffsetInFT;
-            for (auto& aggregateFunction : aggregateFunctions) {
-                aggregateFunction.finalizeState(entry + aggregateStatesOffset);
-                aggregateStatesOffset += aggregateFunction.getAggregateStateSize();
+            for (size_t funcIdx = 0; funcIdx < aggregateFunctions.size(); funcIdx++) {
+                auto aggregateStatesOffset =
+                    getTableSchema()->getColOffset(aggStateColIdxInFT + funcIdx);
+                aggregateFunctions[funcIdx].finalizeState(entry + aggregateStatesOffset);
             }
         }
     }
@@ -188,7 +196,9 @@ void AggregateHashTable::initializeFT(const std::vector<AggregateFunction>& aggF
     for (auto& dataType : payloadTypes) {
         numBytesForDependentKeys += LogicalTypeUtils::getRowLayoutSize(dataType);
     }
-    aggStateColOffsetInFT = numBytesForKeys + numBytesForDependentKeys;
+    // Columns are 8-byte aligned, so the state offset must come from the schema rather
+    // than a packed sum of key sizes.
+    aggStateColOffsetInFT = tableSchema.getColOffset(aggStateColIdxInFT);
 
     aggregateFunctions.reserve(aggFuncs.size());
     for (auto i = 0u; i < aggFuncs.size(); i++) {
@@ -232,8 +242,11 @@ void AggregateHashTable::resize(uint64_t newSize) {
     for (auto& block : hashSlotsBlocks) {
         block->resetToZero();
     }
-    factorizedTable->forEach(
-        [&](auto tuple) { fillHashSlot(*(hash_t*)(tuple + hashColOffsetInFT), tuple); });
+    factorizedTable->forEach([&](auto tuple) {
+        hash_t hash;
+        memcpy(&hash, tuple + hashColOffsetInFT, sizeof(hash_t));
+        fillHashSlot(hash, tuple);
+    });
 }
 
 uint64_t AggregateHashTable::matchFTEntries(std::span<const ValueVector*> keyVectors,
@@ -601,16 +614,16 @@ void AggregateHashTable::updateAggState(const std::vector<ValueVector*>& keyVect
 void AggregateHashTable::updateAggStates(const std::vector<ValueVector*>& keyVectors,
     const std::vector<AggregateInput>& aggregateInputs, uint64_t resultSetMultiplicity,
     const DataChunkState* leadingState) {
-    auto aggregateStateOffset = aggStateColOffsetInFT;
     for (auto i = 0u; i < aggregateFunctions.size(); i++) {
         if (!aggregateFunctions[i].isDistinct) {
             auto multiplicity = resultSetMultiplicity;
             for (auto& dataChunk : aggregateInputs[i].multiplicityChunks) {
                 multiplicity *= dataChunk->state->getSelVector().getSelSize();
             }
+            // Use the schema column offset (columns are 8-byte aligned).
+            auto aggregateStateOffset = getTableSchema()->getColOffset(aggStateColIdxInFT + i);
             updateAggState(keyVectors, aggregateFunctions[i], aggregateInputs[i].aggregateVector,
                 multiplicity, aggregateStateOffset, leadingState);
-            aggregateStateOffset += aggregateFunctions[i].getAggregateStateSize();
         } else {
             // If a function is distinct we still need to insert the value into the distinct
             // hash table

@@ -1,15 +1,16 @@
 #
-# Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2025-2026, NVIDIA CORPORATION. All rights reserved.
 #
 
 import io
 import time
+from http import HTTPStatus
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from typing import BinaryIO, Iterator, Type, Tuple
 import signal
 import threading
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import unquote, urlparse, parse_qs
 
 import requests
 
@@ -31,6 +32,7 @@ from aistore.sdk.etl.webserver.utils import (
 from aistore.sdk.errors import InvalidPipelineError, ETLDirectPutTransientError
 from aistore.sdk.const import (
     HEADER_CONTENT_LENGTH,
+    HEADER_TRANSFER_ENCODING,
     HEADER_CONTENT_TYPE,
     HEADER_NODE_URL,
     HEADER_DIRECT_PUT_LENGTH,
@@ -189,7 +191,10 @@ class HTTPMultiThreadedServer(ETLServer):
             """
             try:
                 url = compose_etl_direct_put_url(
-                    direct_put_url, self.server.etl_server.host_target, path, etl_args
+                    direct_put_url,
+                    self.server.etl_server.host_target,
+                    unquote(path),
+                    etl_args,
                 )
                 headers = {}
                 if remaining_pipeline:
@@ -356,7 +361,10 @@ class HTTPMultiThreadedServer(ETLServer):
             """Stream transformed output directly to the next pipeline stage."""
             try:
                 url = compose_etl_direct_put_url(
-                    direct_put_url, self.server.etl_server.host_target, path, etl_args
+                    direct_put_url,
+                    self.server.etl_server.host_target,
+                    unquote(path),
+                    etl_args,
                 )
                 headers = {}
                 if remaining_pipeline:
@@ -560,7 +568,14 @@ class HTTPMultiThreadedServer(ETLServer):
         def do_PUT(self):
             """
             Handle PUT requests by transforming the incoming data and responding with the transformed data.
+
+            Transfer-Encoding is unsupported and returns HTTP 501 before transformation.
             """
+            if HEADER_TRANSFER_ENCODING in self.headers:
+                self.send_error(
+                    HTTPStatus.NOT_IMPLEMENTED, "Transfer-Encoding is not supported"
+                )
+                return
             logger = self.server.etl_server.logger
             parsed = urlparse(self.path)
             raw_path = parsed.path

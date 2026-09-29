@@ -30,6 +30,10 @@ def load_module(project_root, rel_path, filename, module_name):
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
 
+    core_src = os.path.abspath(os.path.join(project_root, "..", "a2ui_core", "src"))
+    if os.path.exists(core_src) and core_src not in sys.path:
+        sys.path.insert(0, core_src)
+
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec and spec.loader:
         module = importlib.util.module_from_spec(spec)
@@ -60,7 +64,7 @@ class PackSpecsBuildHook(BuildHookInterface):
             "_basic_catalog_constants_load",
         )
 
-        spec_version_map = a2ui_constants.SPEC_VERSION_MAP
+        protocol_version_map = a2ui_constants.PROTOCOL_VERSION_MAP
         a2ui_asset_package = a2ui_constants.A2UI_ASSET_PACKAGE
         specification_dir = a2ui_constants.SPECIFICATION_DIR
 
@@ -86,7 +90,7 @@ class PackSpecsBuildHook(BuildHookInterface):
             project_root, "src", a2ui_asset_package.replace(".", os.sep)
         )
 
-        self._pack_schemas(repo_root, spec_version_map, target_base)
+        self._pack_schemas(repo_root, protocol_version_map, target_base)
         self._pack_basic_catalogs(
             repo_root, basic_catalog_constants.BASIC_CATALOG_PATHS, target_base
         )

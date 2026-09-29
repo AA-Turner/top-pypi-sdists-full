@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing_extensions import Annotated, TypedDict
 
+from .._utils import PropertyInfo
 from .chat.sort_order import SortOrder
 
 __all__ = ["FileListParams"]
@@ -22,3 +23,5 @@ class FileListParams(TypedDict, total=False):
     sort_order: SortOrder
 
     starting_after: str
+
+    x_project_id: Annotated[str, PropertyInfo(alias="x-project-id")]

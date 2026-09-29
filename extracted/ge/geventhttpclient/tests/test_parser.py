@@ -7,6 +7,36 @@ import pytest
 
 from geventhttpclient.response import HTTPResponse
 
+
+def test_latin1_header_value():
+    """Non-UTF-8 header bytes must parse as latin-1 instead of crashing.
+
+    Regression test: the parser used to decode header fragments as UTF-8,
+    which crashed the interpreter with a segfault on invalid bytes.
+    """
+    response = HTTPResponse()
+    response.feed(
+        b"HTTP/1.1 200 Ok\r\n"
+        b'Content-Disposition: attachment; filename="h\xe4llo.txt"\r\n'
+        b"Content-Length: 0\r\n\r\n"
+    )
+    assert response["content-disposition"] == 'attachment; filename="h\xe4llo.txt"'
+
+
+def test_latin1_status_message():
+    """Non-UTF-8 bytes in the status line must not crash the parser."""
+    response = HTTPResponse()
+    response.feed(b"HTTP/1.1 200 \xff\xfe\r\nContent-Length: 0\r\n\r\n")
+    assert response.status_code == 200
+
+
+def test_ascii_roundtrip():
+    """Plain ASCII headers keep their exact values."""
+    response = HTTPResponse()
+    response.feed(b"HTTP/1.1 200 Ok\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n")
+    assert response["content-type"] == "text/plain"
+
+
 RESPONSE = (
     "HTTP/1.1 301 Moved Permanently\r\nLocation: http://www.google.fr/\r\n"
     "Content-Type: text/html; charset=UTF-8\r\n"
@@ -98,12 +128,35 @@ def test_parse_error():
     try:
         response.feed("HTTP/1.1 asdf\r\n\r\n")
         response.feed("")
-        assert response.status_code, 0
+        assert response.status_code, "status code expected to be parsed"
         assert response.message_begun
     except HTTPException as e:
-        assert "Invalid response status" in str(e)
+        assert "Invalid status code" in str(e)
     else:
         assert False, "should have raised"
+
+
+@wrap_refcount
+def test_content_length_smuggling_cve_2024_27982():
+    """CVE-2024-27982: reject obfuscated Content-Length headers (llhttp >= 6.1.1)."""
+    smuggling_attempts = [
+        # duplicate Content-Length headers, identical values
+        b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\nContent-Length: 5\r\n\r\nhello",
+        # duplicate Content-Length headers, conflicting values
+        b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\nContent-Length: 6\r\n\r\nhello",
+        # comma separated values
+        b"HTTP/1.1 200 OK\r\nContent-Length: 5, 5\r\n\r\nhello",
+        # space separated values
+        b"HTTP/1.1 200 OK\r\nContent-Length: 5 5\r\n\r\nhello",
+        # signed value
+        b"HTTP/1.1 200 OK\r\nContent-Length: +5\r\n\r\nhello",
+        # Content-Length together with Transfer-Encoding
+        b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n",
+    ]
+    for raw_response in smuggling_attempts:
+        response = HTTPResponse()
+        with pytest.raises(HTTPException):
+            response.feed(raw_response)
 
 
 @wrap_refcount

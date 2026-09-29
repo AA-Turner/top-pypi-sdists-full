@@ -98,6 +98,11 @@ class Agent:
         self.matrx_actions: dict[str, Any] | None = matrx_actions
         self.variable_values: dict[str, Any] = {}
         self._variables_applied = False
+        # The pre-substitution step (``prepare_variables``) ran for these values,
+        # and whatever host-owned context it produced for the later prepare hook
+        # (aidream: the resource-context entries of document/sources variables).
+        self._variables_prepared = False
+        self.host_variable_context: dict[str, Any] | None = None
         # Controls as first-class variables. ``control_binding_policy`` is the
         # org's ``agents.controls / variable_bindable_keys`` value a HOST resolved
         # (None = the platform default). The composed values and the policy last
@@ -324,6 +329,36 @@ class Agent:
 
         return self
 
+    async def prepare_variables(self) -> Agent:
+        """THE pre-substitution step for every matrx-ai door (USI-2b).
+
+        Awaits the host's ``programmatic_agent_pre_substitution_hook`` so values
+        only the host can read — a ``sources`` variable's ``source_set`` envelope —
+        become text in ``variable_values`` BEFORE ``apply_variables`` substitutes
+        them. Every async door calls this first: ``execute``, ``from_agent`` with
+        variables, the batch render, the held mandate code call. Runs once; a
+        no-op when variables were already applied, when no host hook is
+        registered, or with no request context (the substitution tripwire then
+        keeps any unresolved envelope away from the model, out loud).
+        """
+        if self._variables_prepared or self._variables_applied:
+            return self
+        if not (self.variable_values or self.variable_defaults):
+            return self
+        from matrx_ai._ext import get_programmatic_agent_pre_substitution_hook
+
+        hook = get_programmatic_agent_pre_substitution_hook()
+        if hook is None:
+            return self
+        from matrx_connect.context.app_context import try_get_app_context
+
+        app_ctx = try_get_app_context()
+        if app_ctx is None:
+            return self
+        await hook(agent=self, app_ctx=app_ctx)
+        self._variables_prepared = True
+        return self
+
     def _resolve_control_bindings(self, values: dict[str, Any]) -> None:
         from matrx_ai.agents.control_bindings import (
             DEFAULT_BINDABLE_POLICY,
@@ -439,7 +474,9 @@ class Agent:
             matrx_actions=agent_config.matrx_actions,
         )
         if variables:
-            agent.with_variables(**variables)
+            # Set only: the async constructor that called this runs the
+            # pre-substitution step and then applies (``from_agent``).
+            agent.set_variables(**variables)
         if config_overrides is not None:
             if isinstance(config_overrides, LLMParams):
                 agent.apply_config_overrides(overrides=config_overrides)
@@ -505,6 +542,11 @@ class Agent:
         # the request context (the cx_* rows are written NULL otherwise).
         agent.source_id = agent_id
         agent.source_is_version = is_version
+        if variables:
+            # Caller-supplied variables are applied eagerly, as always — after the
+            # pre-substitution step, so a ``sources`` value is text by now.
+            await agent.prepare_variables()
+            agent.apply_variables()
         return agent
 
     def set_user_input(self, user_input: str | list[dict[str, Any]]) -> Agent:
@@ -542,6 +584,8 @@ class Agent:
         # document file_id must fill a template document block even when an
         # agent is invoked directly with no caller-provided variables.
         if (self.variable_values or self.variable_defaults) and not self._variables_applied:
+            # The pre-substitution step first (a ``sources`` value becomes text).
+            await self.prepare_variables()
             self.apply_variables()
         if user_input:
             self.set_user_input(user_input)

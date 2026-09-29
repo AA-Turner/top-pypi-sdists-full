@@ -84,6 +84,10 @@ from airbyte_ops_mcp.slack_posting import (
     resolve_airbyte_human_slack_id,
     send_hitl_notification,
 )
+from airbyte_ops_mcp.tier_cache import (
+    TierExportUnavailableError,
+    TierExportValidationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -236,13 +240,14 @@ def _safe_estimate(
     """Run `estimate_tier_eligible_actors`, tolerating prod-DB read failures.
 
     The pre-flight estimate is an optimization, not the authority.  If the
-    estimate can't be computed — a bad input, a transient SQL error, or a tier
-    cache that can't be loaded/refreshed (`RuntimeError` from
-    `tier_cache._load_tier_cache` when BigQuery fails and no stale cache
-    exists) — this logs and returns an "unavailable" estimate
+    estimate can't be computed this returns an "unavailable" estimate
     (`eligible_actor_count == -1`).  Non-recovery callers then fall through to
     the platform's authoritative actor count, and the `workflow_started`
     recovery guard skips rather than re-driving a tier it can't confirm.
+
+    A version missing from the replica is expected and logged as a warning; a
+    failed replica read or tier export is logged at ERROR so it raises a Sentry
+    issue.
     """
     try:
         return estimate_tier_eligible_actors(
@@ -250,23 +255,38 @@ def _safe_estimate(
             docker_repository=docker_repository,
             tier=tier,
         )
-    except (PyAirbyteInputError, sqlalchemy.exc.SQLAlchemyError, RuntimeError) as e:
+    except PyAirbyteInputError as e:
+        # The version is not in the replica yet — typically replica lag.
         logger.warning(
-            "auto-%s: could not estimate eligibility for %s (%s): %s "
+            "auto-%s: no replica record for %s (%s): %s "
+            "— returning an unavailable estimate",
+            action,
+            actor_definition_id,
+            tier,
+            e,
+        )
+    except (
+        sqlalchemy.exc.SQLAlchemyError,
+        TierExportUnavailableError,
+        TierExportValidationError,
+    ):
+        # The replica read or the tier export failed. The estimate degrades
+        # either way, but someone needs to know this happened.
+        logger.exception(
+            "auto-%s: could not estimate eligibility for %s (%s) "
             "— returning an unavailable estimate; the normal in-progress path "
             "falls back to the platform actor count, while workflow_started "
             "recovery skips (no platform sync info yet)",
             action,
             actor_definition_id,
             tier,
-            e,
         )
-        return TierEligibilityEstimate(
-            tier=tier,
-            eligible_actor_count=-1,
-            disposition="normal",
-            reason="eligibility estimate unavailable",
-        )
+    return TierEligibilityEstimate(
+        tier=tier,
+        eligible_actor_count=-1,
+        disposition="normal",
+        reason="eligibility estimate unavailable",
+    )
 
 
 def _recovery_tier_action(

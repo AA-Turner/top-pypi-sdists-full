@@ -617,3 +617,91 @@ def _report_unresolved(var_name: str) -> None:
                 coro.close()  # no running loop; the log line above is the record
     except Exception:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Tripwire: an unresolved ``source_set`` (one source input, USI-2b)
+# ---------------------------------------------------------------------------
+#
+# A ``sources`` variable's value is a ``source_set`` envelope that ONLY the host's
+# pre-substitution step (``Agent.prepare_variables`` → aidream's
+# ``attach_document_variables``) can turn into grounded text. Reaching
+# substitution still shaped as an envelope means a door skipped that step: the
+# model must never receive the JSON (it would read ids, not the Sources), and the
+# gap must be named — in the prompt and in the error record.
+
+SOURCE_SET_KIND = "source_set"
+
+
+def _as_source_set(value: Any) -> dict[str, Any] | None:
+    if isinstance(value, dict):
+        return value if value.get("__kind") == SOURCE_SET_KIND else None
+    if isinstance(value, str) and '"__kind"' in value and SOURCE_SET_KIND in value:
+        import json
+
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return None
+        is_set = isinstance(parsed, dict) and parsed.get("__kind") == SOURCE_SET_KIND
+        return parsed if is_set else None
+    return None
+
+
+def guard_unresolved_source_sets(variables: dict[str, Any]) -> dict[str, Any]:
+    """Replace every unresolved ``source_set`` value with an honest notice and record the
+    gap. Returns the input unchanged when there is none (the common case)."""
+    found = {name for name, value in variables.items() if _as_source_set(value) is not None}
+    if not found:
+        return variables
+    cleaned = dict(variables)
+    for name in found:
+        envelope = _as_source_set(variables[name]) or {}
+        topic = str(envelope.get("topic") or "").strip()
+        count = len(envelope.get("sources") or [])
+        notice = (
+            f"> The Sources for {name} ({count} item(s)) were not read on this path, so their "
+            "text is not included. Answer only from what else you were given and say that "
+            "the Sources were unavailable."
+        )
+        cleaned[name] = f"Topic: {topic}\n\n{notice}" if topic else notice
+        _report_unresolved_source_set(name)
+    return cleaned
+
+
+def _report_unresolved_source_set(var_name: str) -> None:
+    msg = (
+        f"[sources] unresolved source_set reached replace_variables for variable "
+        f"'{var_name}' — a door substituted before the pre-substitution step "
+        f"(Agent.prepare_variables / attach_document_variables). Injected a notice instead."
+    )
+    vcprint(msg, color="red")
+    try:
+        from matrx_ai._ext import get_ext
+
+        record_error = get_ext("record_error")
+    except Exception:
+        record_error = None
+    if record_error is None:
+        return
+    try:
+        import asyncio
+
+        coro = record_error(
+            RuntimeError(msg),
+            kind="source_set_unresolved",
+            error_type="source_set_unresolved",
+            error_text=msg,
+            payload={"variable": var_name},
+            route="replace_variables",
+        )
+        if asyncio.iscoroutine(coro):
+            try:
+                asyncio.get_running_loop()
+                from matrx_utils import detached_task
+
+                detached_task(coro, name=f"source_set_unresolved:{var_name}")
+            except RuntimeError:
+                coro.close()  # no running loop; the log line above is the record
+    except Exception:
+        pass

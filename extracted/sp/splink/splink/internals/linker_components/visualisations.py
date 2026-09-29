@@ -3,10 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from splink.internals.charts import (
-    ChartReturnType,
-    match_weights_histogram,
-    parameter_estimate_comparisons,
-    waterfall_chart,
+    MatchWeightsChart,
+    MatchWeightsHistogramChart,
+    MUParametersInteractiveHistoryChart,
+    ParameterEstimateComparisonsChart,
+    TFAdjustmentChart,
+    WaterfallChart,
 )
 from splink.internals.cluster_studio import (
     SamplingMethods,
@@ -24,8 +26,9 @@ from splink.internals.splink_comparison_viewer import (
 )
 from splink.internals.splink_dataframe import SplinkDataFrame
 from splink.internals.term_frequencies import (
-    tf_adjustment_chart,
+    tf_chart_data,
 )
+from splink.internals.waterfall_chart import records_to_waterfall_data
 
 if TYPE_CHECKING:
     from splink.internals.linker import Linker
@@ -35,23 +38,38 @@ class LinkerVisualisations:
     """Visualisations to help you understand and diagnose your linkage model.
     Accessed via `linker.visualisations`.
 
-    Most of the visualisations return an [altair.Chart](https://altair-viz.github.io/user_guide/generated/toplevel/altair.Chart.html)
-    object, meaning it can be saved an manipulated using Altair.
+    Most of the visualisations return a `SplinkChart` object.
+
+    Display and basic HTML export work without Altair. Use `to_html(inline=True)`
+    or `save("chart.html", inline=True)` to include the packaged JavaScript runtime.
+    Notebook display needs browser access to the pinned CDN and trusted JavaScript
+    output. In Databricks, use `displayHTML(splink_chart.to_html(inline=True))`.
+
+    `splink_chart.altair_chart` provides explicit conversion when Altair is installed.
+    Altair themes and renderers apply only after this conversion. Advanced save
+    formats/options also require Altair; image export may
+    additionally require `vl-convert-python` as documented by Altair.
 
     For example:
 
     ```py
-
-    altair_chart = linker.visualisations.match_weights_chart()
+    splink_chart = linker.visualisations.match_weights_chart()
 
     # Save to various formats
-    altair_chart.save("mychart.png")
-    altair_chart.save("mychart.html")
-    altair_chart.save("mychart.svg")
-    altair_chart.save("mychart.json")
+    # HTML saves natively; advanced formats delegate to Altair
+    splink_chart.save("mychart.png")
+    splink_chart.save("mychart.html")
+    splink_chart.save("mychart.svg")
+    splink_chart.save("mychart.json")
+
+    # Save an offline html
+    splink_chart.save_offline_chart("offline_chart.html")
 
     # Get chart spec as dict
-    altair_chart.to_dict()
+    chart_spec = splink_chart.chart_dict
+
+    # Get Altair chart
+    altair_chart = splink_chart.altair_chart
     ```
 
 
@@ -59,9 +77,8 @@ class LinkerVisualisations:
     inlined so it can be viewed offline:
 
     ```py
-    from splink.internals.charts import save_offline_chart
     c = linker.visualisations.match_weights_chart()
-    save_offline_chart(c.to_dict(), "test_chart.html")
+    c.save_offline_chart("test_chart.html")
     ```
 
     View resultant html file in Jupyter (or just load it in your browser)
@@ -75,39 +92,35 @@ class LinkerVisualisations:
     def __init__(self, linker: Linker):
         self._linker = linker
 
-    def match_weights_chart(self, as_dict: bool = False) -> ChartReturnType:
+    def match_weights_chart(self) -> MatchWeightsChart:
         """Display a chart of the (partial) match weights of the linkage model
 
-        Args:
-            as_dict (bool, optional): If True, return the chart as a dictionary.
-
         Examples:
             ```py
-            altair_chart = linker.visualisations.match_weights_chart()
-            altair_chart.save("mychart.png")
+            splink_chart = linker.visualisations.match_weights_chart()
+            splink_chart.save("mychart.png")
             ```
         Returns:
-            altair_chart: An Altair chart
+            SplinkChart: A SplinkChart object
         """
-        return self._linker._settings_obj.match_weights_chart(as_dict)
+        return self._linker._settings_obj.match_weights_chart()
 
-    def m_u_parameters_chart(self, as_dict: bool = False) -> ChartReturnType:
+    def m_u_parameters_chart(
+        self,
+    ) -> MUParametersInteractiveHistoryChart:
         """Display a chart of the m and u parameters of the linkage model
 
-        Args:
-            as_dict (bool, optional): If True, return the chart as a dictionary.
-
         Examples:
             ```py
-            altair_chart = linker.visualisations.m_u_parameters_chart()
-            altair_chart.save("mychart.png")
+            splink_chart = linker.visualisations.m_u_parameters_chart()
+            splink_chart.save("mychart.png")
             ```
 
         Returns:
-            altair_chart: An altair chart
+            SplinkChart: A SplinkChart object
         """
 
-        return self._linker._settings_obj.m_u_parameters_chart(as_dict)
+        return self._linker._settings_obj.m_u_parameters_chart()
 
     def match_weights_histogram(
         self,
@@ -115,8 +128,7 @@ class LinkerVisualisations:
         target_bins: int = 30,
         width: int = 600,
         height: int = 250,
-        as_dict: bool = False,
-    ) -> ChartReturnType:
+    ) -> MatchWeightsHistogramChart:
         """Generate a histogram that shows the distribution of match weights in
         `df_predict`
 
@@ -126,7 +138,6 @@ class LinkerVisualisations:
                 30.
             width (int, optional): Width of output. Defaults to 600.
             height (int, optional): Height of output chart. Defaults to 250.
-            as_dict (bool, optional): If True, return the chart as a dictionary.
 
         Examples:
             ```py
@@ -134,18 +145,18 @@ class LinkerVisualisations:
             linker.visualisations.match_weights_histogram(df_predict)
             ```
         Returns:
-            altair_chart: An Altair chart
+            SplinkChart: A SplinkChart object
 
         """
         df = histogram_data(self._linker, df_predict, target_bins)
-        recs = df.as_record_dict()
-        return match_weights_histogram(
-            recs, width=width, height=height, as_dict=as_dict
-        )
+        recs = df.as_record_list()
+        chart = MatchWeightsHistogramChart(recs)
+        chart.set_width_height(width=width, height=height)
+        return chart
 
     def parameter_estimate_comparisons_chart(
-        self, include_m: bool = True, include_u: bool = False, as_dict: bool = False
-    ) -> ChartReturnType:
+        self, include_m: bool = True, include_u: bool = False
+    ) -> ParameterEstimateComparisonsChart:
         """Show a chart that shows how parameter estimates have differed across
         the different estimation methods you have used.
 
@@ -159,7 +170,6 @@ class LinkerVisualisations:
                 to True.
             include_u (bool, optional): Show different estimates of u values. Defaults
                 to False.
-            as_dict (bool, optional): If True, return the chart as a dictionary.
 
         Examples:
             ```py
@@ -175,7 +185,7 @@ class LinkerVisualisations:
             ```
 
         Returns:
-            altair_chart: An Altair chart
+            SplinkChart: A SplinkChart object
 
         """
         records = self._linker._settings_obj._parameter_estimates_as_records
@@ -187,8 +197,7 @@ class LinkerVisualisations:
             to_retain.append("u")
 
         records = [r for r in records if r["m_or_u"] in to_retain]
-
-        return parameter_estimate_comparisons(records, as_dict)
+        return ParameterEstimateComparisonsChart(records)
 
     def tf_adjustment_chart(
         self,
@@ -196,8 +205,7 @@ class LinkerVisualisations:
         n_most_freq: int = 10,
         n_least_freq: int = 10,
         vals_to_include: str | list[str] | None = None,
-        as_dict: bool = False,
-    ) -> ChartReturnType:
+    ) -> TFAdjustmentChart:
         """Display a chart showing the impact of term frequency adjustments on a
         specific comparison level.
         Each value
@@ -214,7 +222,6 @@ class LinkerVisualisations:
             vals_to_include (list, optional): Specific values for which to show term
                 frequency adjustments.
                 Defaults to None.
-            as_dict (bool, optional): If True, return the chart as a dictionary.
 
         Examples:
             ```py
@@ -222,18 +229,20 @@ class LinkerVisualisations:
             ```
 
         Returns:
-            altair_chart: An Altair chart
+            TFAdjustmentChart: A SplinkChart object
         """
-
-        # Comparisons with TF adjustments
-        tf_comparisons = [
-            c.output_column_name
-            for c in self._linker._settings_obj.comparisons
-            if any([cl._has_tf_adjustments for cl in c.comparison_levels])
+        comparison = self._linker._settings_obj._get_comparison_by_output_column_name(
+            output_column_name
+        )
+        # Select levels with TF adjustments
+        tf_comparison_records = [
+            detailed_rec
+            for detailed_rec in comparison._as_detailed_records
+            if detailed_rec.has_tf_adjustments
         ]
-        if output_column_name not in tf_comparisons:
+        if not tf_comparison_records:
             raise ValueError(
-                f"{output_column_name} is not a valid comparison column, or does not"
+                f"Comparison with output_column_name {output_column_name} does not"
                 f" have term frequency adjustment activated"
             )
 
@@ -241,37 +250,37 @@ class LinkerVisualisations:
             [] if vals_to_include is None else ensure_is_list(vals_to_include)
         )
 
-        return tf_adjustment_chart(
+        main_chart_data, hist_data = tf_chart_data(
             self._linker,
-            output_column_name,
+            tf_comparison_records,
             n_most_freq,
             n_least_freq,
             vals_to_include,
-            as_dict,
         )
+
+        return TFAdjustmentChart(main_chart_data, hist_data, tf_comparison_records)
 
     def waterfall_chart(
         self,
         records: list[dict[str, Any]],
         filter_nulls: bool = True,
         remove_sensitive_data: bool = False,
-        as_dict: bool = False,
-    ) -> ChartReturnType:
+    ) -> WaterfallChart:
         """Visualise how the final match weight is computed for the provided pairwise
         record comparisons.
 
         Records must be provided as a list of dictionaries. This would usually be
-        obtained from `df.as_record_dict(limit=n)` where `df` is a SplinkDataFrame.
+        obtained from `df.as_record_list(limit=n)` where `df` is a SplinkDataFrame.
 
         Examples:
             ```py
             df = linker.inference.predict(threshold_match_weight=2)
-            records = df.as_record_dict(limit=10)
+            records = df.as_record_list(limit=10)
             linker.visualisations.waterfall_chart(records)
             ```
 
         Args:
-            records (List[dict]): Usually be obtained from `df.as_record_dict(limit=n)`
+            records (List[dict]): Usually be obtained from `df.as_record_list(limit=n)`
                 where `df` is a SplinkDataFrame.
             filter_nulls (bool, optional): Whether the visualisation shows null
                 comparisons, which have no effect on final match weight. Defaults to
@@ -279,21 +288,21 @@ class LinkerVisualisations:
             remove_sensitive_data (bool, optional): When True, The waterfall chart will
                 contain match weights only, and all of the (potentially sensitive) data
                 from the input tables will be removed prior to the chart being created.
-            as_dict (bool, optional): If True, return the chart as a dictionary.
 
 
         Returns:
-            altair_chart: An Altair chart
+            SplinkChart: A SplinkChart object
 
         """
         self._linker._raise_error_if_necessary_waterfall_columns_not_computed()
 
-        return waterfall_chart(
-            records,
-            self._linker._settings_obj,
+        data = records_to_waterfall_data(
+            records, self._linker._settings_obj, remove_sensitive_data
+        )
+
+        return WaterfallChart(
+            data,
             filter_nulls,
-            remove_sensitive_data,
-            as_dict,
         )
 
     def comparison_viewer_dashboard(
@@ -356,7 +365,7 @@ class LinkerVisualisations:
         df = self._linker._db_api.sql_pipeline_to_splink_dataframe(pipeline)
 
         rendered = render_splink_comparison_viewer_html(
-            df.as_record_dict(),
+            df.as_record_list(),
             self._linker._settings_obj._as_completed_dict(),
             out_path,
             overwrite,
@@ -372,11 +381,11 @@ class LinkerVisualisations:
         out_path: str,
         sampling_method: SamplingMethods = "random",
         sample_size: int = 10,
-        cluster_ids: list[str] = None,
-        cluster_names: list[str] = None,
+        cluster_ids: list[str] | None = None,
+        cluster_names: list[str] | None = None,
         overwrite: bool = False,
         return_html_as_string: bool = False,
-        _df_cluster_metrics: SplinkDataFrame = None,
+        _df_cluster_metrics: SplinkDataFrame | None = None,
     ) -> str | None:
         """Generate an interactive html visualization of the predicted cluster and
         save to `out_path`.
@@ -403,12 +412,12 @@ class LinkerVisualisations:
         Examples:
             ```py
             df_p = linker.inference.predict()
-            df_c = linker.visualisations.cluster_pairwise_predictions_at_threshold(
+            df_c = linker.clustering.cluster_pairwise_predictions_at_threshold(
                 df_p, 0.5
             )
 
             linker.visualisations.cluster_studio_dashboard(
-                df_p, df_c, [0, 4, 7], "cluster_studio.html"
+                df_p, df_c, "cluster_studio.html", cluster_ids=[0, 4, 7]
             )
             ```
 

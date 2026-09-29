@@ -18,7 +18,6 @@ class TPLinkDecoClient(TplinkEncryption, AbstractRouter):
         self._headers_request = {'Content-Type': 'application/json'}
         self._headers_login = {'Content-Type': 'application/json'}
         self._data_block = 'result'
-        self.devices = []
 
     def logout(self) -> None:
         self.request('admin/system?form=logout', dumps({'operation': 'logout'}), True)
@@ -44,18 +43,16 @@ class TPLinkDecoClient(TplinkEncryption, AbstractRouter):
         self.request('admin/wireless?form=wlan', dumps({'operation': 'write', 'params': params}))
 
     def reboot(self) -> None:
-        if not self.devices:
-            self.get_firmware()
+        devices = self._fetch_devices()
         self.request('admin/device?form=system', dumps({
             'operation': 'reboot',
-            'params': {'mac_list': [{"mac": item['mac']} for item in self.devices]}}))
+            'params': {'mac_list': [{"mac": item['mac']} for item in devices]}}))
 
     def get_firmware(self) -> Firmware:
-        self.devices = self.request('admin/device?form=device_list', dumps({"operation": "read"})).get(
-            'device_list', [])
+        devices = self._fetch_devices()
 
-        for item in self.devices:
-            if item.get('role') != 'master' and len(self.devices) != 1:
+        for item in devices:
+            if item.get('role') != 'master' and len(devices) != 1:
                 continue
             firmware = Firmware(item.get('hardware_ver', ''),
                                 item.get('device_model', ''),
@@ -64,16 +61,11 @@ class TPLinkDecoClient(TplinkEncryption, AbstractRouter):
         return firmware
 
     def get_mesh_nodes(self) -> list[MeshNode]:
-        """Return every unit of the mesh, master included.
-
-        Reuses the device list ``get_firmware()`` already fetches, which until
-        now kept only the master's firmware and discarded the rest.
-        """
-        if not self.devices:
-            self.get_firmware()
+        """Return every unit of the mesh, master included, as the router reports it now."""
+        devices = self._fetch_devices()
 
         nodes = []
-        for item in self.devices:
+        for item in devices:
             signal = item.get('signal_strength') or {}
             rx = item.get('rx_rate_list') or {}
             tx = item.get('tx_rate_list') or {}
@@ -84,6 +76,8 @@ class TPLinkDecoClient(TplinkEncryption, AbstractRouter):
                 _macaddr=get_mac(item.get('mac')),
                 name=item.get('nickname', ''),
                 role=item.get('role', ''),
+                # The shared connection state; Deco reports it as group_status, in EasyMesh's vocabulary.
+                status=item.get('group_status'),
                 model=item.get('device_model', ''),
                 _ipaddr=get_ip(ip) if ip else None,
                 hardware_version=item.get('hardware_ver'),
@@ -110,6 +104,10 @@ class TPLinkDecoClient(TplinkEncryption, AbstractRouter):
             return int(value)
         except (TypeError, ValueError):
             return None
+
+    def _fetch_devices(self) -> list:
+        return self.request('admin/device?form=device_list', dumps({"operation": "read"})).get(
+            'device_list', [])
 
     def get_status(self) -> Status:
         data = self.request('admin/network?form=wan_ipv4', dumps({'operation': 'read'}))

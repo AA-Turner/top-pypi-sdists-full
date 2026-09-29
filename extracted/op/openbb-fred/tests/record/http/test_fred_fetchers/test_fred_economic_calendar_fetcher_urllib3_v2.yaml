@@ -1,0 +1,422 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://fred.stlouisfed.org/releases/calendar?po=1&ptic=0&ve=2025-07-01&vs=2025-07-01
+  response:
+    body:
+      string: '{"pager":"    <div>\n    <table class=\"table table-condensed table-standard-theme\">\n        <thead>\n            <tr>\n     \n     <th
+        nowrap valign=\"bottom\" align=\"center\">\n     <\/th>\n     <th valign=\"bottom\"
+        style=\"text-align : right\">\n         Sort By:\n                    <a href=\"\/releases\/calendar?ob=rd&amp;od=&amp;y=&amp;m=&amp;rid=&vs=2025-07-01&ve=2025-07-01\"
+        class=\"fred-pager\"><strong>Date<\/strong><\/a>\n                  |\n                    <a
+        href=\"\/releases\/calendar?ob=n&amp;od=&amp;y=&amp;m=&amp;rid=&vs=2025-07-01&ve=2025-07-01\"
+        class=\"fred-pager\"><strong>Name<\/strong><\/a>\n            <\/th>\n <\/tr>\n\n        <\/thead>\n        <tbody>\n                    \n            <tr
+        class=\"odd\">\n    <td text-align=\"left\" colspan=\"2\">\n        <span
+        style=\"font-weight: bold;\">Tuesday July 01, 2025<\/span> <span style=\"float:
+        right; font-weight: bold;\">Updated<\/span>    <\/td>\n<\/tr>\n    <tr>\n    <td
+        nowrap style=\"width:5%; text-align:right\">\n\n          1:00 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=502\">Euro Short Term
+        Rate<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          7:00 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=483\">SOFR Averages
+        and Index Data<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=445\">Secured Overnight
+        Financing Rate Data<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          8:00 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=375\">Overnight Bank
+        Funding Rate Data<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=378\">Federal Funds
+        Data<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          9:00 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=192\">Job Openings and
+        Labor Turnover Survey<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=229\">Construction Spending<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=183\">Gasoline and Diesel
+        Fuel Update<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          9:30 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=739\">Kansas City Fed
+        Policy Rate Uncertainty<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=376\">Texas Service
+        Sector Outlook Survey<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=377\">Texas Retail Outlook
+        Survey<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          10:15 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=427\">Moody&#039;s Daily
+        Corporate Bond Yield Averages<\/a>\n                    <i class=\"fa fa-check
+        fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          11:00 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=386\">GDPNow<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          12:00 pm      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=86\">Commercial Paper<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          3:15 pm      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=18\">H.15 Selected Interest
+        Rates<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          3:30 pm      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=185\">Interest Rate
+        on Reserve Balances<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          7:00 pm      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=441\">Coinbase Cryptocurrencies<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          N\/A      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=209\">ICE BofA Indices<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=328\">NASDAQ<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=476\">Job Postings on
+        Indeed<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=304\">Interest Rate
+        Spreads<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=279\">Economic Policy
+        Uncertainty<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=379\">Temporary Open
+        Market Operations<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=200\">CBOE Market Statistics<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=242\">Recession Indicators
+        Series<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=354\">An Arbitrage-Free
+        Three-Factor Term Structure Model and the Recent Behavior of Long-Term Yields
+        and Distant-Horizon Forward Rates<\/a>\n                    <i class=\"fa
+        fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=473\">Optimal Blue Mortgage
+        Market Indices<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=238\">Financial Soundness
+        Indicators<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=72\">Daily Treasury
+        Inflation-Indexed Securities<\/a>\n                    <i class=\"fa fa-check
+        fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=101\">FOMC Press Release<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=504\">Historical Overnight
+        AMERIBOR Unsecured Interest Rate<\/a>\n                    <i class=\"fa fa-check
+        fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=492\">SONIA Interest
+        Rate Benchmark<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=197\">Dow Jones Averages<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=426\">U.S. Treasury-Owned
+        Gold<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=484\">Key ECB Interest
+        Rates<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=245\">Summary Measures
+        of the Foreign Exchange Value of the Dollar<\/a>\n                    <i class=\"fa
+        fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=189\">Standard &amp;
+        Poors<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=271\">Weekly Financial
+        Statements of the Eurosystem<\/a>\n                    <i class=\"fa fa-check
+        fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=261\">U.S. Recession
+        Probabilities<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=287\">Nikkei Indexes<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=169\">Turkish Foreign
+        Exchange Intervention<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=274\">University of
+        Louisville and Oklahoma State University: LoDI National Index<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=206\">Quarterly National
+        Accounts<\/a>\n            <\/td>\n    <\/tr>\n\n                <\/tbody>\n    <\/table>\n    <\/div>\n    <table
+        border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" bgcolor=\"#ffffff\">\n        <tr>\n        <td
+        align=\"right\">\n            Releases 1 - 43 of 43&nbsp;&nbsp;&nbsp;\n        <\/td>\n        <\/tr>\n    <\/table>\n","ptic":43}'
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=93600
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '1734'
+      Content-Type:
+      - text/html; charset=UTF-8
+      Date:
+      - Tue, 28 Jul 2026 20:00:13 GMT
+      Expires:
+      - Tue, 28 Jul 2026 20:10:13 GMT
+      Server:
+      - Apache
+      Set-Cookie:
+      - _abck=9791FDAE1D4853385980A4E497197F0D~-1~YAAQ7nLNF4qzHIGfAQAAtT9QqhBbI6WTZeDu2ssNJiCS0HnE9nrqSv9KxJnxxPxM1UuQQ5tXAMJ2GRTN5+TIJbSlvkcS8VEKaigiTf9ilKQSHs/eg17Ew2iOsGxC+zwLaO53VzPsdITotBty6c3Kuq4yJTtoTms3Z/3c9mksWvmU/i6O4eHBqK4GVV1MwDJJUhIQaqaAInt2AahBheXqmNQ0VQA9sOCVqOmhc9HkdnGb18n4cU6U6tvCWI50ys+lbCxK+NZ+bC3iJxs/fwiuuK1T057N4rr7LMyZOoWj1U0OvHjQotlEh7QaPPR8NfgFuqenxtcld85oITEzbtCwAozqbjDttmqcLHoI5t+jN52eWORifJCyR9MQ3fzfeBIX4UBozzKf4WW4ZmJlwIh+YuxW/qo2YyArxO7e5sDVqYELEonWRYtDJdt38RTEpMAWh0OtQF59nwN8~-1~-1~-1~-1~-1;
+        Domain=.stlouisfed.org; Path=/; Expires=Wed, 28 Jul 2027 20:00:13 GMT; Max-Age=31536000;
+        Secure
+      - bm_sz=E6ACD8F50D3A93487FD4517F7AF76542~YAAQ7nLNF4uzHIGfAQAAtT9QqgCAgl39xxeU2Ox067ADp4JP4Y9vLi0hW9MrnKjs9b3K1cSXJoktDsEBgBs6Nl6jqGA+AVRCpNsOcnzYfs7q6OdwDddPeY+jAsrf8AtsRjqOlfQS5hZwMgwznfza11J4Y8MsyXaKxonhzBC4i2WVEnGUe5NDv9m8AZgtLRk6BJ6MxyOigzg1UnT44iVusLVY5yNh2HCLTxybvb6XfVxP2BZ7YQ/9G3RPzhVMfAQs04p+1PnOI3q84cavqBScfeIVkaXzV1U+Ly6bxXCj4ija+jGGKKSERorQRrSFTPUQXeMb2i+PPJ9hiwL+VP4xSF3T70GIAP7lsBxa+4xQhEw=~3684418~3551280;
+        Domain=.stlouisfed.org; Path=/; Expires=Wed, 29 Jul 2026 00:00:10 GMT; Max-Age=14397
+      Strict-Transport-Security:
+      - max-age=86400
+      Vary:
+      - Accept-Encoding
+      X-Akamai-Transformed:
+      - 0 - 0 -
+      X-location:
+      - cfs
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-xss-protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://fred.stlouisfed.org/releases/calendar?po=1&ptic=0&ve=2025-07-02&vs=2025-07-02
+  response:
+    body:
+      string: '{"pager":"    <div>\n    <table class=\"table table-condensed table-standard-theme\">\n        <thead>\n            <tr>\n     \n     <th
+        nowrap valign=\"bottom\" align=\"center\">\n     <\/th>\n     <th valign=\"bottom\"
+        style=\"text-align : right\">\n         Sort By:\n                    <a href=\"\/releases\/calendar?ob=rd&amp;od=&amp;y=&amp;m=&amp;rid=&vs=2025-07-02&ve=2025-07-02\"
+        class=\"fred-pager\"><strong>Date<\/strong><\/a>\n                  |\n                    <a
+        href=\"\/releases\/calendar?ob=n&amp;od=&amp;y=&amp;m=&amp;rid=&vs=2025-07-02&ve=2025-07-02\"
+        class=\"fred-pager\"><strong>Name<\/strong><\/a>\n            <\/th>\n <\/tr>\n\n        <\/thead>\n        <tbody>\n                    \n            <tr
+        class=\"odd\">\n    <td text-align=\"left\" colspan=\"2\">\n        <span
+        style=\"font-weight: bold;\">Wednesday July 02, 2025<\/span> <span style=\"float:
+        right; font-weight: bold;\">Updated<\/span>    <\/td>\n<\/tr>\n    <tr>\n    <td
+        nowrap style=\"width:5%; text-align:right\">\n\n          1:00 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=502\">Euro Short Term
+        Rate<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          7:00 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=483\">SOFR Averages
+        and Index Data<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=445\">Secured Overnight
+        Financing Rate Data<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          7:15 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=194\">ADP National Employment
+        Report<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          7:30 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=221\">Chicago Fed National
+        Financial Conditions Index<\/a>\n                    <i class=\"fa fa-check
+        fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          8:00 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=375\">Overnight Bank
+        Funding Rate Data<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=378\">Federal Funds
+        Data<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          9:00 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=116\">Unemployment in
+        States and Local Areas (all other areas)<\/a>\n                    <i class=\"fa
+        fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=113\">Metropolitan Area
+        Employment and Unemployment<\/a>\n                    <i class=\"fa fa-check
+        fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          9:30 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=739\">Kansas City Fed
+        Policy Rate Uncertainty<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          10:15 am      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=427\">Moody&#039;s Daily
+        Corporate Bond Yield Averages<\/a>\n                    <i class=\"fa fa-check
+        fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          12:00 pm      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=212\">Spot Prices<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=86\">Commercial Paper<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          3:15 pm      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=18\">H.15 Selected Interest
+        Rates<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          3:30 pm      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=185\">Interest Rate
+        on Reserve Balances<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          6:50 pm      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=266\">Bank of Japan
+        Accounts<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          7:00 pm      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=441\">Coinbase Cryptocurrencies<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n          N\/A      <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=234\">World Development
+        Indicators<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=209\">ICE BofA Indices<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=328\">NASDAQ<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=304\">Interest Rate
+        Spreads<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=279\">Economic Policy
+        Uncertainty<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=379\">Temporary Open
+        Market Operations<\/a>\n                    <i class=\"fa fa-check fa-lg\"
+        style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=200\">CBOE Market Statistics<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=242\">Recession Indicators
+        Series<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=473\">Optimal Blue Mortgage
+        Market Indices<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=72\">Daily Treasury
+        Inflation-Indexed Securities<\/a>\n                    <i class=\"fa fa-check
+        fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=342\">Natural Gas Spot
+        and Futures Prices (NYMEX)<\/a>\n                    <i class=\"fa fa-check
+        fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=101\">FOMC Press Release<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=504\">Historical Overnight
+        AMERIBOR Unsecured Interest Rate<\/a>\n                    <i class=\"fa fa-check
+        fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=492\">SONIA Interest
+        Rate Benchmark<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=197\">Dow Jones Averages<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=484\">Key ECB Interest
+        Rates<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=189\">Standard &amp;
+        Poors<\/a>\n                    <i class=\"fa fa-check fa-lg\" style=\"float:
+        right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=394\">Spliced Oil Price<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                    \n                <tr>\n        <td
+        nowrap style=\"width:5%; text-align:right\">\n            <\/td>\n    <td
+        text-align=\"left\">\n        <a href=\"\/release?rid=287\">Nikkei Indexes<\/a>\n                    <i
+        class=\"fa fa-check fa-lg\" style=\"float: right; color:#1d9d74\"><\/i>\n                <\/td>\n    <\/tr>\n\n                <\/tbody>\n    <\/table>\n    <\/div>\n    <table
+        border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" bgcolor=\"#ffffff\">\n        <tr>\n        <td
+        align=\"right\">\n            Releases 1 - 36 of 36&nbsp;&nbsp;&nbsp;\n        <\/td>\n        <\/tr>\n    <\/table>\n","ptic":36}'
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=93600
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '1507'
+      Content-Type:
+      - text/html; charset=UTF-8
+      Date:
+      - Tue, 28 Jul 2026 20:00:14 GMT
+      Expires:
+      - Tue, 28 Jul 2026 20:10:13 GMT
+      Server:
+      - Apache
+      Set-Cookie:
+      - _abck=208FFA188C6087DA8018D5ECD6D80360~-1~YAAQ7nLNFw20HIGfAQAAw0BQqhAHeiyzOo5lENBZbVfH2nNbM2gicpRdwPAaXeiZvC6LYvoaFdEHPrmIOCV+VRKw3ih6zaMYZdjERsoHYLUBOS4AmGHRwp5U1oKOGputRLAUmwfqh0Z8LejuWuQLyLIyXKallHwqP9etoel+8lXBGVs5+EKxSr34m57c497JFp8xbam3j7e0gJZ6AUyoHHETtjBWk4uzkg2tXWM7Ae8Yj6RhSlhYTI6MQnLC5sVEl/4BGcVdFBswfw3F+AkWU7CyphoIVj8lWxoA9nn+2wIZsEcWpI+L1o8f8XjDYynzsPPMz7jMB7aKJFa6W+goDCTdj7et5yw5FD73+or7Htatmzhd6Gn8i8I6dvNHowAGtAwL6uiapi3u4I4JevB0PD1wXYIpZ/DsIkmt3yeQitEYUgVISAB4SO4p4E230xqlG00NDgeT8VdQ~-1~-1~-1~-1~-1;
+        Domain=.stlouisfed.org; Path=/; Expires=Wed, 28 Jul 2027 20:00:14 GMT; Max-Age=31536000;
+        Secure
+      - bm_sz=15444D45705CB49BE0DFB58EBD415D67~YAAQ7nLNFw60HIGfAQAAw0BQqgB032R95mWTT/dmDqE7rApiEIHLzNtz0J+ny2zPhKQPOfKDu9tdG2EEVVqrzMKeg8AC57iBvuodfLmn0PJ/fM3liL/QM5CuNPAx4P4NVXN3IYBgth7F2j0xprORrfYLiqf/jnWTuOsMs/JoLwZaXWDtZ5el8wcbgfC1HK8E2hBhHzlFYsfuOqalehcXFMygIBlxlWGaW4F4uPkxhso48C5NKEpCGac6ITSXJhN74nCmMsmeJ4eLvPcgSUrY1b6xOjj4LBA1r/Hf5tuuZKL0QWM0cMhdLUeC01bgO7a2jc/80fhV0pzQ2glkknX1g8JdhFGkasnGdbH9aaYrGYA=~3684418~3551280;
+        Domain=.stlouisfed.org; Path=/; Expires=Wed, 29 Jul 2026 00:00:10 GMT; Max-Age=14396
+      Strict-Transport-Security:
+      - max-age=86400
+      Vary:
+      - Accept-Encoding
+      X-Akamai-Transformed:
+      - 0 - 0 -
+      X-location:
+      - cfs
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-xss-protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+version: 1

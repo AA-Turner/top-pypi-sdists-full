@@ -1,10 +1,11 @@
-import _typeshed
+import asyncio.locks
 import collections.abc
 import enum
 import google.protobuf.message
 import modal._image
 import modal._logs_manager
 import modal._object
+import modal._outbound_policy
 import modal._supports_logs
 import modal._tunnel
 import modal._utils.task_command_router_client
@@ -12,7 +13,6 @@ import modal.app
 import modal.client
 import modal.cloud_bucket_mount
 import modal.container_process
-import modal.file_io
 import modal.image
 import modal.io_streams
 import modal.mount
@@ -32,6 +32,8 @@ import pathlib
 import typing
 import typing_extensions
 
+SandboxRuntime = typing.Literal["gvisor", "vm"]
+
 async def _gather_load_with_timings(
     load_coros: collections.abc.Sequence[collections.abc.Awaitable[typing.Any]],
 ) -> list[tuple[str, float]]:
@@ -45,11 +47,13 @@ def _format_sandbox_create_timing_log(
     ...
 
 def _validate_sandbox_env(env: dict[str, str]) -> None: ...
+def _validate_sandbox_runtime(runtime: typing.Optional[typing.Literal["gvisor", "vm"]]) -> None: ...
 def _ttl_to_wire_ttl(ttl: typing.Optional[int]) -> int:
     """Convert a TTL value to the wire format, validating the input."""
     ...
 
 def _validate_experimental_encryption_key(key: typing.Optional[bytes]) -> typing.Optional[bytes]: ...
+def _image_id_for_mount(image: modal._image._Image, method_name: str) -> str: ...
 
 class SandboxVersion(enum.Enum):
     V1 = 1
@@ -165,6 +169,7 @@ class _Sandbox(modal._object._Object):
     _tunnels: typing.Optional[dict[int, modal._tunnel.Tunnel]]
     _enable_snapshot: bool
     _command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]
+    _command_router_lock: typing.Optional[asyncio.locks.Lock]
     _init_command_router_access: typing.Optional[modal_proto.api_pb2.CommandRouterAccess]
     _attached: bool
     _filesystem: typing.Optional[modal.sandbox_fs._SandboxFilesystem]
@@ -192,6 +197,7 @@ class _Sandbox(modal._object._Object):
         block_network: bool = False,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_policy: typing.Optional[modal._outbound_policy._OutboundPolicy] = None,
         inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike],
@@ -210,6 +216,7 @@ class _Sandbox(modal._object._Object):
         verbose: bool = False,
         custom_domain: typing.Optional[str] = None,
         include_oidc_identity_token: bool = False,
+        runtime: typing.Optional[typing.Literal["gvisor", "vm"]] = None,
     ) -> _Sandbox:
         """mdmd:hidden"""
         ...
@@ -232,9 +239,11 @@ class _Sandbox(modal._object._Object):
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
+        runtime: typing.Optional[typing.Literal["gvisor", "vm"]] = None,
         block_network: bool = False,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        _experimental_outbound_policy: typing.Optional[modal._outbound_policy._OutboundPolicy] = None,
         inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike],
@@ -282,6 +291,8 @@ class _Sandbox(modal._object._Object):
             memory:
                 Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
                 additionally specify a hard limit in MiB.
+            runtime:
+                Runtime under which the Sandbox executes, or None to let Modal pick.
             block_network: Whether to block network access.
             outbound_cidr_allowlist: List of CIDRs the sandbox is allowed to access. If None, all CIDRs are allowed.
             outbound_domain_allowlist: List of domain names the sandbox is allowed to access. Supports
@@ -290,6 +301,10 @@ class _Sandbox(modal._object._Object):
             inbound_cidr_allowlist:
                 List of CIDRs allowed to connect inbound to the sandbox (tunnels and connection tokens). If None,
                 all CIDRs are allowed.
+            _experimental_outbound_policy: Configuration for replacing headers in outbound HTTPS requests from
+                the Sandbox. Secrets referenced by the policy are resolved outside the Sandbox and are never
+                visible to the workload. See `modal.experimental.OutboundPolicy`. This API is experimental and
+                may change in the future.
             volumes: Mount points for Modal Volumes and CloudBucketMounts.
             pty:
                 Enable a PTY for the Sandbox entrypoint command. When enabled, all output (stdout and stderr from the
@@ -346,9 +361,11 @@ class _Sandbox(modal._object._Object):
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
+        runtime: typing.Optional[typing.Literal["gvisor", "vm"]] = None,
         block_network: bool = False,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        _experimental_outbound_policy: typing.Optional[modal._outbound_policy._OutboundPolicy] = None,
         inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike],
@@ -385,16 +402,19 @@ class _Sandbox(modal._object._Object):
         image: typing.Optional[modal._image._Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
+        mounts: collections.abc.Sequence[modal.mount._Mount] = (),
         timeout: int = 300,
         idle_timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
+        runtime: typing.Optional[typing.Literal["gvisor", "vm"]] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         block_network: bool = False,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        _experimental_outbound_policy: typing.Optional[modal._outbound_policy._OutboundPolicy] = None,
         inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         i6pn: bool = False,
         volumes: dict[
@@ -457,11 +477,14 @@ class _Sandbox(modal._object._Object):
     def _initialize_from_other(self, other): ...
     def _initialize_from_empty(self): ...
     async def detach(self):
-        """Disconnects your client from the sandbox and cleans up resources assoicated with the connection.
+        """Disconnects your client from the sandbox and cleans up resources associated with the connection.
 
         Be sure to only call `detach` when you are done interacting with the sandbox. After calling `detach`,
         any operation using the Sandbox object is not guaranteed to work anymore. If you want to continue interacting
         with a running sandbox, use `Sandbox.from_id` to get a new Sandbox object.
+
+        This method does not interrupt or wait for running concurrent operations on the sandbox. Resources are
+        promptly closed once those operations complete.
         """
         ...
 
@@ -594,8 +617,32 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
+    async def _experimental_update_outbound_policy(
+        self, outbound_policy: modal._outbound_policy._OutboundPolicy
+    ) -> None:
+        """Replace the outbound policy of a running Sandbox.
+
+        This API is experimental and may change in the future.
+
+        The new policy replaces all existing policy configuration on the
+        Sandbox; build a policy including any existing rules you want to keep.
+
+        Only Sandboxes created with an `_experimental_outbound_policy` can be
+        updated this way; for Sandboxes created without one this fails, since
+        header replacement is only set up at creation time.
+
+        Args:
+            outbound_policy: The new policy to apply.
+        """
+        ...
+
     async def _experimental_get_exit_snapshot(self, timeout: typing.Optional[float] = None) -> modal._image._Image:
         """Get the exit filesystem snapshot image.
+
+        An exit snapshot captures the Sandbox filesystem when the Sandbox exits,
+        whether its entrypoint finishes gracefully, abruptly, or it is stopped with
+        `terminate()`. Exit snapshots are opt-in: the Sandbox must have been
+        created with `experimental_options={"enable_exit_snapshot": True}`.
 
         Args:
             timeout: Total time to wait in seconds, spread across repeated long
@@ -612,7 +659,8 @@ class _Sandbox(modal._object._Object):
             TimeoutError: If `timeout` elapses before the snapshot reaches a
                 terminal state. This includes `timeout=0` when the snapshot is
                 still pending.
-            SnapshotCreationError: If no exit snapshot image will be produced.
+            SnapshotCreationError: Snapshot operation is done and failed.
+                Polling again will not produce an Image; filesystem state is gone.
             NotFoundError: If the sandbox does not exist.
             PermissionDeniedError: If the caller cannot access the sandbox.
         """
@@ -637,6 +685,9 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
+    async def _snapshot_filesystem(
+        self, timeout: int, *, ttl: typing.Optional[int], container_id: str = ""
+    ) -> modal._image._Image: ...
     async def _legacy_snapshot_filesystem(self, timeout: int = 55) -> modal._image._Image: ...
     async def mount_image(
         self,
@@ -811,7 +862,9 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
-    async def _get_task_id(self, raise_if_task_complete=False) -> str: ...
+    async def _get_task_id(
+        self, raise_if_task_complete=False, timeout: typing.Optional[float] = None, retry_transient: bool = False
+    ) -> str: ...
     async def _resolve_task_id_for_logs(self) -> str:
         """Try to resolve the task ID in one shot for historical log fetches.
 
@@ -926,61 +979,6 @@ class _Sandbox(modal._object._Object):
     @property
     def filesystem(self) -> modal.sandbox_fs._SandboxFilesystem:
         """Namespace for Sandbox filesystem APIs."""
-        ...
-
-    @typing.overload
-    async def open(self, path: str) -> modal.file_io._FileIO[str]: ...
-    @typing.overload
-    async def open(self, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io._FileIO[str]: ...
-    @typing.overload
-    async def open(self, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io._FileIO[bytes]: ...
-    async def ls(self, path: str) -> list[str]:
-        """[Alpha] List the contents of a directory in the Sandbox.
-
-        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead for improved reliability.
-
-        Args:
-            path: Absolute directory path inside the sandbox.
-
-        Returns:
-            Entry names in the directory as a list of strings.
-        """
-        ...
-
-    async def mkdir(self, path: str, parents: bool = False) -> None:
-        """[Alpha] Create a new directory in the Sandbox.
-
-        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead for improved reliability.
-        """
-        ...
-
-    async def rm(self, path: str, recursive: bool = False) -> None:
-        """[Alpha] Remove a file or directory in the Sandbox.
-
-        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead for improved reliability.
-        """
-        ...
-
-    def watch(
-        self,
-        path: str,
-        filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
-        recursive: typing.Optional[bool] = None,
-        timeout: typing.Optional[int] = None,
-    ) -> collections.abc.AsyncIterator[modal.types.FileWatchEvent]:
-        """[Alpha] Watch a file or directory in the Sandbox for changes.
-
-        **Deprecated (2026-05-08):** Use `Sandbox.filesystem.watch()` instead for improved reliability.
-
-        Args:
-            path: Absolute path to watch.
-            filter: Optional list of event types to include.
-            recursive: Whether to watch subdirectories; None uses server defaults.
-            timeout: Optional timeout for the watch stream.
-
-        Returns:
-            An async iterator of `FileWatchEvent` values.
-        """
         ...
 
     @property
@@ -1111,6 +1109,24 @@ class _SidecarContainer:
         """Get task ID and command router client."""
         ...
 
+    async def snapshot_filesystem(
+        self, timeout: int = 55, *, ttl: typing.Optional[int] = 2592000
+    ) -> modal._image._Image:
+        """Snapshot this Sidecar container's filesystem.
+
+        Args:
+            timeout:
+                Maximum time in seconds to wait for the snapshot operation.
+            ttl:
+                The resulting Image is retained for `ttl` seconds (default: 30 days). Pass `ttl=None` to retain
+                the image indefinitely.
+
+        Returns:
+            An [`Image`](https://modal.com/docs/sdk/py/latest/Image) containing a snapshot of this Sidecar's
+            filesystem.
+        """
+        ...
+
     @typing.overload
     async def exec(
         self,
@@ -1144,6 +1160,89 @@ class _SidecarContainer:
         """Namespace for Sandbox filesystem APIs."""
         ...
 
+    async def mount_image(
+        self,
+        path: typing.Union[pathlib.PurePosixPath, str],
+        image: modal._image._Image,
+        *,
+        _experimental_encryption_key: typing.Optional[bytes] = None,
+    ) -> None:
+        """Mount an Image at a specified path in this Sidecar container.
+
+        `path` should be a directory that is **not** the root path (`/`). If the path doesn't exist,
+        it will be created. If it exists and contains data, the previous directory will be replaced
+        by the mount.
+
+        The `image` argument supports any Image that has an object ID, including:
+        - Images built using `image.build()`
+        - Images referenced by ID, e.g. `Image.from_id(...)`
+        - Filesystem/directory snapshots, e.g. created by `.snapshot_directory()` or `.snapshot_filesystem()`
+        - Empty images created with `Image.from_scratch()`
+
+        Args:
+            path: Absolute mount point directory inside the Sidecar container (not `/`).
+            image: Image to mount at `path` (must be built, referenced by ID, or snapshot-based as described above).
+
+        Examples:
+            ```py notest
+            sidecar_1.mount_image("/workspace", modal.Image.from_scratch())
+            workspace_snapshot = sidecar_1.snapshot_directory("/workspace")
+
+            # You can later mount this snapshot in another Sidecar:
+            sidecar_2.mount_image("/workspace", workspace_snapshot)
+            sidecar_2.filesystem.list_files("/workspace")
+            ```
+        """
+        ...
+
+    async def unmount_image(self, path: typing.Union[pathlib.PurePosixPath, str]) -> None:
+        """Unmount a previously mounted Image from this Sidecar container.
+
+        `path` must be the exact mount point that was passed to `.mount_image()`.
+        After unmounting, the underlying Sidecar filesystem at that path becomes
+        visible again.
+
+        Args:
+            path: Absolute mount point directory to unmount.
+        """
+        ...
+
+    async def snapshot_directory(
+        self,
+        path: typing.Union[pathlib.PurePosixPath, str],
+        *,
+        timeout: int = 55,
+        ttl: typing.Optional[int] = 2592000,
+        _experimental_encryption_key: typing.Optional[bytes] = None,
+    ) -> modal._image._Image:
+        """Snapshot a directory in this Sidecar container, creating a new Image with its content.
+
+        `timeout` If the snapshot does not return within that window, the call is cancelled
+        and `modal.exception.TimeoutError` is raised.
+
+        `ttl` The resulting Image is retained for `ttl` seconds (default: 30 days).
+        Pass `ttl=None` to retain the Image indefinitely.
+
+        The returned Image can be used anywhere an Image is accepted, including
+        as a mount or as the base filesystem for another container.
+
+        Args:
+            path: Absolute path of the directory inside the Sidecar container to snapshot.
+
+        Returns:
+            An `Image` containing the directory contents.
+
+        Examples:
+            ```py notest
+            workspace_snapshot = sidecar_1.snapshot_directory("/workspace")
+
+            # You can later mount this snapshot in another Sidecar:
+            sidecar_2.mount_image("/workspace", workspace_snapshot)
+            sidecar_2.filesystem.list_files("/workspace")
+            ```
+        """
+        ...
+
     async def wait(self, raise_on_termination: bool = True) -> None: ...
     async def poll(self) -> typing.Optional[int]: ...
     @typing.overload
@@ -1163,6 +1262,15 @@ class _SidecarContainer:
         """
         ...
 
+def _use_control_plane_sidecar_create(is_v2: bool) -> bool:
+    """Whether a sidecar create request goes to the Modal server rather than over the Sandbox connection.
+
+    V2 Sandboxes do unless opted out via the `use_control_plane_sidecar_create` config
+    setting (`MODAL_USE_CONTROL_PLANE_SIDECAR_CREATE=0`). V1 Sandboxes always create
+    sidecars over the Sandbox connection.
+    """
+    ...
+
 class _SidecarManager:
     """Creates and manages sidecar containers in a Sandbox."""
     def __init__(self, sandbox: _Sandbox) -> None:
@@ -1181,10 +1289,16 @@ class _SidecarManager:
         env: typing.Optional[dict[str, str]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         workdir: typing.Optional[str] = None,
-        volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume._Volume]] = None,
+        volumes: typing.Optional[
+            dict[
+                typing.Union[str, os.PathLike],
+                typing.Union[modal.volume._Volume, modal.cloud_bucket_mount._CloudBucketMount],
+            ]
+        ] = None,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         pty: bool = False,
+        experimental_memory_reserve_consume_mib: typing.Optional[int] = None,
     ) -> _SidecarContainer:
         """Create a sidecar container running alongside the Sandbox's main container.
 
@@ -1205,13 +1319,18 @@ class _SidecarManager:
             env: Environment variables to set in the sidecar container.
             secrets: Secrets to inject as environment variables in the sidecar container.
             workdir: Working directory for the command; must be absolute if set.
-            volumes: Mapping of mount paths to `Volume` objects to mount in the sidecar container.
+            volumes: Mapping of mount paths to `Volume` or `CloudBucketMount` objects to mount in the
+                sidecar container. Cloud bucket mounts are not supported for GPU Sandboxes.
             outbound_cidr_allowlist: If set, restrict the sidecar's outbound traffic to these CIDR
                 blocks. An empty list blocks all external egress while preserving connectivity to the
                 main container.
             outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
                 443) to these SNI domains. Supports wildcards like ``*.example.com``.
             pty: Whether to enable PTY for the sidecar container.
+            experimental_memory_reserve_consume_mib: Memory, in MiB, this sidecar consumes from the Sandbox's
+                sidecar memory reserve (the experimental `vm_sidecar_memory_reserve_mib` option).
+                Unset consumes whatever is left of the reserve; creation fails if the request exceeds
+                what is left. Ignored by Sandboxes without a reserve.
 
         Returns:
             A `SidecarContainer` handle for the running container.
@@ -1289,6 +1408,41 @@ class SidecarContainer:
 
     _get_command_router: ___get_command_router_spec
 
+    class __snapshot_filesystem_spec(typing_extensions.Protocol):
+        def __call__(self, /, timeout: int = 55, *, ttl: typing.Optional[int] = 2592000) -> modal.image.Image:
+            """Snapshot this Sidecar container's filesystem.
+
+            Args:
+                timeout:
+                    Maximum time in seconds to wait for the snapshot operation.
+                ttl:
+                    The resulting Image is retained for `ttl` seconds (default: 30 days). Pass `ttl=None` to retain
+                    the image indefinitely.
+
+            Returns:
+                An [`Image`](https://modal.com/docs/sdk/py/latest/Image) containing a snapshot of this Sidecar's
+                filesystem.
+            """
+            ...
+
+        async def aio(self, /, timeout: int = 55, *, ttl: typing.Optional[int] = 2592000) -> modal.image.Image:
+            """Snapshot this Sidecar container's filesystem.
+
+            Args:
+                timeout:
+                    Maximum time in seconds to wait for the snapshot operation.
+                ttl:
+                    The resulting Image is retained for `ttl` seconds (default: 30 days). Pass `ttl=None` to retain
+                    the image indefinitely.
+
+            Returns:
+                An [`Image`](https://modal.com/docs/sdk/py/latest/Image) containing a snapshot of this Sidecar's
+                filesystem.
+            """
+            ...
+
+    snapshot_filesystem: __snapshot_filesystem_spec
+
     class __exec_spec(typing_extensions.Protocol):
         @typing.overload
         def __call__(
@@ -1357,6 +1511,185 @@ class SidecarContainer:
     def filesystem(self) -> modal.sandbox_fs.SandboxFilesystem:
         """Namespace for Sandbox filesystem APIs."""
         ...
+
+    class __mount_image_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            path: typing.Union[pathlib.PurePosixPath, str],
+            image: modal.image.Image,
+            *,
+            _experimental_encryption_key: typing.Optional[bytes] = None,
+        ) -> None:
+            """Mount an Image at a specified path in this Sidecar container.
+
+            `path` should be a directory that is **not** the root path (`/`). If the path doesn't exist,
+            it will be created. If it exists and contains data, the previous directory will be replaced
+            by the mount.
+
+            The `image` argument supports any Image that has an object ID, including:
+            - Images built using `image.build()`
+            - Images referenced by ID, e.g. `Image.from_id(...)`
+            - Filesystem/directory snapshots, e.g. created by `.snapshot_directory()` or `.snapshot_filesystem()`
+            - Empty images created with `Image.from_scratch()`
+
+            Args:
+                path: Absolute mount point directory inside the Sidecar container (not `/`).
+                image: Image to mount at `path` (must be built, referenced by ID, or snapshot-based as described above).
+
+            Examples:
+                ```py notest
+                sidecar_1.mount_image("/workspace", modal.Image.from_scratch())
+                workspace_snapshot = sidecar_1.snapshot_directory("/workspace")
+
+                # You can later mount this snapshot in another Sidecar:
+                sidecar_2.mount_image("/workspace", workspace_snapshot)
+                sidecar_2.filesystem.list_files("/workspace")
+                ```
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            path: typing.Union[pathlib.PurePosixPath, str],
+            image: modal.image.Image,
+            *,
+            _experimental_encryption_key: typing.Optional[bytes] = None,
+        ) -> None:
+            """Mount an Image at a specified path in this Sidecar container.
+
+            `path` should be a directory that is **not** the root path (`/`). If the path doesn't exist,
+            it will be created. If it exists and contains data, the previous directory will be replaced
+            by the mount.
+
+            The `image` argument supports any Image that has an object ID, including:
+            - Images built using `image.build()`
+            - Images referenced by ID, e.g. `Image.from_id(...)`
+            - Filesystem/directory snapshots, e.g. created by `.snapshot_directory()` or `.snapshot_filesystem()`
+            - Empty images created with `Image.from_scratch()`
+
+            Args:
+                path: Absolute mount point directory inside the Sidecar container (not `/`).
+                image: Image to mount at `path` (must be built, referenced by ID, or snapshot-based as described above).
+
+            Examples:
+                ```py notest
+                sidecar_1.mount_image("/workspace", modal.Image.from_scratch())
+                workspace_snapshot = sidecar_1.snapshot_directory("/workspace")
+
+                # You can later mount this snapshot in another Sidecar:
+                sidecar_2.mount_image("/workspace", workspace_snapshot)
+                sidecar_2.filesystem.list_files("/workspace")
+                ```
+            """
+            ...
+
+    mount_image: __mount_image_spec
+
+    class __unmount_image_spec(typing_extensions.Protocol):
+        def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> None:
+            """Unmount a previously mounted Image from this Sidecar container.
+
+            `path` must be the exact mount point that was passed to `.mount_image()`.
+            After unmounting, the underlying Sidecar filesystem at that path becomes
+            visible again.
+
+            Args:
+                path: Absolute mount point directory to unmount.
+            """
+            ...
+
+        async def aio(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> None:
+            """Unmount a previously mounted Image from this Sidecar container.
+
+            `path` must be the exact mount point that was passed to `.mount_image()`.
+            After unmounting, the underlying Sidecar filesystem at that path becomes
+            visible again.
+
+            Args:
+                path: Absolute mount point directory to unmount.
+            """
+            ...
+
+    unmount_image: __unmount_image_spec
+
+    class __snapshot_directory_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            path: typing.Union[pathlib.PurePosixPath, str],
+            *,
+            timeout: int = 55,
+            ttl: typing.Optional[int] = 2592000,
+            _experimental_encryption_key: typing.Optional[bytes] = None,
+        ) -> modal.image.Image:
+            """Snapshot a directory in this Sidecar container, creating a new Image with its content.
+
+            `timeout` If the snapshot does not return within that window, the call is cancelled
+            and `modal.exception.TimeoutError` is raised.
+
+            `ttl` The resulting Image is retained for `ttl` seconds (default: 30 days).
+            Pass `ttl=None` to retain the Image indefinitely.
+
+            The returned Image can be used anywhere an Image is accepted, including
+            as a mount or as the base filesystem for another container.
+
+            Args:
+                path: Absolute path of the directory inside the Sidecar container to snapshot.
+
+            Returns:
+                An `Image` containing the directory contents.
+
+            Examples:
+                ```py notest
+                workspace_snapshot = sidecar_1.snapshot_directory("/workspace")
+
+                # You can later mount this snapshot in another Sidecar:
+                sidecar_2.mount_image("/workspace", workspace_snapshot)
+                sidecar_2.filesystem.list_files("/workspace")
+                ```
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            path: typing.Union[pathlib.PurePosixPath, str],
+            *,
+            timeout: int = 55,
+            ttl: typing.Optional[int] = 2592000,
+            _experimental_encryption_key: typing.Optional[bytes] = None,
+        ) -> modal.image.Image:
+            """Snapshot a directory in this Sidecar container, creating a new Image with its content.
+
+            `timeout` If the snapshot does not return within that window, the call is cancelled
+            and `modal.exception.TimeoutError` is raised.
+
+            `ttl` The resulting Image is retained for `ttl` seconds (default: 30 days).
+            Pass `ttl=None` to retain the Image indefinitely.
+
+            The returned Image can be used anywhere an Image is accepted, including
+            as a mount or as the base filesystem for another container.
+
+            Args:
+                path: Absolute path of the directory inside the Sidecar container to snapshot.
+
+            Returns:
+                An `Image` containing the directory contents.
+
+            Examples:
+                ```py notest
+                workspace_snapshot = sidecar_1.snapshot_directory("/workspace")
+
+                # You can later mount this snapshot in another Sidecar:
+                sidecar_2.mount_image("/workspace", workspace_snapshot)
+                sidecar_2.filesystem.list_files("/workspace")
+                ```
+            """
+            ...
+
+    snapshot_directory: __snapshot_directory_spec
 
     class __wait_spec(typing_extensions.Protocol):
         def __call__(self, /, raise_on_termination: bool = True) -> None: ...
@@ -1436,10 +1769,16 @@ class SidecarManager:
             env: typing.Optional[dict[str, str]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             workdir: typing.Optional[str] = None,
-            volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume.Volume]] = None,
+            volumes: typing.Optional[
+                dict[
+                    typing.Union[str, os.PathLike],
+                    typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
+                ]
+            ] = None,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             pty: bool = False,
+            experimental_memory_reserve_consume_mib: typing.Optional[int] = None,
         ) -> SidecarContainer:
             """Create a sidecar container running alongside the Sandbox's main container.
 
@@ -1460,13 +1799,18 @@ class SidecarManager:
                 env: Environment variables to set in the sidecar container.
                 secrets: Secrets to inject as environment variables in the sidecar container.
                 workdir: Working directory for the command; must be absolute if set.
-                volumes: Mapping of mount paths to `Volume` objects to mount in the sidecar container.
+                volumes: Mapping of mount paths to `Volume` or `CloudBucketMount` objects to mount in the
+                    sidecar container. Cloud bucket mounts are not supported for GPU Sandboxes.
                 outbound_cidr_allowlist: If set, restrict the sidecar's outbound traffic to these CIDR
                     blocks. An empty list blocks all external egress while preserving connectivity to the
                     main container.
                 outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
                     443) to these SNI domains. Supports wildcards like ``*.example.com``.
                 pty: Whether to enable PTY for the sidecar container.
+                experimental_memory_reserve_consume_mib: Memory, in MiB, this sidecar consumes from the Sandbox's
+                    sidecar memory reserve (the experimental `vm_sidecar_memory_reserve_mib` option).
+                    Unset consumes whatever is left of the reserve; creation fails if the request exceeds
+                    what is left. Ignored by Sandboxes without a reserve.
 
             Returns:
                 A `SidecarContainer` handle for the running container.
@@ -1482,10 +1826,16 @@ class SidecarManager:
             env: typing.Optional[dict[str, str]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             workdir: typing.Optional[str] = None,
-            volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume.Volume]] = None,
+            volumes: typing.Optional[
+                dict[
+                    typing.Union[str, os.PathLike],
+                    typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
+                ]
+            ] = None,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             pty: bool = False,
+            experimental_memory_reserve_consume_mib: typing.Optional[int] = None,
         ) -> SidecarContainer:
             """Create a sidecar container running alongside the Sandbox's main container.
 
@@ -1506,13 +1856,18 @@ class SidecarManager:
                 env: Environment variables to set in the sidecar container.
                 secrets: Secrets to inject as environment variables in the sidecar container.
                 workdir: Working directory for the command; must be absolute if set.
-                volumes: Mapping of mount paths to `Volume` objects to mount in the sidecar container.
+                volumes: Mapping of mount paths to `Volume` or `CloudBucketMount` objects to mount in the
+                    sidecar container. Cloud bucket mounts are not supported for GPU Sandboxes.
                 outbound_cidr_allowlist: If set, restrict the sidecar's outbound traffic to these CIDR
                     blocks. An empty list blocks all external egress while preserving connectivity to the
                     main container.
                 outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
                     443) to these SNI domains. Supports wildcards like ``*.example.com``.
                 pty: Whether to enable PTY for the sidecar container.
+                experimental_memory_reserve_consume_mib: Memory, in MiB, this sidecar consumes from the Sandbox's
+                    sidecar memory reserve (the experimental `vm_sidecar_memory_reserve_mib` option).
+                    Unset consumes whatever is left of the reserve; creation fails if the request exceeds
+                    what is left. Ignored by Sandboxes without a reserve.
 
             Returns:
                 A `SidecarContainer` handle for the running container.
@@ -1548,6 +1903,7 @@ class Sandbox(modal.object.Object):
     _tunnels: typing.Optional[dict[int, modal._tunnel.Tunnel]]
     _enable_snapshot: bool
     _command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]
+    _command_router_lock: typing.Optional[asyncio.locks.Lock]
     _init_command_router_access: typing.Optional[modal_proto.api_pb2.CommandRouterAccess]
     _attached: bool
     _filesystem: typing.Optional[modal.sandbox_fs.SandboxFilesystem]
@@ -1579,6 +1935,7 @@ class Sandbox(modal.object.Object):
         block_network: bool = False,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_policy: typing.Optional[modal._outbound_policy.OutboundPolicy] = None,
         inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike], typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount]
@@ -1596,6 +1953,7 @@ class Sandbox(modal.object.Object):
         verbose: bool = False,
         custom_domain: typing.Optional[str] = None,
         include_oidc_identity_token: bool = False,
+        runtime: typing.Optional[typing.Literal["gvisor", "vm"]] = None,
     ) -> Sandbox:
         """mdmd:hidden"""
         ...
@@ -1622,9 +1980,11 @@ class Sandbox(modal.object.Object):
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             cpu: typing.Union[float, tuple[float, float], None] = None,
             memory: typing.Union[int, tuple[int, int], None] = None,
+            runtime: typing.Optional[typing.Literal["gvisor", "vm"]] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            _experimental_outbound_policy: typing.Optional[modal._outbound_policy.OutboundPolicy] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
@@ -1672,6 +2032,8 @@ class Sandbox(modal.object.Object):
                 memory:
                     Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
                     additionally specify a hard limit in MiB.
+                runtime:
+                    Runtime under which the Sandbox executes, or None to let Modal pick.
                 block_network: Whether to block network access.
                 outbound_cidr_allowlist: List of CIDRs the sandbox is allowed to access. If None, all CIDRs are allowed.
                 outbound_domain_allowlist: List of domain names the sandbox is allowed to access. Supports
@@ -1680,6 +2042,10 @@ class Sandbox(modal.object.Object):
                 inbound_cidr_allowlist:
                     List of CIDRs allowed to connect inbound to the sandbox (tunnels and connection tokens). If None,
                     all CIDRs are allowed.
+                _experimental_outbound_policy: Configuration for replacing headers in outbound HTTPS requests from
+                    the Sandbox. Secrets referenced by the policy are resolved outside the Sandbox and are never
+                    visible to the workload. See `modal.experimental.OutboundPolicy`. This API is experimental and
+                    may change in the future.
                 volumes: Mount points for Modal Volumes and CloudBucketMounts.
                 pty:
                     Enable a PTY for the Sandbox entrypoint command. When enabled, all output (stdout and stderr from the
@@ -1738,9 +2104,11 @@ class Sandbox(modal.object.Object):
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             cpu: typing.Union[float, tuple[float, float], None] = None,
             memory: typing.Union[int, tuple[int, int], None] = None,
+            runtime: typing.Optional[typing.Literal["gvisor", "vm"]] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            _experimental_outbound_policy: typing.Optional[modal._outbound_policy.OutboundPolicy] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
@@ -1788,6 +2156,8 @@ class Sandbox(modal.object.Object):
                 memory:
                     Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
                     additionally specify a hard limit in MiB.
+                runtime:
+                    Runtime under which the Sandbox executes, or None to let Modal pick.
                 block_network: Whether to block network access.
                 outbound_cidr_allowlist: List of CIDRs the sandbox is allowed to access. If None, all CIDRs are allowed.
                 outbound_domain_allowlist: List of domain names the sandbox is allowed to access. Supports
@@ -1796,6 +2166,10 @@ class Sandbox(modal.object.Object):
                 inbound_cidr_allowlist:
                     List of CIDRs allowed to connect inbound to the sandbox (tunnels and connection tokens). If None,
                     all CIDRs are allowed.
+                _experimental_outbound_policy: Configuration for replacing headers in outbound HTTPS requests from
+                    the Sandbox. Secrets referenced by the policy are resolved outside the Sandbox and are never
+                    visible to the workload. See `modal.experimental.OutboundPolicy`. This API is experimental and
+                    may change in the future.
                 volumes: Mount points for Modal Volumes and CloudBucketMounts.
                 pty:
                     Enable a PTY for the Sandbox entrypoint command. When enabled, all output (stdout and stderr from the
@@ -1858,9 +2232,11 @@ class Sandbox(modal.object.Object):
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             cpu: typing.Union[float, tuple[float, float], None] = None,
             memory: typing.Union[int, tuple[int, int], None] = None,
+            runtime: typing.Optional[typing.Literal["gvisor", "vm"]] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            _experimental_outbound_policy: typing.Optional[modal._outbound_policy.OutboundPolicy] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
@@ -1910,9 +2286,11 @@ class Sandbox(modal.object.Object):
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             cpu: typing.Union[float, tuple[float, float], None] = None,
             memory: typing.Union[int, tuple[int, int], None] = None,
+            runtime: typing.Optional[typing.Literal["gvisor", "vm"]] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            _experimental_outbound_policy: typing.Optional[modal._outbound_policy.OutboundPolicy] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
@@ -1953,16 +2331,19 @@ class Sandbox(modal.object.Object):
             image: typing.Optional[modal.image.Image] = None,
             env: typing.Optional[dict[str, typing.Optional[str]]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            mounts: collections.abc.Sequence[modal.mount.Mount] = (),
             timeout: int = 300,
             idle_timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
             cpu: typing.Union[float, tuple[float, float], None] = None,
             memory: typing.Union[int, tuple[int, int], None] = None,
+            runtime: typing.Optional[typing.Literal["gvisor", "vm"]] = None,
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            _experimental_outbound_policy: typing.Optional[modal._outbound_policy.OutboundPolicy] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             i6pn: bool = False,
             volumes: dict[
@@ -2024,16 +2405,19 @@ class Sandbox(modal.object.Object):
             image: typing.Optional[modal.image.Image] = None,
             env: typing.Optional[dict[str, typing.Optional[str]]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            mounts: collections.abc.Sequence[modal.mount.Mount] = (),
             timeout: int = 300,
             idle_timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
             cpu: typing.Union[float, tuple[float, float], None] = None,
             memory: typing.Union[int, tuple[int, int], None] = None,
+            runtime: typing.Optional[typing.Literal["gvisor", "vm"]] = None,
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            _experimental_outbound_policy: typing.Optional[modal._outbound_policy.OutboundPolicy] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             i6pn: bool = False,
             volumes: dict[
@@ -2100,20 +2484,26 @@ class Sandbox(modal.object.Object):
 
     class __detach_spec(typing_extensions.Protocol):
         def __call__(self, /):
-            """Disconnects your client from the sandbox and cleans up resources assoicated with the connection.
+            """Disconnects your client from the sandbox and cleans up resources associated with the connection.
 
             Be sure to only call `detach` when you are done interacting with the sandbox. After calling `detach`,
             any operation using the Sandbox object is not guaranteed to work anymore. If you want to continue interacting
             with a running sandbox, use `Sandbox.from_id` to get a new Sandbox object.
+
+            This method does not interrupt or wait for running concurrent operations on the sandbox. Resources are
+            promptly closed once those operations complete.
             """
             ...
 
         async def aio(self, /):
-            """Disconnects your client from the sandbox and cleans up resources assoicated with the connection.
+            """Disconnects your client from the sandbox and cleans up resources associated with the connection.
 
             Be sure to only call `detach` when you are done interacting with the sandbox. After calling `detach`,
             any operation using the Sandbox object is not guaranteed to work anymore. If you want to continue interacting
             with a running sandbox, use `Sandbox.from_id` to get a new Sandbox object.
+
+            This method does not interrupt or wait for running concurrent operations on the sandbox. Resources are
+            promptly closed once those operations complete.
             """
             ...
 
@@ -2397,9 +2787,51 @@ class Sandbox(modal.object.Object):
 
     _experimental_set_outbound_network_policy: ___experimental_set_outbound_network_policy_spec
 
+    class ___experimental_update_outbound_policy_spec(typing_extensions.Protocol):
+        def __call__(self, /, outbound_policy: modal._outbound_policy.OutboundPolicy) -> None:
+            """Replace the outbound policy of a running Sandbox.
+
+            This API is experimental and may change in the future.
+
+            The new policy replaces all existing policy configuration on the
+            Sandbox; build a policy including any existing rules you want to keep.
+
+            Only Sandboxes created with an `_experimental_outbound_policy` can be
+            updated this way; for Sandboxes created without one this fails, since
+            header replacement is only set up at creation time.
+
+            Args:
+                outbound_policy: The new policy to apply.
+            """
+            ...
+
+        async def aio(self, /, outbound_policy: modal._outbound_policy.OutboundPolicy) -> None:
+            """Replace the outbound policy of a running Sandbox.
+
+            This API is experimental and may change in the future.
+
+            The new policy replaces all existing policy configuration on the
+            Sandbox; build a policy including any existing rules you want to keep.
+
+            Only Sandboxes created with an `_experimental_outbound_policy` can be
+            updated this way; for Sandboxes created without one this fails, since
+            header replacement is only set up at creation time.
+
+            Args:
+                outbound_policy: The new policy to apply.
+            """
+            ...
+
+    _experimental_update_outbound_policy: ___experimental_update_outbound_policy_spec
+
     class ___experimental_get_exit_snapshot_spec(typing_extensions.Protocol):
         def __call__(self, /, timeout: typing.Optional[float] = None) -> modal.image.Image:
             """Get the exit filesystem snapshot image.
+
+            An exit snapshot captures the Sandbox filesystem when the Sandbox exits,
+            whether its entrypoint finishes gracefully, abruptly, or it is stopped with
+            `terminate()`. Exit snapshots are opt-in: the Sandbox must have been
+            created with `experimental_options={"enable_exit_snapshot": True}`.
 
             Args:
                 timeout: Total time to wait in seconds, spread across repeated long
@@ -2416,7 +2848,8 @@ class Sandbox(modal.object.Object):
                 TimeoutError: If `timeout` elapses before the snapshot reaches a
                     terminal state. This includes `timeout=0` when the snapshot is
                     still pending.
-                SnapshotCreationError: If no exit snapshot image will be produced.
+                SnapshotCreationError: Snapshot operation is done and failed.
+                    Polling again will not produce an Image; filesystem state is gone.
                 NotFoundError: If the sandbox does not exist.
                 PermissionDeniedError: If the caller cannot access the sandbox.
             """
@@ -2425,6 +2858,11 @@ class Sandbox(modal.object.Object):
         async def aio(self, /, timeout: typing.Optional[float] = None) -> modal.image.Image:
             """Get the exit filesystem snapshot image.
 
+            An exit snapshot captures the Sandbox filesystem when the Sandbox exits,
+            whether its entrypoint finishes gracefully, abruptly, or it is stopped with
+            `terminate()`. Exit snapshots are opt-in: the Sandbox must have been
+            created with `experimental_options={"enable_exit_snapshot": True}`.
+
             Args:
                 timeout: Total time to wait in seconds, spread across repeated long
                     polls of at most `_EXIT_SNAPSHOT_LONG_POLL_TIMEOUT` seconds each.
@@ -2440,7 +2878,8 @@ class Sandbox(modal.object.Object):
                 TimeoutError: If `timeout` elapses before the snapshot reaches a
                     terminal state. This includes `timeout=0` when the snapshot is
                     still pending.
-                SnapshotCreationError: If no exit snapshot image will be produced.
+                SnapshotCreationError: Snapshot operation is done and failed.
+                    Polling again will not produce an Image; filesystem state is gone.
                 NotFoundError: If the sandbox does not exist.
                 PermissionDeniedError: If the caller cannot access the sandbox.
             """
@@ -2484,6 +2923,16 @@ class Sandbox(modal.object.Object):
             ...
 
     snapshot_filesystem: __snapshot_filesystem_spec
+
+    class ___snapshot_filesystem_spec(typing_extensions.Protocol):
+        def __call__(
+            self, /, timeout: int, *, ttl: typing.Optional[int], container_id: str = ""
+        ) -> modal.image.Image: ...
+        async def aio(
+            self, /, timeout: int, *, ttl: typing.Optional[int], container_id: str = ""
+        ) -> modal.image.Image: ...
+
+    _snapshot_filesystem: ___snapshot_filesystem_spec
 
     class ___legacy_snapshot_filesystem_spec(typing_extensions.Protocol):
         def __call__(self, /, timeout: int = 55) -> modal.image.Image: ...
@@ -2877,8 +3326,12 @@ class Sandbox(modal.object.Object):
     poll: __poll_spec
 
     class ___get_task_id_spec(typing_extensions.Protocol):
-        def __call__(self, /, raise_if_task_complete=False) -> str: ...
-        async def aio(self, /, raise_if_task_complete=False) -> str: ...
+        def __call__(
+            self, /, raise_if_task_complete=False, timeout: typing.Optional[float] = None, retry_transient: bool = False
+        ) -> str: ...
+        async def aio(
+            self, /, raise_if_task_complete=False, timeout: typing.Optional[float] = None, retry_transient: bool = False
+        ) -> str: ...
 
     _get_task_id: ___get_task_id_spec
 
@@ -3148,134 +3601,6 @@ class Sandbox(modal.object.Object):
         """Namespace for Sandbox filesystem APIs."""
         ...
 
-    class __open_spec(typing_extensions.Protocol):
-        @typing.overload
-        def __call__(self, /, path: str) -> modal.file_io.FileIO[str]: ...
-        @typing.overload
-        def __call__(self, /, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io.FileIO[str]: ...
-        @typing.overload
-        def __call__(self, /, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io.FileIO[bytes]: ...
-        @typing.overload
-        async def aio(self, /, path: str) -> modal.file_io.FileIO[str]: ...
-        @typing.overload
-        async def aio(self, /, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io.FileIO[str]: ...
-        @typing.overload
-        async def aio(self, /, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io.FileIO[bytes]: ...
-
-    open: __open_spec
-
-    class __ls_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: str) -> list[str]:
-            """[Alpha] List the contents of a directory in the Sandbox.
-
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead for improved reliability.
-
-            Args:
-                path: Absolute directory path inside the sandbox.
-
-            Returns:
-                Entry names in the directory as a list of strings.
-            """
-            ...
-
-        async def aio(self, /, path: str) -> list[str]:
-            """[Alpha] List the contents of a directory in the Sandbox.
-
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead for improved reliability.
-
-            Args:
-                path: Absolute directory path inside the sandbox.
-
-            Returns:
-                Entry names in the directory as a list of strings.
-            """
-            ...
-
-    ls: __ls_spec
-
-    class __mkdir_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: str, parents: bool = False) -> None:
-            """[Alpha] Create a new directory in the Sandbox.
-
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead for improved reliability.
-            """
-            ...
-
-        async def aio(self, /, path: str, parents: bool = False) -> None:
-            """[Alpha] Create a new directory in the Sandbox.
-
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead for improved reliability.
-            """
-            ...
-
-    mkdir: __mkdir_spec
-
-    class __rm_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: str, recursive: bool = False) -> None:
-            """[Alpha] Remove a file or directory in the Sandbox.
-
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead for improved reliability.
-            """
-            ...
-
-        async def aio(self, /, path: str, recursive: bool = False) -> None:
-            """[Alpha] Remove a file or directory in the Sandbox.
-
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead for improved reliability.
-            """
-            ...
-
-    rm: __rm_spec
-
-    class __watch_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            path: str,
-            filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
-            recursive: typing.Optional[bool] = None,
-            timeout: typing.Optional[int] = None,
-        ) -> typing.Iterator[modal.types.FileWatchEvent]:
-            """[Alpha] Watch a file or directory in the Sandbox for changes.
-
-            **Deprecated (2026-05-08):** Use `Sandbox.filesystem.watch()` instead for improved reliability.
-
-            Args:
-                path: Absolute path to watch.
-                filter: Optional list of event types to include.
-                recursive: Whether to watch subdirectories; None uses server defaults.
-                timeout: Optional timeout for the watch stream.
-
-            Returns:
-                An async iterator of `FileWatchEvent` values.
-            """
-            ...
-
-        def aio(
-            self,
-            /,
-            path: str,
-            filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
-            recursive: typing.Optional[bool] = None,
-            timeout: typing.Optional[int] = None,
-        ) -> collections.abc.AsyncIterator[modal.types.FileWatchEvent]:
-            """[Alpha] Watch a file or directory in the Sandbox for changes.
-
-            **Deprecated (2026-05-08):** Use `Sandbox.filesystem.watch()` instead for improved reliability.
-
-            Args:
-                path: Absolute path to watch.
-                filter: Optional list of event types to include.
-                recursive: Whether to watch subdirectories; None uses server defaults.
-                timeout: Optional timeout for the watch stream.
-
-            Returns:
-                An async iterator of `FileWatchEvent` values.
-            """
-            ...
-
-    watch: __watch_spec
-
     @property
     def stdout(self) -> modal.io_streams.StreamReader[str]:
         """[`StreamReader`](https://modal.com/docs/sdk/py/latest/io_streams#streamreader)
@@ -3434,5 +3759,9 @@ class Sandbox(modal.object.Object):
         ...
 
 _default_image: modal._image._Image
+
+_SANDBOX_SCHEDULING_TIMEOUT: float
+
+_TASK_ID_POLL_INTERVAL: float
 
 _MAIN_CONTAINER_NAME: str

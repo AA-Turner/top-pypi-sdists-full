@@ -1,8 +1,7 @@
-import contextlib
-
 import numpy as np
 import pandas as pd
 
+from shapely import Polygon
 from shapely.geometry import Point
 
 import geopandas
@@ -159,18 +158,33 @@ def test_loc_add_row(geom_name, nybb_filename):
         nybb = nybb.rename_geometry(geom_name)
     # add a new row
     if PANDAS_GE_31:
-        ctx = pytest.warns(UserWarning, match="CRS not set for some.*")
         expected_crs = nybb.crs
     else:
-        ctx = contextlib.nullcontext()
         expected_crs = None  # this should be nybb.crs, regressed in #2373
-    with ctx:
-        nybb.loc[5] = [6, nybb.geometry.iloc[0]]
+    nybb.loc[5] = [6, nybb.geometry.iloc[0]]
     if PANDAS_GE_31 or geom_name == "geometry":
         assert nybb.geometry.dtype == "geometry"
         assert nybb.crs is expected_crs
     else:
         assert nybb.geometry.dtype == "object"
+
+
+@pytest.mark.xfail(reason="failing because crs is lost")
+@pytest.mark.parametrize("geom_name", ["geometry", "geom"])
+def test_loc_add_row_empty_df(geom_name):
+    # https://github.com/geopandas/geopandas/issues/3109
+    gdf = GeoDataFrame(geometry=[], crs="EPSG:4326")
+    if geom_name != "geometry":
+        gdf = gdf.rename_geometry("geom")
+    p = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    gdf.loc[0] = [p]
+    assert gdf.active_geometry_name == geom_name
+    assert gdf.crs == "EPSG:4326"
+
+    # Series case
+    ser = GeoSeries(crs="EPSG:4326")
+    ser[0] = p
+    assert ser.crs == "EPSG:4326"
 
 
 def test_iloc(df):
@@ -268,8 +282,8 @@ def test_apply(df):
     assert_object(df["value1"].apply(identity), pd.Series)
 
     # axis = 0, Series, no longer geometry
-    assert_object(df[geo_name].apply(lambda x: str(x)), pd.Series)
-    assert_object(df["geometry2"].apply(lambda x: str(x)), pd.Series)
+    assert_object(df[geo_name].apply(str), pd.Series)
+    assert_object(df["geometry2"].apply(lambda x: str(x)), pd.Series)  # noqa: PLW0108
 
     # axis = 1
     assert_object(df[["value1", "value2"]].apply(identity, axis=1), pd.DataFrame)

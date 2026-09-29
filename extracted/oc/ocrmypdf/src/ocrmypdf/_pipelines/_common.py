@@ -29,27 +29,21 @@ from ocrmypdf._annots import remove_broken_goto_annotations
 from ocrmypdf._concurrent import Executor, setup_executor
 from ocrmypdf._jobcontext import PageContext, PdfContext
 from ocrmypdf._logging import PageNumberFilter
-from ocrmypdf._metadata import metadata_fixup
+from ocrmypdf._metadata import PikepdfProgress
 from ocrmypdf._options import OcrOptions
 from ocrmypdf._pipeline import (
-    convert_to_pdfa,
     create_ocr_image,
     create_pdf_page_from_image,
     create_visible_page_jpg,
-    generate_postscript_stub,
+    finish_output_pdf,
     get_orientation_correction,
-    get_pdf_save_settings,
     get_pdfinfo,
-    optimize_pdf,
     preprocess_clean,
     preprocess_deskew,
     preprocess_remove_background,
     rasterize,
     rasterize_preview,
-    should_linearize,
     should_visible_page_image_use_jpg,
-    try_auto_pdfa,
-    try_speculative_pdfa,
 )
 from ocrmypdf._plugin_manager import OcrmypdfPluginManager
 from ocrmypdf._validation import (
@@ -351,7 +345,7 @@ def do_get_pdfinfo(pdf_path: Path, executor: Executor, options) -> PdfInfo:
     if isinstance(check_pages, str):
         from ocrmypdf._options import _pages_from_ranges
 
-        with Pdf.open(pdf_path) as pdf:
+        with Pdf.open(pdf_path, conversion_mode='explicit') as pdf:
             total_pages = len(pdf.pages)
         check_pages = _pages_from_ranges(check_pages, total_pages=total_pages)
         options.pages = check_pages
@@ -485,39 +479,28 @@ def process_page(page_context: PageContext) -> tuple[Path, Path | None, int]:
 def postprocess(
     pdf_file: Path, context: PdfContext, executor: Executor
 ) -> tuple[Path, Sequence[str]]:
-    """Postprocess the PDF file."""
-    # pdf_out = pdf_file
-    with Pdf.open(pdf_file) as pdf:
+    """Postprocess the PDF file.
+
+    Repairs broken annotations, then produces the output file of the
+    requested type with `finish_output_pdf`.
+    """
+    with Pdf.open(pdf_file, conversion_mode='explicit') as pdf:
         fix_annots = context.get_path('fix_annots.pdf')
         if remove_broken_goto_annotations(pdf):
             pdf.save(fix_annots)
             pdf_out = fix_annots
         else:
             pdf_out = pdf_file
-    if context.options.output_type == 'auto':
-        # Best effort PDF/A - may use Ghostscript as a last resort
-        pdf_out, actual_type = try_auto_pdfa(pdf_out, context)
-        # Store actual output type for reporting
-        context.options.extra_attrs['_actual_output_type'] = actual_type
-    elif context.options.output_type.startswith('pdfa'):
-        # Required PDF/A - uses Ghostscript as fallback
-        speculative_result = try_speculative_pdfa(pdf_out, context)
-        if speculative_result is not None:
-            pdf_out = speculative_result
-        else:
-            # Fall back to Ghostscript conversion
-            ps_stub_out = generate_postscript_stub(context)
-            pdf_out = convert_to_pdfa(pdf_out, ps_stub_out, context)
-
-    optimizing = context.plugin_manager.is_optimization_enabled(context=context)
-    save_settings = get_pdf_save_settings(context.options.output_type)
-    save_settings['linearize'] = not optimizing and should_linearize(pdf_out, context)
-
-    pdf_out = metadata_fixup(pdf_out, context, pdf_save_settings=save_settings)
-    return optimize_pdf(pdf_out, context, executor)
+    return finish_output_pdf(pdf_out, context, executor)
 
 
-def report_output_pdf(options, start_input_file, optimize_messages) -> ExitCode:
+def report_output_pdf(
+    options,
+    start_input_file,
+    optimize_messages,
+    *,
+    plugin_manager: OcrmypdfPluginManager,
+) -> ExitCode:
     if options.output_file == '-':
         log.info("Output sent to stdout")
     elif hasattr(options.output_file, 'writable') and options.output_file.writable():
@@ -551,7 +534,15 @@ def report_output_pdf(options, start_input_file, optimize_messages) -> ExitCode:
                     pdfa_info['conformance'],
                 )
                 return ExitCode.pdfa_conversion_failed
-        if not check_pdf(options.output_file):
+        # Decoding every stream can take minutes on large image-heavy files, so
+        # show progress rather than appear hung after the output is written.
+        with PikepdfProgress(
+            plugin_manager.get_progressbar_class(),
+            options.progress_bar,
+            desc="Checking output",
+        ) as pbar:
+            output_ok = check_pdf(options.output_file, progress=pbar)
+        if not output_ok:
             log.warning('Output file: The generated PDF is INVALID')
             return ExitCode.invalid_output_pdf
         report_output_file_size(

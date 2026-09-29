@@ -16,7 +16,7 @@ import time
 import requests
 from Crypto.Cipher import AES
 
-from ...const import CONNECTION_TIMEOUT
+from ...const import CONNECTION_TIMEOUT, EncryptionMethod
 from .spake2p import (
     Spake2pClient,
     apply_extra_crypt,
@@ -142,7 +142,10 @@ class Tpap:
             return await self._runBlocking(self._sendSync, request)
 
     def getEncryptionMethod(self):
-        return "tpap"
+        # Media port 8800 selects its actual password hashing method from its
+        # own WWW-Authenticate challenge. SHA256 is the correct fallback for
+        # currently known TPAP cameras and preserves the public API contract.
+        return EncryptionMethod.SHA256
 
     async def close(self):
         self._dropSession()

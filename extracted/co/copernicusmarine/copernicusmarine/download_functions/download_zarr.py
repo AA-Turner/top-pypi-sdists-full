@@ -43,6 +43,9 @@ from copernicusmarine.core_functions.models import (
     StatusCode,
     StatusMessage,
 )
+from copernicusmarine.core_functions.polygons_extractor import (
+    extract_polygons_from_dataset,
+)
 from copernicusmarine.core_functions.request_structure import SubsetRequest
 from copernicusmarine.core_functions.utils import (
     add_copernicusmarine_version_in_dataset_attributes,
@@ -150,6 +153,12 @@ def download_zarr(
     if not subset_request.output_directory.is_dir():
         pathlib.Path.mkdir(subset_request.output_directory, parents=True)
 
+    if subset_request.polygons_file:
+        logger.debug("Extracting polygons from dataset.")
+        dataset = extract_polygons_from_dataset(
+            dataset=dataset, polygons=subset_request.polygons_file
+        )
+
     logger.debug(f"Xarray Dataset: {dataset}")
     logger.debug("Starting download. Please wait...")
 
@@ -159,7 +168,9 @@ def download_zarr(
         )
         if final_result_size_estimation > 1000:
             non_csv_size_estimation = get_approximation_size_final_result(
-                dataset, axis_coordinate_id_mapping
+                dataset,
+                axis_coordinate_id_mapping,
+                file_format="zarr",
             )
             logger.warning(
                 "The estimated size of the final CSV output is "
@@ -172,7 +183,9 @@ def download_zarr(
             )
     else:
         final_result_size_estimation = get_approximation_size_final_result(
-            dataset, axis_coordinate_id_mapping
+            dataset,
+            axis_coordinate_id_mapping,
+            file_format=subset_request.file_format,
         )
 
     dataset.close()

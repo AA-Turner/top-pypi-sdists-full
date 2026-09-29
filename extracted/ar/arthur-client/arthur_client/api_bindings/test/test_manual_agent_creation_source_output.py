@@ -38,10 +38,10 @@ class TestManualAgentCreationSourceOutput(unittest.TestCase):
                 type = 'MANUAL',
                 vendor = '',
                 address = arthur_client.api_bindings.models.source_address.SourceAddress(
-                    instance = '', 
+                    instance = '0', 
                     scope = '', 
                     resource_kind = '', 
-                    resource_id = '', 
+                    resource_id = '0', 
                     query = '', ),
                 observations = arthur_client.api_bindings.models.agent_observations.AgentObservations(
                     install_path = '', 
@@ -62,10 +62,10 @@ class TestManualAgentCreationSourceOutput(unittest.TestCase):
             return ManualAgentCreationSourceOutput(
                 vendor = '',
                 address = arthur_client.api_bindings.models.source_address.SourceAddress(
-                    instance = '', 
+                    instance = '0', 
                     scope = '', 
                     resource_kind = '', 
-                    resource_id = '', 
+                    resource_id = '0', 
                     query = '', ),
                 observations = arthur_client.api_bindings.models.agent_observations.AgentObservations(
                     install_path = '', 

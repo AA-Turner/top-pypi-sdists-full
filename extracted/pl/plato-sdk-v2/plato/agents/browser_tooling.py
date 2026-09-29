@@ -8,10 +8,13 @@ bin to ``PATH`` so the ``agent-browser`` CLI resolves in the agent subshell.
 
 from __future__ import annotations
 
-AGENT_BROWSER_PATH_EXPORT = 'export PATH="$HOME/.bun/bin:$PATH"'
+from plato.utils.browser_tooling import AGENT_BROWSER_SOCKET_DIR_EXPORT
+
+AGENT_BROWSER_PATH_EXPORT = f'export PATH="$HOME/.bun/bin:$PATH"; {AGENT_BROWSER_SOCKET_DIR_EXPORT}'
 """Shell fragment that adds the bun bin dir (where ``agent-browser`` lives) to
 ``PATH``. Nvm-sourced node is already on PATH via the agent's existing
-``nvm_source`` prefix, so this only needs to contribute bun."""
+``nvm_source`` prefix. It also exports the shared daemon directory so browser
+commands reuse the session established by pre-login."""
 
 
 def build_agent_browser_sessions_block(env_aliases: list[str]) -> str:

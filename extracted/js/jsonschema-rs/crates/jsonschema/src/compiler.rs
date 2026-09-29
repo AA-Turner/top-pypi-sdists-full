@@ -110,6 +110,15 @@ pub(crate) struct LocationCacheKey {
     dynamic_scope: List<Uri<String>>,
 }
 
+/// Named anchors can share a base URI and output location without naming the same schema.
+/// The node cache lives only for one root compilation: input/registry values stay borrowed
+/// and immovable until that cache is dropped. This pointer is never persisted or dereferenced.
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
+pub(crate) struct NodeCacheKey {
+    location: LocationCacheKey,
+    schema_ptr: usize,
+}
+
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 struct PropertyValidatorsPendingKey {
     schema_ptr: usize,
@@ -167,9 +176,9 @@ impl std::hash::Hash for BaseUriKey {
 /// Shared caches reused across every `Context` derived from a schema root.
 struct SharedContextState<F: Json = SerdeJson> {
     seen: SharedSet<Arc<Uri<String>>>,
-    location_nodes: SharedCache<LocationCacheKey, SchemaNode<F>>,
+    location_nodes: SharedCache<NodeCacheKey, SchemaNode<F>>,
     alias_nodes: SharedCache<AliasCacheKey, SchemaNode<F>>,
-    pending_nodes: SharedCache<LocationCacheKey, PendingSchemaNode<F>>,
+    pending_nodes: SharedCache<NodeCacheKey, PendingSchemaNode<F>>,
     alias_placeholders: SharedCache<Arc<Uri<String>>, PendingSchemaNode<F>>,
     pending_property_validators: SharedCache<LocationCacheKey, PendingPropertyValidators<F>>,
     pending_property_validators_by_schema:
@@ -179,6 +188,9 @@ struct SharedContextState<F: Json = SerdeJson> {
         SharedCache<ItemsValidatorsPendingKey, PendingItemsValidators<F>>,
     pattern_cache: SharedCache<Arc<str>, PatternCacheEntry>,
     ref_targets: SharedCache<BaseUriKey, AHashMap<Box<str>, RefTarget>>,
+    /// Locations of anchor-bearing schemas, keyed by their resource root's address and then
+    /// by their own. Roots stay borrowed until this cache is dropped.
+    anchor_locations: SharedCache<usize, AHashMap<usize, Location>>,
     uri_buffer: RefCell<uri::EncodedBuffer>,
 }
 
@@ -210,6 +222,7 @@ impl<F: Json> SharedContextState<F> {
             pending_items_validators_by_schema: RefCell::new(AHashMap::new()),
             pattern_cache: RefCell::new(AHashMap::new()),
             ref_targets: RefCell::new(AHashMap::new()),
+            anchor_locations: RefCell::new(AHashMap::new()),
             uri_buffer: RefCell::new(uri::EncodedBuffer::new()),
         }
     }
@@ -475,6 +488,21 @@ impl<'a, F: Json> Context<'a, F> {
             .resolve_uri(&self.resolver.base_uri().borrow(), reference)
     }
 
+    /// Location of `target` within the resource rooted at `root`, if `target` declares an anchor.
+    pub(crate) fn anchor_location(&self, root: &Value, target: &Value) -> Option<Location> {
+        self.shared
+            .anchor_locations
+            .borrow_mut()
+            .entry(std::ptr::from_ref(root) as usize)
+            .or_insert_with(|| {
+                let mut index = AHashMap::new();
+                index_anchors(root, &mut Vec::new(), &mut index);
+                index
+            })
+            .get(&(std::ptr::from_ref(target) as usize))
+            .cloned()
+    }
+
     /// The resolved URI of `reference` and the location its target starts at.
     ///
     /// Schemas reuse a handful of targets across many `$ref` sites, so this is derived once per
@@ -505,11 +533,11 @@ impl<'a, F: Json> Context<'a, F> {
         Ok(target)
     }
 
-    pub(crate) fn cached_location_node(&self, key: &LocationCacheKey) -> Option<SchemaNode<F>> {
+    pub(crate) fn cached_location_node(&self, key: &NodeCacheKey) -> Option<SchemaNode<F>> {
         self.shared.location_nodes.borrow().get(key).cloned()
     }
 
-    pub(crate) fn cache_location_node(&self, key: LocationCacheKey, node: SchemaNode<F>) {
+    pub(crate) fn cache_location_node(&self, key: NodeCacheKey, node: SchemaNode<F>) {
         self.shared.location_nodes.borrow_mut().insert(key, node);
     }
 
@@ -523,20 +551,20 @@ impl<'a, F: Json> Context<'a, F> {
 
     pub(crate) fn cached_pending_location_node(
         &self,
-        key: &LocationCacheKey,
+        key: &NodeCacheKey,
     ) -> Option<PendingSchemaNode<F>> {
         self.shared.pending_nodes.borrow().get(key).cloned()
     }
 
     pub(crate) fn cache_pending_location_node(
         &self,
-        key: LocationCacheKey,
+        key: NodeCacheKey,
         node: PendingSchemaNode<F>,
     ) {
         self.shared.pending_nodes.borrow_mut().insert(key, node);
     }
 
-    pub(crate) fn remove_pending_location_node(&self, key: &LocationCacheKey) {
+    pub(crate) fn remove_pending_location_node(&self, key: &NodeCacheKey) {
         self.shared.pending_nodes.borrow_mut().remove(key);
     }
 
@@ -1056,6 +1084,42 @@ pub(crate) fn validate_schema(
     Ok(())
 }
 
+/// Keywords that can name the schema holding them, across all drafts.
+const ANCHOR_KEYWORDS: [&str; 4] = ["$anchor", "$dynamicAnchor", "$id", "id"];
+
+fn index_anchors<'v>(
+    value: &'v Value,
+    path: &mut Vec<LocationSegment<'v>>,
+    index: &mut AHashMap<usize, Location>,
+) {
+    match value {
+        Value::Object(map) => {
+            if ANCHOR_KEYWORDS
+                .iter()
+                .any(|keyword| map.contains_key(*keyword))
+            {
+                let location = path.iter().fold(Location::new(), |location, segment| {
+                    location.join(segment.clone())
+                });
+                index.insert(std::ptr::from_ref(value) as usize, location);
+            }
+            for (key, child) in map {
+                path.push(key.into());
+                index_anchors(child, path, index);
+                path.pop();
+            }
+        }
+        Value::Array(items) => {
+            for (idx, child) in items.iter().enumerate() {
+                path.push(idx.into());
+                index_anchors(child, path, index);
+                path.pop();
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Compile a JSON Schema instance to a tree of nodes.
 pub(crate) fn compile<'a, F: Json>(
     ctx: &Context<F>,
@@ -1088,7 +1152,10 @@ fn compile_with_internal<'a, F: Json>(
     }
 
     // Check location-based cache
-    let key = ctx.location_cache_key();
+    let key = NodeCacheKey {
+        location: ctx.location_cache_key(),
+        schema_ptr: std::ptr::from_ref(resource.contents()) as usize,
+    };
     if let Some(existing) = ctx.cached_location_node(&key) {
         return Ok(existing);
     }

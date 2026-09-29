@@ -1435,9 +1435,13 @@ def _reown_to_console_user(path: Path) -> None:
 def _read_existing_config(
     path: Path, *, home: Path | None, mdm: bool = False
 ) -> str | None:
-    """Read an existing config file; link-safe when *home* is set (ENG-3217)."""
+    """Read an existing third-party config; link-safe when *home* is set (ENG-3217).
+
+    The user's own in-home link chain (dotfiles layout) is followed so the
+    merge sees their real content (ENG-6814); any other link reads as absent.
+    """
     _ensure_windows_mdm_path_safe(path, mdm=mdm)
-    return maybe_safe_read_text(path, home=home)
+    return maybe_safe_read_text(path, home=home, follow_in_home_links=True)
 
 
 class _ExistingConfig(TypedDict):
@@ -1457,7 +1461,7 @@ def _read_existing_config_file(
     files report the default mode for a fresh write.
     """
     _ensure_windows_mdm_path_safe(path, mdm=mdm)
-    existing_file = maybe_safe_read_file(path, home=home)
+    existing_file = maybe_safe_read_file(path, home=home, follow_in_home_links=True)
     if existing_file is None:
         return {"text": None, "mode": 0o644}
     return {
@@ -1473,9 +1477,16 @@ def _write_config(
     home: Path | None,
     mode: int = 0o644,
     replace_symlink: bool = True,
+    follow_in_home_links: bool = False,
     mdm: bool = False,
 ) -> None:
-    """Write a config file; link-safe (no symlink following) when *home* is set."""
+    """Write a Runlayer-owned file, link-safe when *home* is set.
+
+    The user's in-home directory links (``~/.agents -> ~/dotfiles/agents``)
+    are followed for the parent chain; a link at the final component is
+    replaced (default) or refused (``replace_symlink=False``) unless
+    *follow_in_home_links* resolves it as a third-party config.
+    """
     _ensure_windows_mdm_path_safe(path, mdm=mdm)
     maybe_safe_write_text(
         path,
@@ -1483,6 +1494,33 @@ def _write_config(
         home=home,
         mode=mode,
         replace_symlink=replace_symlink,
+        follow_in_home_links=follow_in_home_links,
+    )
+
+
+def _write_third_party_config(
+    path: Path,
+    text: str,
+    *,
+    home: Path | None,
+    mode: int = 0o644,
+    mdm: bool = False,
+) -> None:
+    """Rewrite a client's own config file, never replacing a symlink under an anchor.
+
+    The user's in-home link chain is followed so the merge lands in their real
+    file; a link that escapes the home or points at a foreign-owned file raises
+    ``ELOOP`` instead of wiping it (ENG-6814). User scope owns its own home and
+    follows links natively.
+    """
+    _write_config(
+        path,
+        text,
+        home=home,
+        mode=mode,
+        replace_symlink=home is None,
+        follow_in_home_links=True,
+        mdm=mdm,
     )
 
 
@@ -1493,7 +1531,6 @@ def _write_config_with_backup(
     existing_text: str | None,
     home: Path | None,
     mode: int = 0o644,
-    replace_symlink: bool = True,
     mdm: bool = False,
     reown: bool = False,
     backup_mode: int | None = None,
@@ -1505,9 +1542,12 @@ def _write_config_with_backup(
     succeeds; a failed write keeps every copy, including the fresh one. The copy
     never replaces a symlink (a planted link must not redirect the previous
     content), and in MDM scope both files are handed back to the console user.
+    The active write follows the user's in-home link chain; the copy lands
+    beside the link, or under ``~/.runlayer/config-backups`` when the config's
+    directory is itself linked, so it never enters a dotfiles tree (ENG-6814).
     """
     if existing_text is not None and existing_text != text:
-        backup_path = backup_path_for(path)
+        backup_path = backup_path_for(path, home=home)
         _write_config(
             backup_path,
             existing_text,
@@ -1518,14 +1558,7 @@ def _write_config_with_backup(
         )
         if reown:
             _reown_to_console_user(backup_path)
-    _write_config(
-        path,
-        text,
-        home=home,
-        mode=mode,
-        replace_symlink=replace_symlink,
-        mdm=mdm,
-    )
+    _write_third_party_config(path, text, home=home, mode=mode, mdm=mdm)
     if reown:
         _reown_to_console_user(path)
     prune_backups(path, home=home)
@@ -1624,7 +1657,7 @@ def remove_vscode_claude_hook_location_settings(
         existing["chat.hookFilesLocations"] = locations
     else:
         existing.pop("chat.hookFilesLocations", None)
-    _write_config(
+    _write_third_party_config(
         settings_path,
         json.dumps(existing, indent=2) + "\n",
         home=home,
@@ -1697,7 +1730,7 @@ def _uninstall_json_hooks(
     if remove_empty_file and home is None and not _json_config_has_content(existing):
         _remove_plain_file(path)
     else:
-        _write_config(
+        _write_third_party_config(
             path,
             json.dumps(existing, indent=2) + "\n",
             home=home,
@@ -1903,7 +1936,7 @@ def _uninstall_hermes(*, scope: InstallScope) -> UninstallResult:
     if home is None and not loaded:
         _remove_plain_file(path)
     else:
-        _write_config(
+        _write_third_party_config(
             path,
             yaml.safe_dump(loaded, default_flow_style=False, sort_keys=False),
             home=home,
@@ -2380,7 +2413,7 @@ def _write_claude_code(
         )
 
     existing: dict[str, Any] = {}
-    existing_file = maybe_safe_read_file(path, home=home)
+    existing_file = maybe_safe_read_file(path, home=home, follow_in_home_links=True)
     existing_text: str | None = None
     settings_mode = 0o644
     if existing_file is None:
@@ -2428,7 +2461,7 @@ def _write_claude_code(
     # ENG-3204: MDM scope writes the console user's ~/.claude/settings.json as
     # root; settings.json is user-writable (Claude Code's /config writes it), so
     # hand ownership back or the user's own writes fail. ENG-3217: the write is
-    # link-safe so a planted symlink can't redirect it.
+    # link-safe so a planted symlink can't redirect it out of the home.
     try:
         _write_config_with_backup(
             path,
@@ -2436,7 +2469,6 @@ def _write_claude_code(
             existing_text=existing_text,
             home=home,
             mode=settings_mode,
-            replace_symlink=scope != InstallScope.MDM,
             mdm=mdm,
             reown=scope == InstallScope.MDM,
         )

@@ -71,7 +71,7 @@ class YFinanceCompatibilityTest(TestCase):
     _stock = wrap(
         df=yf.download(
             "002032.SZ",
-            auto_adjust=False,  # ← raw prices
+            auto_adjust=False,  # <- raw prices
             actions=True,  # keep dividends & splits separate
             period="max",
         )
@@ -313,6 +313,62 @@ class StockDataFrameTest(TestCase):
         assert_that(row["kdjk"], near_to(66.666))
         assert_that(row["kdjd"], near_to(55.555))
         assert_that(row["kdjj"], near_to(88.888))
+
+    @staticmethod
+    def test_kdj_flat_candles():
+        """Regression test for issue #185.
+
+        When high == low for every bar (perfectly flat candles), the
+        RSV denominator is zero.  _divide() must return 0.0 rather than
+        raising ZeroDivisionError or producing NaN/inf, and the
+        downstream K, D, J values must all be finite numbers.
+        """
+        import numpy as np
+        data = pd.DataFrame({
+            'open': [10.0] * 20,
+            'high': [10.0] * 20,
+            'low': [10.0] * 20,
+            'close': [10.0] * 20,
+            'volume': [1000] * 20,
+        })
+        stock = wrap(data)
+        kdjk = stock['kdjk']
+        kdjd = stock['kdjd']
+        kdjj = stock['kdjj']
+        for series, name in ((kdjk, 'kdjk'), (kdjd, 'kdjd'), (kdjj, 'kdjj')):
+            for i, val in enumerate(series.values):
+                assert_that(
+                    np.isfinite(val),
+                    equal_to(True),
+                    f"{name}[{i}] is not finite: {val}",
+                )
+
+    @staticmethod
+    def test_vr_neutral_days():
+        """Regression test for issue #115.
+
+        When all volume days are neutral (change == 0), both avs and bvs
+        are 0, so the VR formula should return 100.0
+        (half_cvs / half_cvs * 100 == 100) rather than 0 or NaN.
+        """
+        import numpy as np
+        data = pd.DataFrame({
+            'open': [10.0] * 30,
+            'high': [10.5] * 30,
+            'low': [9.5] * 30,
+            'close': [10.0] * 30,   # no change => all neutral days
+            'volume': [1000] * 30,
+        })
+        stock = wrap(data)
+        vr = stock['vr']
+        for i, val in enumerate(vr.values):
+            assert_that(
+                np.isfinite(val),
+                equal_to(True),
+                f"vr[{i}] is not finite: {val}",
+            )
+            # all neutral: VR should be 100
+            assert_that(val, near_to(100.0))
 
     def test_column_cross(self):
         stock = self.get_stock_30days()
@@ -769,6 +825,21 @@ class StockDataFrameTest(TestCase):
         assert_that(vwma.loc[idx], near_to(13.350941))
         assert_that(vwma_14.loc[idx], near_to(vwma.loc[idx]))
         assert_that(vwma_7.loc[idx], is_not(near_to(vwma.loc[idx])))
+
+    def test_vwma_with_zero_volume(self):
+        # a rolling window whose volume sums to zero (e.g. an illiquid
+        # instrument or a holiday session) must not divide by zero
+        df = pd.DataFrame({
+            "open": [10, 10, 10, 10, 10],
+            "close": [10, 10, 10, 10, 10],
+            "high": [11, 11, 11, 11, 11],
+            "low": [9, 9, 9, 9, 9],
+            "volume": [0, 0, 0, 0, 0],
+        })
+        stock = StockDataFrame.retype(df.copy())
+        vwma = stock["vwma_3"]
+        assert_that(vwma.isna().any(), equal_to(False))
+        assert_that(list(vwma.values), equal_to([0.0] * 5))
 
     def test_chop(self):
         stock = self.get_stock_90days()

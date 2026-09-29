@@ -14,9 +14,10 @@
 
 """Generator for standard A2UI JSON schema system prompt instructions."""
 
-from typing import Optional, Any, TYPE_CHECKING, Union
+from collections.abc import Mapping, Sequence
+from typing import Any, TYPE_CHECKING
 from a2ui.prompt import PromptGenerator
-from a2ui.core.schema.client_capabilities import V09Capabilities
+from a2ui.core.schema.v0_9.client_capabilities import V09Capabilities
 
 if TYPE_CHECKING:
     from a2ui.inference_formats.direct_json.format import DirectJsonFormat
@@ -33,7 +34,7 @@ class DirectJsonPromptGenerator(PromptGenerator):
             format_inst: The DirectJsonFormat instance.
         """
         self._format = format_inst
-        self.selected_catalog: Optional["A2uiCatalog"] = None
+        self.selected_catalog: "A2uiCatalog" | None = None
 
     def generate_base_rules(self) -> str:
         """Returns default JSON workflow rules."""
@@ -44,7 +45,7 @@ class DirectJsonPromptGenerator(PromptGenerator):
     def generate_catalog_instructions(
         self,
         include_schema: bool = True,
-        catalog: Optional[Any] = None,
+        catalog: Any | None = None,
     ) -> str:
         """Returns LLM instructions for a catalog or all supported catalogs."""
         if not include_schema:
@@ -64,7 +65,7 @@ class DirectJsonPromptGenerator(PromptGenerator):
 
     def generate_examples(
         self,
-        catalog: Optional[Any] = None,
+        catalog: Any | None = None,
         validate: bool = False,
     ) -> str:
         """Loads and formats few-shot examples for a catalog."""
@@ -84,9 +85,9 @@ class DirectJsonPromptGenerator(PromptGenerator):
         role_description: str,
         workflow_description: str = "",
         ui_description: str = "",
-        client_ui_capabilities: Optional[Union[dict[str, Any], V09Capabilities]] = None,
-        allowed_components: Optional[list[str]] = None,
-        allowed_messages: Optional[list[str]] = None,
+        client_ui_capabilities: Mapping[str, Any] | V09Capabilities | None = None,
+        allowed_components: Sequence[str] | None = None,
+        allowed_messages: Sequence[str] | None = None,
         include_schema: bool = False,
         include_examples: bool = False,
         validate_examples: bool = False,

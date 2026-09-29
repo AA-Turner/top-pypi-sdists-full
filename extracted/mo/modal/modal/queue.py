@@ -25,11 +25,19 @@ from ._object import (
 from ._resolver import Resolver
 from ._serialization import deserialize, serialize
 from ._utils.async_utils import TaskContext, synchronize_api, warn_if_generator_is_not_consumed
-from ._utils.grpc_utils import Retry
+from ._utils.grpc_utils import Retry, RetryTimeoutError
 from ._utils.name_utils import check_object_name
 from ._utils.time_utils import as_timestamp, timestamp_to_localized_dt
 from .client import _Client
-from .exception import AlreadyExistsError, Error, InvalidError, NotFoundError, RequestSizeError, ResourceExhaustedError
+from .exception import (
+    AlreadyExistsError,
+    Error,
+    InvalidError,
+    NotFoundError,
+    RequestSizeError,
+    ResourceExhaustedError,
+    TimeoutError,
+)
 from .types import QueueInfo
 
 
@@ -89,7 +97,7 @@ class _QueueManager:
             object_creation_type=object_creation_type,
         )
         try:
-            await client.stub.QueueGetOrCreate(req)
+            await client._stub.QueueGetOrCreate(req)
         except AlreadyExistsError:
             if not allow_existing:
                 raise
@@ -148,7 +156,7 @@ class _QueueManager:
             req = api_pb2.QueueListRequest(
                 environment_name=_get_environment_name(environment_name), pagination=pagination
             )
-            resp = await client.stub.QueueList(req)
+            resp = await client._stub.QueueList(req)
             items.extend(resp.queues)
             finished = (len(resp.queues) < max_page_size) or (max_objects is not None and len(items) >= max_objects)
             return finished
@@ -209,7 +217,7 @@ class _QueueManager:
                 raise
         else:
             req = api_pb2.QueueDeleteRequest(queue_id=obj.object_id)
-            await obj.client.stub.QueueDelete(req)
+            await obj.client._stub.QueueDelete(req)
 
 
 QueueManager = synchronize_api(_QueueManager)
@@ -358,10 +366,10 @@ class _Queue(_Object, type_prefix="qu"):
             object_creation_type=api_pb2.OBJECT_CREATION_TYPE_EPHEMERAL,
             environment_name=_get_environment_name(environment_name),
         )
-        response = await client.stub.QueueGetOrCreate(request)
+        response = await client._stub.QueueGetOrCreate(request)
         async with TaskContext() as tc:
             request = api_pb2.QueueHeartbeatRequest(queue_id=response.queue_id)
-            tc.infinite_loop(lambda: client.stub.QueueHeartbeat(request), sleep=_heartbeat_sleep)
+            tc.infinite_loop(lambda: client._stub.QueueHeartbeat(request), sleep=_heartbeat_sleep)
             yield cls._new_hydrated(response.queue_id, client, response.metadata, skip_reload=True)
 
     @staticmethod
@@ -403,7 +411,7 @@ class _Queue(_Object, type_prefix="qu"):
                     else api_pb2.OBJECT_CREATION_TYPE_UNSPECIFIED
                 ),
             )
-            response = await load_context.client.stub.QueueGetOrCreate(req)
+            response = await load_context.client._stub.QueueGetOrCreate(req)
             self._hydrate(response.queue_id, load_context.client, response.metadata)
 
         rep = _Queue._repr(name, environment_name)
@@ -451,7 +459,7 @@ class _Queue(_Object, type_prefix="qu"):
 
         async def _load(self: _Queue, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
             req = api_pb2.QueueGetByIdRequest(queue_id=queue_id)
-            response = await load_context.client.stub.QueueGetById(req)
+            response = await load_context.client._stub.QueueGetById(req)
             self._hydrate(response.queue_id, load_context.client, response.metadata)
 
         rep = f"Queue.from_id({queue_id!r})"
@@ -482,7 +490,7 @@ class _Queue(_Object, type_prefix="qu"):
             n_values=n_values,
         )
 
-        response = await self.client.stub.QueueGet(request)
+        response = await self.client._stub.QueueGet(request)
         if response.values:
             return [deserialize(value, self.client) for value in response.values]
         else:
@@ -507,7 +515,7 @@ class _Queue(_Object, type_prefix="qu"):
                 n_values=n_values,
             )
 
-            response = await self.client.stub.QueueGet(request)
+            response = await self.client._stub.QueueGet(request)
 
             if response.values:
                 return [deserialize(value, self.client) for value in response.values]
@@ -540,7 +548,7 @@ class _Queue(_Object, type_prefix="qu"):
             partition_key=self.validate_partition_key(partition),
             all_partitions=all,
         )
-        await self.client.stub.QueueClear(request)
+        await self.client._stub.QueueClear(request)
 
     @live_method
     async def get(
@@ -676,7 +684,7 @@ class _Queue(_Object, type_prefix="qu"):
             partition_ttl_seconds=partition_ttl,
         )
         try:
-            await self.client.stub.QueuePut(
+            await self.client._stub.QueuePut(
                 request,
                 # A full queue will return this status.
                 retry=Retry(
@@ -686,6 +694,12 @@ class _Queue(_Object, type_prefix="qu"):
                     total_timeout=timeout,
                 ),
             )
+        except RetryTimeoutError as exc:
+            if isinstance(exc.final_exception, ResourceExhaustedError):
+                raise queue.Full(str(exc.final_exception)) from None
+            raise TimeoutError(
+                f"Queue.put could not complete within the provided timeout of {timeout} seconds"
+            ) from exc
         except Error as exc:
             if "status = '413'" in str(exc):
                 method = "put_many" if len(vs) > 1 else "put"
@@ -704,7 +718,7 @@ class _Queue(_Object, type_prefix="qu"):
             partition_ttl_seconds=partition_ttl,
         )
         try:
-            await self.client.stub.QueuePut(request)
+            await self.client._stub.QueuePut(request)
         except Error as exc:
             if "status = '413'" in str(exc):
                 method = "put_many" if len(vs) > 1 else "put"
@@ -732,7 +746,7 @@ class _Queue(_Object, type_prefix="qu"):
             partition_key=self.validate_partition_key(partition),
             total=total,
         )
-        response = await self.client.stub.QueueLen(request)
+        response = await self.client._stub.QueueLen(request)
         return response.len
 
     @warn_if_generator_is_not_consumed()
@@ -762,7 +776,7 @@ class _Queue(_Object, type_prefix="qu"):
                 item_poll_timeout=poll_duration,
             )
 
-            response: api_pb2.QueueNextItemsResponse = await self.client.stub.QueueNextItems(request)
+            response: api_pb2.QueueNextItemsResponse = await self.client._stub.QueueNextItems(request)
             if response.items:
                 for item in response.items:
                     yield deserialize(item.value, self.client)

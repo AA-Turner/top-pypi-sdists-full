@@ -354,6 +354,10 @@ _OPERATIONAL = "operational bookkeeping on platform rows (incidents, errors, tra
 _SECRET = "writes a secret; secrets are never displayed, so there is nothing to diff"
 _CHECKLIST = "the agent's own working checklist for this conversation, drawn live by its own card"
 _COMPOSITE = "runs a named multi-step operation that creates new items; it replaces nothing"
+_UNARCHIVES = (
+    "brings archived items back (the inverse of an archiving delete); content is unchanged except a "
+    "name or route taken meanwhile, which comes back suffixed and is reported in the result's notices"
+)
 
 #: Every other action of every registered tool, classified with its reason.
 #: The guard (aidream/tools/tests/test_every_tool_action_is_classified.py)
@@ -378,6 +382,15 @@ NOT_SURFACE_WRITES: dict[str, str] = {
            "kind_create_content_block", "kind_create_skill", "kindcomp_create_component", "toolcomp_create_component",
            "fs_mkdir", "office:generate", "storage_source_import", "travel_create_summary", "credential_login:capture",
            "workflow_plan:build_agent", "workflow_plan:recommend", "workflow_plan:emit"),
+    **_not(_UNARCHIVES, "cms_site:restore", "cms_site:redirect_restore", "cms_page:restore",
+           "cms_component:restore", "cms_asset:restore", "html_page:restore", "dictionary:restore_entries"),
+    # The media, writing and crisis desk (BRIEFS-MEDIA-WRITING-CRISIS, 2026-09-27): a clip and a voice
+    # fingerprint are NEW records (nothing replaced); the checks and the moment feed only read.
+    **_not(_CREATES, "cloud_browser:render_clip", "brand_voice_measure:extract"),
+    **_not(_READS, "brand_voice_measure:check", "pitch_advisories", "crm_one_per_outlet", "pr_moments"),
+    # Not the media desk's, classified so the guard stays green: both only read (knowledge_open opens a
+    # knowledge_search result; records:guide returns one verb's worked example).
+    **_not(_READS, "knowledge_open", "records:guide"),
     **_not(_COMPOSITE, "data_action:create_note_in_project", "data_action:create_task_in_project",
            "data_action:transcript_to_note"),
     **_not(_READS, "data_action:catalog", "data_action:read_file_extraction", "data_action:resolve_contact"),

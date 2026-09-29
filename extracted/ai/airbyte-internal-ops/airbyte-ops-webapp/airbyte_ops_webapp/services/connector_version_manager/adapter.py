@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 from collections.abc import Callable, Mapping
 from dataclasses import asdict
 from datetime import datetime
@@ -110,6 +111,9 @@ SAFE_PREVIEW_WARNINGS: tuple[str, ...] = (
 CONTEXT_RESOLUTION_MISS_STATUS_CODES: frozenset[int] = frozenset({400, 404, 422})
 
 CLOUD_UI_BASE_URL = "https://cloud.airbyte.com"
+
+
+logger = logging.getLogger(__name__)
 
 
 def _fmt_date(value: str) -> str:
@@ -416,15 +420,16 @@ class OpsMcpAdapter:
         *,
         tier: str = "",
         is_destination: bool,
-    ) -> RolloutSyncSummary:
+    ) -> RolloutSyncSummary | None:
         """Build health + population summaries for an active rollout.
 
         Reads the replica-backed actor sync rows, applies the cached customer-tier
-        filter, and computes the webapp aggregate. Returns empty counts when
-        `rollout_id` is missing or a query fails.
+        filter, and computes the webapp aggregate. Returns `None` when there is
+        no summary to compute: the rollout is absent from the replica, its row
+        cannot be interpreted, or the replica read failed.
         """
         if not rollout_id:
-            return RolloutSyncSummary()
+            raise ValueError("rollout_id is required to build a rollout sync summary.")
         try:
             rollout_rows: list[dict[str, object]] | None = None
             if not tier:
@@ -444,13 +449,18 @@ class OpsMcpAdapter:
                 rollout_rows=rollout_rows,
             )
             if rollout_parameters is None:
-                return RolloutSyncSummary()
+                return None
             enriched_rows = self._get_rollout_sync_rows(
                 rollout_parameters,
                 is_destination=is_destination,
             )
         except (sqlalchemy.exc.SQLAlchemyError, RuntimeError, ValueError):
-            return RolloutSyncSummary()
+            logger.exception(
+                "Rollout sync summary unavailable for rollout %s (tier %s)",
+                rollout_id,
+                tier or "unresolved",
+            )
+            return None
         if tier == "ALL":
             return self._rollout_sync_summary_from_rows(enriched_rows)
         return self._rollout_sync_summary_from_rows(
@@ -473,6 +483,11 @@ class OpsMcpAdapter:
                 is_destination=is_destination,
             )
         except (sqlalchemy.exc.SQLAlchemyError, RuntimeError, ValueError):
+            logger.exception(
+                "Per-tier rollout sync summaries unavailable for rollout %s; "
+                "returning no tiers so callers treat them as unknown",
+                rollout_id,
+            )
             return {}
         rows_by_tier: dict[str, list[dict[str, object]]] = {}
         for row in enriched_rows:
@@ -611,6 +626,14 @@ class OpsMcpAdapter:
                 rollout_created_at=rollout_created_at or None,
             )
         except sqlalchemy.exc.SQLAlchemyError:
+            # `tier_resolution_available` stays False, which the caller reads as
+            # "eligible unknown" rather than "0 eligible".
+            logger.exception(
+                "Actor population unavailable for connector %s (is_destination=%s); "
+                "tier resolution reported as unavailable",
+                connector_definition_id,
+                is_destination,
+            )
             return ConnectorPopulation()
 
         total_active = sum(int(row.get("actor_count", 0)) for row in population_rows)

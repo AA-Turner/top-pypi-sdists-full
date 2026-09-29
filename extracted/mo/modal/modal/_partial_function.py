@@ -44,6 +44,7 @@ class _PartialFunctionFlags(enum.IntFlag):
     CONCURRENT = 128
     CLUSTERED = 256  # Experimental: Clustered functions
     HTTP_WEB_INTERFACE = 512  # Experimental: HTTP server
+    SESSIONED = 1024
 
     @staticmethod
     def all() -> int:
@@ -281,7 +282,6 @@ class _MethodDecoratorType:
 
 # TODO(elias): fix support for coroutine type unwrapping for methods (static typing)
 def _method(
-    _warn_parentheses_missing=None,  # mdmd:line-hidden
     *,
     # Set this to True if it's a non-generator function returning
     # a [sync/async] generator object
@@ -299,10 +299,6 @@ def _method(
                 ...
         ```
     """
-    if _warn_parentheses_missing is not None:
-        raise InvalidError(
-            "Positional arguments are not allowed. Did you forget parentheses? Suggestion: `@modal.method()`."
-        )
 
     def wrapper(obj: Callable[..., Any] | _PartialFunction) -> _PartialFunction:
         flags = _PartialFunctionFlags.CALLABLE_INTERFACE
@@ -335,7 +331,6 @@ def _parse_custom_domains(custom_domains: Iterable[str] | None = None) -> list[a
 
 
 def _fastapi_endpoint(
-    _warn_parentheses_missing=None,  # mdmd:line-hidden
     *,
     method: str = "GET",  # REST method for the created endpoint.
     label: str | None = None,  # Label for created endpoint. Final subdomain will be <workspace>--<label>.modal.run.
@@ -361,15 +356,6 @@ def _fastapi_endpoint(
 
     *Added in v0.73.82*: This function replaces the deprecated `@web_endpoint` decorator.
     """
-    if isinstance(_warn_parentheses_missing, str):
-        # Probably passing the method string as a positional argument.
-        raise InvalidError(
-            f'Positional arguments are not allowed. Suggestion: `@modal.fastapi_endpoint(method="{method}")`.'
-        )
-    elif _warn_parentheses_missing is not None:
-        raise InvalidError(
-            "Positional arguments are not allowed. Did you forget parentheses? Suggestion: `@modal.fastapi_endpoint()`."
-        )
 
     webhook_config = api_pb2.WebhookConfig(
         type=api_pb2.WEBHOOK_TYPE_FUNCTION,
@@ -399,7 +385,6 @@ def _fastapi_endpoint(
 
 
 def _web_endpoint(
-    _warn_parentheses_missing=None,  # mdmd:line-hidden
     *args,
     **kwargs,
 ) -> None:
@@ -412,7 +397,6 @@ def _web_endpoint(
 
 
 def _asgi_app(
-    _warn_parentheses_missing=None,  # mdmd:line-hidden
     *,
     label: str | None = None,  # Label for created endpoint. Final subdomain will be <workspace>--<label>.modal.run.
     custom_domains: Iterable[str] | None = None,  # Deploy this endpoint on a custom domain.
@@ -436,12 +420,6 @@ def _asgi_app(
     To learn how to use Modal with popular web frameworks, see the
     [guide on Web Functions](https://modal.com/docs/guide/webhooks).
     """
-    if isinstance(_warn_parentheses_missing, str):
-        raise InvalidError(f'Positional arguments are not allowed. Suggestion: `@modal.asgi_app(label="{label}")`.')
-    elif _warn_parentheses_missing is not None:
-        raise InvalidError(
-            "Positional arguments are not allowed. Did you forget parentheses? Suggestion: `@modal.asgi_app()`."
-        )
 
     webhook_config = api_pb2.WebhookConfig(
         type=api_pb2.WEBHOOK_TYPE_ASGI_APP,
@@ -467,7 +445,6 @@ def _asgi_app(
 
 
 def _wsgi_app(
-    _warn_parentheses_missing=None,  # mdmd:line-hidden
     *,
     label: str | None = None,  # Label for created endpoint. Final subdomain will be <workspace>--<label>.modal.run.
     custom_domains: Iterable[str] | None = None,  # Deploy this endpoint on a custom domain.
@@ -493,12 +470,6 @@ def _wsgi_app(
     To learn how to use this decorator with popular web frameworks, see the
     [guide on Web Functions](https://modal.com/docs/guide/webhooks).
     """
-    if isinstance(_warn_parentheses_missing, str):
-        raise InvalidError(f'Positional arguments are not allowed. Suggestion: `@modal.wsgi_app(label="{label}")`.')
-    elif _warn_parentheses_missing is not None:
-        raise InvalidError(
-            "Positional arguments are not allowed. Did you forget parentheses? Suggestion: `@modal.wsgi_app()`."
-        )
 
     webhook_config = api_pb2.WebhookConfig(
         type=api_pb2.WEBHOOK_TYPE_WSGI_APP,
@@ -587,17 +558,12 @@ def _web_server(
 
 
 def _enter(
-    _warn_parentheses_missing=None,  # mdmd:line-hidden
     *,
     snap: bool = False,
 ) -> Callable[[_PartialFunction | NullaryMethod], _PartialFunction]:
     """Decorator for methods which should be executed when a new container is started.
 
     See the [lifeycle function guide](https://modal.com/docs/guide/lifecycle-functions#enter) for more information."""
-    if _warn_parentheses_missing is not None:
-        raise InvalidError(
-            "Positional arguments are not allowed. Did you forget parentheses? Suggestion: `@modal.enter()`."
-        )
 
     flags = _PartialFunctionFlags.ENTER_PRE_SNAPSHOT if snap else _PartialFunctionFlags.ENTER_POST_SNAPSHOT
     params = _PartialFunctionParams()
@@ -614,14 +580,10 @@ def _enter(
     return wrapper
 
 
-def _exit(_warn_parentheses_missing=None) -> Callable[[NullaryMethod], _PartialFunction]:
+def _exit() -> Callable[[NullaryMethod], _PartialFunction]:
     """Decorator for methods which should be executed when a container is about to exit.
 
     See the [lifeycle function guide](https://modal.com/docs/guide/lifecycle-functions#exit) for more information."""
-    if _warn_parentheses_missing is not None:
-        raise InvalidError(
-            "Positional arguments are not allowed. Did you forget parentheses? Suggestion: `@modal.exit()`."
-        )
 
     flags = _PartialFunctionFlags.EXIT
     params = _PartialFunctionParams()
@@ -638,7 +600,6 @@ def _exit(_warn_parentheses_missing=None) -> Callable[[NullaryMethod], _PartialF
 
 
 def _batched(
-    _warn_parentheses_missing=None,  # mdmd:line-hidden
     *,
     max_batch_size: int,
     wait_ms: int,
@@ -669,10 +630,6 @@ def _batched(
 
     See the [dynamic batching guide](https://modal.com/docs/guide/dynamic-batching) for more information.
     """
-    if _warn_parentheses_missing is not None:
-        raise InvalidError(
-            "Positional arguments are not allowed. Did you forget parentheses? Suggestion: `@modal.batched()`."
-        )
     if max_batch_size < 1:
         raise InvalidError("max_batch_size must be a positive integer.")
     if max_batch_size > MAX_MAX_BATCH_SIZE:
@@ -699,7 +656,6 @@ def _batched(
 
 
 def _concurrent(
-    _warn_parentheses_missing=None,  # mdmd:line-hidden
     *,
     max_inputs: int | None = None,  # Hard limit on each container's input concurrency
     target_inputs: int | None = None,  # Input concurrency that Modal's autoscaler should target
@@ -748,10 +704,6 @@ def _concurrent(
     in `@app.function()` and `@app.cls()`.
 
     """
-    if _warn_parentheses_missing is not None:
-        raise InvalidError(
-            "Positional arguments are not allowed. Did you forget parentheses? Suggestion: `@modal.concurrent()`."
-        )
 
     if max_inputs is not None and target_inputs is not None and target_inputs > max_inputs:
         raise InvalidError("`target_inputs` parameter cannot be greater than `max_inputs`.")
@@ -776,42 +728,124 @@ def _concurrent(
     return wrapper
 
 
-# NOTE: clustered is currently exposed through modal.experimental, not the top-level namespace
-def _clustered(
-    size: int, broadcast: bool = True, rdma: bool = False, fabric_size: int | None = None
-) -> Callable[
+def _sessioned() -> Callable[
     [Callable[P, ReturnType] | _PartialFunction[P, ReturnType, ReturnType]],
     _PartialFunction[P, ReturnType, ReturnType],
 ]:
-    """Provision clusters of colocated and networked containers for the Function.
+    """Decorator that enables sticky sessions on a Server.
+
+    Every request must carry a session token obtained from a session start request; requests with the same token are
+    routed to the same container until the session is idle for `idle_timeout` seconds or explicitly terminated. A
+    container won't be scaled down for as long as it holds a live session.
+
+    Only valid with `@app.server()`.
+
+    Examples:
+        Define a Server with the `@modal.sessioned()` decorator:
+
+        ```python
+        app = modal.App("my-app")
+
+        @app.server(port=8000)
+        @modal.sessioned()
+        class MyServer:
+            @modal.enter()
+            def start(self):
+                self.proc = subprocess.Popen(["python3", "-m", "http.server", "8000"])
+
+            @modal.exit()
+            def stop(self):
+                self.proc.terminate()
+        ```
+
+        After deploying the App, start a session from another script:
+
+        ```python notest
+        server = modal.Server.from_name("my-app", "MyServer")
+        server_url = server.get_url()
+        session = server.sessions.start(idle_timeout=600)
+        headers = {"Modal-Authorization": f"Bearer {session.token}"}
+
+        requests.get(server_url, headers=headers).raise_for_status()
+
+        server.sessions.terminate(session.token)
+        ```
+    """
+    flags = _PartialFunctionFlags.SESSIONED
+    params = _PartialFunctionParams()
+
+    def wrapper(
+        obj: _PartialFunction[P, ReturnType, ReturnType] | Callable[P, ReturnType],
+    ) -> _PartialFunction[P, ReturnType, ReturnType]:
+        if isinstance(obj, _PartialFunction):
+            pf = obj.stack(flags, params)
+        else:
+            pf = _PartialFunction(obj, flags, params)
+        if pf.user_cls is None:
+            raise InvalidError("`@modal.sessioned()` must be applied to a Server class, not a method.")
+        pf.validate_obj_compatibility("sessioned")
+        return pf
+
+    return wrapper
+
+
+_ClusteredClass = typing.TypeVar("_ClusteredClass", bound=type[Any])
+
+
+class _ClusteredDecorator:
+    # Classes are callable too; preserve their type through the app.cls() decorator stack.
+    @typing.overload
+    def __call__(self, obj: _ClusteredClass) -> _ClusteredClass: ...  # type: ignore[overload-overlap]
+
+    @typing.overload
+    def __call__(
+        self, obj: "Callable[P, ReturnType] | modal.partial_function.PartialFunction[P, ReturnType, ReturnType]"
+    ) -> "modal.partial_function.PartialFunction[P, ReturnType, ReturnType]": ...
+
+    def __call__(self, obj): ...
+
+
+def _clustered(*, size: int, rdma: bool = False) -> _ClusteredDecorator:
+    """Run a Function or Server on a cluster of colocated, networked containers.
+
+    Apply below `@app.function()`, `@app.cls()`, or `@app.server()`. Each container
+    must request all GPUs on its host (for example, `gpu="H100:8"`); CPU-only
+    clusters are not supported. A clustered Cls can expose only one method.
+    Use a Server for HTTP serving; clustered Web Functions are not supported.
+
+    Function inputs are broadcast to every container, and only rank 0's output
+    is returned. Server requests are routed only to rank 0 and are not broadcast
+    to the other containers. Use `modal.Cluster.from_context()` inside a container
+    to discover its rank and the cluster's container IP addresses:
+
+    ```python notest
+    cluster = modal.Cluster.from_context()
+    rank = cluster.container_rank()
+    container_ips = cluster.container_ips()
+    ```
+
+    `min_containers`, `max_containers`, and `buffer_containers` count individual
+    containers and must be multiples of `size`. For example, `size=4` with
+    `min_containers=8` keeps two clusters warm.
+
+    See the [multi-node clusters guide](https://modal.com/docs/guide/multi-node-clusters)
+    for hardware requirements and networking details.
 
     Parameters:
     size: int
-        Number of containers spun up to handle each input.
-    broadcast: bool = True
-        If True, inputs will be sent simultaneously to each container. Otherwise,
-        inputs will be sent only to the rank-0 container, which is responsible for
-        delegating to the workers.
-    fabric_size: int | None = None
-        Experimental: constrains placement across GPU-memory fabrics. The cluster
-        is placed in co-fabric blocks of `fabric_size` containers, so every block
-        of `fabric_size` consecutive ranks shares a fabric (the scale-up domain)
-        and communicates over cross-node NVLink. Must evenly divide `size`.
+        Number of containers in each cluster.
+    rdma: bool = False
+        Request RDMA networking for fast communication between nodes, such as
+        GPU collectives during distributed training. With False, containers
+        can still communicate over the private IP network without requiring
+        RDMA-capable placement.
     """
 
-    assert broadcast, "broadcast=False has not been implemented yet!"
-
-    if size <= 0:
-        raise ValueError("cluster size must be greater than 0")
-
-    if fabric_size is not None:
-        if not isinstance(fabric_size, int) or fabric_size <= 0:
-            raise ValueError("fabric_size must be a positive integer")
-        if size % fabric_size != 0:
-            raise ValueError(f"fabric_size must evenly divide the cluster size ({size} % {fabric_size} != 0)")
+    if not isinstance(size, int) or size <= 0:
+        raise InvalidError("cluster size must be a positive integer")
 
     flags = _PartialFunctionFlags.CLUSTERED
-    params = _PartialFunctionParams(cluster_size=size, rdma=rdma, fabric_size=fabric_size)
+    params = _PartialFunctionParams(cluster_size=size, rdma=rdma)
 
     def wrapper(
         obj: _PartialFunction[P, ReturnType, ReturnType] | Callable[P, ReturnType],
@@ -823,4 +857,4 @@ def _clustered(
         pf.validate_obj_compatibility("clustered")
         return pf
 
-    return wrapper
+    return typing.cast(_ClusteredDecorator, wrapper)

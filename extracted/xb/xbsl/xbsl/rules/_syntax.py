@@ -68,11 +68,10 @@ def _query_spellings() -> dict[str, tuple[str, ...]]:
     lookup over it pulls in words that are not query keywords at all (FROM would also match
     the property `ОТ`, JOIN the string method `СОЕДИНИТЬ`), and the rules would start seeing
     tables where there are none.
+
+    Read as optional data: a miss is noted, and the next pass looks at the disk again.
     """
-    try:
-        section = (dataset.load_json("terms.json") or {}).get("query") or {}
-    except (dataset.DatasetError, KeyError, ValueError):
-        return {}
+    section = (dataset.load_optional("terms.json") or {}).get("query") or {}
     reverse: dict[str, list[str]] = {}
     for russian, english in section.items():
         reverse.setdefault(english.upper(), []).append(russian.upper())
@@ -236,10 +235,12 @@ def _join_condition_stops() -> frozenset[str]:
     return _query_vocabulary() - query_words(*_CONDITION_WORDS)
 
 
-dataset.register_reset(_query_spellings.cache_clear)
-dataset.register_reset(query_words.cache_clear)
-dataset.register_reset(_query_vocabulary.cache_clear)
-dataset.register_reset(_join_condition_stops.cache_clear)
+# Rebuilt when the data root or version changes, and when data missing at the first read has
+# been installed since - an editor or an MCP server outlives both.
+for _cached in (_query_spellings, query_words, _query_vocabulary, _join_condition_stops):
+    dataset.register_reset(_cached.cache_clear)
+    dataset.register_recheck(_cached.cache_clear)
+del _cached
 
 
 def _query_table_at(block: list[Token], j: int) -> tuple[tuple[list[Token], list[Token]] | None, int]:

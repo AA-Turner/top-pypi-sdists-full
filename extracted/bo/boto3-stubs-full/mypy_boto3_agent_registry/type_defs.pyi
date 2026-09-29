@@ -195,6 +195,7 @@ class RegistryRecordSummaryTypeDef(TypedDict):
     updatedAt: datetime
     description: NotRequired[str]
     displayName: NotRequired[str]
+    customMetadata: NotRequired[dict[str, Any]]
 
 class BatchGetDiscoverableRegistryRecordResponseTypeDef(TypedDict):
     registryRecords: list[RegistryRecordSummaryTypeDef]

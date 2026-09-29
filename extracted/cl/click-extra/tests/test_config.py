@@ -26,10 +26,12 @@ import subprocess
 import sys
 import unittest.mock
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 from textwrap import dedent
 
 import click
+import cloup
 import pytest
 from boltons.iterutils import flatten, unique
 from boltons.pathutils import shrinkuser
@@ -4090,6 +4092,200 @@ def test_export_config_standalone_falls_back_to_defaults(invoke):
 # --- _default_subcommands tests ---
 
 
+class PlainGroupSubclass(click.Group):
+    """A bare `click.Group` subclass, like third-party plugin frameworks produce."""
+
+
+SUBCOMMAND_GROUP_FACTORIES = (
+    pytest.param(click.group, id="click-group"),
+    pytest.param(cloup.group, id="cloup-group"),
+    pytest.param(group, id="click-extra-group"),
+    pytest.param(
+        partial(click.group, cls=PlainGroupSubclass), id="click-group-subclass"
+    ),
+)
+"""Every group flavor a `--config` option can be attached to.
+
+The reserved subcommand keys are declared by `config_option`, so they must be
+honored by whichever group class carries that option, not only by click-extra's
+own {class}`~click_extra.commands.Group`.
+"""
+
+
+def make_subcommand_group(group_factory, *, chain):
+    """Build a `subcmdcli` group of *group_factory*, carrying `--config`.
+
+    Registers a `debug` and a `sync` subcommand, each echoing its own name.
+    click-extra groups already ship `--config`, so the option is only added to
+    the other flavors.
+    """
+
+    def subcmdcli():
+        pass
+
+    if group_factory is not group:
+        subcmdcli = config_option()(subcmdcli)
+
+    cli = group_factory(chain=chain)(subcmdcli)
+
+    @cli.command()
+    def debug():
+        echo("debug ran")
+
+    @cli.command()
+    def sync():
+        echo("sync ran")
+
+    return cli
+
+
+@pytest.mark.parametrize("group_factory", SUBCOMMAND_GROUP_FACTORIES)
+def test_default_subcommands_on_any_group_class(invoke, create_config, group_factory):
+    """`_default_subcommands` fires whatever group class carries `--config`."""
+    conf_path = create_config(
+        "subcmdcli.toml",
+        dedent("""\
+            [subcmdcli]
+            _default_subcommands = ["debug"]
+            """),
+    )
+    cli = make_subcommand_group(group_factory, chain=False)
+
+    result = invoke(cli, "--config", str(conf_path), color=False)
+    assert result.exit_code == 0
+    assert "debug ran" in result.output
+    assert "sync ran" not in result.output
+
+
+@pytest.mark.parametrize("group_factory", SUBCOMMAND_GROUP_FACTORIES)
+def test_prepend_subcommands_on_any_group_class(invoke, create_config, group_factory):
+    """`_prepend_subcommands` fires whatever group class carries `--config`."""
+    conf_path = create_config(
+        "subcmdcli.toml",
+        dedent("""\
+            [subcmdcli]
+            _prepend_subcommands = ["debug"]
+            """),
+    )
+    cli = make_subcommand_group(group_factory, chain=True)
+
+    result = invoke(cli, "--config", str(conf_path), "sync", color=False)
+    assert result.exit_code == 0
+    assert "debug ran" in result.output
+    assert "sync ran" in result.output
+    assert result.output.index("debug ran") < result.output.index("sync ran")
+
+
+@pytest.mark.parametrize(
+    ("reserved_key", "cli_args"),
+    [
+        pytest.param("_default_subcommands", ("mid",), id="default"),
+        pytest.param("_prepend_subcommands", ("mid", "sync"), id="prepend"),
+    ],
+)
+def test_subcommands_on_a_subgroup(invoke, create_config, reserved_key, cli_args):
+    """A subgroup applies the reserved keys of its own configuration section.
+
+    Only the root group carries `--config`, so a subgroup is never visited as
+    that option is processed. It reads `[parent.subgroup]` itself.
+    """
+    conf_path = create_config(
+        "sg-cli.toml",
+        dedent(f"""\
+            [sg-cli.mid]
+            {reserved_key} = ["debug"]
+            """),
+    )
+
+    @group
+    def sg_cli():
+        pass
+
+    @sg_cli.group(chain=True)
+    def mid():
+        pass
+
+    @mid.command()
+    def debug():
+        echo("debug ran")
+
+    @mid.command()
+    def sync():
+        echo("sync ran")
+
+    result = invoke(sg_cli, "--config", str(conf_path), *cli_args, color=False)
+    assert result.exit_code == 0
+    assert "debug ran" in result.output
+
+
+@pytest.fixture
+def app_dir_conf(tmp_path, monkeypatch):
+    """Point auto-discovery at a temporary app dir, and write a config into it.
+
+    Lets a test invoke a CLI with no argument at all, which is the only way to
+    reach Click's `no_args_is_help` short-circuit: passing `--config` would make
+    the invocation non-empty.
+    """
+    app_dir = tmp_path / "appdir"
+    app_dir.mkdir()
+    monkeypatch.setattr(
+        "click_extra.config.option.get_app_dir", lambda *a, **k: str(app_dir)
+    )
+
+    def _write(content):
+        (app_dir / "conf.toml").write_text(content, encoding="utf-8")
+
+    return _write
+
+
+@pytest.mark.parametrize(
+    "reserved_key", ("_default_subcommands", "_prepend_subcommands")
+)
+def test_subcommands_beat_no_args_is_help(invoke, app_dir_conf, reserved_key):
+    """A configured subcommand outranks Click's no-args help screen."""
+    app_dir_conf(
+        dedent(f"""\
+            [na-cli]
+            {reserved_key} = ["debug"]
+            """),
+    )
+
+    @group(chain=True)
+    def na_cli():
+        pass
+
+    @na_cli.command()
+    def debug():
+        echo("debug ran")
+
+    result = invoke(na_cli, color=False)
+    assert result.exit_code == 0
+    assert "debug ran" in result.output
+
+
+def test_no_args_is_help_survives_a_silent_config(invoke, app_dir_conf):
+    """The help screen stays when the configuration names no subcommand."""
+    app_dir_conf(
+        dedent("""\
+            [quiet-cli]
+            dummy_flag = true
+            """),
+    )
+
+    @group(chain=True)
+    @option("--dummy-flag/--no-flag")
+    def quiet_cli(dummy_flag):
+        echo(f"dummy_flag = {dummy_flag!r}")
+
+    @quiet_cli.command()
+    def debug():
+        echo("debug ran")
+
+    result = invoke(quiet_cli, color=False)
+    assert "debug ran" not in result.output
+    assert "Usage: quiet-cli" in result.output
+
+
 @pytest.mark.parametrize(
     ("cli_subcmd", "expected", "unexpected"),
     [
@@ -4338,10 +4534,10 @@ def test_default_subcommand_cli_override_debug_log(invoke, create_config):
 
     result = invoke(
         log_cli,
-        "--config",
-        str(conf_path),
         "--verbosity",
         "DEBUG",
+        "--config",
+        str(conf_path),
         "sync",
         color=False,
     )
@@ -4508,7 +4704,7 @@ def test_prepend_subcommand_strict_mode_tolerance(invoke, create_config):
     """strict=True config with _prepend_subcommands doesn't raise."""
     conf_text = dedent("""\
         [strict-p-cli]
-        _prepend_subcommands = ["backup"]
+        _prepend_subcommands = ["debug"]
         """)
     conf_path = create_config("strict-p-cli.toml", conf_text)
 
@@ -4521,9 +4717,17 @@ def test_prepend_subcommand_strict_mode_tolerance(invoke, create_config):
     def backup():
         echo("backup ran")
 
+    @strict_p_cli.command()
+    def debug():
+        echo("debug ran")
+
+    # A prepended subcommand the CLI does not name is what proves the injection
+    # happened, rather than the command line alone dispatching it.
     result = invoke(strict_p_cli, "--config", str(conf_path), "backup", color=False)
     assert result.exit_code == 0
+    assert "debug ran" in result.output
     assert "backup ran" in result.output
+    assert result.output.index("debug ran") < result.output.index("backup ran")
 
 
 def test_prepend_subcommand_validate_config_tolerance(invoke, create_config):
@@ -4614,10 +4818,10 @@ def test_prepend_subcommand_info_log(invoke, create_config):
 
     result = invoke(
         plog_cli,
-        "--config",
-        str(conf_path),
         "--verbosity",
         "INFO",
+        "--config",
+        str(conf_path),
         "sync",
         color=False,
     )

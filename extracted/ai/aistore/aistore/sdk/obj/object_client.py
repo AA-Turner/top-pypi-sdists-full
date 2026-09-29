@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 #
 
 from typing import Optional, Tuple, Dict
@@ -10,9 +10,13 @@ from aistore.sdk.const import (
     HTTP_METHOD_GET,
     HTTP_METHOD_HEAD,
     HEADER_RANGE,
+    QPARAM_ARCHMODE,
+    QPARAM_ARCHPATH,
+    QPARAM_ARCHREGX,
+    QPARAM_ETL_NAME,
     QPARAM_PROPS,
 )
-from aistore.sdk.obj.object_attributes import ObjectAttributes, ObjectAttributesV2
+from aistore.sdk.obj.object_attributes import ObjectAttributes
 from aistore.sdk.request_client import RequestClient
 from aistore.sdk.errors import ErrObjNotFound
 
@@ -58,6 +62,29 @@ class ObjectClient:
             str: The URL path for the object.
         """
         return self._request_path
+
+    def can_get_at_offset(self) -> bool:
+        """
+        Whether AIS serves this client's GET at a byte offset.
+        May issue a HEAD request, as presence can impact range-read support.
+        """
+        params = self._request_params
+        archive = any(
+            params.get(param)
+            for param in (QPARAM_ARCHPATH, QPARAM_ARCHREGX, QPARAM_ARCHMODE)
+        )
+        range_start, range_end = self._byte_range or (None, None)
+        suffix_range = range_start is None and range_end is not None
+
+        # An archive selection and an inline transform are never served at an offset.
+        # If the range only specifies the end, its start is not predictable.
+        if archive or params.get(QPARAM_ETL_NAME) or suffix_range:
+            return False
+
+        # A remote object that is not cached must start over. Required even on clean short
+        # EOF: under Streaming-Cold-GET the object may not be fully cached yet, and a range
+        # resume can hang.
+        return self.head().present
 
     def _initialize_target_client(self, force: bool = False):
         """
@@ -177,44 +204,25 @@ class ObjectClient:
         headers[HEADER_RANGE] = f"bytes={start}-{end - 1}"
         return self._make_get_request(headers, stream=True)
 
-    def head(self) -> ObjectAttributes:
+    def head(self, props: str = "checksum,atime,version,custom") -> ObjectAttributes:
         """
-        Make a head request to AIS to update and return only object attributes.
+        Make a selective HEAD request and return object attributes.
+
+        Args:
+            props: Comma-separated properties to retrieve. Supported values are
+                name, size, version, checksum, atime, copies, ec, custom,
+                location, chunked, last-modified, and etag. Presence is returned
+                automatically. Defaults to the attributes returned by the
+                previous `ObjectClient.head()` implementation.
 
         Returns:
             `ObjectAttributes` containing metadata for this object.
 
         """
-        resp = self._request_client.request(
-            HTTP_METHOD_HEAD, path=self._request_path, params=self._request_params
-        )
-        return ObjectAttributes(resp.headers)
-
-    def head_v2(self, props: str = "") -> ObjectAttributesV2:
-        """
-        Make a HEAD request with selective property retrieval (V2 API).
-
-        EXPERIMENTAL: This API is experimental and may change in future releases.
-
-        This method allows requesting specific object properties, reducing
-        response size and processing overhead when only certain attributes
-        are needed.
-
-        Args:
-            props: Comma-separated list of properties to retrieve.
-                   Available values: name, size, version, checksum, atime, present,
-                   copies, ec, custom, location, chunked, last-modified, etag.
-                   See: https://github.com/NVIDIA/aistore/blob/main/api/apc/lsmsg.go
-                   If empty, returns default properties (name, size).
-
-        Returns:
-            `ObjectAttributesV2` containing the requested metadata.
-        """
         params = self._request_params.copy()
-        # Always set props to trigger V2 endpoint; default to "name,size"
         params[QPARAM_PROPS] = props if props else "name,size"
 
         resp = self._request_client.request(
             HTTP_METHOD_HEAD, path=self._request_path, params=params
         )
-        return ObjectAttributesV2(resp.headers)
+        return ObjectAttributes(resp.headers)

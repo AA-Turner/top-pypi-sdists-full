@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polyai-adk
-Version: 0.62.0
+Version: 0.64.0
 Summary: Agent Development Kit (ADK) — a CLI for building, testing, and deploying PolyAI voice and chat agents, self-serve
 License: Apache-2.0
 Project-URL: Documentation, https://docs.poly.ai/adk
@@ -28,12 +28,14 @@ Requires-Dist: argcomplete>=3.0.0
 Requires-Dist: langcodes==3.5.1
 Requires-Dist: posthog==7.35.4
 Requires-Dist: packaging>=24.0
-Requires-Dist: aiortc==1.15.0
-Requires-Dist: sounddevice==0.5.6
-Requires-Dist: websockets==17.1
-Requires-Dist: numpy==2.5.3
-Requires-Dist: pywebrtc-audio==0.2.0
+Provides-Extra: call
+Requires-Dist: aiortc==1.15.0; extra == "call"
+Requires-Dist: sounddevice==0.5.6; extra == "call"
+Requires-Dist: websockets==17.1; extra == "call"
+Requires-Dist: numpy==2.5.3; extra == "call"
+Requires-Dist: pywebrtc-audio==0.2.0; extra == "call"
 Provides-Extra: dev
+Requires-Dist: polyai-adk[call]; extra == "dev"
 Requires-Dist: pre-commit>=3.0.0; extra == "dev"
 Requires-Dist: pytest>=8.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=6.0.0; extra == "dev"
@@ -68,6 +70,13 @@ pip install polyai-adk
 Via [UV](https://docs.astral.sh/uv/):
 ```bash
 uv tool install polyai-adk
+```
+
+Voice calling (`poly call`) needs extra audio and WebRTC dependencies, which are left out of the default install to keep it small for CI. Install them with the `call` extra:
+
+```bash
+pip install "polyai-adk[call]"
+uv tool install "polyai-adk[call]"
 ```
 
 Once installed, use the `poly` command to manage your projects:

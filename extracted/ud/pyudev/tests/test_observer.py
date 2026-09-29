@@ -15,23 +15,17 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
-# isort: STDLIB
+
 import random
 
-# isort: THIRDPARTY
 import pytest
 
-# isort: FIRSTPARTY
+from pyudev import Devices, Monitor
 from tests.utils.udev import DeviceDatabase
 
-# isort: LOCAL
-from pyudev import Devices, Monitor
-
 try:
-    # isort: STDLIB
     from unittest import mock
 except ImportError:
-    # isort: THIRDPARTY
     import mock
 
 
@@ -140,10 +134,6 @@ class TestPysideObserver(QtObserverTestBase):
     BINDING_NAME = "PySide"
 
 
-class TestPyQt4Observer(QtObserverTestBase):
-    BINDING_NAME = "PyQt4"
-
-
 class TestPyQt5Observer(QtObserverTestBase):
     BINDING_NAME = "PyQt5"
 
@@ -159,8 +149,8 @@ class TestGlibObserver(ObserverTestBase):
             self.glib.source_remove(source)
 
     def create_observer(self, monitor):
-        # isort: LOCAL
-        from pyudev.glib import MonitorObserver
+
+        from pyudev.glib import MonitorObserver  # noqa: PLC0415
 
         self.observer = MonitorObserver(monitor)
 
@@ -198,14 +188,14 @@ class TestWxObserver(ObserverTestBase):
         self.wx = pytest.importorskip("wx")
 
     def create_observer(self, monitor):
-        # isort: LOCAL
-        from pyudev import wx
+
+        from pyudev import wx  # noqa: PLC0415
 
         self.observer = wx.MonitorObserver(monitor)
 
     def connect_signal(self, callback):
-        # isort: LOCAL
-        from pyudev.wx import EVT_DEVICE_EVENT
+
+        from pyudev.wx import EVT_DEVICE_EVENT  # noqa: PLC0415
 
         def _wrapper(event):
             return callback(event.device)

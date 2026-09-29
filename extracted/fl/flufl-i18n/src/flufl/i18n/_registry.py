@@ -1,7 +1,7 @@
 from public import public
 
 from flufl.i18n._application import Application
-from flufl.i18n.types import TranslationStrategy
+from flufl.i18n._types import TranslationStrategy
 
 
 @public

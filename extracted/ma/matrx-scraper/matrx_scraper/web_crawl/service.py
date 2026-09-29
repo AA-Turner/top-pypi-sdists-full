@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 from matrx_connect import AppContext, Emitter, RequestControlRegistry, system_app_context
 
 from matrx_scraper._ext import get_ext, has_ext
+from matrx_scraper.parser.knobs import KnobScope
 from matrx_scraper.crawler import (
     RENDER_BROWSER_ALWAYS,
     RENDER_HTTP_FIRST,
@@ -1838,6 +1839,17 @@ class WebCrawlService:
             # limit, so this one opens near it instead of re-probing from zero.
             # None (nothing learned yet, or an unreadable row) simply means the
             # ramp starts from the floor — never a failure.
+            # The `crawl.*` knobs resolve for THIS crawl's organization, person
+            # and site, so their overrides apply here and nowhere else.
+            knob_scope=(
+                KnobScope(
+                    organization_id=str(prepared.state.organization_id),
+                    user_id=str(prepared.state.user_id) if prepared.state.user_id else None,
+                    site_id=str(prepared.site_id),
+                )
+                if prepared.state.organization_id
+                else None
+            ),
             remembered_pacing=await load_remembered_pacing(
                 prepared.site_id, host_key(prepared.root_url)
             ),

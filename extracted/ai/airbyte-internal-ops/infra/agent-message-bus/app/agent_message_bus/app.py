@@ -4,7 +4,7 @@
 This is the main entry point for the Cloud Run service. It exposes:
 - POST /github/webhook — GitHub org-level webhook receiver
 - POST /slack/webhook — Slack Block Kit interaction receiver
-- POST /zendesk/webhook — Zendesk ticket webhook receiver
+- POST /zendesk/webhook — Zendesk ticket webhook receiver (triage + resolution)
 - CRUD /subscriptions/* — Subscription management API
 - GET /health — Health check
 """
@@ -261,12 +261,17 @@ async def slack_webhook(request: Request, background_tasks: BackgroundTasks) -> 
 # ---------------------------------------------------------------------------
 
 
-def _get_zendesk_signing_secret() -> str:
-    """Retrieve the Zendesk webhook signing secret from environment."""
-    secret = os.environ.get("ZENDESK_WEBHOOK_SIGNING_SECRET")
-    if not secret:
+def _get_zendesk_signing_secrets() -> list[str]:
+    """Retrieve the Zendesk webhook signing secrets from environment.
+
+    `ZENDESK_WEBHOOK_SIGNING_SECRET` may hold a comma-separated list of
+    secrets (one per registered Zendesk webhook).
+    """
+    raw = os.environ.get("ZENDESK_WEBHOOK_SIGNING_SECRET")
+    secrets = [s.strip() for s in (raw or "").split(",") if s.strip()]
+    if not secrets:
         raise ValueError("ZENDESK_WEBHOOK_SIGNING_SECRET environment variable is not set")
-    return secret
+    return secrets
 
 
 def _process_zendesk_event(payload: dict[str, Any]) -> None:
@@ -284,7 +289,7 @@ async def zendesk_webhook(request: Request, background_tasks: BackgroundTasks) -
     """Receive and process Zendesk webhook events.
 
     Validates the Zendesk webhook signature, then dispatches to a
-    background task which triggers the Devin triage playbook.
+    background task which triggers the Devin triage or resolution playbook.
     """
     body = await request.body()
     signature = request.headers.get("X-Zendesk-Webhook-Signature", "")
@@ -294,12 +299,12 @@ async def zendesk_webhook(request: Request, background_tasks: BackgroundTasks) -
 
     # Verify webhook signature
     try:
-        signing_secret = _get_zendesk_signing_secret()
+        signing_secrets = _get_zendesk_signing_secrets()
     except ValueError as e:
         logger.error("Zendesk webhook signing secret not configured: %s", e)
         raise HTTPException(status_code=500, detail="Webhook signing secret not configured") from e
 
-    if not verify_zendesk_signature(body, signature, timestamp, signing_secret):
+    if not verify_zendesk_signature(body, signature, timestamp, signing_secrets):
         logger.warning("Zendesk webhook signature mismatch")
         raise HTTPException(status_code=403, detail="Invalid webhook signature")
 

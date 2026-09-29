@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 from openviking_cli.utils.logger import get_logger
 
 from .agfs_config import AGFSConfig
+from .parse_output_config import ParseOutputConfig
 from .transaction_config import TransactionConfig
 from .vectordb_config import VectorDBBackendConfig
 
@@ -44,11 +45,14 @@ class StorageConfig(BaseModel):
         description="VectorDB backend configuration",
     )
 
+    parse_output: ParseOutputConfig = Field(
+        default_factory=ParseOutputConfig,
+        description="Where parsers write intermediate artifacts (agfs temp or local dir)",
+    )
+
     params: Dict[str, Any] = Field(
         default_factory=dict, description="Additional storage-specific parameters"
     )
-
-    model_config = {"extra": "forbid"}
 
     @model_validator(mode="before")
     @classmethod

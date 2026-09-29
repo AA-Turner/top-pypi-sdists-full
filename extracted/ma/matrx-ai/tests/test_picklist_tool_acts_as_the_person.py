@@ -42,7 +42,7 @@ def world(monkeypatch: pytest.MonkeyPatch):
     bag: dict[str, Any] = {"privileged_reads": [], "violations": [], "list_readers": {LIST_ID: {DANA}}}
 
     @contextlib.asynccontextmanager
-    async def acting_as_caller():
+    async def acting_as_caller(_ctx: Any = None):
         from matrx_connect.context.app_context import get_app_context
 
         token = _acting.set(get_app_context().user_id)
@@ -62,9 +62,53 @@ def world(monkeypatch: pytest.MonkeyPatch):
             if use_cache:
                 bag["violations"].append("list gate read through the identity-blind cache")
             lid = pk.get("id")
-            return SimpleNamespace(id=lid, deleted_at=None) if who in bag["list_readers"].get(lid, set()) else None
+            return (
+                SimpleNamespace(id=lid, deleted_at=None, list_name="Accepted insurance plans",
+                                description=None, user_id=DANA, organization_id=None,
+                                is_public=False, public_read=False, created_at=None, updated_at=None)
+                if who in bag["list_readers"].get(lid, set())
+                else None
+            )
 
     monkeypatch.setitem(_registry._models, "UdtStructuredLists", Lists)
+
+    bag["choice"] = {"id": DELTA, "label": "Delta Dental PPO", "list_id": LIST_ID}
+    bag["choice_writers"] = {DANA}
+
+    class Items:
+        """workbench.udt_structured_list_items under RLS: editors of the list may change it."""
+
+        @staticmethod
+        async def update_where(where: dict[str, Any], **values: Any) -> Any:
+            who = _acting.get()
+            if who is None:
+                bag["violations"].append("choice write ran on the privileged connection")
+            if where.get("id") != DELTA or who not in bag["choice_writers"]:
+                return SimpleNamespace(rows_affected=0, updated_rows=[])
+            bag["choice"].update(values)
+            return SimpleNamespace(rows_affected=1, updated_rows=[dict(bag["choice"])])
+
+        @staticmethod
+        async def get_or_none(use_cache: bool = True, **pk: Any) -> Any:
+            who = _acting.get()
+            return SimpleNamespace(**bag["choice"]) if who in bag["list_readers"].get(LIST_ID, set()) else None
+
+        @staticmethod
+        def filter(**f: Any) -> Any:
+            who = _acting.get()
+            if who is None:
+                bag["violations"].append("choices read on the privileged connection")
+            visible = who in bag["list_readers"].get(LIST_ID, set()) and f.get("list_id") == LIST_ID
+            row = SimpleNamespace(description="in network", help_text=None, group_name="PPO",
+                                  icon_name=None, created_at=None, deleted_at=None, **bag["choice"])
+
+            class _Q:
+                async def all(self) -> list[Any]:
+                    return [row] if visible else []
+
+            return _Q()
+
+    monkeypatch.setitem(_registry._models, "UdtStructuredListItems", Items)
 
     def execute_standard_query(name, params):
         bag["privileged_reads"].append((name, params))
@@ -76,16 +120,35 @@ def world(monkeypatch: pytest.MonkeyPatch):
         if name == "picklists_item_home":
             return [{"id": params["item_id"], "list_id": LIST_ID, "lives_in": "older"}]
         if name == "picklists_update_item":
-            return []  # the write's own WHERE user_id = caller matched nothing
+            bag["violations"].append("choice written by the privileged owner-filtered query")
+            return [{"id": params["item_id"]}]
         raise AssertionError(name)
 
     monkeypatch.setattr(sx, "execute_standard_query", execute_standard_query)
 
+    bag["store_readers"] = {DANA}
+
     class Arm:
+        """The host's record-store arm: the STORE decides who sees a moved list."""
+
         async def list_lives_in(self, list_id: str) -> str:
             return "record" if list_id == STORE_LIST_ID else "older"
 
-    monkeypatch.setattr(picklists_tools, "_picklist_store_arm", lambda: Arm())
+        async def read_list(self, list_id: str) -> Any:
+            from matrx_connect.context.app_context import get_app_context
+
+            bag["store_reads"] = bag.get("store_reads", 0) + 1
+            if list_id != STORE_LIST_ID or get_app_context().user_id not in bag["store_readers"]:
+                return None
+            return {"id": STORE_LIST_ID, "list_name": "Visit types", "description": None,
+                    "user_id": DANA, "organization_id": None, "is_public": False, "public_read": False,
+                    "created_at": None, "updated_at": None, "lives_in": "record", "item_count": 1,
+                    "items": [{"id": "visit-1", "label": "Cleaning", "description": None,
+                               "help_text": None, "group_name": None, "icon_name": None}]}
+
+    arm = Arm()
+    monkeypatch.setattr(picklists_tools, "_picklist_store_arm", lambda: arm)
+    monkeypatch.setitem(_ext._registry, "picklist_store_arm", arm)
     return bag
 
 
@@ -135,12 +198,16 @@ async def test_an_outsiders_update_never_carries_a_receipt_of_the_list(world):
 
 
 @pytest.mark.asyncio
-async def test_a_list_in_the_record_store_is_refused_honestly_never_read_privileged(world):
+async def test_a_list_in_the_record_store_is_read_through_the_store_as_the_person(world):
     result = await _picklist(DANA, {"action": "get", "picklist_id": STORE_LIST_ID})
-    assert not result.success
-    assert result.error.error_type == "unavailable"
-    assert STORE_LIST_ID in result.error.message
-    assert _contents_read(world) == []
+    assert result.success, result.error
+    assert [i["label"] for i in result.output["items"]] == ["Cleaning"]
+    assert _contents_read(world) == [], "a moved list was read through the privileged views"
+
+    hidden = await _picklist(LEO, {"action": "get", "picklist_id": STORE_LIST_ID})
+    assert not hidden.success and hidden.error.error_type == "not_found"
+    assert STORE_LIST_ID in hidden.error.message
+    assert world["violations"] == [], world["violations"]
 
 
 @pytest.mark.asyncio
@@ -152,3 +219,33 @@ async def test_without_a_person_session_nothing_is_read(world, monkeypatch):
     assert not result.success
     assert result.error.error_type == "unavailable", result.error
     assert _contents_read(world) == []
+
+
+@pytest.mark.asyncio
+async def test_the_lists_editor_changes_a_choice_in_her_session(world):
+    result = await _picklist(DANA, {"action": "update_item", "item_id": DELTA, "label": "Delta Dental PPO Plus"})
+    assert result.success, result.error
+    assert world["choice"]["label"] == "Delta Dental PPO Plus"
+    assert world["violations"] == [], world["violations"]
+
+
+@pytest.mark.asyncio
+async def test_a_shared_editor_who_is_not_the_creator_may_change_it(world):
+    """RLS decides, not `user_id = caller`: a teammate the list is shared with at editor may edit."""
+    world["list_readers"][LIST_ID].add(LEO)
+    world["choice_writers"].add(LEO)
+    result = await _picklist(LEO, {"action": "update_item", "item_id": DELTA, "label": "Delta (in network)"})
+    assert result.success, result.error
+    assert world["choice"]["label"] == "Delta (in network)"
+    assert world["violations"] == [], world["violations"]
+
+
+@pytest.mark.asyncio
+async def test_a_viewer_gets_no_access_naming_the_choice(world):
+    world["list_readers"][LIST_ID].add(LEO)
+    result = await _picklist(LEO, {"action": "update_item", "item_id": DELTA, "label": "Dropped"})
+    assert not result.success
+    assert result.error.error_type == "no_access"
+    assert DELTA in result.error.message
+    assert world["choice"]["label"] == "Delta Dental PPO"
+    assert world["violations"] == [], world["violations"]

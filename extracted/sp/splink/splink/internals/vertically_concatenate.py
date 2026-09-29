@@ -4,10 +4,14 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict
 
 from splink.internals.input_column import InputColumn
+from splink.internals.misc import indent_sql, join_sql_with_union_all
 from splink.internals.pipeline import CTEPipeline
 from splink.internals.splink_dataframe import SplinkDataFrame
 
-from .term_frequencies import compute_all_term_frequencies_sqls
+from .term_frequencies import (
+    _join_tf_to_df_concat_sql,
+    append_term_frequencies_to_pipeline,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +22,7 @@ if TYPE_CHECKING:
 
 def vertically_concatenate_sql(
     input_tables: Dict[str, SplinkDataFrame],
-    salting_required: bool,
-    source_dataset_input_column: InputColumn = None,
+    source_dataset_input_column: InputColumn | None = None,
 ) -> str:
     """
     Using `input_tables`, create a single table with the columns and
@@ -39,145 +42,55 @@ def vertically_concatenate_sql(
     df_obj = next(iter(input_tables.values()))
     columns = df_obj.columns_escaped
 
-    select_columns_sql = ", ".join(columns)
-
-    if salting_required:
-        salt_sql = ", random() as __splink_salt"
-    else:
-        salt_sql = ""
-
     source_dataset_column_already_exists = False
     if source_dataset_input_column:
         source_dataset_column_already_exists = (
             source_dataset_input_column in df_obj.columns
         )
 
-    select_columns_sql = ", ".join(columns)
-    if len(input_tables) > 1:
-        sqls_to_union = []
+    sqls = []
+    for df_obj in input_tables.values():
+        select_expressions = list(columns)
+        if len(input_tables) > 1 and not source_dataset_column_already_exists:
+            select_expressions.insert(
+                0, f"'{df_obj.dataset_display_name}' as source_dataset"
+            )
 
-        for df_obj in input_tables.values():
-            if source_dataset_column_already_exists:
-                create_sds_if_needed = ""
-            else:
-                create_sds_if_needed = f"'{df_obj.templated_name}' as source_dataset,"
+        select_columns_sql = ",\n".join(indent_sql(expr) for expr in select_expressions)
 
-            sql = f"""
-            select
-            {create_sds_if_needed}
-            {select_columns_sql}
-            {salt_sql}
-            from {df_obj.physical_name}
-            """
-            sqls_to_union.append(sql)
-        sql = " UNION ALL ".join(sqls_to_union)
-    else:
         sql = f"""
-            select {select_columns_sql}
-            {salt_sql}
+            select
+{select_columns_sql}
             from {df_obj.physical_name}
             """
+        sqls.append(sql)
 
-    return sql
+    if len(sqls) == 1:
+        return sqls[0]
+
+    return join_sql_with_union_all(sqls)
 
 
 def enqueue_df_concat_with_tf(linker: Linker, pipeline: CTEPipeline) -> CTEPipeline:
-    cache = linker._intermediate_table_cache
-    if "__splink__df_concat_with_tf" in cache:
-        nodes_with_tf = cache.get_with_logging("__splink__df_concat_with_tf")
-        pipeline.append_input_dataframe(nodes_with_tf)
-        return pipeline
-
-    sds_ic = linker._settings_obj.column_info_settings.source_dataset_input_column
-
-    sql = vertically_concatenate_sql(
-        input_tables=linker._input_tables_dict,
-        salting_required=linker._settings_obj.salting_required,
-        source_dataset_input_column=sds_ic,
+    enqueue_df_concat(linker, pipeline)
+    append_term_frequencies_to_pipeline(linker, pipeline)
+    pipeline.enqueue_sql(
+        _join_tf_to_df_concat_sql(linker),
+        "__splink__df_concat_with_tf",
     )
-    pipeline.enqueue_sql(sql, "__splink__df_concat")
-
-    sqls = compute_all_term_frequencies_sqls(linker, pipeline)
-    pipeline.enqueue_list_of_sqls(sqls)
-
     return pipeline
-
-
-def compute_df_concat_with_tf(linker: Linker, pipeline: CTEPipeline) -> SplinkDataFrame:
-    cache = linker._intermediate_table_cache
-    db_api = linker._db_api
-
-    if "__splink__df_concat_with_tf" in cache:
-        return cache.get_with_logging("__splink__df_concat_with_tf")
-
-    sds_ic = linker._settings_obj.column_info_settings.source_dataset_input_column
-
-    sql = vertically_concatenate_sql(
-        input_tables=linker._input_tables_dict,
-        salting_required=linker._settings_obj.salting_required,
-        source_dataset_input_column=sds_ic,
-    )
-    pipeline.enqueue_sql(sql, "__splink__df_concat")
-
-    sqls = compute_all_term_frequencies_sqls(linker, pipeline)
-    pipeline.enqueue_list_of_sqls(sqls)
-
-    nodes_with_tf = db_api.sql_pipeline_to_splink_dataframe(pipeline)
-    cache["__splink__df_concat_with_tf"] = nodes_with_tf
-    return nodes_with_tf
 
 
 def enqueue_df_concat(linker: Linker, pipeline: CTEPipeline) -> CTEPipeline:
-    cache = linker._intermediate_table_cache
-
-    if "__splink__df_concat" in cache:
-        nodes_with_tf = cache.get_with_logging("__splink__df_concat")
-        pipeline.append_input_dataframe(nodes_with_tf)
-        return pipeline
-
-    # __splink__df_concat_with_tf is a superset of __splink__df_concat
-    # so if it exists, use it instead
-    elif "__splink__df_concat_with_tf" in cache:
-        nodes_with_tf = cache.get_with_logging("__splink__df_concat_with_tf")
-        nodes_with_tf.templated_name = "__splink__df_concat"
-        pipeline.append_input_dataframe(nodes_with_tf)
-        return pipeline
-
     sds_ic = linker._settings_obj.column_info_settings.source_dataset_input_column
 
     sql = vertically_concatenate_sql(
         input_tables=linker._input_tables_dict,
-        salting_required=linker._settings_obj.salting_required,
         source_dataset_input_column=sds_ic,
     )
     pipeline.enqueue_sql(sql, "__splink__df_concat")
 
     return pipeline
-
-
-def compute_df_concat(linker: Linker, pipeline: CTEPipeline) -> SplinkDataFrame:
-    cache = linker._intermediate_table_cache
-    db_api = linker._db_api
-
-    if "__splink__df_concat" in cache:
-        return cache.get_with_logging("__splink__df_concat")
-    if "__splink__df_concat_with_tf" in cache:
-        df = cache.get_with_logging("__splink__df_concat_with_tf")
-        df.templated_name = "__splink__df_concat"
-        return df
-
-    sds_ic = linker._settings_obj.column_info_settings.source_dataset_input_column
-
-    sql = vertically_concatenate_sql(
-        input_tables=linker._input_tables_dict,
-        salting_required=linker._settings_obj.salting_required,
-        source_dataset_input_column=sds_ic,
-    )
-    pipeline.enqueue_sql(sql, "__splink__df_concat")
-
-    nodes_with_tf = db_api.sql_pipeline_to_splink_dataframe(pipeline)
-    cache["__splink__df_concat"] = nodes_with_tf
-    return nodes_with_tf
 
 
 def concat_table_column_names(linker: Linker) -> list[str]:
@@ -190,12 +103,9 @@ def concat_table_column_names(linker: Linker) -> list[str]:
     )
 
     input_tables = linker._input_tables_dict
-    salting_required = linker._settings_obj.salting_required
 
     df_obj = next(iter(input_tables.values()))
     columns = df_obj.columns_escaped
-    if salting_required:
-        columns.append("__splink_salt")
 
     if len(input_tables) > 1:
         source_dataset_column_already_exists = False
@@ -277,7 +187,7 @@ def _two_dataset_link_only_first_source_dataset_value(
     df_obj: SplinkDataFrame,
     source_dataset_input_column: InputColumn,
 ) -> Any | None:
-    records = df_obj.as_record_dict(limit=1)
+    records = df_obj.as_record_list(limit=1)
     source_dataset_column_key = source_dataset_input_column.unquote().name
     return None if not records else records[0][source_dataset_column_key]
 
@@ -342,7 +252,7 @@ def _two_dataset_link_only_select_input_columns_sql(
             col == source_dataset_input_column
             and not source_dataset_column_already_exists
         ):
-            select_cols.append(f"'{df_obj.templated_name}' as {col.name}")
+            select_cols.append(f"'{df_obj.dataset_display_name}' as {col.name}")
         else:
             select_cols.append(col.name)
 
@@ -373,7 +283,7 @@ def select_two_dataset_link_only_input_tables_sqls(
     input_tables: Dict[str, SplinkDataFrame],
     input_columns: list[InputColumn],
     source_dataset_input_column: InputColumn | None,
-) -> list[str]:
+) -> tuple[str, str]:
     left_selection, right_selection = _two_dataset_link_only_left_and_right_inputs(
         input_tables,
         source_dataset_input_column,
@@ -392,4 +302,7 @@ def select_two_dataset_link_only_input_tables_sqls(
         source_dataset_value_to_keep=right_selection[1],
     )
 
-    return [left_sql, right_sql]
+    return (
+        left_sql,
+        right_sql,
+    )

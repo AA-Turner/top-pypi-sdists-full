@@ -54,6 +54,7 @@ standard_matlab_classes = (
     'cell',
     'float',
     'double',
+    'single',
     'int',
     'int8',
     'int16',

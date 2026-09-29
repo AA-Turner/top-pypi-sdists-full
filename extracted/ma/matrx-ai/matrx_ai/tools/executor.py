@@ -543,6 +543,33 @@ async def warn_member_depth_exhausted(
         )
 
 
+def _chosen_variant_schema(tool_def: ToolDefinition, args: dict[str, Any]) -> dict[str, Any] | None:
+    """The provider-dialect JSON Schema of the action ``args`` chose, or ``None``.
+
+    ``None`` when the tool has no ``$variants``, no recognisable discriminator,
+    or the call names no known action (the flattened check already refused an
+    unknown action through the discriminator's enum).
+    """
+    discriminator = tool_def._variant_discriminator()
+    if discriminator is None:
+        return None
+    variant = tool_def.parameters["$variants"].get(args.get(discriminator))
+    if not isinstance(variant, dict):
+        return None
+    if isinstance(variant.get("properties"), dict):
+        required = variant.get("required")
+        action_def = ToolDefinition(
+            name=tool_def.name,
+            parameters=variant["properties"],
+            required_params=[str(k) for k in required] if isinstance(required, list) else [],
+        )
+    else:
+        action_def = ToolDefinition(name=tool_def.name, parameters=variant)
+    schema = dict(action_def._build_json_schema())
+    schema.pop("additionalProperties", None)
+    return schema
+
+
 def _validate_against_declared_schema(tool_def: ToolDefinition, args: dict[str, Any]) -> str | None:
     """Return a human-readable schema violation for ``args``, or ``None``.
 
@@ -569,6 +596,20 @@ def _validate_against_declared_schema(tool_def: ToolDefinition, args: dict[str, 
         validator_cls = jsonschema.validators.validator_for(schema)
         validator = validator_cls(schema)
         errors = sorted(validator.iter_errors(args or {}), key=lambda e: list(e.path))
+        if not errors:
+            # The flattened schema offers every action's choices (a shared
+            # field carries their union), so it cannot see "valid for SOME
+            # action but not this one" — local_media format=zip with
+            # action=office_generate. The chosen action's own $variants
+            # contract can; check it too, still without the extra-keys door.
+            variant_schema = _chosen_variant_schema(tool_def, args or {})
+            if variant_schema is not None:
+                variant_validator = jsonschema.validators.validator_for(variant_schema)(
+                    variant_schema
+                )
+                errors = sorted(
+                    variant_validator.iter_errors(args or {}), key=lambda e: list(e.path)
+                )
     except Exception as exc:  # a malformed declared schema must not block execution
         logger.warning(
             "[ToolExecutor] could not validate args for %r against its declared schema: %s",
@@ -1496,7 +1537,7 @@ class ToolExecutor:
 
         # --- Stream started (with full arguments — non-negotiable) ---
         user_message = tool_def.format_user_message(arguments)
-        await stream.started(user_message, arguments=arguments)
+        await stream.started(user_message, arguments=arguments, display_name=tool_def.display_name)
 
         # Touch lifecycle
         self.lifecycle.touch(ctx.conversation_id)

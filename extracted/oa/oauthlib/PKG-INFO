@@ -1,12 +1,18 @@
 Metadata-Version: 2.4
 Name: oauthlib
-Version: 3.3.1
+Version: 4.0.0
 Summary: A generic, spec-compliant, thorough implementation of the OAuth request-signing logic
 Home-page: https://github.com/oauthlib/oauthlib
 Author: The OAuthlib Community
 Maintainer: Jonathan Huot
 Maintainer-email: jonathan.huot@gmail.com
 License: BSD-3-Clause
+Project-URL: Changelog, https://github.com/oauthlib/oauthlib/blob/master/CHANGELOG.rst
+Project-URL: Documentation, https://oauthlib.readthedocs.io/
+Project-URL: Gitter, https://gitter.im/oauthlib/Lobby
+Project-URL: Issues, https://github.com/oauthlib/oauthlib/issues
+Project-URL: Source, https://github.com/oauthlib/oauthlib
+Project-URL: Sponsor, https://github.com/sponsors/JonathanHuot
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
@@ -16,18 +22,18 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: rsa
@@ -47,6 +53,7 @@ Dynamic: license-file
 Dynamic: maintainer
 Dynamic: maintainer-email
 Dynamic: platform
+Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-python
 Dynamic: summary
@@ -57,6 +64,9 @@ OAuthLib - Python Framework for OAuth1 & OAuth2
 *A generic, spec-compliant, thorough implementation of the OAuth request-signing
 logic for Python 3.8+*
 
+.. image:: https://img.shields.io/static/v1?label=Dev%20Containers&message=Open&color=blue
+  :target: https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/oauthlib/oauthlib
+  :alt: Open DevContainer in VSCode
 .. image:: https://github.com/oauthlib/oauthlib/actions/workflows/python-build.yml/badge.svg
   :target: https://github.com/oauthlib/oauthlib/actions
   :alt: GitHub Actions

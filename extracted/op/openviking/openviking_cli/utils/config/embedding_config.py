@@ -36,8 +36,6 @@ class EmbeddingCredential(BaseModel):
     host: Optional[str] = Field(default=None, description="Host for VikingDB API")
     extra_headers: Optional[dict[str, str]] = Field(default=None, description="Extra HTTP headers")
 
-    model_config = {"extra": "forbid"}
-
 
 class EmbeddingModelConfig(BaseModel):
     """Configuration for a specific embedding model"""
@@ -150,8 +148,6 @@ class EmbeddingModelConfig(BaseModel):
     failback_request_count: int = Field(
         default=50, description="Number of backup requests after which to attempt failback"
     )
-
-    model_config = {"extra": "forbid"}
 
     @model_validator(mode="before")
     @classmethod
@@ -673,8 +669,6 @@ class EmbeddingConfig(BaseModel):
         ),
     )
 
-    model_config = {"extra": "forbid"}
-
     @model_validator(mode="before")
     @classmethod
     def apply_default_local_dense(cls, data: Any) -> Any:
@@ -1045,6 +1039,9 @@ class EmbeddingConfig(BaseModel):
         if self.dense:
             return self._create_single_or_failover_embedder("dense", self.dense)
 
+        if self.sparse:
+            return self._create_single_or_failover_embedder("sparse", self.sparse)
+
         raise ValueError("No embedding configuration found (dense, sparse, or hybrid)")
 
     def _create_single_or_failover_embedder(
@@ -1118,6 +1115,8 @@ class EmbeddingConfig(BaseModel):
             return self.hybrid.get_effective_dimension()
         if self.dense:
             return self.dense.get_effective_dimension()
+        if self.sparse:
+            return self.sparse.get_effective_dimension()
         return 2048
 
     @staticmethod

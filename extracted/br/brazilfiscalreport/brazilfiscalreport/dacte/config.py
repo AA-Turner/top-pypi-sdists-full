@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from io import BytesIO
 from numbers import Number
-from typing import Union
 
 
 class FontType(Enum):
@@ -41,7 +40,7 @@ class ReceiptPosition(Enum):
 
 @dataclass
 class DacteConfig:
-    logo: Union[str, BytesIO, bytes] = None
+    logo: str | BytesIO | bytes = None
     margins: Margins = field(default_factory=Margins)
     receipt_pos: ReceiptPosition = ReceiptPosition.TOP
     decimal_config: DecimalConfig = field(default_factory=DecimalConfig)

@@ -308,6 +308,7 @@ async def usertable_get_metadata(args: dict[str, Any], ctx: ToolContext) -> Tool
             meta = (await arm.get(table_id, include="metadata"))["metadata"]
             return ToolResult(
                 success=True,
+                output_kind="dataset_metadata_result",
                 output={
                     "table_id": meta["dataset_id"],
                     "table_name": meta["dataset_name"],
@@ -405,6 +406,7 @@ async def usertable_get_fields(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             return _self_capped(
                 ToolResult(
                     success=True,
+                    output_kind="dataset_fields_result",
                     output={
                         "fields": fields[:200],
                         "count": len(fields),

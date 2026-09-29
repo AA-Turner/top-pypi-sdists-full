@@ -93,11 +93,8 @@ def _explore(
         Map tileset to use. Can choose from the list supported by folium, query a
         :class:`xyzservices.TileProvider` by a name from ``xyzservices.providers``,
         pass :class:`xyzservices.TileProvider` object or pass custom XYZ URL.
-        The current list of built-in providers (when ``xyzservices`` is not available):
-
-        ``["OpenStreetMap", "CartoDB positron", “CartoDB dark_matter"]``
-
-        You can pass a custom tileset to Folium by passing a Leaflet-style URL
+        When ``xyzservices`` is not available, it defaults to OpenStreetMap Mapnik
+        tiles. You can pass a custom tileset to Folium by passing a Leaflet-style URL
         to the tiles parameter: ``http://{s}.yourtiles.com/{z}/{x}/{y}.png``.
         Be sure to check their terms and conditions and to provide attribution with
         the ``attr`` keyword.
@@ -318,9 +315,7 @@ def _explore(
     # convert LinearRing to LineString
     rings_mask = df.geom_type == "LinearRing"
     if rings_mask.any():
-        gdf.geometry[rings_mask] = gdf.geometry[rings_mask].apply(
-            lambda g: LineString(g)
-        )
+        gdf.geometry[rings_mask] = gdf.geometry[rings_mask].apply(LineString)
     if isinstance(gdf, geopandas.GeoSeries):
         gdf = gdf.to_frame()
 
@@ -943,11 +938,8 @@ def _explore_geoseries(
         Map tileset to use. Can choose from the list supported by folium, query a
         :class:`xyzservices.TileProvider` by a name from ``xyzservices.providers``,
         pass :class:`xyzservices.TileProvider` object or pass custom XYZ URL.
-        The current list of built-in providers (when ``xyzservices`` is not available):
-
-        ``["OpenStreetMap", "CartoDB positron", “CartoDB dark_matter"]``
-
-        You can pass a custom tileset to Folium by passing a Leaflet-style URL
+        When ``xyzservices`` is not available, it defaults to OpenStreetMap Mapnik
+        tiles. You can pass a custom tileset to Folium by passing a Leaflet-style URL
         to the tiles parameter: ``http://{s}.yourtiles.com/{z}/{x}/{y}.png``.
         Be sure to check their terms and conditions and to provide attribution with
         the ``attr`` keyword.

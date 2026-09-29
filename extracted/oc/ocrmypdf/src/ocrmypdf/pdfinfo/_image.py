@@ -7,7 +7,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator
 from decimal import Decimal
-from typing import cast
 
 from pikepdf import (
     Dictionary,
@@ -21,16 +20,12 @@ from pikepdf import (
     UnsupportedImageTypeError,
 )
 
-from ocrmypdf.helpers import (
-    RESOURCES_XOBJECT,
-    Resolution,
-    pikepdf_get_dict,
-    pikepdf_get_int,
-)
+from ocrmypdf.helpers import RESOURCES_XOBJECT, Resolution
 from ocrmypdf.pdfinfo._contentstream import (
     ContentsInfo,
     TextMarker,
     VectorMarker,
+    VisibleTextMarker,
     _get_dpi,
     _interpret_contents,
     _is_unit_square,
@@ -97,8 +92,8 @@ class ImageInfo:
             # itself. Some PDF writers use this to create a grayscale stencil
             # mask. For our purposes, the effective size is the size of the
             # larger component (image or smask).
-            self._width = max(pikepdf_get_int(smask, Name.Width), self._width)
-            self._height = max(pikepdf_get_int(smask, Name.Height), self._height)
+            self._width = max(smask.get_int(Name.Width, 0, coerce=True), self._width)
+            self._height = max(smask.get_int(Name.Height, 0, coerce=True), self._height)
         if (mask := pim.obj.get(Name.Mask, None)) is not None and isinstance(
             mask, Stream | Dictionary
         ):
@@ -106,8 +101,8 @@ class ImageInfo:
             # /Mask can be a Stream or an Array. If it's a Stream,
             # use its /Width and /Height if they are larger than the main
             # image's.
-            self._width = max(pikepdf_get_int(mask, Name.Width), self._width)
-            self._height = max(pikepdf_get_int(mask, Name.Height), self._height)
+            self._width = max(mask.get_int(Name.Width, 0, coerce=True), self._width)
+            self._height = max(mask.get_int(Name.Height, 0, coerce=True), self._height)
 
         # If /ImageMask is true, then this image is a stencil mask
         # (Images that draw with this stencil mask will have a reference to
@@ -289,7 +284,7 @@ def _image_xobjects(container) -> Iterator[tuple[Object, str]]:
     since the object does not know its own name.
 
     """
-    for key, candidate in pikepdf_get_dict(container, RESOURCES_XOBJECT).items():
+    for key, candidate in (container.get_dict(RESOURCES_XOBJECT) or {}).items():
         if candidate is None or Name.Subtype not in candidate:
             continue
         if candidate[Name.Subtype] == Name.Image:
@@ -333,9 +328,7 @@ def _find_form_xobject_images(pdf: Pdf, container: Object, contentsinfo: Content
     The container may be a page, or a parent Form XObject.
 
     """
-    xobjs = pikepdf_get_dict(container, RESOURCES_XOBJECT).as_dict()
-    for xobj in xobjs:
-        candidate = xobjs[xobj]
+    for xobj, candidate in (container.get_dict(RESOURCES_XOBJECT) or {}).items():
         if candidate is None or candidate.get(Name.Subtype) != Name.Form:
             continue
 
@@ -357,11 +350,19 @@ def _find_form_xobject_images(pdf: Pdf, container: Object, contentsinfo: Content
                 container=form_xobject,
                 shorthand=ctm_shorthand,
                 initial_fill_ink=settings.fill_ink,
+                initial_text_render_mode=settings.text_render_mode,
+                initial_glyphless_font=settings.glyphless_font,
             )
 
 
 def _process_content_streams(
-    *, pdf: Pdf, container: Object, shorthand=None, initial_fill_ink=Ink.mono
+    *,
+    pdf: Pdf,
+    container: Object,
+    shorthand=None,
+    initial_fill_ink=Ink.mono,
+    initial_text_render_mode: int = 0,
+    initial_glyphless_font: bool = False,
 ) -> Iterator[VectorMarker | TextMarker | ImageInfo]:
     """Find all individual instances of images drawn in the container.
 
@@ -393,9 +394,7 @@ def _process_content_streams(
         # A Form XObject may provide its own matrix to map form space into
         # user space. Get this if one exists
         form_shorthand = container.get(Name.Matrix, Matrix())
-        # pikepdf's Matrix() stub omits the Object/Array overload, but the
-        # underlying C++ implementation accepts any 6-element numeric array.
-        form_matrix = Matrix(cast(Matrix, form_shorthand))
+        form_matrix = Matrix(form_shorthand)
 
         # Concatenate form matrix with CTM to ensure CTM is correct for
         # drawing this instance of the XObject
@@ -404,11 +403,19 @@ def _process_content_streams(
     else:
         return
 
-    contentsinfo = _interpret_contents(container, initial_shorthand, initial_fill_ink)
+    contentsinfo = _interpret_contents(
+        container,
+        initial_shorthand,
+        initial_fill_ink,
+        initial_text_render_mode,
+        initial_glyphless_font,
+    )
 
     if contentsinfo.found_vector:
         yield VectorMarker()
-    if contentsinfo.found_text:
+    if contentsinfo.found_visible_text:
+        yield VisibleTextMarker()
+    elif contentsinfo.found_text:
         yield TextMarker()
     yield from _find_inline_images(contentsinfo)
     yield from _find_regular_images(container, contentsinfo)

@@ -15,26 +15,24 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    pyudev._os.pipe
-    ===============
+pyudev._os.pipe
+===============
 
-    Fallback implementations for pipe.
+Fallback implementations for pipe.
 
-    1. pipe2 from python os module
-    2. pipe2 from libc
-    3. pipe from python os module
+1. pipe2 from python os module
+2. pipe2 from libc
+3. pipe from python os module
 
-    The Pipe class wraps the chosen implementation.
+The Pipe class wraps the chosen implementation.
 
-    .. moduleauthor:: Sebastian Wiesner  <lunaryorn@gmail.com>
+.. moduleauthor:: Sebastian Wiesner  <lunaryorn@gmail.com>
 """
 
-# isort: STDLIB
 import fcntl
 import os
 from functools import partial
 
-# isort: LOCAL
 from pyudev._ctypeslib.libc import ERROR_CHECKERS, FD_PAIR, SIGNATURES
 from pyudev._ctypeslib.utils import load_ctypes_library
 
@@ -84,7 +82,7 @@ def _get_pipe2_implementation():
 
     Return a function implementing ``pipe2``."""
     if hasattr(os, "pipe2"):
-        return os.pipe2  # pylint: disable=no-member
+        return os.pipe2
     try:
         libc = load_ctypes_library("libc", SIGNATURES, ERROR_CHECKERS)
         return (
@@ -97,7 +95,7 @@ def _get_pipe2_implementation():
 _PIPE2 = _get_pipe2_implementation()
 
 
-def set_fd_flag(fd, flag):  # pylint: disable=invalid-name
+def set_fd_flag(fd, flag):
     """Set a flag on a file descriptor.
 
     ``fd`` is the file descriptor or file object, ``flag`` the flag as integer.
@@ -107,7 +105,7 @@ def set_fd_flag(fd, flag):  # pylint: disable=invalid-name
     fcntl.fcntl(fd, fcntl.F_SETFD, flags | flag)
 
 
-def set_fd_status_flag(fd, flag):  # pylint: disable=invalid-name
+def set_fd_status_flag(fd, flag):
     """Set a status flag on a file descriptor.
 
     ``fd`` is the file descriptor or file object, ``flag`` the flag as integer.
@@ -121,7 +119,7 @@ class Pipe:
     """A unix pipe.
 
     A pipe object provides two file objects: :attr:`source` is a readable file
-    object, and :attr:`sink` a writeable.  Bytes written to :attr:`sink` appear
+    object, and :attr:`sink` a writable.  Bytes written to :attr:`sink` appear
     at :attr:`source`.
 
     Open a pipe with :meth:`open()`.
@@ -140,7 +138,7 @@ class Pipe:
         """Create a new pipe object from the given file descriptors.
 
         ``source_fd`` is a file descriptor for the readable side of the pipe,
-        ``sink_fd`` is a file descriptor for the writeable side."""
+        ``sink_fd`` is a file descriptor for the writable side."""
         self.source = os.fdopen(source_fd, "rb", 0)
         self.sink = os.fdopen(sink_fd, "wb", 0)
 

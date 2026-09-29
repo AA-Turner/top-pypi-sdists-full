@@ -27,7 +27,7 @@ class TestEvaluations:
         evaluation = client.evaluations.create(
             evaluation={
                 "data": [{"foo": "bar"}],
-                "name": "name",
+                "name": "x",
             },
         )
         assert_matches_type(Evaluation, evaluation, path=["response"])
@@ -37,12 +37,12 @@ class TestEvaluations:
         evaluation = client.evaluations.create(
             evaluation={
                 "data": [{"foo": "bar"}],
-                "name": "name",
+                "name": "x",
                 "description": "description",
                 "files": [{"foo": "string"}],
                 "metadata": {"foo": "bar"},
                 "skip_prefilled_rows": True,
-                "tags": ["string"],
+                "tags": ["x"],
                 "tasks": [
                     {
                         "configuration": {
@@ -88,7 +88,7 @@ class TestEvaluations:
         response = client.evaluations.with_raw_response.create(
             evaluation={
                 "data": [{"foo": "bar"}],
-                "name": "name",
+                "name": "x",
             },
         )
 
@@ -102,7 +102,7 @@ class TestEvaluations:
         with client.evaluations.with_streaming_response.create(
             evaluation={
                 "data": [{"foo": "bar"}],
-                "name": "name",
+                "name": "x",
             },
         ) as response:
             assert not response.is_closed
@@ -175,8 +175,8 @@ class TestEvaluations:
             evaluation={
                 "description": "description",
                 "metadata": {"foo": "bar"},
-                "name": "name",
-                "tags": ["string"],
+                "name": "x",
+                "tags": ["x"],
             },
         )
         assert_matches_type(Evaluation, evaluation, path=["response"])
@@ -458,7 +458,7 @@ class TestAsyncEvaluations:
         evaluation = await async_client.evaluations.create(
             evaluation={
                 "data": [{"foo": "bar"}],
-                "name": "name",
+                "name": "x",
             },
         )
         assert_matches_type(Evaluation, evaluation, path=["response"])
@@ -468,12 +468,12 @@ class TestAsyncEvaluations:
         evaluation = await async_client.evaluations.create(
             evaluation={
                 "data": [{"foo": "bar"}],
-                "name": "name",
+                "name": "x",
                 "description": "description",
                 "files": [{"foo": "string"}],
                 "metadata": {"foo": "bar"},
                 "skip_prefilled_rows": True,
-                "tags": ["string"],
+                "tags": ["x"],
                 "tasks": [
                     {
                         "configuration": {
@@ -519,7 +519,7 @@ class TestAsyncEvaluations:
         response = await async_client.evaluations.with_raw_response.create(
             evaluation={
                 "data": [{"foo": "bar"}],
-                "name": "name",
+                "name": "x",
             },
         )
 
@@ -533,7 +533,7 @@ class TestAsyncEvaluations:
         async with async_client.evaluations.with_streaming_response.create(
             evaluation={
                 "data": [{"foo": "bar"}],
-                "name": "name",
+                "name": "x",
             },
         ) as response:
             assert not response.is_closed
@@ -606,8 +606,8 @@ class TestAsyncEvaluations:
             evaluation={
                 "description": "description",
                 "metadata": {"foo": "bar"},
-                "name": "name",
-                "tags": ["string"],
+                "name": "x",
+                "tags": ["x"],
             },
         )
         assert_matches_type(Evaluation, evaluation, path=["response"])

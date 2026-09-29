@@ -1369,6 +1369,17 @@ if TYPE_CHECKING:
         CreatePresetFromInferenceResponse,
         CreatePresetFromInferenceResponseTypedDict,
     )
+    from .createprivateendpointrequest import (
+        CreatePrivateEndpointRequest,
+        CreatePrivateEndpointRequestDeclaredRegion,
+        CreatePrivateEndpointRequestTypedDict,
+    )
+    from .createprivateendpointvalidationfailedresponse_error import (
+        CreatePrivateEndpointValidationFailedResponseData,
+        CreatePrivateEndpointValidationFailedResponseDataTypedDict,
+        CreatePrivateEndpointValidationFailedResponseError,
+        CreatePrivateEndpointValidationFailedResponseErrorTypedDict,
+    )
     from .createscimgroupmappingrequest import (
         CreateScimGroupMappingRequest,
         CreateScimGroupMappingRequestRole,
@@ -1536,6 +1547,12 @@ if TYPE_CHECKING:
     from .deleteobservabilitydestinationresponse import (
         DeleteObservabilityDestinationResponse,
         DeleteObservabilityDestinationResponseTypedDict,
+    )
+    from .deleteprivateendpointresponse import (
+        DeletePrivateEndpointResponse,
+        DeletePrivateEndpointResponseData,
+        DeletePrivateEndpointResponseDataTypedDict,
+        DeletePrivateEndpointResponseTypedDict,
     )
     from .deletescimgroupmappingresponse import (
         DeleteScimGroupMappingResponse,
@@ -2244,6 +2261,10 @@ if TYPE_CHECKING:
         ListPresetVersionsResponse,
         ListPresetVersionsResponseTypedDict,
     )
+    from .listprivateendpointsresponse import (
+        ListPrivateEndpointsResponse,
+        ListPrivateEndpointsResponseTypedDict,
+    )
     from .listscimgroupmappingsresponse import (
         ListScimGroupMappingsResponse,
         ListScimGroupMappingsResponseTypedDict,
@@ -2276,6 +2297,14 @@ if TYPE_CHECKING:
         LocalShellCallOutputItem,
         LocalShellCallOutputItemType,
         LocalShellCallOutputItemTypedDict,
+    )
+    from .managedprivateendpoint import (
+        ManagedPrivateEndpoint,
+        ManagedPrivateEndpointTypedDict,
+    )
+    from .managedprivateendpointresponse import (
+        ManagedPrivateEndpointResponse,
+        ManagedPrivateEndpointResponseTypedDict,
     )
     from .mcpapprovalrequestitem import (
         McpApprovalRequestItem,
@@ -2442,6 +2471,8 @@ if TYPE_CHECKING:
         Thinking,
         ThinkingAdaptive,
         ThinkingAdaptiveTypedDict,
+        ThinkingBetweenTools,
+        ThinkingBetweenToolsTypedDict,
         ThinkingDisabled,
         ThinkingDisabledTypedDict,
         ThinkingEnabled,
@@ -2480,6 +2511,7 @@ if TYPE_CHECKING:
         TypeAdvisor20260301,
         TypeAny,
         TypeBash20250124,
+        TypeBetweenTools,
         TypeClearThinking20251015,
         TypeClearToolUses20250919,
         TypeCompact20260112,
@@ -3249,6 +3281,42 @@ if TYPE_CHECKING:
         PreviewWebSearchUserLocationTypedDict,
     )
     from .pricingoverride import PricingOverride, PricingOverrideTypedDict, UtcDay
+    from .privateendpoint import PrivateEndpoint, PrivateEndpointTypedDict
+    from .privateendpointactivation import (
+        PrivateEndpointActivation,
+        PrivateEndpointActivationTypedDict,
+    )
+    from .privateendpointcheck import (
+        PrivateEndpointCheck,
+        PrivateEndpointCheckTypedDict,
+    )
+    from .privateendpointcheckreason import PrivateEndpointCheckReason
+    from .privateendpointdeclaredregion import PrivateEndpointDeclaredRegion
+    from .privateendpointpricing import (
+        PrivateEndpointPricing,
+        PrivateEndpointPricingTypedDict,
+    )
+    from .privateendpointresponse import (
+        PrivateEndpointResponse,
+        PrivateEndpointResponseTypedDict,
+    )
+    from .privateendpointstatus import PrivateEndpointStatus
+    from .privateendpointsummary import (
+        PrivateEndpointSummary,
+        PrivateEndpointSummaryTypedDict,
+    )
+    from .privateendpointvalidation import (
+        PrivateEndpointValidation,
+        PrivateEndpointValidationTypedDict,
+    )
+    from .privateendpointvalidationnullable import (
+        PrivateEndpointValidationNullable,
+        PrivateEndpointValidationNullableTypedDict,
+    )
+    from .privateendpointvalidationresponse import (
+        PrivateEndpointValidationResponse,
+        PrivateEndpointValidationResponseTypedDict,
+    )
     from .promptcachebreakpoint import (
         PromptCacheBreakpoint,
         PromptCacheBreakpointMode,
@@ -3305,6 +3373,8 @@ if TYPE_CHECKING:
         EmbeddingsTypedDict,
         ImageGeneration,
         ImageGenerationTypedDict,
+        NativeTools,
+        NativeToolsTypedDict,
         PerfLast30mByWorkload,
         PerfLast30mByWorkloadTypedDict,
         Pricing,
@@ -3739,9 +3809,9 @@ if TYPE_CHECKING:
     from .tokenexchangerequest import (
         GrantType,
         RequestedTokenType,
-        Scope,
         SubjectTokenType,
         TokenExchangeRequest,
+        TokenExchangeRequestScope,
         TokenExchangeRequestTypedDict,
     )
     from .tokenexchangeresponse import (
@@ -3856,6 +3926,15 @@ if TYPE_CHECKING:
         UpdateObservabilityDestinationResponse,
         UpdateObservabilityDestinationResponseTypedDict,
     )
+    from .updateprivateendpointpricingrequest import (
+        UpdatePrivateEndpointPricingRequest,
+        UpdatePrivateEndpointPricingRequestTypedDict,
+    )
+    from .updateprivateendpointrequest import (
+        UpdatePrivateEndpointRequest,
+        UpdatePrivateEndpointRequestDeclaredRegion,
+        UpdatePrivateEndpointRequestTypedDict,
+    )
     from .updatescimgroupmappingrequest import (
         UpdateScimGroupMappingRequest,
         UpdateScimGroupMappingRequestRole,
@@ -3883,6 +3962,19 @@ if TYPE_CHECKING:
         UpsertWorkspaceBudgetResponseTypedDict,
     )
     from .urlcitation import URLCitation, URLCitationType, URLCitationTypedDict
+    from .validateprivateendpointrequest import (
+        ValidatePrivateEndpointRequest,
+        ValidatePrivateEndpointRequestTypedDict,
+    )
+    from .vaulteffectivesecret import (
+        VaultEffectiveSecret,
+        VaultEffectiveSecretScope,
+        VaultEffectiveSecretTypedDict,
+    )
+    from .vaulteffectivesecretlistresponse import (
+        VaultEffectiveSecretListResponse,
+        VaultEffectiveSecretListResponseTypedDict,
+    )
     from .vaultsecret import VaultSecret, VaultSecretTypedDict
     from .vaultsecretcopyrequest import (
         VaultSecretCopyRequest,
@@ -4969,6 +5061,13 @@ __all__ = [
     "CreateObservabilityDestinationResponseTypedDict",
     "CreatePresetFromInferenceResponse",
     "CreatePresetFromInferenceResponseTypedDict",
+    "CreatePrivateEndpointRequest",
+    "CreatePrivateEndpointRequestDeclaredRegion",
+    "CreatePrivateEndpointRequestTypedDict",
+    "CreatePrivateEndpointValidationFailedResponseData",
+    "CreatePrivateEndpointValidationFailedResponseDataTypedDict",
+    "CreatePrivateEndpointValidationFailedResponseError",
+    "CreatePrivateEndpointValidationFailedResponseErrorTypedDict",
     "CreateScimGroupMappingRequest",
     "CreateScimGroupMappingRequestRole",
     "CreateScimGroupMappingRequestTypedDict",
@@ -5073,6 +5172,10 @@ __all__ = [
     "DeleteInternResponseTypedDict",
     "DeleteObservabilityDestinationResponse",
     "DeleteObservabilityDestinationResponseTypedDict",
+    "DeletePrivateEndpointResponse",
+    "DeletePrivateEndpointResponseData",
+    "DeletePrivateEndpointResponseDataTypedDict",
+    "DeletePrivateEndpointResponseTypedDict",
     "DeleteScimGroupMappingResponse",
     "DeleteScimGroupMappingResponseTypedDict",
     "DeleteWorkspaceBudgetResponse",
@@ -5610,6 +5713,8 @@ __all__ = [
     "ListPresetVersionsResponseTypedDict",
     "ListPresetsResponse",
     "ListPresetsResponseTypedDict",
+    "ListPrivateEndpointsResponse",
+    "ListPrivateEndpointsResponseTypedDict",
     "ListScimGroupMappingsResponse",
     "ListScimGroupMappingsResponseTypedDict",
     "ListScimGroupsResponse",
@@ -5634,6 +5739,10 @@ __all__ = [
     "LogprobsContent",
     "LogprobsContentTypedDict",
     "LogprobsTypedDict",
+    "ManagedPrivateEndpoint",
+    "ManagedPrivateEndpointResponse",
+    "ManagedPrivateEndpointResponseTypedDict",
+    "ManagedPrivateEndpointTypedDict",
     "MaxPrice",
     "MaxPriceTypedDict",
     "McpApprovalRequestItem",
@@ -5801,6 +5910,8 @@ __all__ = [
     "NamespaceToolToolTypedDict",
     "NamespaceToolType",
     "NamespaceToolTypedDict",
+    "NativeTools",
+    "NativeToolsTypedDict",
     "Never",
     "NeverTypedDict",
     "NotFoundResponseErrorData",
@@ -6275,6 +6386,27 @@ __all__ = [
     "PricingOverrideTypedDict",
     "PricingTypedDict",
     "PrimaryMetric",
+    "PrivateEndpoint",
+    "PrivateEndpointActivation",
+    "PrivateEndpointActivationTypedDict",
+    "PrivateEndpointCheck",
+    "PrivateEndpointCheckReason",
+    "PrivateEndpointCheckTypedDict",
+    "PrivateEndpointDeclaredRegion",
+    "PrivateEndpointPricing",
+    "PrivateEndpointPricingTypedDict",
+    "PrivateEndpointResponse",
+    "PrivateEndpointResponseTypedDict",
+    "PrivateEndpointStatus",
+    "PrivateEndpointSummary",
+    "PrivateEndpointSummaryTypedDict",
+    "PrivateEndpointTypedDict",
+    "PrivateEndpointValidation",
+    "PrivateEndpointValidationNullable",
+    "PrivateEndpointValidationNullableTypedDict",
+    "PrivateEndpointValidationResponse",
+    "PrivateEndpointValidationResponseTypedDict",
+    "PrivateEndpointValidationTypedDict",
     "Progress",
     "ProgressTypedDict",
     "PromptCacheBreakpoint",
@@ -6471,7 +6603,6 @@ __all__ = [
     "ScimSyncJob",
     "ScimSyncJobStatus",
     "ScimSyncJobTypedDict",
-    "Scope",
     "SearchContextSizeEnum",
     "SearchModelsServerToolConfig",
     "SearchModelsServerToolConfigTypedDict",
@@ -6645,6 +6776,8 @@ __all__ = [
     "Thinking",
     "ThinkingAdaptive",
     "ThinkingAdaptiveTypedDict",
+    "ThinkingBetweenTools",
+    "ThinkingBetweenToolsTypedDict",
     "ThinkingDisabled",
     "ThinkingDisabledTypedDict",
     "ThinkingEnabled",
@@ -6652,6 +6785,7 @@ __all__ = [
     "ThinkingTypeDisabled",
     "ThinkingTypedDict",
     "TokenExchangeRequest",
+    "TokenExchangeRequestScope",
     "TokenExchangeRequestTypedDict",
     "TokenExchangeResponse",
     "TokenExchangeResponseTypedDict",
@@ -6717,6 +6851,7 @@ __all__ = [
     "TypeAllowlist",
     "TypeAny",
     "TypeBash20250124",
+    "TypeBetweenTools",
     "TypeClearThinking20251015",
     "TypeClearToolUses20250919",
     "TypeCodeInterpreter",
@@ -6835,6 +6970,11 @@ __all__ = [
     "UpdateObservabilityDestinationRequestTypedDict",
     "UpdateObservabilityDestinationResponse",
     "UpdateObservabilityDestinationResponseTypedDict",
+    "UpdatePrivateEndpointPricingRequest",
+    "UpdatePrivateEndpointPricingRequestTypedDict",
+    "UpdatePrivateEndpointRequest",
+    "UpdatePrivateEndpointRequestDeclaredRegion",
+    "UpdatePrivateEndpointRequestTypedDict",
     "UpdateScimGroupMappingRequest",
     "UpdateScimGroupMappingRequestRole",
     "UpdateScimGroupMappingRequestTypedDict",
@@ -6861,8 +7001,15 @@ __all__ = [
     "UserLocation",
     "UserLocationTypedDict",
     "UtcDay",
+    "ValidatePrivateEndpointRequest",
+    "ValidatePrivateEndpointRequestTypedDict",
     "Variables",
     "VariablesTypedDict",
+    "VaultEffectiveSecret",
+    "VaultEffectiveSecretListResponse",
+    "VaultEffectiveSecretListResponseTypedDict",
+    "VaultEffectiveSecretScope",
+    "VaultEffectiveSecretTypedDict",
     "VaultSecret",
     "VaultSecretCopyRequest",
     "VaultSecretCopyRequestTypedDict",
@@ -7921,6 +8068,13 @@ _dynamic_imports: dict[str, str] = {
     "CreateObservabilityDestinationResponseTypedDict": ".createobservabilitydestinationresponse",
     "CreatePresetFromInferenceResponse": ".createpresetfrominferenceresponse",
     "CreatePresetFromInferenceResponseTypedDict": ".createpresetfrominferenceresponse",
+    "CreatePrivateEndpointRequest": ".createprivateendpointrequest",
+    "CreatePrivateEndpointRequestDeclaredRegion": ".createprivateendpointrequest",
+    "CreatePrivateEndpointRequestTypedDict": ".createprivateendpointrequest",
+    "CreatePrivateEndpointValidationFailedResponseData": ".createprivateendpointvalidationfailedresponse_error",
+    "CreatePrivateEndpointValidationFailedResponseDataTypedDict": ".createprivateendpointvalidationfailedresponse_error",
+    "CreatePrivateEndpointValidationFailedResponseError": ".createprivateendpointvalidationfailedresponse_error",
+    "CreatePrivateEndpointValidationFailedResponseErrorTypedDict": ".createprivateendpointvalidationfailedresponse_error",
     "CreateScimGroupMappingRequest": ".createscimgroupmappingrequest",
     "CreateScimGroupMappingRequestRole": ".createscimgroupmappingrequest",
     "CreateScimGroupMappingRequestTypedDict": ".createscimgroupmappingrequest",
@@ -8042,6 +8196,10 @@ _dynamic_imports: dict[str, str] = {
     "DeleteInternResponseTypedDict": ".deleteinternresponse",
     "DeleteObservabilityDestinationResponse": ".deleteobservabilitydestinationresponse",
     "DeleteObservabilityDestinationResponseTypedDict": ".deleteobservabilitydestinationresponse",
+    "DeletePrivateEndpointResponse": ".deleteprivateendpointresponse",
+    "DeletePrivateEndpointResponseData": ".deleteprivateendpointresponse",
+    "DeletePrivateEndpointResponseDataTypedDict": ".deleteprivateendpointresponse",
+    "DeletePrivateEndpointResponseTypedDict": ".deleteprivateendpointresponse",
     "DeleteScimGroupMappingResponse": ".deletescimgroupmappingresponse",
     "DeleteScimGroupMappingResponseTypedDict": ".deletescimgroupmappingresponse",
     "DeleteWorkspaceBudgetResponse": ".deleteworkspacebudgetresponse",
@@ -8559,6 +8717,8 @@ _dynamic_imports: dict[str, str] = {
     "ListPresetsResponseTypedDict": ".listpresetsresponse",
     "ListPresetVersionsResponse": ".listpresetversionsresponse",
     "ListPresetVersionsResponseTypedDict": ".listpresetversionsresponse",
+    "ListPrivateEndpointsResponse": ".listprivateendpointsresponse",
+    "ListPrivateEndpointsResponseTypedDict": ".listprivateendpointsresponse",
     "ListScimGroupMappingsResponse": ".listscimgroupmappingsresponse",
     "ListScimGroupMappingsResponseTypedDict": ".listscimgroupmappingsresponse",
     "ListScimGroupsResponse": ".listscimgroupsresponse",
@@ -8578,6 +8738,10 @@ _dynamic_imports: dict[str, str] = {
     "LocalShellCallOutputItem": ".localshellcalloutputitem",
     "LocalShellCallOutputItemType": ".localshellcalloutputitem",
     "LocalShellCallOutputItemTypedDict": ".localshellcalloutputitem",
+    "ManagedPrivateEndpoint": ".managedprivateendpoint",
+    "ManagedPrivateEndpointTypedDict": ".managedprivateendpoint",
+    "ManagedPrivateEndpointResponse": ".managedprivateendpointresponse",
+    "ManagedPrivateEndpointResponseTypedDict": ".managedprivateendpointresponse",
     "McpApprovalRequestItem": ".mcpapprovalrequestitem",
     "McpApprovalRequestItemType": ".mcpapprovalrequestitem",
     "McpApprovalRequestItemTypedDict": ".mcpapprovalrequestitem",
@@ -8726,6 +8890,8 @@ _dynamic_imports: dict[str, str] = {
     "Thinking": ".messagesrequest",
     "ThinkingAdaptive": ".messagesrequest",
     "ThinkingAdaptiveTypedDict": ".messagesrequest",
+    "ThinkingBetweenTools": ".messagesrequest",
+    "ThinkingBetweenToolsTypedDict": ".messagesrequest",
     "ThinkingDisabled": ".messagesrequest",
     "ThinkingDisabledTypedDict": ".messagesrequest",
     "ThinkingEnabled": ".messagesrequest",
@@ -8764,6 +8930,7 @@ _dynamic_imports: dict[str, str] = {
     "TypeAdvisor20260301": ".messagesrequest",
     "TypeAny": ".messagesrequest",
     "TypeBash20250124": ".messagesrequest",
+    "TypeBetweenTools": ".messagesrequest",
     "TypeClearThinking20251015": ".messagesrequest",
     "TypeClearToolUses20250919": ".messagesrequest",
     "TypeCompact20260112": ".messagesrequest",
@@ -9348,6 +9515,27 @@ _dynamic_imports: dict[str, str] = {
     "PricingOverride": ".pricingoverride",
     "PricingOverrideTypedDict": ".pricingoverride",
     "UtcDay": ".pricingoverride",
+    "PrivateEndpoint": ".privateendpoint",
+    "PrivateEndpointTypedDict": ".privateendpoint",
+    "PrivateEndpointActivation": ".privateendpointactivation",
+    "PrivateEndpointActivationTypedDict": ".privateendpointactivation",
+    "PrivateEndpointCheck": ".privateendpointcheck",
+    "PrivateEndpointCheckTypedDict": ".privateendpointcheck",
+    "PrivateEndpointCheckReason": ".privateendpointcheckreason",
+    "PrivateEndpointDeclaredRegion": ".privateendpointdeclaredregion",
+    "PrivateEndpointPricing": ".privateendpointpricing",
+    "PrivateEndpointPricingTypedDict": ".privateendpointpricing",
+    "PrivateEndpointResponse": ".privateendpointresponse",
+    "PrivateEndpointResponseTypedDict": ".privateendpointresponse",
+    "PrivateEndpointStatus": ".privateendpointstatus",
+    "PrivateEndpointSummary": ".privateendpointsummary",
+    "PrivateEndpointSummaryTypedDict": ".privateendpointsummary",
+    "PrivateEndpointValidation": ".privateendpointvalidation",
+    "PrivateEndpointValidationTypedDict": ".privateendpointvalidation",
+    "PrivateEndpointValidationNullable": ".privateendpointvalidationnullable",
+    "PrivateEndpointValidationNullableTypedDict": ".privateendpointvalidationnullable",
+    "PrivateEndpointValidationResponse": ".privateendpointvalidationresponse",
+    "PrivateEndpointValidationResponseTypedDict": ".privateendpointvalidationresponse",
     "PromptCacheBreakpoint": ".promptcachebreakpoint",
     "PromptCacheBreakpointMode": ".promptcachebreakpoint",
     "PromptCacheBreakpointTypedDict": ".promptcachebreakpoint",
@@ -9390,6 +9578,8 @@ _dynamic_imports: dict[str, str] = {
     "EmbeddingsTypedDict": ".publicendpoint",
     "ImageGeneration": ".publicendpoint",
     "ImageGenerationTypedDict": ".publicendpoint",
+    "NativeTools": ".publicendpoint",
+    "NativeToolsTypedDict": ".publicendpoint",
     "PerfLast30mByWorkload": ".publicendpoint",
     "PerfLast30mByWorkloadTypedDict": ".publicendpoint",
     "Pricing": ".publicendpoint",
@@ -9700,9 +9890,9 @@ _dynamic_imports: dict[str, str] = {
     "Verbosity": ".textextendedconfig",
     "GrantType": ".tokenexchangerequest",
     "RequestedTokenType": ".tokenexchangerequest",
-    "Scope": ".tokenexchangerequest",
     "SubjectTokenType": ".tokenexchangerequest",
     "TokenExchangeRequest": ".tokenexchangerequest",
+    "TokenExchangeRequestScope": ".tokenexchangerequest",
     "TokenExchangeRequestTypedDict": ".tokenexchangerequest",
     "IssuedTokenType": ".tokenexchangeresponse",
     "TokenExchangeResponse": ".tokenexchangeresponse",
@@ -9778,6 +9968,11 @@ _dynamic_imports: dict[str, str] = {
     "UpdateObservabilityDestinationRequestTypedDict": ".updateobservabilitydestinationrequest",
     "UpdateObservabilityDestinationResponse": ".updateobservabilitydestinationresponse",
     "UpdateObservabilityDestinationResponseTypedDict": ".updateobservabilitydestinationresponse",
+    "UpdatePrivateEndpointPricingRequest": ".updateprivateendpointpricingrequest",
+    "UpdatePrivateEndpointPricingRequestTypedDict": ".updateprivateendpointpricingrequest",
+    "UpdatePrivateEndpointRequest": ".updateprivateendpointrequest",
+    "UpdatePrivateEndpointRequestDeclaredRegion": ".updateprivateendpointrequest",
+    "UpdatePrivateEndpointRequestTypedDict": ".updateprivateendpointrequest",
     "UpdateScimGroupMappingRequest": ".updatescimgroupmappingrequest",
     "UpdateScimGroupMappingRequestRole": ".updatescimgroupmappingrequest",
     "UpdateScimGroupMappingRequestTypedDict": ".updatescimgroupmappingrequest",
@@ -9795,6 +9990,13 @@ _dynamic_imports: dict[str, str] = {
     "URLCitation": ".urlcitation",
     "URLCitationType": ".urlcitation",
     "URLCitationTypedDict": ".urlcitation",
+    "ValidatePrivateEndpointRequest": ".validateprivateendpointrequest",
+    "ValidatePrivateEndpointRequestTypedDict": ".validateprivateendpointrequest",
+    "VaultEffectiveSecret": ".vaulteffectivesecret",
+    "VaultEffectiveSecretScope": ".vaulteffectivesecret",
+    "VaultEffectiveSecretTypedDict": ".vaulteffectivesecret",
+    "VaultEffectiveSecretListResponse": ".vaulteffectivesecretlistresponse",
+    "VaultEffectiveSecretListResponseTypedDict": ".vaulteffectivesecretlistresponse",
     "VaultSecret": ".vaultsecret",
     "VaultSecretTypedDict": ".vaultsecret",
     "VaultSecretCopyRequest": ".vaultsecretcopyrequest",

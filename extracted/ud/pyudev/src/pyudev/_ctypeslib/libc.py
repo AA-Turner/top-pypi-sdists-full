@@ -15,25 +15,20 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    pyudev._ctypeslib.libc
-    ======================
+pyudev._ctypeslib.libc
+======================
 
-    Wrappers for libc.
+Wrappers for libc.
 
-    .. moduleauthor::  Sebastian Wiesner  <lunaryorn@gmail.com>
+.. moduleauthor::  Sebastian Wiesner  <lunaryorn@gmail.com>
 """
 
-# isort: STDLIB
 from ctypes import c_int
 
 from ._errorcheckers import check_errno_on_nonzero_return
 
 FD_PAIR = c_int * 2
 
-SIGNATURES = {
-    "pipe2": ([FD_PAIR, c_int], c_int),
-}
+SIGNATURES = {"pipe2": ([FD_PAIR, c_int], c_int)}
 
-ERROR_CHECKERS = {
-    "pipe2": check_errno_on_nonzero_return,
-}
+ERROR_CHECKERS = {"pipe2": check_errno_on_nonzero_return}

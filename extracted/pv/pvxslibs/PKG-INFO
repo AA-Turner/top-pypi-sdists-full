@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pvxslibs
-Version: 1.5.2
+Version: 1.5.3
 Summary: PVXS libraries packaged for python
 Home-page: https://epics-base.github.io/pvxs
 Author: Michael Davidsaver
@@ -8,7 +8,6 @@ Author-email: mdavidsaver@gmail.com
 License: BSD
 Keywords: epics scada
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Intended Audience :: Science/Research
@@ -18,11 +17,11 @@ Classifier: Topic :: System :: Distributed Computing
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
-Requires-Python: >=2.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: setuptools_dso>=2.7a1
-Requires-Dist: epicscorelibs<7.0.10.99.1,>=7.0.10.99.0.1
+Requires-Dist: epicscorelibs<7.0.10.99.1,>=7.0.10.99.0.2
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

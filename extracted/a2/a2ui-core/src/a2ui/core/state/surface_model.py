@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 import copy
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Generic, cast
 from ..common.events import EventSource
 from .data_model import DataModel
 from .surface_components_model import SurfaceComponentsModel
@@ -22,42 +22,75 @@ from ..catalog import Catalog
 from ..catalog.catalog import TComponent, TFunction
 
 
-class SurfaceModel:
+from collections.abc import Sequence
+from ..exceptions import A2uiCatalogError
+
+
+class SurfaceModel(Generic[TComponent, TFunction]):
     """Represents a single active UI Surface state tree."""
 
     def __init__(
         self,
         surface_id: str,
-        catalog: Catalog[TComponent, TFunction],
-        theme: Optional[Dict[str, Any]] = None,
+        default_catalog: Catalog[TComponent, TFunction],
+        available_catalogs: dict[str, Catalog[TComponent, TFunction]] | None = None,
+        theme: dict[str, Any] | None = None,
         send_data_model: bool = False,
-        data_model: Optional[DataModel] = None,
+        data_model: DataModel | None = None,
+        root_id: str = "root",
     ) -> None:
         self.id = surface_id
-        self.catalog = catalog
+        self.default_catalog = default_catalog
+        catalogs: dict[str, Catalog[TComponent, TFunction]] = (
+            dict(available_catalogs) if available_catalogs else {}
+        )
+        if default_catalog.id and default_catalog.id not in catalogs:
+            catalogs[default_catalog.id] = default_catalog
+        self.available_catalogs = catalogs
+
         self.theme = theme or {}
         self.send_data_model = send_data_model
 
         self.data_model = data_model or DataModel()
-        self.components_model = SurfaceComponentsModel()
+        self.components_model = SurfaceComponentsModel(default_catalog)
+        self.root_id = root_id
         self.on_action = EventSource()
         self.on_error = EventSource()
+        self.on_warning = EventSource()
+
+    @property
+    def catalog(self) -> Catalog[TComponent, TFunction]:
+        """The surface's default catalog (deprecated alias for default_catalog)."""
+        return self.default_catalog
 
     def dispatch_action(
-        self, payload: Dict[str, Any], source_component_id: str
+        self, payload: dict[str, Any], source_component_id: str
     ) -> None:
         """Triggers action emission from component interactives."""
+        if not isinstance(payload, dict):
+            return
         import datetime
 
         event_payload = payload
-        if isinstance(payload, dict):
-            if "event" in payload:
-                event_payload = payload["event"]
-            elif "functionCall" in payload:
-                event_payload = payload["functionCall"]
+        catalog_id: str | None = payload.get("catalogId")
+        if "event" in payload:
+            event_payload = payload["event"]
+        elif "functionCall" in payload:
+            event_payload = payload["functionCall"]
 
-        action_event = {
-            "name": event_payload.get("name", event_payload.get("call", "")),
+        event_dict = event_payload if isinstance(event_payload, dict) else {}
+        name = event_dict.get("name", event_dict.get("call", ""))
+        if not name or not isinstance(name, str):
+            return
+
+        if not catalog_id:
+            catalog_id = event_dict.get("catalogId")
+
+        raw_context = event_dict.get("context", event_dict.get("args", {}))
+        context = raw_context if isinstance(raw_context, dict) else {}
+
+        action_event: dict[str, Any] = {
+            "name": name,
             "surfaceId": self.id,
             "sourceComponentId": source_component_id,
             "timestamp": (
@@ -65,15 +98,35 @@ class SurfaceModel:
                 .isoformat()
                 .replace("+00:00", "Z")
             ),
-            "context": event_payload.get("context", event_payload.get("args", {})),
+            "context": context,
         }
+        if catalog_id and isinstance(catalog_id, str):
+            action_event["catalogId"] = catalog_id
+        user_message = event_dict.get("userMessage")
+        if isinstance(user_message, str):
+            action_event["userMessage"] = user_message
+
         self.on_action.emit(action_event)
 
-    def dispatch_error(self, error: Dict[str, Any]) -> None:
+    def dispatch_error(self, error: dict[str, Any]) -> None:
         """Dispatches an error from this surface to listeners."""
+        if not isinstance(error, dict):
+            raise TypeError(
+                f"Expected error payload to be a dict, got {type(error).__name__}"
+            )
         err_payload = copy.deepcopy(error)
         err_payload["surfaceId"] = self.id
         self.on_error.emit(err_payload)
+
+    def dispatch_warning(self, warning: dict[str, Any]) -> None:
+        """Dispatches a non-fatal warning from this surface to listeners."""
+        if not isinstance(warning, dict):
+            raise TypeError(
+                f"Expected warning payload to be a dict, got {type(warning).__name__}"
+            )
+        warn_payload = copy.deepcopy(warning)
+        warn_payload["surfaceId"] = self.id
+        self.on_warning.emit(warn_payload)
 
     def dispose(self) -> None:
         """Disposes of the surface and its resources."""
@@ -97,3 +150,6 @@ class SurfaceModel:
                     RuntimeWarning,
                     stacklevel=2,
                 )
+        self.on_action.dispose()
+        self.on_error.dispose()
+        self.on_warning.dispose()

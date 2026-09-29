@@ -770,6 +770,14 @@ class AudioContent:
 
         # Determine audio source
         audio_source = self.url or self.file_uri or self.base64_data
+        if audio_source == self.base64_data and audio_source and not audio_source.startswith("data:"):
+            # 🚨 Raw base64 is NOT a path. A file_id-only part arrives resolved
+            # as bare base64 (request_normalizer restores base64_data, never a
+            # url), and handed on as-is, stt.prepare_audio_file read it as a
+            # file name: "File name too long", caught, and the voice memo a
+            # person texted was skipped with one log line (2026-09-28). As a
+            # data URI it carries its own container type too.
+            audio_source = f"data:{self.mime_type or 'audio/wav'};base64,{audio_source}"
         if not audio_source:
             vcprint("No audio source available for transcription", color="yellow")
             return None

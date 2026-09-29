@@ -19,6 +19,8 @@ from arthur_client.api_bindings.models.agent_creation_source import AgentCreatio
 from arthur_client.api_bindings.models.agent_metadata import AgentMetadata
 from arthur_client.api_bindings.models.agent_metadata_response import AgentMetadataResponse
 from arthur_client.api_bindings.models.agent_observations import AgentObservations
+from arthur_client.api_bindings.models.agent_registration_response import AgentRegistrationResponse
+from arthur_client.api_bindings.models.agent_registration_status import AgentRegistrationStatus
 from arthur_client.api_bindings.models.agent_response import AgentResponse
 from arthur_client.api_bindings.models.agent_sort import AgentSort
 from arthur_client.api_bindings.models.aggregation_kind import AggregationKind
@@ -60,6 +62,7 @@ from arthur_client.api_bindings.models.bound_member_kind import BoundMemberKind
 from arthur_client.api_bindings.models.bound_resource import BoundResource
 from arthur_client.api_bindings.models.bound_resource_kind import BoundResourceKind
 from arthur_client.api_bindings.models.bound_role import BoundRole
+from arthur_client.api_bindings.models.bulk_unregistered_agents_response import BulkUnregisteredAgentsResponse
 from arthur_client.api_bindings.models.cloud_agent_creation_source import CloudAgentCreationSource
 from arthur_client.api_bindings.models.compliance_alert_rule_results import ComplianceAlertRuleResults
 from arthur_client.api_bindings.models.compliance_alert_summary import ComplianceAlertSummary
@@ -248,6 +251,7 @@ from arthur_client.api_bindings.models.model_problem_type import ModelProblemTyp
 from arthur_client.api_bindings.models.model_provider import ModelProvider
 from arthur_client.api_bindings.models.model_summary import ModelSummary
 from arthur_client.api_bindings.models.models_sort import ModelsSort
+from arthur_client.api_bindings.models.mute_unregistered_agents_request import MuteUnregisteredAgentsRequest
 from arthur_client.api_bindings.models.new_metric_request import NewMetricRequest
 from arthur_client.api_bindings.models.new_rule_request import NewRuleRequest
 from arthur_client.api_bindings.models.non_compliant_alert_rule_status import NonCompliantAlertRuleStatus
@@ -380,6 +384,7 @@ from arthur_client.api_bindings.models.put_task_state_cache_request import PutTa
 from arthur_client.api_bindings.models.reasoning_effort_enum import ReasoningEffortEnum
 from arthur_client.api_bindings.models.regenerate_task_validation_key_job_spec import RegenerateTaskValidationKeyJobSpec
 from arthur_client.api_bindings.models.regex_config import RegexConfig
+from arthur_client.api_bindings.models.register_unregistered_agent_request import RegisterUnregisteredAgentRequest
 from arthur_client.api_bindings.models.register_user import RegisterUser
 from arthur_client.api_bindings.models.registered_agent_provider import RegisteredAgentProvider
 from arthur_client.api_bindings.models.rejected_agent import RejectedAgent
@@ -424,6 +429,7 @@ from arthur_client.api_bindings.models.resource_list_role import ResourceListRol
 from arthur_client.api_bindings.models.resource_list_role_binding import ResourceListRoleBinding
 from arthur_client.api_bindings.models.resource_list_sub_agent import ResourceListSubAgent
 from arthur_client.api_bindings.models.resource_list_tool import ResourceListTool
+from arthur_client.api_bindings.models.resource_list_unregistered_agent_action_response import ResourceListUnregisteredAgentActionResponse
 from arthur_client.api_bindings.models.resource_list_user import ResourceListUser
 from arthur_client.api_bindings.models.resource_list_webhook import ResourceListWebhook
 from arthur_client.api_bindings.models.resource_list_workspace import ResourceListWorkspace
@@ -469,6 +475,10 @@ from arthur_client.api_bindings.models.toxicity_config import ToxicityConfig
 from arthur_client.api_bindings.models.trace_transform_definition import TraceTransformDefinition
 from arthur_client.api_bindings.models.trace_transform_response import TraceTransformResponse
 from arthur_client.api_bindings.models.trace_transform_variable_definition import TraceTransformVariableDefinition
+from arthur_client.api_bindings.models.unmute_unregistered_agents_request import UnmuteUnregisteredAgentsRequest
+from arthur_client.api_bindings.models.unregistered_agent_action import UnregisteredAgentAction
+from arthur_client.api_bindings.models.unregistered_agent_action_response import UnregisteredAgentActionResponse
+from arthur_client.api_bindings.models.unregistered_agent_filter import UnregisteredAgentFilter
 from arthur_client.api_bindings.models.update_model_task_rules_job_spec import UpdateModelTaskRulesJobSpec
 from arthur_client.api_bindings.models.upsolve_token import UpsolveToken
 from arthur_client.api_bindings.models.user import User

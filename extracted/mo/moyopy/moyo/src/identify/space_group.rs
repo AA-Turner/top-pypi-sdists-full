@@ -6,8 +6,8 @@ use serde::Serialize;
 
 use super::point_group::PointGroup;
 use crate::base::{
-    Lattice, MoyoError, Operations, OriginShift, UnimodularLinear, UnimodularTransformation,
-    project_rotations,
+    Lattice, MoyoError, Operations, OriginShift, ProperUnimodularTransformation, UnimodularLinear,
+    UnimodularTransformation, project_rotations,
 };
 use crate::data::{
     ArithmeticNumber, GeometricCrystalClass, HallNumber, HallSymbol, Number,
@@ -25,6 +25,8 @@ pub struct SpaceGroup {
 
 impl SpaceGroup {
     /// Identify the space group from the primitive operations.
+    /// Operations must use a reduced primitive basis with a right-handed reference
+    /// orientation. Use [`Self::from_lattice`] when the input lattice is available.
     /// epsilon: tolerance for comparing translation parts
     pub fn new(
         prim_operations: &Operations,
@@ -62,7 +64,11 @@ impl SpaceGroup {
                     return Ok(Self {
                         number: entry.number,
                         hall_number,
-                        transformation: UnimodularTransformation::new(trans_mat, origin_shift),
+                        transformation: ProperUnimodularTransformation::new(
+                            trans_mat,
+                            origin_shift,
+                        )
+                        .into(),
                     });
                 }
             }
@@ -71,6 +77,11 @@ impl SpaceGroup {
         Err(MoyoError::SpaceGroupTypeIdentificationError)
     }
 
+    /// Identify primitive operations expressed in either handedness.
+    ///
+    /// The returned `(P, p)` maps the original input to the database primitive
+    /// setting: `A_db = A_input P` and `x_db = P^-1 (x_input - p)`.
+    /// Its determinant has the sign of the input basis determinant.
     pub fn from_lattice(
         lattice: &Lattice,
         prim_operations: &Operations,
@@ -85,7 +96,8 @@ impl SpaceGroup {
         Ok(SpaceGroup {
             number: reduced_space_group.number,
             hall_number: reduced_space_group.hall_number,
-            transformation: reduced_space_group.transformation * to_reduced,
+            // A_db = (A_input T) P; the reduced-basis origin shift also maps through T.
+            transformation: to_reduced * reduced_space_group.transformation,
         })
     }
 

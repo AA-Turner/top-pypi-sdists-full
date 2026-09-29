@@ -548,6 +548,8 @@ from .type_defs import (
     DeleteCapacityManagerDataExportResultTypeDef,
     DeleteCarrierGatewayRequestTypeDef,
     DeleteCarrierGatewayResultTypeDef,
+    DeleteClientVpnEndpointAuthorizationPolicyRequestTypeDef,
+    DeleteClientVpnEndpointAuthorizationPolicyResultTypeDef,
     DeleteClientVpnEndpointRequestTypeDef,
     DeleteClientVpnEndpointResultTypeDef,
     DeleteClientVpnRouteRequestTypeDef,
@@ -1285,6 +1287,8 @@ from .type_defs import (
     GetCapacityManagerMonitoredTagKeysResultTypeDef,
     GetCapacityReservationUsageRequestTypeDef,
     GetCapacityReservationUsageResultTypeDef,
+    GetClientVpnEndpointAuthorizationPolicyRequestTypeDef,
+    GetClientVpnEndpointAuthorizationPolicyResultTypeDef,
     GetCoipPoolUsageRequestTypeDef,
     GetCoipPoolUsageResultTypeDef,
     GetConsoleOutputRequestTypeDef,
@@ -1454,6 +1458,8 @@ from .type_defs import (
     ModifyCapacityReservationFleetResultTypeDef,
     ModifyCapacityReservationRequestTypeDef,
     ModifyCapacityReservationResultTypeDef,
+    ModifyClientVpnEndpointAuthorizationPolicyRequestTypeDef,
+    ModifyClientVpnEndpointAuthorizationPolicyResultTypeDef,
     ModifyClientVpnEndpointRequestTypeDef,
     ModifyClientVpnEndpointResultTypeDef,
     ModifyDefaultCreditSpecificationRequestTypeDef,
@@ -3690,6 +3696,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_client_vpn_endpoint.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#delete_client_vpn_endpoint)
+        """
+
+    def delete_client_vpn_endpoint_authorization_policy(
+        self, **kwargs: Unpack[DeleteClientVpnEndpointAuthorizationPolicyRequestTypeDef]
+    ) -> DeleteClientVpnEndpointAuthorizationPolicyResultTypeDef:
+        """
+        Deletes the authorization policy for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_client_vpn_endpoint_authorization_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#delete_client_vpn_endpoint_authorization_policy)
         """
 
     def delete_client_vpn_route(
@@ -7617,6 +7633,16 @@ class EC2Client(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_capacity_reservation_usage)
         """
 
+    def get_client_vpn_endpoint_authorization_policy(
+        self, **kwargs: Unpack[GetClientVpnEndpointAuthorizationPolicyRequestTypeDef]
+    ) -> GetClientVpnEndpointAuthorizationPolicyResultTypeDef:
+        """
+        Describes the authorization policy for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_client_vpn_endpoint_authorization_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_client_vpn_endpoint_authorization_policy)
+        """
+
     def get_coip_pool_usage(
         self, **kwargs: Unpack[GetCoipPoolUsageRequestTypeDef]
     ) -> GetCoipPoolUsageResultTypeDef:
@@ -8496,6 +8522,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_client_vpn_endpoint.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_client_vpn_endpoint)
+        """
+
+    def modify_client_vpn_endpoint_authorization_policy(
+        self, **kwargs: Unpack[ModifyClientVpnEndpointAuthorizationPolicyRequestTypeDef]
+    ) -> ModifyClientVpnEndpointAuthorizationPolicyResultTypeDef:
+        """
+        Creates or updates the authorization policy for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_client_vpn_endpoint_authorization_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_client_vpn_endpoint_authorization_policy)
         """
 
     def modify_default_credit_specification(

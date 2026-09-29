@@ -391,10 +391,12 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                         else:
                             select_col_names.append(str(col_exp))
 
+                # Column identity ignores case, so a case-only "rename" would add a node
+                # equal to the old one and then remove it, dropping its lineage
                 col_name_mapping = {
                     src: custom
                     for src, custom in zip(select_col_names, custom_col_names)
-                    if src != custom
+                    if src.lower() != custom.lower()
                 }
 
                 if col_name_mapping:

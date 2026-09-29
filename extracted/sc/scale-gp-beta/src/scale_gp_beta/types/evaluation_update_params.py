@@ -24,7 +24,7 @@ class EvaluationPartialEvaluationUpdateRequest(TypedDict, total=False):
     name: str
 
     tags: SequenceNotStr[str]
-    """The tags associated with the entity"""
+    """The tags associated with the evaluation"""
 
 
 Evaluation: TypeAlias = Union[EvaluationPartialEvaluationUpdateRequest, RestoreRequestParam]

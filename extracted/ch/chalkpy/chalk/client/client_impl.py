@@ -1305,6 +1305,9 @@ class ChalkAPIClientImpl(ChalkClient):
         }
         if additional_headers:
             self._default_headers.update(additional_headers)
+        # Captured before any exchange: the client later writes its own minted token
+        # into `_default_headers`, which must not read as caller-managed auth.
+        self._caller_supplied_authorization = any(k.lower() == "authorization" for k in (additional_headers or {}))
 
         self._primary_environment: EnvironmentId | None = environment
 
@@ -1813,7 +1816,7 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
         return host or "https://api.chalk.ai"
 
     def _has_authorization_header(self) -> bool:
-        return "Authorization" in self._default_headers or "authorization" in self._default_headers
+        return self._caller_supplied_authorization
 
     def _request(
         self,
@@ -6934,6 +6937,7 @@ https://docs.chalk.ai/cli/apply
         workflow_id: Optional[str] = None,
         environment: Optional[EnvironmentId] = None,
         wait: bool = False,
+        task_queue: Optional[str] = None,
     ) -> Union[WorkflowRunHandle, Any]:
         from chalk.workflows import _remote
 
@@ -6945,7 +6949,7 @@ https://docs.chalk.ai/cli/apply
             bearer_token=bearer_token,
             environment_id=environment_id,
             workflow_id=workflow_id,
-            task_queue=None,
+            task_queue=task_queue,
             wait=wait,
         )
 

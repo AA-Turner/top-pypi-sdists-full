@@ -1,5 +1,6 @@
 """FastMCP entrypoint for the Airbyte Ops Webapp."""
 
+from airbyte_ops_mcp._sentry import init_sentry_tracking
 from fastmcp import FastMCP
 
 from airbyte_ops_webapp.auth.oauth import register_oauth_routes
@@ -19,6 +20,13 @@ from airbyte_ops_webapp.pages.platform_admin.data_worker_allocation.page import 
     register_data_worker_allocation_app,
 )
 from airbyte_ops_webapp.pages.platform_admin.page import register_platform_admin_app
+
+# `serve.py` loads this module in a separate backend process, and that is the
+# process that runs the Prod DB Replica queries. Initializing here is what makes
+# webapp DB spans and swallowed-query errors visible at all; the host process
+# initializes separately in `serve.main`. `"mcp"` mode roots each trace at the
+# `mcp.server` tool-call transaction rather than the `/mcp` HTTP request.
+init_sentry_tracking(mode="mcp")
 
 mcp = FastMCP("Airbyte Ops Webapp")
 register_oauth_routes(mcp)

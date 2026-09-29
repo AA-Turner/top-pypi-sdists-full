@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1054
+Version: 0.4.1057
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -20,7 +20,7 @@ License-File: LICENSE
 Requires-Dist: boruta>=0.4.3
 Requires-Dist: catboost>=1.2.8
 Requires-Dist: fiona
-Requires-Dist: gdal>=3.10
+Requires-Dist: gdal>=3.8
 Requires-Dist: pyproj
 Requires-Dist: rasterio
 Requires-Dist: rtree
@@ -41,6 +41,7 @@ Requires-Dist: tabicl>=2.0.2
 Requires-Dist: statsmodels>=0.14.6
 Requires-Dist: palettable>=3.3.3
 Requires-Dist: seaborn>=0.13.2
+Requires-Dist: pygmt>=0.14
 Requires-Dist: scikit-misc>=0.5.2
 Requires-Dist: setuptools<81
 Requires-Dist: choix>=0.3.4
@@ -901,6 +902,20 @@ Use `--experiment-name outlook` for databases written by `yield_outlook`
 `[ML] export_predictions_csv = True` to have each run export its own database
 automatically at the end; because each process owns one database, a per-fold run
 produces one CSV per fold and the CLI is what merges them.
+
+Two optional quality filters, both off by default so the raw model output is
+what you get unless you ask otherwise:
+
+- `--min-observed-years N` drops regions with fewer than N distinct years of
+  *reported* yield. `1` drops regions that have none at all — the model is
+  extrapolating into a place it has never seen a number for, and a forecast
+  there can never be validated.
+- `--nullify-negative-predictions` blanks a negative (physically impossible)
+  predicted yield while keeping the row and its observed value, so the
+  region-year stays visible instead of silently vanishing.
+
+The auto-export reads the same two settings from `[ML]
+export_min_observed_years` and `[ML] export_nullify_negative_predictions`.
 
 Regions absent from the boundary file are reported and dropped; if none match at
 all the command fails rather than writing an empty file.

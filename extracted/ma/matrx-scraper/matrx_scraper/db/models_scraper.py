@@ -27,7 +27,7 @@ class ScrapeDomain(MatrxEntity):
     _is_versioned = False
     _has_soft_delete = False
     _is_org_scoped = False
-    _rls_variant = "system"
+    _rls_variant = "reference"
 
 class ScrapeFailureLog(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -102,6 +102,9 @@ class ScrapeParsedPage(MatrxEntity):
     custom_fields = JSONBField(null=False, default={})
     deleted_at = DateTimeField()
     shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "scrape_parsed_page"
@@ -127,7 +130,7 @@ class ScrapeDomainSettings(MatrxEntity):
     _is_versioned = False
     _has_soft_delete = False
     _is_org_scoped = False
-    _rls_variant = "system"
+    _rls_variant = "reference"
 
 class ScrapePathPattern(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -151,7 +154,7 @@ class ScrapePathPattern(MatrxEntity):
     _is_versioned = False
     _has_soft_delete = False
     _is_org_scoped = False
-    _rls_variant = "system"
+    _rls_variant = "reference"
 
 class ScrapeRetryQueue(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -198,7 +201,7 @@ class ScrapePathOverride(MatrxEntity):
     _is_versioned = False
     _has_soft_delete = False
     _is_org_scoped = False
-    _rls_variant = "system"
+    _rls_variant = "reference"
 
 __all__ = [
     "ScrapeDomain",

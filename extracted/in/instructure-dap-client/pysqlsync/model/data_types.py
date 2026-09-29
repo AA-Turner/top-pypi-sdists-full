@@ -6,6 +6,7 @@ Copyright 2023-2026, Levente Hunyadi; 2026 Instructure, Inc.
 :see: https://github.com/instructure-internal/pysqlsync
 """
 
+import copy
 import datetime
 import decimal
 from dataclasses import dataclass
@@ -387,10 +388,14 @@ def _compatible_type(left: SqlDataType, right: SqlDataType) -> SqlDataType:
         if isinstance(right, SqlFixedCharacterType):
             return type(left)(limit=max_or_none(left.limit, right.limit))
         elif isinstance(right, SqlVariableCharacterType):
-            return type(right)(limit=max_or_none(left.limit, right.limit))
+            merged = copy.copy(right)
+            merged.limit = max_or_none(left.limit, right.limit)
+            return merged
     elif isinstance(left, SqlVariableCharacterType):
         if isinstance(right, (SqlFixedCharacterType, SqlVariableCharacterType)):
-            return type(left)(limit=max_or_none(left.limit, right.limit))
+            merged = copy.copy(left)
+            merged.limit = max_or_none(left.limit, right.limit)
+            return merged
 
     # binary types
     if isinstance(left, SqlFixedBinaryType):

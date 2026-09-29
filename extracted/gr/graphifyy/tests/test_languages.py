@@ -3299,6 +3299,46 @@ def test_markdown_wikilink_fallback_unicode_normalization(tmp_path):
                for e in refs), f"NFD wikilink missed the NFC file: {refs}"
 
 
+def test_markdown_wikilink_index_prunes_ignored_directories(tmp_path, monkeypatch):
+    """#3822: _build_link_index must prune directories and files matched by
+    .graphifyignore/.gitignore, preventing both 50+ min directory walks on
+    large ignored trees and wikilinks erroneously resolving into ignored files."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / ".graphifyignore").write_text("bigdata/\nsecret.md\n", encoding="utf-8")
+
+    (vault / "notes").mkdir()
+    (vault / "notes" / "hub.md").write_text("# Hub\nSee [[target]] and [[secret]].\n", encoding="utf-8")
+    (vault / "notes" / "target.md").write_text("# Target\n", encoding="utf-8")
+
+    (vault / "bigdata").mkdir()
+    (vault / "bigdata" / "sub").mkdir()
+    (vault / "bigdata" / "sub" / "secret.md").write_text("# Secret in bigdata\n", encoding="utf-8")
+
+    import os
+    visited = []
+    real_walk = os.walk
+
+    def spy_walk(top, *args, **kwargs):
+        for dirpath, dirnames, filenames in real_walk(top, *args, **kwargs):
+            visited.append(os.path.relpath(dirpath, str(vault)))
+            yield dirpath, dirnames, filenames
+
+    monkeypatch.setattr(os, "walk", spy_walk)
+
+    node_ids, refs, page_id = _vault_extract(
+        vault, [vault / "notes" / "hub.md", vault / "notes" / "target.md"]
+    )
+
+    bigdata_walked = [v for v in visited if v.startswith("bigdata")]
+    assert not bigdata_walked, f"ignored directory descended during index walk: {bigdata_walked}"
+
+    hub_id = page_id(vault / "notes" / "hub.md")
+    target_id = page_id(vault / "notes" / "target.md")
+    assert any(e["source"] == hub_id and e["target"] == target_id for e in refs), f"valid target link lost: {refs}"
+    assert not any("bigdata" in e["target"] for e in refs), f"wikilink resolved into ignored path: {refs}"
+
+
 # ── Groovy ───────────────────────────────────────────────────────────────────
 
 
@@ -3365,6 +3405,44 @@ def test_groovy_implements_edge():
         for e in r["edges"] if e["relation"] == "implements"
     )
     assert found, "ExtendedService should have implements edge to Resettable"
+
+
+def test_groovy_enum_and_constants_are_extracted(tmp_path):
+    """A Groovy `enum` must become a type node with a `case_of` edge per member.
+
+    `enum_declaration` was absent from the Groovy config's class_types, so the
+    enum type — and every constant it declared — was dropped entirely, leaving
+    consumers with no way to see which value a branch selects.
+    """
+    src = tmp_path / "cards.groovy"
+    src.write_text(
+        "enum Suit { HEARTS, SPADES, CLUBS, DIAMONDS }\n"
+        "class Deck {}\n"
+    )
+    r = extract_groovy(src)
+    assert "error" not in r
+    labels = _labels(r)
+    assert "Suit" in labels, "enum type dropped"
+    cases = {
+        (node_id_label(r, e["source"]), node_id_label(r, e["target"]))
+        for e in r["edges"] if e["relation"] == "case_of"
+    }
+    assert {("Suit", "HEARTS"), ("Suit", "SPADES"),
+            ("Suit", "CLUBS"), ("Suit", "DIAMONDS")} <= cases
+    # constants hang off the enum, not the file
+    file_nid = next(n["id"] for n in r["nodes"] if n["label"] == "cards.groovy")
+    lab = {n["id"]: n["label"] for n in r["nodes"]}
+    assert not [
+        e for e in r["edges"]
+        if e["source"] == file_nid and lab.get(e["target"]) == "HEARTS"
+    ]
+
+
+def node_id_label(r, nid):
+    for n in r["nodes"]:
+        if n["id"] == nid:
+            return n["label"]
+    return nid
 
 
 def test_groovy_spock_finds_class():

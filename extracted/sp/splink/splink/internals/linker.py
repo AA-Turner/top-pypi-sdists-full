@@ -4,7 +4,7 @@ import logging
 from copy import copy, deepcopy
 from pathlib import Path
 from statistics import median
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from splink.internals.blocking import (
     BlockingRule,
@@ -14,14 +14,13 @@ from splink.internals.cache_dict_with_logging import CacheDictWithLogging
 from splink.internals.comparison_vector_values import (
     compute_comparison_vector_values_from_id_pairs_sqls,
 )
-from splink.internals.database_api import AcceptableInputTableType, DatabaseAPISubClass
 from splink.internals.dialects import SplinkDialect
 from splink.internals.em_training_session import EMTrainingSession
 from splink.internals.exceptions import SplinkException
-from splink.internals.find_brs_with_comparison_counts_below_threshold import (
-    find_blocking_rules_below_threshold_comparison_count,
-)
 from splink.internals.input_column import InputColumn
+from splink.internals.linker_components.blocking_analysis import (
+    LinkerBlockingAnalysis,
+)
 from splink.internals.linker_components.clustering import LinkerClustering
 from splink.internals.linker_components.evaluation import LinkerEvalution
 from splink.internals.linker_components.inference import LinkerInference
@@ -32,10 +31,8 @@ from splink.internals.linker_components.visualisations import LinkerVisualisatio
 from splink.internals.misc import (
     ascii_uid,
     bayes_factor_to_prob,
-    ensure_is_list,
     prob_to_bayes_factor,
 )
-from splink.internals.optimise_cost_of_brs import suggest_blocking_rules
 from splink.internals.pipeline import CTEPipeline
 from splink.internals.predict import (
     predict_from_comparison_vectors_sqls,
@@ -49,12 +46,18 @@ from splink.internals.settings_validation.valid_types import (
     _validate_dialect,
 )
 from splink.internals.splink_dataframe import SplinkDataFrame
+from splink.internals.splink_logging import enable as enable_logging
+from splink.internals.splinkdataframe_utils import (
+    get_db_api_from_inputs,
+    splink_dataframes_to_dict,
+)
 from splink.internals.unique_id_concat import (
     _composite_unique_id_from_edges_sql,
 )
 from splink.internals.vertically_concatenate import (
-    compute_df_concat_with_tf,
     concat_table_column_names,
+    enqueue_df_concat,
+    enqueue_df_concat_with_tf,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,11 +76,9 @@ class Linker:
 
     def __init__(
         self,
-        input_table_or_tables: str | list[str],
+        splink_dataframe_or_dataframes: SplinkDataFrame | Sequence[SplinkDataFrame],
         settings: SettingsCreator | dict[str, Any] | Path | str,
-        db_api: DatabaseAPISubClass,
-        set_up_basic_logging: bool = True,
-        input_table_aliases: str | list[str] | None = None,
+        log_level: int | str | None = logging.INFO,
         validate_settings: bool = True,
     ):
         """
@@ -88,55 +89,44 @@ class Linker:
 
             Dedupe
             ```py
-            linker = Linker(df, settings_dict, db_api)
+            linker = Linker(df, settings_dict)
             ```
             Link
             ```py
-            df_1 = pd.read_parquet("table_1/")
-            df_2 = pd.read_parquet("table_2/")
+            df_1 = db_api.register(pd.read_parquet("table_1/"))
+            df_2 = db_api.register(pd.read_parquet("table_2/"))
             linker = Linker(
                 [df_1, df_2],
                 settings_dict,
-                input_table_aliases=["customers", "contact_center_callers"]
                 )
             ```
             Dedupe with a pre-trained model read from a json file
             ```py
-            df = pd.read_csv("data_to_dedupe.csv")
+            df = db_api.register(
+                pd.read_csv("data_to_dedupe.csv"), dataset_display_name="my_data"
+            )
             linker = Linker(df, "model.json")
             ```
 
         Args:
-            input_table_or_tables (Union[str, list]): Input data into the linkage model.
-                Either a single string (the name of a table in a database) for
-                deduplication jobs, or a list of strings  (the name of tables in a
-                database) for link_only or link_and_dedupe.  For some linkers, such as
-                the DuckDBLinker and the SparkLinker, it's also possible to pass in
-                dataframes (Pandas and Spark respectively) rather than strings.
+            splink_dataframe_or_dataframes (SplinkDataFrame | Sequence[SplinkDataFrame]):
+                Input data into the linkage model. Either a single SplinkDataFrame for
+                deduplication jobs, or a sequence of SplinkDataFrames for link_only
+                or link_and_dedupe. Tables should be registered using db_api.register()
+                before being passed to the Linker.
             settings_dict (dict | Path | str): A Splink settings dictionary,
                 or a path (either as a pathlib.Path object, or a string) to a json file
                 defining a settings dictionary or pre-trained model.
-            db_api (DatabaseAPI): A `DatabaseAPI` object, which manages interactions
-                with the database. You can import these for use from
-                `splink.backends.{your_backend}`
-            set_up_basic_logging (bool, optional): If true, sets ups up basic logging
-                so that Splink sends messages at INFO level to stdout. Defaults to True.
-            input_table_aliases (Union[str, list], optional): Labels assigned to
-                input tables in Splink outputs.  If the names of the tables in the
-                input database are long or unspecific, this argument can be used
-                to attach more easily readable/interpretable names. Defaults to None.
+            log_level (int | str | None, optional): Logging level for Splink messages.
+                Defaults to logging.INFO. If None, Splink logging is not configured.
             validate_settings (bool, optional): When True, check your settings
                 dictionary for any potential errors that may cause splink to fail.
-        """
+        """  # noqa: E501
         self._db_schema = "splink"
-        if set_up_basic_logging:
-            logging.basicConfig(
-                format="%(message)s",
-            )
-            splink_logger = logging.getLogger("splink")
-            splink_logger.setLevel(logging.INFO)
+        if log_level is not None:
+            enable_logging(log_level)
 
-        self._db_api = db_api
+        self._db_api = get_db_api_from_inputs(splink_dataframe_or_dataframes)
 
         # TODO: temp hack for compat
         self._intermediate_table_cache: CacheDictWithLogging = (
@@ -158,15 +148,14 @@ class Linker:
         # Maybe overwrite it here and incompatibilities have to be dealt with
         # by comparisons/ blocking rules etc??
         self._settings_obj = settings_creator.get_settings(
-            db_api.sql_dialect.sql_dialect_str
+            self._db_api.sql_dialect.sql_dialect_str
         )
 
         # TODO: Add test of what happens if the db_api is for a different backend
         # to the sql_dialect set in the settings dict
 
-        self._input_tables_dict = self._register_input_tables(
-            input_table_or_tables,
-            input_table_aliases,
+        self._input_tables_dict = splink_dataframes_to_dict(
+            splink_dataframe_or_dataframes
         )
 
         self._validate_input_dfs()
@@ -175,6 +164,7 @@ class Linker:
 
         self._debug_mode = False
 
+        self.blocking_analysis: "LinkerBlockingAnalysis" = LinkerBlockingAnalysis(self)
         self.clustering: "LinkerClustering" = LinkerClustering(self)
         self.evaluation: "LinkerEvalution" = LinkerEvalution(self)
         self.inference: "LinkerInference" = LinkerInference(self)
@@ -291,35 +281,14 @@ class Linker:
     def _sql_dialect(self) -> SplinkDialect:
         return self._db_api.sql_dialect
 
-    @property
-    def _infinity_expression(self):
-        return self._sql_dialect.infinity_expression
-
-    def _random_sample_sql(
-        self, proportion, sample_size, seed=None, table=None, unique_id=None
-    ):
-        return self._sql_dialect.random_sample_sql(
-            proportion, sample_size, seed=seed, table=table, unique_id=unique_id
-        )
-
-    def _register_input_tables(
+    def _proportion_sample_sql(
         self,
-        input_tables: Sequence[AcceptableInputTableType],
-        input_aliases: Optional[str | List[str]],
-    ) -> Dict[str, SplinkDataFrame]:
-        input_tables_list = ensure_is_list(input_tables)
-
-        if input_aliases is None:
-            input_table_aliases = [
-                f"__splink__input_table_{i}" for i, _ in enumerate(input_tables_list)
-            ]
-            overwrite = True
-        else:
-            input_table_aliases = ensure_is_list(input_aliases)
-            overwrite = False
-
-        return self._db_api.register_multiple_tables(
-            input_tables, input_table_aliases, overwrite
+        proportion: float,
+        unique_id_cols: list[InputColumn],
+        seed: int | None = None,
+    ) -> str:
+        return self._sql_dialect.proportion_sample_sql(
+            proportion, unique_id_cols, seed=seed
         )
 
     def _check_for_valid_settings(self):
@@ -387,7 +356,7 @@ class Linker:
                 "You have called predict(), but there are some parameter "
                 "estimates which have neither been estimated or specified in your "
                 "settings dictionary.  To produce predictions the following"
-                " untrained trained parameters will use default values."
+                " untrained parameters will use default values."
             )
             messages = self._settings_obj._not_trained_messages()
 
@@ -469,7 +438,7 @@ class Linker:
                     (
                         "This estimate of probability two random records match now: "
                         f" {as_prob:,.3f} "
-                        f"with reciprocal {(1/as_prob):,.3f}"
+                        f"with reciprocal {(1 / as_prob):,.3f}"
                     ),
                 )
             logger.log(15, "\n---------")
@@ -484,7 +453,7 @@ class Linker:
             "\nMedian of prop of matches estimates: "
             f"{self._settings_obj._probability_two_random_records_match:,.3f} "
             "reciprocal "
-            f"{1/self._settings_obj._probability_two_random_records_match:,.3f}",
+            f"{1 / self._settings_obj._probability_two_random_records_match:,.3f}",
         )
 
     def _populate_m_u_from_trained_values(self):
@@ -541,13 +510,11 @@ class Linker:
         )
 
         pipeline = CTEPipeline()
-        nodes_with_tf = compute_df_concat_with_tf(self, pipeline)
-
-        pipeline = CTEPipeline([nodes_with_tf])
+        enqueue_df_concat(self, pipeline)
 
         sqls = block_using_rules_sqls(
-            input_tablename_l="__splink__df_concat_with_tf",
-            input_tablename_r="__splink__df_concat_with_tf",
+            input_tablename_l="__splink__df_concat",
+            input_tablename_r="__splink__df_concat",
             blocking_rules=[blocking_rule],
             link_type="self_link",
             source_dataset_input_column=settings.column_info_settings.source_dataset_input_column,
@@ -557,7 +524,8 @@ class Linker:
 
         blocked_pairs = self._db_api.sql_pipeline_to_splink_dataframe(pipeline)
 
-        pipeline = CTEPipeline([blocked_pairs, nodes_with_tf])
+        pipeline = CTEPipeline([blocked_pairs])
+        enqueue_df_concat_with_tf(self, pipeline)
 
         sqls = compute_comparison_vector_values_from_id_pairs_sqls(
             settings._columns_to_select_for_blocking,
@@ -573,7 +541,6 @@ class Linker:
             unique_id_input_columns=uid_cols,
             core_model_settings=self._settings_obj.core_model_settings,
             sql_dialect=self._sql_dialect,
-            sql_infinity_expression=self._infinity_expression,
         )
         for sql_info in sql_infos:
             output_table_name = sql_info["output_table_name"]
@@ -598,172 +565,3 @@ class Linker:
                 " in the input database"
             )
         return labels_tablename
-
-    def _find_blocking_rules_below_threshold(
-        self, max_comparisons_per_rule, blocking_expressions=None, max_results=None
-    ):
-        return find_blocking_rules_below_threshold_comparison_count(
-            self, max_comparisons_per_rule, blocking_expressions, max_results
-        )
-
-    def _detect_blocking_rules_for_prediction(
-        self,
-        max_comparisons_per_rule,
-        blocking_expressions=None,
-        min_freedom=1,
-        num_runs=200,
-        num_equi_join_weight=0,
-        field_freedom_weight=1,
-        num_brs_weight=10,
-        num_comparison_weight=10,
-        return_as_df=False,
-    ):
-        """Find blocking rules for prediction below some given threshold of the
-        maximum number of comparisons that can be generated per blocking rule
-        (max_comparisons_per_rule).
-        Uses a heuristic cost algorithm to identify the 'best' set of blocking rules
-        Args:
-            max_comparisons_per_rule (int): The maximum number of comparisons that
-                each blocking rule is allowed to generate
-            blocking_expressions: By default, blocking rules will be equi-joins
-                on the columns used by the Splink model.  This allows you to manually
-                specify sql expressions from which combinations will be created. For
-                example, if you specify ["substr(dob, 1,4)", "surname", "dob"]
-                blocking rules will be chosen by blocking on combinations
-                of those expressions.
-            min_freedom (int, optional): The minimum amount of freedom any column should
-                be allowed.
-            num_runs (int, optional): Each run selects rows using a heuristic and costs
-                them. The more runs, the more likely you are to find the best rule.
-                Defaults to 5.
-            num_equi_join_weight (int, optional): Weight allocated to number of equi
-                joins in the blocking rules.
-                Defaults to 0 since this is cost better captured by other criteria.
-            field_freedom_weight (int, optional): Weight given to the cost of
-                having individual fields which don't havem much flexibility.  Assigning
-                a high weight here makes it more likely you'll generate combinations of
-                blocking rules for which most fields are allowed to vary more than
-                the minimum. Defaults to 1.
-            num_brs_weight (int, optional): Weight assigned to the cost of
-                additional blocking rules.  Higher weight here will result in a
-                 preference for fewer blocking rules. Defaults to 10.
-            num_comparison_weight (int, optional): Weight assigned to the cost of
-                larger numbers of comparisons, which happens when more of the blocking
-                rules are close to the max_comparisons_per_rule.  A higher
-                 weight here prefers sets of rules which generate lower total
-                comparisons. Defaults to 10.
-            return_as_df (bool, optional): If false, assign recommendation to settings.
-                If true, return a dataframe containing details of the weights.
-                Defaults to False.
-        """
-
-        df_br_below_thres = find_blocking_rules_below_threshold_comparison_count(
-            self, max_comparisons_per_rule, blocking_expressions
-        )
-
-        blocking_rule_suggestions = suggest_blocking_rules(
-            df_br_below_thres,
-            min_freedom=min_freedom,
-            num_runs=num_runs,
-            num_equi_join_weight=num_equi_join_weight,
-            field_freedom_weight=field_freedom_weight,
-            num_brs_weight=num_brs_weight,
-            num_comparison_weight=num_comparison_weight,
-        )
-
-        if return_as_df:
-            return blocking_rule_suggestions
-        else:
-            if blocking_rule_suggestions is None or len(blocking_rule_suggestions) == 0:
-                logger.warning("No set of blocking rules found within constraints")
-            else:
-                suggestion = blocking_rule_suggestions[
-                    "suggested_blocking_rules_as_splink_brs"
-                ].iloc[0]
-                self._settings_obj._blocking_rules_to_generate_predictions = suggestion
-
-                suggestion_str = blocking_rule_suggestions[
-                    "suggested_blocking_rules_for_prediction"
-                ].iloc[0]
-                msg = (
-                    "The following blocking_rules_to_generate_predictions were "
-                    "automatically detected and assigned to your settings:\n"
-                )
-                logger.info(f"{msg}{suggestion_str}")
-
-    def _detect_blocking_rules_for_em_training(
-        self,
-        max_comparisons_per_rule,
-        min_freedom=1,
-        num_runs=200,
-        num_equi_join_weight=0,
-        field_freedom_weight=1,
-        num_brs_weight=20,
-        num_comparison_weight=10,
-        return_as_df=False,
-    ):
-        """Find blocking rules for EM training below some given threshold of the
-        maximum number of comparisons that can be generated per blocking rule
-        (max_comparisons_per_rule).
-        Uses a heuristic cost algorithm to identify the 'best' set of blocking rules
-        Args:
-            max_comparisons_per_rule (int): The maximum number of comparisons that
-                each blocking rule is allowed to generate
-            min_freedom (int, optional): The minimum amount of freedom any column should
-                be allowed.
-            num_runs (int, optional): Each run selects rows using a heuristic and costs
-                them.  The more runs, the more likely you are to find the best rule.
-                Defaults to 5.
-            num_equi_join_weight (int, optional): Weight allocated to number of equi
-                joins in the blocking rules.
-                Defaults to 0 since this is cost better captured by other criteria.
-                Defaults to 0 since this is cost better captured by other criteria.
-            field_freedom_weight (int, optional): Weight given to the cost of
-                having individual fields which don't havem much flexibility.  Assigning
-                a high weight here makes it more likely you'll generate combinations of
-                blocking rules for which most fields are allowed to vary more than
-                the minimum. Defaults to 1.
-            num_brs_weight (int, optional): Weight assigned to the cost of
-                additional blocking rules.  Higher weight here will result in a
-                 preference for fewer blocking rules. Defaults to 10.
-            num_comparison_weight (int, optional): Weight assigned to the cost of
-                larger numbers of comparisons, which happens when more of the blocking
-                rules are close to the max_comparisons_per_rule.  A higher
-                 weight here prefers sets of rules which generate lower total
-                comparisons. Defaults to 10.
-            return_as_df (bool, optional): If false, return just the recommendation.
-                If true, return a dataframe containing details of the weights.
-                Defaults to False.
-        """
-
-        df_br_below_thres = find_blocking_rules_below_threshold_comparison_count(
-            self, max_comparisons_per_rule
-        )
-
-        blocking_rule_suggestions = suggest_blocking_rules(
-            df_br_below_thres,
-            min_freedom=min_freedom,
-            num_runs=num_runs,
-            num_equi_join_weight=num_equi_join_weight,
-            field_freedom_weight=field_freedom_weight,
-            num_brs_weight=num_brs_weight,
-            num_comparison_weight=num_comparison_weight,
-        )
-
-        if return_as_df:
-            return blocking_rule_suggestions
-        else:
-            if blocking_rule_suggestions is None or len(blocking_rule_suggestions) == 0:
-                logger.warning("No set of blocking rules found within constraints")
-                return None
-            else:
-                suggestion_str = blocking_rule_suggestions[
-                    "suggested_EM_training_statements"
-                ].iloc[0]
-                msg = "The following EM training strategy was detected:\n"
-                msg = f"{msg}{suggestion_str}"
-                logger.info(msg)
-                suggestion = blocking_rule_suggestions[
-                    "suggested_blocking_rules_as_splink_brs"
-                ].iloc[0]
-                return suggestion

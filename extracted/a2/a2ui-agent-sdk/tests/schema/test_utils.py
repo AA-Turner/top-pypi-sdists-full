@@ -21,6 +21,9 @@ from a2ui.schema.catalog_provider import A2uiCatalogProvider, FileSystemCatalogP
 from a2ui.schema.common_modifiers import remove_strict_validation
 from a2ui.schema.utils import (
     find_repo_root,
+    get_basic_catalog_path,
+    get_basic_examples_dir,
+    get_spec_dir,
     load_from_bundled_resource,
     wrap_as_json_array,
     deep_update,
@@ -47,7 +50,7 @@ class TestSchemaUtils(unittest.TestCase):
 
     def test_load_from_bundled_resource_missing_key(self):
         """Verifies load_from_bundled_resource raises A2uiCatalogError for missing resource key."""
-        spec_map = {"v1.0": {"s2c": "s2c_path.json"}}
+        spec_map = {"1.0": {"s2c": "s2c_path.json"}}
         with self.assertRaises(A2uiCatalogError) as ctx:
             load_from_bundled_resource(
                 version="v1.0", resource_key="missing_key", spec_map=spec_map
@@ -56,11 +59,49 @@ class TestSchemaUtils(unittest.TestCase):
 
     def test_load_from_bundled_resource_common_types_fallback(self):
         """Verifies load_from_bundled_resource fallback for common_types key."""
-        spec_map = {"v1.0": {"s2c": "s2c_path.json"}}
+        spec_map = {"1.0": {"s2c": "s2c_path.json"}}
         res = load_from_bundled_resource(
             version="v1.0", resource_key="common_types", spec_map=spec_map
         )
         self.assertEqual(res, {})
+
+    def test_load_from_bundled_resource_semver_normalization(self):
+        """Verifies load_from_bundled_resource normalizes various version formats to canonical keys."""
+        spec_map = {"1.0": {"s2c": "s2c_path.json"}}
+        for ver in ["v1_0", "1.0.0", "v1.0", "1.0", "V1.0"]:
+            res = load_from_bundled_resource(
+                version=ver, resource_key="common_types", spec_map=spec_map
+            )
+            self.assertEqual(res, {})
+
+    def test_load_from_bundled_resource_real_schema(self):
+        """Verifies load_from_bundled_resource successfully loads a real schema with version normalization."""
+        from a2ui.schema.constants import PROTOCOL_VERSION_MAP, SERVER_TO_CLIENT_SCHEMA_KEY
+
+        for ver in ["v1_0", "1.0.0", "v1.0", "1.0"]:
+            schema = load_from_bundled_resource(
+                version=ver,
+                resource_key=SERVER_TO_CLIENT_SCHEMA_KEY,
+                spec_map=PROTOCOL_VERSION_MAP,
+            )
+            self.assertIsInstance(schema, dict)
+            self.assertIn("title", schema)
+
+    @patch(
+        "importlib.resources.files",
+        side_effect=Exception("Simulated package resource failure"),
+    )
+    def test_load_from_bundled_resource_local_assets_fallback(self, _mock_files):
+        """Verifies load_from_bundled_resource resolves schemas from local a2ui/assets when package resources fail."""
+        from a2ui.schema.constants import PROTOCOL_VERSION_MAP, SERVER_TO_CLIENT_SCHEMA_KEY
+
+        schema = load_from_bundled_resource(
+            version="v1.0",
+            resource_key=SERVER_TO_CLIENT_SCHEMA_KEY,
+            spec_map=PROTOCOL_VERSION_MAP,
+        )
+        self.assertIsInstance(schema, dict)
+        self.assertIn("title", schema)
 
     def test_wrap_as_json_array_empty_schema(self):
         """Verifies wrap_as_json_array raises A2uiCatalogError for empty schema."""
@@ -178,6 +219,57 @@ class TestSchemaUtils(unittest.TestCase):
         # Unsupported type should raise TypeError
         with self.assertRaises(TypeError):
             CatalogSchemaHelper("invalid_catalog_type")
+
+    def test_get_spec_dir_standard_versions(self):
+        """Verifies get_spec_dir maps standard version formats to their spec directories."""
+        self.assertTrue(get_spec_dir("v1_0").endswith("specification/v1_0"))
+        self.assertTrue(get_spec_dir("1.0").endswith("specification/v1_0"))
+        self.assertTrue(get_spec_dir("v0_9_1").endswith("specification/v0_9_1"))
+        self.assertTrue(get_spec_dir("0.9.1").endswith("specification/v0_9_1"))
+        self.assertTrue(get_spec_dir("v1_0_0-alpha.1").endswith("specification/v1_0"))
+
+    def test_get_spec_dir_prerelease_versions(self):
+        """Verifies get_spec_dir consistently maps pre-release versions to their base spec directory."""
+        self.assertTrue(
+            get_spec_dir("1.0.0-dev_release").endswith("specification/v1_0")
+        )
+        self.assertTrue(
+            get_spec_dir("v1_0_0-dev_release").endswith("specification/v1_0")
+        )
+        self.assertTrue(get_spec_dir("1.0.0-alpha.1").endswith("specification/v1_0"))
+
+    def test_get_basic_catalog_path_versioning(self):
+        """Verifies get_basic_catalog_path selects canonical catalogs/ for >=v1_0 and spec dir for <v1_0."""
+        self.assertTrue(
+            get_basic_catalog_path("v1_0").endswith("catalogs/basic/v1/catalog.json")
+        )
+        self.assertTrue(
+            get_basic_catalog_path("1.0").endswith("catalogs/basic/v1/catalog.json")
+        )
+        self.assertTrue(
+            get_basic_catalog_path("v0_9").endswith(
+                "specification/v0_9/catalogs/basic/catalog.json"
+            )
+        )
+        self.assertTrue(
+            get_basic_catalog_path("v0_8").endswith(
+                "specification/v0_8/catalogs/basic/catalog.json"
+            )
+        )
+
+    def test_get_basic_examples_dir_versioning(self):
+        """Verifies get_basic_examples_dir selects canonical catalogs/ for >=v1_0 and spec dir for <v1_0."""
+        self.assertTrue(
+            get_basic_examples_dir("v1_0").endswith("catalogs/basic/v1/examples")
+        )
+        self.assertTrue(
+            get_basic_examples_dir("1.0").endswith("catalogs/basic/v1/examples")
+        )
+        self.assertTrue(
+            get_basic_examples_dir("v0_9").endswith(
+                "specification/v0_9/catalogs/basic/examples"
+            )
+        )
 
 
 if __name__ == "__main__":

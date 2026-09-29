@@ -16,6 +16,7 @@ import time
 from typing import Optional
 
 from splink.internals.database_api import DatabaseAPISubClass
+from splink.internals.misc import join_sql_with_union_all
 from splink.internals.pipeline import CTEPipeline
 from splink.internals.splink_dataframe import SplinkDataFrame
 
@@ -299,11 +300,9 @@ def solve_connected_components(
         pipeline = CTEPipeline([filtered_neighbours])
         sql = _cc_assess_exit_condition(filtered_neighbours.templated_name)
         pipeline.enqueue_sql(sql, "__splink__root_rows")
-        root_rows_df = db_api.sql_pipeline_to_splink_dataframe(
-            pipeline, use_cache=False
-        )
+        root_rows_df = db_api.sql_pipeline_to_splink_dataframe(pipeline)
 
-        root_rows = root_rows_df.as_record_dict()
+        root_rows = root_rows_df.as_record_list()
         root_rows_df.drop_table_from_database_and_remove_from_cache()
         needs_updating_count = root_rows[0]["count_of_edges_needing_processing"]
         logger.info(
@@ -318,7 +317,7 @@ def solve_connected_components(
 
     pipeline = CTEPipeline()
 
-    sql = " UNION ALL ".join(
+    sql = join_sql_with_union_all(
         [
             f"""select node_id as {node_id_column_name}, representative as cluster_id
             from {t.physical_name}"""

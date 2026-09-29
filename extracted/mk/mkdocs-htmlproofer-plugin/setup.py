@@ -4,12 +4,13 @@ from setuptools import find_packages, setup
 
 
 def read(fname: str):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+    with open(os.path.join(os.path.dirname(__file__), fname), encoding='utf-8') as f:
+        return f.read()
 
 
 setup(
     name='mkdocs-htmlproofer-plugin',
-    version='1.5.0',
+    version='1.6.0',
     description='A MkDocs plugin that validates URL in rendered HTML files',
     long_description=read('README.md'),
     long_description_content_type='text/markdown',
@@ -35,6 +36,8 @@ setup(
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
     ],
     packages=find_packages(exclude=['*.tests']),
     entry_points={

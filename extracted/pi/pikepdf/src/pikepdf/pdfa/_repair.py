@@ -9,10 +9,21 @@ import logging
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from functools import cache
 from typing import cast
 
 import pikepdf
 from pikepdf import Array, Dictionary, Name, Object, Pdf, Stream
+from pikepdf.pdfa._embedded import associated_file_objgens
+from pikepdf.pdfa._encodings import (
+    MAX_CODE,
+    STANDARD,
+    WIN_ANSI,
+    DifferencesError,
+    encoding_table,
+    parse_differences,
+)
+from pikepdf.pdfa._fontuse import font_codes
 
 log = logging.getLogger(__name__)
 
@@ -69,18 +80,23 @@ _MAX_PAGES_LISTED = 5
 
 @dataclass
 class AnnotationRepairResult:
-    """What :func:`repair_annotation_flags` changed.
+    """What :func:`pikepdf.pdfa.repair_annotation_flags` changed.
 
-    Attributes:
-        removed: The number of annotations removed, by subtype (without the
-            leading slash).
-        removed_pages: The page numbers (1-based) annotations were removed from.
-        print_flags_set: The number of annotations given the Print flag.
+    An empty result (no removals and no Print flags set) means the annotation
+    flags of every page were already acceptable to PDF/A.
     """
 
     removed: Counter[str] = field(default_factory=Counter)
+    """The number of annotations removed, keyed by subtype without the leading
+    slash (for example ``'Link'`` or ``'Popup'``); ``'unknown'`` counts
+    annotations that have no valid ``/Subtype``."""
+
     removed_pages: set[int] = field(default_factory=set)
+    """The page numbers (1-based) from which annotations were removed."""
+
     print_flags_set: int = 0
+    """The number of annotations that were kept and given the Print flag,
+    because they had no ``/F`` entry or had one without the Print bit."""
 
 
 def _annotation_flags(annot: Dictionary) -> int:
@@ -136,17 +152,32 @@ def repair_annotation_flags(pdf: Pdf) -> AnnotationRepairResult:
     """Make the annotation flags of every page acceptable to PDF/A.
 
     PDF/A requires every annotation to set the Print flag and to clear the
-    Hidden, Invisible and NoView flags (and ToggleNoView, for PDF/A-2 and
-    later). An annotation with any of those flags set is not shown to the
-    reader, so it is removed, as Ghostscript does, rather than made visible:
-    along with it goes its /Popup annotation, and a /Popup entry that
-    refers to a removed annotation is deleted. The remaining annotations are
-    given the Print flag if they lack it, leaving their other flags alone.
+    Hidden, Invisible and NoView flags; PDF/A-2 and PDF/A-3 also require
+    ToggleNoView to be clear. An annotation with any of those four flags set
+    is removed, as Ghostscript does, rather than made visible. This function
+    does not take a PDF/A part, so it removes annotations with ToggleNoView
+    for every part, including PDF/A-1, whose rule predates that flag and does
+    not mention it; the flags that remain are acceptable to every part.
+    Along with a removed annotation goes its ``/Popup`` annotation, and a
+    ``/Popup`` entry that refers to a removed annotation is deleted. The
+    remaining annotations are given the Print flag if they lack it, leaving
+    their other flags alone. Only annotations listed in a page's ``/Annots``
+    are considered. The repair is idempotent.
 
-    Logs one debug message if any annotation was removed.
+    :func:`pikepdf.pdfa.prepare` calls this function, but it may also be used
+    on its own, for example to preserve hyperlinks before handing a file to
+    another PDF/A converter: Ghostscript's PDF/A mode silently deletes any
+    annotation without the Print flag, which includes a ``/Link`` annotation
+    written with no ``/F`` entry. It needs nothing beyond importing
+    :mod:`pikepdf.pdfa`, and it neither validates the document nor changes
+    anything other than page annotations.
+
+    Logs up to two debug messages to a ``pikepdf.pdfa`` logger: one if any
+    annotation was removed, and one if any annotation was given the Print
+    flag.
 
     Args:
-        pdf: An open pikepdf.Pdf object
+        pdf: An open pikepdf.Pdf object, modified in place.
 
     Returns:
         What was changed.
@@ -298,3 +329,223 @@ def add_cidsets_for_subset_cidfonts(pdf: Pdf) -> int:
         descriptor[Name.CIDSet] = pdf.make_stream(_cidset_bytes(cids))
         count += 1
     return count
+
+
+# Font descriptor flags (ISO 32000-1 Table 123)
+_FONT_SYMBOLIC = 4
+_FONT_NONSYMBOLIC = 32
+
+
+def _needs_base_encoding(obj: Object) -> bool:
+    """True for a non-symbolic TrueType font with /Differences but no base."""
+    if not isinstance(obj, Dictionary) or obj.get(Name.Subtype) != Name.TrueType:
+        return False
+    descriptor = obj.get(Name.FontDescriptor)
+    if not isinstance(descriptor, Dictionary):
+        return False
+    flags = descriptor.get_int(Name.Flags, 0)
+    if not flags & _FONT_NONSYMBOLIC or flags & _FONT_SYMBOLIC:
+        return False
+    encoding = obj.get(Name.Encoding)
+    return (
+        isinstance(encoding, Dictionary)
+        and not isinstance(encoding, Stream)
+        and Name.Differences in encoding
+        and Name.BaseEncoding not in encoding
+    )
+
+
+@cache
+def _standard_codes_kept_by_win_ansi() -> frozenset[int]:
+    """Codes with the same glyph name in StandardEncoding and WinAnsiEncoding.
+
+    Codes that neither encoding defines are included: they select .notdef
+    either way.
+    """
+    standard = encoding_table(STANDARD)
+    win_ansi = encoding_table(WIN_ANSI)
+    return frozenset(
+        code for code in range(MAX_CODE + 1) if standard.get(code) == win_ansi.get(code)
+    )
+
+
+def add_truetype_base_encodings(pdf: Pdf) -> int:
+    """Give /BaseEncoding /WinAnsiEncoding to TrueType encodings that lack one.
+
+    PDF/A-2 and PDF/A-3 require the encoding of a non-symbolic TrueType font
+    to be based on WinAnsiEncoding or MacRomanEncoding. An encoding
+    dictionary with /Differences and no /BaseEncoding is based on
+    StandardEncoding. A font is changed only if every code shown in it, in
+    the content the document can draw, is either assigned by /Differences or
+    has the same glyph name in both encodings, so no glyph drawn changes. If
+    the content cannot be scanned completely, no font is changed.
+
+    The font's encoding dictionary is replaced, not modified, since other
+    fonts may share it.
+
+    Args:
+        pdf: An open pikepdf.Pdf object
+
+    Returns:
+        The number of fonts changed.
+    """
+    candidates = [obj for obj in pdf.objects if _needs_base_encoding(obj)]
+    if not candidates:
+        return 0
+    used = font_codes(pdf)
+    if used is None:
+        log.debug("Content could not be scanned; TrueType encodings left alone")
+        return 0
+    kept = _standard_codes_kept_by_win_ansi()
+    count = 0
+    for font in candidates:
+        encoding = font.get(Name.Encoding)
+        assert isinstance(encoding, Dictionary)
+        try:
+            differences = parse_differences(encoding.get(Name.Differences))
+        except DifferencesError:
+            continue
+        codes = used.get(font.objgen, set())
+        if not all(code in differences or code in kept for code in codes):
+            continue
+        replacement = Dictionary({str(key): value for key, value in encoding.items()})
+        replacement[Name.BaseEncoding] = Name.WinAnsiEncoding
+        font[Name.Encoding] = replacement
+        count += 1
+    return count
+
+
+def remove_name_tree(pdf: Pdf, key: Name) -> bool:
+    """Remove an entry of the document's name dictionary.
+
+    Args:
+        pdf: An open pikepdf.Pdf object
+        key: The entry, such as ``Name.JavaScript``.
+
+    Returns:
+        True if the entry was present and removed.
+    """
+    names = pdf.Root.get(Name.Names)
+    if not isinstance(names, Dictionary) or key not in names:
+        return False
+    del names[key]
+    return True
+
+
+_OCTET_STREAM = Name('/application/octet-stream')
+
+
+@dataclass
+class EmbeddedFileRepairResult:
+    """What :func:`repair_embedded_files` changed.
+
+    Attributes:
+        subtypes_set: The number of embedded file streams given the MIME
+            type application/octet-stream.
+        relationships_set: The number of file specifications given
+            /AFRelationship /Unspecified.
+        associated_added: The number of file specifications added to the
+            catalog's /AF array.
+    """
+
+    subtypes_set: int = 0
+    relationships_set: int = 0
+    associated_added: int = 0
+
+
+def _embedded_file_specs(pdf: Pdf) -> list[Dictionary]:
+    """Return the file specifications of the embedded files name tree.
+
+    Only indirect dictionaries with /EF are returned, each once, in tree
+    order. A malformed tree is read as far as it can be.
+    """
+    names = _get_dict(pdf.Root, Name.Names)
+    root = names.get(Name.EmbeddedFiles)
+    found: list[Dictionary] = []
+    seen: set[tuple[int, int]] = set()
+    pending: list[Object] = [root] if isinstance(root, Dictionary) else []
+    while pending:
+        node = pending.pop()
+        if not isinstance(node, Dictionary):
+            continue
+        if node.is_indirect:
+            if node.objgen in seen:
+                continue
+            seen.add(node.objgen)
+        kids = node.get(Name.Kids)
+        if isinstance(kids, Array):
+            pending.extend(reversed(list(kids)))
+        items = node.get(Name.Names)
+        if not isinstance(items, Array):
+            continue
+        for value in list(items)[1::2]:
+            if (
+                isinstance(value, Dictionary)
+                and value.is_indirect
+                and value.objgen not in seen
+                and Name.EF in value
+            ):
+                seen.add(value.objgen)
+                found.append(value)
+    return found
+
+
+def repair_embedded_files(pdf: Pdf) -> EmbeddedFileRepairResult:
+    """Supply what PDF/A-3 requires of embedded files, where it is missing.
+
+    PDF/A-3 requires each embedded file stream to state its MIME type, each
+    file specification to state its relationship to the document, and each
+    embedded file to be an associated file. For the embedded files of the
+    name tree and of the catalog's /AF array, an embedded file stream
+    without /Subtype is given application/octet-stream, which ISO 19005-3
+    prescribes when the type is not known; a file specification without
+    /AFRelationship is given /Unspecified; and a file specification of the
+    name tree that no /AF array lists is appended to the catalog's /AF
+    array. A catalog /AF that is not an array is left alone. Values that are
+    present but wrong are not changed.
+
+    Args:
+        pdf: An open pikepdf.Pdf object
+
+    Returns:
+        What was changed.
+    """
+    result = EmbeddedFileRepairResult()
+    in_tree = _embedded_file_specs(pdf)
+    af = pdf.Root.get(Name.AF)
+    filespecs = list(in_tree)
+    if isinstance(af, Array):
+        filespecs += [
+            item
+            for item in af
+            if isinstance(item, Dictionary) and item.is_indirect and Name.EF in item
+        ]
+
+    done: set[tuple[int, int]] = set()
+    streams_done: set[tuple[int, int]] = set()
+    for filespec in filespecs:
+        if filespec.objgen in done:
+            continue
+        done.add(filespec.objgen)
+        if Name.AFRelationship not in filespec:
+            filespec[Name.AFRelationship] = Name.Unspecified
+            result.relationships_set += 1
+        for _key, stream in _get_dict(filespec, Name.EF).items():
+            if not isinstance(stream, Stream) or stream.objgen in streams_done:
+                continue
+            streams_done.add(stream.objgen)
+            if Name.Subtype not in stream:
+                stream[Name.Subtype] = _OCTET_STREAM
+                result.subtypes_set += 1
+
+    associated = associated_file_objgens(pdf.objects)
+    missing = [fs for fs in in_tree if fs.objgen not in associated]
+    if missing:
+        if af is None:
+            pdf.Root[Name.AF] = Array(missing)
+            result.associated_added = len(missing)
+        elif isinstance(af, Array):
+            for filespec in missing:
+                af.append(filespec)
+            result.associated_added = len(missing)
+    return result

@@ -39,6 +39,7 @@ def b2z_url(tmp_path, *, threshold=0):
     return url, data
 
 
+@pytest.mark.usefixtures("b2z_range_reads")
 def test_b2z_discovery_and_dispatch(tmp_path, monkeypatch):
     url, data = b2z_url(tmp_path)
     fs = fsspec.filesystem("memory")
@@ -50,9 +51,10 @@ def test_b2z_discovery_and_dispatch(tmp_path, monkeypatch):
         return cat_file(self, path, start=start, end=end, **kwargs)
 
     monkeypatch.setattr(type(fs), "cat_file", counted)
-    with pytest.raises(NotImplementedError, match="B2Z containers"):
-        blosc2.open(url)
-    assert reads == []
+    with blosc2.open(url) as store:
+        assert isinstance(store, blosc2.RemoteStore)
+    assert reads
+    reads.clear()
     with StoreBrowser(url) as browser:
         assert browser.is_tree
         assert [n.name for n in browser.list_children()] == ["group"]
@@ -126,7 +128,8 @@ def test_zarr_hierarchy(version, consolidated):
 
 def test_hdf5_hierarchy(tmp_path, monkeypatch):
     h5py = pytest.importorskip("h5py")
-    kerchunk = pytest.importorskip("kerchunk.hdf")
+    import blosc2.hdf5_source as hdf5_source
+
     path = tmp_path / "hierarchy.h5"
     data = np.arange(600).reshape(30, 20)
     with h5py.File(path, "w") as root:
@@ -139,13 +142,13 @@ def test_hdf5_hierarchy(tmp_path, monkeypatch):
     url = "memory://v12/hierarchy.h5"
     fsspec.filesystem("memory").pipe_file(url, path.read_bytes())
     calls = []
-    translate = kerchunk.SingleHdf5ToZarr.translate
+    scan = hdf5_source.scan_hdf5_index
 
-    def counted(self, *args, **kwargs):
+    def counted(*args, **kwargs):
         calls.append(1)
-        return translate(self, *args, **kwargs)
+        return scan(*args, **kwargs)
 
-    monkeypatch.setattr(kerchunk.SingleHdf5ToZarr, "translate", counted)
+    monkeypatch.setattr(hdf5_source, "scan_hdf5_index", counted)
     with StoreBrowser(url) as browser:
         assert browser.get_info("/").user_attrs == {"title": "root"}
         assert browser.get_info("/group").user_attrs == {"title": "child"}
@@ -254,6 +257,7 @@ async def test_remote_tui_lifecycle(tmp_path, monkeypatch):
         await pilot.press("q")
 
 
+@pytest.mark.usefixtures("b2z_range_reads")
 def test_embedded_b2z_index_is_bounded(tmp_path, monkeypatch):
     url, data = b2z_url(tmp_path, threshold=10**9)
     fs = fsspec.filesystem("memory")
@@ -313,7 +317,6 @@ def test_zarr_discovery_reads_no_chunks_and_isolates_codec(monkeypatch):
 
 def test_hdf5_unsupported_and_links(tmp_path):
     h5py = pytest.importorskip("h5py")
-    pytest.importorskip("kerchunk")
     path = tmp_path / "links.h5"
     with h5py.File(path, "w") as file:
         file.create_dataset("a", data=np.arange(10))
@@ -332,7 +335,7 @@ def test_hdf5_unsupported_and_links(tmp_path):
         assert children["empty"] == "group"
         assert "external" not in children
         assert "cycle" not in children
-        assert "Kerchunk" in browser.get_info("/").metadata["notice"]
+        assert "indexed groups" in browser.get_info("/").metadata["notice"]
         np.testing.assert_array_equal(browser.preview("/a", start=0, stop=3)["data"]["value"], np.arange(3))
 
 
@@ -426,7 +429,6 @@ def test_group_decoder_fresh_process(tmp_path, format):
     else:
         h5py = pytest.importorskip("h5py")
         plugin = pytest.importorskip("hdf5plugin")
-        pytest.importorskip("kerchunk")
         with h5py.File(path, "w") as file:
             file.create_dataset("a", data=np.arange(100, dtype="i4"), chunks=(20,), **plugin.Blosc())
     script = """
@@ -474,7 +476,7 @@ import importlib.abc
 import sys
 class BlockOptional(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
-        if fullname.split('.')[0] in {'zarr', 'h5py', 'kerchunk'}:
+        if fullname.split('.')[0] in {'zarr', 'h5py'}:
             raise ImportError('optional dependency intentionally unavailable')
 sys.meta_path.insert(0, BlockOptional())
 from pathlib import Path
@@ -516,12 +518,13 @@ def test_b2z_empty_groups_and_ctable_boundaries(tmp_path, threshold):
         assert [(n.name, n.kind) for n in browser.list_children()] == [
             ("empty", "group"),
             ("ordinary", "group"),
-            ("table", "unsupported"),
+            ("table", "ctable"),
         ]
         assert browser.list_children("/empty") == []
         assert browser.get_info("/empty").user_attrs == {"empty": True}
         assert browser.list_children("/table") == []
-        assert "CTable" in browser.get_info("/table").metadata["preview"]
+        assert browser.get_info("/table").metadata["type"] == "B2Z ctable"
+        np.testing.assert_array_equal(browser.preview("/table", max_rows=1)["data"]["x"], [3])
 
 
 def test_b2z_large_embedded_chunk_notice():
@@ -541,7 +544,7 @@ def test_b2z_large_embedded_chunk_notice():
 
 def test_b2z_explicit_localization(tmp_path):
     url, data = b2z_url(tmp_path)
-    with blosc2.open(url, cache_dir=tmp_path / "localized", mode="r") as store:
+    with blosc2.open(url, cache_dir=tmp_path / "localized", mode="r", lazy=False) as store:
         assert isinstance(store, blosc2.TreeStore)
         np.testing.assert_array_equal(store["/group/a"][:2, :3], data[:2, :3])
 

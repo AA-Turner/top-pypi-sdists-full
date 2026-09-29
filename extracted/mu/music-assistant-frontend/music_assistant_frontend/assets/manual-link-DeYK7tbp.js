@@ -1,1 +1,0 @@
-import{a as e,i as t}from"./useForm-B6v3V52b.js";var n=n=>t({url:e().trim().min(1,n(`auth.field_required`)),name:e().trim().min(1,n(`auth.field_required`)),image:e()});export{n as t};

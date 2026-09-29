@@ -23,6 +23,7 @@ from ..resources import (
     AnalyticsResource,
     ApiKeysResource,
     BlogsResource,
+    BrandedCallingResource,
     BroadcastsResource,
     BusinessAgentResource,
     CallsResource,
@@ -34,6 +35,7 @@ from ..resources import (
     ConversionsResource,
     CustomFieldsResource,
     DiscordResource,
+    FeedbackResource,
     GmbServicesResource,
     GmbVerificationsResource,
     ImessageResource,
@@ -52,6 +54,7 @@ from ..resources import (
     ProductsResource,
     ProfilesResource,
     QueueResource,
+    RcsResource,
     ReachAndFrequencyResource,
     RedditResource,
     ReviewsResource,
@@ -168,6 +171,7 @@ class Zernio(BaseClient):
         self.analytics = AnalyticsResource(self)
         self.api_keys = ApiKeysResource(self)
         self.blogs = BlogsResource(self)
+        self.branded_calling = BrandedCallingResource(self)
         self.broadcasts = BroadcastsResource(self)
         self.business_agent = BusinessAgentResource(self)
         self.calls = CallsResource(self)
@@ -179,6 +183,7 @@ class Zernio(BaseClient):
         self.conversions = ConversionsResource(self)
         self.custom_fields = CustomFieldsResource(self)
         self.discord = DiscordResource(self)
+        self.feedback = FeedbackResource(self)
         self.gmb_services = GmbServicesResource(self)
         self.gmb_verifications = GmbVerificationsResource(self)
         self.imessage = ImessageResource(self)
@@ -197,6 +202,7 @@ class Zernio(BaseClient):
         self.products = ProductsResource(self)
         self.profiles = ProfilesResource(self)
         self.queue = QueueResource(self)
+        self.rcs = RcsResource(self)
         self.reach_and_frequency = ReachAndFrequencyResource(self)
         self.reddit = RedditResource(self)
         self.reviews = ReviewsResource(self)

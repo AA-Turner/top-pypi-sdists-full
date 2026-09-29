@@ -28,8 +28,8 @@ from typing import Any
 from xbsl import __version__
 from xbsl import (
     baseline as baseline_data, dataset, docs, environment, formedits, formhandlers,
-    cijob, formmodel, freshness, i18n, mcpjournal, metamodel, plugins, report, resource_usage,
-    rundiff, scaffold, uischema,
+    cijob, formmodel, freshness, i18n, mcpcli, mcpjournal, metamodel, plugins, report,
+    resource_usage, rundiff, scaffold, uischema,
 )
 from xbsl.cli import _context_of, _filter_requested, discover, discover_with_context
 from xbsl.engine import (
@@ -75,11 +75,31 @@ mcp = _new_server()
 # (self-update, a pull in an editable checkout), the modules it loads later come from the new
 # code while the ones in memory stay old, and a tool answers with crashes of rules that are
 # nobody's bug (xbsl/freshness.py tells the story). So every tool but version_info first compares
-# the version on disk with the one in memory - one small file per call - and refuses, naming the
-# cure, instead of running on a mix. A tool that fails while the number on disk is the same is
-# checked against the fingerprint of the sources taken at start. The server never exits over it:
-# a client such as Codex does not start a failed server again. The first sighting of each state
-# goes into the journal, where `xbsl mcp-log` shows it.
+# the version on disk with the one in memory - one small file per call - and then the engine's
+# code files with the ones of the start, which a pull between two releases changes under the
+# same number - a stat of their few folders per call, a walk over the files when a folder
+# changed or every few seconds. On either change the tool refuses, naming the cure, instead of
+# running on a mix. A tool that fails while the check still passed (a plugin's code changed, or
+# an editor rewrote a file a moment ago) is checked against the fingerprint of all the sources
+# taken at start. The server never exits over it: a client such as Codex does not start a
+# failed server again. The first sighting of each state goes into the journal, where
+# `xbsl mcp-log` shows it.
+#
+# Only the client can restart the server, and an agent calling the tools cannot. A new process
+# can run the new code, though, so the refusal of a tool the CLI can run carries `cli`: the
+# command line of the same call (xbsl/mcpcli.py), started by this server's interpreter.
+#
+# Nor does the server restart itself: it speaks over the stdio of the process the client
+# started, and exec does not keep that conversation. On Windows `os.execv` starts a NEW process
+# and ends this one, so the client sees its server gone - and Codex does not start it again.
+# Where exec keeps the process, the new image has lost the session: it waits for `initialize`
+# and refuses every request before it ("Received request before initialization was
+# complete"), while the client, initialized long ago, sends `tools/call`. Whatever the old image
+# had read ahead from stdin is lost too, and the client waits for those answers forever. What
+# does it safely is a different process, not a line in this one: `xbsl-mcp-supervisor`
+# (xbsl/mcp_supervisor.py) owns stdio, runs this server as a worker behind it and replaces the
+# worker, replaying the handshake. It reads `stale.ran` of a refusal: false means the tool did
+# not run, and the same call goes to the new worker as it is.
 #
 # Plugins changed on disk are not a reason to refuse: the loaded plugin stays whole in memory and
 # answers consistently - only not the way the CLI and CI answer now. So the tool runs, and a dict
@@ -88,41 +108,72 @@ mcp = _new_server()
 #: The tools that answer on a stale engine too: the one that names the environment.
 _ANSWER_WHEN_STALE = frozenset({"version_info"})
 #: The stale states already written into the journal: one record per state, not per call.
-_journaled: set[tuple[str, str]] = set()
+_journaled: set[tuple[str, str, str]] = set()
 
 
 def _journal_stale(found: dict, tool: str, error: str = "") -> None:
-    key = (found["reason"], found["on_disk"])
+    # A change of the sources keeps the number: its fingerprint tells one change from the next.
+    key = (found["reason"], found["on_disk"], found.get("fingerprint", ""))
     if key in _journaled:
         return
     _journaled.add(key)
     mcpjournal.record("stale", tool=tool, **found, **({"error": error[:500]} if error else {}))
 
 
-def _stale_answer(found: dict, message: str) -> dict:
-    return {"error": message, "stale": {**found, "location": environment.location()}}
+def _stale_answer(found: dict, message: str, same: dict | None = None, *, ran: bool) -> dict:
+    """The refusal: the message, the CLI command of the same call when there is one, the state.
+
+    `stale.ran` says whether the tool ran before this answer. False: it was refused on sight of
+    the replaced engine, nothing was done, and the same call can be sent again as it is to a new
+    process - the supervisor (xbsl/mcp_supervisor.py) does exactly that. True: it failed on the
+    way and may have written something before it did.
+    """
+    stale = {**found, "location": environment.location(), "ran": ran}
+    if not same:
+        return {"error": message, "stale": stale}
+    return {"error": f"{message}. {i18n.t('mcpcli.same-call')}", **same, "stale": stale}
 
 
-def _warned(answer, found: dict):
+def _warned(answer, found: dict, same: dict | None = None):
     """The answer of a tool that ran with the plugins loaded at start, the plugins on disk
     being others: `stale` goes first in a dict answer. Another answer (a list) is left as it
-    is - the journal still hears it, and version_info names the state."""
+    is - the journal still hears it, and version_info names the state.
+
+    `same` is the CLI command of the call (see mcpcli.same_call): the record carries it, so
+    the answer by the plugins on disk is one command away, as it is on a refusal.
+    """
     if not isinstance(answer, dict) or "stale" in answer:
         return answer
     message = i18n.t("freshness.plugins-warning", state=freshness.describe(found))
-    return {"stale": {**found, "location": environment.location(), "message": message}, **answer}
+    if same:
+        message = f"{message}. {i18n.t('mcpcli.same-call-plugins')}"
+    stale = {**found, "location": environment.location(), "message": message, **(same or {})}
+    return {"stale": stale, **answer}
 
 
 def _stale_guard(fn):
     """The tool behind the check: refused on a stale engine, its failure explained on one,
     its answer marked when the plugins on disk are not the loaded ones."""
+    signature = inspect.signature(fn)
+
+    def same_call(args: tuple, kwargs: dict) -> dict | None:
+        """The CLI command of this call (xbsl/mcpcli.py): its arguments, defaults included."""
+        try:
+            bound = signature.bind(*args, **kwargs)
+        except TypeError:
+            return None
+        bound.apply_defaults()
+        return mcpcli.same_call(fn.__name__, dict(bound.arguments))
 
     @functools.wraps(fn)
     def call(*args, **kwargs):
-        found = freshness.version_state()
+        found = freshness.call_state()
         if found is not None:
             _journal_stale(found, fn.__name__)
-            return _stale_answer(found, i18n.t("freshness.refusal", state=freshness.describe(found)))
+            return _stale_answer(
+                found, i18n.t("freshness.refusal", state=freshness.describe(found)),
+                same_call(args, kwargs), ran=False,
+            )
         freshness.take_noted()  # a crash an earlier call noted is not this call's
         try:
             answer = fn(*args, **kwargs)
@@ -133,14 +184,15 @@ def _stale_guard(fn):
             error = f"{type(exc).__name__}: {exc}"
             _journal_stale(found, fn.__name__, error)
             return _stale_answer(found, i18n.t(
-                "freshness.failure", state=freshness.describe(found), error=error))
+                "freshness.failure", state=freshness.describe(found), error=error),
+                same_call(args, kwargs), ran=True)
         noted = freshness.take_noted()
         if noted is not None:
             _journal_stale(noted, fn.__name__)
         found = freshness.plugins_state()
         if found is not None:
             _journal_stale(found, fn.__name__)
-            answer = _warned(answer, found)
+            answer = _warned(answer, found, same_call(args, kwargs))
         return answer
 
     return call
@@ -250,7 +302,16 @@ def version_info() -> dict:
 
     `engine_on_disk` is the version the installation on disk declares now. This tool answers
     even when it differs from `engine`, and then it carries `stale`: the others refuse until the
-    server is restarted, since the modules it would load next are from another version.
+    server is restarted, since the modules it would load next are from another version. The
+    same holds when the engine's code files changed on disk under the same number (reason
+    `sources`). The refusal of a tool the CLI can run (lint_paths, lint_source, baseline_prune,
+    list_rules, translate_*, meta_fold_comments and the readers meta_project_info,
+    meta_object_info, meta_localization_info, meta_component_tree, meta_resource_references,
+    meta_unused_resources) carries `cli`: the command line of the same call for a POSIX shell
+    (Git Bash on Windows), which runs this server's interpreter on the code now on disk. A
+    reader's command prints the tool's data without the `root` and `file` the tool repeats.
+    `cli_note` names the file the command reads data from - the text of lint_source, the inline
+    edits of translate_set.
 
     `plugins` are the plugins this server loaded at start, `plugins_on_disk` the ones installed
     now. When those differ, `stale` names both (reason `plugins`, with the `changed`
@@ -263,7 +324,7 @@ def version_info() -> dict:
         info["plugins_on_disk"] = plugins.on_disk()
     except Exception as exc:  # noqa: BLE001 - the diagnostic tool answers whatever the disk is like
         info["plugins_on_disk"] = {"error": f"{type(exc).__name__}: {exc}"}
-    found = freshness.version_state()
+    found = freshness.call_state()  # what the other tools refuse over
     key = "freshness.refusal"
     if found is None:
         found, key = freshness.plugins_state(), "freshness.plugins-warning"
@@ -377,6 +438,7 @@ def lint_paths(
     fix: bool = False,
     as_ci_full: bool = False,
     compare: str | None = None,
+    list_info: bool = False,
 ) -> dict:
     """Check files/directories on disk.
 
@@ -420,8 +482,14 @@ def lint_paths(
                   tree is clean. `summary.as_ci`, when present, narrows to one line,
                   {"adopted": true, "brief": ...}: the file relative to the checkout, the job,
                   the flags with a long list counted ("--enable ×10"), the jobs not taken and
-                  the includes left unread;
-    as_ci_full  - with `compact`, keep the whole `as_ci` record instead of the line;
+                  the includes left unread. A call with `select` asks about a few rules, and
+                  it gets the same line without `compact`: the record of a long pipeline ran
+                  to two kilobytes over an answer of two findings. The info-level findings
+                  are counted, not listed: `info_hint` gives their number and rules, and they
+                  do not count towards the limit - a project keeps a few of them on purpose,
+                  and every answer of a session repeated them;
+    as_ci_full  - with `compact` or `select`, keep the whole `as_ci` record instead of the line;
+    list_info   - with `compact`, list the info-level findings with the rest;
     compare     - a file that keeps the run for the next call; the CLI `--compare` reads and
                   writes the same file. The first call saves the run and answers
                   `compare: {file, compared: false}`. Every next call compares with the saved
@@ -441,7 +509,8 @@ def lint_paths(
     A path inside a project pulls the whole project in as context (the cross-file rules need
     it), the diagnostics are reported for the requested paths only.
     Returns {diagnostics: [...], summary: {...}} (with `compact`: {summary, errors, findings}
-    or {summary, errors, findings_hint} past the limit; with `compare`: {summary, compare},
+    or {summary, errors, findings_hint} past the limit, and `info_hint` when info findings
+    were left out; with `compare`: {summary, compare},
     the summary shaped by `compact` as usual). The summary counts the findings by
     rule (`by_rule`), by file (`by_file`, the same absolute paths the diagnostics carry) and
     by severity (`by_severity`, all three levels named).
@@ -460,6 +529,7 @@ def lint_paths(
     base = _base(root)
     asked = [str(_under(base, p)) for p in paths]
     named = _under(base, baseline)
+    narrow = bool(select)  # the caller's own selection, before the job adds its set
     job = None
     if as_ci or as_ci_job:
         try:
@@ -526,10 +596,14 @@ def lint_paths(
         # pipeline has to know which of them it reproduced), where the command actually
         # stands when an `include:` brought it, and the includes nobody fetched.
         payload["summary"]["as_ci"] = job.as_dict(hint=not as_ci_job)
+        if narrow and not as_ci_full:
+            payload["summary"]["as_ci"] = report.compact_as_ci(payload["summary"]["as_ci"])
     if state is not None:
         return _compared(payload, diags, paths, base, state, saved, active, chosen,
                          compact=compact, as_ci_full=as_ci_full)
-    return report.compact(payload, as_ci_full=as_ci_full) if compact else payload
+    if compact:
+        return report.compact(payload, as_ci_full=as_ci_full, list_info=list_info)
+    return payload
 
 
 def _compared(
@@ -685,7 +759,7 @@ def _page_as_text(doc_id: str | None, brief: bool = False, section: str = "") ->
 
 
 @mcp.tool()
-def docs_search(query: str, limit: int = 10) -> list[dict]:
+def docs_search(query: str, limit: int = 10) -> list[dict] | dict:
     """Full-text search over the 1C:Element documentation.
 
     Covers stdlib types, their methods, properties and parameters. Returns ranked hits
@@ -1093,11 +1167,14 @@ def meta_new_object(
     access sets access control (authenticated users, etc.); routes configures HTTP services
     routes like "GET /, POST /, GET /{id}" (handlers are stubbed in the module);
     report_spec - for Report: {source, rows: [...], columns: [...], measures: [{expr, title}], title};
-    presentation - Presentation of the element. Beware of what the kind means by it: a
-    report or a command carries a CAPTION there, while a catalog, a document, an exchange
-    plan and a settings storage carry the NAME of a string attribute whose value the
-    platform shows for a record (a caption written there fails to compile). Pass it:
-    without one the very first lint of the new file answers naming/presentation.
+    presentation - the caption of the element, written where the kind keeps it: the top-level
+    Presentation of a report, a command or a constants set; for a catalog, a document, an
+    exchange plan, an integrable application and a settings storage - whose top-level
+    Presentation is the NAME of a string attribute, a caption there fails to compile - the
+    list caption `Interface.List.Presentation` (the notes name the object caption beside it),
+    as for a register, which has no top-level one; `Interface.Presentation` of a processing.
+    Pass it: without one the very first lint of the
+    new file answers naming/presentation.
     base - for an InterfaceComponent, what the component inherits: "Form" (the default, with
     the form-template wrapper), "Group", "StandardCard", "CustomComponent", a generic like
     "ListForm<Undefined>" - a group is the most common base in a real project, and the default
@@ -1129,23 +1206,41 @@ def meta_add_field(
     props: dict[str, Any] | None = None,
     root: str | None = None,
     names: list[str] | None = None,
+    doc: str | None = None,
 ) -> dict:
-    """Add a section item to an object: реквизит, измерение, ресурс, значение (enum),
-    параметр, поле (structure), константа, свойство (contract), табличная-часть, операция
-    (Обработка: also writes the @Обработчик method into the module), индекс (Имя + Поля with
-    a stub field to replace), параметр-запроса (Отчет) or строка / шаблон (ЛокализованныеСтроки:
-    key-value mapping sections, `type` carries the VALUE, defaulting to the key itself; the
-    key is echoed into the translations the element already has, with the DEFAULT-language
-    text - the text of a translation is written by meta_set_localization, which takes the
-    values by language, and a call aimed at a translation file itself is refused naming it).
+    """Add a section item to an object, the field_kind naming which one:
+    "реквизит", "измерение", "ресурс", "значение" (enum), "параметр", "поле" (structure),
+    "константа", "свойство" (a contract, an event-log event or an InterfaceComponent - the
+    component's `Properties`: a name and a type, no Id; props take DefaultValue, StoredData
+    and Contextual), "событие" (an InterfaceComponent's `Events`: a name and the type of the
+    event object, "СобытиеКомпонента" when omitted), "табличная-часть", "операция"
+    (Processing: also writes the @Handler method into the module), "индекс" (Name + Fields
+    with a stub field to replace), "параметр-запроса" (Report) or "строка" / "шаблон"
+    (LocalizedStrings: key-value mapping sections, `type` carries the VALUE, defaulting to
+    the key itself; the key is echoed into the translations the element already has, with the
+    DEFAULT-language text - the text of a translation is written by meta_set_localization,
+    which takes the values by language, and a call aimed at a translation file itself is
+    refused naming it).
+    Every kind has an English name too, for a project written in English: attribute, dimension,
+    resource, value, parameter, field, constant, property, event, tabular-part, operation,
+    index, query-parameter, string, template (case and hyphens do not matter).
     UUIDs, anchoring and indentation are handled here; duplicates and sections invalid for
     the object's kind are rejected. The item joins the end of the section of its kind; a
-    section the file lacks is created at the end of the file, and for a register `notes` say
-    so - naming, when the sibling data section already exists (`Resources` while a "реквизит"
-    is asked, and the other way round), the field_kind that would have placed the item beside
-    the existing fields.
+    section the file lacks is created at the end of the file (a component's `Properties` in
+    front of its `Events` when it has them, its `Events` right after its `Properties` - the
+    designer's order), and for a register
+    `notes` say so - naming, when the sibling data section already exists (`Resources` while
+    a "реквизит" is asked, and the other way round), the field_kind that would have placed
+    the item beside the existing fields.
 
-    type - the item's type, "Строка" when omitted. A BUILT-IN attribute is added by its
+    doc - the item's description, written as its documentation comment: the `##` lines at the
+    head of the item, after its `-` and before the first key - the place the development
+    environment reads the comment from and keeps it when it writes the file. A multi-line text
+    becomes several lines. Refused for an item that holds no such comment (a built-in
+    attribute, a "строка" / "шаблон" mapping entry) and for a batch of several `names`.
+
+    type - the item's type, "Строка" when omitted ("СобытиеКомпонента" for a "событие"),
+    written in the language of the file either way. A BUILT-IN attribute is added by its
     name ("Номер" / "Дата" of a document, "Код" / "Наименование" / "Владелец" of a catalog)
     and is judged by its own metamodel class - the one metadata_schema answers with for that
     name: no "Ид", a "Тип" only where the class declares one ("Наименование" has none), the
@@ -1168,7 +1263,8 @@ def meta_add_field(
     "Длина", "Уникальность" and "Автонумерация" where a regular attribute does not). Names
     are checked against that class in either language; Name/Type/Id belong to the parameters
     above, not here. A scalar is written as a yaml scalar (quoted where a bare one would be
-    ambiguous). A nested block is a dict - {"Автонумерация": {"Префикс": "ЗА", "Формат":
+    ambiguous); a boolean in the words of the file's language - `True`/`False` in an English
+    file, their Russian pair in a Russian one. A nested block is a dict - {"Автонумерация": {"Префикс": "ЗА", "Формат":
     {"ДлинаПрефикса": 2}}} - or dotted keys ({"Автонумерация.Префикс": "ЗА"}), checked the
     same way level by level; a list property ("СерииНумерации") is a list of scalars. A
     block the metamodel describes as opaque ("Представление") is refused with its class
@@ -1184,14 +1280,14 @@ def meta_add_field(
         batch = ([name] if name else []) + list(names)
         return _meta(
             base, scaffold.op_add_fields, _under(base, yaml_path), field_kind, batch,
-            type_=type, tabular=tabular, props=props,
+            type_=type, tabular=tabular, props=props, doc=doc,
         )
     if not name:
         return _failed(scaffold.ScaffoldError(
             "Нужно имя: name для одного элемента или names для нескольких"), base)
     return _meta(
         base, scaffold.op_add_field, _under(base, yaml_path), field_kind, name, type_=type,
-        tabular=tabular, props=props,
+        tabular=tabular, props=props, doc=doc,
     )
 
 
@@ -1207,7 +1303,8 @@ def meta_set_field_property(
 ) -> dict:
     """Set properties on a section item that already exists (a constant, an attribute, a
     dimension, an enumeration value...): an existing property is replaced in place, a new
-    one is appended to the item.
+    one is appended to the item. field_kind takes the words of meta_add_field, Russian or
+    English.
 
     The metadata counterpart of meta_set_component_property, which serves interface
     components only. Names are checked against the item's metamodel class - a built-in
@@ -1215,7 +1312,9 @@ def meta_set_field_property(
     in the project's own); Name is refused - renaming is meta_rename_object, which updates the
     references too. Values take the shapes meta_add_field takes: a nested block as a dict or
     dotted keys replaces whatever stands under that key whole; a scalar over an existing
-    block is refused rather than flattened into it.
+    block is refused rather than flattened into it. A "Тип" is read like the `type` of
+    meta_add_field: markup escapes (`&lt;`, `&gt;`) undone, platform names written in the
+    language of the file, a built-in item held to the types its class allows.
     """
     base = _base(root)
     return _meta(
@@ -1513,6 +1612,9 @@ def meta_set_access(
     for individual rights, e.g. {"Чтение": "РазрешеноВсем"} (custom rights of a ПравоНаЭлемент
     are written as "ПравоНаX.ИмяПрава"). Methods: РазрешеноВсем, РазрешеноАутентифицированным,
     РазрешеноАдминистраторам, РазрешенияВычисляются, РазрешенияВычисляютсяДляКаждогоОбъекта.
+    Rights and methods are taken in English as well, the way an English yaml spells them -
+    {"Read": "PermitEveryone"}, default="PermitAuthenticated" - and written in the language of
+    the file either way.
     calc_by sets the calculation basis - mandatory when permissions are calculated per object
     (per-object/RLS rights).
 
@@ -1813,10 +1915,9 @@ def meta_resource_references(root: str, resource_path: str, limit: int = 100) ->
     """
     base = _base(root)
     try:
-        answer = scaffold.resource_references(base, _under(base, resource_path))
+        answer = scaffold.resource_references(base, _under(base, resource_path), limit=limit)
     except scaffold.ScaffoldError as exc:
         return _failed(exc, base)
-    answer["references"] = answer["references"][:max(0, limit)]
     return {"root": str(base), **answer}
 
 
@@ -2434,6 +2535,10 @@ def translate_gaps(
     platform's own spelling where it has one. A suggestion is a HINT, not an answer: a name
     the project declared may need a different word; a literal never carries one, because
     between the quotes stands as often a sentence as a name.
+    A phrase row, compact or not, carries `neighbors` when a short line of the same comment
+    (two words or fewer, like `нет.`) was translated by a pair of the dictionary: [{key, value}].
+    Such a pair is keyed by the line alone and may have been written for another sentence, so
+    the new line and its neighbor are to be read together.
     The key of a literal row is the text between the quotes exactly as the source writes it,
     escaping included (an inner quote reads \\"), and that is the spelling to send back to
     translate_set - on both sides of the entry.
@@ -2455,7 +2560,11 @@ def translate_gaps(
     page, paging = entries_module.page_of(rows, limit, offset, gaps=True)
     out = {**paging, "dictionary": str(translate_cli.dictionary_path_for(project))}
     if compact:
-        out["gaps"] = [{"key": gap.key, "kind": gap.kind, "count": gap.count} for gap in page]
+        out["gaps"] = [
+            {"key": gap.key, "kind": gap.kind, "count": gap.count,
+             **({"neighbors": gap.as_dict()["neighbors"]} if gap.neighbors else {})}
+            for gap in page
+        ]
         return out
     out["gaps"] = [
         {**gap.as_dict(), "places": [f"{f}:{ln}" for f, ln in gap.places[:3]]}
@@ -2841,7 +2950,7 @@ def main() -> None:
     # The server takes no flags, but --help must still answer as a command: without a parser
     # `xbsl mcp --help` started the server and waited on stdin - a hang, not a help screen.
     i18n.ArgumentParser(
-        prog="xbsl-mcp",
+        prog="xbsl mcp",
         description=i18n.t("cli.help.mcp.description"),
         epilog=i18n.t("cli.help.mcp.epilog"),
         formatter_class=argparse.RawDescriptionHelpFormatter,

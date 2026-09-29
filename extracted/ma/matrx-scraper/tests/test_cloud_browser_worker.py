@@ -609,6 +609,7 @@ async def test_automation_only_mode(profile_dir: str) -> None:
 
 
 @XVFB
+@pytest.mark.headed_request_expected
 async def test_handoff_capable_mode_and_keyring_free(profile_dir: str, xvfb) -> None:
     # handoff_capable REQUIRES a DisplayConfig.
     worker, stub, _ = _new(profile_dir, xvfb_display=xvfb.display)
@@ -641,6 +642,7 @@ async def test_handoff_capable_mode_and_keyring_free(profile_dir: str, xvfb) -> 
 
 
 @XVFB
+@pytest.mark.headed_request_expected
 async def test_verification_field_requests_authenticator_handoff(profile_dir: str, xvfb) -> None:
     worker, stub, _ = _new(profile_dir, xvfb_display=xvfb.display)
     await stub.bootstrap(
@@ -649,13 +651,23 @@ async def test_verification_field_requests_authenticator_handoff(profile_dir: st
         display=M.DisplayConfig(kind="xvfb", width=1280, height=900),
     )
     page = worker.page_object(worker.active_page_id)
+    url = "https://example.com/worker-test/verification"
+    await page.route(
+        url,
+        lambda route: route.fulfill(
+            status=200,
+            content_type="text/html",
+            body="<button id='next' onclick=\"document.body.innerHTML='<input autocomplete=one-time-code>'\">next</button>",
+        ),
+    )
     await page.goto(
-        "data:text/html,<button id='next' onclick=\"document.body.innerHTML='<input autocomplete=one-time-code>'\">next</button>",
+        url,
         wait_until="commit",
     )
 
     response = await stub.command(C.ClickCommand(selector="#next"), origin="agent")
     assert response.ok
+    assert response.result.success
     assert response.human_required is not None
     assert response.human_required.reason == "mfa_required"
 
@@ -663,6 +675,7 @@ async def test_verification_field_requests_authenticator_handoff(profile_dir: st
 
 
 @XVFB
+@pytest.mark.headed_request_expected
 async def test_numeric_postal_code_field_does_not_request_authenticator_handoff(
     profile_dir: str, xvfb
 ) -> None:
@@ -673,20 +686,30 @@ async def test_numeric_postal_code_field_does_not_request_authenticator_handoff(
         display=M.DisplayConfig(kind="xvfb", width=1280, height=900),
     )
     page = worker.page_object(worker.active_page_id)
+    url = "https://example.com/worker-test/postal-code"
+    await page.route(
+        url,
+        lambda route: route.fulfill(
+            status=200,
+            content_type="text/html",
+            body="<input name=zipcode inputmode=numeric><input name=discount_code><button id=go>go</button>",
+        ),
+    )
     await page.goto(
-        "data:text/html,<input name=zipcode inputmode=numeric>"
-        "<input name=discount_code><button id=go>go</button>",
+        url,
         wait_until="commit",
     )
 
     response = await stub.command(C.ClickCommand(selector="#go"), origin="agent")
     assert response.ok
+    assert response.result.success
     assert response.human_required is None
 
     await stub.shutdown()
 
 
 @XVFB
+@pytest.mark.headed_request_expected
 async def test_hidden_verification_field_does_not_request_authenticator_handoff(
     profile_dir: str, xvfb
 ) -> None:
@@ -697,13 +720,23 @@ async def test_hidden_verification_field_does_not_request_authenticator_handoff(
         display=M.DisplayConfig(kind="xvfb", width=1280, height=900),
     )
     page = worker.page_object(worker.active_page_id)
+    url = "https://example.com/worker-test/hidden-verification"
+    await page.route(
+        url,
+        lambda route: route.fulfill(
+            status=200,
+            content_type="text/html",
+            body="<input autocomplete=one-time-code hidden><button id=go>go</button>",
+        ),
+    )
     await page.goto(
-        "data:text/html,<input autocomplete=one-time-code hidden><button id=go>go</button>",
+        url,
         wait_until="commit",
     )
 
     response = await stub.command(C.ClickCommand(selector="#go"), origin="agent")
     assert response.ok
+    assert response.result.success
     assert response.human_required is None
 
     await stub.shutdown()
@@ -713,6 +746,7 @@ async def test_hidden_verification_field_does_not_request_authenticator_handoff(
 
 
 @XVFB
+@pytest.mark.headed_request_expected
 async def test_browser_controlled_by_human(profile_dir: str, xvfb) -> None:
     worker, stub, _ = _new(profile_dir, xvfb_display=xvfb.display)
     await stub.bootstrap(
@@ -752,6 +786,7 @@ async def test_browser_controlled_by_human(profile_dir: str, xvfb) -> None:
 
 
 @XVFB
+@pytest.mark.headed_request_expected
 async def test_page_reconciliation_after_human_episode(profile_dir: str, xvfb) -> None:
     worker, stub, _ = _new(profile_dir, xvfb_display=xvfb.display)
     await stub.bootstrap(

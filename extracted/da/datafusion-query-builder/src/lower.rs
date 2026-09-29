@@ -95,41 +95,131 @@ fn parse_data_type(text: &str) -> Result<ast::DataType> {
     Ok(data_type)
 }
 
-/// Binding tightness of an operator (higher binds tighter), used to decide where to insert
-/// parentheses. `sqlparser`'s `Display` is purely structural — it never adds precedence parens —
-/// so the builder must wrap operands itself or a tree like `a / (b - c)` would render as the
-/// semantically different `a / b - c`.
+// Binding tightness tiers (higher binds tighter), used to decide where to insert parentheses.
+// `sqlparser`'s `Display` is purely structural — it never adds precedence parens — so the builder
+// must wrap operands itself or a tree like `a / (b - c)` would render as the semantically different
+// `a / b - c`.
+const OR_PREC: u8 = 10;
+const AND_PREC: u8 = 20;
+const NOT_PREC: u8 = 30;
+/// `IS [NOT] NULL`, `IN`, `BETWEEN`, `LIKE` and friends. Dialects disagree on where these sit
+/// relative to comparisons (Postgres binds `LIKE` tighter than `=`, `GenericDialect` looser), so
+/// they rank just below comparisons: always wrapped inside a comparison or arithmetic operand,
+/// never wrapped under `AND` / `OR` / `NOT`.
+const PREDICATE_PREC: u8 = 35;
+const COMPARISON_PREC: u8 = 40;
+/// Operators outside the builder's own set (`->>`, `@>`, bitwise, custom). Postgres binds these
+/// tighter than comparisons and looser than arithmetic.
+const OTHER_OP_PREC: u8 = 45;
+const ADDITIVE_PREC: u8 = 50;
+const MULTIPLICATIVE_PREC: u8 = 60;
+const AT_TIME_ZONE_PREC: u8 = 65;
+const PREFIX_PREC: u8 = 70;
+const ATOM_PREC: u8 = u8::MAX;
+
 fn binary_op_prec(op: BinaryOp) -> u8 {
     match op {
-        BinaryOp::Or => 1,
-        BinaryOp::And => 2,
+        BinaryOp::Or => OR_PREC,
+        BinaryOp::And => AND_PREC,
         BinaryOp::Eq
         | BinaryOp::NotEq
         | BinaryOp::Lt
         | BinaryOp::LtEq
         | BinaryOp::Gt
-        | BinaryOp::GtEq => 4,
+        | BinaryOp::GtEq => COMPARISON_PREC,
         // JSONB key-exists operators return a boolean and are typically combined with AND/OR/NOT;
         // one comparison-level tier keeps `(a ? 'x') AND (b ? 'y')` and `NOT (a ? 'x')` grouped
         // correctly, which is all realistic usage needs.
-        BinaryOp::JsonExists | BinaryOp::JsonExistsAny | BinaryOp::JsonExistsAll => 4,
-        BinaryOp::Plus | BinaryOp::Minus | BinaryOp::StringConcat => 5,
-        BinaryOp::Multiply | BinaryOp::Divide | BinaryOp::Modulo => 6,
+        BinaryOp::JsonExists | BinaryOp::JsonExistsAny | BinaryOp::JsonExistsAll => COMPARISON_PREC,
+        BinaryOp::Plus | BinaryOp::Minus | BinaryOp::StringConcat => ADDITIVE_PREC,
+        BinaryOp::Multiply | BinaryOp::Divide | BinaryOp::Modulo => MULTIPLICATIVE_PREC,
     }
 }
 
-/// Binding tightness of an expression; atoms (columns, literals, function calls, casts, …) bind
-/// tightest and never need wrapping.
-fn expr_prec(expr: &Expr) -> u8 {
+/// Binding tightness of an already-lowered expression.
+///
+/// This reads the `sqlparser` AST rather than the façade, because a `raw(...)` fragment is opaque
+/// until it is parsed: `raw("a = 1 OR b = 2")` is an `OR` and must be wrapped like one, or
+/// `raw("a = 1 OR b = 2") & c` renders as `a = 1 OR b = 2 AND c`. Anything not recognized as an
+/// atom ranks lowest, so an unfamiliar node gets redundant parentheses rather than a wrong grouping.
+fn ast_prec(expr: &ast::Expr) -> u8 {
+    use ast::BinaryOperator as B;
+    use ast::Expr as E;
     match expr {
-        Expr::Binary { op, .. } => binary_op_prec(*op),
-        Expr::Unary {
-            op: UnaryOp::Not, ..
-        } => 3,
-        Expr::Unary {
-            op: UnaryOp::Neg, ..
-        } => 7,
-        _ => u8::MAX,
+        E::BinaryOp { op, .. } => match op {
+            B::Or => OR_PREC,
+            B::And => AND_PREC,
+            B::Eq
+            | B::NotEq
+            | B::Lt
+            | B::LtEq
+            | B::Gt
+            | B::GtEq
+            | B::Spaceship
+            | B::Question
+            | B::QuestionAnd
+            | B::QuestionPipe => COMPARISON_PREC,
+            B::Plus | B::Minus | B::StringConcat => ADDITIVE_PREC,
+            B::Multiply | B::Divide | B::Modulo => MULTIPLICATIVE_PREC,
+            _ => OTHER_OP_PREC,
+        },
+        E::UnaryOp {
+            op: ast::UnaryOperator::Not,
+            ..
+        }
+        | E::Exists { negated: true, .. } => NOT_PREC,
+        E::UnaryOp { .. } => PREFIX_PREC,
+        E::IsFalse(_)
+        | E::IsNotFalse(_)
+        | E::IsTrue(_)
+        | E::IsNotTrue(_)
+        | E::IsNull(_)
+        | E::IsNotNull(_)
+        | E::IsUnknown(_)
+        | E::IsNotUnknown(_)
+        | E::IsDistinctFrom(..)
+        | E::IsNotDistinctFrom(..)
+        | E::IsNormalized { .. }
+        | E::InList { .. }
+        | E::InSubquery { .. }
+        | E::InUnnest { .. }
+        | E::Between { .. }
+        | E::Like { .. }
+        | E::ILike { .. }
+        | E::SimilarTo { .. }
+        | E::RLike { .. }
+        | E::AnyOp { .. }
+        | E::AllOp { .. }
+        | E::MemberOf(_) => PREDICATE_PREC,
+        E::AtTimeZone { .. } => AT_TIME_ZONE_PREC,
+        E::Identifier(_)
+        | E::CompoundIdentifier(_)
+        | E::CompoundFieldAccess { .. }
+        | E::JsonAccess { .. }
+        | E::Value(_)
+        | E::TypedString { .. }
+        | E::Function(_)
+        | E::Cast { .. }
+        | E::Convert { .. }
+        | E::Case { .. }
+        | E::Nested(_)
+        | E::Tuple(_)
+        | E::Array(_)
+        | E::Subquery(_)
+        | E::Exists { negated: false, .. }
+        | E::Interval(_)
+        | E::Extract { .. }
+        | E::Ceil { .. }
+        | E::Floor { .. }
+        | E::Position { .. }
+        | E::Substring { .. }
+        | E::Trim { .. }
+        | E::Overlay { .. }
+        | E::Collate { .. }
+        | E::Struct { .. }
+        | E::Map(_)
+        | E::Dictionary(_) => ATOM_PREC,
+        _ => 0,
     }
 }
 
@@ -236,13 +326,20 @@ fn lower_call(call: &Call) -> Result<ast::Expr> {
     }))
 }
 
+/// Lower an operand, and parenthesize it when its precedence is `<= wrap_at_or_below`.
+fn lower_operand(expr: &Expr, wrap_at_or_below: u8) -> Result<ast::Expr> {
+    let lowered = lower_expr(expr)?;
+    let wrap = ast_prec(&lowered) <= wrap_at_or_below;
+    Ok(maybe_paren(lowered, wrap))
+}
+
 fn lower_binary(left: &Expr, op: BinaryOp, right: &Expr) -> Result<ast::Expr> {
     let parent = binary_op_prec(op);
     // Left keeps its operator unwrapped while it binds at least as tight (left-associative); the
     // right operand is wrapped even at equal precedence, so `a - (b - c)` and `a / (b - c)` keep
     // their grouping.
-    let left_ast = maybe_paren(lower_expr(left)?, expr_prec(left) < parent);
-    let right_ast = maybe_paren(lower_expr(right)?, expr_prec(right) <= parent);
+    let left_ast = lower_operand(left, parent - 1)?;
+    let right_ast = lower_operand(right, parent)?;
     Ok(ast::Expr::BinaryOp {
         left: Box::new(left_ast),
         op: lower_binary_op(op),
@@ -250,31 +347,20 @@ fn lower_binary(left: &Expr, op: BinaryOp, right: &Expr) -> Result<ast::Expr> {
     })
 }
 
-/// Whether an expression's `Display` begins with a `-` token (a negative numeric literal or a
-/// nested unary negation). A unary minus placed directly in front of one emits `--`, which
-/// DataFusion lexes as a line comment — silently swallowing the rest of the query — so such an
-/// operand must be parenthesized.
-fn renders_with_leading_minus(expr: &Expr) -> bool {
-    match expr {
-        Expr::Literal(Scalar::Int(i)) => *i < 0,
-        Expr::Literal(Scalar::Float(f)) => f.is_sign_negative(),
-        Expr::Unary {
-            op: UnaryOp::Neg, ..
-        } => true,
-        _ => false,
-    }
-}
-
 fn lower_unary(op: UnaryOp, operand: &Expr) -> Result<ast::Expr> {
     let (parent, ast_op) = match op {
-        UnaryOp::Not => (3, ast::UnaryOperator::Not),
-        UnaryOp::Neg => (7, ast::UnaryOperator::Minus),
+        UnaryOp::Not => (NOT_PREC, ast::UnaryOperator::Not),
+        UnaryOp::Neg => (PREFIX_PREC, ast::UnaryOperator::Minus),
     };
-    let wrap = expr_prec(operand) < parent
-        || (matches!(op, UnaryOp::Neg) && renders_with_leading_minus(operand));
+    let lowered = lower_expr(operand)?;
+    // A unary minus placed directly in front of an operand that renders with a leading `-` (a
+    // negative literal, a nested negation, a `raw("-x")`) emits `--`, which DataFusion lexes as a
+    // line comment that swallows the rest of the query.
+    let wrap = ast_prec(&lowered) < parent
+        || (matches!(op, UnaryOp::Neg) && lowered.to_string().starts_with('-'));
     Ok(ast::Expr::UnaryOp {
         op: ast_op,
-        expr: Box::new(maybe_paren(lower_expr(operand)?, wrap)),
+        expr: Box::new(maybe_paren(lowered, wrap)),
     })
 }
 
@@ -295,8 +381,10 @@ pub fn lower_expr(expr: &Expr) -> Result<ast::Expr> {
         Expr::Raw(sql) => parse_raw_expr(sql)?,
         Expr::Binary { left, op, right } => lower_binary(left, *op, right)?,
         Expr::Unary { op, expr } => lower_unary(*op, expr)?,
+        // The operand of a predicate form is wrapped when it is itself a comparison or looser, so
+        // `(a = b) IS NULL` and `(a OR b) IN (…)` keep their grouping in every dialect.
         Expr::IsNull { expr, negated } => {
-            let inner = Box::new(lower_expr(expr)?);
+            let inner = Box::new(lower_operand(expr, COMPARISON_PREC)?);
             if *negated {
                 ast::Expr::IsNotNull(inner)
             } else {
@@ -308,7 +396,7 @@ pub fn lower_expr(expr: &Expr) -> Result<ast::Expr> {
             list,
             negated,
         } => ast::Expr::InList {
-            expr: Box::new(lower_expr(expr)?),
+            expr: Box::new(lower_operand(expr, COMPARISON_PREC)?),
             list: list.iter().map(lower_expr).collect::<Result<Vec<_>>>()?,
             negated: *negated,
         },
@@ -317,7 +405,7 @@ pub fn lower_expr(expr: &Expr) -> Result<ast::Expr> {
             subquery,
             negated,
         } => ast::Expr::InSubquery {
-            expr: Box::new(lower_expr(expr)?),
+            expr: Box::new(lower_operand(expr, COMPARISON_PREC)?),
             subquery: Box::new(lower_query(subquery)?),
             negated: *negated,
         },
@@ -327,10 +415,10 @@ pub fn lower_expr(expr: &Expr) -> Result<ast::Expr> {
             high,
             negated,
         } => ast::Expr::Between {
-            expr: Box::new(lower_expr(expr)?),
+            expr: Box::new(lower_operand(expr, COMPARISON_PREC)?),
             negated: *negated,
-            low: Box::new(lower_expr(low)?),
-            high: Box::new(lower_expr(high)?),
+            low: Box::new(lower_operand(low, COMPARISON_PREC)?),
+            high: Box::new(lower_operand(high, COMPARISON_PREC)?),
         },
         Expr::Case {
             when_then,
@@ -447,12 +535,17 @@ fn and_combine(filters: &[Expr]) -> Result<Option<ast::Expr>> {
     let Some(first) = iter.next() else {
         return Ok(None);
     };
-    let mut acc = lower_expr(first)?;
+    // A lone filter needs no parentheses. Once filters are AND-combined, each one that binds looser
+    // than `AND` is wrapped, or `.filter(a | b).filter(c)` renders as `a OR b AND c`.
+    if filters.len() == 1 {
+        return Ok(Some(lower_expr(first)?));
+    }
+    let mut acc = lower_operand(first, AND_PREC - 1)?;
     for f in iter {
         acc = ast::Expr::BinaryOp {
             left: Box::new(acc),
             op: ast::BinaryOperator::And,
-            right: Box::new(lower_expr(f)?),
+            right: Box::new(lower_operand(f, AND_PREC - 1)?),
         };
     }
     Ok(Some(acc))
@@ -640,7 +733,7 @@ pub fn lower_query(query: &Query) -> Result<ast::Query> {
     } else {
         Some(ast::With {
             with_token: ast::helpers::attached_token::AttachedToken::empty(),
-            recursive: false,
+            recursive: query.recursive,
             cte_tables: query
                 .ctes
                 .iter()

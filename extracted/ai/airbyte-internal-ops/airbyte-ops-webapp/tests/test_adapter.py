@@ -1,6 +1,7 @@
 """Tests for the connector pinning adapter."""
 
 import json
+import logging
 import urllib.parse
 from datetime import datetime
 from types import SimpleNamespace
@@ -8,6 +9,7 @@ from types import SimpleNamespace
 import google.api_core.exceptions
 import google.auth.exceptions
 import pytest
+import sqlalchemy.exc
 from airbyte.exceptions import PyAirbyteInputError
 from airbyte_ops_mcp.connector_ops.rollouts._helpers import RolloutConfiguration
 from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
@@ -516,7 +518,7 @@ def test_rollout_sync_summary_returns_empty_when_rollout_has_no_version(
             "rollout-id",
             is_destination=False,
         )
-        == RolloutSyncSummary()
+        is None
     )
     assert not queried
 
@@ -3402,3 +3404,44 @@ def test_org_connector_pin_rows_version_filter(
 
 def test_org_connector_pin_rows_empty_when_no_org() -> None:
     assert helpers_module.org_connector_pin_rows("") == []
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(
+            sqlalchemy.exc.OperationalError("SELECT 1", {}, Exception("57014")),
+            id="statement-timeout",
+        ),
+        pytest.param(RuntimeError("tier cache unavailable"), id="tier-cache-failure"),
+    ],
+)
+def test_rollout_sync_summary_returns_none_on_query_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: Exception,
+) -> None:
+    """A failed replica read must read as "unknown", not as zero healthy actors."""
+
+    def _boom(*_args: object, **_kwargs: object) -> list[dict[str, object]]:
+        raise failure
+
+    monkeypatch.setattr(adapter_module, "query_connector_rollouts", _boom)
+    adapter = OpsMcpAdapter()
+
+    with caplog.at_level(logging.ERROR, logger=adapter_module.logger.name):
+        summary = adapter.get_rollout_sync_summary(
+            "rollout-id",
+            is_destination=False,
+        )
+
+    assert summary is None
+    assert any(record.levelno == logging.ERROR for record in caplog.records), (
+        "expected the failure to be logged rather than swallowed"
+    )
+
+
+def test_rollout_sync_summary_requires_a_rollout_id() -> None:
+    """An empty `rollout_id` is a caller bug, not an absence of data."""
+    with pytest.raises(ValueError, match="rollout_id is required"):
+        OpsMcpAdapter().get_rollout_sync_summary("", is_destination=False)

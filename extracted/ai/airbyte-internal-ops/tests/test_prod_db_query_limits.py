@@ -1,6 +1,7 @@
-"""Tests for optional prod DB query limits."""
+"""Tests for optional prod DB query limits and query-execution behavior."""
 
 import sqlalchemy
+import sqlalchemy.exc
 
 from airbyte_ops_mcp.prod_db_access import queries
 

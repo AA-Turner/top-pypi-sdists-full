@@ -9,7 +9,9 @@ from datafusion_query_builder import (
     and_,
     col,
     f,
+    lit,
     param,
+    query,
     raw,
     table,
     when,
@@ -112,6 +114,18 @@ def test_cte_cross_join():
     assert 'CROSS JOIN short_window' in sql
 
 
+def test_recursive_cte():
+    recursive = query().select(lit(1).alias('n')).union_all(
+        table('numbers').select((col('n') + 1).alias('n')).filter(col('n') < 3)
+    )
+    q = table('numbers').with_recursive_cte('numbers', recursive)
+
+    assert q.validate() == (
+        'WITH RECURSIVE numbers AS (SELECT 1 AS n UNION ALL '
+        'SELECT n + 1 AS n FROM numbers WHERE n < 3) SELECT * FROM numbers'
+    )
+
+
 def test_window_function():
     q = table('t').select(
         f.sum(col('v')).over(partition_by=[col('svc')], order_by=[col('t').asc()]).alias('running'),
@@ -160,6 +174,22 @@ def test_raw_json_operator_no_longer_silently_truncated():
     # (and re-parses) faithfully.
     q = table('records').select(raw("attributes ? 'gen_ai.input.messages'").alias('x'))
     assert q.validate() == "SELECT attributes ? 'gen_ai.input.messages' AS x FROM records"
+
+
+def test_raw_predicate_needs_no_hand_written_brackets():
+    # A caller used to wrap a user-written predicate as `raw(f'({predicate})')`, because an `OR`
+    # inside `raw()` lost its grouping once AND-combined. That text wrapping breaks on a trailing
+    # `-- comment` and lets `1=1) OR (1=1` close the bracket. The builder now groups the fragment.
+    q = (
+        table('records')
+        .filter(col('service_name') == 'svc')
+        .filter(raw('a = 1 OR b = 2 -- either marker'))
+        .select(f.count().filter(raw('c = 1 OR d = 2') & (col('ts') > 0)).alias('bad'))
+    )
+    assert q.validate() == (
+        'SELECT count(*) FILTER (WHERE (c = 1 OR d = 2) AND ts > 0) AS bad '
+        "FROM records WHERE service_name = 'svc' AND (a = 1 OR b = 2)"
+    )
 
 
 def test_raw_fragment_with_trailing_tokens_raises():

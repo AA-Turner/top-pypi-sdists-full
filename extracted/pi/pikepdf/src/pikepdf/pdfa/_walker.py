@@ -12,6 +12,7 @@ recognized are never approved: every key must be allowed by some role.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from functools import partial
 from typing import Any, NamedTuple
 
 import pikepdf
@@ -19,6 +20,7 @@ from pikepdf.pdfa._colour import check_image_colour, resolve_colourspace
 from pikepdf.pdfa._content import ContentWalker
 from pikepdf.pdfa._context import ValidationContext
 from pikepdf.pdfa._cos import check_objects
+from pikepdf.pdfa._embedded import check_associated_files
 from pikepdf.pdfa._fonts import finalize_fonts, load_font
 from pikepdf.pdfa._icc import COMPONENTS, IccHeader, check_output_profile
 from pikepdf.pdfa._schemas import ChildSpec, SchemaSet
@@ -30,6 +32,11 @@ PAGE_BOXES = ('/MediaBox', '/CropBox', '/BleedBox', '/TrimBox', '/ArtBox')
 INHERITABLE_BOXES = frozenset({'/MediaBox', '/CropBox'})
 ANNOTATION_ROLES = ('LinkAnnot', 'TextAnnot', 'PopupAnnot', 'MarkupAnnot')
 MAX_STRUCTURE_ELEMENTS = 1_000_000
+# The role of the values of each name tree whose values the walker follows
+NAME_TREE_VALUES = {
+    'AppearanceNameTree': 'FormXObject',
+    'JavaScriptNameTree': 'Action',
+}
 
 # Annotation flags (ISO 32000-1 Table 165)
 ANNOT_INVISIBLE = 1
@@ -75,7 +82,6 @@ class DocumentWalker:
         self.ctx = ctx
         self.schemas = schemas
         self.skip_roles = skip_roles
-        self._roles_seen: dict[tuple[int, int], str] = {}
         self._stack: list[_Item] = []
         # Each hook takes the object kind its role's schema requires; _visit
         # checks the kind before calling it, which the type checker cannot see.
@@ -92,7 +98,12 @@ class DocumentWalker:
             'Font': self._on_font_role,
             'FormXObject': self._on_form,
             'StructTreeRoot': self._on_struct_tree_root,
+            'EmbeddedFiles': self._on_embedded_files,
+            'DestsNameTree': self._on_dests_name_tree,
+            'CatalogDests': self._on_catalog_dests,
         }
+        for role, value_role in NAME_TREE_VALUES.items():
+            self._hooks[role] = partial(self._on_name_tree, role, value_role)
         for role in ANNOTATION_ROLES:
             self._hooks[role] = self._on_annot
         self.content = ContentWalker(ctx)
@@ -107,6 +118,8 @@ class DocumentWalker:
         self._check_unpainted_images()
         if 'Pages' not in self.skip_roles:
             self._check_page_tree()
+        if self.ctx.flavour.part == 3:
+            check_associated_files(self.ctx)
         check_objects(self.ctx)
         finalize_fonts(self.ctx)
 
@@ -127,7 +140,7 @@ class DocumentWalker:
             return
         if isinstance(obj, pikepdf.Object) and obj.is_indirect:
             key = obj.objgen
-            seen_as = self._roles_seen.get(key)
+            seen_as = ctx.roles.get(key)
             if seen_as is not None:
                 if seen_as != role:
                     ctx.deny(
@@ -137,8 +150,7 @@ class DocumentWalker:
                         'unsupported',
                     )
                 return
-            self._roles_seen[key] = role
-            ctx.visited.add(key)
+            ctx.roles[key] = role
             where = ctx.describe(obj)
 
         base_where = where
@@ -146,6 +158,8 @@ class DocumentWalker:
         shallow: Any
         if role == 'Trailer' and depth == 0 and isinstance(obj, pikepdf.Dictionary):
             shallow = ctx.model.trailer_json(obj)
+        elif role == 'Catalog' and self._is_root(obj):
+            shallow = ctx.model.catalog_json(ctx.pdf)
         else:
             shallow = shallow_json_of(obj, ctx.model)
         while (dispatch := self.schemas.dispatch(role)) is not None:
@@ -237,7 +251,23 @@ class DocumentWalker:
 
     # --- hooks -------------------------------------------------------------
 
+    def _is_root(self, obj: object) -> bool:
+        root = self.ctx.pdf.Root
+        return (
+            isinstance(obj, pikepdf.Dictionary)
+            and obj.is_indirect
+            and obj.objgen == root.objgen
+        )
+
     def _on_catalog(self, obj: pikepdf.Dictionary, where: str, depth: int) -> None:
+        if self._is_root(obj):
+            # qpdf rewrites /Extensions when it writes the catalog, so check
+            # the form the model predicts rather than the one in memory.
+            extensions = pikepdf.unbox(self.ctx.model.extensions(self.ctx.pdf))
+            if extensions is not None:
+                self._stack.append(
+                    _Item(extensions, 'Extensions', depth + 1, f'{where} /Extensions')
+                )
         if '/OutputIntents' not in obj and 'OutputIntents' not in self.skip_roles:
             self.ctx.deny(
                 'pikepdf:output-intent',
@@ -553,6 +583,107 @@ class DocumentWalker:
                 )
             if '/K' in node:
                 pending.append(node.get('/K'))
+
+    def _name_tree_values(
+        self, obj: pikepdf.Dictionary, where: str, role: str
+    ) -> Iterable[tuple[pikepdf.Object, str]]:
+        """Yield the values of a name tree node, with their locations.
+
+        /Names alternates keys (strings) and values, so the schema cannot
+        give the values a role; the node's hook does. The node's /Kids are
+        followed by the schema, and the walker's depth limit and record of
+        the objects already checked bound the tree.
+        """
+        ctx = self.ctx
+        names = obj.get('/Names')
+        if names is None:
+            return
+        if not isinstance(names, pikepdf.Array) or len(names) % 2:
+            ctx.deny(
+                f'pikepdf:schema-{role}',
+                where,
+                "/Names shall be an array of key and value pairs",
+            )
+            return
+        for index in range(0, len(names), 2):
+            key, value = names[index], names[index + 1]
+            if not isinstance(key, pikepdf.String):
+                ctx.deny(
+                    f'pikepdf:schema-{role}',
+                    f'{where} /Names[{index}]',
+                    "name tree keys shall be strings",
+                )
+            yield value, f'{where} /Names[{index + 1}]'
+
+    def _on_name_tree(
+        self,
+        role: str,
+        value_role: str,
+        obj: pikepdf.Dictionary,
+        where: str,
+        depth: int,
+    ) -> None:
+        for value, value_where in self._name_tree_values(obj, where, role):
+            self._stack.append(_Item(value, value_role, depth + 1, value_where))
+
+    def _push_destination(self, value: object, where: str, depth: int) -> None:
+        """Check the value of a named destination as the role its type selects."""
+        if isinstance(value, pikepdf.Array):
+            self._stack.append(_Item(value, 'Destination', depth + 1, where))
+        elif isinstance(value, pikepdf.Dictionary) and not isinstance(
+            value, pikepdf.Stream
+        ):
+            self._stack.append(_Item(value, 'DestinationDict', depth + 1, where))
+        else:
+            self.ctx.deny(
+                'pikepdf:schema-Destination',
+                where,
+                "a named destination shall be an array or a dictionary",
+            )
+
+    def _on_dests_name_tree(
+        self, obj: pikepdf.Dictionary, where: str, depth: int
+    ) -> None:
+        for value, value_where in self._name_tree_values(obj, where, 'DestsNameTree'):
+            self._push_destination(value, value_where, depth)
+
+    def _on_catalog_dests(
+        self, obj: pikepdf.Dictionary, where: str, depth: int
+    ) -> None:
+        for key, value in obj.items():
+            if value is not None:  # a null value is an absent entry
+                self._push_destination(value, f'{where} {key}', depth)
+
+    def _on_embedded_files(
+        self, obj: pikepdf.Dictionary, where: str, depth: int
+    ) -> None:
+        """Follow the values of a node of the embedded files name tree.
+
+        An embedded file's specification must be an indirect object (ISO
+        32000-1 Table 44), which also lets the object checks of _cos know
+        that the walker checked it.
+        """
+        ctx = self.ctx
+        for value, value_where in self._name_tree_values(obj, where, 'EmbeddedFiles'):
+            if not isinstance(value, pikepdf.Dictionary) or (
+                not value.is_indirect and '/EF' not in value
+            ):
+                ctx.deny(
+                    'pikepdf:schema-EmbeddedFiles',
+                    value_where,
+                    "file specifications of external files are not supported",
+                    'unsupported',
+                )
+                continue
+            if not value.is_indirect:
+                ctx.deny(
+                    'pikepdf:schema-EmbeddedFiles',
+                    value_where,
+                    "the file specification of an embedded file shall be an "
+                    "indirect object",
+                )
+                continue
+            self._stack.append(_Item(value, 'FileSpec', depth + 1, value_where))
 
     def _on_font_role(self, obj: pikepdf.Dictionary, where: str, depth: int) -> None:
         self.on_font(obj, where)

@@ -239,7 +239,7 @@ class GeoSeries(GeoPandasBase, Series):
                 "This unsafe behavior will be deprecated in future versions. "
                 "Use GeoSeries.set_crs method instead.",
                 stacklevel=2,
-                category=DeprecationWarning,
+                category=FutureWarning,
             )
         self.geometry.values.crs = value
 
@@ -640,6 +640,22 @@ class GeoSeries(GeoPandasBase, Series):
         -------
         GeoSeries
 
+
+        See Also
+        --------
+        GeoSeries.to_arrow
+
+        Examples
+        --------
+        >>> import geoarrow.pyarrow as ga
+        >>> array = ga.as_geoarrow(
+        ... [None, "POLYGON ((0 0, 1 1, 0 1, 0 0))", "LINESTRING (0 0, -1 1, 0 -1)"])
+        >>> geoseries = geopandas.GeoSeries.from_arrow(array)
+        >>> geoseries
+        0                              None
+        1    POLYGON ((0 0, 1 1, 0 1, 0 0))
+        2      LINESTRING (0 0, -1 1, 0 -1)
+        dtype: geometry
         """
         from geopandas.io._geoarrow import arrow_to_geometry_array
 
@@ -790,11 +806,6 @@ class GeoSeries(GeoPandasBase, Series):
     def apply(self, func, convert_dtype: bool | None = None, args=(), **kwargs):
         if convert_dtype is not None:
             kwargs["convert_dtype"] = convert_dtype
-        else:
-            # if compat.PANDAS_GE_21 don't pass through, use pandas default
-            # of true to avoid internally triggering the pandas warning
-            if not compat.PANDAS_GE_21:
-                kwargs["convert_dtype"] = True
 
         # to avoid warning
         result = super().apply(func, args=args, **kwargs)
@@ -1005,11 +1016,16 @@ class GeoSeries(GeoPandasBase, Series):
 
     def explode(self, ignore_index=False, index_parts=False) -> GeoSeries:
         """
-        Explode multi-part geometries into multiple single geometries.
+        Explode multi-part geometries into multiple component geometries.
 
         Single rows can become multiple rows.
         This is analogous to PostGIS's ST_Dump(). The 'path' index is the
         second level of the returned MultiIndex
+
+        GeometryCollections are split into their direct components. If a
+        GeometryCollection contains a multi-part geometry, that component is
+        returned as a multi-part geometry. To further split multi-part
+        geometries within a GeometryCollection, call ``explode`` a second time.
 
         Parameters
         ----------
@@ -1019,14 +1035,16 @@ class GeoSeries(GeoPandasBase, Series):
         index_parts : boolean, default False
             If True, the resulting index will be a multi-index (original
             index with an additional level indicating the multiple
-            geometries: a new zero-based index for each single part geometry
-            per multi-part geometry).
+            geometries: a new zero-based index for each component geometry
+            per input geometry).
 
         Returns
         -------
-        A GeoSeries with a MultiIndex. The levels of the MultiIndex are the
-        original index and a zero-based integer index that counts the
-        number of single geometries within a multi-part geometry.
+        GeoSeries
+            Exploded GeoSeries with each component geometry as a separate
+            entry. If ``index_parts`` is True, the resulting index will be a
+            MultiIndex with the original index and a zero-based integer index
+            that counts the component geometries within each input geometry.
 
         Examples
         --------
@@ -1346,7 +1364,7 @@ e": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [3
         )
 
     def to_wkb(self, hex: bool = False, **kwargs) -> Series:
-        """Convert GeoSeries geometries to WKB.
+        r"""Convert GeoSeries geometries to WKB.
 
         Parameters
         ----------
@@ -1365,6 +1383,42 @@ e": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [3
         See Also
         --------
         GeoSeries.to_wkt
+
+        Examples
+        --------
+        >>> from shapely.geometry import Point, Polygon
+        >>> s = geopandas.GeoSeries(
+        ...     [
+        ...         Point(0, 0),
+        ...         Polygon(),
+        ...         Polygon([(0, 0), (1, 1), (1, 0)]),
+        ...         None,
+        ...     ]
+        ... )
+
+        >>> s.to_wkb()
+        0    b'\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00...
+        1              b'\x01\x03\x00\x00\x00\x00\x00\x00\x00'
+        2    b'\x01\x03\x00\x00\x00\x01\x00\x00\x00\x04\x00...
+        3                                                 None
+        dtype: object
+
+        >>> s.to_wkb(hex=True)
+        0           010100000000000000000000000000000000000000
+        1                                   010300000000000000
+        2    0103000000010000000400000000000000000000000000...
+        3                                                  NaN
+        dtype: str
+
+        Notes
+        -----
+        The Well-Known Binary (WKB) specification does not support all variations
+        of geometry types that GeoPandas does, and some geometries may not be
+        serialised without information loss. Notably:
+
+        - LinearRing will be converted to LineString
+        - Empty Points will be converted to Points with NaN as coordinates (but will be
+          read by :meth:`from_wkb` as empty Points).
         """
         return Series(to_wkb(self.array, hex=hex, **kwargs), index=self.index)
 
@@ -1395,7 +1449,7 @@ e": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [3
         0    POINT (1 1)
         1    POINT (2 2)
         2    POINT (3 3)
-        dtype: object
+        dtype: str
 
         See Also
         --------
@@ -1461,11 +1515,9 @@ e": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [3
         >>> import pyarrow as pa
         >>> array = pa.array(arrow_array)
         >>> array
-        <pyarrow.lib.BinaryArray object at ...>
-        [
-          0101000000000000000000F03F0000000000000040,
-          01010000000000000000000040000000000000F03F
-        ]
+        GeometryExtensionArray:WkbType(geoarrow.wkb)[2]
+        <POINT (1 2)>
+        <POINT (2 1)>
 
         """
         from geopandas.io._geoarrow import (

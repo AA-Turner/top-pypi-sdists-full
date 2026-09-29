@@ -1351,6 +1351,9 @@ class IsoCalendarDate(tuple):
     def weekday(self):
         return self[2]
 
+    def __reduce__(self):
+        return (tuple, (tuple(self),))
+
     def __repr__(self):
         return (
             f"{self.__class__.__name__}"
@@ -2259,7 +2262,7 @@ class datetime(date):
         else:
             _cmperror(self, other)
 
-    def _cmp(self, other, allow_mixed=False):
+    def _cmp(self, other: Any, allow_mixed: bool = False) -> int:
         assert isinstance(other, any_datetime)
         mytz = self._tzinfo
         ottz = other.tzinfo
@@ -2516,11 +2519,7 @@ class timezone(tzinfo):
             return dt + self._offset
         raise TypeError("fromutc() argument must be a datetime instance" " or None")
 
-    _maxoffset = (
-        timedelta(hours=24, microseconds=-1)
-        if sys.version_info >= (3, 8)
-        else timedelta(hours=23, minutes=59)
-    )
+    _maxoffset = timedelta(hours=24, microseconds=-1)
     _minoffset = -_maxoffset
 
     @staticmethod

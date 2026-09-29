@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: molecule-plugins
-Version: 26.7.15
+Version: 26.9.28
 Summary: Molecule Plugins
 Author-email: Sorin Sbarnea <sorin.sbarnea@gmail.com>
 Maintainer-email: Sorin Sbarnea <sorin.sbarnea@gmail.com>
 License-Expression: MIT
-Project-URL: homepage, https://github.com/ansible-community/molecule-plugins
-Project-URL: documentation, https://molecule.readthedocs.io/
-Project-URL: repository, https://github.com/ansible-community/molecule-plugins
 Project-URL: changelog, https://github.com/ansible-community/molecule-plugins/releases
-Keywords: ansible,testing,molecule,plugin
+Project-URL: documentation, https://docs.ansible.com/projects/molecule/
+Project-URL: homepage, https://github.com/ansible-community/molecule-plugins
+Project-URL: repository, https://github.com/ansible-community/molecule-plugins
+Keywords: ansible,molecule,plugin,testing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -17,16 +17,18 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python
-Classifier: Topic :: System :: Systems Administration
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Bug Tracking
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -42,14 +44,14 @@ Provides-Extra: ec2
 Provides-Extra: gce
 Requires-Dist: requests>=2.31.0; extra == "gce"
 Requires-Dist: google-auth>=2.28.2; extra == "gce"
+Provides-Extra: openstack
+Requires-Dist: openstacksdk>=1.1.0; extra == "openstack"
 Provides-Extra: podman
 Provides-Extra: selinux
 Requires-Dist: selinux; sys_platform == "linux2" and extra == "selinux"
 Requires-Dist: selinux; sys_platform == "linux" and extra == "selinux"
 Provides-Extra: vagrant
 Requires-Dist: python-vagrant; extra == "vagrant"
-Provides-Extra: openstack
-Requires-Dist: openstacksdk>=1.1.0; extra == "openstack"
 Dynamic: license-file
 
 # molecule-plugins

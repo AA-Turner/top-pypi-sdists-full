@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "geventhttpclient"
-version = "2.3.9" # don't forget to update version __init__.py as well
+version = "2.5.0" # don't forget to update version __init__.py as well
 description = "HTTP client library for gevent"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = "MIT"
 keywords = ["http", "gevent", "client"]
 authors = [{name = "Antonin Amand", email = "antonin.amand@gmail.com"}]
@@ -18,8 +18,6 @@ classifiers = [
     "Intended Audience :: Information Technology",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -31,9 +29,9 @@ dependencies = [
     "gevent",
     "certifi",
     "brotli",
-    "urllib3",
 ]
 optional-dependencies.dev = [
+    "mypy",
     "pytest",
     "dpkt",
     "requests",
@@ -75,43 +73,36 @@ markers = [
 ]
 
 
-[tool.tox]
-legacy_tox_ini = """
-[tox]
-envlist = py{39,310,311,312,313,314}
-
-[testenv]
-deps =
-    pip
-    pytest
-    build
-allowlist_externals =
-    rm
-    find
-commands =
-    rm -rf build
-    # find errors for windows
-    # find . -name '*.pyc' -delete
-    python -m build
-    pip install -r requirements-dev.txt
-    pip install .
-    pytest
-"""
-
-
 [tool.ruff]
 fix = false
 line-length = 100
 target-version = "py311"
-lint.extend-select = ["UP"]
+lint.extend-select = ["UP", "I", "W"]
 lint.ignore = ["F821", "E402"]
+[tool.mypy]
+python_version = "3.11"
+files = ["src"]
+ignore_missing_imports = true
+disallow_untyped_defs = true
+
+# Modules not fully typed yet. Remove the override as soon as the module
+# is annotated.
+[[tool.mypy.overrides]]
+module = [
+    "geventhttpclient.api",
+    "geventhttpclient.httplib",
+    "geventhttpclient.httplib2",
+    "geventhttpclient.requests",
+    "geventhttpclient.useragent",
+]
+ignore_errors = true
 
 [tool.ruff.lint.isort]
 known-first-party = ["geventhttpclient", "tests"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"test_no_module_ssl.py" = ["F401"]
+"tests/*" = ["B017", "RUF059", "S110", "BLE001", "DTZ005"]
 
 [tool.codespell]
 ignore-regex = ".*codespell-ignore$"

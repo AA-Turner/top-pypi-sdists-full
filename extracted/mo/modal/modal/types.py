@@ -2,7 +2,7 @@
 """Public data types returned by Modal APIs."""
 
 import enum
-from dataclasses import FrozenInstanceError, dataclass
+from dataclasses import FrozenInstanceError, dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable, Literal, Optional, TypedDict
@@ -56,6 +56,8 @@ class FileWatchEventType(enum.Enum):
 
 LogSource = Literal["stdout", "stderr", "system"]
 
+SandboxRuntime = Literal["gvisor", "vm"]
+
 
 @dataclass(frozen=True, slots=True)
 class LogEntry:
@@ -108,6 +110,7 @@ class SecretInfo:
     # since it is transmitted from the server when the object is hydrated and could be stale when accessed.
 
     name: str | None
+    environment_name: str
     created_at: datetime
     created_by: str | None
 
@@ -130,15 +133,153 @@ class VolumeInfo:
     created_by: str | None
 
 
-# Wrapper type for api_pb2.FunctionStats
 @dataclass(frozen=True)
-class FunctionStats:
+class FunctionCurrentStats:
     """Simple data structure storing stats for a running function."""
 
     backlog: int
     num_total_runners: int
     num_running_inputs: int
     input_headroom: int
+
+
+@dataclass(frozen=True)
+class StatsPercentile:
+    """A percentile measurement for a metric or strat."""
+
+    percentile: float
+    value: float
+
+    @classmethod
+    def _from_proto(cls, proto: api_pb2.StatsPercentile) -> "StatsPercentile":
+        return cls(proto.percentile_basis_points / 100, proto.value)
+
+
+@dataclass(frozen=True)
+class StatsPercentileDistribution:
+    unit: str
+    percentiles: list[StatsPercentile]
+
+    @classmethod
+    def _from_proto(cls, proto: api_pb2.StatsPercentileDistribution) -> "StatsPercentileDistribution":
+        return cls(unit=proto.unit, percentiles=[StatsPercentile._from_proto(p) for p in proto.percentiles])
+
+
+@dataclass(frozen=True)
+class FunctionStats:
+    """Historical Function statistics for a time range."""
+
+    since: datetime
+    until: datetime
+    input_success_count: int
+    input_failure_count: int
+    input_timeout_count: int
+    input_running_at_end_count: int
+    input_percentile_stats: dict[str, StatsPercentileDistribution]
+
+    container_started_count: int
+    container_error_count: int
+    container_creating_at_end_count: int
+    container_percentile_stats: dict[str, StatsPercentileDistribution]
+    variant_count: int
+    all_variants: bool
+
+    @classmethod
+    def _from_proto(cls, proto: api_pb2.FunctionGetTimeRangeStatsResponse, all_variants: bool) -> "FunctionStats":
+        return cls(
+            since=proto.since.ToDatetime(tzinfo=timezone.utc),
+            until=proto.until.ToDatetime(tzinfo=timezone.utc),
+            input_success_count=proto.input_success_count,
+            input_failure_count=proto.input_failure_count,
+            input_timeout_count=proto.input_timeout_count,
+            input_running_at_end_count=proto.input_running_at_end_count,
+            input_percentile_stats={
+                k: StatsPercentileDistribution._from_proto(v) for k, v in proto.input_percentile_stats.items()
+            },
+            container_started_count=proto.container_started_count,
+            container_error_count=proto.container_error_count,
+            container_creating_at_end_count=proto.container_creating_at_end_count,
+            container_percentile_stats={
+                k: StatsPercentileDistribution._from_proto(v) for k, v in proto.container_percentile_stats.items()
+            },
+            variant_count=proto.variant_count,
+            all_variants=all_variants,
+        )
+
+
+@dataclass(frozen=True)
+class ServerStats:
+    """Historical Server statistics for a time range."""
+
+    @dataclass(frozen=True)
+    class InferenceStats:
+        """Inference-engine statistics for a Server."""
+
+        engine: str
+        status: str
+        percentile_stats: dict[str, StatsPercentileDistribution]
+        scalar_stats: dict[str, float]
+
+        @classmethod
+        def _from_proto(
+            cls, proto: api_pb2.ServerGetTimeRangeStatsResponse.ServerInferenceStats
+        ) -> "ServerStats.InferenceStats":
+            engine_to_proto = {
+                api_pb2.LLMEngine.LLM_ENGINE_SGLANG: "sglang",
+                api_pb2.LLMEngine.LLM_ENGINE_VLLM: "vllm",
+                api_pb2.LLMEngine.LLM_ENGINE_UNSPECIFIED: "unspecified",
+            }
+
+            status_to_proto = {
+                api_pb2.ServerInferenceStatsStatus.SERVER_INFERENCE_STATS_STATUS_NO_DATA: "no_data",
+                api_pb2.ServerInferenceStatsStatus.SERVER_INFERENCE_STATS_STATUS_AVAILABLE: "available",
+                api_pb2.ServerInferenceStatsStatus.SERVER_INFERENCE_STATS_STATUS_UNAVAILABLE: "unavailable",
+                api_pb2.ServerInferenceStatsStatus.SERVER_INFERENCE_STATS_STATUS_UNSPECIFIED: "unspecified",
+            }
+
+            return cls(
+                engine=engine_to_proto.get(proto.engine, "unrecognized"),
+                status=status_to_proto.get(proto.status, "unrecognized"),
+                percentile_stats={
+                    name: StatsPercentileDistribution._from_proto(distribution)
+                    for name, distribution in proto.percentile_stats.items()
+                },
+                scalar_stats=dict(proto.scalar_stats),
+            )
+
+    since: datetime
+    until: datetime
+    request_count: int
+    request_count_by_status_code: dict[int, int]
+    request_rate_per_second: float
+    request_percentile_stats: dict[str, StatsPercentileDistribution]
+    container_started_count: int
+    container_error_count: int
+    container_creating_at_end_count: int
+    container_percentile_stats: dict[str, StatsPercentileDistribution]
+    inference: InferenceStats | None
+
+    @classmethod
+    def _from_proto(cls, proto: api_pb2.ServerGetTimeRangeStatsResponse) -> "ServerStats":
+        return cls(
+            since=proto.since.ToDatetime(tzinfo=timezone.utc),
+            until=proto.until.ToDatetime(tzinfo=timezone.utc),
+            request_count=proto.request_count,
+            request_count_by_status_code={item.status_code: item.count for item in proto.request_count_by_status_code},
+            request_rate_per_second=proto.request_rate_per_second,
+            request_percentile_stats={
+                name: StatsPercentileDistribution._from_proto(distribution)
+                for name, distribution in proto.request_percentile_stats.items()
+            },
+            container_started_count=proto.container_started_count,
+            container_error_count=proto.container_error_count,
+            container_creating_at_end_count=proto.container_creating_at_end_count,
+            container_percentile_stats={
+                name: StatsPercentileDistribution._from_proto(distribution)
+                for name, distribution in proto.container_percentile_stats.items()
+            },
+            inference=ServerStats.InferenceStats._from_proto(proto.inference) if proto.HasField("inference") else None,
+        )
 
 
 @dataclass
@@ -251,6 +392,8 @@ class ProxyTokenInfo:
     token_id: str
     created_at: datetime
     scoped: bool
+    name: str = ""
+    created_by: str = ""
 
 
 @dataclass(frozen=True)
@@ -412,4 +555,475 @@ class ServerAutoscalerSettings:
             scaleup_window=pb_item.scaleup_window if pb_item.HasField("scaleup_window") else None,
             scaledown_window=pb_item.scaledown_window if pb_item.HasField("scaledown_window") else None,
             target_concurrency=target_concurrency,
+        )
+
+
+@dataclass(frozen=True)
+class VolumeMountInfo:
+    name: str | None
+    volume_id: str | None  # None if the object has not yet been hydrated
+    read_only: bool
+    sub_path: str | None
+
+    def __post_init__(self):
+        assert (self.name is not None) or (self.volume_id is not None)
+
+
+@dataclass(frozen=True)
+class CloudBucketMountInfo:
+    bucket_name: str
+    bucket_type: Literal["s3", "r2", "gcp"]
+    read_only: bool
+    key_prefix: str | None
+
+    @classmethod
+    def _from_proto(cls, cbm: api_pb2.CloudBucketMount) -> "CloudBucketMountInfo":
+        return cls(
+            cbm.bucket_name,
+            "r2"
+            if cbm.bucket_type == api_pb2.CloudBucketMount.BucketType.R2
+            else "gcp"
+            if cbm.bucket_type == api_pb2.CloudBucketMount.BucketType.GCP
+            else "s3",
+            cbm.read_only,
+            cbm.key_prefix or None,
+        )
+
+
+@dataclass(frozen=True)
+class FunctionInfo:
+    """A simple data structure containing static info about a Function handle."""
+
+    @dataclass(frozen=True)
+    class _InnerServerInfo:
+        """mdmd:hidden"""
+
+        server_url: str
+        port: int
+        unauthenticated: bool
+        h2_enabled: bool
+        routing_region: str | None
+        sessioned: bool
+        startup_timeout: int
+        exit_grace_period: int
+
+    @dataclass(frozen=True)
+    class WebInfo:
+        # `web_url` is an empty string if the handle is not yet hydrated
+        web_url: str
+        # `method` is not None iff the function is from `@modal.fastapi_endpoint` (kind == "function")
+        method: str | None
+        unauthenticated: bool
+
+        @classmethod
+        def _from_proto(cls, url: str, webhook_config: api_pb2.WebhookConfig) -> "FunctionInfo.WebInfo":
+            return cls(
+                web_url=url,
+                method=webhook_config.method if webhook_config.method else None,
+                unauthenticated=not webhook_config.requires_proxy_auth,
+            )
+
+    @dataclass(frozen=True)
+    class ImageInfo:
+        image_name: str | None
+        image_id: str | None  # None if the object has not yet been hydrated
+
+    @dataclass(frozen=True)
+    class ClusterInfo:
+        size: int
+        rdma: bool
+        fabric_size: int | None
+
+    @dataclass(frozen=True)
+    class BatchingInfo:
+        max_batch_size: int
+        wait_ms: int
+
+    @dataclass(frozen=True)
+    class ConcurrencyInfo:
+        max_inputs: int | None
+        target_inputs: int | None
+
+    cpu: float | tuple[float, float] | None
+    memory_mib: int | tuple[int, int] | None
+    gpus: list[tuple[str, int]]
+    ephemeral_disk_mib: int | None
+
+    image_info: ImageInfo
+
+    startup_timeout: int | None
+    timeout: int
+    max_retries: int | None
+
+    nonpreemptible: bool
+    regions: list[str] | None
+    routing_region: str | None
+    cloud: str | None
+
+    cluster_info: ClusterInfo | None
+    batching_info: BatchingInfo | None
+    concurrency_info: ConcurrencyInfo | None
+
+    schedule: str | None
+
+    restrict_modal_access: bool
+    block_network: bool
+    single_use_containers: bool
+
+    volumes: dict[str, VolumeMountInfo]
+    cloud_bucket_mounts: dict[str, CloudBucketMountInfo]
+    secrets: list[str]
+
+    web_info: WebInfo | None
+
+    method_names: list[str] | None
+    method_details: dict[str, WebInfo] | None
+
+    # If the calling Function is a Server's service function, this holds the private fields that we
+    # need to pass to ServerInfo
+    _inner_server_info: _InnerServerInfo | None = field(repr=False)
+
+    @classmethod
+    def _from_function_proto(cls, function_data: api_pb2.FunctionData) -> "FunctionInfo":
+        functions = function_data.ranked_functions
+
+        if len(functions) == 0:
+            raise ValueError("Could not parse FunctionData proto - no functions provided")
+
+        # note: the only thing that isn't shared across all function copies in the FunctionData struct
+        # is GPU information. Everything else can be extracted from the first Function struct in the
+        # response.
+        first_function = functions[0].function
+        resources = first_function.resources
+
+        cpu: float | tuple[float, float] | None
+        if resources.milli_cpu_max > 0:
+            cpu = (resources.milli_cpu / 1000, resources.milli_cpu_max / 1000)
+        elif resources.milli_cpu > 0:
+            cpu = resources.milli_cpu / 1000
+        else:
+            cpu = None
+
+        memory_mib: int | tuple[int, int] | None
+        if resources.memory_mb_max > 0:
+            # todo(ayush): this should be `(resources.memory_mb, resources.memory_mb_max)`
+            memory_mib = resources.memory_mb_max
+        elif resources.memory_mb > 0:
+            memory_mib = resources.memory_mb
+        else:
+            memory_mib = None
+
+        if resources.ephemeral_disk_mb > 0:
+            ephemeral_disk_mib = resources.ephemeral_disk_mb
+        else:
+            ephemeral_disk_mib = None
+
+        gpus = []
+        for fn in functions:
+            # note: we can't do `.HasField("gpu_config")` because in some places, non-GPU functions
+            # set an empty GPUConfig instead of not setting a config, meaning that `HasField` returns
+            # true despite the function not actually requesting a GPU.
+            if fn.function.resources.gpu_config.count == 0:
+                continue
+
+            gpus.append(
+                (
+                    fn.function.resources.gpu_config.gpu_type,
+                    fn.function.resources.gpu_config.count,
+                )
+            )
+
+        scheduler_placement = first_function.scheduler_placement
+        nonpreemptible = scheduler_placement.nonpreemptible
+        if scheduler_placement.regions:
+            regions = list(scheduler_placement.regions)
+        else:
+            regions = None
+
+        if first_function.cloud_provider_str:
+            cloud = first_function.cloud_provider_str
+        else:
+            cloud = None
+
+        if not function_data.HasField("schedule"):
+            schedule = None
+        else:
+            from modal._utils.function_utils import get_schedule_str
+
+            schedule = get_schedule_str(function_data.schedule)
+
+        volumes = {
+            vm.mount_path: VolumeMountInfo(None, vm.volume_id, vm.read_only, vm.sub_path or None)
+            for vm in first_function.volume_mounts
+        }
+
+        cloud_bucket_mounts = {}
+        for cbm in first_function.cloud_bucket_mounts:
+            cloud_bucket_mounts[cbm.mount_path] = CloudBucketMountInfo._from_proto(cbm)
+
+        webhook_info: FunctionInfo.WebInfo | None = None
+        if function_data.webhook_config.type != api_pb2.WEBHOOK_TYPE_UNSPECIFIED:
+            webhook_info = FunctionInfo.WebInfo._from_proto(function_data.web_url, function_data.webhook_config)
+
+        method_names: list[str] = []
+        method_details: dict[str, FunctionInfo.WebInfo] = {}
+        for name, method_def in function_data.method_definitions.items():
+            method_names.append(name)
+
+            if method_def.webhook_config.type != api_pb2.WEBHOOK_TYPE_UNSPECIFIED:
+                method_details[name] = FunctionInfo.WebInfo._from_proto(method_def.web_url, method_def.webhook_config)
+
+        cluster_info: FunctionInfo.ClusterInfo | None = None
+        if function_data._experimental_group_size > 0:
+            cluster_info = FunctionInfo.ClusterInfo(
+                size=function_data._experimental_group_size,
+                rdma=resources.rdma,
+                fabric_size=function_data._experimental_fabric_size or None,
+            )
+
+        batching_info: FunctionInfo.BatchingInfo | None = None
+        if first_function.batch_max_size > 0:
+            batching_info = FunctionInfo.BatchingInfo(
+                max_batch_size=first_function.batch_max_size,
+                wait_ms=first_function.batch_linger_ms,
+            )
+
+        concurrency_info: FunctionInfo.ConcurrencyInfo | None = None
+        if first_function.max_concurrent_inputs > 0 or first_function.target_concurrent_inputs > 0:
+            concurrency_info = FunctionInfo.ConcurrencyInfo(
+                max_inputs=first_function.max_concurrent_inputs if first_function.max_concurrent_inputs else None,
+                target_inputs=first_function.target_concurrent_inputs
+                if first_function.target_concurrent_inputs
+                else None,
+            )
+
+        inner_server_info: FunctionInfo._InnerServerInfo | None = None
+        if function_data.HasField("http_config"):
+            inner_server_info = FunctionInfo._InnerServerInfo(
+                port=function_data.http_config.port,
+                unauthenticated=function_data.http_config.unauthenticated,
+                h2_enabled=function_data.http_config.h2_enabled,
+                routing_region=function_data.http_config.proxy_regions[0]
+                if function_data.http_config.proxy_regions
+                else None,
+                server_url=function_data.flash_service_urls[0] if function_data.flash_service_urls else "",
+                sessioned=function_data.is_sessioned,
+                # different from the top level startup timeout (i.e. the one passed to app.function())
+                startup_timeout=function_data.http_config.startup_timeout,
+                exit_grace_period=function_data.http_config.exit_grace_period,
+            )
+
+        return cls(
+            cpu=cpu,
+            memory_mib=memory_mib,
+            gpus=gpus,
+            ephemeral_disk_mib=ephemeral_disk_mib,
+            # ---
+            image_info=FunctionInfo.ImageInfo(None, first_function.image_id),
+            # ---
+            startup_timeout=function_data.http_config.startup_timeout,
+            timeout=function_data.timeout_secs,
+            max_retries=first_function.retry_policy.retries if first_function.HasField("retry_policy") else None,
+            # ---
+            nonpreemptible=nonpreemptible,
+            regions=regions,
+            routing_region=function_data.routing_region,
+            cloud=cloud,
+            # ---
+            cluster_info=cluster_info,
+            batching_info=batching_info,
+            concurrency_info=concurrency_info,
+            # ---
+            schedule=schedule,
+            # ---
+            block_network=first_function.block_network,
+            restrict_modal_access=first_function.untrusted,
+            single_use_containers=first_function.single_use_containers,
+            # ---
+            volumes=volumes,
+            cloud_bucket_mounts=cloud_bucket_mounts,
+            secrets=list(first_function.secret_ids),
+            # ---
+            web_info=webhook_info,
+            # ---
+            method_names=method_names or None,
+            method_details=method_details if method_names else None,
+            # ---
+            _inner_server_info=inner_server_info,
+        )
+
+
+@dataclass(frozen=True)
+class ServerContainerInfo:
+    """Information about a container serving requests for a Server."""
+
+    container_id: str
+    host: str
+    port: int
+
+
+@dataclass(frozen=True)
+class ServerInfo:
+    """A simple data structure containing static info about a Server handle."""
+
+    @dataclass(frozen=True)
+    class ImageInfo:
+        image_name: str | None
+        image_id: str | None  # None if the object has not yet been hydrated
+
+    @dataclass(frozen=True)
+    class ClusterInfo:
+        size: int
+        rdma: bool
+        fabric_size: int | None
+
+    server_url: str
+    port: int
+    unauthenticated: bool
+    h2_enabled: bool
+    routing_region: str | None
+    sessioned: bool
+    startup_timeout: int
+    exit_grace_period: int
+
+    image_info: ImageInfo
+
+    cpu: float | tuple[float, float] | None
+    memory_mib: int | tuple[int, int] | None
+    gpus: list[tuple[str, int]]
+    ephemeral_disk_mib: int | None
+
+    nonpreemptible: bool
+    compute_regions: list[str] | None
+    cloud: str | None
+
+    cluster_info: ClusterInfo | None
+
+    volumes: dict[str, VolumeMountInfo]
+    cloud_bucket_mounts: dict[str, CloudBucketMountInfo]
+    secrets: list[str]
+
+    @classmethod
+    def _from_function_info(cls, info: FunctionInfo) -> "ServerInfo":
+        assert info._inner_server_info is not None
+
+        return cls(
+            server_url=info._inner_server_info.server_url,
+            port=info._inner_server_info.port,
+            unauthenticated=info._inner_server_info.unauthenticated,
+            h2_enabled=info._inner_server_info.h2_enabled,
+            routing_region=info._inner_server_info.routing_region,
+            sessioned=info._inner_server_info.sessioned,
+            startup_timeout=info._inner_server_info.startup_timeout,
+            exit_grace_period=info._inner_server_info.exit_grace_period,
+            # ---
+            image_info=ServerInfo.ImageInfo(
+                image_name=info.image_info.image_name,
+                image_id=info.image_info.image_id,
+            ),
+            # ---
+            cpu=info.cpu,
+            memory_mib=info.memory_mib,
+            gpus=list(info.gpus),
+            ephemeral_disk_mib=info.ephemeral_disk_mib,
+            # ---
+            nonpreemptible=info.nonpreemptible,
+            compute_regions=list(info.regions) if info.regions is not None else None,
+            cloud=info.cloud,
+            # ---
+            cluster_info=ServerInfo.ClusterInfo(
+                size=info.cluster_info.size,
+                rdma=info.cluster_info.rdma,
+                fabric_size=info.cluster_info.fabric_size,
+            )
+            if info.cluster_info
+            else None,
+            # ---
+            volumes=dict(info.volumes),
+            cloud_bucket_mounts=dict(info.cloud_bucket_mounts),
+            secrets=[s for s in info.secrets],
+        )
+
+
+@dataclass(frozen=True)
+class ServerSessionCredentials:
+    """Credentials for a sticky session on a Server.
+
+    Requests carrying `token` are routed to the same container.
+    """
+
+    session_id: str  # Identifier of this session, for display and logging
+    token: str  # Session token to send with every request
+
+
+class AppState(str, enum.Enum):
+    EPHEMERAL = "ephemeral"
+    DETACHED = "detached"
+    DEPLOYED = "deployed"
+    STOPPING = "stopping"
+    STOPPED = "stopped"
+    INITIALIZING = "initializing"
+    DISABLED = "disabled"
+
+
+@dataclass
+class AppLifecycle:
+    """Timestamps and attributions for events in an App's lifecycle.
+
+    Timestamps or attributions may be None when they do not apply to this App
+    (e.g., App is not deployed, App was not explicitly stopped).
+    """
+
+    state: AppState
+    version: int | None
+    created_at: datetime
+    created_by: str
+    deployed_at: datetime | None
+    deployed_by: str | None
+    stopped_at: datetime | None
+    stopped_by: str | None
+
+    @classmethod
+    def _from_proto(cls, proto: api_pb2.AppLifecycle) -> "AppLifecycle":
+        proto_to_state = {
+            api_pb2.AppState.APP_STATE_UNSPECIFIED: AppState.EPHEMERAL,
+            api_pb2.AppState.APP_STATE_EPHEMERAL: AppState.EPHEMERAL,
+            api_pb2.AppState.APP_STATE_DETACHED: AppState.DETACHED,
+            api_pb2.AppState.APP_STATE_DEPLOYED: AppState.DEPLOYED,
+            api_pb2.AppState.APP_STATE_STOPPING: AppState.STOPPING,
+            api_pb2.AppState.APP_STATE_STOPPED: AppState.STOPPED,
+            api_pb2.AppState.APP_STATE_INITIALIZING: AppState.INITIALIZING,
+            api_pb2.AppState.APP_STATE_DISABLED: AppState.DISABLED,
+            api_pb2.AppState.APP_STATE_DETACHED_DISCONNECTED: AppState.DETACHED,
+        }
+        return cls(
+            state=proto_to_state[proto.app_state],
+            version=proto.version if proto.version else None,
+            deployed_by=proto.deployed_by if proto.deployed_by else None,
+            stopped_at=datetime.fromtimestamp(proto.stopped_at, tz=timezone.utc) if proto.stopped_at > 0 else None,
+            stopped_by=proto.stopped_by if proto.stopped_by else None,
+            created_by=proto.created_by,
+            deployed_at=datetime.fromtimestamp(proto.deployed_at, tz=timezone.utc) if proto.deployed_at > 0 else None,
+            created_at=datetime.fromtimestamp(proto.created_at, tz=timezone.utc),
+        )
+
+
+@dataclass(frozen=True)
+class AppInfo:
+    """Information about a modal App, including its lifecycle and member functions and servers."""
+
+    app_id: str
+    description: str
+    lifecycle: AppLifecycle
+    functions: dict[str, str]  # function name -> id
+    servers: dict[str, str]  # server name -> id
+
+    @classmethod
+    def _from_proto(cls, proto: api_pb2.AppHandleMetadata, app_id: str) -> "AppInfo":
+        return cls(
+            description=proto.description,
+            lifecycle=AppLifecycle._from_proto(proto.lifecycle),
+            functions=dict(proto.functions),
+            servers=dict(proto.servers),
+            app_id=app_id,
         )

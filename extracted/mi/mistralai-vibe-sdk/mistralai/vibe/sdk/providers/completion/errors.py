@@ -24,7 +24,16 @@ class CompletionContextTooLargeError(RuntimeError):
 
 
 def is_context_too_large_error(exc: BaseException) -> bool:
-    """Classify provider context-limit failures across SDK wrappers."""
+    """Classify provider context-limit failures across SDK wrappers.
+
+    Errors may be wrapped multiple times: the provider raises a 400, an SDK wraps it
+    (e.g. ``SDKError``/``litellm.BadRequestError``), and an orchestrator such as Temporal
+    re-wraps it as ``ActivityError``/``ApplicationError`` when it crosses an activity
+    boundary. The 400 status code is then on the inner exception, not the outer one, so
+    matching is driven by the context-limit substrings rather than by the HTTP status of
+    the *current* frame. We walk the full ``__cause__``/``__context__`` chain so the inner
+    provider error is inspected even when the outermost frame has no status code at all.
+    """
     seen: set[int] = set()
     pending: list[BaseException] = [exc]
     while pending:
@@ -37,10 +46,13 @@ def is_context_too_large_error(exc: BaseException) -> bool:
         if getattr(current, "is_context_too_long", False):
             return True
 
-        if _status_code(current) == HTTPStatus.BAD_REQUEST:
-            text = _error_text(current).lower()
-            if any(fragment in text for fragment in _CONTEXT_TOO_LARGE_SUBSTRINGS):
-                return True
+        # A 400 confirms the provider rejected the request; a missing status code means
+        # the error was re-wrapped (e.g. across a Temporal activity boundary), in which
+        # case the substring match on the unwrapped provider text is the only signal.
+        if _status_code(current) in (None, HTTPStatus.BAD_REQUEST) and any(
+            fragment in _error_text(current).lower() for fragment in _CONTEXT_TOO_LARGE_SUBSTRINGS
+        ):
+            return True
 
         seen.add(id(current))
         if current.__cause__ is not None:

@@ -83,3 +83,8 @@ def test_ref_grammar_rejects(ref):
 def test_plan_json_schema_passes_the_schema_gate():
     result = lint_output_schema(plan_json_schema())
     assert result.ok, [f.message for f in result.errors]
+
+
+def test_plan_json_schema_is_the_authors_not_the_portable_copy():
+    """The stored contract is AgentPlan's own; the translators widen on the wire."""
+    assert plan_json_schema() == AgentPlan.model_json_schema()

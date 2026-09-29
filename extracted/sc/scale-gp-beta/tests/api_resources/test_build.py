@@ -21,7 +21,6 @@ class TestBuild:
     @parametrize
     def test_method_create(self, client: SGPClient) -> None:
         build = client.build.create(
-            context_archive=b"Example data",
             image_name="image_name",
         )
         assert_matches_type(AgentexCloudBuild, build, path=["response"])
@@ -29,12 +28,13 @@ class TestBuild:
     @parametrize
     def test_method_create_with_all_params(self, client: SGPClient) -> None:
         build = client.build.create(
-            context_archive=b"Example data",
             image_name="image_name",
             agent_id="agent_id",
             agent_name="agent_name",
             build_args="build_args",
+            context_archive=b"Example data",
             image_tag="image_tag",
+            image_url="image_url",
             platform="linux/amd64",
             source_commit="2fdcD1DcDdf3a671d0Afae4a0D1cFaADcCcbdaDac3CccFB21EceaaA012Aa1C26",
             source_dirty=True,
@@ -48,7 +48,6 @@ class TestBuild:
     @parametrize
     def test_raw_response_create(self, client: SGPClient) -> None:
         response = client.build.with_raw_response.create(
-            context_archive=b"Example data",
             image_name="image_name",
         )
 
@@ -60,7 +59,6 @@ class TestBuild:
     @parametrize
     def test_streaming_response_create(self, client: SGPClient) -> None:
         with client.build.with_streaming_response.create(
-            context_archive=b"Example data",
             image_name="image_name",
         ) as response:
             assert not response.is_closed
@@ -257,7 +255,6 @@ class TestAsyncBuild:
     @parametrize
     async def test_method_create(self, async_client: AsyncSGPClient) -> None:
         build = await async_client.build.create(
-            context_archive=b"Example data",
             image_name="image_name",
         )
         assert_matches_type(AgentexCloudBuild, build, path=["response"])
@@ -265,12 +262,13 @@ class TestAsyncBuild:
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncSGPClient) -> None:
         build = await async_client.build.create(
-            context_archive=b"Example data",
             image_name="image_name",
             agent_id="agent_id",
             agent_name="agent_name",
             build_args="build_args",
+            context_archive=b"Example data",
             image_tag="image_tag",
+            image_url="image_url",
             platform="linux/amd64",
             source_commit="2fdcD1DcDdf3a671d0Afae4a0D1cFaADcCcbdaDac3CccFB21EceaaA012Aa1C26",
             source_dirty=True,
@@ -284,7 +282,6 @@ class TestAsyncBuild:
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncSGPClient) -> None:
         response = await async_client.build.with_raw_response.create(
-            context_archive=b"Example data",
             image_name="image_name",
         )
 
@@ -296,7 +293,6 @@ class TestAsyncBuild:
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncSGPClient) -> None:
         async with async_client.build.with_streaming_response.create(
-            context_archive=b"Example data",
             image_name="image_name",
         ) as response:
             assert not response.is_closed

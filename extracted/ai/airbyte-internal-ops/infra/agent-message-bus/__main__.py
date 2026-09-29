@@ -83,6 +83,23 @@ ZENDESK_WEBHOOK_CIDRS = [
 INTERNAL_SERVICE_NAME = "internal-agent-bus-cloudrun"
 SLACK_SERVICE_NAME = "slack-webhook-cloudrun"
 
+ZENDESK_API_TOKEN_SECRET_ID = "internal-ops-zendesk-api-token"
+"""Zendesk Support API token for the MoonBot Resolution playbook write-back.
+
+This secret is owned by the `infra/internal-mcp-servers` Pulumi stack (it
+powers the Ops MCP `get_zendesk_ticket` tool) and is shared with this stack —
+do NOT create it here. Consumed as env `ZENDESK_API_TOKEN`, which the bus
+passes to resolution Devin sessions via `session_secrets`. Paired with the
+non-secret `zendesk-subdomain` / `zendesk-email` Pulumi config values.
+
+The `secretAccessor` grant for the bus runtime SA on this secret is a
+one-time manual bootstrap step (see BOOTSTRAP.md), NOT Pulumi-managed: the
+deployer SA cannot `setIamPolicy` on secret containers owned by another
+stack."""
+
+ZENDESK_SUBDOMAIN = config.get("zendesk-subdomain") or "airbyte1416"
+ZENDESK_EMAIL = config.get("zendesk-email") or ""
+
 # =============================================================================
 # ENABLE REQUIRED APIs
 # =============================================================================
@@ -268,6 +285,20 @@ def _cloud_run_template_args(
                         "ZENDESK_WEBHOOK_SIGNING_SECRET",
                         "zendesk-webhook-signing-secret",
                     ),
+                    # MoonBot Zendesk credentials, injected into resolution
+                    # Devin sessions via `session_secrets`. The token secret
+                    # is shared with internal-mcp-servers; the runtime SA's
+                    # secretAccessor grant is a manual bootstrap step (see
+                    # BOOTSTRAP.md), not Pulumi-managed.
+                    gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+                        name="ZENDESK_SUBDOMAIN",
+                        value=ZENDESK_SUBDOMAIN,
+                    ),
+                    gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+                        name="ZENDESK_EMAIL",
+                        value=ZENDESK_EMAIL,
+                    ),
+                    _secret_env("ZENDESK_API_TOKEN", ZENDESK_API_TOKEN_SECRET_ID),
                 ],
             ),
         ],

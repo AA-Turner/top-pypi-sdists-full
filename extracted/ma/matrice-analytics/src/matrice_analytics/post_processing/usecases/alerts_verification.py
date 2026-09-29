@@ -17,6 +17,15 @@ SMOKE IS NOT ALERTED ON. The model emits both, and `index_to_category` maps both
 detections are mapped and counted -- they are simply not in `target_categories`, so they
 raise nothing. Adding smoke later is a config change, not a code change.
 
+ONE INCIDENT PER COOLDOWN, NOT PER FRAME. A burning fire is present in every frame it
+burns, so without a cooldown a 25fps stream raises 25 incidents a second, each with a
+fresh `incident_id`. `alert_config.alert_cooldown` (default 60s) suppresses repeats --
+with one deliberate exception: a *higher* severity than the last one raised goes through
+immediately. Holding a medium->critical escalation for a minute would make this use case
+strictly worse than raising every frame, which is the behaviour it replaces, and the
+backend's incident ratchet is up-only so the escalation is what actually updates the
+incident. Set the cooldown to 0 to raise on every frame again.
+
 This use case does NOT need the frame: it reads detections only, so it is absent from
 `use_cases_with_bytes` in `post_processor.py` and `process()` takes no `input_bytes`.
 """
@@ -45,6 +54,10 @@ _SEVERITY_CUTOFFS: Tuple[Tuple[str, float], ...] = (
     ("low", 27.0),
 )
 _LEVEL_SETTINGS = {"low": 27, "medium": 40, "critical": 70}
+
+#: Severity ordering, for deciding whether a frame ESCALATES the last incident raised.
+#: An escalation bypasses the cooldown; anything level or lower does not.
+_SEVERITY_RANK = {"low": 1, "medium": 2, "critical": 3}
 
 #: Used when `alert_config` arrives unset, which it does whenever a deployment configures
 #: nothing: an alert with no channel is an alert nobody receives.
@@ -199,6 +212,12 @@ class AlertsVerificationUseCase(BaseProcessor):
 
         self._consecutive_fire_frames: int = 0
         self._incident_counter: int = 0
+
+        # Emission cooldown state. monotonic(), not time(), so a wall-clock step
+        # backwards (NTP correction, VM snapshot restore) cannot make the elapsed
+        # time negative and suppress every incident until the clock catches up.
+        self._last_incident_monotonic: Optional[float] = None
+        self._last_incident_severity: str = ""
         self._incident_manager_factory: Optional[IncidentManagerFactory] = None
         self._incident_manager: Optional[INCIDENT_MANAGER] = None
         self._incident_manager_initialized: bool = False
@@ -233,6 +252,23 @@ class AlertsVerificationUseCase(BaseProcessor):
         """
         del detections, severity, stream_info  # the verifier's inputs, once it exists
         return True, "unverified"
+
+    # -- emission cooldown ---------------------------------------------------
+
+    def _cooldown_blocks(self, severity: str, config: AlertsVerificationConfig) -> bool:
+        """Whether this frame's incident is a repeat of one raised inside the cooldown.
+
+        An escalation is never blocked: a fire that grows from medium to critical must
+        reach the backend when it grows, not when the cooldown lapses.
+        """
+        cooldown = 0.0
+        if config.alert_config:
+            cooldown = float(getattr(config.alert_config, "alert_cooldown", 0.0) or 0.0)
+        if cooldown <= 0 or self._last_incident_monotonic is None:
+            return False
+        if _SEVERITY_RANK.get(severity, 0) > _SEVERITY_RANK.get(self._last_incident_severity, 0):
+            return False
+        return (time.monotonic() - self._last_incident_monotonic) < cooldown
 
     # -- incident manager ----------------------------------------------------
 
@@ -424,6 +460,13 @@ class AlertsVerificationUseCase(BaseProcessor):
             return {}, [], "", "awaiting_confirmation"
 
         severity = _level_from_confidence_pct(_max_confidence_pct(detections))
+
+        # Checked BEFORE verification on purpose: once _verify_alert is a call to the
+        # confirmation API, a suppressed frame must not spend a request on an incident
+        # that is about to be dropped anyway.
+        if self._cooldown_blocks(severity, config):
+            return {}, [], severity, "cooldown"
+
         confirmed, reason = self._verify_alert(detections, severity, stream_info)
         if not confirmed:
             self.logger.info("Alert rejected by verification: %s", reason)
@@ -431,6 +474,8 @@ class AlertsVerificationUseCase(BaseProcessor):
 
         alerts = self._build_alerts(detections, severity, stream_info)
         incident = self._build_incident(detections, severity, reason, alerts, stream_info)
+        self._last_incident_monotonic = time.monotonic()
+        self._last_incident_severity = severity
         return incident, alerts, severity, reason
 
     def _agg_summary(

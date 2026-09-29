@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiomisc
-Version: 18.0.28
+Version: 18.0.33
 Summary: aiomisc - miscellaneous utils for asyncio
 Author-email: Dmitry Orlov <me@mosquito.su>
 License-Expression: MIT
@@ -43,7 +43,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: COPYING
-Requires-Dist: aiothreads>=1.0.0
+Requires-Dist: aiothreads>=1.1.4
 Requires-Dist: colorlog<7,>=6.0
 Requires-Dist: logging-journald; platform_system == "Linux"
 Provides-Extra: aiohttp

@@ -137,6 +137,7 @@ pub(super) fn resolve_record(
                     .and_then(|value| value.agent_clan_generation.clone()),
                 clan_tribe: presentation.clan_tribe.clone(),
                 tribe: presentation.tribe.clone(),
+                agent_tab: presentation.agent_tab.clone(),
                 row_kind,
                 current_instance: !presentation_terminal
                     && row_kind == FleetRowKindWire::AgentTurn,
@@ -209,7 +210,7 @@ fn exact_locator_for_record(
     AgentInstanceLocatorWire {
         schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
         logical,
-        turn_id: safe_identifier(&record.workflow_dir_name, "shell"),
+        turn_id: safe_identifier(&record.workflow_dir_name, "turn"),
         run_id: safe_identifier(&record.timestamp, "run"),
         attempt_id: safe_identifier(&attempt, "attempt"),
     }

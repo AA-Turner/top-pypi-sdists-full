@@ -207,6 +207,10 @@ MESSAGES = {
         "ru": "переписано [{kind}] {key}: \"{was}\" -> \"{now}\"",
         "en": "rewritten [{kind}] {key}: \"{was}\" -> \"{now}\"",
     },
+    "translate.rewritten-whitespace": {
+        "ru": " – отличаются только пробелы",
+        "en": " - only the whitespace differs",
+    },
     "translate.refused": {
         "ru": "не записано записей: {count}; ниже сказано, почему:",
         "en": "entries not written: {count}; the reason for each is below:",
@@ -303,9 +307,17 @@ MESSAGES = {
     },
     "translate.warnings-header": {
         "ru": "предупреждения (string-equals-token: литерал равен переименованному имени;"
-              " literal-data-value: литерал равен значению данных json-ресурса):",
+              " literal-data-value: литерал равен значению данных json-ресурса;"
+              " short-pair: короткую строку комментария перевела пара словаря, а остальные"
+              " строки комментария новые – сверьте, что перевод подходит к ним):",
         "en": "warnings (string-equals-token: a literal equals a renamed name;"
-              " literal-data-value: a literal equals a json resource data value):",
+              " literal-data-value: a literal equals a json resource data value;"
+              " short-pair: a pair of the dictionary translated a short comment line whose"
+              " other lines are new - check that it fits them):",
+    },
+    "translate.gap-neighbor": {
+        "ru": "в том же комментарии короткая строка уже переведена: \"{key}\" -> \"{value}\"",
+        "en": "the same comment has a short line translated already: \"{key}\" -> \"{value}\"",
     },
     "translate.problems": {
         "ru": "проблемы ({count}):",
@@ -1038,6 +1050,8 @@ def _render_gaps(page: list, total: int) -> None:
         place = f"{gap.places[0][0]}:{gap.places[0][1]}" if gap.places else ""
         hint = f"  ~ {gap.suggestion}" if gap.suggestion else ""
         print(f"  {gap.count:5}x {gap.kind:6} {gap.key}{hint}   {place}")
+        for key, value in gap.neighbors:
+            print("          " + i18n.t("translate.gap-neighbor", key=key, value=value))
 
 
 def _list_unused(args, root: Path, loaded) -> int:
@@ -1392,8 +1406,9 @@ def _apply_edits(args, root: Path, loaded) -> int:
     else:
         print(i18n.t("translate.applied", **result))
         for row in result.get("rewritten") or []:
+            tail = i18n.t("translate.rewritten-whitespace") if row.get("whitespace_only") else ""
             print(f"  {row['file']}:{row['line']}: " + i18n.t("translate.rewritten", kind=row["kind"], key=row["key"],
-                                was=row["was"], now=row["now"]))
+                                was=row["was"], now=row["now"]) + tail)
         # A correction goes to stdout beside what was written: the entry IS in the dictionary,
         # and the run is not a failure - it only landed under a different spelling.
         if corrected:

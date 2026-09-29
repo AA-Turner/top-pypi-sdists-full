@@ -2061,6 +2061,7 @@ class ArgoCdConfigResponseTypeDef(TypedDict):
     rbacRoleMappings: NotRequired[list[ArgoCdRoleMappingOutputTypeDef]]
     networkAccess: NotRequired[ArgoCdNetworkAccessConfigResponseTypeDef]
     serverUrl: NotRequired[str]
+    endpointPrefix: NotRequired[str]
 
 
 ArgoCdRoleMappingUnionTypeDef = Union[ArgoCdRoleMappingTypeDef, ArgoCdRoleMappingOutputTypeDef]
@@ -2307,6 +2308,7 @@ class ArgoCdConfigRequestTypeDef(TypedDict):
     namespace: NotRequired[str]
     rbacRoleMappings: NotRequired[Sequence[ArgoCdRoleMappingUnionTypeDef]]
     networkAccess: NotRequired[ArgoCdNetworkAccessConfigRequestTypeDef]
+    endpointPrefix: NotRequired[str]
 
 
 class UpdateRoleMappingsTypeDef(TypedDict):

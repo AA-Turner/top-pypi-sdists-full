@@ -156,7 +156,6 @@ def _configure_stubs() -> None:
         "DatasetCreator": _Stub,
         "PicklistCreator": _Stub,
         "brave_search": {},
-        "get_top_headlines": lambda *a, **kw: None,
         "keyword_research": lambda *a, **kw: None,
         "load_manifest_from_ctx": lambda *a, **kw: None,
         "IdeState": _Stub,

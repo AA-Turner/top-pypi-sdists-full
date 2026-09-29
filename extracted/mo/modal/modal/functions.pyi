@@ -1,4 +1,5 @@
 import collections.abc
+import datetime
 import google.protobuf.message
 import modal._function_variants
 import modal._functions
@@ -7,6 +8,7 @@ import modal._logs_manager
 import modal._supports_logs
 import modal._utils.async_utils
 import modal._utils.function_utils
+import modal._utils.grpc_utils
 import modal.app
 import modal.client
 import modal.cloud_bucket_mount
@@ -61,6 +63,7 @@ class Function(
     _options: modal._function_variants._FunctionOptions
     _base_function: typing.Optional[Function]
     _app_id: typing.Optional[str]
+    _function_info: typing.Optional[modal.types.FunctionInfo]
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -127,66 +130,7 @@ class Function(
         is_builder_function: bool = False,
         is_auto_snapshot: bool = False,
         is_server: bool = False,
-        enable_memory_snapshot: bool = False,
-        block_network: bool = False,
-        restrict_modal_access: bool = False,
-        i6pn_enabled: bool = False,
-        cluster_size: typing.Optional[int] = None,
-        rdma: typing.Optional[bool] = None,
-        fabric_size: typing.Optional[int] = None,
-        single_use_containers: bool = False,
-        ephemeral_disk: typing.Optional[int] = None,
-        include_source: bool = True,
-        experimental_options: typing.Optional[dict[str, str]] = None,
-        restrict_output: bool = False,
-        http_config: typing.Optional[modal_proto.api_pb2.HTTPConfig] = None,
-    ) -> Function:
-        """mdmd:hidden
-
-        Note: This is not intended to be public API.
-        """
-        ...
-
-    @staticmethod
-    def from_local(
-        info: modal._utils.function_utils.FunctionSourceInfo,
-        app: typing.Optional[modal.app.App],
-        image: modal.image.Image,
-        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
-        secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        schedule: typing.Optional[modal.schedule.Schedule] = None,
-        is_generator: bool = False,
-        gpu: typing.Union[str, list[str], None] = None,
-        network_file_systems: dict[
-            typing.Union[str, pathlib.PurePosixPath], modal.network_file_system.NetworkFileSystem
-        ] = {},
-        volumes: dict[
-            typing.Union[str, pathlib.PurePosixPath],
-            typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
-        ] = {},
-        webhook_config: typing.Optional[modal_proto.api_pb2.WebhookConfig] = None,
-        cpu: typing.Union[float, tuple[float, float], None] = None,
-        memory: typing.Union[int, tuple[int, int], None] = None,
-        proxy: typing.Optional[modal.proxy.Proxy] = None,
-        retries: typing.Union[int, modal.retries.Retries, None] = None,
-        timeout: int = 300,
-        startup_timeout: typing.Optional[int] = None,
-        min_containers: typing.Optional[int] = None,
-        max_containers: typing.Optional[int] = None,
-        buffer_containers: typing.Optional[int] = None,
-        scaleup_window: typing.Optional[int] = None,
-        scaledown_window: typing.Optional[int] = None,
-        max_concurrent_inputs: typing.Optional[int] = None,
-        target_concurrent_inputs: typing.Optional[float] = None,
-        batch_max_size: typing.Optional[int] = None,
-        batch_wait_ms: typing.Optional[int] = None,
-        cloud: typing.Optional[str] = None,
-        region: typing.Union[str, collections.abc.Sequence[str], None] = None,
-        routing_region: typing.Optional[str] = None,
-        nonpreemptible: bool = False,
-        is_builder_function: bool = False,
-        is_auto_snapshot: bool = False,
-        is_server: bool = False,
+        is_sessioned: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
         restrict_modal_access: bool = False,
@@ -354,6 +298,36 @@ class Function(
         load_context_overrides: modal._load_context.LoadContext,
     ): ...
     @classmethod
+    def _from_id(
+        cls,
+        function_id: str,
+        *,
+        load_context_overrides: modal._load_context.LoadContext,
+        called_from: typing.Literal["Function", "Server"] = "Function",
+    ): ...
+    @classmethod
+    def from_id(cls: type[Function], function_id: str, *, client: typing.Optional[modal.client.Client] = None):
+        """Reference a Function from a deployed or running App by its ID.
+
+        This is a lazy method that defers hydrating the local
+        object with metadata from Modal servers until the first
+        time it is actually used.
+
+        Args:
+            function_id: ID of the function.
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A lazy `Function` handle.
+
+        Examples:
+            ```python
+            f = modal.Function.from_id("fu-123")
+            ```
+        """
+        ...
+
+    @classmethod
     def from_name(
         cls: type[Function],
         app_name: str,
@@ -392,42 +366,55 @@ class Function(
         ...
 
     @property
-    def tag(self) -> str:
-        """mdmd:hidden"""
-        ...
-
-    @property
     def _tag_(self) -> str: ...
     @property
     def app(self) -> modal.app.App:
         """mdmd:hidden"""
         ...
 
-    @property
-    def stub(self) -> modal.app.App:
-        """mdmd:hidden"""
-        ...
+    class __info_spec(typing_extensions.Protocol):
+        def __call__(self, /, *, refresh: bool = False) -> modal.types.FunctionInfo:
+            """Get an overview of a Function's resource requests, associated mounts, etc.
 
-    @property
-    def info(self) -> modal._utils.function_utils.FunctionSourceInfo:
-        """mdmd:hidden"""
-        ...
+            This method performs a network request to populate this information if the Function handle is
+            a remote lookup whose information has not yet been fetched (e.g. from `Function.from_name(...)`),
+            or if `refresh=True`.
+
+            Args:
+                refresh: Always perform a network request. Pass `refresh=True` to ensure that this method
+                    returns the most up to date information.
+
+            Returns:
+                This returns a [`modal.types.FunctionInfo`](https://modal.com/docs/sdk/py/latest/types#FunctionInfo)
+                dataclass.
+            """
+            ...
+
+        async def aio(self, /, *, refresh: bool = False) -> modal.types.FunctionInfo:
+            """Get an overview of a Function's resource requests, associated mounts, etc.
+
+            This method performs a network request to populate this information if the Function handle is
+            a remote lookup whose information has not yet been fetched (e.g. from `Function.from_name(...)`),
+            or if `refresh=True`.
+
+            Args:
+                refresh: Always perform a network request. Pass `refresh=True` to ensure that this method
+                    returns the most up to date information.
+
+            Returns:
+                This returns a [`modal.types.FunctionInfo`](https://modal.com/docs/sdk/py/latest/types#FunctionInfo)
+                dataclass.
+            """
+            ...
+
+    info: __info_spec
 
     @property
     def _source_info_(self) -> modal._utils.function_utils.FunctionSourceInfo: ...
     @property
-    def spec(self) -> modal._functions._FunctionSpec:
-        """mdmd:hidden"""
-        ...
-
-    @property
     def _spec_(self) -> modal._functions._FunctionSpec: ...
     def _is_web_endpoint(self) -> bool: ...
     def _get_build_def(self) -> str:
-        """mdmd:hidden"""
-        ...
-
-    def get_build_def(self) -> str:
         """mdmd:hidden"""
         ...
 
@@ -473,6 +460,18 @@ class Function(
             ...
 
     _experimental_get_flash_urls: ___experimental_get_flash_urls_spec
+
+    class ___fetch_flash_auth_token_spec(typing_extensions.Protocol):
+        def __call__(self, /, retry: modal._utils.grpc_utils.Retry) -> str: ...
+        async def aio(self, /, retry: modal._utils.grpc_utils.Retry) -> str: ...
+
+    _fetch_flash_auth_token: ___fetch_flash_auth_token_spec
+
+    class ___get_flash_auth_token_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> str: ...
+        async def aio(self, /) -> str: ...
+
+    _get_flash_auth_token: ___get_flash_auth_token_spec
 
     def _apply_dynamic_config(
         self, new_options: modal._function_variants._FunctionOptions, config_method_name: str
@@ -553,11 +552,6 @@ class Function(
         ...
 
     @property
-    def is_generator(self) -> bool:
-        """mdmd:hidden"""
-        ...
-
-    @property
     def _is_generator_(self) -> bool: ...
 
     class ___map_spec(typing_extensions.Protocol):
@@ -619,7 +613,7 @@ class Function(
 
     _call_generator: ___call_generator_spec
 
-    class __remote_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
+    class __remote_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> ReturnType_INNER:
             """Calls the function remotely, executing it with the given arguments and returning the execution's result.
 
@@ -644,7 +638,7 @@ class Function(
             """
             ...
 
-    remote: __remote_spec[modal._functions.P, modal._functions.ReturnType]
+    remote: __remote_spec[modal._functions.ReturnType, modal._functions.P]
 
     class __remote_gen_spec(typing_extensions.Protocol):
         def __call__(self, /, *args, **kwargs) -> typing.Generator[typing.Any, None, None]:
@@ -694,7 +688,7 @@ class Function(
         """
         ...
 
-    class ___experimental_spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
+    class ___experimental_spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """[Experimental] Calls the function with the given arguments, without waiting for the results.
 
@@ -727,7 +721,7 @@ class Function(
             """
             ...
 
-    _experimental_spawn: ___experimental_spawn_spec[modal._functions.P, modal._functions.ReturnType]
+    _experimental_spawn: ___experimental_spawn_spec[modal._functions.ReturnType, modal._functions.P]
 
     class ___spawn_map_inner_spec(typing_extensions.Protocol[P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> None: ...
@@ -735,7 +729,7 @@ class Function(
 
     _spawn_map_inner: ___spawn_map_inner_spec[modal._functions.P]
 
-    class __spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
+    class __spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """Calls the function with the given arguments, without waiting for the results.
 
@@ -768,37 +762,84 @@ class Function(
             """
             ...
 
-    spawn: __spawn_spec[modal._functions.P, modal._functions.ReturnType]
-
-    def get_raw_f(self) -> collections.abc.Callable[..., typing.Any]:
-        """Return the inner Python object wrapped by this Modal Function.
-
-        Returns:
-            The original function object registered with Modal.
-        """
-        ...
+    spawn: __spawn_spec[modal._functions.ReturnType, modal._functions.P]
 
     @property
     def _raw_f_(self) -> collections.abc.Callable[..., typing.Any]: ...
 
     class __get_current_stats_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> modal.types.FunctionStats:
-            """Return a `FunctionStats` object describing the current function's queue and runner counts.
+        def __call__(self, /) -> modal.types.FunctionCurrentStats:
+            """Return a snapshot of the Function's current input and container state.
 
             Returns:
-                Snapshot counts for backlog, runners, and running inputs.
+                A `FunctionCurrentStats` object containing live input and container counts.
             """
             ...
 
-        async def aio(self, /) -> modal.types.FunctionStats:
-            """Return a `FunctionStats` object describing the current function's queue and runner counts.
+        async def aio(self, /) -> modal.types.FunctionCurrentStats:
+            """Return a snapshot of the Function's current input and container state.
 
             Returns:
-                Snapshot counts for backlog, runners, and running inputs.
+                A `FunctionCurrentStats` object containing live input and container counts.
             """
             ...
 
     get_current_stats: __get_current_stats_spec
+
+    class __stats_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            since: typing.Optional[datetime.datetime] = None,
+            until: typing.Optional[datetime.datetime] = None,
+            container: typing.Optional[str] = None,
+            all_variants: bool = False,
+        ) -> modal.types.FunctionStats:
+            """Return statistics for a modal Function.
+
+            The default time range is the most recent hour. The maximum time range is 7 days.
+
+            Args:
+                since: The beginning of the time range, inclusive. If omitted, this defaults to an hour before `until`.
+                   Values without a timezone are interpeted as local time.
+                until: The end of the time range, exclusive. If omitted, this defaults to current time.
+                    Values without a timezone are interpeted as local time.
+                container: If passed in, the stats are computed for only this container. Default None.
+                all_variants: If True, aggregate the base Function and its variants.
+
+            Returns:
+                A `FunctionStats` object
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *,
+            since: typing.Optional[datetime.datetime] = None,
+            until: typing.Optional[datetime.datetime] = None,
+            container: typing.Optional[str] = None,
+            all_variants: bool = False,
+        ) -> modal.types.FunctionStats:
+            """Return statistics for a modal Function.
+
+            The default time range is the most recent hour. The maximum time range is 7 days.
+
+            Args:
+                since: The beginning of the time range, inclusive. If omitted, this defaults to an hour before `until`.
+                   Values without a timezone are interpeted as local time.
+                until: The end of the time range, exclusive. If omitted, this defaults to current time.
+                    Values without a timezone are interpeted as local time.
+                container: If passed in, the stats are computed for only this container. Default None.
+                all_variants: If True, aggregate the base Function and its variants.
+
+            Returns:
+                A `FunctionStats` object
+            """
+            ...
+
+    stats: __stats_spec
 
     class ___get_schema_spec(typing_extensions.Protocol):
         def __call__(self, /) -> modal_proto.api_pb2.FunctionSchema:
@@ -1198,7 +1239,8 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """Fetch information about the graph of Inputs this FunctionCall is part of.
 
             Note: the call graph data is not populated in real-time, and its capture is best-effort.
-            We do not recommend relying on this method for critical use cases.
+            Large call graphs may be truncated. We do not recommend relying on this method
+            for critical use cases.
 
             See the [`modal.types`](/docs/sdk/py/latest/types) reference for information
             on the return values.
@@ -1212,7 +1254,8 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """Fetch information about the graph of Inputs this FunctionCall is part of.
 
             Note: the call graph data is not populated in real-time, and its capture is best-effort.
-            We do not recommend relying on this method for critical use cases.
+            Large call graphs may be truncated. We do not recommend relying on this method
+            for critical use cases.
 
             See the [`modal.types`](/docs/sdk/py/latest/types) reference for information
             on the return values.

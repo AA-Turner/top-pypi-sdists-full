@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class AgentObservations(BaseModel):
     """
-    What a sensor could see about an agent. Shared across categories, all optional.  An absent field means the sensor cannot see it, not that collection failed. That promise is kept by each source declaring ``observable_fields()``, which is also what lets visibility be computed without a per-vendor branch in consumers.
+    What a source could see about an agent. Shared across categories, all optional.  An absent field means the source cannot see it, not that collection failed. That promise is kept by each source declaring ``observable_fields()``, which is also what lets visibility be computed without a per-vendor branch in consumers.
     """ # noqa: E501
     install_path: Optional[StrictStr] = None
     version: Optional[StrictStr] = None

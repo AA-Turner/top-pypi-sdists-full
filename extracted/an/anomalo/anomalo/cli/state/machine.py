@@ -18,6 +18,7 @@ from .file import FileDriver
 from .filters import TableFilters
 from .models import (
     Action,
+    Check,
     CheckAction,
     LabelAction,
     NotificationChannelAction,
@@ -32,6 +33,44 @@ from .plan import Plan, ResourceKey, build_plan, describe_resource
 # table is quadratic in dump cost, so batch it: an interrupted pull loses at most this
 # many tables of progress instead of all of them.
 CHECKPOINT_EVERY_N_TABLES = 25
+
+# Once any field of a system check is written, the server stores an override whose
+# unset fields read back at these values. A missing param means the same at run
+# time, so the planner treats the two as equal.
+SYSTEM_CHECK_PARAM_DEFAULTS = {
+    "alert_default_notif_channel": True,
+    "keep_alerting_on_stale_data": False,
+}
+
+
+def _without_default_params(check: Check | None) -> Check | None:
+    if check is None:
+        return None
+    stripped = copy(check)
+    stripped.params = {
+        name: value
+        for name, value in check.params.items()
+        if name not in SYSTEM_CHECK_PARAM_DEFAULTS
+        or SYSTEM_CHECK_PARAM_DEFAULTS[name] != value
+    }
+    return stripped
+
+
+def _with_default_params(check: Check | None) -> Check | None:
+    """The check as the write and the preview see it: params plus omitted defaults.
+
+    An update applies the params it carries and leaves the rest of the override
+    alone, so a param the write omits cannot move the server off the value it
+    holds. The comparison already reads an omitted param as its default, and
+    naming that default in the write is what makes the file and the server agree
+    after one apply instead of on every apply. Both sides of the action are
+    completed, so the preview shows the defaults only where the write moves them.
+    """
+    if check is None:
+        return None
+    completed = copy(check)
+    completed.params = {**SYSTEM_CHECK_PARAM_DEFAULTS, **check.params}
+    return completed
 
 
 def _exclude_labeled_checks(table: Table, exclude_labels: set[str]) -> None:
@@ -407,6 +446,9 @@ class StateMachine:
                 # None), it will only come into existence if the table is being
                 # configured for the first time (which creates system checks).
                 table_being_configured = not from_table.config and to_table.config
+                is_modified = _without_default_params(
+                    comparison_to_check
+                ) != _without_default_params(comparison_from_check)
                 if to_check and not from_check and not table_being_configured:
                     print(f"Warning: Not creating {check_ref} on {table_ref}")
                     continue
@@ -414,12 +456,12 @@ class StateMachine:
                     print(f"Warning: Not destroying {check_ref} on {table_ref}")
                     continue
                 elif (
-                    comparison_to_check != comparison_from_check
+                    is_modified
                 ):  # Destruction is not allowed for system checks, only modification
                     actions.append(
                         CheckAction(
-                            prev=comparison_from_check,
-                            new=comparison_to_check,
+                            prev=_with_default_params(comparison_from_check),
+                            new=_with_default_params(comparison_to_check),
                             table_ref=table_ref,
                             check_ref=check_ref,
                             is_system_check=True,

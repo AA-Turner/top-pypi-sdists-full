@@ -18,21 +18,20 @@ Translates standard JSON catalog schemas into TypeScript/TSX interface
 definitions and instruction blocks for on-device models.
 """
 
+from collections.abc import Mapping, Sequence
 import json
 import re
-from typing import Any, Optional, TYPE_CHECKING, Union
+from typing import Any, TYPE_CHECKING
 from a2ui.schema.catalog import A2uiCatalog
 from a2ui.inference_formats.experimental.express.schema_helper import (
     CatalogSchemaHelper,
 )
 from a2ui.prompt import PromptGenerator
-from a2ui.core.schema.client_capabilities import V09Capabilities
+from a2ui.core.schema.v0_9.client_capabilities import V09Capabilities
 from .parser import ElementalParser
-
 
 if TYPE_CHECKING:
     from .format import ElementalFormat
-
 
 ELEMENTAL_RULES = r"""# A2UI Elemental Output Contract
 
@@ -121,7 +120,7 @@ class ElementalPromptGenerator(PromptGenerator):
         self.catalog: A2uiCatalog = format_inst.catalog
         self.helper: CatalogSchemaHelper = CatalogSchemaHelper(format_inst.catalog)
         self.catalog_id: str = format_inst.catalog.catalog_id
-        self.parser: Optional[ElementalParser] = None
+        self.parser: ElementalParser | None = None
 
     def generate_base_rules(self) -> str:
         """Returns core syntax rules for A2UI Elemental."""
@@ -130,7 +129,7 @@ class ElementalPromptGenerator(PromptGenerator):
     def generate_catalog_instructions(
         self,
         include_schema: bool = True,
-        catalog: Optional[Any] = None,
+        catalog: Any | None = None,
     ) -> str:
         """Assembles TypeScript interfaces and catalog instructions."""
         if not include_schema:
@@ -139,7 +138,7 @@ class ElementalPromptGenerator(PromptGenerator):
 
     def generate_examples(
         self,
-        catalog: Optional[Any] = None,
+        catalog: Any | None = None,
         validate: bool = False,
     ) -> str:
         """Loads and formats few-shot Elemental examples."""
@@ -279,7 +278,7 @@ class ElementalPromptGenerator(PromptGenerator):
 
         return base_type
 
-    def _to_comments(self, description: Optional[str], indent: str = "") -> list[str]:
+    def _to_comments(self, description: str | None, indent: str = "") -> list[str]:
         if not description:
             return []
         lines = []
@@ -288,7 +287,7 @@ class ElementalPromptGenerator(PromptGenerator):
         return lines
 
     def _generate_component_declarations(
-        self, helper: Optional[CatalogSchemaHelper] = None
+        self, helper: CatalogSchemaHelper | None = None
     ) -> str:
         """Compiles component definitions into TypeScript element interfaces.
 
@@ -345,7 +344,7 @@ class ElementalPromptGenerator(PromptGenerator):
         return "\n\n".join(declarations)
 
     def _generate_function_declarations(
-        self, helper: Optional[CatalogSchemaHelper] = None
+        self, helper: CatalogSchemaHelper | None = None
     ) -> str:
         """Compiles function definitions into TypeScript function declarations.
 
@@ -447,9 +446,9 @@ class ElementalPromptGenerator(PromptGenerator):
         role_description: str,
         workflow_description: str = "",
         ui_description: str = "",
-        client_ui_capabilities: Optional[Union[dict[str, Any], V09Capabilities]] = None,
-        allowed_components: Optional[list[str]] = None,
-        allowed_messages: Optional[list[str]] = None,
+        client_ui_capabilities: Mapping[str, Any] | V09Capabilities | None = None,
+        allowed_components: Sequence[str] | None = None,
+        allowed_messages: Sequence[str] | None = None,
         include_schema: bool = False,
         include_examples: bool = False,
         validate_examples: bool = False,
@@ -504,7 +503,7 @@ class ElementalPromptGenerator(PromptGenerator):
         return "\n\n".join(parts)
 
     def _catalog_description(
-        self, include_schema: bool = True, catalog: Optional[Any] = None
+        self, include_schema: bool = True, catalog: Any | None = None
     ) -> str:
         """Assembles the system prompt component catalog signatures block.
 

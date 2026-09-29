@@ -19,12 +19,13 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 from .literals import (
     AgentCoreRuntimeServerProtocolType,
     AutoDetectionStatusType,
     ClaimMatchOperatorTypeType,
+    CustomMetadataSchemaComplianceStatusType,
     EndpointIpAddressTypeType,
     InboundTokenClaimValueTypeType,
     RecordTypeType,
@@ -86,6 +87,9 @@ __all__ = (
     "CustomJWTAuthorizerConfigurationOutputTypeDef",
     "CustomJWTAuthorizerConfigurationTypeDef",
     "CustomJWTAuthorizerConfigurationUnionTypeDef",
+    "CustomMetadataSchemaConfigurationOutputTypeDef",
+    "CustomMetadataSchemaConfigurationTypeDef",
+    "CustomMetadataSchemaConfigurationUnionTypeDef",
     "DeleteRegistryRecordRequestTypeDef",
     "DeleteRegistryRequestTypeDef",
     "DeleteRegistryResponseTypeDef",
@@ -136,6 +140,7 @@ __all__ = (
     "ProvenanceSummaryTypeDef",
     "ProvenanceTypeDef",
     "ProvenanceUnionTypeDef",
+    "RecordTypeSchemaOverrideTypeDef",
     "RegistryFilterTypeDef",
     "RegistryRecordCredentialProviderConfigurationOutputTypeDef",
     "RegistryRecordCredentialProviderConfigurationTypeDef",
@@ -180,6 +185,8 @@ __all__ = (
     "UpdatedAutoDetectionConfigurationTypeDef",
     "UpdatedCustomDescriptorFieldsTypeDef",
     "UpdatedCustomDescriptorTypeDef",
+    "UpdatedCustomMetadataMapTypeDef",
+    "UpdatedCustomMetadataSchemaConfigurationTypeDef",
     "UpdatedDataSchemaVersionTypeDef",
     "UpdatedDescriptionTypeDef",
     "UpdatedDescriptorDataTypeDef",
@@ -246,6 +253,11 @@ class EncryptionConfigurationTypeDef(TypedDict):
 
 class CustomDescriptorTypeDef(TypedDict):
     data: NotRequired[str]
+
+
+class RecordTypeSchemaOverrideTypeDef(TypedDict):
+    recordType: RecordTypeType
+    schema: str
 
 
 class DeleteRegistryRecordRequestTypeDef(TypedDict):
@@ -359,6 +371,10 @@ class UntagResourceRequestTypeDef(TypedDict):
     tagKeys: Sequence[str]
 
 
+class UpdatedCustomMetadataMapTypeDef(TypedDict):
+    optionalValue: NotRequired[Mapping[str, Any]]
+
+
 class UpdatedDescriptionTypeDef(TypedDict):
     optionalValue: NotRequired[str]
 
@@ -447,6 +463,16 @@ class UpdateRegistryRecordStatusResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CustomMetadataSchemaConfigurationOutputTypeDef(TypedDict):
+    defaultSchema: NotRequired[str]
+    recordTypeSchemaOverrides: NotRequired[list[RecordTypeSchemaOverrideTypeDef]]
+
+
+class CustomMetadataSchemaConfigurationTypeDef(TypedDict):
+    defaultSchema: NotRequired[str]
+    recordTypeSchemaOverrides: NotRequired[Sequence[RecordTypeSchemaOverrideTypeDef]]
+
+
 class GetRegistryRecordRequestWaitTypeDef(TypedDict):
     registryId: str
     recordId: str
@@ -509,6 +535,7 @@ class RegistryRecordSummaryTypeDef(TypedDict):
     createdByAutoDetection: NotRequired[bool]
     createdBy: NotRequired[str]
     provenanceSummaryList: NotRequired[list[ProvenanceSummaryTypeDef]]
+    customMetadataSchemaComplianceStatus: NotRequired[CustomMetadataSchemaComplianceStatusType]
 
 
 class RegistryRecordCredentialProviderUnionOutputTypeDef(TypedDict):
@@ -543,6 +570,11 @@ class CustomClaimValidationTypeOutputTypeDef(TypedDict):
 class AuthorizingClaimMatchValueTypeTypeDef(TypedDict):
     claimMatchValue: ClaimMatchValueTypeUnionTypeDef
     claimMatchOperator: ClaimMatchOperatorTypeType
+
+
+CustomMetadataSchemaConfigurationUnionTypeDef = Union[
+    CustomMetadataSchemaConfigurationTypeDef, CustomMetadataSchemaConfigurationOutputTypeDef
+]
 
 
 class PrivateEndpointTypeDef(TypedDict):
@@ -582,6 +614,12 @@ class UpdatedMcpToolsDescriptorTypeDef(TypedDict):
 AuthorizingClaimMatchValueTypeUnionTypeDef = Union[
     AuthorizingClaimMatchValueTypeTypeDef, AuthorizingClaimMatchValueTypeOutputTypeDef
 ]
+
+
+class UpdatedCustomMetadataSchemaConfigurationTypeDef(TypedDict):
+    optionalValue: NotRequired[CustomMetadataSchemaConfigurationUnionTypeDef]
+
+
 PrivateEndpointUnionTypeDef = Union[PrivateEndpointTypeDef, PrivateEndpointOutputTypeDef]
 
 
@@ -721,6 +759,7 @@ class GetRegistryResponseTypeDef(TypedDict):
     discoveryConfiguration: DiscoveryConfigurationOutputTypeDef
     encryptionConfiguration: EncryptionConfigurationTypeDef
     approvalConfiguration: ApprovalConfigurationOutputTypeDef
+    customMetadataSchemaConfiguration: CustomMetadataSchemaConfigurationOutputTypeDef
     status: RegistryStatusType
     statusReason: str
     autoDetection: AutoDetectionTypeDef
@@ -750,6 +789,7 @@ class UpdateRegistryResponseTypeDef(TypedDict):
     discoveryConfiguration: DiscoveryConfigurationOutputTypeDef
     encryptionConfiguration: EncryptionConfigurationTypeDef
     approvalConfiguration: ApprovalConfigurationOutputTypeDef
+    customMetadataSchemaConfiguration: CustomMetadataSchemaConfigurationOutputTypeDef
     status: RegistryStatusType
     statusReason: str
     autoDetection: AutoDetectionTypeDef
@@ -842,6 +882,8 @@ class GetRegistryRecordResponseTypeDef(TypedDict):
     provenance: list[ProvenanceOutputTypeDef]
     createdByAutoDetection: bool
     createdBy: str
+    customMetadata: dict[str, Any]
+    customMetadataSchemaComplianceStatus: CustomMetadataSchemaComplianceStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -862,6 +904,8 @@ class UpdateRegistryRecordResponseTypeDef(TypedDict):
     provenance: list[ProvenanceOutputTypeDef]
     createdByAutoDetection: bool
     createdBy: str
+    customMetadata: dict[str, Any]
+    customMetadataSchemaComplianceStatus: CustomMetadataSchemaComplianceStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -945,6 +989,7 @@ class CreateRegistryRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     approvalConfiguration: NotRequired[ApprovalConfigurationUnionTypeDef]
+    customMetadataSchemaConfiguration: NotRequired[CustomMetadataSchemaConfigurationUnionTypeDef]
     autoDetectionConfiguration: NotRequired[AutoDetectionConfigurationTypeDef]
 
 
@@ -992,6 +1037,7 @@ class UpdateRegistryRequestTypeDef(TypedDict):
     description: NotRequired[UpdatedDescriptionTypeDef]
     discoveryConfiguration: NotRequired[UpdatedDiscoveryConfigurationTypeDef]
     approvalConfiguration: NotRequired[UpdatedApprovalConfigurationTypeDef]
+    customMetadataSchemaConfiguration: NotRequired[UpdatedCustomMetadataSchemaConfigurationTypeDef]
     autoDetectionConfiguration: NotRequired[UpdatedAutoDetectionConfigurationTypeDef]
 
 
@@ -1062,6 +1108,7 @@ class CreateRegistryRecordRequestTypeDef(TypedDict):
     recordVersion: NotRequired[str]
     clientToken: NotRequired[str]
     provenance: NotRequired[Sequence[ProvenanceUnionTypeDef]]
+    customMetadata: NotRequired[Mapping[str, Any]]
     tags: NotRequired[Mapping[str, str]]
 
 
@@ -1091,5 +1138,6 @@ class UpdateRegistryRecordRequestTypeDef(TypedDict):
     recordType: NotRequired[RecordTypeType]
     descriptors: NotRequired[UpdatedDescriptorsTypeDef]
     recordVersion: NotRequired[str]
+    customMetadata: NotRequired[UpdatedCustomMetadataMapTypeDef]
     triggerSynchronization: NotRequired[bool]
     provenance: NotRequired[Sequence[ProvenanceUnionTypeDef]]

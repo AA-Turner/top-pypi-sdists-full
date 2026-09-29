@@ -57,10 +57,13 @@ text for the same intent.
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 from urllib.parse import urlsplit, urlunsplit
+
+_log = logging.getLogger(__name__)
 
 # ── dialects ──────────────────────────────────────────────────────────────
 #
@@ -1229,6 +1232,79 @@ def sqlite_data_version(conn: Any) -> str:
     """
     row = execute(conn, "PRAGMA data_version").fetchone()
     return str(row[0]) if row is not None else "0"
+
+
+def reclaim_space(conn: Any) -> None:
+    """One-off space reclaim after a retention sweep deletes rows (#3469) --
+    dialect-routed, unlike the SQLite-only ``PRAGMA`` family above: a
+    ``DELETE`` alone never shrinks a SQLite file (the freed pages go on its
+    internal freelist for reuse, not back to the filesystem) or a Postgres
+    table (a dead-tuple bitmap grows instead), so a retention sweep with no
+    reclaim step after it bloats the on-disk artifact forever regardless of
+    backend -- exactly what :func:`coord.housekeeping.reclaim_space` (this
+    function's caller) exists to fix, deliberately as an operator-invoked,
+    one-off step rather than something the low-cadence daemon tick runs
+    automatically (a full-table rewrite, unlike every bounded operation that
+    tick already does).
+
+    **SQLite**: plain ``VACUUM`` -- rebuilds the whole file, compacting it
+    to its live-data size. Requires no other connection hold an open
+    transaction on the same file; unlike :func:`coord.backup.snapshot_
+    sqlite`'s ``VACUUM INTO``, this rewrites *in place* rather than
+    producing a separate snapshot file.
+
+    **Postgres**: plain ``VACUUM`` too, but it cannot run inside a
+    transaction block (unlike SQLite's, which is a normal auto-committing
+    statement) -- ``psycopg`` connections default to an open transaction
+    per statement, so this commits any pending work and flips ``autocommit``
+    on for the duration of the call, restoring the connection's prior
+    setting again afterward. Postgres's ``VACUUM`` (without ``FULL``)
+    reclaims dead-tuple space for reuse rather than shrinking the file on
+    disk the way SQLite's does -- the DBA-standard tradeoff against
+    ``VACUUM FULL``'s exclusive table lock, deliberately not used here.
+
+    Both branches' pre-``VACUUM`` ``commit()`` swallow a failure rather than
+    raising it: every current caller already commits before invoking this
+    function, so "nothing pending" is the overwhelmingly common case and a
+    failure here is not this function's to interpret. It is logged (not
+    silently dropped) so a real failure -- e.g. a lock conflict -- is still
+    visible; ``VACUUM`` itself is then attempted regardless and its own
+    failure, if the commit failure was in fact the underlying cause,
+    propagates normally.
+    """
+    dialect = detect_dialect(conn)
+    if dialect == DIALECT_SQLITE:
+        # Mirror the Postgres branch below: commit any pending work first so
+        # this is never the thing that turns "caller forgot to commit" into
+        # a lost write, rather than relying on every current caller already
+        # committing before invoking this function.
+        try:
+            conn.commit()
+        except Exception:  # noqa: BLE001 -- nothing pending is the common case; logged below
+            _log.warning(
+                "reclaim_space: pre-VACUUM commit() failed (sqlite) -- "
+                "proceeding to VACUUM anyway", exc_info=True,
+            )
+        execute(conn, "VACUUM")
+        return
+    if dialect == DIALECT_POSTGRES:
+        real_conn = unwrap(conn)
+        previous_autocommit = getattr(real_conn, "autocommit", None)
+        try:
+            real_conn.commit()
+        except Exception:  # noqa: BLE001 -- nothing pending is the common case; logged below
+            _log.warning(
+                "reclaim_space: pre-VACUUM commit() failed (postgres) -- "
+                "proceeding to VACUUM anyway", exc_info=True,
+            )
+        try:
+            real_conn.autocommit = True
+            execute(conn, "VACUUM")
+        finally:
+            if previous_autocommit is not None:
+                real_conn.autocommit = previous_autocommit
+        return
+    raise UnsupportedDialectError(dialect)
 
 
 def driver_error(conn: Any) -> type[BaseException]:

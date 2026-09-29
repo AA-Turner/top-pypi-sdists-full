@@ -66,7 +66,6 @@ def reshape_field_gpu(field, factor, GPUdevice):
 
     return cp.asnumpy(downsampled).astype(np.float32)
 
-
 def reshape_field_cpu(field, factor):
     """
     Downsample a 3D or 4D field on CPU using scipy (optimized).
@@ -465,6 +464,41 @@ def calculate_angle_from_delays(delays, c=1540):
         theta = 0.0
 
     return int(np.round(theta, 0))
+
+def get_piezo_to_grid_mapping(Nx, dx, num_elements, element_width, pitch, probe_start_x, active_list):
+    """Map piezo elements to grid pixels with exact fractional coverage."""
+    mappings = []
+    
+    for i in range(num_elements):
+        if active_list[i] == 0:
+            continue
+            
+        el_start_x = probe_start_x + i * pitch
+        el_end_x = el_start_x + element_width
+        
+        start_idx = int(np.floor(el_start_x / dx))
+        end_idx = int(np.floor(el_end_x / dx))
+        
+        # Single pixel coverage
+        if start_idx == end_idx:
+            if 0 <= start_idx < Nx:
+                mappings.append((i, start_idx, element_width / dx))
+                
+        # Multi-pixel coverage
+        else:
+            if 0 <= start_idx < Nx:
+                fraction_start = ((start_idx + 1) * dx - el_start_x) / dx
+                mappings.append((i, start_idx, fraction_start))
+                
+            for j in range(start_idx + 1, end_idx):
+                if 0 <= j < Nx:
+                    mappings.append((i, j, 1.0))
+                    
+            if 0 <= end_idx < Nx and (el_end_x - end_idx * dx) > 1e-9:
+                fraction_end = (el_end_x - end_idx * dx) / dx
+                mappings.append((i, end_idx, fraction_end))
+                
+    return mappings
 
 @njit(parallel=True, fastmath=True)
 def compute_field_numba(field, t, active_indices, apod_window, weight_base, 

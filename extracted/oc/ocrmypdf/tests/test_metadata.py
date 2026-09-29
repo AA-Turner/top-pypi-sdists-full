@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import warnings
 from pathlib import Path
 from shutil import copyfile
@@ -12,9 +13,15 @@ from unittest.mock import MagicMock, patch
 import pikepdf
 import pytest
 from pikepdf.models.metadata import decode_pdf_date
+from pikepdf.pdfa import validate_written
 
 from ocrmypdf._jobcontext import PdfContext
-from ocrmypdf._metadata import metadata_fixup, repair_docinfo_nuls
+from ocrmypdf._metadata import (
+    _fix_metadata,
+    assume_local_time_zone,
+    metadata_fixup,
+    repair_docinfo_nuls,
+)
 from ocrmypdf._pipeline import convert_to_pdfa
 from ocrmypdf.api import setup_plugin_infrastructure
 from ocrmypdf.cli import get_options_and_plugins
@@ -62,6 +69,16 @@ def test_repair_docinfo_nuls_undecodable_key(caplog):
         result = repair_docinfo_nuls(pdf)
     assert result is False
     assert 'malformed DocumentInfo' in caplog.text
+
+
+@pytest.mark.parametrize('conversion_mode', ['explicit', 'implicit'])
+def test_repair_docinfo_nuls_removes_nuls(conversion_mode):
+    pdf = pikepdf.Pdf.new(conversion_mode=conversion_mode)
+    pdf.docinfo[pikepdf.Name.Title] = pikepdf.String(b'Title with nul\x00')
+    pdf.docinfo[pikepdf.Name.Author] = pikepdf.String(b'Clean')
+    assert repair_docinfo_nuls(pdf) is True
+    assert bytes(pdf.docinfo[pikepdf.Name.Title]) == b'Title with nul'
+    assert bytes(pdf.docinfo[pikepdf.Name.Author]) == b'Clean'
 
 
 def test_repair_docinfo_nuls_undecodable_key_real_file(resources):
@@ -220,6 +237,9 @@ def test_creation_date_preserved(output_type, resources, infile, outpdf):
         else:
             # We expect that the creation date stayed the same
             date_before = decode_pdf_date(str(before['/CreationDate']))
+            if date_before.tzinfo is None:
+                # A date without a time zone is taken to be local time
+                date_before = date_before.astimezone()
             date_after = decode_pdf_date(str(after['/CreationDate']))
             assert seconds_between_dates(date_before, date_after) < 1000
 
@@ -437,3 +457,229 @@ def test_missing_docinfo(resources, outpdf):
         Path('tests/plugins/tesseract_noop.py'),
     )
     assert result == ExitCode.ok
+
+
+@pytest.mark.parametrize(
+    'pdf_date, expected, changed',
+    [
+        ('D:20160119123847', "D:20160119123847-08'00", True),
+        ('20160719123847', "D:20160719123847-07'00", True),
+        ("D:20160119123847+05'30'", "D:20160119123847+05'30'", False),
+        ('D:20160119123847Z', 'D:20160119123847Z', False),
+        ('not a date', 'not a date', False),
+        ('', '', False),
+    ],
+)
+def test_assume_local_time_zone(los_angeles_tz, pdf_date, expected, changed):
+    assert assume_local_time_zone(pdf_date) == (expected, changed)
+
+
+@pytest.mark.parametrize('output_type', ['pdf', 'pdfa-1', 'pdfa-2'])
+def test_unzoned_creation_date_assumes_local_zone(
+    los_angeles_tz, resources, outpdf, caplog, output_type
+):
+    input_file = resources / 'ccitt.pdf'
+    with pikepdf.open(input_file) as pdf:
+        assert decode_pdf_date(str(pdf.docinfo.CreationDate)).tzinfo is None
+
+    exitcode = run_ocrmypdf_api(
+        input_file,
+        outpdf,
+        '--output-type',
+        output_type,
+        '--plugin',
+        'tests/plugins/tesseract_noop.py',
+    )
+    assert exitcode == ExitCode.ok, caplog.text
+
+    with pikepdf.open(outpdf) as pdf:
+        assert str(pdf.docinfo.CreationDate) == "D:20160119123847-08'00"
+        meta = pdf.open_metadata()
+        assert meta['xmp:CreateDate'] == '2016-01-19T12:38:47-08:00'
+
+    warnings_ = [
+        r
+        for r in caplog.records
+        if r.levelname == 'WARNING' and 'has no time zone' in r.getMessage()
+    ]
+    assert len(warnings_) == 1, caplog.text
+    message = warnings_[0].getMessage()
+    assert 'UTC-08:00' in message
+    assert 'TZ=' in message
+
+
+def test_zoned_creation_date_no_warning(resources, outpdf, caplog):
+    exitcode = run_ocrmypdf_api(
+        resources / 'graph.pdf',
+        outpdf,
+        '--output-type',
+        'pdf',
+        '--plugin',
+        'tests/plugins/tesseract_noop.py',
+    )
+    assert exitcode == ExitCode.ok, caplog.text
+    assert 'has no time zone' not in caplog.text
+
+
+@pytest.fixture
+def pdf_with_xmp_only_properties(resources, tmp_path) -> Path:
+    """A PDF whose XMP has Dublin Core properties with no DocInfo equivalent."""
+    path = tmp_path / 'xmp_only.pdf'
+    with pikepdf.open(resources / 'trivial.pdf') as pdf:
+        with pdf.open_metadata() as meta:
+            meta['dc:contributor'] = {'A'}
+            meta['dc:subject'] = {'x', 'y'}
+            meta['dc:date'] = ['2023-12-25']
+            # Not a Dublin Core property, so not permitted in PDF/A
+            meta['dc:created'] = 'D:20231225000000'
+        pdf.save(path)
+    return path
+
+
+@pytest.mark.parametrize('pdfa_backend', ['ghostscript', 'auto'])
+def test_ghostscript_pdfa_keeps_xmp_only_properties(
+    pdfa_backend, pdf_with_xmp_only_properties, outpdf, request, caplog
+):
+    if pdfa_backend == 'auto':
+        # Make auto fall back to Ghostscript
+        request.getfixturevalue('no_speculative_pdfa')
+    with caplog.at_level(logging.DEBUG, logger='ocrmypdf'):
+        check_ocrmypdf(
+            pdf_with_xmp_only_properties,
+            outpdf,
+            '--output-type',
+            'pdfa',
+            '--pdfa-backend',
+            pdfa_backend,
+            '--skip-text',
+            '--plugin',
+            'tests/plugins/tesseract_noop.py',
+        )
+    with pikepdf.open(outpdf) as pdf:
+        meta = pdf.open_metadata()
+        assert meta.get('dc:contributor') == {'A'}
+        assert meta.get('dc:subject') == {'x', 'y'}
+        assert meta.get('dc:date') == ['2023-12-25']
+        assert 'dc:created' not in meta
+    report = validate_written(outpdf, '2b')
+    assert report.verdict == 'pass', report.summary()
+    not_copied = [
+        r.getMessage() for r in caplog.records if 'were not copied' in r.getMessage()
+    ]
+    assert len(not_copied) == 1, caplog.text
+    assert 'created' in not_copied[0]
+    for name in ('contributor', 'subject', '}date', 'MetadataDate'):
+        assert name not in not_copied[0]
+
+
+# Ghostscript 10.08 quotes the placeholder title; earlier versions do not
+@pytest.mark.parametrize('gs_title', ['Untitled', "'Untitled'"])
+def test_fix_metadata_removes_ghostscript_untitled(gs_title):
+    with (
+        pikepdf.new() as original,
+        pikepdf.new() as pdf,
+        original.open_metadata() as meta_original,
+        pdf.open_metadata(update_docinfo=False) as meta_pdf,
+    ):
+        meta_pdf['dc:title'] = gs_title
+        _fix_metadata(meta_original, meta_pdf)
+        assert 'dc:title' not in meta_pdf
+
+
+@pytest.mark.parametrize('title', ['Untitled', "'Untitled'"])
+def test_fix_metadata_keeps_untitled_from_input(title):
+    with (
+        pikepdf.new() as original,
+        pikepdf.new() as pdf,
+        original.open_metadata() as meta_original,
+        pdf.open_metadata(update_docinfo=False) as meta_pdf,
+    ):
+        meta_original['dc:title'] = title
+        meta_pdf['dc:title'] = title
+        _fix_metadata(meta_original, meta_pdf)
+        assert meta_pdf['dc:title'] == title
+
+
+@pytest.mark.parametrize('pdfa_backend', ['ghostscript', 'auto'])
+def test_ghostscript_pdfa_adds_no_title(pdfa_backend, resources, outpdf, request):
+    if pdfa_backend == 'auto':
+        request.getfixturevalue('no_speculative_pdfa')
+    with pikepdf.open(resources / 'trivial.pdf') as pdf:
+        assert '/Title' not in pdf.docinfo
+    check_ocrmypdf(
+        resources / 'trivial.pdf',
+        outpdf,
+        '--output-type',
+        'pdfa',
+        '--pdfa-backend',
+        pdfa_backend,
+        '--skip-text',
+        '--plugin',
+        'tests/plugins/tesseract_noop.py',
+    )
+    with pikepdf.open(outpdf) as pdf:
+        assert '/Title' not in pdf.docinfo
+        assert 'dc:title' not in pdf.open_metadata()
+
+
+_XMP_WHOLE_VALUES = b"""<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="uuid:8f5a1c2e-0000-4000-8000-000000000000"
+      xmlns:dc="http://purl.org/dc/elements/1.1/">
+   <dc:rights>
+    <rdf:Alt>
+     <rdf:li xml:lang="x-default">All rights reserved</rdf:li>
+     <rdf:li xml:lang="fr-FR">Tous droits r\xc3\xa9serv\xc3\xa9s</rdf:li>
+    </rdf:Alt>
+   </dc:rights>
+   <dc:contributor>
+    <rdf:Bag><rdf:li>A</rdf:li><rdf:li>B</rdf:li></rdf:Bag>
+   </dc:contributor>
+  </rdf:Description>
+  <rdf:Description rdf:about="uuid:8f5a1c2e-0000-4000-8000-000000000000"
+      xmlns:dc="http://purl.org/dc/elements/1.1/" dc:source="scanner 7"/>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>"""
+
+
+@pytest.fixture
+def pdf_with_whole_xmp_values(resources, tmp_path) -> Path:
+    """XMP in uuid Descriptions, as Acrobat writes, with a multilingual value."""
+    path = tmp_path / 'xmp_whole_values.pdf'
+    with pikepdf.open(resources / 'trivial.pdf') as pdf:
+        pdf.Root.Metadata = pdf.make_stream(
+            _XMP_WHOLE_VALUES, Type=pikepdf.Name.Metadata, Subtype=pikepdf.Name.XML
+        )
+        pdf.save(path)
+    return path
+
+
+def test_ghostscript_pdfa_keeps_whole_xmp_values(
+    pdf_with_whole_xmp_values, outpdf, caplog
+):
+    """Every language of a language alternative survives Ghostscript PDF/A."""
+    with caplog.at_level(logging.DEBUG, logger='ocrmypdf'):
+        check_ocrmypdf(
+            pdf_with_whole_xmp_values,
+            outpdf,
+            '--output-type',
+            'pdfa',
+            '--pdfa-backend',
+            'ghostscript',
+            '--skip-text',
+            '--plugin',
+            'tests/plugins/tesseract_noop.py',
+        )
+    with pikepdf.open(outpdf) as pdf:
+        xmp = pdf.Root.Metadata.read_bytes().decode('utf-8')
+        meta = pdf.open_metadata()
+        assert meta.get('dc:rights') == 'All rights reserved'
+        assert meta.get('dc:contributor') == {'A', 'B'}
+        assert meta.get('dc:source') == 'scanner 7'
+    assert 'Tous droits réservés' in xmp
+    assert 'fr-FR' in xmp
+    report = validate_written(outpdf, '2b')
+    assert report.verdict == 'pass', report.summary()
+    assert 'were not copied' not in caplog.text

@@ -76,6 +76,16 @@ class BaseTranslator(ABC):
         """
         raise NotImplementedError
 
+    def to_batch_request(self, payload: Any, *, response_format: Any = None) -> Any:
+        """The provider's BATCH-endpoint spelling of a request ``build_request`` built.
+
+        Identity by default: the Anthropic and OpenAI batch endpoints take the live
+        body verbatim. A provider whose batch endpoint validates the body
+        differently (Google — see ``GoogleTranslator.to_batch_request``) overrides
+        this, so the difference lives in that provider's ONE translator and never
+        in the transport (``matrx_batch``), which must not rewrite a request."""
+        return payload
+
     @staticmethod
     def require_profile(route_ctx: Any) -> Any:
         """Loud gate for the flipped translators: their ``route_ctx`` MUST be a
@@ -372,6 +382,174 @@ class BaseTranslator(ABC):
             schema = strip_unsupported_keywords(schema, unsupported)
         return hoist_discriminator_first(schema)
 
+    #: What each OPENAI-COMPATIBLE chat endpoint actually does with a structured
+    #: output schema, measured one request per shape against the real provider on
+    #: 2026-09-27 (groq ``openai/gpt-oss-20b``, cerebras ``gpt-oss-120b``, xai
+    #: ``grok-4-fast-non-reasoning``, together
+    #: ``meta-llama/Llama-3.3-70B-Instruct-Turbo``). PROVIDER FACTS, not opinions —
+    #: re-measure before changing a row, and never level a provider down to the
+    #: strictest just because it is easier: narrowing a shape a provider accepts
+    #: throws the author's contract away for nothing.
+    #:
+    #: ``refuses_tuple_items``  — ``items: [A, B]`` (draft-4 tuple validation).
+    #:     groq 400 "not valid against metaschema", xai 400 "is not of type
+    #:     object/boolean", together 422 "failed to compile grammar".
+    #: ``refuses_recursion``    — a self-referencing ``$def``. together answers
+    #:     **500 Internal server error**; cerebras (strict) "Recursive schemas are
+    #:     currently not supported".
+    #: ``strict_subset``        — the endpoint applies OpenAI's full strict rules
+    #:     when ``strict: true`` is sent, so an opt-in strict request needs the
+    #:     whole strict pass: cerebras refuses maps, ``{}``, ``oneOf``, and an
+    #:     object without ``additionalProperties: false``; groq refuses the last.
+    #:
+    #: A dangling ``$ref`` is refused by groq, xai, together AND cerebras — four
+    #: more providers than the two the review found — so the hoist is
+    #: unconditional below, not a row here.
+    _OPENAI_COMPATIBLE_SUBSET: dict[str, dict[str, bool]] = {
+        # `strict_unions`: groq judges every `anyOf` it is sent (measured live
+        # 2026-09-28, openai/gpt-oss-20b): `required` beside no/empty
+        # `properties` is refused; an `anyOf` branch that is a `$ref` to a
+        # primitive or enum is refused ("anyOf branches must be disambiguated")
+        # while the same branch inlined is accepted; two branches that both
+        # admit null are refused. All three are respelled losslessly.
+        "groq": {
+            "refuses_tuple_items": True,
+            "refuses_recursion": False,
+            "strict_subset": True,
+            "strict_unions": True,
+        },
+        "cerebras": {"refuses_tuple_items": True, "refuses_recursion": True, "strict_subset": True},
+        "xai": {"refuses_tuple_items": True, "refuses_recursion": False, "strict_subset": True},
+        "together": {"refuses_tuple_items": True, "refuses_recursion": True, "strict_subset": True},
+        # A self-hosted OpenAI-compatible server (llama-server, vLLM, Ollama,
+        # LocalAI) — unmeasurable from here, so it gets the SAFE assumptions.
+        "generic_openai": {
+            "refuses_tuple_items": True,
+            "refuses_recursion": True,
+            "strict_subset": True,
+        },
+    }
+
+    @staticmethod
+    def translate_openai_compatible_output_schema(
+        schema: dict[str, Any], provider: str, *, strict: bool = False
+    ) -> tuple[dict[str, Any], list[str], list[str]]:
+        """Translate a declared schema into the subset an OPENAI-COMPATIBLE chat
+        endpoint accepts. Returns ``(wire_schema, narrowed, relaxed)`` exactly like
+        the Anthropic and OpenAI translators.
+
+        🚨 Until 2026-09-27 the five providers that reach the wire through
+        :meth:`build_openai_chat_response_format` — cerebras, groq, xai, together,
+        generic_openai — got NONE of the translation work the Anthropic and OpenAI
+        translators got: only ``sanitize_structured_output_schema`` (an advisory
+        keyword strip plus the ``__kind`` hoist), and no ``note_translation``, so
+        every compromise on those providers was invisible. Arman, 2026-09-27: a
+        provider rejecting our request is OUR translator's bug — which makes this
+        gap five providers' worth of bugs waiting.
+
+        The rules applied here are the ones the providers themselves refuse,
+        measured (:data:`_OPENAI_COMPATIBLE_SUBSET`), and nothing more. The review
+        that found this gap reported groq 400ing on dynamic-key maps, empty ``{}``
+        and objects missing ``additionalProperties: false``; re-measured at an
+        adequate token budget, those three are 200 and the 400 was
+        ``json_validate_failed`` — groq's server-side check of a TRUNCATED answer,
+        not a rejection of the schema. So they are deliberately NOT narrowed here:
+        emptying a map or collapsing a ``oneOf`` a provider accepts would throw the
+        author's contract away to fix a problem that does not exist.
+
+        What IS refused, and is therefore fixed here for every one of them:
+
+        * a ``$ref`` that does not resolve from the document root (a nested
+          ``$defs``) — groq, xai, together and cerebras all refuse it by name;
+        * ``items: [A, B]`` — refused by groq, xai and together;
+        * recursion, on the endpoints that cannot compile it (together answers
+          **500**, which no caller can classify).
+
+        ``strict=True`` means the caller asked for OpenAI's strict rules, which
+        these endpoints do apply: the full strict pass runs, including the
+        narrowings it forces, and every one of them is reported.
+        """
+        from matrx_ai.schema.lint import make_portable
+        from matrx_ai.schema.rules import (
+            NORMALIZATION_NOTES_KEY,
+            classify_normalization_notes,
+            OPEN_SCALAR_ITEM_SCHEMA,
+            concretize_empty_schemas,
+            dedupe_combinator_branches,
+            drop_refinement_combinators,
+            enforce_additional_properties_false,
+            enforce_all_required,
+            flatten_allof,
+            hoist_nested_defs,
+            normalize_array_items,
+            normalize_combinator_siblings,
+            prune_unreachable_defs,
+            rewrite_oneof_as_anyof,
+            split_enum_from_type_union,
+            take_normalization_notes,
+            unroll_recursive_refs,
+        )
+
+        subset = BaseTranslator._OPENAI_COMPATIBLE_SUBSET.get(
+            provider, BaseTranslator._OPENAI_COMPATIBLE_SUBSET["generic_openai"]
+        )
+        narrowed: list[str] = []
+        relaxed: list[str] = []
+
+        # THE SHARED FIRST STEP every translator runs on the author's schema (what
+        # the wire envelope carries): closed, all-required, optional fields
+        # widened to nullable, `__kind` first. Idempotent on a stored portable copy.
+        schema = make_portable(schema, notes=narrowed)
+
+        # Lossless, and refused by name on four of the five: a `$ref` resolves from
+        # the document ROOT, so a schema embedded whole under a parent's
+        # `properties` points at nothing.
+        schema = hoist_nested_defs(schema)
+        if strict:
+            schema = drop_refinement_combinators(schema, relaxed)
+            schema = enforce_additional_properties_false(schema, maps="narrow", notes=narrowed)
+        else:
+            # `maps="keep"` leaves a dynamic-key map exactly as declared — the
+            # providers accept it, so it stays enforceable.
+            schema = enforce_additional_properties_false(schema, maps="keep", notes=narrowed)
+        schema = BaseTranslator.sanitize_structured_output_schema(schema, provider)
+        if strict:
+            schema = flatten_allof(schema)
+            schema = rewrite_oneof_as_anyof(schema)
+            schema = normalize_combinator_siblings(schema)
+            # An unspecified array ELEMENT becomes the widest shape a strict decoder
+            # compiles (every scalar and null), named as a narrowing — never `string`.
+            schema = concretize_empty_schemas(schema, item_placeholder=OPEN_SCALAR_ITEM_SCHEMA)
+        # Lossless, and AFTER the block above because those rules are what creates
+        # a duplicate branch (`make_portable` already dropped the author's own):
+        # an emptied refinement branch concretized into the type its sibling
+        # already had leaves `anyOf: [A, A]`, compiled twice for nothing on every
+        # one of these endpoints (SCHEMA-TRANSLATION-VERIFY.md, F7).
+        schema = dedupe_combinator_branches(schema)
+        if subset.get("refuses_tuple_items"):
+            schema = normalize_array_items(schema)
+        schema = prune_unreachable_defs(schema)
+        if subset.get("refuses_recursion"):
+            schema = unroll_recursive_refs(schema, depth=4, notes=relaxed)
+        if strict:
+            schema = enforce_additional_properties_false(schema, maps="narrow", notes=narrowed)
+            enforce_all_required(schema, express_optional_as_nullable=True, notes=narrowed)
+        # An enum beside a type ARRAY — what `Optional[SomeEnum]` emits, and what the
+        # widening above can create — becomes `anyOf` branches. Unconditional: it is
+        # lossless, and the one strict-subset endpoint measured here refuses the
+        # union form exactly as Anthropic does.
+        schema = split_enum_from_type_union(schema)
+        if subset.get("strict_unions"):
+            from matrx_ai.schema.rules import disambiguate_unions_for_strict_validators
+
+            schema = disambiguate_unions_for_strict_validators(schema)
+        schema, notes = take_normalization_notes(schema)
+        more_narrowed, more_relaxed = classify_normalization_notes(notes)
+        narrowed.extend(more_narrowed)
+        relaxed.extend(more_relaxed)
+        schema.pop(NORMALIZATION_NOTES_KEY, None)
+        return schema, narrowed, relaxed
+
     @staticmethod
     def build_openai_chat_response_format(
         response_format: Any, provider_name: str
@@ -478,17 +656,46 @@ class BaseTranslator(ABC):
             return {"type": "json_object"}
 
         # Reduce the schema to the subset THIS provider's structured-output engine
-        # actually accepts (per-provider — Cerebras/groq/xai/together/generic all
-        # reject the advisory bounds; see sanitize_structured_output_schema).
-        schema = BaseTranslator.sanitize_structured_output_schema(schema, provider_name)
+        # actually accepts — the SAME translation the Anthropic and OpenAI
+        # translators do, per provider and measured against the real endpoint,
+        # instead of only the advisory-keyword strip these five used to get.
+        schema, narrowed, relaxed = BaseTranslator.translate_openai_compatible_output_schema(
+            schema, provider_name, strict=bool(strict)
+        )
+        if narrowed or relaxed:
+            from matrx_ai.providers.structured_output_findings import note_translation
+
+            vcprint(
+                data={"provider": provider_name, "narrowed": narrowed, "relaxed": relaxed},
+                title=(
+                    f"⚠️  {provider_name.upper()} ADJUSTMENT: the schema was translated to "
+                    "the subset this endpoint accepts. The stored schema is unchanged, and "
+                    "the answer is checked against it when the call ends "
+                    "(schema.answer_contract.verify_answer_and_record)."
+                ),
+                color="yellow",
+                verbose=True,
+            )
+            note_translation(
+                provider_name,
+                narrowed=narrowed,
+                relaxed=relaxed,
+                response_format=response_format,
+            )
 
         json_schema_block: dict[str, Any] = {
             "name": name or "response",
             "schema": schema,
         }
-        # strict carries hard schema constraints (object root, a restricted JSON
-        # Schema subset) — enabling it on an arbitrary schema can itself 400.
-        # Only set it when the caller explicitly opted in.
+        # `strict` carries OpenAI's hard strict rules, which these endpoints DO
+        # apply (measured 2026-09-27: cerebras under strict refuses maps, `{}`,
+        # `oneOf` and an object without additionalProperties:false; groq refuses
+        # the last). It is set only when the caller opted in — and DELIBERATELY not
+        # defaulted on: flipping it would force this boundary to empty every map
+        # and collapse every `oneOf` these endpoints accept today, which throws the
+        # author's contract away to buy enforcement nobody asked for. Whether the
+        # contract actually held is settled per call, empirically, by the answer
+        # check in `UnifiedAIClient._dispatch_with_billing_net`.
         if strict is not None:
             json_schema_block["strict"] = bool(strict)
 

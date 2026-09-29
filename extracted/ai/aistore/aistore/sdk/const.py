@@ -20,6 +20,7 @@ HEADER_ACCEPT = "Accept"
 HEADER_USER_AGENT = "User-Agent"
 HEADER_CONTENT_TYPE = "Content-Type"
 HEADER_CONTENT_LENGTH = "Content-Length"
+HEADER_TRANSFER_ENCODING = "Transfer-Encoding"
 HEADER_CONTENT_ENCODING = "Content-Encoding"
 HEADER_LOCATION = "Location"
 HEADER_CONNECTION = "Connection"
@@ -39,13 +40,18 @@ AIS_OBJ_NAME = "ais-name"
 AIS_LOCATION = "ais-location"
 AIS_MIRROR_PATHS = "ais-mirror-paths"
 AIS_MIRROR_COPIES = "ais-mirror-copies"
+AIS_EC_GENERATION = "ais-ec-generation"
+AIS_EC_DATA = "ais-ec-data"
+AIS_EC_PARITY = "ais-ec-parity"
+AIS_EC_REPLICATED = "ais-ec-replicated"
 AIS_PRESENT = "ais-present"
-# V2-specific headers
+# Selective HEAD headers
 AIS_CHUNKS_COUNT = "ais-chunks-count"
 AIS_CHUNKS_MAX_CHUNK_SIZE = "ais-chunks-max-chunk-size"
 HEADER_LAST_MODIFIED = "Last-Modified"
 HEADER_ETAG = "ETag"
-# V2 property names
+# Selective HEAD property names
+PROPS_SIZE = "size"
 PROPS_CHUNKED = "chunked"
 # Bucket Props Header keys
 HEADER_PREFIX = "Ais-"
@@ -96,7 +102,7 @@ QPARAM_NEW_CUSTOM = "set-new-custom"
 # multipart upload
 QPARAM_MPT_UPLOAD_ID = "uploadId"
 QPARAM_MPT_PART_NO = "partNumber"
-# Query params for V2 HEAD
+# Query params for selective object HEAD
 QPARAM_PROPS = "props"
 # etl
 QPARAM_ETL_NAME = "etl_name"
@@ -246,6 +252,7 @@ DUIS = (
 AWS_DEFAULT_REGION = "us-east-1"
 
 # Time constants
+GO_ZERO_TIME = "0001-01-01T00:00:00Z"
 NANOSECONDS_IN_SECOND = 1_000_000_000
 
 DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s: %(message)s"

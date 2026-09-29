@@ -58484,9 +58484,9 @@ class SEC13FHolding(QuantConnect.Data.BaseData):
     @property
     def amendment_type(self) -> str:
         """
-        For an amendment, whether it restates the whole report or only adds holdings. The
-        distinction decides whether the amendment replaces the original filing or supplements
-        it, and the SEC leaves it to the filer to declare. Empty on an original filing.
+        For an amendment, whether it restates the whole report or only adds holdings:
+        RESTATEMENT replaces the original filing and NEW HOLDINGS supplements it. The SEC
+        leaves the distinction to the filer to declare. Empty on an original filing.
         """
         ...
 

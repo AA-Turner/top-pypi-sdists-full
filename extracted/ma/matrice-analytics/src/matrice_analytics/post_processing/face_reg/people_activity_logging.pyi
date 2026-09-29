@@ -1,7 +1,11 @@
 """Auto-generated stub for module: people_activity_logging."""
 from typing import Any, Dict
 
+from ..utils.geometry_utils import bbox_xyxy_pixels
 from .face_recognition_client import FacialRecognitionClient
+
+# Constants
+ACTIVITY_BBOX_GRID: int
 
 # Classes
 class PeopleActivityLogging:

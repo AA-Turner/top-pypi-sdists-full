@@ -218,6 +218,7 @@ class FakeGitHub:
         self.comments: list[dict[str, Any]] = []
         self.reviews: list[dict[str, Any]] = []
         self.statuses: list[dict[str, Any]] = []
+        self.repo = "o/r"
         self.posted: list[str] = []  # plain PR comments (the per-run verdict)
         self.status = "ahead"
 
@@ -308,6 +309,86 @@ def test_snippet_in_text_detects_removed_code():
 
 
 # ---- selection & grouping ------------------------------------------------------------
+
+
+RENAME_DIFF = (
+    "diff --git a/.github/workflows/old-name.yml b/.github/workflows/new-name.yml\n"
+    "similarity index 90%\n"
+    "rename from .github/workflows/old-name.yml\n"
+    "rename to .github/workflows/new-name.yml\n"
+    "--- a/.github/workflows/old-name.yml\n"
+    "+++ b/.github/workflows/new-name.yml\n"
+    "@@ -1,2 +1,2 @@\n"
+    "-name: old\n"
+    "+name: new\n"
+    " on: push\n"
+)
+
+
+def _renamed_workspace(tmp_path, extra_diff: str = "", max_files: int = 50):
+    """A base checkout that still has the old file, and the PR renaming it."""
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / ".github/workflows/old-name.yml").write_text("name: old\non: push\n")
+    gh = FakeGitHub(
+        files={(".github/workflows/new-name.yml", "h1"): "name: new\non: push\n"}
+    )
+    files = parse_unified_diff(RENAME_DIFF + extra_diff)
+    head = review_mod.head_side_text(gh, files, "h1", max_files)
+    return Workspace(root=tmp_path, head_text=head, diffs={}, index=None), head
+
+
+def test_a_renamed_file_is_gone_from_its_old_path(tmp_path):
+    """The base checkout still has the old file. Without this, every lookup
+    reads the base branch's copy, and a finding saying "the old file is still
+    here" can never be verified fixed (seen on a PR that renamed a workflow)."""
+    ws, _ = _renamed_workspace(tmp_path)
+
+    assert ws.text(".github/workflows/old-name.yml") is None
+    assert ws.text(".github/workflows/new-name.yml") == "name: new\non: push\n"
+    assert ".github/workflows/old-name.yml" not in ws.files()
+    assert ".github/workflows/new-name.yml" in ws.files()
+    assert read_file(ws, ".github/workflows/old-name.yml").startswith(
+        "ERROR: cannot read"
+    )
+
+
+def test_a_rename_past_the_changed_file_cap_still_hides_its_old_path(tmp_path):
+    """Old paths cost no request, so the cap on head-text reads does not
+    apply to them."""
+    ws, head = _renamed_workspace(tmp_path, max_files=0)
+
+    assert head == {".github/workflows/old-name.yml": ""}
+    assert ws.text(".github/workflows/old-name.yml") is None
+
+
+def test_a_file_added_back_at_a_renamed_path_keeps_its_head_text(tmp_path):
+    added = (
+        "diff --git a/.github/workflows/old-name.yml b/.github/workflows/old-name.yml\n"
+        "new file mode 100644\n"
+        "--- /dev/null\n"
+        "+++ b/.github/workflows/old-name.yml\n"
+        "@@ -0,0 +1 @@\n"
+        "+name: replacement\n"
+    )
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    gh = FakeGitHub(
+        files={
+            (".github/workflows/new-name.yml", "h1"): "name: new\n",
+            (".github/workflows/old-name.yml", "h1"): "name: replacement\n",
+        }
+    )
+    head = review_mod.head_side_text(
+        gh, parse_unified_diff(RENAME_DIFF + added), "h1", 50
+    )
+
+    assert head[".github/workflows/old-name.yml"] == "name: replacement\n"
+
+    # F-1d0386: the add-back sits past the head-text cap. It is not read, and
+    # it must not be marked removed either.
+    capped = review_mod.head_side_text(
+        gh, parse_unified_diff(RENAME_DIFF + added), "h1", 1
+    )
+    assert ".github/workflows/old-name.yml" not in capped
 
 
 def test_select_skips_lockfiles_binaries_and_deletions():
@@ -644,7 +725,9 @@ def _factory(script):
     )
 
 
-def test_first_round_posts_inline_with_suggestion_and_a_sticky_summary(repo: Path):
+def test_first_round_puts_every_finding_in_the_summary_and_opens_no_thread(repo: Path):
+    """lens opens no inline review threads (they had to be resolved by hand to merge):
+    each finding, its explanation and its suggested change are in the summary."""
     gh = FakeGitHub()
     res = run(
         gh=gh,
@@ -655,20 +738,23 @@ def test_first_round_posts_inline_with_suggestion_and_a_sticky_summary(repo: Pat
         client_factory=_factory(_review_script()),
     )
     assert res.action == "reviewed" and res.mode == "full"
-    [review] = gh.reviews
-    [c] = review["comments"]
-    assert (
-        c["path"] == "application_sdk/storage/fetch.py"
-        and c["line"] == 4
-        and c["side"] == "RIGHT"
-    )
-    assert "```suggestion" in c["body"]
+    assert gh.reviews == []  # no review, no inline comment, no thread
     [summary] = gh.comments
-    assert SUMMARY_MARKER in summary["body"] and "Changes requested" in summary["body"]
-    st = PRState.decode(summary["body"])
+    body = summary["body"]
+    assert SUMMARY_MARKER in body and "Changes requested" in body
+    fid = res.state.findings[0].id
+    details = body.split("**Details**")[1]
+    assert f"{fid} · high · bug — decode() on a None result" in details
+    assert "client.get returns None for a missing key" in details
+    assert "**Suggested change:**" in details and "```python" in details
+    assert "data.decode() if data is not None else None" in details
+    link = "https://github.com/o/r/blob/h1/application_sdk/storage/fetch.py#L4"
+    assert f"[`application_sdk/storage/fetch.py:4`]({link})" in body
+    st = PRState.decode(body)
     # review + reflect + approach, each booked at the cost LiteLLM reported.
     assert st and st.round == 1 and st.ledger["calls"] == 3
     assert st.ledger["spent_usd"] == pytest.approx(0.006)
+    assert st.findings[0].suggestion  # kept: the next round's summary still shows it
 
 
 def test_unchanged_head_costs_zero_model_calls(repo: Path):
@@ -1153,25 +1239,27 @@ def test_cli_exits_nonzero_only_on_model_failure():
     assert not RunResult("reviewed", bundles=[BundleResult("b", stop="budget")]).failed
 
 
-def test_a_comment_github_refuses_is_moved_to_the_summary_not_lost(repo: Path):
-    class Picky(FakeGitHub):
-        def review(self, n, head, body, comments):
-            if any(c["line"] == 4 for c in comments):
-                raise GitHubError("HTTP 422: line must be part of the diff")
-            super().review(n, head, body, comments)
-
-    gh = Picky()
-    res = run(
+def test_no_round_ever_opens_a_review_thread(repo: Path):
+    gh = FakeGitHub()
+    rules = load_rules(repo / ".github" / "lens")
+    run(
         gh=gh,
         number=1,
         root=repo,
         cfg=cfg_for(repo),
-        rules=load_rules(repo / ".github" / "lens"),
+        rules=rules,
         client_factory=_factory(_review_script()),
     )
+    _round_two_elsewhere(gh)
+    run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(Script()),
+    )
     assert gh.reviews == []
-    assert [f.title for f in res.unplaced] == ["decode() on a None result"]
-    assert "not posted inline" in gh.comments[0]["body"]
 
 
 def test_temperature_is_omitted_by_default():
@@ -2397,7 +2485,9 @@ def test_workflow_uploads_the_run_report_even_on_failure():
 # ---- the verdict at the bottom, and the step trace -----------------------------------------------------------
 
 
-def test_the_verdict_with_the_full_approach_check_is_carried_by_the_review(repo: Path):
+def test_the_verdict_at_the_bottom_carries_the_new_findings_and_the_approach_check(
+    repo: Path,
+):
     gh = FakeGitHub()
     _seed_summary(gh)  # a later run: the summary sits far above
     concern = response(
@@ -2427,14 +2517,15 @@ def test_the_verdict_with_the_full_approach_check_is_carried_by_the_review(repo:
         rules=load_rules(repo / ".github" / "lens"),
         client_factory=_factory(Script(*_review_script().responses, approach=concern)),
     )
-    [review] = gh.reviews
-    assert gh.posted == []  # the review carries it; no extra comment
-    body = review["body"]
+    assert gh.reviews == []
+    [body] = gh.posted  # the verdict is a comment at the bottom
     assert (
         "❌ **lens · round 1 · first review**" in body
         and "🟠 1 high" in body
         and "New this round:** 1" in body
     )
+    # the reader is at the bottom, so this round's new findings are there in full
+    assert "decode() on a None result" in body and "**Suggested change:**" in body
     assert (
         "Approach check — ⚠️ concerns (advisory)" in body
         and "*Problem:* fetch() returned bytes" in body
@@ -2815,10 +2906,6 @@ def test_a_re_review_after_merging_main_reviews_only_the_authors_change(repo: Pa
             "re-review · full, because the model changed since the last review",
         ),
         (
-            {"mode": "full", "reviewed_head": "abc", "config_changed": True},
-            "re-review · full, because the lens config changed since the last review",
-        ),
-        (
             {"mode": "full", "reviewed_head": "abc", "ancestry": "diverged"},
             "re-review · full, because the branch was force-pushed or rebased",
         ),
@@ -2829,7 +2916,6 @@ def test_each_kind_of_run_says_what_it_is_and_why(kw, label):
         "pending": 0,
         "force": False,
         "model_changed": False,
-        "config_changed": False,
         "ancestry": "ahead",
     }
     assert review_mod.describe_mode(**{**base, **kw}) == label
@@ -2861,7 +2947,7 @@ def test_the_label_is_shown_on_the_verdict_summary_and_log(repo: Path, capsys):
     )
     assert res.mode_label == "re-review · only commits since h1"
     assert (
-        "### lens · round 2 · re-review · only commits since h1"
+        "### lens summary · updated after round 2 (re-review · only commits since h1)"
         in gh.comments[0]["body"]
     )
     assert any(
@@ -3067,9 +3153,10 @@ def test_a_normal_pr_keeps_the_full_detail():
     back = PRState.decode(render_summary(RunResult("reviewed", mode="full", state=st)))
     kept = back.findings[0]
     assert len(kept.body) == findings_mod.BODY_KEEP and kept.evidence == "code()"
+    assert kept.scenario == ""  # never read again
     assert (
-        kept.scenario == kept.suggestion == ""
-    )  # posted inline already; never read again
+        kept.suggestion == "fix()"
+    )  # the summary shows it; no inline comment holds it
     assert (
         f.scenario == "s" and f.suggestion == "fix()"
     )  # the live finding is untouched
@@ -3099,7 +3186,7 @@ def test_the_run_is_linked_from_the_status_the_verdict_and_the_history(repo: Pat
     )  # the verdict replaces pending
     summary = gh.comments[0]["body"]
     assert f"| [run]({url}) |" in summary.split("🕘 Round history")[1]
-    assert f"[Run log]({url})" in gh.reviews[-1]["body"]
+    assert f"[Run log]({url})" in gh.posted[-1]
 
 
 # ---- the code-owner approval (lens/approve.py, the workflow's last step) ------------------------------------------
@@ -3473,10 +3560,8 @@ def test_a_finding_off_the_diff_is_counted_stored_and_can_block_readiness(repo: 
     body = gh.comments[0]["body"]
     assert "⚪ 1 low (nit)" in body  # counted in the tally
     assert "#### ⚪ Low (nit) (1)" in body and off[0].id in body.split("#### ⚪ Low")[1]
-    assert "1 finding(s) not posted inline" in body  # its full text is still shown
-    # Only the diff-line finding went inline; the off-diff one never reaches the review API.
-    assert all(c["line"] for r in gh.reviews for c in r["comments"])
-    assert "1 inline, the rest in the summary" in gh.reviews[-1]["body"]
+    assert OFF_DIFF["title"] in body.split("**Details**")[1]  # its full text is shown
+    assert gh.reviews == []
     # Once the blocking one is fixed, the open nit still keeps the PR from "ready to merge".
     for f in res.state.findings:
         if f.severity == "high":
@@ -3641,9 +3726,7 @@ def test_a_first_review_does_not_post_the_verdict_twice(repo: Path):
     )  # the verdict is in the summary
 
 
-def test_a_first_review_with_findings_points_to_the_summary_instead_of_repeating_it(
-    repo: Path,
-):
+def test_a_first_review_with_findings_posts_only_the_summary(repo: Path):
     gh = FakeGitHub()
     run(
         gh=gh,
@@ -3653,14 +3736,9 @@ def test_a_first_review_with_findings_points_to_the_summary_instead_of_repeating
         rules=load_rules(repo / ".github" / "lens"),
         client_factory=_factory(_review_script()),
     )
-    [review] = gh.reviews
-    assert (
-        review["body"]
-        == "lens: 1 new finding(s) — the verdict is in the summary above."
-    )
-    assert review["comments"]  # the inline finding is still posted
-    assert gh.posted == []
+    assert gh.reviews == [] and gh.posted == []  # the new summary is the bottom comment
     assert "❌ **Changes requested**" in gh.comments[0]["body"]
+    assert "**Details**" in gh.comments[0]["body"]
 
 
 def test_a_failed_review_still_leaves_a_withdraw_decision(monkeypatch, tmp_path):
@@ -3689,3 +3767,608 @@ def test_a_failed_review_still_leaves_a_withdraw_decision(monkeypatch, tmp_path)
     )
     assert code == 1
     assert json.loads(out.read_text())["action"] == "withdraw"
+
+
+# ---- the review loop: re-check, threads, spirals, config changes, the description --------------------------------
+
+HELPER = 'def get_or_none(client, key):\n    return client.get(key) or b""\n'
+HELPER_DIFF = (
+    "diff --git a/application_sdk/storage/helper.py b/application_sdk/storage/helper.py\n"
+    "new file mode 100644\n--- /dev/null\n+++ b/application_sdk/storage/helper.py\n"
+    '@@ -0,0 +1,2 @@\n+def get_or_none(client, key):\n+    return client.get(key) or b""\n'
+)
+
+
+def _round_two_elsewhere(gh):
+    """A second commit that changes ANOTHER file and leaves the finding's file alone."""
+    gh.head = "h2"
+    gh.diffs[("h1", "h2")] = HELPER_DIFF
+    gh.diffs[("b0", "h2")] = gh.diffs[("b0", "h1")] + HELPER_DIFF
+    gh.files[("application_sdk/storage/fetch.py", "h2")] = SRC_V2
+    gh.files[("application_sdk/storage/helper.py", "h2")] = HELPER
+
+
+def test_a_fix_in_another_file_is_still_rechecked(repo: Path):
+    """A finding was re-checked only when its own file changed, so a fix landing in the
+    code that feeds it (a data file's finding fixed in the reader) was never seen."""
+    gh = FakeGitHub()
+    rules = load_rules(repo / ".github" / "lens")
+    first = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(_review_script()),
+    )
+    fid = first.state.findings[0].id
+    _round_two_elsewhere(gh)
+    script = Script(
+        response([tool_call("verdicts", {"items": [{"id": fid, "status": "fixed"}]})])
+    )
+    res = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(script),
+    )
+    assert res.resolved_verified == [fid]
+    verify = next(r for r in script.requests if "<changes_this_round>" in json.dumps(r))
+    sent = json.dumps(verify)
+    assert (
+        f'finding id=\\"{fid}\\"' in sent
+        and "application_sdk/storage/helper.py" in sent
+    )
+    assert "quoted_when_raised" in sent
+
+
+def test_the_recheck_finds_the_quoted_code_where_it_is_now():
+    """Stored line numbers drift as commits land; the quote identifies the site."""
+    f = Finding(
+        "a.py", 2, "high", "bug", "t", "b", "    return data.decode()", head_line=2
+    )
+    now = "import x\n\n\n\ndef fetch(client, key):\n    data = client.get(key)\n    return data.decode()\n"
+    assert review_mod._current_line(None, f, now) == 7
+    f.evidence = "gone()"
+    assert (
+        review_mod._current_line(None, f, now) == 0
+    )  # no stale guess: the quote is gone
+
+
+def test_a_dismissal_is_labelled_as_one(repo: Path):
+    gh = FakeGitHub()
+    rules = load_rules(repo / ".github" / "lens")
+    first = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(_review_script()),
+    )
+    fid = first.state.findings[0].id
+    review_mod.dismiss(
+        gh, 1, [fid], "tracked separately", actor="reviewer", pr_author="author"
+    )
+    assert gh.posted[-1].startswith(
+        "✅ **lens · dismissal after round 1 · " + fid + " by @reviewer**"
+    )
+    assert "**Details**" not in gh.comments[0]["body"]  # nothing open is left to detail
+
+
+def test_a_file_drawing_new_blocking_findings_round_after_round_gets_a_step_back_note():
+    old = [
+        Finding(
+            "d.py", 1, "high", "bug", f"t{r}", "b", f"e{r}", round=r, status="fixed"
+        )
+        for r in (1, 2)
+    ]
+    new = [Finding("d.py", 9, "high", "bug", "t3", "b", "e3", round=3)]
+    st = PRState(round=3, findings=old + new)
+    assert review_mod.spiral_paths(st, new, 3) == [("d.py", [1, 2, 3])]
+    assert review_mod.spiral_paths(st, new, 2) == []  # too early to call it a spiral
+    medium = [Finding("d.py", 9, "medium", "bug", "t3", "b", "e3", round=3)]
+    assert (
+        review_mod.spiral_paths(st, medium, 3) == []
+    )  # only blocking findings drive it
+    res = RunResult(
+        "reviewed",
+        mode="incremental",
+        mode_label="re-review",
+        state=st,
+        spiral=review_mod.spiral_paths(st, new, 3),
+    )
+    assert (
+        "🔁 **Worth stepping back:** `d.py` has drawn new blocking findings in rounds 1, 2, 3"
+        in render_summary(res)
+    )
+
+
+def test_a_config_change_does_not_reopen_reviewed_code(repo: Path):
+    gh = FakeGitHub()
+    rules = load_rules(repo / ".github" / "lens")
+    run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(_review_script()),
+    )
+    changed = cfg_for(repo)
+    changed.raw_hash = "new-cards"
+    same_head = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=changed,
+        rules=rules,
+        client_factory=_factory(Script()),
+    )
+    assert same_head.action == "skipped"  # the reviewed head is not re-reviewed
+    _round_two_elsewhere(gh)
+    nxt = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=changed,
+        rules=rules,
+        client_factory=_factory(Script()),
+    )
+    assert nxt.mode == "incremental"  # new commits only, under the new config
+    gh.status = "identical"  # what GitHub's compare says for the same commit
+    forced = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=changed,
+        rules=rules,
+        client_factory=_factory(Script()),
+        force=True,
+    )
+    assert forced.action == "reviewed"
+
+
+def test_the_whole_description_reaches_the_reviewer(repo: Path):
+    """A declaration past the first 1,200 characters was cut, and lens asked for it."""
+    ws, bundle = _ws(repo)
+    body = "x" * 3000 + " DECLARED: kwargs are context fields now."
+    ctx = agent_mod.build_context(
+        ws, bundle, RuleSet([], {}), {"title": "t", "body": body}, []
+    )
+    assert "DECLARED: kwargs are context fields now." in ctx
+    from lens import prompts  # noqa: PLC0415
+
+    assert "unless <description> declares it as intended" in prompts.REVIEW_SYSTEM
+
+
+# ---- review findings on the loop fixes ---------------------------------------------------------------------------
+
+
+def test_verify_checks_every_open_finding_in_batches(repo: Path):
+    """The re-check stopped at 20: anything past it was never re-checked."""
+    ws, _ = _ws(repo)
+    fs = [
+        Finding(
+            "application_sdk/storage/fetch.py", 1, "low", "bug", f"t{i}", "b", f"x{i}"
+        )
+        for i in range(25)
+    ]
+    script = Script(
+        response(
+            [tool_call("verdicts", {"items": [{"id": fs[0].id, "status": "fixed"}]})]
+        ),
+        response(
+            [tool_call("verdicts", {"items": [{"id": fs[24].id, "status": "fixed"}]})]
+        ),
+    )
+    client = Client(model="m", price=PRICE, ledger=Ledger(cap_usd=1), transport=script)
+    fixed = review_mod._verify(client, ws, fs, "--- a.py\n@@ -1 +1 @@")
+    assert fixed == [fs[0].id, fs[24].id]
+    assert len(script.requests) == 2  # 20 + 5
+    first, second = (json.dumps(r) for r in script.requests)
+    assert fs[19].id in first and fs[20].id not in first and fs[24].id in second
+    # the round's changes lead each call, so both batches share a cached prefix
+    for r in script.requests:
+        user = r["messages"][1]["content"] if "messages" in r else json.dumps(r)
+        assert user.index("<changes_this_round>") < user.index("<finding ")
+
+
+def test_a_spiral_counts_only_earlier_blocking_findings():
+    old = [
+        Finding("d.py", 1, "medium", "bug", f"t{r}", "b", f"e{r}", round=r)
+        for r in (1, 2)
+    ]
+    new = [Finding("d.py", 9, "high", "bug", "t3", "b", "e3", round=3)]
+    st = PRState(round=3, findings=old + new)
+    assert (
+        review_mod.spiral_paths(st, new, 3) == []
+    )  # first blocking finding, not a spiral
+
+
+def test_the_round_diff_is_bounded_and_puts_finding_files_first():
+    def fd(path, n):
+        body = "".join(f"+line {i}\n" for i in range(n))
+        return parse_unified_diff(
+            f"diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n@@ -0,0 +1,{n} @@\n{body}"
+        )[0]
+
+    files = [fd("a_first.py", 5), fd("b_owner.py", 5)] + [
+        fd(f"z{i}.py", 190) for i in range(10)
+    ]
+    open_ = [Finding("b_owner.py", 1, "high", "bug", "t", "b", "e")]
+    out = review_mod.round_diff(files, open_)
+    assert out.index("--- b_owner.py") < out.index(
+        "--- a_first.py"
+    )  # the finding's file leads
+    assert len(out) <= review_mod.ROUND_DIFF_CHARS + 200
+    assert "(diff omitted: budget)" in out  # ten large files do not all fit
+    assert (
+        "--- b_owner.py\n" in out and "--- a_first.py\n" in out
+    )  # the small ones do, in full
+    # with no finding to prioritise (only approach concerns to re-check), files go in path order
+    assert review_mod.round_diff(files, []).startswith("--- a_first.py")
+
+
+def test_force_after_new_commits_reviews_only_those_commits(repo: Path):
+    """How `/lens force` is used: after a small push (a docs commit) to get the approval
+    back. It lifts the skip and round-cap rules but reviews only the new commits, so it
+    is cheap and cannot reopen code an earlier round already passed."""
+    gh = FakeGitHub()
+    rules = load_rules(repo / ".github" / "lens")
+    run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(_review_script()),
+    )
+    _round_two_elsewhere(gh)  # new commits that descend from the reviewed head
+    res = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(Script()),
+        force=True,
+    )
+    assert res.mode == "incremental"
+    assert res.mode_label == "re-review · only commits since h1"
+
+
+def test_force_on_an_unchanged_head_re_reviews_the_whole_pr(repo: Path):
+    gh = FakeGitHub()
+    rules = load_rules(repo / ".github" / "lens")
+    run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(_review_script()),
+    )
+    gh.status = "identical"  # what GitHub's compare says for the same commit
+    res = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(Script()),
+        force=True,
+    )
+    assert res.mode == "full"
+    assert res.mode_label == "re-review · full, because requested with force"
+
+
+# ---- approach concerns are re-checked, not frozen --------------------------------------------------------------
+
+_CONCERNS = {
+    "problem": "p",
+    "approach": "a",
+    "verdict": "concerns",
+    "concerns": [
+        {
+            "title": "Re-check stops at 20",
+            "why": "open_[:20]",
+            "alternative": "batch it",
+        },
+        {"title": "Force contract", "why": "comment and code disagree"},
+    ],
+}
+
+
+def test_open_concerns_are_rechecked_in_the_verify_call_and_marked_addressed(
+    repo: Path,
+):
+    """The approach check runs once per PR; a concern the author then fixed stayed on
+    the PR forever. It now rides the verify call and is marked addressed."""
+    gh = FakeGitHub()
+    rules = load_rules(repo / ".github" / "lens")
+    first = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(_review_script()),
+    )
+    first.state.approach = json.loads(json.dumps(_CONCERNS))
+    gh.comments[0]["body"] = review_mod.SUMMARY_MARKER + "\n" + first.state.encode()
+    _round_two_elsewhere(gh)
+    script = Script(
+        response([tool_call("verdicts", {"items": [{"id": "A1", "status": "fixed"}]})])
+    )
+    res = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(script),
+    )
+    sent = json.dumps(
+        next(r for r in script.requests if "<changes_this_round>" in json.dumps(r))
+    )
+    assert 'concern id=\\"A1\\"' in sent and 'concern id=\\"A2\\"' in sent
+    c1, c2 = res.state.approach["concerns"]
+    assert (c1["status"], c1["addressed_round"]) == ("addressed", 2)
+    assert c2.get("status", "open") == "open"
+    assert [cid for cid, _ in review_mod.open_concerns(res.state)] == ["A2"]
+    body = gh.comments[0]["body"]
+    assert "✔️ ~~Re-check stops at 20~~ (A1) — addressed in round 2" in body
+    assert "**Force contract** (A2)" in body and "worth a second look" in body
+
+
+def test_all_concerns_addressed_reads_as_addressed_not_as_concerns():
+    ap = json.loads(json.dumps(_CONCERNS))
+    for c in ap["concerns"]:
+        c["status"], c["addressed_round"] = "addressed", 3
+    st = PRState(round=3, approach=ap)
+    res = RunResult("reviewed", mode="incremental", mode_label="re-review", state=st)
+    summary = render_summary(res)
+    assert (
+        "✅ every concern has been addressed" in summary
+        and "worth a second look" not in summary
+    )
+    brief = review_mod.verdict_brief(res, "")
+    assert "**Approach check — ✅ concerns addressed**" in brief and "⚠️ **" not in brief
+    assert review_mod.open_concerns(st) == []
+
+
+def test_concerns_alone_still_get_rechecked(repo: Path):
+    """No open findings, but an open concern: the verify call still runs."""
+    ws, _ = _ws(repo)
+    script = Script(
+        response([tool_call("verdicts", {"items": [{"id": "A1", "status": "fixed"}]})])
+    )
+    client = Client(model="m", price=PRICE, ledger=Ledger(cap_usd=1), transport=script)
+    st = PRState(approach=json.loads(json.dumps(_CONCERNS)))
+    fixed = review_mod._verify(client, ws, [], "--- a.py", review_mod.open_concerns(st))
+    assert fixed == ["A1"] and len(script.requests) == 1
+
+
+# ---- lens's review of the no-threads change -----------------------------------------------------------------------
+
+
+def test_the_verdict_comment_stays_within_githubs_limit():
+    """The verdict now carries this round's findings in full, so a round with many
+    verbose findings must shorten them, then list them, rather than be refused."""
+    fs = [
+        Finding(
+            f"a{i}.py",
+            i + 1,
+            "medium",
+            "bug",
+            f"t{i}",
+            "b" * 900,
+            f"e{i}",
+            suggestion="s" * 900,
+        )
+        for i in range(150)
+    ]
+    st = PRState(round=2, findings=fs, ledger={"spent_usd": 0.1, "cap_usd": 1.0})
+    res = RunResult(
+        "reviewed",
+        mode="incremental",
+        mode_label="re-review",
+        state=st,
+        new_findings=fs,
+        blob_base="https://github.com/o/r/blob/h",
+    )
+    body = review_mod.verdict_brief(res, "https://example.test/summary")
+    assert len(body) <= review_mod.COMMENT_LIMIT
+    assert all(f.id in body for f in fs)  # every new finding is still named
+    few = RunResult(
+        "reviewed",
+        mode="incremental",
+        mode_label="re-review",
+        state=PRState(round=2, findings=fs[:1]),
+        new_findings=fs[:1],
+    )
+    assert "b" * 900 in review_mod.verdict_brief(
+        few, ""
+    )  # a normal round shows it in full
+
+
+def test_a_path_is_url_encoded_in_its_link():
+    f = Finding("src/a#b c.py", 3, "low", "bug", "t", "b", "e")
+    where = review_mod._where(f, "https://github.com/o/r/blob/h")
+    assert "(https://github.com/o/r/blob/h/src/a%23b%20c.py#L3)" in where
+
+
+def test_a_suggestion_holding_a_code_fence_cannot_close_its_block():
+    sug = "Use this:\n\n```python\nx = 1\n```\n"
+    f = Finding("docs/x.md", 3, "low", "documentation", "t", "b", "e", suggestion=sug)
+    out = review_mod._details(f, "")
+    assert "````markdown\n" + sug.rstrip() + "\n````" in out
+
+
+def test_a_dismissal_keeps_the_location_links(repo: Path):
+    gh = FakeGitHub()
+    script = Script(
+        response(
+            [
+                tool_call("code_comment", {"comments": [COMMENT, OFF_DIFF]}),
+                tool_call("task_done", {"state": "DONE"}, 1),
+            ]
+        ),
+        response([tool_call("approve_all_comments", {})]),
+    )
+    first = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=load_rules(repo / ".github" / "lens"),
+        client_factory=_factory(script),
+    )
+    low = next(f for f in first.state.findings if f.severity == "low")
+    review_mod.dismiss(
+        gh, 1, [low.id], "tracked separately", actor="reviewer", pr_author="author"
+    )
+    body = gh.comments[0]["body"]
+    assert "https://github.com/o/r/blob/h1/application_sdk/storage/fetch.py#L4" in body
+
+
+# ---- verify sees the paths the PR removes ----------------------------------------
+
+
+def test_removed_paths_lists_deletions_and_renames_but_not_add_backs():
+    added_back = (
+        "diff --git a/.github/workflows/old-name.yml b/.github/workflows/old-name.yml\n"
+        "new file mode 100644\n--- /dev/null\n+++ b/.github/workflows/old-name.yml\n"
+        "@@ -0,0 +1 @@\n+name: replacement\n"
+    )
+    gone = (
+        "diff --git a/gone.py b/gone.py\ndeleted file mode 100644\n"
+        "--- a/gone.py\n+++ /dev/null\n@@ -1 +0,0 @@\n-x\n"
+    )
+    assert review_mod.removed_paths(parse_unified_diff(RENAME_DIFF + gone)) == (
+        "renamed: .github/workflows/old-name.yml -> .github/workflows/new-name.yml\n"
+        "deleted: gone.py"
+    )
+    assert review_mod.removed_paths(parse_unified_diff(RENAME_DIFF + added_back)) == ""
+    assert review_mod.removed_paths(parse_unified_diff(DIFF)) == ""
+
+
+def test_verify_is_told_which_paths_no_longer_exist(repo: Path):
+    """A finding saying "the old file is still present" could never be judged:
+    verify sees the finding's site and this round's diff, never the repo. The
+    removed paths lead the call, before the changes, so batches share a prefix."""
+    ws, _ = _ws(repo)
+    f = Finding(
+        ".github/workflows/new-name.yml",
+        1,
+        "high",
+        "bug",
+        "Old workflow still present",
+        "old-name.yml is still in the repo and still scheduled.",
+        "name: new",
+    )
+    script = Script(
+        response([tool_call("verdicts", {"items": [{"id": f.id, "status": "fixed"}]})])
+    )
+    client = Client(model="m", price=PRICE, ledger=Ledger(cap_usd=1), transport=script)
+    removed = review_mod.removed_paths(parse_unified_diff(RENAME_DIFF))
+
+    assert review_mod._verify(client, ws, [f], "--- a.py", removed=removed) == [f.id]
+    user = script.requests[0]["messages"][1]["content"]
+    assert (
+        "<paths_removed_by_this_pr>\n"
+        "renamed: .github/workflows/old-name.yml -> .github/workflows/new-name.yml\n"
+        "</paths_removed_by_this_pr>"
+    ) in user
+    assert user.index("<paths_removed_by_this_pr>") < user.index("<changes_this_round>")
+    assert "paths_removed_by_this_pr" in script.requests[0]["messages"][0]["content"]
+
+
+def test_verify_gets_no_removed_block_when_nothing_was_removed(repo: Path):
+    ws, _ = _ws(repo)
+    f = Finding("application_sdk/storage/fetch.py", 1, "low", "bug", "t", "b", "x")
+    script = Script(response([tool_call("verdicts", {"items": []})]))
+    client = Client(model="m", price=PRICE, ledger=Ledger(cap_usd=1), transport=script)
+
+    review_mod._verify(client, ws, [f], "--- a.py")
+
+    assert (
+        "<paths_removed_by_this_pr>" not in script.requests[0]["messages"][1]["content"]
+    )
+
+
+def test_a_round_two_verify_lists_a_rename_from_the_whole_pr(repo: Path):
+    """End to end through `run`: the PR's diff renames a workflow, and the
+    verify call for the open finding is told the old path is gone."""
+    gh = FakeGitHub()
+    rules = load_rules(repo / ".github" / "lens")
+    first = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(_review_script()),
+    )
+    fid = first.state.findings[0].id
+    _round_two_elsewhere(gh)
+    gh.diffs[("h1", "h2")] += RENAME_DIFF
+    gh.diffs[("b0", "h2")] += RENAME_DIFF
+    gh.files[(".github/workflows/new-name.yml", "h2")] = "name: new\non: push\n"
+    script = Script(response([tool_call("verdicts", {"items": []})]))
+
+    run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(script),
+    )
+
+    verify = next(r for r in script.requests if "<changes_this_round>" in json.dumps(r))
+    sent = json.dumps(verify)
+    assert f'finding id=\\"{fid}\\"' in sent
+    assert (
+        "renamed: .github/workflows/old-name.yml -> .github/workflows/new-name.yml"
+        in sent
+    )
+
+
+def test_a_rename_from_an_earlier_round_is_still_listed(repo: Path):
+    """The list is the whole PR's, not the round's: round 2 touches another
+    file, but the rename made in round 1 is still in effect at the head."""
+    gh = FakeGitHub()
+    gh.diffs[("b0", "h1")] = DIFF + RENAME_DIFF
+    gh.files[(".github/workflows/new-name.yml", "h1")] = "name: new\non: push\n"
+    rules = load_rules(repo / ".github" / "lens")
+    first = run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(_review_script()),
+    )
+    assert first.state.findings, "round 1 must leave a finding open to re-check"
+    _round_two_elsewhere(gh)
+    gh.files[(".github/workflows/new-name.yml", "h2")] = "name: new\non: push\n"
+    script = Script(response([tool_call("verdicts", {"items": []})]))
+
+    run(
+        gh=gh,
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=rules,
+        client_factory=_factory(script),
+    )
+
+    verify = next(r for r in script.requests if "<changes_this_round>" in json.dumps(r))
+    assert (
+        "renamed: .github/workflows/old-name.yml -> .github/workflows/new-name.yml"
+        in json.dumps(verify)
+    )

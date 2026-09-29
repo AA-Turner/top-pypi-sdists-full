@@ -24,6 +24,7 @@ from matrx_scraper.api.ext_router import router as ext_router
 from matrx_scraper.api.browser_router import router as browser_router
 from matrx_scraper.api.preview_router import router as preview_router
 from matrx_scraper.api.crawl_router import router as crawl_router
+from matrx_scraper.api.press_clip_router import router as press_clip_router
 
 __all__ = [
     "scrape_router",
@@ -31,4 +32,5 @@ __all__ = [
     "browser_router",
     "preview_router",
     "crawl_router",
+    "press_clip_router",
 ]

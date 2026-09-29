@@ -1238,6 +1238,7 @@ class OP:
     GEN_AI_CHAT = "gen_ai.chat"
     GEN_AI_CREATE_AGENT = "gen_ai.create_agent"
     GEN_AI_EMBEDDINGS = "gen_ai.embeddings"
+    GEN_AI_EVALUATE = "gen_ai.evaluate"
     GEN_AI_EXECUTE_TOOL = "gen_ai.execute_tool"
     GEN_AI_TEXT_COMPLETION = "gen_ai.text_completion"
     GEN_AI_HANDOFF = "gen_ai.handoff"
@@ -1848,4 +1849,4 @@ DEFAULT_OPTIONS = _get_default_options()
 del _get_default_options
 
 
-VERSION = "2.70.0"
+VERSION = "2.71.0"

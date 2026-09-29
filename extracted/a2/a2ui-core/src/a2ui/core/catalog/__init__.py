@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,26 +12,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .catalog import Catalog
+from .catalog import Catalog, is_valid_uax31_identifier
 from .components import (
     ComponentApi,
     ComponentImplementation,
     ModelComponentApi,
 )
+from .reference_map import (
+    ComponentRefSpec,
+    analyze_child_ref_schema,
+    build_component_ref_map,
+    extract_child_refs_from_val,
+)
 from .functions import (
+    AllowedCallers,
     FunctionApi,
     FunctionImplementation,
     FunctionInvoker,
+    FunctionReturnType,
+    InferA2uiReturnType,
     create_function_implementation,
 )
 
 __all__ = [
     "Catalog",
+    "AllowedCallers",
     "ComponentApi",
     "ComponentImplementation",
+    "ComponentRefSpec",
     "ModelComponentApi",
     "FunctionApi",
     "FunctionImplementation",
     "FunctionInvoker",
+    "FunctionReturnType",
+    "InferA2uiReturnType",
+    "analyze_child_ref_schema",
+    "build_component_ref_map",
     "create_function_implementation",
+    "extract_child_refs_from_val",
+    "is_valid_uax31_identifier",
 ]

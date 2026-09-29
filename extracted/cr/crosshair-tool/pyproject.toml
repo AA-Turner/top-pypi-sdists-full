@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crosshair-tool"
-version = "0.0.110"
+version = "0.0.111"
 description = "Analyze Python code for correctness using symbolic execution."
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     { name = "Phillip Schanely", email = "pschanely+vE7F@gmail.com" },
 ]
@@ -19,7 +19,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -36,13 +35,13 @@ dependencies = [
     "typing-inspect>=0.7.1",
     "typing_extensions>=3.10.0",
     "z3-solver>=4.13.0.0",
-    "importlib_metadata>=4.0.0",
+    "importlib_metadata>=4.0.0; python_version < '3.10'",
     "pygls>=1.0.0",
     "typeshed-client>=2.0.5",
 ]
 
 [project.optional-dependencies]
-# NOTE: the runtime package still supports Python >=3.8, but the dev tooling
+# NOTE: the runtime package still supports Python 3.9, but the dev tooling
 # below (black, isort, mypy, pytest) requires >=3.10, so contributing to
 # CrossHair requires Python 3.10 or newer.
 dev = [
@@ -54,9 +53,9 @@ dev = [
     "hypothesis>=6.0.0",  # input generation for crosshair.inputgen / fuzz_core_test
     "icontract>=2.4.0",
     "isort==8.0.1",
-    "mypy==2.3.0",
+    "mypy==2.3.1",
     "numpy==1.24.0; python_version < '3.12'",
-    "numpy==2.3.3; python_version >= '3.12'",
+    "numpy==2.5.3; python_version >= '3.12'",
     "pre-commit~=4.3",
     "pytest==9.1.1",
     "pytest-xdist==3.8.0",
@@ -77,7 +76,7 @@ mypycrosshair = "crosshair.main:mypy_and_check"
 [tool.setuptools.packages.find]
 
 [tool.setuptools.package-data]
-crosshair = ["*.h", "py.typed"]
+crosshair = ["*.h", "py.typed", "unicode_data/*.json"]
 
 [[tool.setuptools.ext-modules]]
 name = "_crosshair_tracers"
@@ -97,6 +96,7 @@ profile = "black"
 [tool.mypy]
 python_version = "3.13"
 warn_unused_configs = true
+disable_error_code = ["annotation-unchecked"]
 
 [[tool.mypy.overrides]]
 module = "crosshair.tools.*"

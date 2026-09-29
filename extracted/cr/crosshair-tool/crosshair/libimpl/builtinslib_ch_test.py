@@ -1,6 +1,6 @@
 import operator
 import sys
-from math import isnan
+from math import isfinite, isnan
 from numbers import Integral
 from typing import (
     Any,
@@ -247,6 +247,14 @@ def check_pow_operator(b: Union[int, float], e: Union[int, float]) -> ResultComp
     """post: _"""
     # crosshair: max_uninteresting_iterations=150
     # (running this a little longer for various float representations)
+    if b < 0:
+        pass
+    if b == 0:
+        pass
+    if e < 0:
+        pass
+    if isfinite(e) and e == int(e):
+        pass
     return compare_returns(operator.pow, b, e)
 
 
@@ -938,15 +946,14 @@ def check_str_zfill(string: str, width: int) -> ResultComparison:
     return compare_results(lambda s, *a: s.zfill(*a), string, width)
 
 
-if sys.version_info >= (3, 9):
+def check_str_removeprefix(s: str, prefix: str):
+    """post: _"""
+    return compare_results(lambda s, *a: s.removeprefix(*a), s, prefix)
 
-    def check_str_removeprefix(s: str, prefix: str):
-        """post: _"""
-        return compare_results(lambda s, *a: s.removeprefix(*a), s, prefix)
 
-    def check_str_removesuffix(s: str, suffix: str):
-        """post: _"""
-        return compare_results(lambda s, *a: s.removesuffix(*a), s, suffix)
+def check_str_removesuffix(s: str, suffix: str):
+    """post: _"""
+    return compare_results(lambda s, *a: s.removesuffix(*a), s, suffix)
 
 
 # Check bytes, bytearray, memoryview methods

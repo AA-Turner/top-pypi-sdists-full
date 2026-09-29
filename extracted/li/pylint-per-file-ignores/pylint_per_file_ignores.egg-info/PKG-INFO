@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylint-per-file-ignores
-Version: 3.2.1
+Version: 4.0.0
 Summary: A pylint plugin to ignore error codes per file.
 Author-email: Christopher Pickering <christopher@going.bg>, Kai Harder <kai.harder@sap.com>
 Maintainer-email: Kai Harder <kai.harder@sap.com>
@@ -15,17 +15,16 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Typing :: Typed
-Requires-Python: <4,>=3.10
+Requires-Python: <4,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pylint<5,>=3.3
+Requires-Dist: pylint<5,>=4.0
 Dynamic: license-file
 
 [![REUSE status](https://api.reuse.software/badge/github.com/SAP/pylint-per-file-ignores)](https://api.reuse.software/info/github.com/SAP/pylint-per-file-ignores)
@@ -66,12 +65,14 @@ load-plugins = [
 ```
 
 ## Usage
-Add list of patterns and codes you would like to ignore.
+Add a list of patterns and codes you would like to ignore following `<file-pattern>:<code1>,<code2>`.
 The patterns are matched using [globs](https://docs.python.org/3/library/glob.html).
-
+Newlines between codes are supported.
 
 > Prior to v2.0.0, `pylint-per-file-ignores` did not use globs but regex.
 > When migrating, please check your configuration carefully.
+
+Please note, that if two patterns applies the same files, the last configuration will be used.
 
 **.pylintrc**
 ```ini
@@ -98,10 +99,28 @@ per-file-ignores = [
 ]
 ```
 
+Please note, that for non-toml files newlines are important.
+For example, the following won't parse as expected
+
+```ini
+[pylint.MESSAGES CONTROL]
+per-file-ignores =
+  /folder_1/*:missing-function-docstring,
+    missing-class-docstring
+```
+
 ## Development
-This project uses `uv`.
-To setup a venv for development use
-`python3.14 -m venv venv && pip install uv && uv sync --all-groups && rm -rf venv/`.
+This project uses [`uv`](https://docs.astral.sh/uv/).
+To install uv, and setup a venv for development, use:
+```
+python3.14 -m venv venv && \
+    source venv/bin/activate && \
+    pip install uv && uv sync --all-groups && \
+    deactivate  && \
+    rm -rf venv/
+```
+This will create a temporary `venv`, install uv to bootstrap the project
+`.venv`, and remove the temporary `venv` again.
 Then use `source .venv/bin/activate` to activate your venv.
 
 ## Build and Publish

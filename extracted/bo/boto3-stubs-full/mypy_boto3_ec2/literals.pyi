@@ -101,8 +101,11 @@ __all__ = (
     "ChronologicalOrderType",
     "ClientCertificateRevocationListStatusCodeType",
     "ClientVpnAuthenticationTypeType",
+    "ClientVpnAuthorizationPolicyShadowModeType",
+    "ClientVpnAuthorizationPolicyStatusType",
     "ClientVpnAuthorizationRuleStatusCodeType",
     "ClientVpnConnectionStatusCodeType",
+    "ClientVpnDeviceTrustProviderTypeType",
     "ClientVpnEndpointAttributeStatusCodeType",
     "ClientVpnEndpointStatusCodeType",
     "ClientVpnRouteStatusCodeType",
@@ -952,10 +955,15 @@ ClientCertificateRevocationListStatusCodeType = Literal["active", "pending"]
 ClientVpnAuthenticationTypeType = Literal[
     "certificate-authentication", "directory-service-authentication", "federated-authentication"
 ]
+ClientVpnAuthorizationPolicyShadowModeType = Literal["disabled", "enabled"]
+ClientVpnAuthorizationPolicyStatusType = Literal[
+    "active", "creating", "deleting", "failed", "updating"
+]
 ClientVpnAuthorizationRuleStatusCodeType = Literal["active", "authorizing", "failed", "revoking"]
 ClientVpnConnectionStatusCodeType = Literal[
     "active", "failed-to-terminate", "terminated", "terminating"
 ]
+ClientVpnDeviceTrustProviderTypeType = Literal["crowdstrike", "jamf", "jumpcloud"]
 ClientVpnEndpointAttributeStatusCodeType = Literal["applied", "applying"]
 ClientVpnEndpointStatusCodeType = Literal[
     "available", "deleted", "deleting", "pending", "pending-associate"
@@ -2936,6 +2944,9 @@ IpamInternetRegistryAssociationStateType = Literal[
     "delete-complete",
     "delete-failed",
     "delete-in-progress",
+    "disable-complete",
+    "disable-failed",
+    "disable-in-progress",
     "enable-complete",
     "enable-failed",
     "enable-in-progress",
@@ -3476,7 +3487,7 @@ ResourceTypeType = Literal[
     "vpn-connection-device-type",
     "vpn-gateway",
 ]
-RirType = Literal["apnic", "arin", "lacnic", "ripe"]
+RirType = Literal["apnic", "arin", "lacnic", "nicbr", "ripe"]
 RootDeviceTypeType = Literal["ebs", "instance-store"]
 RouteOriginType = Literal[
     "Advertisement", "CreateRoute", "CreateRouteTable", "EnableVgwRoutePropagation"

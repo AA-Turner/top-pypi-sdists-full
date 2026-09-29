@@ -25,7 +25,9 @@ class AdvancedTracker:
     #     removed_stracks (List[STrack]): List of removed tracks.
     #     frame_id (int): The current frame ID.
     #     config (TrackerConfig): Tracker configuration.
-    #     max_time_lost (int): The maximum frames for a track to be considered as 'lost'.
+    #     max_time_lost (int): Frame-count view of the lost-track grace, kept for
+    #         external readers. The grace ACTUALLY applied is in seconds of stream
+    #         time (see ``_lost_grace_seconds``); under a sampler the two differ.
     #     kalman_filter (KalmanFilterXYAH): Kalman Filter object.
     #     class_smoother (Optional[ClassSmoother]): Optional class smoother for class label smoothing over flicker.
 
@@ -107,7 +109,7 @@ class AdvancedTracker:
         """
         ...
 
-    def predict(self: Any) -> List[Dict]:
+    def predict(self: Any, timestamp: Optional[float] = None) -> List[Dict]:
         """
         Advance every track one frame via Kalman predict-only (no detections),
                 so boxes glide smoothly on video frames rendered between inference frames.
@@ -116,6 +118,9 @@ class AdvancedTracker:
                 on) plus recently-lost confirmed tracks within a short grace, converted to
                 the standard detection-dict format. Does not consume detections, so it does
                 not advance the temporal hit buffers (no evidence either way this frame).
+        
+                ``timestamp`` has the same meaning as on :meth:`update` — a glide frame
+                still moves the stream clock, so it must be able to say by how much.
         """
         ...
 
@@ -169,7 +174,7 @@ class AdvancedTracker:
         """
         ...
 
-    def update(self: Any, detections: Union[List[Dict], Dict[str, List[Dict]]], img: Optional[Any.Any] = None) -> Union[List[Dict], Dict[str, List[Dict]]]:
+    def update(self: Any, detections: Union[List[Dict], Dict[str, List[Dict]]], img: Optional[Any.Any] = None, timestamp: Optional[float] = None) -> Union[List[Dict], Dict[str, List[Dict]]]:
         """
         Update the tracker with new detections and return the current list of tracked objects.
         
@@ -178,6 +183,14 @@ class AdvancedTracker:
                 - List[Dict]: Single frame detections
                 - Dict[str, List[Dict]]: Multi-frame detections with frame keys
             img: Optional image for motion compensation
+            timestamp: Optional presentation time of THIS frame, in seconds on a
+                monotonic media clock. For an RTSP source this is the forwarded
+                RTP timestamp converted by ``rtp_clock.RtpClock`` — the gateway
+                never rewrites it, so ``ts_now - ts_prev`` is the true interval
+                even when a sampler dropped everything in between. Optional and
+                backward compatible: callers that omit it (or pass a
+                non-monotonic value) keep the previous frame-counting behaviour,
+                and the fallback is logged rather than taken silently.
         
         Returns:
             Tracking results in the same format as input

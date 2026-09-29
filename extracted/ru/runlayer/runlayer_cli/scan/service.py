@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import functools
 import getpass
 import hashlib
 import json
@@ -13,7 +14,7 @@ import sys
 import threading
 import time
 import uuid
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, cast
@@ -2514,6 +2515,9 @@ class _ArtifactSubmissionConfig(Generic[_ArtifactT]):
     lookup_batch: Callable[[list[str]], dict[str, Any]]
     lookup_one: Callable[[_ArtifactT, str], dict[str, Any]]
     submit: Callable[[dict[str, Any]], dict[str, Any]]
+    # ``(envelope, items) -> {"results": [...]} | {"unsupported": True}``; the
+    # per-item ``submit`` is the fallback for backends without the route.
+    submit_batch: Callable[[Mapping[str, Any], list[dict[str, Any]]], dict[str, Any]]
     strip_duplicate_identifiers: bool = False
 
 
@@ -2592,65 +2596,64 @@ def _plan_artifact_submissions(
     return planned, due_surfaces
 
 
-def _submit_planned_artifact(
+@dataclass(frozen=True)
+class _PreparedSubmission(Generic[_ArtifactT]):
+    item: _PlannedSubmission[_ArtifactT]
+    payload: dict[str, Any]  # content stripped where the server already holds it
+    # Stripped on the local cache's word alone, so the server must confirm
+    # ``has_content`` or the full payload goes out again.
+    cache_backed_strip: bool
+
+
+def _resolve_lookup(
     item: _PlannedSubmission[_ArtifactT],
     *,
     batch_lookups: dict[str, dict[str, bool]] | None,
-    artifact_cache: ArtifactCache | None,
     config: _ArtifactSubmissionConfig[_ArtifactT],
-    superseded: list[tuple[str, str]] | None,
-) -> bool:
-    """Look up, submit and record one artifact; ``False`` when unsupported."""
+) -> dict[str, Any]:
     if item.cache_hit:
-        result = {"known": True, "has_content": True}
-    elif batch_lookups is not None:
-        result = batch_lookups[item.identifier]
-    else:
-        result = config.lookup_one(item.artifact, item.identifier)
-    if result.get("unsupported"):
-        return False
+        return {"known": True, "has_content": True}
+    if batch_lookups is not None:
+        return batch_lookups[item.identifier]
+    return config.lookup_one(item.artifact, item.identifier)
 
-    strip_known_content = result.get("known") and result.get("has_content", True)
+
+def _prepare_submission(
+    item: _PlannedSubmission[_ArtifactT],
+    lookup: Mapping[str, Any],
+    *,
+    artifact_cache: ArtifactCache | None,
+) -> _PreparedSubmission[_ArtifactT]:
+    strip_known_content = lookup.get("known") and lookup.get("has_content", True)
     payload = dict(item.full_payload)
     if strip_known_content or item.always_submits:
         payload["files"] = []
-    submit_response = config.submit(payload)
-    if submit_response.get("unsupported") is True:
-        return False
-    if submit_response.get("superseded") is True:
-        _note_superseded_positive(item, config=config, superseded=superseded)
-        return True
-
-    cache_backed_content_strip = (
+    cache_backed_strip = (
         artifact_cache is not None
         and bool(item.full_payload.get("files"))
-        and result.get("known") is True
-        and result.get("has_content") is True
+        and lookup.get("known") is True
+        and lookup.get("has_content") is True
         and not item.always_submits
     )
-    if cache_backed_content_strip and submit_response.get("has_content") is not True:
-        logger.warning(
-            "artifact_cache_content_missing",
-            artifact_type=config.kind,
-            identifier=item.identifier,
-        )
-        _artifact_cache_evict(artifact_cache, item.identifier)
-        submit_response = config.submit(item.full_payload)
-        if submit_response.get("unsupported") is True:
-            return False
-        # A sibling can finish between the stripped submit and this retry.
-        if submit_response.get("superseded") is True:
-            _note_superseded_positive(item, config=config, superseded=superseded)
-            return True
-    if submit_response.get("has_content") is True:
-        _artifact_cache_record(artifact_cache, item.identifier, item.submission_key)
-    return True
+    return _PreparedSubmission(
+        item=item, payload=payload, cache_backed_strip=cache_backed_strip
+    )
+
+
+def _full_resubmission(
+    prepared: _PreparedSubmission[_ArtifactT],
+) -> _PreparedSubmission[_ArtifactT]:
+    return _PreparedSubmission(
+        item=prepared.item,
+        payload=prepared.item.full_payload,
+        cache_backed_strip=False,
+    )
 
 
 def _note_superseded_positive(
     item: _PlannedSubmission[_ArtifactT],
     *,
-    config: _ArtifactSubmissionConfig[_ArtifactT],
+    kind: _ArtifactKind,
     superseded: list[tuple[str, str]] | None,
 ) -> None:
     """A sibling profile's newer scan owns this device-shared scope.
@@ -2660,11 +2663,234 @@ def _note_superseded_positive(
     """
     logger.warning(
         "artifact_positive_superseded",
-        artifact_type=config.kind,
+        artifact_type=kind,
         identifier=item.identifier,
     )
     if superseded is not None:
-        superseded.append((config.kind, item.identifier))
+        superseded.append((kind, item.identifier))
+
+
+def _settle_submission(
+    prepared: _PreparedSubmission[_ArtifactT],
+    response: Mapping[str, Any],
+    *,
+    artifact_cache: ArtifactCache | None,
+    kind: _ArtifactKind,
+    superseded: list[tuple[str, str]] | None = None,
+) -> bool:
+    """Record a confirmed submit; ``True`` when the full payload must follow.
+
+    The submit response is the server-side backstop for the cache: content
+    stripped on the cache's word that the server cannot confirm evicts the
+    hint, and the caller resubmits the full payload.
+
+    A ``superseded`` item was dropped by the backend (a sibling profile's
+    newer scan owns its scope): nothing to cache, nothing to resend. A sibling
+    can finish between a stripped submit and its backstop retry, so the retry
+    response is settled the same way.
+
+    An artifact submitted without files (metadata-only plugin, unread
+    directory) has no content for the server to confirm, so it is recorded
+    on the accepted submit alone; otherwise it could never throttle and would
+    force its whole surface to resubmit every tick. Should files appear later
+    under the same identifier, the backstop above evicts the hint and the
+    full payload goes out once.
+    """
+    if response.get("superseded") is True:
+        _note_superseded_positive(prepared.item, kind=kind, superseded=superseded)
+        return False
+    if prepared.cache_backed_strip and response.get("has_content") is not True:
+        logger.warning(
+            "artifact_cache_content_missing",
+            artifact_type=kind,
+            identifier=prepared.item.identifier,
+        )
+        _artifact_cache_evict(artifact_cache, prepared.item.identifier)
+        return True
+    file_less = not prepared.item.full_payload.get("files")
+    if response.get("has_content") is True or file_less:
+        _artifact_cache_record(
+            artifact_cache, prepared.item.identifier, prepared.item.submission_key
+        )
+    return False
+
+
+def _submit_one(
+    prepared: _PreparedSubmission[_ArtifactT],
+    *,
+    artifact_cache: ArtifactCache | None,
+    config: _ArtifactSubmissionConfig[_ArtifactT],
+    superseded: list[tuple[str, str]] | None,
+) -> bool:
+    """Submit one artifact on the per-item route; ``False`` when unsupported."""
+    settle = functools.partial(
+        _settle_submission,
+        artifact_cache=artifact_cache,
+        kind=config.kind,
+        superseded=superseded,
+    )
+    response = config.submit(prepared.payload)
+    if response.get("unsupported") is True:
+        return False
+    if settle(prepared, response):
+        full = _full_resubmission(prepared)
+        response = config.submit(full.payload)
+        if response.get("unsupported") is True:
+            return False
+        settle(full, response)
+    return True
+
+
+# Mirrors the backend's MAX_ARTIFACTS_PER_SUBMIT_BATCH; the byte budget keeps
+# one request well under any proxy body cap when every item carries content
+# (a single larger item still ships alone).
+_SUBMIT_BATCH_MAX_ITEMS = 25
+_SUBMIT_BATCH_MAX_BYTES = 4 * 1024 * 1024
+
+
+def _chunk_submissions(
+    prepared: list[_PreparedSubmission[_ArtifactT]],
+    *,
+    envelope: Mapping[str, Any],
+) -> Iterator[list[tuple[_PreparedSubmission[_ArtifactT], dict[str, Any]]]]:
+    """Yield ``(prepared, wire item)`` chunks bounded by count and bytes.
+
+    The wire item omits the envelope keys (device + scan evidence), which the
+    batch request carries once.
+    """
+    chunk: list[tuple[_PreparedSubmission[_ArtifactT], dict[str, Any]]] = []
+    chunk_bytes = 0
+    for entry in prepared:
+        body = {k: v for k, v in entry.payload.items() if k not in envelope}
+        body_bytes = len(json.dumps(body, separators=(",", ":"), default=str))
+        if chunk and (
+            len(chunk) >= _SUBMIT_BATCH_MAX_ITEMS
+            or chunk_bytes + body_bytes > _SUBMIT_BATCH_MAX_BYTES
+        ):
+            yield chunk
+            chunk, chunk_bytes = [], 0
+        chunk.append((entry, body))
+        chunk_bytes += body_bytes
+    if chunk:
+        yield chunk
+
+
+def _mark_submission_failure(
+    exc: Exception,
+    *,
+    kind: _ArtifactKind,
+    surfaces: Iterable[ScanManifestSurface],
+    failed_surfaces: set[ScanManifestSurface] | None,
+    **log_context: Any,
+) -> bool:
+    """Log a failed submit and mark its surfaces; auth failures re-raise.
+
+    ``True`` when the run must stop: a transport error with no surface
+    tracking has nowhere to land, so the whole submission reports failed.
+    """
+    status: dict[str, int] = {}
+    if isinstance(exc, httpx.HTTPStatusError):
+        if exc.response.status_code in (401, 403):
+            raise exc
+        status["status_code"] = exc.response.status_code
+    logger.warning(
+        f"{kind}_submission_failed",
+        **log_context,
+        error=str(exc),
+        error_type=type(exc).__name__,
+        **status,
+    )
+    if failed_surfaces is not None:
+        failed_surfaces.update(surfaces)
+    return isinstance(exc, httpx.RequestError) and failed_surfaces is None
+
+
+@dataclass(frozen=True)
+class _BatchOutcome(Generic[_ArtifactT]):
+    any_failed: bool
+    # Still to submit one by one: the batch route came back unsupported
+    # before these went out (a mixed-version fleet can flip mid-run).
+    pending: list[_PreparedSubmission[_ArtifactT]]
+    # The run must stop (see ``_mark_submission_failure``); the caller
+    # reports failed instead of touching ``pending``.
+    stopped: bool = False
+
+
+def _submit_in_batches(
+    prepared: list[_PreparedSubmission[_ArtifactT]],
+    *,
+    envelope: Mapping[str, Any],
+    artifact_cache: ArtifactCache | None,
+    config: _ArtifactSubmissionConfig[_ArtifactT],
+    failed_surfaces: set[ScanManifestSurface] | None,
+    superseded: list[tuple[str, str]] | None,
+) -> _BatchOutcome[_ArtifactT]:
+    """Submit on the batch route; a second pass carries the backstop resubmits."""
+    any_failed = False
+    pending = prepared
+    while pending:
+        resubmit: list[_PreparedSubmission[_ArtifactT]] = []
+        chunks = list(_chunk_submissions(pending, envelope=envelope))
+        for index, chunk in enumerate(chunks):
+            entries = [entry for entry, _ in chunk]
+            surfaces = {entry.item.surface for entry in entries}
+            try:
+                response = config.submit_batch(envelope, [body for _, body in chunk])
+            except NotImplementedError:
+                response = {"unsupported": True}
+            except Exception as exc:
+                any_failed = True
+                if _mark_submission_failure(
+                    exc,
+                    kind=config.kind,
+                    surfaces=surfaces,
+                    failed_surfaces=failed_surfaces,
+                    artifact_count=len(entries),
+                ):
+                    return _BatchOutcome(any_failed=True, pending=[], stopped=True)
+                continue
+            if response.get("unsupported"):
+                left = [entry for later in chunks[index:] for entry, _ in later]
+                left.extend(_full_resubmission(entry) for entry in resubmit)
+                return _BatchOutcome(any_failed=any_failed, pending=left)
+            results = response.get("results")
+            if not isinstance(results, list) or len(results) != len(entries):
+                logger.warning(
+                    f"{config.kind}_submit_batch_response_malformed",
+                    artifact_count=len(entries),
+                )
+                any_failed = True
+                if failed_surfaces is not None:
+                    failed_surfaces.update(surfaces)
+                continue
+            for entry, result in zip(entries, results, strict=True):
+                settled = (
+                    cast("dict[str, Any]", result) if isinstance(result, dict) else {}
+                )
+                if settled.get("rejected") is True:
+                    # The server validated this item alone and dropped it; its
+                    # neighbors persisted. Nothing to resubmit: the same
+                    # payload would be rejected again.
+                    logger.warning(
+                        f"{config.kind}_submit_item_rejected",
+                        identifier=entry.item.identifier,
+                        errors=settled.get("errors"),
+                    )
+                    any_failed = True
+                    if failed_surfaces is not None:
+                        failed_surfaces.add(entry.item.surface)
+                    continue
+                if _settle_submission(
+                    entry,
+                    settled,
+                    artifact_cache=artifact_cache,
+                    kind=config.kind,
+                    superseded=superseded,
+                ):
+                    resubmit.append(entry)
+        # Full resubmissions never strip, so this pass is the last.
+        pending = [_full_resubmission(entry) for entry in resubmit]
+    return _BatchOutcome(any_failed=any_failed, pending=[])
 
 
 def _submit_discovered_artifacts(
@@ -2746,6 +2972,10 @@ def _submit_discovered_artifacts(
     )
 
     skipped = 0
+    # An unsupported lookup means the backend predates this artifact kind;
+    # what was already looked up still goes out, then the status reports it.
+    lookup_unsupported = False
+    prepared: list[_PreparedSubmission[_ArtifactT]] = []
     for item in planned:
         # A surface where anything changed resubmits wholesale so its manifest
         # entry stays complete; otherwise its unchanged copies wait for the
@@ -2755,11 +2985,45 @@ def _submit_discovered_artifacts(
                 throttled_surfaces.add(item.surface)
             skipped += 1
             continue
-        artifact_log_context = {config.kind: item.artifact.name}
         try:
-            if not _submit_planned_artifact(
-                item,
-                batch_lookups=batch_lookups,
+            lookup = _resolve_lookup(item, batch_lookups=batch_lookups, config=config)
+        except NotImplementedError:
+            lookup_unsupported = True
+            break
+        except Exception as exc:
+            any_failed = True
+            if _mark_submission_failure(
+                exc,
+                kind=config.kind,
+                surfaces=(item.surface,),
+                failed_surfaces=failed_surfaces,
+                **{config.kind: item.artifact.name},
+            ):
+                return "failed"
+            continue
+        if lookup.get("unsupported"):
+            lookup_unsupported = True
+            break
+        prepared.append(
+            _prepare_submission(item, lookup, artifact_cache=artifact_cache)
+        )
+
+    outcome = _submit_in_batches(
+        prepared,
+        envelope=device_ctx,
+        artifact_cache=artifact_cache,
+        config=config,
+        failed_surfaces=failed_surfaces,
+        superseded=superseded,
+    )
+    if outcome.stopped:
+        return "failed"
+    any_failed = any_failed or outcome.any_failed
+    for entry in outcome.pending:
+        artifact_log_context = {config.kind: entry.item.artifact.name}
+        try:
+            if not _submit_one(
+                entry,
                 artifact_cache=artifact_cache,
                 config=config,
                 superseded=superseded,
@@ -2771,40 +3035,18 @@ def _submit_discovered_artifacts(
                 **artifact_log_context,
             )
             return unsupported_status()
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code in (401, 403):
-                raise
-            logger.warning(
-                f"{config.kind}_submission_failed",
-                **artifact_log_context,
-                error=str(exc),
-                error_type=type(exc).__name__,
-                status_code=exc.response.status_code,
-            )
-            any_failed = True
-            if failed_surfaces is not None:
-                failed_surfaces.add(item.surface)
-        except httpx.RequestError as exc:
-            logger.warning(
-                f"{config.kind}_submission_failed",
-                **artifact_log_context,
-                error=str(exc),
-                error_type=type(exc).__name__,
-            )
-            if failed_surfaces is None:
-                return "failed"
-            any_failed = True
-            failed_surfaces.add(item.surface)
         except Exception as exc:
-            logger.warning(
-                f"{config.kind}_submission_failed",
-                **artifact_log_context,
-                error=str(exc),
-                error_type=type(exc).__name__,
-            )
             any_failed = True
-            if failed_surfaces is not None:
-                failed_surfaces.add(item.surface)
+            if _mark_submission_failure(
+                exc,
+                kind=config.kind,
+                surfaces=(entry.item.surface,),
+                failed_surfaces=failed_surfaces,
+                **artifact_log_context,
+            ):
+                return "failed"
+    if lookup_unsupported:
+        return unsupported_status()
     if throttle_cache is not None and planned:
         # ``due`` items forced their whole surface; a sample of their paths
         # shows which skill keeps a surface from ever throttling.
@@ -2830,12 +3072,12 @@ def submit_discovered_skills(
     failed_surfaces: set[ScanManifestSurface] | None = None,
     throttled_surfaces: set[ScanManifestSurface] | None = None,
 ) -> SubmissionStatus:
-    """Resolve skill fingerprints in batches, then submit each skill.
+    """Resolve skill fingerprints in batches, then submit the skills in batches.
 
     Cache hits skip lookup and strip content. The submit response is the
     server-side backstop: if it cannot confirm stored content, evict the hint
-    and immediately resubmit the full payload. With *throttle*, unchanged
-    skills already submitted inside the re-submit window are skipped.
+    and immediately resubmit the full payload. With *throttled_surfaces*,
+    unchanged skills already submitted inside the re-submit window are skipped.
 
     Returns whether submission succeeded, failed, or is unsupported.
     """
@@ -2869,6 +3111,7 @@ def submit_discovered_skills(
             lookup_batch=client.submit_skill_fingerprints,
             lookup_one=lookup_skill,
             submit=client.submit_skill,
+            submit_batch=client.submit_skills_batch,
             strip_duplicate_identifiers=True,
         )
     )
@@ -2889,12 +3132,15 @@ def submit_discovered_plugins(
     artifact_cache: ArtifactCache | None = None,
     failed_surfaces: set[ScanManifestSurface] | None = None,
     superseded: list[tuple[str, str]] | None = None,
+    throttled_surfaces: set[ScanManifestSurface] | None = None,
 ) -> SubmissionStatus:
-    """Resolve plugin fingerprints in batches, then always submit each plugin.
+    """Resolve plugin fingerprints in batches, then submit the plugins in batches.
 
     Cache hits skip lookup and strip content. The submit response is the
     server-side backstop: if it cannot confirm stored content, evict the hint
-    and immediately resubmit the full payload.
+    and immediately resubmit the full payload. With *throttled_surfaces*,
+    unchanged plugins already submitted inside the re-submit window are skipped
+    (file-less plugins never confirm content, so they always submit).
 
     Returns whether submission succeeded, failed, or is unsupported.
     """
@@ -2920,6 +3166,7 @@ def submit_discovered_plugins(
             lookup_batch=client.submit_plugin_fingerprints,
             lookup_one=lookup_plugin,
             submit=client.submit_plugin,
+            submit_batch=client.submit_plugins_batch,
         )
     )
     return _submit_discovered_artifacts(
@@ -2929,6 +3176,7 @@ def submit_discovered_plugins(
         config=config,
         failed_surfaces=failed_surfaces,
         superseded=superseded,
+        throttled_surfaces=throttled_surfaces,
     )
 
 
@@ -3691,6 +3939,7 @@ def submit_scan_results(
     # during their own ingest, so plugin rows must exist first on a new device.
     if scan_result.plugins:
         failed_plugin_surfaces: set[ScanManifestSurface] = set()
+        throttled_plugin_surfaces: set[ScanManifestSurface] = set()
         plugin_submission = submit_discovered_plugins(
             client,
             scan_result.plugins,
@@ -3698,7 +3947,14 @@ def submit_scan_results(
             artifact_cache=artifact_cache,
             failed_surfaces=failed_plugin_surfaces,
             superseded=submission.positives_superseded,
+            throttled_surfaces=throttled_plugin_surfaces,
         )
+        # Same contract as skills below: a throttled surface claims no
+        # authority, so the server counts no staleness miss against it.
+        for surface in throttled_plugin_surfaces:
+            submission.incomplete_surfaces.setdefault(
+                ("plugin", surface), "resubmit_throttled"
+            )
         _record_artifact_submission_outcome(
             submission,
             category="plugin",
@@ -3707,6 +3963,9 @@ def submit_scan_results(
             unsupported_label="Shadow Plugin Detection",
             failed_label="plugins",
         )
+    elif artifact_cache is not None:
+        # A plugin-free scan resets the throttle baseline (see skills below).
+        artifact_cache.retain_submissions(set(), kind="plugin")
 
     # Client presence and runtime/inventory sightings ride the MCP-scan payload,
     # so successful empty process/WSL inventories and requested container

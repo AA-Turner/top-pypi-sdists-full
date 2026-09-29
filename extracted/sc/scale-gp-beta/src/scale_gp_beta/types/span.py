@@ -43,11 +43,33 @@ class Span(BaseModel):
 
     input: Optional[Dict[str, object]] = None
 
+    input_tokens: Optional[int] = None
+    """Prompt tokens the producer reported for this span, absent when it reported none.
+
+    Same quantity the input_tokens sort orders by.
+    """
+
     metadata: Optional[Dict[str, object]] = None
 
     object: Optional[Literal["span"]] = None
 
+    obs_span_id: Optional[str] = None
+    """W3C span id of the observability span this span executed in."""
+
+    obs_trace_id: Optional[str] = None
+    """W3C trace id of the observability trace this span executed in.
+
+    Null for spans written without the edge, and for accounts still served by the
+    legacy trace store.
+    """
+
     output: Optional[Dict[str, builtins.object]] = None
+
+    output_tokens: Optional[int] = None
+    """
+    Completion tokens the producer reported for this span, absent when it reported
+    none. Same quantity the output_tokens sort orders by.
+    """
 
     parent_id: Optional[str] = None
     """Reference to a parent span_id"""

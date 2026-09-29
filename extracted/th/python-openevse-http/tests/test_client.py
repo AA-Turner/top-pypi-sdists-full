@@ -25,6 +25,7 @@ from openevsehttp.exceptions import (
     MissingMethod,
     MissingSerial,
     ParseJSONError,
+    UnsupportedFeature,
 )
 from openevsehttp.websocket import (
     SIGNAL_CONNECTION_STATE,
@@ -283,25 +284,25 @@ async def test_send_command_auth(test_charger_auth, mock_aioclient):
 
 
 async def test_send_command_parse_err(test_charger_auth, mock_aioclient):
-    """Test RAPI command with JSON parse error."""
+    """Test RAPI command with 400 error response."""
     mock_aioclient.post(
         TEST_URL_RAPI, status=400, body='{"msg": "Could not parse JSON"}'
     )
-    with pytest.raises(main.ParseJSONError):
+    with pytest.raises(main.CommandFailedError):
         await test_charger_auth.send_command("test")
 
     mock_aioclient.post(
         TEST_URL_RAPI, status=400, body='{"error": "Could not parse JSON"}'
     )
-    with pytest.raises(main.ParseJSONError):
+    with pytest.raises(main.CommandFailedError):
         await test_charger_auth.send_command("test")
 
     mock_aioclient.post(TEST_URL_RAPI, status=400, body='{"other": "Something else"}')
-    with pytest.raises(main.ParseJSONError):
+    with pytest.raises(main.CommandFailedError):
         await test_charger_auth.send_command("test")
 
     mock_aioclient.post(TEST_URL_RAPI, status=400, body='"Just a string response"')
-    with pytest.raises(main.ParseJSONError):
+    with pytest.raises(main.CommandFailedError):
         await test_charger_auth.send_command("test")
 
 
@@ -602,6 +603,64 @@ async def test_firmware_check_errors(mock_aioclient, charger_factory):
     assert await charger.firmware_check() is None
 
 
+async def test_firmware_check_github_token(mock_aioclient, charger_factory):
+    """Test firmware_check with GitHub token authentication."""
+    url = "https://api.github.com/repos/OpenEVSE/ESP32_WiFi_V4.x/releases/latest"
+    mock_aioclient.get(
+        url,
+        status=200,
+        body=load_fixture("github_v4.json"),
+    )
+
+    # 1. Token passed via client constructor
+    charger = charger_factory(SERVER_URL, github_token="ghp_testtoken123")
+    charger._config["version"] = "4.0.1"
+    assert charger.github_token == "ghp_testtoken123"
+    result = await charger.firmware_check()
+    assert result is not None
+    assert result["latest_version"] == "4.1.4"
+    assert len(mock_aioclient.requests) > 0
+    last_call = mock_aioclient.requests[-1]
+    assert last_call[2]["headers"]["Authorization"] == "Bearer ghp_testtoken123"
+
+    # 2. Token updated via property setter
+    charger.github_token = "ghp_updatedtoken456"
+    assert charger.github_token == "ghp_updatedtoken456"
+    mock_aioclient.get(
+        url,
+        status=200,
+        body=load_fixture("github_v4.json"),
+    )
+    result = await charger.firmware_check()
+    assert result is not None
+    last_call = mock_aioclient.requests[-1]
+    assert last_call[2]["headers"]["Authorization"] == "Bearer ghp_updatedtoken456"
+
+    # 3. Token passed per-call overrides instance token
+    mock_aioclient.get(
+        url,
+        status=200,
+        body=load_fixture("github_v4.json"),
+    )
+    result = await charger.firmware_check(github_token="ghp_percalloverride789")
+    assert result is not None
+    last_call = mock_aioclient.requests[-1]
+    assert last_call[2]["headers"]["Authorization"] == "Bearer ghp_percalloverride789"
+
+    # 4. Empty/whitespace token is stripped or ignored
+    charger.github_token = "   "
+    assert charger.github_token is None
+    mock_aioclient.get(
+        url,
+        status=200,
+        body=load_fixture("github_v4.json"),
+    )
+    result = await charger.firmware_check()
+    assert result is not None
+    last_call = mock_aioclient.requests[-1]
+    assert "Authorization" not in last_call[2]["headers"]
+
+
 # ── version_check ────────────────────────────────────────────────────
 
 
@@ -736,6 +795,51 @@ async def test_version_check_dev_branches():
     # Pre-release (alpha) version — should also fail when checking against a newer target
     charger._config = {"version": "4.1.0_alpha"}
     assert charger._version_check("5.0.0") is False
+
+
+async def test_controller_version_check():
+    """Test _controller_version_check and controller_version_check."""
+    charger = OpenEVSE(SERVER_URL, session=MagicMock())
+
+    # Missing firmware key
+    charger._config = {}
+    assert charger._controller_version_check("9.3.0") is False
+    assert charger.controller_version_check("9.3.0") is False
+
+    # Invalid semver
+    charger._config = {"firmware": "invalid"}
+    assert charger._controller_version_check("9.3.0") is False
+
+    # Below minimum
+    charger._config = {"firmware": "7.1.3"}
+    assert charger._controller_version_check("9.3.0") is False
+
+    # Equal to minimum
+    charger._config = {"firmware": "9.3.0"}
+    assert charger._controller_version_check("9.3.0") is True
+
+    # Above minimum
+    charger._config = {"firmware": "9.4.0"}
+    assert charger._controller_version_check("9.3.0") is True
+    assert charger.controller_version_check("9.3.0") is True
+
+    # With max_version limit
+    assert charger._controller_version_check("9.3.0", "9.5.0") is True
+    assert charger._controller_version_check("9.3.0", "9.4.0") is False
+
+    # AwesomeVersionCompareException in limit comparison
+    with patch(
+        "awesomeversion.AwesomeVersion.__le__",
+        side_effect=AwesomeVersionCompareException,
+    ):
+        assert charger._controller_version_check("9.3.0", "9.5.0") is False
+
+    # AwesomeVersionCompareException in GE comparison
+    with patch(
+        "awesomeversion.AwesomeVersion.__ge__",
+        side_effect=AwesomeVersionCompareException,
+    ):
+        assert charger._controller_version_check("9.3.0") is False
 
 
 # ── websocket lifecycle ──────────────────────────────────────────────
@@ -930,12 +1034,13 @@ async def test_is_coroutine_function(test_charger):
 
 async def test_get_schedule(mock_aioclient, charger_factory):
     """Test get_schedule method."""
-    mock_aioclient.post(
+    mock_aioclient.get(
         "http://openevse.test.tld/schedule",
         status=200,
         body='{"sc": 1}',
     )
     charger = charger_factory(SERVER_URL)
+    charger._config["version"] = "4.0.0"
     result = await charger.get_schedule()
     assert result == {"sc": 1}
 
@@ -1138,7 +1243,7 @@ async def test_process_request_400_error_with_msg(mock_aioclient, charger_factor
 
     charger = charger_factory(SERVER_URL)
 
-    with pytest.raises(ParseJSONError):
+    with pytest.raises(CommandFailedError, match="Bad request"):
         await charger.process_request(TEST_URL_STATUS, method="get")
 
 
@@ -1155,7 +1260,24 @@ async def test_process_request_400_error_with_error_field(
 
     charger = charger_factory(SERVER_URL)
 
-    with pytest.raises(ParseJSONError):
+    with pytest.raises(CommandFailedError, match="Invalid input"):
+        await charger.process_request(TEST_URL_STATUS, method="get")
+
+
+async def test_process_request_400_error_with_string_body(
+    mock_aioclient, charger_factory
+):
+    """Test process_request handles 400 error with plain string body."""
+
+    mock_aioclient.get(
+        TEST_URL_STATUS,
+        status=400,
+        body="Plain text error",
+    )
+
+    charger = charger_factory(SERVER_URL)
+
+    with pytest.raises(CommandFailedError, match="Plain text error"):
         await charger.process_request(TEST_URL_STATUS, method="get")
 
 
@@ -1267,6 +1389,23 @@ async def test_process_request_with_session_invalid_method(test_charger):
             await test_charger._process_request_with_session(
                 session, "http://test", "invalid", None, None, None
             )
+
+
+async def test_process_request_custom_headers(test_charger_new, mock_aioclient):
+    """Test process_request with custom headers supplied."""
+    url = "http://openevse.test.tld/test-headers"
+    mock_aioclient.get(
+        url,
+        status=200,
+        body='{"msg": "OK"}',
+    )
+    custom_headers = {"Custom-Header": "TestValue", "X-Requested-With": "CustomApp"}
+    await test_charger_new.process_request(url, method="get", headers=custom_headers)
+    last_req = mock_aioclient.requests[-1]
+    req_headers = last_req[2].get("headers", {})
+    assert req_headers.get("Custom-Header") == "TestValue"
+    assert req_headers.get("X-Requested-With") == "CustomApp"
+    assert "python-openevse-http" in req_headers.get("User-Agent", "")
 
 
 @pytest.mark.parametrize("method", ["post", "patch", "delete"])
@@ -1444,7 +1583,7 @@ async def test_external_session_400_error_with_msg():
         async with aiohttp.ClientSession() as session:
             charger = OpenEVSE(SERVER_URL, session=session)
 
-            with pytest.raises(ParseJSONError):
+            with pytest.raises(CommandFailedError, match="Bad request"):
                 await charger.process_request(TEST_URL_STATUS, method="get")
 
 
@@ -1460,7 +1599,7 @@ async def test_external_session_400_error_with_error_field():
         async with aiohttp.ClientSession() as session:
             charger = OpenEVSE(SERVER_URL, session=session)
 
-            with pytest.raises(ParseJSONError):
+            with pytest.raises(CommandFailedError, match="Invalid input"):
                 await charger.process_request(TEST_URL_STATUS, method="get")
 
 
@@ -1963,3 +2102,63 @@ async def test_ssl_options(mock_aioclient):
     mock_aioclient.get(url, status=200, body='{"state": "sleeping"}')
     await charger_ssl.process_request(url, method="get")
     assert "ssl" not in mock_aioclient.requests[-1][2]
+
+
+async def test_unsupported_feature_exception_formatting():
+    """Test UnsupportedFeature exception message formatting."""
+    # Default message
+    err_default = UnsupportedFeature()
+    assert str(err_default) == "Feature not supported for older firmware."
+
+    # Custom single message
+    err_custom = UnsupportedFeature("Custom error message.")
+    assert str(err_custom) == "Custom error message."
+
+    # Structured gateway message
+    err_gateway = UnsupportedFeature("Test feature", min_version="4.0.0")
+    assert str(err_gateway) == "Test feature requires gateway firmware 4.0.0 or higher."
+
+    # Structured controller message
+    err_controller = UnsupportedFeature(
+        "Relay test", min_version="9.3.0", component="OpenEVSE controller"
+    )
+    assert (
+        str(err_controller)
+        == "Relay test requires OpenEVSE controller firmware 9.3.0 or higher."
+    )
+
+
+async def test_require_firmware_helper(test_charger, test_charger_v2, caplog):
+    """Test _require_firmware helper method on OpenEVSE client."""
+    await test_charger.update()
+    # Should succeed without error or logging
+    test_charger._require_firmware("4.0.0", "sync_time")
+
+    await test_charger_v2.update()
+    with caplog.at_level(logging.DEBUG):
+        with pytest.raises(
+            UnsupportedFeature,
+            match="sync_time requires gateway firmware 4.0.0 or higher.",
+        ):
+            test_charger_v2._require_firmware("4.0.0", "sync_time")
+    assert "sync_time requires gateway firmware 4.0.0 or higher." in caplog.text
+
+
+async def test_require_controller_firmware_helper(test_charger, caplog):
+    """Test _require_controller_firmware helper method on OpenEVSE client."""
+    await test_charger.update()
+    # Mock controller version
+    test_charger._config["firmware"] = "9.4.0"
+    test_charger._require_controller_firmware("9.3.0", "Stuck-relay recovery")
+
+    test_charger._config["firmware"] = "7.1.3"
+    with caplog.at_level(logging.DEBUG):
+        with pytest.raises(
+            UnsupportedFeature,
+            match="Stuck-relay recovery requires OpenEVSE controller firmware 9.3.0 or higher.",
+        ):
+            test_charger._require_controller_firmware("9.3.0", "Stuck-relay recovery")
+    assert (
+        "Stuck-relay recovery requires OpenEVSE controller firmware 9.3.0 or higher."
+        in caplog.text
+    )

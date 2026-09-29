@@ -25,6 +25,7 @@ _SOURCES = ("seo_audit.py", "web_crawl/analysis.py", "web_crawl/site_analysis.py
 
 #: Check functions whose evidence is not a per-check payload.
 _NOT_A_CHECK = {
+    "_blocked_fetch_outcome",  # shared blocked branch, folded into the HTTP-status checks
     "_gsc_unavailable",  # shared "no GSC binding" branch, folded into both gsc kinds
 }
 

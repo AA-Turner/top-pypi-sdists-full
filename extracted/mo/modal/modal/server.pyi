@@ -1,10 +1,13 @@
+import datetime
 import modal._logs_manager
+import modal._server
 import modal._supports_logs
 import modal.app
 import modal.client
 import modal.functions
 import modal.partial_function
 import modal.types
+import modal_proto.api_pb2
 import typing
 import typing_extensions
 
@@ -28,6 +31,7 @@ class Server:
     _user_cls: typing.Optional[type]
     _service_function: modal.functions.Function
     _app: typing.Optional[modal.app.App]
+    _is_sessioned: typing.Optional[bool]
 
     def __init__(self, /, *args, **kwargs):
         """Initialize self.  See help(type(self)) for accurate signature."""
@@ -62,6 +66,48 @@ class Server:
         """
         ...
 
+    @property
+    def sessions(self) -> modal._server.ServerSessionsManager:
+        """Start and terminate sticky sessions on a Server decorated with `@modal.sessioned()`."""
+        ...
+
+    class __info_spec(typing_extensions.Protocol):
+        def __call__(self, /, *, refresh: bool = False) -> modal.types.ServerInfo:
+            """Get an overview of a Server's resource requests, associated mounts, http config, etc.
+
+            This method performs a network request to populate this information if the Server handle is
+            a remote lookup whose information has not yet been fetched (e.g. from `Server.from_name(...)`),
+            or if `refresh=True`.
+
+            Args:
+                refresh: Always perform a network request. Pass `refresh=True` to ensure that this method
+                    returns the most up to date information.
+
+            Returns:
+                This returns a [`modal.types.ServerInfo`](https://modal.com/docs/sdk/py/latest/types#ServerInfo)
+                dataclass.
+            """
+            ...
+
+        async def aio(self, /, *, refresh: bool = False) -> modal.types.ServerInfo:
+            """Get an overview of a Server's resource requests, associated mounts, http config, etc.
+
+            This method performs a network request to populate this information if the Server handle is
+            a remote lookup whose information has not yet been fetched (e.g. from `Server.from_name(...)`),
+            or if `refresh=True`.
+
+            Args:
+                refresh: Always perform a network request. Pass `refresh=True` to ensure that this method
+                    returns the most up to date information.
+
+            Returns:
+                This returns a [`modal.types.ServerInfo`](https://modal.com/docs/sdk/py/latest/types#ServerInfo)
+                dataclass.
+            """
+            ...
+
+    info: __info_spec
+
     @staticmethod
     def _extract_user_cls(wrapped_user_cls: typing.Union[type, modal.partial_function.PartialFunction]) -> type: ...
 
@@ -75,6 +121,23 @@ class Server:
             ...
 
     get_url: __get_url_spec
+
+    class ___experimental_list_containers_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> list[modal.types.ServerContainerInfo]:
+            """List the containers currently registered to serve requests for this Server.
+
+            This interface is experimental and may change or be removed without warning.
+            """
+            ...
+
+        async def aio(self, /) -> list[modal.types.ServerContainerInfo]:
+            """List the containers currently registered to serve requests for this Server.
+
+            This interface is experimental and may change or be removed without warning.
+            """
+            ...
+
+    _experimental_list_containers: ___experimental_list_containers_spec
 
     class __update_autoscaler_spec(typing_extensions.Protocol):
         def __call__(
@@ -216,11 +279,23 @@ class Server:
 
     hydrate: __hydrate_spec
 
+    @classmethod
+    def _new_from_function(
+        cls, object_id: str, client: modal.client.Client, metadata: modal_proto.api_pb2.FunctionHandleMetadata
+    ) -> typing_extensions.Self:
+        """mdmd:hidden
+
+        Callers which already have handle metadata for a Server service function can use this method to
+        create a hydrated handle without having to do an unnecessary RPC.
+        """
+        ...
+
     @staticmethod
     def _from_local(
         wrapped_user_cls: typing.Union[type, modal.partial_function.PartialFunction],
         app: modal.app.App,
         service_function: modal.functions.Function,
+        is_sessioned: bool = False,
     ) -> Server:
         """Create a Server from a local class definition."""
         ...
@@ -252,6 +327,25 @@ class Server:
         """
         ...
 
+    @classmethod
+    def from_id(cls: type[Server], server_id: str, *, client: typing.Optional[modal.client.Client] = None):
+        """Reference a Server from a deployed or running App by its ID.
+
+        This is a lazy method that defers hydrating the local
+        object with metadata from Modal servers until the first
+        time it is actually used.
+
+        Args:
+            server_id: The ID of the server.
+            client: Modal client instance for this session.
+
+        Examples:
+            ```python notest
+            server = modal.Server.from_id("fu-456")
+            ```
+        """
+        ...
+
     def _is_local(self) -> bool:
         """Returns True if this Server has local source code available."""
         ...
@@ -264,3 +358,54 @@ class Server:
     def _validate_construction_mechanism(wrapped_user_cls: typing.Union[type, modal.partial_function.PartialFunction]):
         """Validate that the server class doesn't have a custom constructor."""
         ...
+
+    class __stats_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            since: typing.Optional[datetime.datetime] = None,
+            until: typing.Optional[datetime.datetime] = None,
+            container: typing.Optional[str] = None,
+        ) -> modal.types.ServerStats:
+            """Return statistics for a modal Server.
+
+            The default time range is the most recent hour. The maximum time range is 7 days.
+
+            Args:
+                since: The beginning of the time range, inclusive. If omitted, this defaults to an hour before `until`.
+                   Values without a timezone are interpeted as local time.
+                until: The end of the time range, exclusive. If omitted, this defaults to current time.
+                    Values without a timezone are interpeted as local time.
+                container: If passed in, the stats are computed for only this container. Default None.
+
+            Returns:
+                A `ServerStats` object
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *,
+            since: typing.Optional[datetime.datetime] = None,
+            until: typing.Optional[datetime.datetime] = None,
+            container: typing.Optional[str] = None,
+        ) -> modal.types.ServerStats:
+            """Return statistics for a modal Server.
+
+            The default time range is the most recent hour. The maximum time range is 7 days.
+
+            Args:
+                since: The beginning of the time range, inclusive. If omitted, this defaults to an hour before `until`.
+                   Values without a timezone are interpeted as local time.
+                until: The end of the time range, exclusive. If omitted, this defaults to current time.
+                    Values without a timezone are interpeted as local time.
+                container: If passed in, the stats are computed for only this container. Default None.
+
+            Returns:
+                A `ServerStats` object
+            """
+            ...
+
+    stats: __stats_spec

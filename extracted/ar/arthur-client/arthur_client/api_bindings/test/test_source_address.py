@@ -35,16 +35,16 @@ class TestSourceAddress(unittest.TestCase):
         model = SourceAddress()
         if include_optional:
             return SourceAddress(
-                instance = '',
+                instance = '0',
                 scope = '',
                 resource_kind = '',
-                resource_id = '',
+                resource_id = '0',
                 query = ''
             )
         else:
             return SourceAddress(
-                instance = '',
-                resource_id = '',
+                instance = '0',
+                resource_id = '0',
         )
         """
 

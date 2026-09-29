@@ -16,6 +16,7 @@ from matrx_ai.context_engine import (
     LEGACY_CONTEXT_CELL_SHAPE_ERROR_KIND,
     AgentContext,
     ContextResolverUnavailable,
+    SystemContextNames,
     _apply_ambient,
     _normalize_cell_values,
     build_agent_context,
@@ -45,7 +46,10 @@ def _stub_context_rpc(monkeypatch) -> None:
     async def fake_call_function(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
         return {
             "variables": {"account_name": {"value": "Acme", "inject_as": "direct"}},
-            "context": {},
+            # The production resolver receives a carried, authorized organization.
+            # Keep this focused seam honest without asking the host's database to
+            # invent one for a synthetic user.
+            "context": {"organization_id": "org-harbor-dental"},
             "scope_labels": {},
             "cell_values": {},
         }
@@ -168,12 +172,46 @@ async def test_deliberately_unavailable_resolver_uses_legacy_tiers_without_error
     configure_context_resolver(unavailable)
     try:
         with caplog.at_level("ERROR"):
-            result = await build_agent_context("user-1", "conversation", "entity-1")
+            result = await build_agent_context(
+                "user-1",
+                "conversation",
+                "entity-1",
+                system_names=SystemContextNames.none(),
+            )
     finally:
         configure_context_resolver(None)
 
     assert result.direct_variables["account_name"]["value"] == "Acme"
     assert captures == []
+    assert not [record for record in caplog.records if record.levelname == "ERROR"]
+
+
+async def test_available_resolver_receives_the_carried_organization_and_owns_the_tiers(monkeypatch, caplog):
+    _stub_context_rpc(monkeypatch)
+    seen: dict[str, Any] = {}
+
+    async def available(**kwargs: Any) -> dict[str, Any]:
+        seen.update(kwargs)
+        return {
+            "direct": {"account_name": {"value": "Harbor Dental", "inject_as": "direct"}},
+            "tool_accessible": {},
+            "searchable": {},
+        }
+
+    configure_context_resolver(available)
+    try:
+        with caplog.at_level("ERROR"):
+            result = await build_agent_context(
+                "user-1",
+                "conversation",
+                "entity-1",
+                system_names=SystemContextNames.none(),
+            )
+    finally:
+        configure_context_resolver(None)
+
+    assert seen["scope"]["organization_id"] == "org-harbor-dental"
+    assert result.direct_variables["account_name"]["value"] == "Harbor Dental"
     assert not [record for record in caplog.records if record.levelname == "ERROR"]
 
 
@@ -191,7 +229,12 @@ async def test_real_resolver_failure_is_captured_with_safe_context(monkeypatch, 
     configure_context_resolver(broken)
     try:
         with caplog.at_level("ERROR"):
-            result = await build_agent_context("user-1", "conversation", "entity-1")
+            result = await build_agent_context(
+                "user-1",
+                "conversation",
+                "entity-1",
+                system_names=SystemContextNames.none(),
+            )
     finally:
         configure_context_resolver(None)
 

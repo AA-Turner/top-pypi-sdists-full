@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from gettext import NullTranslations
-from typing import Literal, NamedTuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from public import public
 
 from flufl.i18n._translator import Translator
-from flufl.i18n.types import (
+from flufl.i18n._types import (
     RuntimeTranslator,
     TranslationContextManager,
     TranslationStrategy,
 )
+
 
 # fmt: off
 if TYPE_CHECKING:                       # pragma: no cover
@@ -177,7 +178,7 @@ class Application:
     * depth (default 2) - The number of stack frames to call sys._getframe()
       with in the underlying `Translator` instance.  Passed through to that
       class's constructor.
-    """
+    """  # noqa: D412 reST needs the blank line, or the list merges into the paragraph above it
 
     def __init__(self, strategy: TranslationStrategy):
         """Create an `Application`.

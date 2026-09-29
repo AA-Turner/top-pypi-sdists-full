@@ -7,11 +7,18 @@ modules that need to be imported (and thereby activated).
 
 # Tier A - structure and YAML:
 from . import (  # noqa: F401
+    component_members,
     component_props,
+    contract_facets,
     duplicate_subtree,
+    hierarchy_value,
     list_navigation,
+    permission_attributes,
     project,
+    register_contracts,
+    report_parameters,
     structure,
+    union_defaults,
     unused_components,
     yaml_schema,
 )
@@ -20,6 +27,7 @@ from . import (  # noqa: F401
 from . import (  # noqa: F401
     comment_conditions,
     comment_doc_marker,
+    comment_doc_tags,
     comment_prose,
     security,
     translation_values,
@@ -93,6 +101,7 @@ from . import (  # noqa: F401
     handlers,
     handler_annotation,
     image_binding,
+    mandatory_handlers,
     resource_cache,
     load_object,
     local_visibility,
@@ -146,3 +155,5 @@ from . import procedure_value  # noqa: F401
 from . import contract_parameters  # noqa: F401
 
 from . import deprecated_project  # noqa: F401
+
+from . import entity_contract_methods  # noqa: F401

@@ -28,7 +28,7 @@ import json
 import os
 import re
 import uuid as _uuid
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -517,14 +517,16 @@ def _section_bounds(text: str, section: str, top_level: bool = False) -> tuple[i
 
 
 def insert_item_edit(text: str, section: str, item_lines: list[str], nl: str = "\n",
-                     top_level: bool = False, lang: str = "ru") -> TextEdit:
+                     top_level: bool = False, lang: str = "ru",
+                     before: tuple[str, ...] = ()) -> TextEdit:
     """Pinpoint insertion of a new item (a set of field lines) at the end of a section.
 
-    If the section is missing, it is appended at the end of the file. top_level=True -
-    only an unindented section (otherwise an object attribute would land in a nested
-    tabular part section). A port of insertItemEdit from the VS Code extension
-    (metadataCore.ts) with one difference: the newline is passed as a parameter so the
-    edit does not mix styles in CRLF files.
+    If the section is missing, it is appended at the end of the file - or, when `before`
+    names top-level sections the new one precedes, in front of the first of them the file
+    has (see _new_section_before). top_level=True - only an unindented section (otherwise an
+    object attribute would land in a nested tabular part section). A port of insertItemEdit
+    from the VS Code extension (metadataCore.ts) with one difference: the newline is passed
+    as a parameter so the edit does not mix styles in CRLF files.
 
     The section is named the Russian way by the caller and found under either spelling;
     lang is the spelling to CREATE it in when it is not there yet.
@@ -535,14 +537,62 @@ def insert_item_edit(text: str, section: str, item_lines: list[str], nl: str = "
 
     bounds = _section_bounds(text, section, top_level)
     if bounds is None:
+        new = f"{spelled_key(section, lang)}:{nl}{body('    ', '        ')}{nl}"
+        anchor = _top_level_key_line(text, before)
+        if anchor is not None:
+            return TextEdit(anchor, anchor, new)
         tail = "" if (not text or text.endswith("\n")) else nl
-        new = f"{tail}{spelled_key(section, lang)}:{nl}{body('    ', '        ')}{nl}"
-        return TextEdit(len(text), len(text), new)
+        return TextEdit(len(text), len(text), f"{tail}{new}")
 
     header_indent, header_line_end, body_end = bounds
     item, fld = _detect_indent(text[header_line_end:body_end], header_indent)
     insert_at = body_end
     return TextEdit(insert_at, insert_at, f"{nl}{body(item, fld)}")
+
+
+def _top_level_key_line(text: str, keys: tuple[str, ...]) -> int | None:
+    """The start of the line of the first unindented key of `keys` the text has, or None.
+
+    Either spelling of a key counts. The unindented `#` lines right above the key go with
+    it: a note written over a section stays over that section when another one is put in
+    front of it.
+    """
+    starts = [
+        m.start()
+        for key in keys
+        for spelling in key_forms(key)
+        if (m := re.search(rf"^{re.escape(spelling)}:(?:[ \t]|\r?$)", text, re.M)) is not None
+    ]
+    if not starts:
+        return None
+    start = min(starts)
+    while start > 0:
+        previous = text.rfind("\n", 0, start - 1) + 1
+        if not text.startswith("#", previous):
+            break
+        start = previous
+    return start
+
+
+#: An unindented key at the start of a line - not a comment, not a list dash.
+_TOP_LEVEL_KEY = re.compile(r"^([^\s#-][^:\r\n]*):(?:[ \t]|\r?$)", re.M)
+
+
+def _new_section_before(text: str, kind: str, section: str) -> tuple[str, ...]:
+    """The top-level keys a new `section` goes in front of; empty - the end of the file.
+
+    A section that follows another one (_SECTION_FOLLOWS) is put in front of whatever key
+    comes after that one in the file, as the file spells it, and at the end of the file when
+    that one closes it. Without such a neighbour the section takes the keys it precedes
+    (_SECTION_PRECEDES), if any.
+    """
+    for followed in _SECTION_FOLLOWS.get((kind, section), ()):
+        bounds = _section_bounds(text, followed, top_level=True)
+        if bounds is None:
+            continue
+        following = _TOP_LEVEL_KEY.search(text, bounds[2])
+        return (following.group(1),) if following else ()
+    return _SECTION_PRECEDES.get((kind, section), ())
 
 
 def insert_nested_item_edit(
@@ -964,6 +1014,8 @@ _STUB_SERVICE_CONTRACT = """\
 # РегистрНакопления - a non-empty list of resources ("Список ресурсов не может быть
 # пустым"); the mandatory Регистратор attribute is added by hand (its type is a union of
 # references to registrar documents, which do not exist yet at creation time).
+# ConstantsSet - a non-empty list of constants ("Empty constant sets are not supported");
+# a string constant needs neither a length nor a default value.
 _DOC_EXTRA = (
     "Реквизиты:",
     "    -",
@@ -990,6 +1042,17 @@ _ACC_REGISTER_NOTE = (
     "(Тип: объединение ссылок на документы-регистраторы, напр. Накладная.Ссылка|?), "
     "иначе регистр не компилируется"
 )
+_CONSTANTS_SET_EXTRA = (
+    "Константы:",
+    "    -",
+    "        Ид: {uuid}",
+    "        Имя: Константа1",
+    "        Тип: Строка",
+)
+_CONSTANTS_SET_NOTE = (
+    "Константа1 – заготовка (пустой набор констант не компилируется): первая константа, "
+    "добавленная через add-field, займет ее место"
+)
 
 KIND_SPECS: dict[str, KindSpec] = {
     "Справочник": KindSpec(),
@@ -1000,7 +1063,7 @@ KIND_SPECS: dict[str, KindSpec] = {
     "РегистрСведений": KindSpec(extra=_INFO_REGISTER_EXTRA),
     "РегистрНакопления": KindSpec(extra=_ACC_REGISTER_EXTRA, note=_ACC_REGISTER_NOTE),
     "ПланОбмена": KindSpec(),
-    "НаборКонстант": KindSpec(),
+    "НаборКонстант": KindSpec(extra=_CONSTANTS_SET_EXTRA, note=_CONSTANTS_SET_NOTE),
     "ХранилищеНастроек": KindSpec(),
     # The paired file is NOT a module but a .xbql query: "наличие файла и запроса в нем
     # обязательно". The IDE creates it empty - we do the same and state the requirement
@@ -1132,6 +1195,11 @@ _SECTION_SPECS: dict[str, dict] = {
     "поле": {"section": "Поля", "lines": ("Имя: {name}", "Тип: {type}")},
     "константа": {"section": "Константы", "lines": _WITH_TYPE},
     "свойство": {"section": "Свойства", "lines": ("Имя: {name}", "Тип: {type}")},
+    # An event of an interface component: a name and the type of its event object. An event
+    # declared without a type is a `ComponentEvent` for the platform, and that default is
+    # written out, the way the live sources write it, rather than left implied.
+    "событие": {"section": "События", "lines": ("Имя: {name}", "Тип: {type}"),
+                "type": "СобытиеКомпонента"},
     # Data processor operation: the name goes into yaml, and a same-named @Обработчик
     # method is appended to the module (without it the platform raises "Обязательный
     # обработчик не определен" - see op_add_field).
@@ -1197,6 +1265,39 @@ KIND_SECTIONS: dict[str, tuple[str, ...]] = {
     "КонтрактТипа": ("свойство",),
     "КонтрактСущности": ("свойство", "табличная-часть"),
     "СобытиеЖурналаСобытий": ("свойство",),
+    # The component's own properties - what its module reads as `этот.<Name>` and a form
+    # using the component fills in - and its own events, which a form using the component
+    # assigns handlers to. The item classes carry no Id; a property also takes
+    # `DefaultValue`, `StoredData` and `Contextual` (see metamodel._ITEM_ROOT_CLASSES), an
+    # event a name and a type alone.
+    "КомпонентИнтерфейса": ("свойство", "событие"),
+}
+
+# Where a section the file lacks goes when the end of the file is not its place:
+# (kind, section) -> the top-level sections it precedes. A component keeps `Properties`
+# after `Inherits` and before `Events`: on two live projects 194 of the 205 components with
+# properties write them after `Inherits`, and 7 of the 8 that also declare events - before
+# `Events`. So a new `Properties` joins the end of the file unless `Events` is there.
+_SECTION_PRECEDES: dict[tuple[str, str], tuple[str, ...]] = {
+    ("КомпонентИнтерфейса", "Свойства"): ("События",),
+}
+
+# The other half of the same order: (kind, section) -> the top-level sections a new one comes
+# right after, when the file has one. A component's `Events` follow its `Properties` wherever
+# the pair stands - after `Inherits` on the live projects, before it in the documentation's
+# example and in 88 of the 184 components the distribution ships with both. A file without
+# `Properties` takes new `Events` at its end, where a later `Properties` goes in front of them:
+# `Inherits, Properties, Events` whichever of the two is added first.
+_SECTION_FOLLOWS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("КомпонентИнтерфейса", "События"): ("Свойства",),
+}
+
+# Sections whose item names share one namespace: (kind, section) -> the other section. The
+# own properties and events of a component are refused by the compiler when a name repeats
+# across the two (a live probe: "Property name X is not unique" / "Event name X is not unique").
+_SHARED_NAME_SECTIONS: dict[tuple[str, str], str] = {
+    ("КомпонентИнтерфейса", "Свойства"): "События",
+    ("КомпонентИнтерфейса", "События"): "Свойства",
 }
 
 # Line sets that differ from the kind's common ones: for ХранимаяСтруктура fields and
@@ -1211,6 +1312,65 @@ _KIND_SECTION_LINES: dict[tuple[str, str], tuple[str, ...]] = {
 }
 
 FIELD_KINDS = tuple(_SECTION_SPECS)
+#: The field kinds each operation takes - the one list the refusals and the CLI help name, so
+#: the help cannot fall behind the operation again (it once left out `константа`, `операция`,
+#: `индекс` and `параметр-запроса`). op_add_field also writes the key-value entries of
+#: localized strings; op_set_field_property does not: such an entry is a key and a value,
+#: with no properties to set.
+ADD_FIELD_KINDS = FIELD_KINDS + tuple(_MAPPING_SPECS)
+SET_PROPERTY_KINDS = FIELD_KINDS
+
+#: The same field kinds in English, so a project that writes English is filled in with English
+#: words. Each is the platform's own word for the item - the term dictionary's `Attribute` and
+#: `TabularPart` for the Russian nouns - and where it has no singular (a query parameter, a
+#: template) the singular of the section's English key (`QueryParameters`, `Templates`);
+#: tests/test_scaffold.py holds the table to that data. A table and not a lookup: the words are
+#: the tool's vocabulary, and the refusals and the CLI help name them with or without the data.
+#: Written lower case and hyphenated like the Russian words; case and hyphens do not matter when
+#: a word is read (see field_kind_of).
+FIELD_KINDS_EN: dict[str, str] = {
+    "реквизит": "attribute",
+    "измерение": "dimension",
+    "ресурс": "resource",
+    "значение": "value",
+    "параметр": "parameter",
+    "поле": "field",
+    "константа": "constant",
+    "свойство": "property",
+    "событие": "event",
+    "операция": "operation",
+    "индекс": "index",
+    "параметр-запроса": "query-parameter",
+    "табличная-часть": "tabular-part",
+    "строка": "string",
+    "шаблон": "template",
+}
+
+
+def _folded_word(word: str) -> str:
+    """A tool word with case and hyphens set aside: `tabular-part`, `TabularPart` are one word."""
+    return word.strip().replace("-", "").replace("_", "").casefold()
+
+
+_FIELD_KIND_WORDS: dict[str, str] = {
+    **{_folded_word(word): word for word in ADD_FIELD_KINDS},
+    **{_folded_word(english): word for word, english in FIELD_KINDS_EN.items()},
+}
+
+
+def field_kind_of(value: str) -> str:
+    """The field kind a caller names, in either language, as the tables of this module name it.
+
+    `attribute` is `реквизит`, `tabular-part` is `табличная-часть`. An unknown word comes back
+    as it was written, so the refusal that follows quotes the caller.
+    """
+    return _FIELD_KIND_WORDS.get(_folded_word(value), value)
+
+
+def field_kinds_named(kinds: Iterable[str]) -> str:
+    """The field kinds for a refusal or a help line: each with its English word next to it."""
+    return ", ".join(f"{kind} ({FIELD_KINDS_EN[kind]})" if kind in FIELD_KINDS_EN else kind
+                     for kind in kinds)
 
 
 # --- project discovery ------------------------------------------------------------------
@@ -2057,34 +2217,70 @@ def resolve_kind(kind: str) -> str:
     return _kind_by_english().get(kind.casefold(), kind)
 
 
-def _check_presentation(kind: str, value: str) -> None:
-    """The Presentation of the kind accepts this value - or a refusal saying what it holds.
+#: The caption written as the top-level property.
+_TOP_CAPTION: tuple[str, ...] = ("Представление",)
 
-    The property means two different things depending on the kind, and the metamodel says
-    which: a TEXT caption (a report, a command - type String/Localizable), or the NAME of a
-    string attribute whose value the platform shows for a record (a catalog, a document -
-    type AttributeName). Writing a caption into the second kind compiles into
-    "Field specified as a presentation field is not found: <текст>" - checked on the server,
-    so the tool refuses it here rather than handing over a file that will not deploy.
+
+def _block_props(record: dict | None) -> dict[str, dict]:
+    """The properties of the class a block property of the metamodel is typed with."""
+    cls = (record or {}).get("type")
+    return metamodel.properties_of_class(cls) if isinstance(cls, str) else {}
+
+
+def caption_path(kind: str) -> tuple[str, ...]:
+    """Where the caption of an element of `kind` is written: the keys from the root down.
+
+    The top-level Presentation means two different things, and the metamodel says which: a
+    TEXT caption (a report, a command, a constants set - type String/Localizable, or a kind
+    with no Attributes at all), or the NAME of a string attribute whose value the platform
+    shows for a record (a catalog, a document, an exchange plan - type AttributeName; "Field
+    specified as a presentation field is not found" answers a caption written there). Such a
+    kind carries its caption in the interface section: `Interface.List.Presentation` names
+    the list and the command that opens it, `Interface.Object.Presentation` the object (the
+    help topic on a catalog in the interface), and a live probe applied both with no
+    attribute declared - as it did the list caption of a document, an exchange plan, a
+    settings storage and an information register, and `Interface.Presentation` of a
+    processing, the kinds with no top-level Presentation at all.
+
+    Without the metamodel the top-level key is answered - what the tool wrote before it could
+    tell; a kind with no caption anywhere is refused.
     """
     if not metamodel.available():
-        return
-    prop = metamodel.properties(kind).get("Представление")
-    if prop is None:
-        raise ScaffoldError(f"У вида {kind} нет свойства Представление")
-    # A kind with no Attributes at all (ConstantsSet) carries a caption whatever the
-    # metamodel type says - see the yaml/presentation-field rule.
-    if prop.get("type") != "AttributeName" or "Реквизиты" not in metamodel.properties(kind):
-        return
-    if value.startswith(("$", "=")):
-        return  # a localized-string reference / a binding, not a name
-    if not _IDENTIFIER.match(value.strip()):
-        raise ScaffoldError(
-            f"У вида {kind} Представление – это ИМЯ строкового реквизита, значение которого "
-            f"платформа показывает вместо записи, а не заголовок: '{value}' именем быть не "
-            "может. Укажите имя реквизита (он должен быть объявлен в Реквизиты – даже "
-            "стандартное Наименование сервер не находит, пока оно не написано)"
-        )
+        return _TOP_CAPTION
+    props = metamodel.properties(kind)
+    top = props.get("Представление")
+    if top is not None and (top.get("type") != "AttributeName" or "Реквизиты" not in props):
+        return _TOP_CAPTION
+    ui = _block_props(props.get("Интерфейс"))
+    if "Представление" in _block_props(ui.get("Список")):
+        return ("Интерфейс", "Список", "Представление")
+    if "Представление" in ui:
+        return ("Интерфейс", "Представление")
+    raise ScaffoldError(f"У вида {kind} нет свойства Представление")
+
+
+def _caption_note(kind: str, path: tuple[str, ...]) -> str:
+    """What the caller learns when the caption did not go into the top-level property."""
+    note = f"Заголовок записан в {'.'.join(path)}"
+    if path[1:2] == ("Список",):
+        ui = _block_props(metamodel.properties(kind).get("Интерфейс"))
+        others = [key for key, record in ui.items()
+                  if key != "Список" and "Представление" in _block_props(record)]
+        note += " – так называются список и команда его открытия"
+        if others:
+            note += "; заголовок в единственном числе задается в " + " и ".join(
+                f"Интерфейс.{key}.Представление" for key in others
+            )
+    if metamodel.properties(kind).get("Представление") is not None:
+        note += (f". Представление верхнего уровня у вида {kind} – не заголовок, а имя "
+                 "строкового реквизита, которым платформа обозначает элемент")
+    return note
+
+
+def _caption_lines(path: tuple[str, ...], value: str) -> list[str]:
+    """The block that writes `value` under `path` (Russian keys; spelled_lines translates)."""
+    lines = [f"{'    ' * depth}{key}:" for depth, key in enumerate(path[:-1])]
+    return lines + [f"{'    ' * (len(path) - 1)}{path[-1]}: {_yaml_scalar(value)}"]
 
 
 def _presented(result: ScaffoldResult, yaml_path: Path, presentation: str | None) -> ScaffoldResult:
@@ -2134,8 +2330,11 @@ def op_new_object(
     (for HttpСервис written to Разрешения.Вызов, for data objects to
     Разрешения.ПоУмолчанию; individual rights are set by op_set_access); routes -
     the service's routes ("GET /, POST /, GET /{id}"); report - the report source and layout;
-    presentation - Presentation, the element's caption where the kind means a caption by
-    it, and the NAME of a string attribute where it means one (see _check_presentation).
+    presentation - the caption of the element, written where the kind keeps it: the top-level
+    Presentation of a report, a command, a constants set, and the interface section of a kind
+    whose top-level Presentation names an attribute (a catalog, a document) or is absent (a
+    register, a processing) - see caption_path. A caption the kind writes by default (a
+    command's own name) gives way to it.
 
     A folder that does not exist yet is created with the object, and inside a subsystem that
     is how a package is born - a package has no descriptor, and a folder without objects is
@@ -2161,13 +2360,17 @@ def op_new_object(
             f"Вид {kind} не поддерживает управление доступом – параметр access неприменим; "
             "поддерживают: " + ", ".join(sorted(ACCESS_KIND_RIGHTS))
         )
-    if access and access not in ACCESS_METHODS:
-        raise ScaffoldError(
-            f"Недопустимый способ контроля доступа '{access}'; доступны: " + ", ".join(ACCESS_METHODS)
-        )
+    if access:
+        # Either language: the method is written below in the language of the project.
+        method = access_method(access)
+        if method is None:
+            raise ScaffoldError(
+                f"Недопустимый способ контроля доступа '{access}'; доступны: "
+                + access_methods_named()
+            )
+        access = method
 
-    if presentation:
-        _check_presentation(kind, presentation)
+    caption = caption_path(kind) if presentation else None
 
     result = ScaffoldResult()
     if access in ("РазрешенияВычисляются", _PER_OBJECT):
@@ -2210,10 +2413,19 @@ def op_new_object(
         # entries inside Разрешения (see ACCESS_KIND_RIGHTS and the "Контроль прав доступа"
         # documentation).
         extra += ["КонтрольДоступа:", f"    {_PERMISSIONS_KEY}:",
-                  f"        {ACCESS_DEFAULT_RIGHT}: {access}"]
+                  f"        {ACCESS_DEFAULT_RIGHT}: {_spelled(access, lang, 'enums')}"]
+    top_caption = presentation if caption == _TOP_CAPTION else None
+    if top_caption:
+        # A kind that writes a caption of its own (a command is born with its name) gives way
+        # to the caller's: two top-level keys would be a duplicate, and of two the reader
+        # takes whichever it likes.
+        extra = [line for line in extra if not line.startswith("Представление:")]
+    elif presentation and caption:
+        extra = _caption_lines(caption, presentation) + extra
+        result.notes.append(_caption_note(kind, caption))
     content = new_object_yaml(
         kind, new_uuid(), name, scope or spec.scope, extra, lang,
-        presentation=presentation,
+        presentation=top_caption,
     )
     result.changes.append(FileChange(yaml_path, content, created=True))
     if spec.module:
@@ -2242,11 +2454,13 @@ def _noted(result: ScaffoldResult, notes: list[str]) -> ScaffoldResult:
 _STARTER_ATTRIBUTE = "Реквизит1"
 
 #: The same trick a register is born with: the platform refuses an information register
-#: without a dimension and an accumulation register without a resource, so the new object
-#: carries a placeholder. Section -> (its stub name, the stub's own type).
+#: without a dimension, an accumulation register without a resource and a constants set
+#: without a constant, so the new object carries a placeholder. Section -> (its stub name,
+#: the stub's own type).
 _STARTER_ITEMS = {
     "Измерения": ("Измерение1", ("Строка", "String")),
     "Ресурсы": ("Ресурс1", ("Число", "Number")),
+    "Константы": ("Константа1", ("Строка", "String")),
 }
 
 #: Field kinds of a register that a caller mixes up: its data lives in `Dimensions` and
@@ -2331,6 +2545,53 @@ def _starter_attribute_span(text: str, tabular_offset: int, tabular: str) -> tup
     return start, end, indent
 
 
+def _doc_lines(doc: str | None) -> list[str]:
+    """A description as the `##` lines that open a list item; empty when there is none.
+
+    The spelling is the one the documentation comment editor writes (xbsl/doccomments.py):
+    `## ` and the line, a bare `##` for a blank line inside the text. The blank lines around
+    the text are dropped, and the trailing spaces of every line - the line is kept otherwise,
+    its own indent included, since the environment renders the text as Markdown.
+    """
+    if doc is None:
+        return []
+    if any(char < " " and char not in "\t\n\r" for char in doc):
+        raise ScaffoldError("Описание (doc) содержит управляющий символ – yaml его не примет")
+    lines = [line.rstrip() for line in doc.replace("\r\n", "\n").replace("\r", "\n").split("\n")]
+    while lines and not lines[0]:
+        lines.pop(0)
+    while lines and not lines[-1]:
+        lines.pop()
+    return [f"## {line}" if line else "##" for line in lines]
+
+
+def _check_doc_slot(kind: str, path: tuple[tuple[str, str | None], ...]) -> None:
+    """Refuse a description for an item whose class keeps no documentation comment.
+
+    The `##` lines at the head of a list item are the documentation comment only for a
+    class the metamodel marks documentable, and not for a built-in item the collection picks
+    by its name (the `Code` and `Name` of a catalog): there the environment does not read
+    them and loses them when it writes the file. The judge is the one the rule
+    yaml/doc-comment-misplaced uses; without the data (or with a class the metamodel does
+    not map) nothing is judged, and the text is written as given.
+    """
+    from xbsl.rules import yaml_doc_comments  # the rules package imports this module
+
+    if not yaml_doc_comments._documentable_known():
+        return
+    cls = metamodel.item_class(kind, path)
+    if cls is None or (
+        metamodel.inherits(cls, yaml_doc_comments._DOCUMENTABLE)
+        and metamodel.dispatch_name(cls) is None
+    ):
+        return
+    raise ScaffoldError(
+        f"У {_item_label(cls, path)} нет места для документирующего комментария: среда "
+        "разработки не читает у него строки `##` и теряет их при записи файла – "
+        "описание (doc) здесь не задаётся"
+    )
+
+
 def op_add_field(
     yaml_path: Path,
     field_kind: str,
@@ -2339,15 +2600,18 @@ def op_add_field(
     type_: str | None = None,
     tabular: str | None = None,
     props: Mapping[str, object] | None = None,
+    doc: str | None = None,
     reader=None,
 ) -> ScaffoldResult:
     """Add a section item to an object: an attribute, dimension, resource, enumeration
-    value, parameter, structure field or tabular part; tabular - the tabular part name
-    when adding an attribute into it.
+    value, parameter, structure field, property (of a contract, an event-log event or an
+    interface component), event (of an interface component) or tabular part; tabular - the
+    tabular part name when adding an attribute into it.
 
-    type_ - the item's type; None is the default: `String` for a regular item, and for a
-    BUILT-IN one (the `Number` and `Date` of a document, the `Code` of a catalog) whatever
-    its own metamodel class settles - see _item_type.
+    type_ - the item's type; None is the default: `String` for a regular item,
+    `ComponentEvent` for an event, and for a BUILT-IN one (the `Number` and `Date` of a
+    document, the `Code` of a catalog) whatever its own metamodel class settles - see
+    _item_type.
 
     props - the item's other properties (DefaultValue, Presentation, MaxLength...), checked
     against the metamodel class of THAT item - a built-in `Number` takes its `Length`,
@@ -2355,12 +2619,18 @@ def op_add_field(
     writes itself (Name, Type, Id) are refused there. A nested block goes in as a dict or as
     dotted keys, a list property as a list - see _checked_props.
 
+    doc - the item's documentation comment, written as the `##` lines at the head of the
+    item (after its `-`, before the first key) - see _doc_lines and _check_doc_slot.
+
     The item joins the end of the section of its kind. A section the file lacks is created at
-    the end of the file; for a register, which keeps its fields in several sections, notes say
+    the end of the file - or next to the sections it keeps company with, see
+    _new_section_before; for a register, which keeps its fields in several sections, notes say
     so and point at the sibling section that already exists - see _new_section_notes.
     """
     yaml_path = Path(yaml_path)
+    field_kind = field_kind_of(field_kind)
     name = _check_identifier(name, "элемента")
+    doc_lines = _doc_lines(doc)
     text, nl = _load_for_edit(yaml_path, reader)
     kind = element_kind(text) or "?"
     if kind == "?":
@@ -2379,12 +2649,16 @@ def op_add_field(
         # class - and with it the checked properties and the `Id`/`Type` lines - is the
         # built-in's own, not the regular attribute's.
         path = (("ТабличныеЧасти", tabular), ("Реквизиты", name))
-        extra = _checked_props(props, kind, path, ("Ид", "Имя", "Тип"))
+        extra = _checked_props(props, kind, path, ("Ид", "Имя", "Тип"), lang)
         resolved = _item_type(kind, path, name, type_, lang)
-        lines = spelled_lines(
+        extra = _boolean_default(extra, resolved, lang)
+        if doc_lines:
+            _check_doc_slot(kind, path)
+        lines = doc_lines + spelled_lines(
             _reconciled_id(
                 _reconciled_type(
-                    [f"Ид: {new_uuid()}", f"Имя: {name}", f"Тип: {resolved}"], resolved,
+                    [f"Ид: {new_uuid()}", f"Имя: {name}", f"Тип: {_type_scalar(resolved)}"],
+                    resolved,
                 ),
                 kind, path,
             ) + _prop_lines(extra), lang
@@ -2409,51 +2683,75 @@ def op_add_field(
 
     map_spec = _MAPPING_SPECS.get(field_kind)
     if map_spec is not None:
+        if doc_lines:
+            raise ScaffoldError(
+                f"У записи '{field_kind}' нет места для документирующего комментария: "
+                "значение ключа – скаляр, а строки `##` читаются только в начале элемента списка"
+            )
         return _add_mapping_entry(yaml_path, text, nl, kind, field_kind, map_spec, name, type_)
 
     spec = _SECTION_SPECS.get(field_kind)
     if spec is None:
         raise ScaffoldError(
-            f"Неизвестный вид элемента '{field_kind}'; доступны: {', '.join(FIELD_KINDS)}"
+            f"Неизвестный вид элемента '{field_kind}'; доступны: "
+            + field_kinds_named(ADD_FIELD_KINDS)
         )
     allowed = KIND_SECTIONS.get(kind)
     if allowed is None:
-        # A kind with no extendable sections (ОбщийМодуль, HttpСервис, КомпонентИнтерфейса
-        # etc.): the check used to let such a kind through and silently append a foreign
-        # section to it.
+        # A kind with no extendable sections (CommonModule, HttpService etc.): the check used
+        # to let such a kind through and silently append a foreign section to it.
         raise ScaffoldError(
             f"У вида {kind} нет пополняемых секций; они есть у: " + ", ".join(sorted(KIND_SECTIONS))
         )
     if field_kind not in allowed:
         raise ScaffoldError(
-            f"У вида {kind} нет секции для '{field_kind}'; доступны: {', '.join(allowed)}"
+            f"У вида {kind} нет секции для '{field_kind}'; доступны: {field_kinds_named(allowed)}"
         )
     existing = {i.get("Имя") for i in section_items(text, spec["section"], top_level=True)}
     if name in existing:
         raise ScaffoldError(f"'{name}' уже есть в секции {spec['section']} файла {yaml_path.name}")
+    shared = _SHARED_NAME_SECTIONS.get((kind, spec["section"]))
+    if shared and name in {i.get("Имя") for i in section_items(text, shared, top_level=True)}:
+        # The own properties and events of a component are one namespace to the compiler:
+        # a probe was refused with "Property name X is not unique" and "Event name X is not
+        # unique" (see the yaml/component-member-unique rule).
+        raise ScaffoldError(
+            f"'{name}' уже есть в секции {shared} файла {yaml_path.name}: свойства и события "
+            f"компонента – одно пространство имен, и сборка откажет (\"name \"{name}\" is not "
+            "unique\"). Выберите другое имя"
+        )
     template = _KIND_SECTION_LINES.get((kind, field_kind), spec["lines"])
     path = ((spec["section"], name),)
-    extra = _checked_props(props, kind, path, ("Ид", "Имя", "Тип"))
-    resolved = _item_type(kind, path, name, type_, lang)
-    lines = spelled_lines(_reconciled_id(_reconciled_type([
-        line.format(uuid=new_uuid(), uuid2=new_uuid(), name=name, type=resolved or "")
+    extra = _checked_props(props, kind, path, ("Ид", "Имя", "Тип"), lang)
+    resolved = _item_type(kind, path, name, type_, lang, spec.get("type", "Строка"))
+    extra = _boolean_default(extra, resolved, lang)
+    if doc_lines:
+        _check_doc_slot(kind, path)
+    lines = doc_lines + spelled_lines(_reconciled_id(_reconciled_type([
+        line.format(uuid=new_uuid(), uuid2=new_uuid(), name=name, type=_type_scalar(resolved))
         for line in template
     ], resolved), kind, path) + _prop_lines(extra), lang)
     starter = _starter_item_span(text, spec["section"])
     notes: list[str] = []
     if starter is None:
         # The item joins the end of an existing section; a section the file lacks is created
-        # (at the end of the file), and a register hears about it - see _new_section_notes.
+        # (at the end of the file or in front of the sections it precedes), and a register
+        # hears about it - see _new_section_notes.
         if _section_bounds(text, spec["section"], top_level=True) is None:
             notes.extend(_new_section_notes(text, kind, field_kind, name, yaml_path.name, lang))
-        edit = insert_item_edit(text, spec["section"], lines, nl, top_level=True, lang=lang)
+        edit = insert_item_edit(
+            text, spec["section"], lines, nl, top_level=True, lang=lang,
+            before=_new_section_before(text, kind, spec["section"]),
+        )
     else:
         start, end, indent = starter
         edit = TextEdit(start, end, (nl + " " * indent).join(lines))
         notes.append(f"Заглушка {_STARTER_ITEMS[spec['section']][0]} секции "
                      f"{spec['section']} заменена на {name}")
     new_text = apply_edit(text, edit)
-    cursor = _cursor_at(new_text, edit.start + len(edit.new_text))
+    # The point of interest is the end of the item, not the line after it: a section created
+    # in front of another one ends with a newline, and the cursor would land on that section.
+    cursor = _cursor_at(new_text, edit.start + len(edit.new_text.rstrip("\r\n")))
     result = ScaffoldResult(
         [FileChange(yaml_path, new_text, created=False, cursor=cursor)], notes=notes,
     )
@@ -2475,6 +2773,7 @@ def op_add_fields(
     type_: str | None = None,
     tabular: str | None = None,
     props: Mapping[str, object] | None = None,
+    doc: str | None = None,
     reader=None,
 ) -> ScaffoldResult:
     """Several items of one kind in one pass, with the same type and properties.
@@ -2484,8 +2783,11 @@ def op_add_fields(
     file stays as it was. Only the kinds whose item lives in the element's yaml alone go in a
     batch. An operation also writes its handler into the module, and a localized string
     echoes into the translation files - those take one call per item, and many strings at
-    once are written by set-localization / meta_set_localization with entries.
+    once are written by set-localization / meta_set_localization with entries. A description
+    (doc) is one item's own text: a batch of several names with one is refused rather than
+    copying the same comment onto every item.
     """
+    field_kind = field_kind_of(field_kind)
     if field_kind == "операция":
         raise ScaffoldError(
             "Вид 'операция' пачкой не добавляется: операция пишет ещё и обработчик в модуль"
@@ -2493,6 +2795,11 @@ def op_add_fields(
     if field_kind in _MAPPING_SPECS:
         raise ScaffoldError(
             "Строки и шаблоны пачкой пишет set-localization / meta_set_localization с entries"
+        )
+    if _doc_lines(doc) and len(names) > 1:
+        raise ScaffoldError(
+            "Описание (doc) относится к одному элементу: пачка из нескольких имён с ним не "
+            "добавляется – описание задаётся каждому элементу своим вызовом"
         )
     repeated = sorted({name for name in names if names.count(name) > 1})
     if repeated:
@@ -2506,7 +2813,7 @@ def op_add_fields(
     merged = ScaffoldResult()
     for name in names:
         step = op_add_field(yaml_path, field_kind, name, type_=type_, tabular=tabular,
-                            props=props, reader=planned_or_read)
+                            props=props, doc=doc, reader=planned_or_read)
         for change in step.changes:
             planned[change.path] = change.content
         merged.notes.extend(step.notes)
@@ -2522,22 +2829,24 @@ def op_add_fields(
 # avoid. The names are checked against the metamodel class of the section item (the same source
 # metadata_schema answers from), so a typo is refused rather than written into the file.
 
-#: Characters that make a bare yaml scalar ambiguous.
-_AMBIGUOUS_SCALAR = re.compile(r"""[:#\[\]{}&*!|>'"%@`]""")
-
-
 def _yaml_scalar(value: str) -> str:
-    """A property value as it goes into yaml: quoted only where a bare scalar would lie.
+    """A property value as it goes into yaml: quoted only where the YAML grammar needs it.
 
-    The measure is the sources themselves - an address is written quoted
-    (`ЗначениеПоУмолчанию: "https://..."`), a plain word bare (`client-code`). A value the
+    Inside a value an indicator character is an ordinary one. The sources of the
+    distribution write `Type: CommandWithParameter<JobDescription>`, a namespaced type and
+    `DefaultValue: https://...` bare, and so does this tool: the `Type` line of op_add_field
+    passes through here too, so a type set by set-field-property reads the way add-field
+    writes it. Quoted is what a reader takes for something else (_reads_back_bare): an
+    indicator in front (`>x`, `[x]`), a colon before a blank, a hash after one, a tab, blanks
+    at the edges - and the empty text, and a colon that a YAML 1.1 reader turns into a number
+    or a time stamp (`14:53` is a sexagesimal number there, see _survives_bare). A value the
     caller already quoted is left as it is: quoting it twice would store the quotes.
     """
     if len(value) > 1 and value[0] in "\"'" and value[-1] == value[0]:
         return value
-    if value == "" or value != value.strip() or value[0] in "-?" or _AMBIGUOUS_SCALAR.search(value):
-        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
-    return value
+    if value and _reads_back_bare(value) and (":" not in value or _survives_bare(value)):
+        return value
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def item_property_forms(kind: str, path: tuple[tuple[str, str | None], ...]) -> dict[str, str]:
@@ -2608,12 +2917,15 @@ def _russian_type(value: str) -> str:
 
 def _item_type(
     kind: str, path: tuple[tuple[str, str | None], ...], name: str, type_: str | None, lang: str,
+    default: str = "Строка",
 ) -> str | None:
     """The `Type` of a new item, or None when the item carries no `Type` line at all.
 
-    A regular item takes the caller's type, `String` when none was given. A BUILT-IN item of
-    a collection dispatched by name (the `Number` and `Date` of a document, the `Code`,
-    `Name` and `Owner` of a catalog) is judged by its own class instead - the class
+    A regular item takes the caller's type, read by _given_type, and the default of its kind
+    when none was given: `String`, or `ComponentEvent` for an event of an interface component.
+    The default is written in the language of the file, the way a type the caller passes is. A
+    BUILT-IN item of a collection dispatched by name (the `Number` and `Date` of a document, the
+    `Code`, `Name` and `Owner` of a catalog) is judged by its own class instead - the class
     metadata_schema answers with for that name:
 
     - a class that declares no `Type` (`Name`) gets no `Type` line: the platform fixes the
@@ -2626,29 +2938,14 @@ def _item_type(
       explicit type and says so.
     """
     if type_:
-        # The type arrives from a CLIENT (MCP, the editor), so it can carry markup escapes
-        # and the spelling of another language - the two traps the component base had. The
-        # value of a mapping section (a localized string) never reaches here: that branch
-        # returns earlier, and there `&` and `;` are legal text.
-        type_ = typed_in(_type_expression(type_, "типа элемента", _FIELD_TYPE_EXPRESSION), lang)
+        return _given_type(kind, path, type_, lang)
     cls = metamodel.item_class(kind, path) if metamodel.available() else None
     if not cls or not metamodel.dispatch_name(cls):
-        return type_ or "Строка"
+        return spelled_type(default, lang)
     label = _item_label(cls, path)
     record = metamodel.properties_of_class(cls).get("Тип")
     if record is None:
-        if type_:
-            raise ScaffoldError(
-                f"У {label} нет свойства Тип – тип этого реквизита задан платформой"
-            )
         return None
-    options = record.get("options")
-    if type_:
-        if options and _russian_type(type_) not in options:
-            raise ScaffoldError(
-                f"Тип '{type_}' не подходит для {label}; допустимы: {', '.join(options)}"
-            )
-        return type_
     default = record.get("default")
     if default:
         # The metamodel records the default as a qualified platform type (`Стд::Строка`,
@@ -2660,11 +2957,53 @@ def _item_type(
     )
 
 
+def _given_type(
+    kind: str, path: tuple[tuple[str, str | None], ...], type_: str, lang: str,
+) -> str:
+    """A type the caller gave an item, as it goes into the file - for add-field and
+    set-field-property alike.
+
+    The type arrives from a CLIENT (MCP, the editor, the command line), so it can carry markup
+    escapes and the spelling of another language - the two traps the component base had: the
+    escapes are undone and the platform names are written in the language of the file. A
+    BUILT-IN item is judged by its own class (see _item_type): a class without `Type` refuses
+    one, a closed set refuses a type outside it. The value of a mapping section (a localized
+    string) never reaches here: there `&` and `;` are legal text.
+    """
+    type_ = typed_in(_type_expression(type_, "типа элемента", _FIELD_TYPE_EXPRESSION), lang)
+    cls = metamodel.item_class(kind, path) if metamodel.available() else None
+    if not cls or not metamodel.dispatch_name(cls):
+        return type_
+    label = _item_label(cls, path)
+    record = metamodel.properties_of_class(cls).get("Тип")
+    if record is None:
+        raise ScaffoldError(
+            f"У {label} нет свойства Тип – тип этого реквизита задан платформой"
+        )
+    options = record.get("options")
+    if options and _russian_type(type_) not in options:
+        raise ScaffoldError(
+            f"Тип '{type_}' не подходит для {label}; допустимы: {', '.join(options)}"
+        )
+    return type_
+
+
 def _reconciled_type(lines: list[str], resolved: str | None) -> list[str]:
     """The template lines without the top-level `Type` when the item carries none."""
     if resolved is not None:
         return lines
     return [line for line in lines if not line.startswith("Тип:")]
+
+
+def _type_scalar(resolved: str | None) -> str:
+    """The value of the `Type` line, quoted by the rule every property value follows.
+
+    One rule for the two ways a type gets into the file - the `type` of add-field and a
+    `Type` among the properties of set-field-property - so the same type never reads two
+    ways (_yaml_scalar leaves a type expression bare, as the sources write it). Empty for an
+    item that carries no `Type` at all: _reconciled_type drops that line.
+    """
+    return _yaml_scalar(resolved) if resolved else ""
 
 
 def _nested(props: Mapping[str, object]) -> dict[str, object]:
@@ -2698,6 +3037,7 @@ def _checked_props(
     kind: str,
     path: tuple[tuple[str, str | None], ...],
     written: tuple[str, ...],
+    lang: str = "ru",
 ) -> dict[str, object]:
     """Properties canonicalized to Russian names and checked against the metamodel.
 
@@ -2717,12 +3057,15 @@ def _checked_props(
     scalars (`NumberingSeries`). A block whose class the metamodel describes as opaque
     (`Presentation` is a Localizable with no members recorded) is refused with the class
     named - that block still goes into the yaml by hand.
+
+    `lang` is the language of the file the values go into: a boolean is written in its
+    spelling (_scalar_text).
     """
     if not props:
         return {}
     cls = metamodel.item_class(kind, path) if metamodel.available() else None
     written_forms = {form for name in written for form in key_forms(name)}
-    checked = _checked_block(_nested(props), cls, _item_label(cls, path), written_forms)
+    checked = _checked_block(_nested(props), cls, _item_label(cls, path), written_forms, lang)
     _check_standard_length(path, checked)
     return checked
 
@@ -2762,7 +3105,7 @@ def _check_standard_length(path: tuple[tuple[str, str | None], ...],
 
 def _checked_block(
     props: Mapping[str, object], cls: str | None, label: str,
-    written: frozenset[str] | set[str] = frozenset(),
+    written: frozenset[str] | set[str] = frozenset(), lang: str = "ru",
 ) -> dict[str, object]:
     """One level of _checked_props: the keys against the class, the values by their kind."""
     forms = _class_property_forms(cls) if cls else {}
@@ -2781,11 +3124,13 @@ def _checked_block(
                 + ", ".join(sorted(set(forms.values())))
             )
         name = forms.get(key, key)
-        out[name] = _checked_value(value, name, records.get(name), label)
+        out[name] = _checked_value(value, name, records.get(name), label, lang)
     return out
 
 
-def _checked_value(value: object, name: str, record: dict | None, label: str) -> object:
+def _checked_value(
+    value: object, name: str, record: dict | None, label: str, lang: str = "ru",
+) -> object:
     """A property value checked by the kind its class records for it, shaped for _prop_lines."""
     kind = (record or {}).get("kind")
     if isinstance(value, Mapping):
@@ -2794,7 +3139,7 @@ def _checked_value(value: object, name: str, record: dict | None, label: str) ->
         if record is None:
             # Nothing to judge by (no data, or a property the class lacks): written as given.
             return {
-                str(key).strip(): _checked_value(item, str(key), None, label)
+                str(key).strip(): _checked_value(item, str(key), None, label, lang)
                 for key, item in value.items()
             }
         inner = record.get("type") if kind == "block" else None
@@ -2808,7 +3153,7 @@ def _checked_value(value: object, name: str, record: dict | None, label: str) ->
                 f"Блок '{name}' у {label} имеет класс {inner}, состав которого метамодель "
                 "не описывает – известное ограничение: такой блок пишется в yaml вручную"
             )
-        return _checked_block(value, inner, f"блока {name} (класс {inner})")
+        return _checked_block(value, inner, f"блока {name} (класс {inner})", lang=lang)
     if isinstance(value, (list, tuple)):
         if not value:
             raise ScaffoldError(f"Список '{name}' у {label} пуст – в нём нечего записать")
@@ -2819,21 +3164,69 @@ def _checked_value(value: object, name: str, record: dict | None, label: str) ->
             )
         if any(isinstance(item, (Mapping, list, tuple)) for item in value):
             raise ScaffoldError(f"Список '{name}' у {label} принимает только скаляры")
-        return [_scalar_text(item, name) for item in value]
-    return _scalar_text(value, name)
+        return [_scalar_text(item, name, lang) for item in value]
+    return _scalar_text(value, name, lang, boolean=kind == "boolean")
 
 
-def _scalar_text(value: object, name: str) -> str:
-    """A scalar property value as text: a boolean the platform's way, anything else as is."""
+#: The words of a boolean value in either language, lower-cased: the language keywords the
+#: sources write (`True`, `False` and their Russian pair) and the lower-case YAML pair a
+#: hand-written file may carry.
+_BOOLEAN_WORDS = {"истина": True, "true": True, "ложь": False, "false": False}
+
+
+def _boolean_word(flag: bool, lang: str) -> str:
+    """A boolean in the words of the file: the pair of the language keywords.
+
+    The sources of the distribution write `True`/`False` in an English file and the Russian
+    pair of the words in a Russian one, the pair the translator writes as well.
+    """
+    return _spelled("Истина" if flag else "Ложь", lang)
+
+
+def _scalar_text(value: object, name: str, lang: str = "ru", boolean: bool = False) -> str:
+    """A scalar property value as text: a boolean in the spelling of the file, anything else as is.
+
+    A boolean arrives as one through the MCP, which passes JSON, and as a word through the
+    CLI (`--prop Многострочная=Истина`). `boolean` says the property holds a boolean - its
+    metamodel class records it so - and then a boolean word of either language is written in
+    the words of the file (_boolean_word). Any other text is the author's and stays as written:
+    the word `True` in either language is a boolean only where the property takes one.
+    """
     if isinstance(value, bool):
-        return "Истина" if value else "Ложь"
+        return _boolean_word(value, lang)
     text = "" if value is None else str(value)
     if "\n" in text or "\r" in text:
         raise ScaffoldError(
             f"Значение свойства '{name}' многострочное – вложенный блок передаётся "
             "словарём, остальное пишется в yaml вручную"
         )
-    return text
+    flag = _BOOLEAN_WORDS.get(text.lower()) if boolean else None
+    return text if flag is None else _boolean_word(flag, lang)
+
+
+#: The spellings of the boolean type an item declares (`Булево?` admits the empty value too).
+_BOOLEAN_TYPES = frozenset({"Булево", "Boolean"})
+
+
+def _boolean_default(
+    props: dict[str, object], item_type: str | None, lang: str,
+) -> dict[str, object]:
+    """`props` with the default value of a boolean item in the words of the file.
+
+    The metamodel records `DefaultValue` as a value of any type: the item's own `Type` tells
+    what it holds. The default of a boolean item (a constant, a property of a component) is a
+    boolean like any boolean property and is spelled the same way (_scalar_text); the default
+    of any other item is the author's text and stays as written.
+    """
+    value = props.get("ЗначениеПоУмолчанию")
+    if not isinstance(value, str) or not item_type:
+        return props
+    if item_type.strip().strip("\"'").removesuffix("?") not in _BOOLEAN_TYPES:
+        return props
+    flag = _BOOLEAN_WORDS.get(value.lower())
+    if flag is None:
+        return props
+    return {**props, "ЗначениеПоУмолчанию": _boolean_word(flag, lang)}
 
 
 def _prop_lines(props: Mapping[str, object], indent: str = "") -> list[str]:
@@ -2919,10 +3312,13 @@ def op_set_field_property(
     be written by hand.
 
     The values are judged the way op_add_field judges them (a built-in item by its own class,
-    a nested block by the block's class). A block given for a key replaces whatever stands
-    under that key whole; a scalar over an existing block is refused rather than flattened.
+    a nested block by the block's class), and a `Type` goes through the reading of its `type`:
+    markup escapes undone, platform names in the language of the file (_given_type). A block
+    given for a key replaces whatever stands under that key whole; a scalar over an existing
+    block is refused rather than flattened.
     """
     yaml_path = Path(yaml_path)
+    field_kind = field_kind_of(field_kind)
     if not props:
         raise ScaffoldError("Не заданы свойства для установки")
     text, nl = _load_for_edit(yaml_path, reader)
@@ -2941,11 +3337,12 @@ def op_set_field_property(
     spec = _SECTION_SPECS.get(field_kind)
     if spec is None:
         raise ScaffoldError(
-            f"Неизвестный вид элемента '{field_kind}'; доступны: {', '.join(FIELD_KINDS)}"
+            f"Неизвестный вид элемента '{field_kind}'; доступны: "
+            + field_kinds_named(SET_PROPERTY_KINDS)
         )
     allowed = KIND_SECTIONS.get(kind)
     if allowed is None or field_kind not in allowed:
-        avail = ", ".join(allowed) if allowed else "нет"
+        avail = field_kinds_named(allowed) if allowed else "нет"
         raise ScaffoldError(f"У вида {kind} нет секции для '{field_kind}'; доступны: {avail}")
 
     if tabular:
@@ -2971,17 +3368,36 @@ def op_set_field_property(
 
     # Name is refused like in op_add_field: renaming is op_rename_object's business (it
     # updates the references), and a silent rename here would leave them dangling.
-    checked = _checked_props(props, kind, path, ("Имя",))
+    checked = _checked_props(props, kind, path, ("Имя",), lang)
+    # A type is read the way the `type` of add-field is (_given_type), so the same value never
+    # reaches the file two ways: `Массив&lt;Число&gt;` from a client that escapes the brackets
+    # used to be written as it came. Without the data the key keeps the spelling it was given.
+    for key in ("Тип", "Type"):
+        given = checked.get(key)
+        if isinstance(given, str):
+            checked[key] = _given_type(kind, path, given, lang)
     end, field_indent = _item_block_span(text, offset)
     block = text[offset:end]
     indent = " " * field_indent
+
+    def own_line(key: str) -> re.Match | None:
+        """The item's own line of a property, either spelling; the value is group 1."""
+        spellings = "|".join(re.escape(form) for form in key_forms(key))
+        return re.search(rf"^{indent}(?:{spellings}):[ \t]*(.*?)[ \t]*\r?$", block, re.M)
+
+    # What the default holds is told by the item's type: the one this call sets, otherwise
+    # the one the item already declares.
+    given_type = checked.get("Тип")
+    declared = own_line("Тип")
+    item_type = given_type if isinstance(given_type, str) else (
+        declared.group(1) if declared else None)
+    checked = _boolean_default(checked, item_type, lang)
 
     edits: list[TextEdit] = []
     appended: list[str] = []
     for key, value in checked.items():
         lines = spelled_lines(_prop_lines({key: value}), lang)
-        spellings = "|".join(re.escape(form) for form in key_forms(key))
-        m = re.search(rf"^{indent}(?:{spellings}):[ \t]*(.*?)[ \t]*\r?$", block, re.M)
+        m = own_line(key)
         if m is None:
             appended.extend(lines)
             continue
@@ -3031,6 +3447,26 @@ def _survives_bare(value: str) -> bool:
         return False
     try:
         parsed = _yaml.safe_load("k: " + value)
+    except _yaml.YAMLError:
+        return False
+    return isinstance(parsed, dict) and parsed.get("k") == value
+
+
+def _reads_back_bare(value: str) -> bool:
+    """Would a YAML reader take this value, written without quotes, for the same text?
+
+    The grammar alone, with no typing: `100` and `True` read back as the text they are - the
+    platform types a value by the property it is written to - while `a: b` opens a mapping,
+    `x #y` loses its tail to a comment and `[x]` becomes a list. Asked of the parser, like
+    _survives_bare, and for the same reason: it knows the corners a pattern forgets (a tab
+    inside a bare value is refused by the scanner).
+    """
+    try:
+        import yaml as _yaml
+    except ImportError:  # pragma: no cover - the parser is a hard dependency of the linter
+        return False
+    try:
+        parsed = _yaml.load("k: " + value, Loader=_yaml.BaseLoader)
     except _yaml.YAMLError:
         return False
     return isinstance(parsed, dict) and parsed.get("k") == value
@@ -3125,7 +3561,7 @@ def _add_mapping_entry(
     """
     allowed = KIND_SECTIONS.get(kind)
     if allowed is None or field_kind not in allowed:
-        avail = ", ".join(allowed) if allowed else "нет"
+        avail = field_kinds_named(allowed) if allowed else "нет"
         raise ScaffoldError(f"У вида {kind} нет секции для '{field_kind}'; доступны: {avail}")
     section = map_spec["section"]
     raw_value = value if value and value != "Строка" else key
@@ -3815,8 +4251,9 @@ def _new_http_service(
             "обычно его задают латиницей (например, Имя КаталогHttpСервис, КорневойUrl /catalog)"
         )
     if access:
+        method = _spelled(access, lang, "enums")
         lines += spelled_lines(
-            ["КонтрольДоступа:", "    Разрешения:", f"        Вызов: {access}"], lang
+            ["КонтрольДоступа:", "    Разрешения:", f"        Вызов: {method}"], lang
         )
     lines.append(spelled_key("ШаблоныUrl", lang) + ":")
     for path, template, method_handlers in assigned:
@@ -5787,6 +6224,52 @@ ACCESS_KIND_RIGHTS: dict[str, tuple[str, ...]] = {
 # A constant set does not support per-record permissions (the "Свойства элемента проекта
 # вида НаборКонстант" documentation).
 _NO_PER_OBJECT_KINDS = ("НаборКонстант",)
+#: Every right some kind has, in the order of the table: what a right is read against when the
+#: kind is not at hand (the summary of a file, see access_info).
+_ALL_RIGHTS = tuple(dict.fromkeys(r for rights in ACCESS_KIND_RIGHTS.values() for r in rights))
+
+
+def access_method(value: str) -> str | None:
+    """An access method named in either language, as the tables name it; None - no such method.
+
+    An English project writes `PermitEveryone` for the method a Russian one spells in Russian.
+    The pair is the platform's own, a value of its access enumeration in the term dictionary
+    (see _enum_value), so without the data an English name is not recognized - the way the tool
+    read it before.
+    """
+    method = _enum_value(value.strip())
+    return method if method in ACCESS_METHODS else None
+
+
+def access_right(value: str, kind: str | None = None) -> str | None:
+    """A right named in either language: `Read`, `Default` or their Russian spellings.
+
+    A right is a KEY of the permissions block, so its English spelling is the metamodel's, as for
+    any other key (key_forms). `kind` narrows the rights to the ones that kind has, None takes
+    the rights of every kind. None when the value names no such right.
+    """
+    value = value.strip()
+    rights = ACCESS_KIND_RIGHTS.get(kind, ()) if kind else _ALL_RIGHTS
+    for right in (ACCESS_DEFAULT_RIGHT, *rights):
+        if value in key_forms(right):
+            return right
+    return None
+
+
+def access_methods_named() -> str:
+    """The access methods for a refusal or a help line, each with its English spelling."""
+    return ", ".join(
+        method if (english := _spelled(method, "en", "enums")) == method else f"{method} ({english})"
+        for method in ACCESS_METHODS
+    )
+
+
+def _rights_named(rights: Iterable[str]) -> str:
+    """The rights for a refusal, each with its English spelling when the data has one."""
+    return ", ".join(
+        right if (english := spelled_key(right, "en")) == right else f"{right} ({english})"
+        for right in rights
+    )
 
 _ACCESS_SECTION = "КонтрольДоступа"
 _PERMISSIONS_KEY = "Разрешения"
@@ -5842,13 +6325,21 @@ def access_info(text: str) -> dict | None:
     {permissions: {right: method}, default: method|None, calc_by: [fields]}. A missing
     section is precisely None, not an empty summary: the platform then applies
     РазрешеноАдминистраторам.
+
+    The rights and the methods come back in the Russian spelling the tables of this module use,
+    whichever language the file writes them in: `Default: PermitEveryone` of an English file is
+    `ПоУмолчанию: РазрешеноВсем` here. Read as written, such a file had no `default` at all. A
+    custom right (`ПравоНаX.ИмяПрава`) and a value no table knows are kept as written.
     """
     bounds = _section_bounds(text, _ACCESS_SECTION, top_level=True)
     if bounds is None:
         return None
     _, header_line_end, body_end = bounds
     body = text[header_line_end:body_end]
-    permissions = _mapping_in(body, _PERMISSIONS_KEY)
+    permissions = {
+        ((right if "." in right else access_right(right)) or right): access_method(method) or method
+        for right, method in _mapping_in(body, _PERMISSIONS_KEY).items()
+    }
     return {
         "permissions": permissions,
         "default": permissions.get(ACCESS_DEFAULT_RIGHT),
@@ -5869,11 +6360,12 @@ def _access_anchor(text: str) -> int:
 
 
 def _set_mapping_value(text: str, section_offset_end: int, body_end: int, indent: str,
-                       key: str, value: str, nl: str) -> tuple[str, int]:
+                       key: str, value: str, nl: str,
+                       added_as: str | None = None) -> tuple[str, int]:
     """Replace a mapping key's value or append the key at the end of the section.
 
     An existing key is recognized in either spelling and keeps the one it is written in;
-    a key being added is written as the caller spelled it.
+    a key being added is written as `added_as` spells it, or as the caller spelled `key`.
     Returns (new text, shift of the section end) - the caller recomputes the bounds.
     """
     body = text[section_offset_end:body_end]
@@ -5884,7 +6376,7 @@ def _set_mapping_value(text: str, section_offset_end: int, body_end: int, indent
             end = section_offset_end + m.end()
             new_line = f"{m.group(1)}{spelling}: {value}"
             return text[:start] + new_line + text[end:], len(new_line) - (end - start)
-    addition = f"{nl}{indent}{key}: {value}"
+    addition = f"{nl}{indent}{added_as or key}: {value}"
     return text[:body_end] + addition + text[body_end:], len(addition)
 
 
@@ -5906,11 +6398,16 @@ def op_set_access(
     РазрешенияВычисляютсяДляКаждогоОбъекта. The operation does NOT write permission
     computation handlers: that is business logic (see the "Самостоятельное формирование
     разрешений и выдача экземпляров ключей" documentation) - a reminder is left in notes.
+
+    Rights and methods are taken in either language (`Read=PermitEveryone` or the same pair
+    spelled in Russian - see access_right and access_method) and written in the language of the
+    file, like its keys: an English object gets `Read: PermitEveryone` whatever the caller
+    spoke.
     """
-    wanted: dict[str, str] = dict(permissions or {})
+    given: dict[str, str] = dict(permissions or {})
     if default:
-        wanted[ACCESS_DEFAULT_RIGHT] = default
-    if not wanted and calc_by is None:
+        given[ACCESS_DEFAULT_RIGHT] = default
+    if not given and calc_by is None:
         raise ScaffoldError("Нечего менять: задайте default, permissions или calc_by")
 
     info = object_info(Path(root), name=name, yaml_path=yaml_path)
@@ -5924,22 +6421,29 @@ def op_set_access(
 
     result = ScaffoldResult()
     known = ACCESS_KIND_RIGHTS[kind]
-    for right, method in wanted.items():
-        if method not in ACCESS_METHODS:
+    # Right -> method in the spelling of the tables, whichever language the caller spoke.
+    wanted: dict[str, str] = {}
+    for right, method in given.items():
+        canonical = access_method(method)
+        if canonical is None:
             raise ScaffoldError(
                 f"Недопустимый способ контроля доступа '{method}' у права '{right}'; "
-                + "доступны: " + ", ".join(ACCESS_METHODS)
+                + "доступны: " + access_methods_named()
             )
-        if method == _PER_OBJECT and kind in _NO_PER_OBJECT_KINDS:
+        if canonical == _PER_OBJECT and kind in _NO_PER_OBJECT_KINDS:
             raise ScaffoldError(f"Вид {kind} не поддерживает {_PER_OBJECT}")
-        if right != ACCESS_DEFAULT_RIGHT and "." not in right and right not in known:
-            allowed = ", ".join(known) if known else "только " + ACCESS_DEFAULT_RIGHT
+        # A custom right is a name of the project and goes in as written.
+        own = right if "." in right else access_right(right, kind)
+        if own is None:
+            allowed = _rights_named(known) if known else "только " + ACCESS_DEFAULT_RIGHT
             raise ScaffoldError(
                 f"У вида {kind} нет права '{right}'; доступны: {allowed} "
                 f"(и {ACCESS_DEFAULT_RIGHT}; пользовательское право пишется как ПравоНаX.ИмяПрава)"
             )
+        wanted[own] = canonical
 
     text, nl = _load_for_edit(owner_path, reader)
+    lang = yaml_language(text, owner_path.parent)
     current = access_info(text)
     per_object = [r for r, m in wanted.items() if m == _PER_OBJECT]
     if per_object:
@@ -5961,14 +6465,14 @@ def op_set_access(
         return result
 
     if current is None:
-        # The section keys are spelled like the file; the rights and the methods are the
-        # platform's own names, which the caller passes and this operation validates.
-        lang = yaml_language(text, owner_path.parent)
+        # Everything is spelled like the file: the section keys, the rights (keys too) and the
+        # methods (values of the platform's enumeration).
         lines = [
             f"{spelled_key(_ACCESS_SECTION, lang)}:",
             f"    {spelled_key(_PERMISSIONS_KEY, lang)}:",
         ]
-        lines += [f"        {right}: {method}" for right, method in wanted.items()]
+        lines += [f"        {spelled_key(right, lang)}: {_spelled(method, lang, 'enums')}"
+                  for right, method in wanted.items()]
         if calc_by:
             lines.append(f"    {spelled_key(_CALC_BY_KEY, lang)}: [{', '.join(calc_by)}]")
         at = _access_anchor(text)
@@ -6004,18 +6508,25 @@ def _access_body_bounds(text: str) -> tuple[int, int]:
 
 
 def _write_permission(text: str, right: str, method: str, nl: str) -> str:
-    """Pinpoint-set a right in an existing КонтрольДоступа section."""
+    """Pinpoint-set a right in an existing `AccessControl` section.
+
+    `right` and `method` come in the spelling of the tables; the file gets its own: a right
+    already there keeps the spelling it is written in, a new one and the method follow the
+    language of the file.
+    """
     header_line_end, body_end = _access_body_bounds(text)
     body = text[header_line_end:body_end]
+    lang = yaml_language(text)
+    value = _spelled(method, lang, "enums")
     perms = _section_bounds(body, _PERMISSIONS_KEY)
     if perms is None:  # the section exists but Разрешения does not - append the block
-        key = spelled_key(_PERMISSIONS_KEY, yaml_language(text))
-        addition = f"{nl}    {key}:{nl}        {right}: {method}"
+        key = spelled_key(_PERMISSIONS_KEY, lang)
+        addition = f"{nl}    {key}:{nl}        {spelled_key(right, lang)}: {value}"
         return text[:body_end] + addition + text[body_end:]
     perm_indent, perm_header_end, perm_body_end = perms
     new_text, _ = _set_mapping_value(
         text, header_line_end + perm_header_end, header_line_end + perm_body_end,
-        " " * (perm_indent + 4), right, method, nl,
+        " " * (perm_indent + 4), right, value, nl, added_as=spelled_key(right, lang),
     )
     return new_text
 
@@ -8417,7 +8928,8 @@ def _line_text(text: str, offset: int) -> str:
     return text[start:end if end != -1 else len(text)].rstrip("\r")
 
 
-def resource_references(root: Path, resource_path: Path, *, reader=None) -> dict:
+def resource_references(root: Path, resource_path: Path, *, reader=None,
+                        limit: int | None = None) -> dict:
     """Every place in the sources under a root that names a resource file or a folder of them.
 
     The reading is the one a move of the resource makes (see _ResourceScan), so the answer names
@@ -8437,6 +8949,10 @@ def resource_references(root: Path, resource_path: Path, *, reader=None) -> dict
     For a folder, every file under it counts, and so does a string that spells the folder's
     path. A place comes with its file, a zero-based LSP range and the text of its line, sorted
     by file and position.
+
+    `limit` keeps the first so many places in `references` (none for a negative one), and
+    `total` still counts them all: the MCP tool and the CLI `--limit` cut the list the same way.
+    Without it every place is listed.
 
     Refused: the resources folder itself, its description (`Resources.yaml`) and a folder
     without files - a key names none of them.
@@ -8474,5 +8990,5 @@ def resource_references(root: Path, resource_path: Path, *, reader=None) -> dict
         "folder": is_folder,
         "resourcesDir": str(folder.directory),
         "total": len(places),
-        "references": places,
+        "references": places if limit is None else places[:max(0, limit)],
     }

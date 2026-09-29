@@ -1909,3 +1909,58 @@ WHERE region_stats.region = m.region"""
         ],
         dialect="tsql",
     )
+
+
+# unquoted identifiers are case-insensitive, so a column list that differs from the
+# select list only in case names the same columns (Snowflake GET_DDL emits it upper case)
+def test_create_view_with_column_list_differing_only_in_case():
+    sql = "CREATE VIEW my_view (COL1, COL2) AS SELECT col1, col2 FROM tbl"
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("col1", "tbl"),
+                TestColumnQualifierTuple("col1", "my_view"),
+            ),
+            (
+                TestColumnQualifierTuple("col2", "tbl"),
+                TestColumnQualifierTuple("col2", "my_view"),
+            ),
+        ],
+    )
+
+
+def test_insert_with_column_list_differing_only_in_case():
+    sql = "INSERT INTO tgt_tbl (COL1, COL2) SELECT col1, col2 FROM src_tbl"
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("col1", "src_tbl"),
+                TestColumnQualifierTuple("col1", "tgt_tbl"),
+            ),
+            (
+                TestColumnQualifierTuple("col2", "src_tbl"),
+                TestColumnQualifierTuple("col2", "tgt_tbl"),
+            ),
+        ],
+    )
+
+
+def test_column_list_mixing_rename_and_case_only_difference():
+    sql = "CREATE VIEW my_view (RANDOM1, COL2) AS SELECT col1, col2 FROM tbl"
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("col1", "tbl"),
+                TestColumnQualifierTuple("random1", "my_view"),
+            ),
+            (
+                TestColumnQualifierTuple("col2", "tbl"),
+                TestColumnQualifierTuple("col2", "my_view"),
+            ),
+        ],
+        # SqlParse: ignores the view column list, so col1 is not renamed to random1
+        test_sqlparse=False,
+    )

@@ -35,6 +35,8 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse
 
 from matrx_scraper.utils.url import extract_domain
@@ -113,6 +115,132 @@ def shared_throttles() -> dict[str, float]:
 def clear_shared_throttles() -> None:
     """Drop every learned backoff. Tests only — there is no production reset."""
     _SHARED_THROTTLES.clear()
+
+
+def header_value(headers: dict[str, str] | None, name: str) -> str | None:
+    """Case-insensitive header read — transports disagree on key case."""
+    if not headers:
+        return None
+    wanted = name.lower()
+    for key, value in headers.items():
+        if str(key).lower() == wanted:
+            return str(value)
+    return None
+
+
+def parse_retry_after(value: str | None, *, now: datetime | None = None) -> float | None:
+    """Seconds the origin asked us to wait, from an HTTP ``Retry-After`` value.
+
+    RFC 9110 §10.2.3 allows either delay-seconds (``"120"``) or an HTTP-date
+    (``"Wed, 21 Oct 2015 07:28:00 GMT"``). Returns ``None`` when the header is
+    absent or unparseable — the caller then uses its own backoff, it never
+    guesses a number from a malformed header. A date in the past is 0.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return float(int(text))
+    try:
+        when = parsedate_to_datetime(text)
+    except (TypeError, ValueError, IndexError):
+        return None
+    if when is None:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    current = now or datetime.now(UTC)
+    return max(0.0, (when - current).total_seconds())
+
+
+class CrawlPause:
+    """ONE crawl-wide pause on rate limiting — not only a per-host throttle.
+
+    A 429 means the origin wants every one of our requests to stop for a while,
+    not just the worker that happened to receive it. So a limit signal pauses
+    ALL new requests of the crawl until the cooldown ends: the origin's own
+    ``Retry-After`` when it sent one, else ``default_s × 2^(n−1)`` for the n-th
+    consecutive limit. The per-host ramp still owns the rate after the pause
+    ("detected and probed, start low" — Arman, 2026-08-20).
+
+    It also keeps the two numbers that decide when politeness becomes futility:
+    the run of consecutive limit responses and the cumulative cooldown. The
+    crawler reads :meth:`should_stop` and ends the crawl as ``partial`` with a
+    stated reason instead of grinding on (OPENSEO-TOOLS-SPEC §8.1).
+    """
+
+    def __init__(
+        self,
+        *,
+        default_s: float,
+        max_consecutive: int,
+        max_cooldown_s: float,
+    ) -> None:
+        self.default_s = float(default_s)
+        self.max_consecutive = int(max_consecutive)
+        self.max_cooldown_s = float(max_cooldown_s)
+        self.consecutive = 0
+        self.total_cooldown_s = 0.0
+        self.pauses = 0
+        self._resume_at = 0.0  # time.monotonic()
+        self._halted = False
+
+    def record_limit(self, retry_after_s: float | None) -> float:
+        """A limit response arrived. Returns the cooldown now in force (seconds)."""
+        self.consecutive += 1
+        if retry_after_s is not None:
+            delay = max(0.0, float(retry_after_s))
+        else:
+            delay = self.default_s * (2 ** (self.consecutive - 1))
+        now = time.monotonic()
+        resume_at = now + delay
+        if resume_at > self._resume_at:
+            # Only the part that EXTENDS the pause counts toward the cumulative
+            # cooldown — two workers hit by the same burst are one wait, not two.
+            self.total_cooldown_s += resume_at - max(now, self._resume_at)
+            self._resume_at = resume_at
+        self.pauses += 1
+        return delay
+
+    def record_success(self) -> None:
+        """A clean response ends the run of consecutive limits."""
+        self.consecutive = 0
+
+    def remaining(self) -> float:
+        return max(0.0, self._resume_at - time.monotonic())
+
+    def halt(self) -> None:
+        """The crawl is stopping: release every waiter now instead of at resume."""
+        self._halted = True
+
+    async def wait(self) -> float:
+        """Block until the crawl-wide pause is over (or halted). Returns seconds waited."""
+        waited = 0.0
+        while not self._halted:
+            left = self.remaining()
+            if left <= 0:
+                break
+            step = min(left, 0.25)  # short steps so halt() is honoured promptly
+            await asyncio.sleep(step)
+            waited += step
+        return waited
+
+    def stop_reason(self) -> str | None:
+        """Why politeness has become futility, in words — or None to keep going."""
+        if self.consecutive > self.max_consecutive:
+            return (
+                f"the site answered {self.consecutive} requests in a row with 'too many "
+                f"requests' (limit {self.max_consecutive})"
+            )
+        if self.total_cooldown_s > self.max_cooldown_s:
+            return (
+                f"the site's rate limits kept the crawl waiting "
+                f"{self.total_cooldown_s / 60:.1f} minutes in total "
+                f"(limit {self.max_cooldown_s / 60:g})"
+            )
+        return None
 
 
 class HostRateLimiter:
@@ -374,6 +502,9 @@ class HostRateLimiter:
 
 
 __all__ = [
+    "CrawlPause",
+    "header_value",
+    "parse_retry_after",
     "HostRateLimiter",
     "HostBucket",
     "RATE_LIMIT_STATUSES",

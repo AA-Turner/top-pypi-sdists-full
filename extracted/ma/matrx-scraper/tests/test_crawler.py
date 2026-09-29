@@ -1217,14 +1217,28 @@ def test_throttle_host_compounds_and_floors() -> None:
 
 
 @pytest.mark.asyncio
-async def test_rate_limited_page_throttles_requeues_then_fails_after_cap() -> None:
+async def test_rate_limited_page_throttles_requeues_then_fails_after_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """A persistently-429 URL: warn+requeue up to the cap, then ONE terminal fail.
 
     It must never emit a page_fetched (a throttled response fetched nothing) and
     must not inflate the failed counter until retries are actually exhausted.
     """
-    from matrx_scraper.crawler import MAX_RATE_LIMIT_RETRIES
+    from conftest import FAST_CRAWL_KNOBS, bind_crawl_knobs
     from matrx_scraper.host_pacing import PacingKnobs
+
+    # Retries per URL are the `crawl.max_retries_per_url` knob (3); the
+    # crawl-wide consecutive-429 stop is raised out of the way here — it has its
+    # own proofs in test_crawler_honesty.py.
+    MAX_RATE_LIMIT_RETRIES = 3
+    bind_crawl_knobs(
+        {
+            **FAST_CRAWL_KNOBS,
+            "crawl.max_retries_per_url": MAX_RATE_LIMIT_RETRIES,
+            "crawl.max_consecutive_429": 99,
+        }
+    )
     from matrx_scraper.events import CrawlWarningEvent
     from matrx_scraper.orchestrator import ScrapeResult
 
@@ -1259,7 +1273,10 @@ async def test_rate_limited_page_throttles_requeues_then_fails_after_cap() -> No
 
     import matrx_scraper.crawler as crawler_module
 
-    crawler_module.scrape = always_429  # type: ignore[assignment]
+    # monkeypatch, never a bare assignment: the bare one leaked `always_429` into
+    # every later test in the process (a real local-server crawl then saw 429s
+    # its server never sent).
+    monkeypatch.setattr(crawler_module, "scrape", always_429)
 
     # Drive one URL through _process MAX+1 times (simulating the requeue loop).
     for _ in range(MAX_RATE_LIMIT_RETRIES + 1):

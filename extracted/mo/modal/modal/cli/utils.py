@@ -6,19 +6,37 @@ import sys
 from collections.abc import Sequence
 from contextlib import nullcontext
 from csv import writer as csv_writer
-from datetime import datetime
+from datetime import date, datetime, timezone
 from json import dumps
+from typing import Literal
 
 import click
+from click.exceptions import UsageError
+from google.protobuf.timestamp_pb2 import Timestamp
+from rich.box import SIMPLE_HEAD, Box
 from rich.table import Column, Table
 from rich.text import Text
 
+from modal_proto import api_pb2
+
 from .._logs import LogsFilters, fetch_logs, tail_logs
 from .._output.pty import _build_log_prefix, get_app_logs_loop
+from .._traceback import print_server_warnings
 from .._utils.async_utils import synchronizer
+from .._utils.grpc_utils import is_class_function_lookup_error
 from ..client import _Client
-from ..exception import InvalidError
+from ..exception import InvalidError, NotFoundError
 from ..output import OutputManager
+
+HEADER_ONLY = SIMPLE_HEAD
+
+
+def grouped_utc_timestamp(timestamp: Timestamp, previous_date: date | None) -> tuple[str, date]:
+    timestamp_datetime = timestamp.ToDatetime(tzinfo=timezone.utc)
+    current_date = timestamp_datetime.date()
+    date_prefix = f"{current_date.isoformat()} " if current_date != previous_date else ""
+    time_label = timestamp_datetime.strftime("%H:%M:%S")
+    return f"{date_prefix}{time_label}", current_date
 
 
 async def _stream_app_logs(
@@ -58,6 +76,7 @@ async def _stream_app_logs(
                 prefix_fields=prefix_fields or [],
                 file_descriptor=filters.source,
                 function_id=filters.function_id,
+                parametrized_function_id=filters.parametrized_function_id,
                 function_call_id=filters.function_call_id,
                 search_text=filters.search_text,
             )
@@ -125,7 +144,19 @@ async def _fetch_app_logs(
     await _drain_batches(output_mgr, batches, prefix_fields or [], filters.search_text)
 
 
-def _plain(text: "Text | str | bool | None") -> "str | bool | None":
+def humanize_filesize(value: int) -> str:
+    if value < 0:
+        raise ValueError("value should be >= 0")
+    base = 1024
+    size = float(value)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"):
+        if size < base:
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= base
+    return f"{size:.1f} ZiB"
+
+
+def _plain(text: "Text | str | int | bool | None") -> "str | int | bool | None":
     return text.plain if isinstance(text, Text) else text
 
 
@@ -140,10 +171,13 @@ def is_tty() -> bool:
 
 def display_table(
     columns: Sequence[Column | str],
-    rows: Sequence[Sequence["Text | str | bool | None"]],
+    rows: Sequence[Sequence["Text | str | int | bool | None"]],
     json: bool = False,
     csv: bool = False,
     title: str = "",
+    table_box: Box | None = None,
+    header_style: str | None = None,
+    border_style: str | None = None,
 ):
     def col_to_str(col: Column | str) -> str:
         return str(col.header) if isinstance(col, Column) else col
@@ -164,7 +198,11 @@ def display_table(
             writer.writerow([_plain(cell) for cell in row])
         output.print(csv_buffer.getvalue(), end="")
     else:
-        table = Table(*columns, title=title)
+        table = (
+            Table(*columns, title=title, header_style=header_style, border_style=border_style)
+            if table_box is None
+            else Table(*columns, title=title, box=table_box, header_style=header_style, border_style=border_style)
+        )
         for row in rows:
             # rich can't render bare scalars like bools; stringify anything that isn't already
             # a renderable (str/Text) or None (which rich treats as an empty cell).
@@ -197,3 +235,67 @@ def confirm_or_suggest_yes(msg: str) -> None:
         click.echo(f"{msg} [y/N]: ")
         raise SystemExit("Aborted: no interactive terminal detected. Rerun with --yes (-y) to skip confirmation.")
     click.confirm(msg, default=False, abort=True)
+
+
+def _is_function_id(ref: str) -> bool:
+    return bool(re.match(r"^fu-[0-9a-zA-Z]+$", ref))
+
+
+async def _resolve_function_id(
+    client: _Client,
+    function_identifier: str,
+    environment_name: str,
+    *,
+    object_type: Literal["Function", "Server"] = "Function",
+    command: Literal["info", "calls", "logs", "requests", "stats", "variants"],
+) -> tuple[str, api_pb2.FunctionHandleMetadata, api_pb2.FunctionData]:
+    identifier_label = object_type.upper()
+    usage = (
+        f"{identifier_label} must be a Function ID (fu-…) "
+        f"or a deployed {object_type} name (APP_NAME/{identifier_label}_NAME)."
+    )
+    if function_identifier == "":
+        raise UsageError(usage)
+
+    if "/" in function_identifier:
+        app_name, function_name = function_identifier.split("/", 1)
+
+        if not (app_name and function_name):
+            raise UsageError(usage)
+
+        try:
+            response = await client._stub.FunctionGet(
+                api_pb2.FunctionGetRequest(
+                    app_name=app_name,
+                    object_tag=function_name,
+                    environment_name=environment_name,
+                )
+            )
+        except NotFoundError as exc:
+            if object_type == "Function" and is_class_function_lookup_error(exc):
+                raise NotFoundError(
+                    f"'{function_identifier}' is a modal.Cls. Use\n modal function {command} '{function_identifier}.*'"
+                ) from None
+            raise
+
+        print_server_warnings(response.server_warnings)
+        function_id = response.function_id
+        function = response.function
+        metadata = response.handle_metadata
+    elif _is_function_id(function_identifier):
+        get_by_id_response = await client._stub.FunctionGetById(
+            api_pb2.FunctionGetByIdRequest(function_id=function_identifier)
+        )
+        function_id = function_identifier
+        function = get_by_id_response.function
+        metadata = get_by_id_response.handle_metadata
+    else:
+        raise UsageError(usage)
+
+    if function.is_server != (object_type == "Server"):
+        actual_type = "Server" if function.is_server else "Function"
+        if function.is_server and command == "variants":
+            raise UsageError(f"'{function_identifier}' is a Server.")
+        raise UsageError(f"'{function_identifier}' is a {actual_type}. Use `modal {actual_type.lower()} {command}`.")
+
+    return function_id, metadata, function

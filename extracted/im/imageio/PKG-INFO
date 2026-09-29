@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ImageIO
-Version: 2.37.4
+Version: 2.38.0
 Summary: Read and write images and video across all major formats. Supports scientific and volumetric data.
 Author: ImageIO contributors
 Maintainer-email: Sebastian Wallkotter <sebastian@wallkoetter.net>, Almar Klein <almar.klein@gmail.com>
@@ -41,6 +41,8 @@ Provides-Extra: numpy
 Provides-Extra: pillow-heif
 Requires-Dist: pillow-heif; extra == "pillow-heif"
 Provides-Extra: pillow
+Provides-Extra: pydicom
+Requires-Dist: pydicom; extra == "pydicom"
 Provides-Extra: simpleitk
 Provides-Extra: spe
 Provides-Extra: swf
@@ -82,12 +84,12 @@ Requires-Dist: imageio-ffmpeg; extra == "all-plugins"
 Requires-Dist: numpy>2; extra == "all-plugins"
 Requires-Dist: pillow-heif; extra == "all-plugins"
 Requires-Dist: psutil; extra == "all-plugins"
+Requires-Dist: pydicom; extra == "all-plugins"
 Requires-Dist: rawpy; extra == "all-plugins"
 Requires-Dist: tifffile; extra == "all-plugins"
 Provides-Extra: all-plugins-pypy
 Requires-Dist: fsspec[http]; extra == "all-plugins-pypy"
 Requires-Dist: imageio-ffmpeg; extra == "all-plugins-pypy"
-Requires-Dist: pillow-heif; extra == "all-plugins-pypy"
 Requires-Dist: psutil; extra == "all-plugins-pypy"
 Provides-Extra: full
 Requires-Dist: astropy; extra == "full"
@@ -100,6 +102,7 @@ Requires-Dist: numpydoc; extra == "full"
 Requires-Dist: numpy>2; extra == "full"
 Requires-Dist: pillow-heif; extra == "full"
 Requires-Dist: psutil; extra == "full"
+Requires-Dist: pydicom; extra == "full"
 Requires-Dist: pydata-sphinx-theme; extra == "full"
 Requires-Dist: pytest; extra == "full"
 Requires-Dist: pytest-cov; extra == "full"

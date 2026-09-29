@@ -134,9 +134,9 @@ FIN_NFSE = {
 
 TRIB_ISSQN = {
     "1": "Operação Tributável",
-    "2": "Exportação de serviço",
-    "3": "Não Incidência",
-    "4": "Imunidade",
+    "2": "Imunidade",
+    "3": "Exportação de serviço",
+    "4": "Não Incidência",
 }
 
 TP_IMUNIDADE = {
@@ -657,9 +657,6 @@ class Danfse(xFPDF):
             federal_taxes["previdenciary_contribution"] = self._money(
                 extract_text(tribFed, "vRetCP")
             )
-            federal_taxes["social_contribution"] = self._money(
-                extract_text(tribFed, "vRetCSLL")
-            )
             tp_ret_pis_cofins = extract_text(tribFed, "tpRetPisCofins")
             if tp_ret_pis_cofins in TP_RET_PIS_COFINS:
                 federal_taxes["social_description"] = ellipsize(
@@ -667,8 +664,17 @@ class Danfse(xFPDF):
                 )
             pis = extract_text(tribFed, "vPis")
             cofins = extract_text(tribFed, "vCofins")
-            federal_taxes["pis_debit"] = self._money(pis)
-            federal_taxes["cofins_debit"] = self._money(cofins)
+            csll = extract_text(tribFed, "vRetCSLL")
+            if tp_ret_pis_cofins == "1":
+                federal_taxes["social_contribution"] = self._money(
+                    str(to_float(csll) + to_float(pis) + to_float(cofins))
+                )
+                federal_taxes["pis_debit"] = self._money("0")
+                federal_taxes["cofins_debit"] = self._money("0")
+            else:
+                federal_taxes["social_contribution"] = self._money(csll)
+                federal_taxes["pis_debit"] = self._money(pis)
+                federal_taxes["cofins_debit"] = self._money(cofins)
 
         # Tributação IBS/CBS: grupos da DPS (CST/cClassTrib/cIndOp) e da
         # NFS-e (valores e totais calculados).
@@ -893,8 +899,9 @@ class Danfse(xFPDF):
         height = font_size * 0.25
         x_center = (self.w - width) / 2
         y_center = (self.h + height) / 2
-        with self.local_context(fill_opacity=0.35), self.rotation(
-            55, x_center + (width / 2), y_center - (height / 2)
+        with (
+            self.local_context(fill_opacity=0.35),
+            self.rotation(55, x_center + (width / 2), y_center - (height / 2)),
         ):
             self.text(x_center, y_center, watermark_text)
 

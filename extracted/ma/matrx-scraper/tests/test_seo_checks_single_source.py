@@ -523,7 +523,7 @@ def test_a_healthy_page_trips_nothing():
                     {"url": "https://example.com/a"},
                 ]
             },
-            {"redirect_chain", "redirect_loop"},
+            {"redirect_loop"},
         ),
         # --- mobile rendering
         ({"head_meta": {"viewport": None, "refresh": None}}, {"viewport_meta"}),

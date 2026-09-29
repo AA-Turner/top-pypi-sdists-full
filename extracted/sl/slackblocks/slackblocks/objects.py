@@ -6,12 +6,46 @@ See: <https://api.slack.com/reference/block-kit/composition-objects>.
 
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from json import dumps
-from typing import Any, Literal, TypeAlias, cast, overload
+from typing import Any, Literal, TypeAlias, cast, get_args, overload
 
 from slackblocks._core import RenderableMixin, omit_none, resolve
+from slackblocks._limits import (
+    CONFIRMATION_CONFIRM_MAX_LENGTH,
+    CONFIRMATION_DENY_MAX_LENGTH,
+    CONFIRMATION_TEXT_MAX_LENGTH,
+    CONFIRMATION_TITLE_MAX_LENGTH,
+    CONVERSATION_FILTER_INCLUDE_MIN_ITEMS,
+    DATA_TABLE_CELL_TEXT_MIN_LENGTH,
+    DATA_VISUALIZATION_AXIS_LABEL_MAX_LENGTH,
+    DATA_VISUALIZATION_CATEGORIES_MAX_ITEMS,
+    DATA_VISUALIZATION_CATEGORIES_MIN_ITEMS,
+    DATA_VISUALIZATION_CATEGORY_LABEL_MAX_LENGTH,
+    DATA_VISUALIZATION_DATA_MAX_ITEMS,
+    DATA_VISUALIZATION_DATA_MIN_ITEMS,
+    DATA_VISUALIZATION_POINT_LABEL_MAX_LENGTH,
+    DATA_VISUALIZATION_SEGMENT_LABEL_MAX_LENGTH,
+    DATA_VISUALIZATION_SEGMENT_VALUE_EXCLUSIVE_MIN,
+    DATA_VISUALIZATION_SEGMENTS_MAX_ITEMS,
+    DATA_VISUALIZATION_SEGMENTS_MIN_ITEMS,
+    DATA_VISUALIZATION_SERIES_MAX_ITEMS,
+    DATA_VISUALIZATION_SERIES_MIN_ITEMS,
+    DATA_VISUALIZATION_SERIES_NAME_MAX_LENGTH,
+    DISPATCH_ACTION_CONFIGURATION_TRIGGER_ACTIONS_ON_MAX_ITEMS,
+    DISPATCH_ACTION_CONFIGURATION_TRIGGER_ACTIONS_ON_MIN_ITEMS,
+    OPTION_DESCRIPTION_MAX_LENGTH,
+    OPTION_GROUP_LABEL_MAX_LENGTH,
+    OPTION_GROUP_OPTIONS_MAX_ITEMS,
+    OPTION_GROUP_OPTIONS_MIN_ITEMS,
+    OPTION_TEXT_MAX_LENGTH,
+    OPTION_URL_MAX_LENGTH,
+    OPTION_VALUE_MAX_LENGTH,
+    TEXT_MAX_LENGTH,
+    TEXT_MIN_LENGTH,
+)
 from slackblocks.errors import (
     InvalidUsageError,
     LengthError,
@@ -108,7 +142,9 @@ class Text(CompositionObject):
     ) -> None:
         super().__init__(type_=CompositionObjectType.TEXT)
         self.text_type = type_
-        self.text = validate_string_nonnull(text, field_name="text", min_length=1, max_length=3000)
+        self.text = validate_string_nonnull(
+            text, field_name="text", min_length=TEXT_MIN_LENGTH, max_length=TEXT_MAX_LENGTH
+        )
         if self.text_type == TextType.MARKDOWN:
             self.verbatim = verbatim
             self.emoji = False
@@ -347,10 +383,16 @@ class ConfirmationDialogue(CompositionObject):
         deny: TextLike,
     ) -> None:
         super().__init__(type_=CompositionObjectType.CONFIRM)
-        self.title = Text.to_text_nonnull(title, max_length=100, force_plaintext=True)
-        self.text = Text.to_text_nonnull(text, max_length=300)
-        self.confirm = Text.to_text_nonnull(confirm, max_length=30, force_plaintext=True)
-        self.deny = Text.to_text_nonnull(deny, max_length=30, force_plaintext=True)
+        self.title = Text.to_text_nonnull(
+            title, max_length=CONFIRMATION_TITLE_MAX_LENGTH, force_plaintext=True
+        )
+        self.text = Text.to_text_nonnull(text, max_length=CONFIRMATION_TEXT_MAX_LENGTH)
+        self.confirm = Text.to_text_nonnull(
+            confirm, max_length=CONFIRMATION_CONFIRM_MAX_LENGTH, force_plaintext=True
+        )
+        self.deny = Text.to_text_nonnull(
+            deny, max_length=CONFIRMATION_DENY_MAX_LENGTH, force_plaintext=True
+        )
 
     def _resolve(self) -> dict[str, Any]:
         return resolve(
@@ -421,12 +463,17 @@ class Option(CompositionObject):
         url: str | None = None,
     ) -> None:
         super().__init__(type_=CompositionObjectType.OPTION)
-        self.text = Text.to_text_nonnull(text, max_length=75)
-        self.value = validate_string_nonnull(value, field_name="value", max_length=150)
-        self.description = Text.to_text(
-            description, max_length=75, force_plaintext=True, allow_none=True
+        self.text = Text.to_text_nonnull(text, max_length=OPTION_TEXT_MAX_LENGTH)
+        self.value = validate_string_nonnull(
+            value, field_name="value", max_length=OPTION_VALUE_MAX_LENGTH
         )
-        if url and len(url) > 3000:
+        self.description = Text.to_text(
+            description,
+            max_length=OPTION_DESCRIPTION_MAX_LENGTH,
+            force_plaintext=True,
+            allow_none=True,
+        )
+        if url and len(url) > OPTION_URL_MAX_LENGTH:
             raise LengthError("Option URLs must be less than 3000 characters")
         self.url = url
 
@@ -485,12 +532,14 @@ class OptionGroup(CompositionObject):
 
     def __init__(self, label: TextLike, options: list[Option]) -> None:
         super().__init__(type_=CompositionObjectType.OPTION_GROUP)
-        self.label = Text.to_text(label, max_length=75, force_plaintext=True)
+        self.label = Text.to_text(
+            label, max_length=OPTION_GROUP_LABEL_MAX_LENGTH, force_plaintext=True
+        )
         self.options: list[Option] = coerce_to_list_nonnull(
             options,
             class_=Option,
-            min_size=1,
-            max_size=100,
+            min_size=OPTION_GROUP_OPTIONS_MIN_ITEMS,
+            max_size=OPTION_GROUP_OPTIONS_MAX_ITEMS,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -527,15 +576,25 @@ class DispatchActionConfiguration(CompositionObject):
             a `block_actions` payload. One or both of `on_enter_pressed`, `on_character_entered`.
 
     Throws:
+        MissingRequiredError: if `trigger_actions_on` is not provided.
         InvalidUsageError: if an invalid value is provided amongst the options for
             `trigger_actions_on`.
     """
 
     def __init__(self, trigger_actions_on: str | list[str] | None = None) -> None:
         super().__init__(type_=CompositionObjectType.DISPATCH)
+        if trigger_actions_on is None:
+            raise MissingRequiredError("`trigger_actions_on` is required")
         trigger_actions_on = trigger_actions_on or []
         self.trigger_actions_on = list(
-            set(coerce_to_list_nonnull(trigger_actions_on, str, min_size=1, max_size=2))
+            set(
+                coerce_to_list_nonnull(
+                    trigger_actions_on,
+                    str,
+                    min_size=DISPATCH_ACTION_CONFIGURATION_TRIGGER_ACTIONS_ON_MIN_ITEMS,
+                    max_size=DISPATCH_ACTION_CONFIGURATION_TRIGGER_ACTIONS_ON_MAX_ITEMS,
+                )
+            )
         )
         for trigger in self.trigger_actions_on:
             if trigger not in ALLOWABLE_TRIGGERS:
@@ -569,7 +628,7 @@ class ConversationFilter(CompositionObject):
 
     Args:
         include: Which types of conversations to include in the list.
-            One of more of `im`, `mpim`, `private`, `public`.
+            One or more of `im`, `mpim`, `private`, `public` (cannot be empty).
         exclude_external_shared_channels: whether to remove shared public channels
             from the list. See <https://api.slack.com/enterprise/shared-channels>.
         exclude_bot_users: whether to remove bot users from the list of conversations.
@@ -586,14 +645,27 @@ class ConversationFilter(CompositionObject):
         exclude_bot_users: bool | None = None,
     ) -> None:
         super().__init__(type_=CompositionObjectType.FILTER)
-        if not (
-            include or exclude_external_shared_channels is not None or exclude_bot_users is not None
+        if (
+            include is None
+            and exclude_external_shared_channels is None
+            and exclude_bot_users is None
         ):
             raise MissingRequiredError(
                 "One of `include`, `exclude_external_shared_channels`, or "
                 "`exclude_bot_users` is required."
             )
-        self.include = coerce_to_list(cast("str | list[str] | None", include), str, allow_none=True)
+        self.include = coerce_to_list(
+            cast("str | list[str] | None", include),
+            str,
+            allow_none=True,
+            min_size=CONVERSATION_FILTER_INCLUDE_MIN_ITEMS,
+        )
+        for conversation_type in self.include or []:
+            if conversation_type not in get_args(ConversationType):
+                raise TypeMismatchError(
+                    f"Unknown conversation type {conversation_type!r} in `include`; "
+                    f"expected one of {list(get_args(ConversationType))}."
+                )
         self.exclude_external_shared_channels = exclude_external_shared_channels
         self.exclude_bot_users = exclude_bot_users
 
@@ -656,6 +728,9 @@ class InputParameter(CompositionObject):
         return cls(name=data["name"], value=data["value"])
 
 
+_SLACK_FILE_ID = re.compile(r"F[A-Z0-9]{8,}")
+
+
 class SlackFile(CompositionObject):
     """
     Defines an object containing Slack file information to be used in an image
@@ -668,11 +743,11 @@ class SlackFile(CompositionObject):
     Args:
         url: the URL can be the `url_private` or the `permalink` of the Slack file
             (only one of `url` or `id` can be provided).
-        id: the Slack ID of the file
+        id: the Slack ID of the file, matching `^F[A-Z0-9]{8,}$`
             (only one of `url` or `id` can be provided).
 
     Throws:
-        InvalidUsageError: if both `url` and `id` are provided
+        InvalidUsageError: if both `url` and `id` are provided, or `id` is malformed.
     """
 
     def __init__(
@@ -683,6 +758,8 @@ class SlackFile(CompositionObject):
         super().__init__(CompositionObjectType.SLACK_FILE)
         if url and id:
             raise MutualExclusivityError("Cannot provide both `url` and `id`.")
+        if id is not None and not _SLACK_FILE_ID.fullmatch(id):
+            raise TypeMismatchError(f"Slack file `id` {id!r} must match ^F[A-Z0-9]{{8,}}$.")
         self.url = url
         self.id = id
 
@@ -865,7 +942,9 @@ class RawNumber(RenderableMixin):
             raise TypeMismatchError("`value` must be a number.")
         self.type = "raw_number"
         self.value = value
-        self.text = validate_string_nonnull(text, field_name="text", min_length=1)
+        self.text = validate_string_nonnull(
+            text, field_name="text", min_length=DATA_TABLE_CELL_TEXT_MIN_LENGTH
+        )
 
     def _resolve(self) -> dict[str, Any]:
         return {"type": self.type, "value": self.value, "text": self.text}
@@ -998,10 +1077,13 @@ class SlackIcon(RenderableMixin):
             (see `SlackIconName` for the full list of valid names).
 
     Throws:
+        MissingRequiredError: if `name` is `None`.
         TypeMismatchError: if `name` is not a recognised Slack icon name.
     """
 
     def __init__(self, name: SlackIconName) -> None:
+        if name is None:
+            raise MissingRequiredError("SlackIcon requires a `name`.")
         if name not in _SLACK_ICON_NAMES:
             raise TypeMismatchError(f"Unknown Slack icon name: {name!r}.")
         self.type = "icon"
@@ -1027,10 +1109,12 @@ class ChartSegment(RenderableMixin):
     """
 
     def __init__(self, label: str, value: int | float) -> None:
-        self.label = validate_string_nonnull(label, "label", min_length=1, max_length=20)
+        self.label = validate_string_nonnull(
+            label, "label", min_length=1, max_length=DATA_VISUALIZATION_SEGMENT_LABEL_MAX_LENGTH
+        )
         if isinstance(value, bool) or not isinstance(value, int | float):
             raise TypeMismatchError("`value` must be a number.")
-        if value <= 0:
+        if value <= DATA_VISUALIZATION_SEGMENT_VALUE_EXCLUSIVE_MIN:
             raise RangeError("`value` must be greater than 0.")
         self.value = value
 
@@ -1057,7 +1141,9 @@ class DataPoint(RenderableMixin):
     """
 
     def __init__(self, label: str, value: int | float) -> None:
-        self.label = validate_string_nonnull(label, "label", min_length=1, max_length=20)
+        self.label = validate_string_nonnull(
+            label, "label", min_length=1, max_length=DATA_VISUALIZATION_POINT_LABEL_MAX_LENGTH
+        )
         if isinstance(value, bool) or not isinstance(value, int | float):
             raise TypeMismatchError("`value` must be a number.")
         self.value = value
@@ -1083,9 +1169,14 @@ class DataSeries(RenderableMixin):
     """
 
     def __init__(self, name: str, data: list[DataPoint]) -> None:
-        self.name = validate_string_nonnull(name, "name", min_length=1, max_length=20)
+        self.name = validate_string_nonnull(
+            name, "name", min_length=1, max_length=DATA_VISUALIZATION_SERIES_NAME_MAX_LENGTH
+        )
         self.data: list[DataPoint] = coerce_to_list_nonnull(
-            data, DataPoint, min_size=1, max_size=20
+            data,
+            DataPoint,
+            min_size=DATA_VISUALIZATION_DATA_MIN_ITEMS,
+            max_size=DATA_VISUALIZATION_DATA_MAX_ITEMS,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -1115,16 +1206,28 @@ class AxisConfig(RenderableMixin):
         y_label: str | None = None,
     ) -> None:
         self.categories: list[str] = coerce_to_list_nonnull(
-            categories, str, min_size=1, max_size=20
+            categories,
+            str,
+            min_size=DATA_VISUALIZATION_CATEGORIES_MIN_ITEMS,
+            max_size=DATA_VISUALIZATION_CATEGORIES_MAX_ITEMS,
         )
         self.categories = [
-            validate_string_nonnull(category, "category", min_length=1, max_length=20)
+            validate_string_nonnull(
+                category,
+                "category",
+                min_length=1,
+                max_length=DATA_VISUALIZATION_CATEGORY_LABEL_MAX_LENGTH,
+            )
             for category in self.categories
         ]
         if len(set(self.categories)) != len(self.categories):
             raise InvalidUsageError("`categories` must contain unique labels.")
-        self.x_label = validate_string(x_label, "x_label", max_length=50, allow_none=True)
-        self.y_label = validate_string(y_label, "y_label", max_length=50, allow_none=True)
+        self.x_label = validate_string(
+            x_label, "x_label", max_length=DATA_VISUALIZATION_AXIS_LABEL_MAX_LENGTH, allow_none=True
+        )
+        self.y_label = validate_string(
+            y_label, "y_label", max_length=DATA_VISUALIZATION_AXIS_LABEL_MAX_LENGTH, allow_none=True
+        )
 
     def _resolve(self) -> dict[str, Any]:
         return resolve(
@@ -1153,7 +1256,10 @@ class PieChart(RenderableMixin):
     def __init__(self, segments: list[ChartSegment]) -> None:
         self.type = "pie"
         self.segments: list[ChartSegment] = coerce_to_list_nonnull(
-            segments, ChartSegment, min_size=1, max_size=12
+            segments,
+            ChartSegment,
+            min_size=DATA_VISUALIZATION_SEGMENTS_MIN_ITEMS,
+            max_size=DATA_VISUALIZATION_SEGMENTS_MAX_ITEMS,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -1164,7 +1270,10 @@ class _AxisChart(RenderableMixin):
     def __init__(self, type_: str, series: list[DataSeries], axis_config: AxisConfig) -> None:
         self.type = type_
         self.series: list[DataSeries] = coerce_to_list_nonnull(
-            series, DataSeries, min_size=1, max_size=12
+            series,
+            DataSeries,
+            min_size=DATA_VISUALIZATION_SERIES_MIN_ITEMS,
+            max_size=DATA_VISUALIZATION_SERIES_MAX_ITEMS,
         )
         self.axis_config = validate_type(axis_config, AxisConfig, "axis_config")
         if len({item.name for item in self.series}) != len(self.series):

@@ -1,9 +1,10 @@
 from http.cookiejar import CookieJar
+from io import BytesIO
 
 import pytest
 
 from geventhttpclient.header import Headers
-from geventhttpclient.useragent import BadStatusCode, UserAgent
+from geventhttpclient.useragent import BadStatusCode, UserAgent, _encode_multipart_formdata
 from tests.common import HTTPBIN_HOST, LISTENER_URL, check_upload, wsgiserver
 
 
@@ -33,6 +34,22 @@ def check_redirect():
             assert path_info == "/redirected"
             start_response("200 OK", [])
             return [b"redirected"]
+
+    return wsgi_handler
+
+
+def check_redirect_308():
+    def wsgi_handler(env, start_response):
+        path_info = env.get("PATH_INFO")
+        if path_info == "/":
+            start_response(
+                "308 Permanent Redirect", [("Location", LISTENER_URL + "redirected_308")]
+            )
+            return []
+        else:
+            assert path_info == "/redirected_308"
+            start_response("200 OK", [])
+            return [b"redirected_308"]
 
     return wsgi_handler
 
@@ -183,11 +200,52 @@ def test_multipart_mixed(tmp_file):
             useragent.urlopen(LISTENER_URL, method="POST", files=files, bla="sometext")
 
 
+def test_multipart_boundary_none_in_5_tuple():
+    """A 5-tuple with boundary=None must yield a consistent random boundary."""
+    body, content_type = _encode_multipart_formdata(
+        {"file": ("a.txt", BytesIO(b"hi"), None, None, None)}, None
+    )
+    boundary = content_type.rsplit("=", 1)[1]
+    assert boundary != "None"
+    assert body.startswith(b"--%s\r\n" % boundary.encode())
+    assert body.endswith(b"--%s--\r\n" % boundary.encode())
+
+
+def test_multipart_two_custom_boundaries_first_wins():
+    """Header and body must use the same boundary when files disagree."""
+    body, content_type = _encode_multipart_formdata(
+        [
+            ("f1", ("a.txt", BytesIO(b"hi"), None, None, "first")),
+            ("f2", ("b.txt", BytesIO(b"ho"), None, None, "second")),
+        ],
+        None,
+    )
+    assert content_type == "multipart/form-data; boundary=first"
+    assert body.startswith(b"--first\r\n")
+    assert body.endswith(b"--first--\r\n")
+    assert b"second" not in body
+
+
+def test_multipart_too_long_tuple_raises():
+    """File tuples with more than 5 elements must raise a ValueError."""
+    with pytest.raises(ValueError):
+        _encode_multipart_formdata(
+            {"file": ("a.txt", BytesIO(b"hi"), None, None, "b", "extra")}, None
+        )
+
+
 def test_redirect():
     with wsgiserver(check_redirect()):
         resp = UserAgent().urlopen(LISTENER_URL)
         assert resp.status_code == 200
         assert b"redirected" == resp.content
+
+
+def test_redirect_308():
+    with wsgiserver(check_redirect_308()):
+        resp = UserAgent().urlopen(LISTENER_URL)
+        assert resp.status_code == 200
+        assert b"redirected_308" == resp.content
 
 
 def test_params():
@@ -221,9 +279,8 @@ def test_server_error_with_unicode():
 def test_server_error_with_file(tmp_file):
     with wsgiserver(internal_server_error()):
         useragent = UserAgent()
-        with pytest.raises(BadStatusCode):
-            with open(tmp_file, "rb") as body:
-                useragent.urlopen(LISTENER_URL, method="POST", payload=body)
+        with pytest.raises(BadStatusCode), open(tmp_file, "rb") as body:
+            useragent.urlopen(LISTENER_URL, method="POST", payload=body)
 
 
 def test_cookiejar():

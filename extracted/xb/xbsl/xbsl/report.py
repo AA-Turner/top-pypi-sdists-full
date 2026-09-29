@@ -107,7 +107,7 @@ def report(diags: list[Diagnostic], n_files: int) -> dict:
 COMPACT_FINDINGS_LIMIT = 10
 
 
-def compact(payload: dict, *, as_ci_full: bool = False) -> dict:
+def compact(payload: dict, *, as_ci_full: bool = False, list_info: bool = False) -> dict:
     """The payload of report() without its per-file map, and its findings held short.
 
     The summary keeps counts by rule and severity; the unbounded per-file map is available
@@ -120,14 +120,24 @@ def compact(payload: dict, *, as_ci_full: bool = False) -> dict:
     thousands over one project run. The errors alone always keep their full records, under
     `errors`, because an error is what a build fails on and the reader has to see which one.
 
+    The info-level findings are counted, not listed: `info_hint` gives their number and
+    rules, and `list_info` lists them with the rest. A project keeps a few such findings on
+    purpose, and a session of checks got the same lines with every answer - five of them
+    cost about two and a half kilobytes a call - while the question was about the errors
+    and warnings. They do not count towards the limit either.
+
     `as_ci`, under `summary` when the caller asked for it, narrows to one line - see
-    _compact_as_ci; `as_ci_full` keeps the whole record. Every other key of the payload (the
+    compact_as_ci; `as_ci_full` keeps the whole record. Every other key of the payload (the
     environment, the baseline record) stays as it was.
     """
     out = dict(payload)
     out["summary"] = compact_summary(payload["summary"], as_ci_full=as_ci_full)
     findings = out.pop("diagnostics", [])
     out["errors"] = [d for d in findings if d["severity"] == "error"]
+    info = [] if list_info else [d for d in findings if d["severity"] == "info"]
+    if info:
+        findings = [d for d in findings if d["severity"] != "info"]
+        out["info_hint"] = i18n.t("report.info-hint", count=len(info), rules=_tally(info))
     if len(findings) <= COMPACT_FINDINGS_LIMIT:
         out["findings"] = [_compact_finding(d) for d in findings]
     else:
@@ -146,7 +156,7 @@ def compact_summary(summary: dict, *, as_ci_full: bool = False) -> dict:
     out = {key: value for key, value in summary.items() if key != "by_file"}
     as_ci = out.get("as_ci")
     if as_ci is not None and not as_ci_full:
-        out["as_ci"] = _compact_as_ci(as_ci)
+        out["as_ci"] = compact_as_ci(as_ci)
     return out
 
 
@@ -176,13 +186,25 @@ def short(diagnostics: list[Diagnostic], files: int) -> dict:
     return out
 
 
+#: _tally() names this many rules; the rest of them it counts.
+_TALLY_RULES = 3
+
+
+def _tally(findings: list[dict]) -> str:
+    """The rules of the findings with their counts, the largest first: "rule ×5, rule ×1"."""
+    counts = Counter(d["rule"] for d in findings).most_common()
+    named = ", ".join(f"{rule} ×{count}" for rule, count in counts[:_TALLY_RULES])
+    rest = len(counts) - _TALLY_RULES
+    return named if rest <= 0 else named + ", " + i18n.t("report.more-rules", count=rest)
+
+
 def _compact_finding(d: dict) -> str:
     """One line of a compact finding list: "path:line rule - message" (en dash - a message
     a reader sees, not a code comment)."""
     return f"{d['path']}:{d['line']} {d['rule']} – {d['message']}"
 
 
-def _compact_as_ci(job: dict) -> dict:
+def compact_as_ci(job: dict) -> dict:
     """`as_ci` (cijob.CiLint.as_dict()) as one line: `{"adopted": True, "brief": ...}`.
 
     The same record comes with every call of a session, and the full `flags` sentence with an

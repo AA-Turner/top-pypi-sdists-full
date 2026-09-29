@@ -3,10 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, List, Union
 
-from splink.internals.blocking import (
-    BlockingRule,
-    SaltedBlockingRule,
-)
+from splink.internals.blocking import BlockingRule
 from splink.internals.blocking_analysis import (
     _cumulative_comparisons_to_be_scored_from_blocking_rules,
 )
@@ -19,10 +16,7 @@ from splink.internals.m_training import estimate_m_values_from_label_column
 from splink.internals.misc import (
     ensure_is_iterable,
 )
-from splink.internals.pipeline import CTEPipeline
-from splink.internals.vertically_concatenate import (
-    compute_df_concat_with_tf,
-)
+from splink.internals.term_frequencies import ensure_term_frequencies_for_linker
 
 if TYPE_CHECKING:
     from splink.internals.linker import Linker
@@ -42,7 +36,7 @@ class LinkerTraining:
         self,
         deterministic_matching_rules: List[Union[str, BlockingRuleCreator]],
         recall: float,
-        max_rows_limit: int = int(1e9),
+        record_sample_proportion: float = 1.0,
     ) -> None:
         """Estimate the model parameter `probability_two_random_records_match` using
         a direct estimation approach.
@@ -66,8 +60,11 @@ class LinkerTraining:
             recall (float): An estimate of the recall the deterministic matching
                 rules will achieve, i.e., the proportion of all true matches these
                 rules will recover.
-            max_rows_limit (int): Maximum number of rows to consider during estimation.
-                Defaults to 1e9.
+            record_sample_proportion (float): The sampling proportion applied to
+                each side of the blocking join when counting deterministic matches.
+                Values below 1.0 estimate the number of observed matches from a
+                sample; 1.0 computes exact counts. Useful when working with very
+                large data. Defaults to 1.0.
 
         Examples:
             ```py
@@ -102,28 +99,26 @@ class LinkerTraining:
                 )
             )
 
-        pd_df = _cumulative_comparisons_to_be_scored_from_blocking_rules(
+        records = _cumulative_comparisons_to_be_scored_from_blocking_rules(
             splink_df_dict=self._linker._input_tables_dict,
             blocking_rules=blocking_rules,
             link_type=self._linker._settings_obj._link_type,
             db_api=self._linker._db_api,
-            max_rows_limit=max_rows_limit,
             unique_id_input_column=self._linker._settings_obj.column_info_settings.unique_id_input_column,
             source_dataset_input_column=self._linker._settings_obj.column_info_settings.source_dataset_input_column,
+            record_sample_proportion=record_sample_proportion,
         )
 
-        records = pd_df.to_dict(orient="records")
-
         summary_record = records[-1]
-        num_observed_matches = summary_record["cumulative_rows"]
-        num_total_comparisons = summary_record["cartesian"]
+        num_observed_matches = summary_record["cumulative_comparison_count"]
+        num_total_comparisons = summary_record["total_possible_comparison_count"]
 
         if num_observed_matches > num_total_comparisons * recall:
             raise ValueError(
                 f"Deterministic matching rules led to more "
                 f"observed matches than is consistent with supplied recall. "
                 f"With these rules, recall must be at least "
-                f"{num_observed_matches/num_total_comparisons:,.2f}."
+                f"{num_observed_matches / num_total_comparisons:,.2f}."
             )
 
         num_expected_matches = num_observed_matches / recall
@@ -138,7 +133,7 @@ class LinkerTraining:
                 f"If this is truly the case then you do not need "
                 f"to run the linkage model.\n"
                 f"However this is usually in error; "
-                f"expected rules to have recall of {100*recall:,.0f}%. "
+                f"expected rules to have recall of {100 * recall:,.0f}%. "
                 f"Consider revising rules as they may have an error."
             )
         if prob == 1:
@@ -155,7 +150,7 @@ class LinkerTraining:
 
         self._linker._settings_obj._probability_two_random_records_match = prob
 
-        reciprocal_prob = "Infinity" if prob == 0 else f"{1/prob:,.2f}"
+        reciprocal_prob = "Infinity" if prob == 0 else f"{1 / prob:,.2f}"
         logger.info(
             f"Probability two random records match is estimated to be  {prob:.3g}.\n"
             f"This means that amongst all possible pairwise record comparisons, one in "
@@ -166,7 +161,11 @@ class LinkerTraining:
         )
 
     def estimate_u_using_random_sampling(
-        self, max_pairs: float = 1e6, seed: int = None
+        self,
+        max_pairs: float = 1e6,
+        seed: int | None = None,
+        min_count_per_level: int | None = 100,
+        num_chunks: int = 10,
     ) -> None:
         """Estimate the u parameters of the linkage model using random sampling.
 
@@ -192,7 +191,13 @@ class LinkerTraining:
                 the final model is estimated.
             seed (int): Seed for random sampling. Assign to get reproducible u
                 probabilities. Note, seed for random sampling is only supported for
-                DuckDB and Spark, for Athena and SQLite set to None.
+                DuckDB and Spark, for SQLite set to None.
+            min_count_per_level (int | None): Minimum number of u observations
+                required for each comparison level before stopping estimation early.
+                If None, disables early stopping (all chunks are processed).
+                Defaults to 100.
+            num_chunks (int): Number of chunks to split the workload while estimating u.
+                If set to 1, disables the probe phase. Defaults to 10.
 
         Examples:
             ```py
@@ -212,7 +217,13 @@ class LinkerTraining:
                 "result in more accurate estimates, but with a longer run time."
             )
 
-        estimate_u_values(self._linker, max_pairs, seed)
+        estimate_u_values(
+            self._linker,
+            max_pairs=max_pairs,
+            seed=seed,
+            min_count_per_level=min_count_per_level,
+            num_chunks=num_chunks,
+        )
         self._linker._populate_m_u_from_trained_values()
 
         self._linker._settings_obj._columns_without_estimated_parameters_message()
@@ -225,6 +236,9 @@ class LinkerTraining:
         fix_m_probabilities: bool = False,
         fix_u_probabilities: bool = True,
         populate_probability_two_random_records_match_from_trained_values: bool = False,
+        *,
+        max_pairs: float | None = None,
+        record_sample_proportion: float = 0.01,
     ) -> EMTrainingSession:
         """Estimate the parameters of the linkage model using expectation maximisation.
 
@@ -267,6 +281,19 @@ class LinkerTraining:
                 probabilities after each iteration. Defaults to True.
             populate_probability_two_random_records_match_from_trained_values (bool, optional):
                 If True, derive this parameter from the blocked value. Defaults to False.
+            max_pairs (float, optional): If set, limit the approximate number of
+                blocked pairwise comparisons used in EM training to this value.
+                A preliminary record-sampled blocking pass is run to estimate the
+                full blocked-pair count, and a deterministic hash-based filter is
+                applied to the input records (independently on left and right sides)
+                so that the resulting blocked pair count is approximately
+                `max_pairs`. Defaults to None (no sampling).
+            record_sample_proportion (float, optional): Fraction of input records
+                sampled on each side of the preliminary blocking pass used to
+                estimate the full blocked-pair count when `max_pairs` is set. It
+                does not directly specify the final number of EM training pairs;
+                `max_pairs` remains the primary control for limiting EM training
+                size. Defaults to 0.01 (1%).
 
         Examples:
             ```py
@@ -281,16 +308,20 @@ class LinkerTraining:
                 session such as how parameters changed during the iteration history
 
         """  # noqa: E501
-        # Ensure this has been run on the main linker so that it's in the cache
-        # to be used by the training linkers
-        pipeline = CTEPipeline()
-        compute_df_concat_with_tf(self._linker, pipeline)
+        if not 0 < record_sample_proportion <= 1:
+            raise ValueError(
+                "record_sample_proportion must be in (0, 1]; got "
+                f"{record_sample_proportion!r}"
+            )
+
+        # Ensure TF lookups exist on the main linker so training linkers can reuse them.
+        ensure_term_frequencies_for_linker(self._linker)
 
         blocking_rule_obj = to_blocking_rule_creator(blocking_rule).get_blocking_rule(
             self._linker._sql_dialect_str
         )
 
-        if not isinstance(blocking_rule_obj, (BlockingRule, SaltedBlockingRule)):
+        if not isinstance(blocking_rule_obj, (BlockingRule)):
             raise TypeError(
                 "EM blocking rules must be plain blocking rules, not "
                 "exploding blocking rules"
@@ -307,6 +338,8 @@ class LinkerTraining:
             fix_m_probabilities=fix_m_probabilities,
             fix_probability_two_random_records_match=fix_probability_two_random_records_match,
             estimate_without_term_frequencies=estimate_without_term_frequencies,
+            max_pairs=max_pairs,
+            probe_proportion=record_sample_proportion,
         )
 
         core_model_settings = em_training_session._train()
@@ -393,10 +426,8 @@ class LinkerTraining:
             Nothing: Updates the estimated m parameters within the linker object.
         """
 
-        # Ensure this has been run on the main linker so that it can be used by
-        # training linker when it checks the cache
-        pipeline = CTEPipeline()
-        compute_df_concat_with_tf(self._linker, pipeline)
+        # Ensure TF lookups exist on the main linker so training linkers can reuse them.
+        ensure_term_frequencies_for_linker(self._linker)
 
         estimate_m_values_from_label_column(
             self._linker,

@@ -145,3 +145,123 @@ def _a_test_process_has_a_block_ledger():
         yield
     finally:
         sink_module.configure_block_sink(original)
+
+
+#: Fast values for the crawler's `crawl.*` knobs (OPENSEO-TOOLS-SPEC §10) in tests
+#: that are not about them: pacing opens at 1000 req/s (so the `_fast_pacing_knobs`
+#: floor is not overridden by the 1 req/s registry default) and a 429 without
+#: Retry-After pauses for 0 s. Tests ABOUT these behaviours bind their own values.
+FAST_CRAWL_KNOBS: dict[str, object] = {
+    "crawl.rate_limit_initial_interval_ms": 1,
+    "crawl.rate_limit_max_interval_s": 0.001,
+    "crawl.retry_after_default_s": 0,
+    "crawl.max_consecutive_429": 3,
+    "crawl.max_cooldown_minutes": 30,
+    "crawl.max_retries_per_url": 3,
+    "crawl.html_max_bytes": 1_048_576,
+    "crawl.link_first": True,
+}
+
+
+def bind_crawl_knobs(values: dict[str, object]) -> None:
+    """Bind the package knob reader to `values` for `crawl.*` keys; other keys
+    (parser thresholds) raise, so they keep their mirrored defaults."""
+    from matrx_scraper.parser.knobs import configure_parser_knobs
+
+    def _read(key: str) -> object:
+        if key in values:
+            return values[key]
+        raise KeyError(key)
+
+    configure_parser_knobs(_read)
+
+
+@pytest.fixture(autouse=True)
+def _fast_crawl_knobs():
+    from matrx_scraper.parser.knobs import configure_parser_knobs
+
+    bind_crawl_knobs(FAST_CRAWL_KNOBS)
+    yield
+    configure_parser_knobs(None)
+
+
+# ---------------------------------------------------------------------------
+# NO VISIBLE BROWSER, EVER, from this suite (2026-09-28: a full run on Arman's
+# Mac opened "Google Chrome for Testing" windows over and over on top of his
+# work). Every Playwright launch in every test is forced headless, and a test
+# whose code ASKED for a headed browser fails loudly — unless it is marked
+# `headed_request_expected` (it tests the headed code path's wiring; the launch
+# still runs headless). Session-wide, patched on the Playwright classes
+# themselves, so no code path can route around it.
+
+_HEADED_REQUESTS: list[str] = []
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "headed_request_expected: the code under test asks Playwright for a HEADED browser on "
+        "purpose; the suite still forces it headless and does not fail the test for asking",
+    )
+
+
+def _force_headless(method_name: str, original):
+    import functools
+    import inspect
+
+    def _record(kwargs: dict) -> dict:
+        if kwargs.get("headless") is False:
+            _HEADED_REQUESTS.append(method_name)
+        kwargs["headless"] = True
+        args = [a for a in (kwargs.get("args") or []) if not str(a).startswith("--headless=")]
+        if "args" in kwargs:
+            kwargs["args"] = args
+        return kwargs
+
+    if inspect.iscoroutinefunction(original):
+
+        @functools.wraps(original)
+        async def _async_launch(self, *args, **kwargs):
+            return await original(self, *args, **_record(kwargs))
+
+        return _async_launch
+
+    @functools.wraps(original)
+    def _sync_launch(self, *args, **kwargs):
+        return original(self, *args, **_record(kwargs))
+
+    return _sync_launch
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _no_visible_browser_ever():
+    try:
+        from playwright.async_api import BrowserType as AsyncBrowserType
+        from playwright.sync_api import BrowserType as SyncBrowserType
+    except ImportError:  # the browser extra is absent — nothing can launch
+        yield
+        return
+    saved = []
+    for cls in (AsyncBrowserType, SyncBrowserType):
+        for name in ("launch", "launch_persistent_context"):
+            original = getattr(cls, name)
+            saved.append((cls, name, original))
+            setattr(cls, name, _force_headless(f"{cls.__module__}.{name}", original))
+    yield
+    for cls, name, original in saved:
+        setattr(cls, name, original)
+
+
+@pytest.fixture(autouse=True)
+def _fail_on_headed_request(request: pytest.FixtureRequest):
+    _HEADED_REQUESTS.clear()
+    yield
+    asked = list(_HEADED_REQUESTS)
+    _HEADED_REQUESTS.clear()
+    if asked and request.node.get_closest_marker("headed_request_expected") is None:
+        pytest.fail(
+            f"this test's code asked Playwright for a HEADED (visible) browser ({asked}); the "
+            "suite forced it headless. Make the code path headless, or mark the test "
+            "`headed_request_expected` if it deliberately tests the headed wiring.",
+            pytrace=False,
+        )

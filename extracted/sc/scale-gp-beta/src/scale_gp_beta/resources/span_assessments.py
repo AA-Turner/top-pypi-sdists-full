@@ -83,10 +83,10 @@ class SpanAssessmentsResource(SyncAPIResource):
         accompany any type. trace_id is required, while span_id is optional and, when
         omitted, the assessment is attached to the trace's root span. The call returns
         404 if the given span_id and trace_id do not identify an existing span, or if no
-        root span is found for the trace. At most one user per span may hold an
-        overwrite assessment, so creating an overwrite for a span another user has
-        already overwritten returns 409. Use the list endpoint to read a span's or
-        trace's existing assessments.
+        root span is found for the trace. Creating an overwrite for a span that already
+        holds a live overwrite returns 409, whether that overwrite is yours or another
+        user's. Update or delete the existing one instead. Use the list endpoint to read
+        a span's or trace's existing assessments.
 
         Args:
           assessment_type: Type of assessment
@@ -197,13 +197,14 @@ class SpanAssessmentsResource(SyncAPIResource):
         """
         Update the content of an existing span assessment.
 
-        Only the assessment's original creator may update it; a request from any other
-        identity returns 403. Supplied fields overwrite the stored values and the merged
-        result is re-validated against the assessment's type, so the content must stay
-        consistent with assessment_type (the matching content field present and no
-        conflicting fields set) or the call returns 422. The span and trace an
-        assessment is attached to cannot be changed through this endpoint. Returns 404
-        if no assessment with that id exists for the caller's account.
+        Only the assessment's original creator, or an account admin or manager, may
+        update it; a request from any other identity returns 403. Supplied fields
+        overwrite the stored values and the merged result is re-validated against the
+        assessment's type, so the content must stay consistent with assessment_type (the
+        matching content field present and no conflicting fields set) or the call
+        returns 422. The span and trace an assessment is attached to cannot be changed
+        through this endpoint. Returns 404 if no assessment with that id exists for the
+        caller's account.
 
         Args:
           approval: Approval status (approved/rejected)
@@ -324,9 +325,11 @@ class SpanAssessmentsResource(SyncAPIResource):
         """
         Permanently delete a span assessment by its identifier.
 
-        This is a hard delete: the assessment row is removed rather than archived, so it
-        cannot be restored afterward. The response echoes the deleted assessment's id.
-        Returns 404 if no assessment with that id exists for the caller's account.
+        Only the assessment's original creator, or an account admin or manager, may
+        delete it; a request from any other identity returns 403. This is a hard delete:
+        the assessment row is removed rather than archived, so it cannot be restored
+        afterward. The response echoes the deleted assessment's id. Returns 404 if no
+        assessment with that id exists for the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -398,10 +401,10 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         accompany any type. trace_id is required, while span_id is optional and, when
         omitted, the assessment is attached to the trace's root span. The call returns
         404 if the given span_id and trace_id do not identify an existing span, or if no
-        root span is found for the trace. At most one user per span may hold an
-        overwrite assessment, so creating an overwrite for a span another user has
-        already overwritten returns 409. Use the list endpoint to read a span's or
-        trace's existing assessments.
+        root span is found for the trace. Creating an overwrite for a span that already
+        holds a live overwrite returns 409, whether that overwrite is yours or another
+        user's. Update or delete the existing one instead. Use the list endpoint to read
+        a span's or trace's existing assessments.
 
         Args:
           assessment_type: Type of assessment
@@ -512,13 +515,14 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         """
         Update the content of an existing span assessment.
 
-        Only the assessment's original creator may update it; a request from any other
-        identity returns 403. Supplied fields overwrite the stored values and the merged
-        result is re-validated against the assessment's type, so the content must stay
-        consistent with assessment_type (the matching content field present and no
-        conflicting fields set) or the call returns 422. The span and trace an
-        assessment is attached to cannot be changed through this endpoint. Returns 404
-        if no assessment with that id exists for the caller's account.
+        Only the assessment's original creator, or an account admin or manager, may
+        update it; a request from any other identity returns 403. Supplied fields
+        overwrite the stored values and the merged result is re-validated against the
+        assessment's type, so the content must stay consistent with assessment_type (the
+        matching content field present and no conflicting fields set) or the call
+        returns 422. The span and trace an assessment is attached to cannot be changed
+        through this endpoint. Returns 404 if no assessment with that id exists for the
+        caller's account.
 
         Args:
           approval: Approval status (approved/rejected)
@@ -639,9 +643,11 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         """
         Permanently delete a span assessment by its identifier.
 
-        This is a hard delete: the assessment row is removed rather than archived, so it
-        cannot be restored afterward. The response echoes the deleted assessment's id.
-        Returns 404 if no assessment with that id exists for the caller's account.
+        Only the assessment's original creator, or an account admin or manager, may
+        delete it; a request from any other identity returns 403. This is a hard delete:
+        the assessment row is removed rather than archived, so it cannot be restored
+        afterward. The response echoes the deleted assessment's id. Returns 404 if no
+        assessment with that id exists for the caller's account.
 
         Args:
           extra_headers: Send extra headers

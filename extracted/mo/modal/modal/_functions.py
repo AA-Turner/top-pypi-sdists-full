@@ -1,5 +1,6 @@
 # Copyright Modal Labs 2023
 import asyncio
+import copy
 import dataclasses
 import inspect
 import time
@@ -8,14 +9,16 @@ import warnings
 from collections import OrderedDict
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Collection, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import typing_extensions
 from google.protobuf.message import Message
 from grpclib import Status
 from synchronicity.combined_types import MethodWithAio
 
+from modal._utils.logger import logger
 from modal_proto import api_pb2
 from modal_proto.modal_api_grpc import ModalClientModal
 
@@ -45,8 +48,8 @@ from ._utils.async_utils import (
     synchronizer,
     warn_if_generator_is_not_consumed,
 )
+from ._utils.auth_token_manager import _AuthTokenManager
 from ._utils.blob_utils import MAX_ASYNC_OBJECT_SIZE_BYTES, MAX_OBJECT_SIZE_BYTES
-from ._utils.deprecation import with_deprecation_warning
 from ._utils.function_utils import (
     ATTEMPT_TIMEOUT_GRACE_PERIOD,
     OUTPUTS_TIMEOUT,
@@ -56,12 +59,13 @@ from ._utils.function_utils import (
     _process_result,
     _stream_function_call_data,
     get_function_type,
+    get_schedule_str,
     is_async,
     normalize_fractional_target_concurrency,
     parse_gpu_config,
     validate_target_concurrency,
 )
-from ._utils.grpc_utils import Retry, RetryWarningMessage
+from ._utils.grpc_utils import Retry, RetryWarningMessage, is_class_function_lookup_error
 from ._utils.mount_utils import validate_network_file_systems, validate_volumes, validate_volumes_by_object_id
 from .call_graph import InputInfo, _reconstruct_call_graph
 from .client import _Client
@@ -96,7 +100,15 @@ from .proxy import _Proxy
 from .retries import Retries, RetryManager
 from .schedule import Schedule
 from .secret import _Secret
-from .types import FunctionAutoscalerSettings, FunctionStats, ServerAutoscalerSettings
+from .types import (
+    CloudBucketMountInfo,
+    FunctionAutoscalerSettings,
+    FunctionCurrentStats,
+    FunctionInfo,
+    FunctionStats,
+    ServerAutoscalerSettings,
+    VolumeMountInfo,
+)
 from .volume import _Volume, _volume_to_mount_proto
 
 if TYPE_CHECKING:
@@ -149,8 +161,8 @@ class _Invocation:
         function_call_invocation_type: "api_pb2.FunctionCallInvocationType.ValueType",
         from_spawn_map: bool = False,
     ) -> "_Invocation":
-        assert client.stub
-        stub = client.stub
+        assert client._stub
+        stub = client._stub
 
         function_id = function.object_id
         item = await _create_input(
@@ -171,7 +183,7 @@ class _Invocation:
 
         if from_spawn_map:
             request.from_spawn_map = True
-            response = await client.stub.FunctionMap(
+            response = await client._stub.FunctionMap(
                 request,
                 retry=Retry(
                     max_retries=None,
@@ -186,7 +198,7 @@ class _Invocation:
                 ),
             )
         else:
-            response = await client.stub.FunctionMap(request)
+            response = await client._stub.FunctionMap(request)
 
         function_call_id = response.function_call_id
         if response.pipelined_inputs:
@@ -206,7 +218,7 @@ class _Invocation:
         request_put = api_pb2.FunctionPutInputsRequest(
             function_id=function_id, inputs=[item], function_call_id=function_call_id
         )
-        inputs_response: api_pb2.FunctionPutInputsResponse = await client.stub.FunctionPutInputs(request_put)
+        inputs_response: api_pb2.FunctionPutInputsResponse = await client._stub.FunctionPutInputs(request_put)
         processed_inputs = inputs_response.inputs
         if not processed_inputs:
             raise Exception("Could not create function call - the input queue seems to be full")
@@ -429,10 +441,10 @@ class _InputPlaneInvocation:
         input_plane_region: str,
         function_call_invocation_type: "api_pb2.FunctionCallInvocationType.ValueType",
     ) -> "_InputPlaneInvocation":
-        stub = await client.get_stub(input_plane_url)
+        stub = await client._get_stub(input_plane_url)
 
         function_id = function.object_id
-        control_plane_stub = client.stub
+        control_plane_stub = client._stub
         # Note: Blob upload is done on the control plane stub, not the input plane stub!
         input_item = await _create_input(
             args,
@@ -482,7 +494,7 @@ class _InputPlaneInvocation:
             # If we have a final output, return.
             if await_response.output.result.status in TERMINAL_STATUSES:
                 return await _process_result(
-                    await_response.output.result, await_response.output.data_format, self.client.stub, self.client
+                    await_response.output.result, await_response.output.data_format, self.client._stub, self.client
                 )
 
             # We have a failure (internal or application), so see if there are any retries left, and if so, retry.
@@ -501,7 +513,7 @@ class _InputPlaneInvocation:
 
             # No more retries left.
             return await _process_result(
-                await_response.output.result, await_response.output.data_format, self.client.stub, self.client
+                await_response.output.result, await_response.output.data_format, self.client._stub, self.client
             )
 
     async def _retry_input(self, metadata: list[tuple[str, str]]) -> str:
@@ -636,6 +648,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
     _options: _FunctionOptions
     _base_function: "_Function | None" = None
     _app_id: str | None = None
+    _function_info: FunctionInfo | None = None
 
     async def _get_log_query_data(self) -> _LogQueryData:
         await self.hydrate()
@@ -699,6 +712,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         is_builder_function: bool = False,
         is_auto_snapshot: bool = False,
         is_server: bool = False,
+        is_sessioned: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
         restrict_modal_access: bool = False,
@@ -720,6 +734,25 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         """
         # Needed to avoid circular imports
         from ._partial_function import _find_partial_methods_for_user_cls, _PartialFunctionFlags
+
+        experimental_options = dict(experimental_options or {})
+        if "fabric_size" in experimental_options:
+            if fabric_size is not None:
+                raise InvalidError(
+                    "Specify fabric_size only once, in experimental_options or the experimental decorator"
+                )
+            try:
+                fabric_size = int(experimental_options.pop("fabric_size"))
+            except ValueError:
+                raise InvalidError("fabric_size must be a positive integer") from None
+            if fabric_size <= 0:
+                raise InvalidError("fabric_size must be a positive integer")
+            if not cluster_size:
+                raise InvalidError("fabric_size requires @modal.clustered")
+            if cluster_size % fabric_size != 0:
+                raise InvalidError(
+                    f"fabric_size must evenly divide the cluster size ({cluster_size} % {fabric_size} != 0)"
+                )
 
         tag = info.get_tag()
 
@@ -807,6 +840,9 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             else:
                 validate_target_concurrency(target_concurrent_inputs, "target_inputs", allow_fractional=False)
                 target_concurrent_inputs_int = int(target_concurrent_inputs)
+
+        if cluster_size and batch_max_size:
+            raise InvalidError("Clustered Functions do not support dynamic batching.")
 
         # For clustered functions, container settings must be multiples of cluster_size
         if cluster_size is not None and cluster_size > 1:
@@ -931,11 +967,11 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             elif webhook_config:
                 req.webhook_config.CopyFrom(webhook_config)
 
-            response = await load_context.client.stub.FunctionPrecreate(req)
+            response = await load_context.client._stub.FunctionPrecreate(req)
             self._hydrate(response.function_id, load_context.client, response.handle_metadata)
 
         async def _load(self: _Function, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
-            with FunctionCreationStatus(tag) as function_creation_status:
+            with FunctionCreationStatus("Server" if is_server else "Function", tag) as function_creation_status:
                 timeout_secs = timeout
 
                 if app and app._is_interactive_ and not is_builder_function:
@@ -1069,6 +1105,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                     supported_output_formats=supported_output_formats,
                     http_config=http_config,
                     is_server=is_server,
+                    is_sessioned=is_sessioned,
                     routing_region=routing_region or "",
                 )
 
@@ -1093,8 +1130,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                         is_class=function_definition.is_class,
                         class_parameter_info=function_definition.class_parameter_info,
                         is_method=function_definition.is_method,
-                        use_function_id=function_definition.use_function_id,
-                        use_method_name=function_definition.use_method_name,
                         method_definitions=function_definition.method_definitions,
                         method_definitions_set=function_definition.method_definitions_set,
                         experimental_options=experimental_options or {},
@@ -1147,7 +1182,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                     existing_function_id=existing_object_id or "",
                 )
                 try:
-                    response: api_pb2.FunctionCreateResponse = await load_context.client.stub.FunctionCreate(request)
+                    response: api_pb2.FunctionCreateResponse = await load_context.client._stub.FunctionCreate(request)
                 except Exception as exc:
                     if "Received :status = '413'" in str(exc):
                         raise InvalidError(f"Function {info.function_name} is too large to deploy.")
@@ -1158,6 +1193,8 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             serve_mounts = {m for m in all_mounts if m.is_local()}
             serve_mounts |= image._serve_mounts
             obj._serve_mounts = frozenset(serve_mounts)
+            obj._function_info = FunctionInfo._from_function_proto(response.function_data)
+
             self._hydrate(response.function_id, load_context.client, response.handle_metadata)
 
         rep = f"Function({tag})"
@@ -1181,7 +1218,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
 
         # Used to check whether we should rebuild a modal.Image which uses `run_function`.
         gpus: list[str] = gpu if isinstance(gpu, list) else [gpu] if gpu else []
-        obj._build_args = dict(  # See get_build_def
+        obj._build_args = dict(
             secrets=repr(secrets),
             gpu_config=repr([parse_gpu_config(_gpu) for _gpu in gpus]),
             network_file_systems=repr(network_file_systems),
@@ -1193,13 +1230,79 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             obj._build_args["cloud"] = repr(cloud)
             obj._build_args["scheduler_placement"] = repr(scheduler_placement)
 
-        return obj
+        obj._function_info = FunctionInfo(
+            cpu=cpu,
+            memory_mib=memory,
+            gpus=[(parsed.gpu_type, parsed.count) for parsed in (parse_gpu_config(g) for g in gpus)],
+            ephemeral_disk_mib=ephemeral_disk,
+            timeout=timeout,
+            max_retries=retry_policy.retries if retry_policy else None,
+            nonpreemptible=nonpreemptible,
+            regions=None if region is None else [region] if isinstance(region, str) else list(region),
+            routing_region=routing_region,
+            cloud=cloud,
+            schedule=None if schedule is None else get_schedule_str(schedule.proto_message),
+            restrict_modal_access=restrict_modal_access,
+            block_network=block_network,
+            single_use_containers=single_use_containers,
+            volumes={
+                mount_path: VolumeMountInfo(vol._name, vol._object_id, False, None)
+                if vol._mount_options is None
+                else VolumeMountInfo(
+                    vol._name,
+                    vol._object_id,
+                    vol._mount_options.read_only,
+                    vol._mount_options.sub_path,
+                )
+                for mount_path, vol in validated_volumes_no_cloud_buckets
+            },
+            cloud_bucket_mounts={
+                cbm.mount_path: CloudBucketMountInfo._from_proto(cbm)
+                for cbm in cloud_bucket_mounts_to_proto(cloud_bucket_mounts, include_secrets=False)[0]
+            },
+            # We don't have any secret IDs yet as we are dehydrated, so we return the reprs instead
+            secrets=[repr(s) for s in secrets],
+            startup_timeout=startup_timeout,
+            _inner_server_info=FunctionInfo._InnerServerInfo(
+                server_url="",
+                port=http_config.port,
+                unauthenticated=http_config.unauthenticated,
+                h2_enabled=http_config.h2_enabled,
+                routing_region=http_config.proxy_regions[0] if http_config.proxy_regions else None,
+                sessioned=is_sessioned,
+                startup_timeout=http_config.startup_timeout,
+                exit_grace_period=http_config.exit_grace_period,
+            )
+            if http_config
+            else None,
+            web_info=FunctionInfo.WebInfo._from_proto("", webhook_config) if webhook_config else None,
+            method_names=list(method_definitions.keys()) if method_definitions is not None else None,
+            method_details={
+                name: (FunctionInfo.WebInfo._from_proto(method_def.web_url, method_def.webhook_config))
+                for name, method_def in method_definitions.items()
+                if method_def.webhook_config.type != api_pb2.WEBHOOK_TYPE_UNSPECIFIED
+            }
+            if method_definitions is not None
+            else None,
+            # todo(ayush): For anonymous Images, it would be very nice for this to print a repr for
+            # the image (e.g. Image.debian_slim().pip_install(...)) - this will require improvements
+            # to how we handle Image reprs though.
+            image_info=FunctionInfo.ImageInfo(image._name, image._object_id),
+            cluster_info=FunctionInfo.ClusterInfo(size=cluster_size, rdma=rdma or False, fabric_size=fabric_size)
+            if cluster_size
+            else None,
+            batching_info=FunctionInfo.BatchingInfo(max_batch_size=batch_max_size, wait_ms=batch_wait_ms)
+            if batch_max_size is not None and batch_wait_ms is not None
+            else None,
+            concurrency_info=FunctionInfo.ConcurrencyInfo(
+                max_inputs=max_concurrent_inputs,
+                target_inputs=target_concurrent_inputs_int if target_concurrent_inputs is not None else None,
+            )
+            if max_concurrent_inputs is not None or target_concurrent_inputs is not None
+            else None,
+        )
 
-    from_local = with_deprecation_warning(
-        (2026, 8, 26),
-        "`Function.from_local` is deprecated and will be removed in `modal` version 1.6.0",
-    )(_from_local)
-    """mdmd:hidden"""
+        return obj
 
     async def _update_autoscaler(
         self,
@@ -1216,7 +1319,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             scaledown_window=scaledown_window,
         )
         request = api_pb2.FunctionUpdateSchedulingParamsRequest(function_id=self.object_id, settings=settings)
-        response = await self.client.stub.FunctionUpdateSchedulingParams(request)
+        response = await self.client._stub.FunctionUpdateSchedulingParams(request)
 
         return FunctionAutoscalerSettings._from_proto(response.current_settings)
 
@@ -1241,7 +1344,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             validate_target_concurrency(target_concurrency, "target_concurrency", allow_fractional=True)
             settings.target_concurrency_float = normalize_fractional_target_concurrency(target_concurrency)
         request = api_pb2.FunctionUpdateSchedulingParamsRequest(function_id=self.object_id, settings=settings)
-        response = await self.client.stub.FunctionUpdateSchedulingParams(request)
+        response = await self.client._stub.FunctionUpdateSchedulingParams(request)
 
         return ServerAutoscalerSettings._from_proto(response.current_settings)
 
@@ -1319,19 +1422,24 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                 app_version=version or 0,
             )
             try:
-                response = await load_context.client.stub.FunctionGet(request)
+                response = await load_context.client._stub.FunctionGet(request)
             except NotFoundError as exc:
                 # refine the error message
                 env_context = (
                     f" (in the '{load_context.environment_name}' environment)" if load_context.environment_name else ""
                 )
-                raise NotFoundError(
-                    f"Lookup failed for Function '{name}' from the '{app_name}' app{env_context}: {exc}."
-                ) from None
+                msg = f"Lookup failed for Function '{name}' from the '{app_name}' app{env_context}: {exc}."
+                if is_class_function_lookup_error(exc):
+                    msg = (
+                        f"Function '{name}' from the '{app_name}' app{env_context} is a modal.Cls. "
+                        f"Use `modal.Cls.from_name` instead."
+                    )
+                raise NotFoundError(msg) from None
 
             print_server_warnings(response.server_warnings)
 
             self._hydrate(response.function_id, load_context.client, response.handle_metadata)
+            self._function_info = FunctionInfo._from_function_proto(response.function)
 
         environment_rep = (
             f", environment_name={load_context_overrides.environment_name!r}"
@@ -1341,6 +1449,72 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         rep = f"modal.Function.from_name('{app_name}', '{name}'{environment_rep})"
         return cls._from_loader(
             _load_remote, rep, skip_reload=True, hydrate_lazily=True, load_context_overrides=load_context_overrides
+        )
+
+    @classmethod
+    def _from_id(
+        cls,
+        function_id: str,
+        *,
+        load_context_overrides: LoadContext,
+        called_from: Literal["Function", "Server"] = "Function",
+    ):
+        # internal function lookup implementation that allows lookup of class "service functions"
+        # in addition to non-class functions
+        async def _load_remote(
+            self: _Function, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None
+        ):
+            request = api_pb2.FunctionGetByIdRequest(function_id=function_id)
+            try:
+                response = await load_context.client._stub.FunctionGetById(request)
+            except NotFoundError as exc:
+                # refine the error message
+                msg = f"Lookup failed for {called_from} '{function_id}': {exc}."
+                raise NotFoundError(msg) from None
+            if called_from == "Function" and (response.function.is_server or response.function.is_class):
+                if response.function.is_server:
+                    raise InvalidError(f"{function_id} is a Server. Use \n ``modal.Server.from_id('{function_id}')``")
+                raise InvalidError(f"{function_id} is a Cls and cannot be loaded with Function.from_id().")
+            if called_from == "Server" and not response.function.is_server:
+                if response.function.is_class:
+                    raise InvalidError(f"{function_id} is a Cls and cannot be loaded with Server.from_id().")
+                raise InvalidError(f"{function_id} is a Function. Use \n ``modal.Function.from_id('{function_id}')``")
+            self._hydrate(function_id, load_context.client, response.handle_metadata)
+            self._function_info = FunctionInfo._from_function_proto(response.function)
+
+        rep = f"modal.Function.from_id('{function_id}')"
+        return cls._from_loader(
+            _load_remote, rep, skip_reload=True, hydrate_lazily=True, load_context_overrides=load_context_overrides
+        )
+
+    @classmethod
+    def from_id(
+        cls: type["_Function"],
+        function_id: str,
+        *,
+        client: _Client | None = None,
+    ):
+        """Reference a Function from a deployed or running App by its ID.
+
+        This is a lazy method that defers hydrating the local
+        object with metadata from Modal servers until the first
+        time it is actually used.
+
+        Args:
+            function_id: ID of the function.
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A lazy `Function` handle.
+
+        Examples:
+            ```python
+            f = modal.Function.from_id("fu-123")
+            ```
+        """
+        return cls._from_id(
+            function_id,
+            load_context_overrides=LoadContext(client=client),
         )
 
     @classmethod
@@ -1393,15 +1567,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         )
 
     @property
-    @with_deprecation_warning(
-        (2026, 8, 26),
-        "`Function.tag` is deprecated and will be removed in `modal` version 1.6.0",
-    )
-    def tag(self) -> str:
-        """mdmd:hidden"""
-        return self._tag_
-
-    @property
     def _tag_(self) -> str:
         assert self._tag
         return self._tag
@@ -1414,38 +1579,49 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
 
         return self._app
 
-    @property
-    @with_deprecation_warning(
-        (2026, 8, 26),
-        "`Function.stub` is deprecated and will be removed in `modal` version 1.6.0",
-    )
-    def stub(self) -> "modal.app._App":
-        """mdmd:hidden"""
-        # Deprecated soon, only for backwards compatibility
-        return self.app
+    async def info(self, *, refresh: bool = False) -> FunctionInfo:
+        """Get an overview of a Function's resource requests, associated mounts, etc.
 
-    @property
-    @with_deprecation_warning(
-        (2026, 8, 26),
-        "`Function.info` is deprecated and will be removed in `modal` version 1.6.0",
-    )
-    def info(self) -> FunctionSourceInfo:
-        """mdmd:hidden"""
-        return self._source_info_
+        This method performs a network request to populate this information if the Function handle is
+        a remote lookup whose information has not yet been fetched (e.g. from `Function.from_name(...)`),
+        or if `refresh=True`.
+
+        Args:
+            refresh: Always perform a network request. Pass `refresh=True` to ensure that this method
+                returns the most up to date information.
+
+        Returns:
+            This returns a [`modal.types.FunctionInfo`](https://modal.com/docs/sdk/py/latest/types#FunctionInfo)
+            dataclass.
+        """
+
+        if self._function_info is not None and not refresh:
+            return self._function_info
+
+        # For some constructors, e.g. Function.from_name(), hydration will set self._function_info
+        if not self._is_hydrated:
+            await self.hydrate()
+
+        # Other constructors, such as `Function._new_hydrated()`, don't set self._function_info on
+        # hydration, so we have to do an RPC to get that information
+        if refresh or self._function_info is None:
+            # Accessing `.client` or `.object_id` here can't throw since we only get to this branch on a
+            # hydrated handle
+            response = await self.client._stub.FunctionGetById(
+                api_pb2.FunctionGetByIdRequest(
+                    function_id=self.object_id,
+                )
+            )
+
+            self._function_info = FunctionInfo._from_function_proto(response.function)
+
+        assert self._function_info is not None
+        return copy.deepcopy(self._function_info)
 
     @property
     def _source_info_(self) -> FunctionSourceInfo:
         assert self._source_info
         return self._source_info
-
-    @property
-    @with_deprecation_warning(
-        (2026, 8, 26),
-        "`Function.spec` is deprecated and will be removed in `modal` version 1.6.0",
-    )
-    def spec(self) -> _FunctionSpec:
-        """mdmd:hidden"""
-        return self._spec_
 
     @property
     def _spec_(self) -> _FunctionSpec:
@@ -1463,12 +1639,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         assert hasattr(self, "_raw_f") and hasattr(self, "_build_args") and self._raw_f is not None
         return f"{inspect.getsource(self._raw_f)}\n{repr(self._build_args)}"
 
-    get_build_def = with_deprecation_warning(
-        (2026, 8, 26),
-        "`Function.get_build_def` is deprecated and will be removed in `modal` version 1.6.0",
-    )(_get_build_def)
-    """mdmd:hidden"""
-
     # Live handle methods
 
     def _initialize_from_empty(self):
@@ -1481,6 +1651,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         self._serve_mounts = frozenset()
         self._metadata = None
         self._experimental_flash_urls = None
+        self._flash_token_manager = None
         self._options = _FunctionOptions()
         self._base_function = None
 
@@ -1495,6 +1666,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             f"{type(metadata)} is not FunctionHandleMetadata"
         )
         self._metadata = metadata
+        self._flash_token_manager = None
         # TODO: replace usage of all below with direct ._metadata access
         self._is_generator = metadata.function_type == api_pb2.Function.FUNCTION_TYPE_GENERATOR
         self._web_url = metadata.web_url
@@ -1575,6 +1747,17 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             Flash service URLs when configured, or `None`.
         """
         return list(self._experimental_flash_urls) if self._experimental_flash_urls else None
+
+    async def _fetch_flash_auth_token(self, retry: Retry) -> str:
+        resp = await self.client._stub.FunctionGetFlashAuthToken(
+            api_pb2.FunctionGetFlashAuthTokenRequest(function_id=self.object_id), retry=retry
+        )
+        return resp.token
+
+    async def _get_flash_auth_token(self) -> str:
+        if self._flash_token_manager is None:
+            self._flash_token_manager = _AuthTokenManager(self.client._stub, fetch=self._fetch_flash_auth_token)
+        return await self._flash_token_manager.get_token()
 
     def _apply_dynamic_config(
         self,
@@ -1714,15 +1897,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         """
         options = _FunctionOptions.new(batch_max_size=max_batch_size, batch_wait_ms=wait_ms)
         return self._apply_dynamic_config(options, "with_batching")
-
-    @property
-    @with_deprecation_warning(
-        (2026, 8, 26),
-        "`Function.is_generator` is deprecated and will be removed in `modal` version 1.6.0",
-    )
-    async def is_generator(self) -> bool:
-        """mdmd:hidden"""
-        return await self._is_generator_
 
     @property
     async def _is_generator_(self) -> bool:
@@ -2059,40 +2233,72 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         fc._function_id = self.object_id
         return fc
 
-    @with_deprecation_warning(
-        (2026, 8, 26),
-        "`Function.get_raw_f` is deprecated and will be removed in `modal` version 1.6.0",
-    )
-    def get_raw_f(self) -> Callable[..., Any]:
-        """Return the inner Python object wrapped by this Modal Function.
-
-        Returns:
-            The original function object registered with Modal.
-        """
-        return self._raw_f_
-
     @property
     def _raw_f_(self) -> Callable[..., Any]:
         assert self._raw_f is not None
         return self._raw_f
 
     @live_method
-    async def get_current_stats(self) -> FunctionStats:
-        """Return a `FunctionStats` object describing the current function's queue and runner counts.
+    async def get_current_stats(self) -> FunctionCurrentStats:
+        """Return a snapshot of the Function's current input and container state.
 
         Returns:
-            Snapshot counts for backlog, runners, and running inputs.
+            A `FunctionCurrentStats` object containing live input and container counts.
         """
-        resp = await self.client.stub.FunctionGetCurrentStats(
+        resp = await self.client._stub.FunctionGetCurrentStats(
             api_pb2.FunctionGetCurrentStatsRequest(function_id=self.object_id),
             retry=Retry(total_timeout=10.0),
         )
-        return FunctionStats(
+        return FunctionCurrentStats(
             backlog=resp.backlog,
             num_total_runners=resp.num_total_tasks,
             num_running_inputs=resp.num_running_inputs,
             input_headroom=resp.input_headroom,
         )
+
+    @live_method
+    async def stats(
+        self,
+        *,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        container: str | None = None,
+        all_variants: bool = False,
+    ) -> FunctionStats:
+        """Return statistics for a modal Function.
+
+        The default time range is the most recent hour. The maximum time range is 7 days.
+
+        Args:
+            since: The beginning of the time range, inclusive. If omitted, this defaults to an hour before `until`.
+               Values without a timezone are interpeted as local time.
+            until: The end of the time range, exclusive. If omitted, this defaults to current time.
+                Values without a timezone are interpeted as local time.
+            container: If passed in, the stats are computed for only this container. Default None.
+            all_variants: If True, aggregate the base Function and its variants.
+
+        Returns:
+            A `FunctionStats` object
+        """
+        until = until or datetime.now(timezone.utc)
+        if until.tzinfo is None:
+            until = until.astimezone()
+        until = until.astimezone(timezone.utc)
+
+        since = since or until - timedelta(hours=1)
+        if since.tzinfo is None:
+            since = since.astimezone()
+        since = since.astimezone(timezone.utc)
+        if since >= until:
+            raise InvalidError("`since` must be before `until`.")
+
+        request = api_pb2.FunctionGetTimeRangeStatsRequest(function_id=self.object_id, rollup=all_variants)
+        request.since.FromDatetime(since)
+        request.until.FromDatetime(until)
+        if container:
+            request.container_id = container
+        stats = await self.client._stub.FunctionGetTimeRangeStats(request)
+        return FunctionStats._from_proto(stats, all_variants=all_variants)
 
     @live_method
     async def _get_schema(self) -> api_pb2.FunctionSchema:
@@ -2128,12 +2334,12 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
     _function_id: str | None = None
 
     def _invocation(self):
-        return _Invocation(self.client.stub, self.object_id, self.client)
+        return _Invocation(self.client._stub, self.object_id, self.client)
 
     async def _hydrate_from_id_metadata(self) -> None:
         """Hydrate metadata only when needed for FunctionCall fields."""
         request = api_pb2.FunctionCallFromIdRequest(function_call_id=self.object_id)
-        resp = await self.client.stub.FunctionCallFromId(request)
+        resp = await self.client._stub.FunctionCallFromId(request)
         self._hydrate_metadata(resp)
 
     async def _get_log_query_data(self) -> _LogQueryData:
@@ -2240,7 +2446,8 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
         """Fetch information about the graph of Inputs this FunctionCall is part of.
 
         Note: the call graph data is not populated in real-time, and its capture is best-effort.
-        We do not recommend relying on this method for critical use cases.
+        Large call graphs may be truncated. We do not recommend relying on this method
+        for critical use cases.
 
         See the [`modal.types`](/docs/sdk/py/latest/types) reference for information
         on the return values.
@@ -2248,9 +2455,14 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
         Returns:
             A list of `InputInfo` nodes describing the call graph.
         """
-        assert self._client and self._client.stub
+        assert self._client and self._client._stub
         request = api_pb2.FunctionGetCallGraphRequest(function_call_id=self.object_id)
-        response = await self._client.stub.FunctionGetCallGraph(request)
+        response = await self._client._stub.FunctionGetCallGraph(request)
+        if response.truncated:
+            logger.warning(
+                f"Call graph for {self.object_id} was truncated; "
+                f"returning the first {len(response.inputs)} inputs. The graph may be incomplete."
+            )
         return _reconstruct_call_graph(response)
 
     @live_method
@@ -2265,8 +2477,8 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
         request = api_pb2.FunctionCallCancelRequest(
             function_call_id=self.object_id, terminate_containers=terminate_containers
         )
-        assert self._client and self._client.stub
-        await self._client.stub.FunctionCallCancel(request)
+        assert self._client and self._client._stub
+        await self._client._stub.FunctionCallCancel(request)
 
     @deprecate_aio_usage((2025, 11, 14), "FunctionCall.from_id")
     @classmethod

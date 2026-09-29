@@ -88,6 +88,16 @@ _CORE_MESSAGES = {
         "en": "{count} findings, over the {limit} a short answer lists - lint_paths on the "
               "written files gives them all",
     },
+    "report.info-hint": {
+        "ru": "находки уровня info сосчитаны, но не перечислены: {count} ({rules}) – список даст "
+              "list_info=true или вызов без compact",
+        "en": "info findings are counted, not listed: {count} ({rules}) - list_info=true or a "
+              "call without compact lists them",
+    },
+    "report.more-rules": {
+        "ru": "ещё правил: {count}",
+        "en": "{count} more rules",
+    },
     "code/unused-method.off": {
         "ru": "признак мёртвого кода неотличим от вызова по имени: метод могут звать строкой из HTML-вставки или ключом yaml. Проверка нарочно консервативна, но остаток ложных возможен – включайте, когда ищете мёртвый код целенаправленно",
         "en": "a dead method is indistinguishable from one called by name: a string inside an HTML insert or a yaml key. The check is deliberately conservative, yet false positives remain - enable it when you are hunting dead code on purpose",
@@ -653,6 +663,17 @@ _CORE_MESSAGES = {
         "ru": "формат вывода: text - план и разница, json - для агентов",
         "en": "output format: text - the plan and the diff, json - for agents",
     },
+    "lsp.restart-button": {
+        "ru": "Перезапустить",
+        "en": "Restart",
+    },
+    "cli.help.fold-compact": {
+        "ru": "кратко: переносы по файлам и спорные переносы вместо каждого переноса и разницы "
+              "(с --format json - краткий отчет, как у meta_fold_comments с compact)",
+        "en": "briefly: the moves counted per file and the disputed ones instead of every move "
+              "and the diff (with --format json - the short report meta_fold_comments gives "
+              "with compact)",
+    },
     "cli.help.commands.mcp-log": {
         "ru": "журнал MCP-сервера: когда серверы запускались, как завершились и кто их остановил",
         "en": "the MCP server journal: when servers started, how they ended and who stopped them",
@@ -703,6 +724,34 @@ _CORE_MESSAGES = {
               "the tools answer with a warning until a restart",
     },
     "mcplog.stale.error": {"ru": "ошибка: {error}", "en": "error: {error}"},
+    # Written by the supervisor (xbsl/mcp_supervisor.py) when it retires a worker.
+    "mcplog.restart": {
+        "ru": "супервизор заменяет процесс сервера {target}: {cause}",
+        "en": "the supervisor replaces the server process {target}: {cause}",
+    },
+    "mcplog.restart.version": {
+        "ru": "движок на диске {loaded} -> {on_disk}",
+        "en": "the engine on disk {loaded} -> {on_disk}",
+    },
+    "mcplog.restart.sources": {
+        "ru": "исходники движка на диске изменились",
+        "en": "the engine sources on disk changed",
+    },
+    "mcplog.restart.plugins": {
+        "ru": "надстройки на диске сменились",
+        "en": "the plugins on disk changed",
+    },
+    "mcplog.restart.exited": {
+        "ru": "процесс завершился с кодом {code}",
+        "en": "the process ended with code {code}",
+    },
+    "mcplog.protocol": {
+        "ru": "новый процесс сервера {target} согласовал версию протокола {worker}, а клиенту в "
+              "начале сессии ответили {client}: клиент продолжает говорить по {client}",
+        "en": "the new server process {target} agreed on protocol version {worker}, while the "
+              "client was answered {client} at the start of its session: the client goes on "
+              "speaking {client}",
+    },
     "mcplog.unknown": {"ru": "событие {event}", "en": "event {event}"},
     "cli.help.commands.extract": {
         "ru": "сгенерировать данные о языке из дистрибутива Элемента (--dist)",
@@ -808,10 +857,51 @@ _CORE_MESSAGES = {
     "cli.help.mcp.epilog": {
         "ru": "Флагов нет: сервер запускается без параметров и общается по stdio.\n"
               "Язык замечаний – переменная XBSL_LANG (иначе локаль системы, иначе ru).\n"
+              "xbsl-mcp запускает этот сервер за супервизором, и сессия переживает обновление "
+              "движка.\n"
               "Регистрация в Claude Code: claude mcp add xbsl -- xbsl-mcp",
         "en": "No flags: the server starts without parameters and talks over stdio.\n"
               "The diagnostics language follows XBSL_LANG (then the system locale, then ru).\n"
+              "xbsl-mcp runs this server behind a supervisor, so the session outlives an update "
+              "of the engine.\n"
               "Registration in Claude Code: claude mcp add xbsl -- xbsl-mcp",
+    },
+    # -- the supervisor of the MCP server (mcp_supervisor.py) --
+    "cli.help.mcp-supervisor.description": {
+        "ru": "Сервер MCP xbsl (stdio) за супервизором: супервизор держит соединение клиента, "
+              "запускает сервер рабочим процессом и заменяет этот процесс, когда движок на "
+              "диске сменился, поэтому сессия переживает обновление.",
+        "en": "The xbsl MCP server (stdio) behind a supervisor: the supervisor keeps the "
+              "client's connection, runs the server as a worker process and replaces that "
+              "process when the engine on disk changes, so a session outlives an update.",
+    },
+    "cli.help.mcp-supervisor.epilog": {
+        "ru": "Рабочий процесс – python -m xbsl.mcp_server того же интерпретатора; другую "
+              "команду можно назвать после --.\n"
+              "Регистрация в Claude Code: claude mcp add xbsl -- xbsl-mcp",
+        "en": "The worker process is python -m xbsl.mcp_server on the same interpreter; "
+              "another command can be named after --.\n"
+              "Registration in Claude Code: claude mcp add xbsl -- xbsl-mcp",
+    },
+    "cli.help.mcp-supervisor.no-supervisor": {
+        "ru": "запустить сам сервер в этом процессе, без супервизора (сессия не переживет "
+              "обновление движка)",
+        "en": "run the server itself in this process, without the supervisor (the session "
+              "does not outlive an update of the engine)",
+    },
+    "supervisor.worker-ended": {
+        "ru": "Процесс сервера MCP xbsl завершился во время вызова (код выхода {code}), "
+              "следующий вызов получит новый процесс. Успел ли вызов что-то изменить, "
+              "неизвестно: проверьте, прежде чем повторять его",
+        "en": "The xbsl MCP server process ended during the call (exit code {code}), and the "
+              "next call gets a new process. Whether the call changed anything before that is "
+              "unknown: check before repeating it",
+    },
+    "supervisor.start-failed": {
+        "ru": "Не удалось запустить процесс сервера MCP xbsl ({error}), следующий вызов "
+              "попробует снова",
+        "en": "The xbsl MCP server process could not be started ({error}), and the next call "
+              "tries again",
     },
     # -- help: self-update, templates and scaffolding sub-parsers (cli.py) --
     # These take no --lang; the language comes from XBSL_LANG / locale via current_lang().
@@ -1075,10 +1165,12 @@ _CORE_MESSAGES = {
         "en": "the environment – for CommonModule and Structure",
     },
     "cli.help.scaf.no-access": {
-        "ru": "способ доступа: у HttpСервис пишется в Разрешения.Вызов, у объектов данных – "
+        "ru": "способ доступа, русским или английским именем (РазрешеноВсем или PermitEveryone): "
+              "у HttpСервис пишется в Разрешения.Вызов, у объектов данных – "
               "в Разрешения.ПоУмолчанию (отдельные права ставит set-access)",
-        "en": "the access method: for HttpService it goes to Разрешения.Call, for data "
-              "objects to Разрешения.Default (individual rights are set by set-access)",
+        "en": "the access method, in either language (e.g. PermitEveryone): for HttpService "
+              "it goes to Permissions.Call, for data objects to Permissions.Default (individual "
+              "rights are set by set-access)",
     },
     "cli.help.scaf.af-yaml": {
         "ru": "yaml объекта, в который добавить поле",
@@ -1089,8 +1181,18 @@ _CORE_MESSAGES = {
         "en": "the field name",
     },
     "cli.help.scaf.af-type": {
-        "ru": "тип поля (по умолчанию Строка; у стандартного реквизита – тип его класса)",
-        "en": "the field type (default String; a standard attribute takes its class default)",
+        "ru": "тип поля (по умолчанию Строка, у события компонента СобытиеКомпонента; "
+              "у стандартного реквизита – тип его класса); у вида строка или шаблон – текст "
+              "на языке по умолчанию, без него текстом становится сам ключ",
+        "en": "the field type (default String, ComponentEvent for a component event; "
+              "a standard attribute takes its class default); for the kind строка or шаблон "
+              "the text in the default language, the key itself when omitted",
+    },
+    "cli.help.scaf.af-doc": {
+        "ru": "описание поля – документирующий комментарий: строки ## в начале элемента, "
+              "которые среда разработки показывает и сохраняет",
+        "en": "the field description – its documentation comment: the ## lines at the head of "
+              "the item, which the development environment shows and keeps",
     },
     "cli.help.scaf.ar-yaml": {
         "ru": "yaml HttpСервис, в который добавить маршруты",
@@ -1159,12 +1261,14 @@ _CORE_MESSAGES = {
         "en": "report description (JSON: source, rows, columns, measures)",
     },
     "cli.help.scaf.add-field": {
-        "ru": "добавить реквизит/измерение/ресурс/значение/ТЧ; см. также set-field-property – "
+        "ru": "добавить элемент в секцию объекта: реквизит, измерение, табличную часть и "
+              "другие (виды перечислены у field_kind); см. также set-field-property – "
               "свойства уже существующего элемента, set-localization – тексты строки "
               "ЛокализованныеСтроки по языкам",
-        "en": "add an attribute/dimension/resource/value/tabular section; see also "
-              "set-field-property for an item that already exists and set-localization for the "
-              "texts of a LocalizedStrings string per language",
+        "en": "add an item to a section of an object: an attribute, a dimension, a tabular "
+              "section and more (field_kind lists the kinds); see also set-field-property for "
+              "an item that already exists and set-localization for the texts of a "
+              "LocalizedStrings string per language",
     },
     "cli.help.scaf.add-field-tabular": {
         "ru": "имя табличной части (реквизит добавляется в неё)",
@@ -1185,20 +1289,32 @@ _CORE_MESSAGES = {
               "Autonumbering.Prefix=RQ",
     },
     "cli.help.scaf.set-field-property": {
-        "ru": "задать свойства существующего элемента секции (константы, реквизита ...); см. "
-              "также add-field – добавить элемент, rename-object – переименование",
-        "en": "set properties of an existing section item (a constant, an attribute ...); see "
-              "also add-field to add one and rename-object to rename it",
+        "ru": "задать свойства существующего элемента секции (константы, реквизита, свойства "
+              "или события компонента ...); см. также add-field – добавить элемент, "
+              "rename-object – переименование",
+        "en": "set properties of an existing section item (a constant, an attribute, a property "
+              "or an event of a component ...); see also add-field to add one and rename-object "
+              "to rename it",
     },
     "cli.help.scaf.sfp-name": {
         "ru": "имя элемента в секции",
         "en": "the name of the item in the section",
     },
+    "cli.help.scaf.sfp-yaml": {
+        "ru": "yaml объекта, элементу которого задаются свойства",
+        "en": "the yaml of the object whose item gets the properties",
+    },
+    "cli.help.scaf.sfp-tabular": {
+        "ru": "имя табличной части, в которой лежит реквизит",
+        "en": "tabular section name (the attribute is in it)",
+    },
     "cli.help.scaf.no-presentation": {
-        "ru": "Представление – заголовок элемента (без него первый же линт даёт "
-              "naming/presentation)",
-        "en": "Presentation – the element caption (without it the very first lint answers "
-              "naming/presentation)",
+        "ru": "заголовок элемента: пишется туда, где его держит вид – в Представление или, у "
+              "справочника, документа, регистра и обработки, в раздел Интерфейс (без него "
+              "первый же линт дает naming/presentation)",
+        "en": "the element caption: written where the kind keeps it - into Presentation or, "
+              "for a catalog, a document, a register and a processing, into the Interface "
+              "section (without it the very first lint answers naming/presentation)",
     },
     "cli.help.scaf.no-base": {
         "ru": "базовый тип компонента интерфейса (Группа, ФормаОбъекта<Товар.Объект>); "
@@ -1472,12 +1588,15 @@ _CORE_MESSAGES = {
               "rights and the set this kind has",
     },
     "cli.help.scaf.set-access-default": {
-        "ru": "способ для права ПоУмолчанию",
-        "en": "the method for the Default right",
+        "ru": "способ для права ПоУмолчанию, русским или английским именем "
+              "(РазрешеноВсем или PermitEveryone)",
+        "en": "the method for the Default right, in either language (e.g. PermitEveryone)",
     },
     "cli.help.scaf.set-access-permission": {
-        "ru": "способ отдельного права (повторяемый), напр. Чтение=РазрешеноВсем",
-        "en": "the method for a single right (repeatable), e.g. Чтение=PermitEveryone",
+        "ru": "способ отдельного права (повторяемый), напр. Чтение=РазрешеноВсем или "
+              "Read=PermitEveryone",
+        "en": "the method for a single right (repeatable), in either language, e.g. "
+              "Read=PermitEveryone",
     },
     "cli.help.scaf.set-access-calc-by": {
         "ru": "поля РасчетРазрешенийПо через запятую "
@@ -1513,6 +1632,12 @@ _CORE_MESSAGES = {
     "cli.help.scaf.unused-resources-protected": {
         "ru": "включить отдельно файлы, защищенные вычисляемыми и неопределенными путями",
         "en": "also return files protected by bounded dynamic or uncertain paths",
+    },
+    "cli.help.scaf.resource-references-limit": {
+        "ru": "не более N мест в списке references; total считает все места (по умолчанию 100, "
+              "как у meta_resource_references)",
+        "en": "list at most N places in references; total counts every place (default: 100, "
+              "as in meta_resource_references)",
     },
     "cli.help.scaf.unused-resources-limit": {
         "ru": "не более N записей в каждом возвращаемом списке; итоги всегда полные "

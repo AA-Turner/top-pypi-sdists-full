@@ -641,10 +641,21 @@ class DefaultAccountAdapter(BaseAdapter):
         return ret
 
     def is_safe_url(self, url: str) -> bool:
+        """Return whether ``url`` is safe to use as a redirect target.
+
+        Relative URLs are allowed. Absolute URLs must use an HTTP(S) scheme and
+        match the current request host, a host in ``ALLOWED_HOSTS``, or a host
+        in ``CSRF_TRUSTED_ORIGINS``. Subdomain patterns in ``ALLOWED_HOSTS`` are
+        supported, but the ``"*"`` wildcard is ignored.
+        """
         from django.utils.http import url_has_allowed_host_and_scheme
 
-        # get_host already validates the given host, so no need to check it again
-        allowed_hosts = {context.request.get_host()} | set(settings.ALLOWED_HOSTS)
+        # get_host already validates the given host, so no need to check it
+        # again.  Drop wildcards from ALLOWED_HOSTS to avoid making arbitrary
+        # redirect destinations safe.
+        allowed_hosts = {context.request.get_host()} | {
+            host for host in settings.ALLOWED_HOSTS if host != "*"
+        }
 
         # Include hosts derived from CSRF_TRUSTED_ORIGINS
         trusted_hosts = {

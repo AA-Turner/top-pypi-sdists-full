@@ -41,7 +41,7 @@ from .blob_utils import (
     MAX_ASYNC_OBJECT_SIZE_BYTES,
     MAX_OBJECT_SIZE_BYTES,
     blob_download,
-    blob_upload_with_r2_failure_info,
+    blob_upload_with_results,
 )
 
 if typing.TYPE_CHECKING:
@@ -347,7 +347,7 @@ class FunctionSourceInfo:
         # annotation parameters trigger strictly typed parametrization
         # which enables parameterized Web Functions
         signature = _get_class_constructor_signature(self.user_cls)
-        # at this point, the types in the signature should already have been validated (see Cls.from_local())
+        # at this point, the types in the signature should already have been validated (see Cls._from_local())
         parameter_specs = signature_to_parameter_specs(signature)
 
         return api_pb2.ClassParameterInfo(
@@ -446,7 +446,7 @@ async def _stream_function_call_data(
         raise ValueError("function_call_id or attempt_token is required to read from a data stream")
 
     if stub is None:
-        stub = client.stub
+        stub = client._stub
 
     last_index = 0
 
@@ -473,7 +473,7 @@ async def _stream_function_call_data(
                 if chunk.index <= last_index:
                     continue
                 if chunk.data_blob_id:
-                    message_bytes = await blob_download(chunk.data_blob_id, client.stub)
+                    message_bytes = await blob_download(chunk.data_blob_id, client._stub)
                 else:
                     message_bytes = chunk.data
                 message = deserialize_data_format(message_bytes, chunk.data_format, client)
@@ -631,7 +631,7 @@ async def _create_input(
     if should_upload(
         len(args_serialized), max_object_size_bytes, max_async_object_size_bytes, function_call_invocation_type
     ):
-        args_blob_id, r2_failed, r2_throughput_bytes_s = await blob_upload_with_r2_failure_info(args_serialized, stub)
+        args_blob_id, blob_upload_results = await blob_upload_with_results(args_serialized, stub)
         return api_pb2.FunctionPutInputsItem(
             input=api_pb2.FunctionInput(
                 args_blob_id=args_blob_id,
@@ -639,8 +639,7 @@ async def _create_input(
                 method_name=method_name,
             ),
             idx=idx,
-            r2_failed=r2_failed,
-            r2_throughput_bytes_s=r2_throughput_bytes_s,
+            blob_upload_results=blob_upload_results,
         )
     else:
         return api_pb2.FunctionPutInputsItem(
@@ -668,3 +667,32 @@ def parse_gpu_config(value: str | None) -> api_pb2.GPUConfig:
         return api_pb2.GPUConfig(gpu_type=gpu_type, count=count)
     else:
         raise InvalidError(f"Invalid GPU config: {value!r}. Value must be a string or `None`")
+
+
+def get_schedule_str(schedule: api_pb2.Schedule) -> str | None:
+    if schedule.WhichOneof("schedule_oneof") is None:
+        return None
+
+    if schedule.WhichOneof("schedule_oneof") == "cron":
+        cron = schedule.cron
+        return f"Cron({cron.cron_string!r}, {cron.timezone})"
+
+    period = schedule.period
+
+    period_args = []
+    if period.years > 0:
+        period_args.append(f"years={period.years}")
+    if period.months > 0:
+        period_args.append(f"months={period.months}")
+    if period.weeks > 0:
+        period_args.append(f"weeks={period.weeks}")
+    if period.days > 0:
+        period_args.append(f"days={period.days}")
+    if period.hours > 0:
+        period_args.append(f"hours={period.hours}")
+    if period.minutes > 0:
+        period_args.append(f"minutes={period.minutes}")
+    if period.seconds > 0:
+        period_args.append(f"seconds={period.seconds}")
+
+    return f"Period({', '.join(period_args)})"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: loki-mode-sdk
-Version: 10.1.0
+Version: 10.5.5
 Summary: Python SDK for Loki Mode - autonomous multi-agent development platform
 Author-email: Lokesh Mure <lokesh@autonomi.dev>
 License-Expression: BUSL-1.1
@@ -22,7 +22,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: httpx>=0.24.0
-Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pydantic>=2.13.5
 Dynamic: license-file
 
 # loki-mode-sdk

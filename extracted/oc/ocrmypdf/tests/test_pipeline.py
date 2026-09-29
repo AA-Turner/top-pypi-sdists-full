@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import warnings
+import zlib
 from unittest.mock import Mock
 
 import pikepdf
@@ -70,6 +71,83 @@ def test_dpi_needed(image, text, vector, result, rgb_image, outdir):
 
     assert _pipeline.get_canvas_square_dpi(ctx) == result
     assert _pipeline.get_page_square_dpi(ctx) == result
+
+
+def test_dpi_invisible_text_layer_uses_image_dpi(outdir):
+    # A scan with an invisible text layer from prior OCR must be rasterized
+    # at the scan's resolution, not upsampled to the vector page resolution.
+    pdf = pikepdf.Pdf.new()
+    page = pdf.add_blank_page(page_size=(2 * 72, 2 * 72))
+    image = pikepdf.Stream(pdf, bytes([128]) * (300 * 300))
+    image.Type = pikepdf.Name.XObject
+    image.Subtype = pikepdf.Name.Image
+    image.Width, image.Height = 300, 300
+    image.ColorSpace = pikepdf.Name.DeviceGray
+    image.BitsPerComponent = 8
+    font = pikepdf.Dictionary(
+        Type=pikepdf.Name.Font,
+        Subtype=pikepdf.Name.Type1,
+        BaseFont=pikepdf.Name.Helvetica,
+    )
+    page.Resources = pikepdf.Dictionary(
+        XObject=pikepdf.Dictionary(Im0=image), Font=pikepdf.Dictionary(F1=font)
+    )
+    page.Contents = pikepdf.Stream(
+        pdf,
+        b'q 144 0 0 144 0 0 cm /Im0 Do Q BT 3 Tr /F1 12 Tf 10 10 Td (Hello) Tj ET',
+    )
+    pdf.save(outdir / 'invisible.pdf')
+
+    ctx = Mock()
+    ctx.options.oversample = 0
+    ctx.options.is_force_mode = True
+    ctx.pageinfo = pdfinfo.PdfInfo(outdir / 'invisible.pdf')[0]
+    assert ctx.pageinfo.has_text
+
+    assert _pipeline.get_page_square_dpi(ctx) == Resolution(150, 150)
+    assert _pipeline.get_canvas_square_dpi(ctx) == Resolution(150, 150)
+
+
+def _mixed_dpi_page_context(path, patches):
+    """Build a 2x2 inch page from (dpi, x, y, size) image patches, in inches."""
+    c = Canvas(str(path), pagesize=(2 * inch, 2 * inch))
+    for dpi, x, y, size in patches:
+        pixels = round(dpi * size)
+        im = ImageReader(Image.new('L', (pixels, pixels), 128))
+        c.drawImage(im, x * inch, y * inch, width=size * inch, height=size * inch)
+    c.showPage()
+    c.save()
+    ctx = Mock()
+    ctx.options.oversample = 0
+    ctx.pageinfo = pdfinfo.PdfInfo(path)[0]
+    return ctx
+
+
+def test_image_dpi_full_page_high_res_layer(outdir, caplog):
+    # A low resolution background under a high resolution layer that also
+    # covers the whole page (e.g. an MRC scan's text layer) must be rendered
+    # at the high resolution.
+    ctx = _mixed_dpi_page_context(
+        outdir / 'layers.pdf', [(150, 0, 0, 2), (300, 0, 0, 2)]
+    )
+    assert _pipeline.calculate_image_dpi(ctx) == Resolution(300, 300)
+    with caplog.at_level(logging.WARNING):
+        canvas_dpi, _ = _pipeline.calculate_raster_dpi(ctx)
+    assert canvas_dpi == Resolution(300, 300)
+    assert 'Weighted average image DPI' not in caplog.text
+
+
+def test_image_dpi_small_high_res_patch(outdir, caplog):
+    # A small high resolution patch should not force the whole page to be
+    # rendered at its resolution.
+    ctx = _mixed_dpi_page_context(
+        outdir / 'patch.pdf', [(150, 0, 0, 2), (600, 0.5, 0.5, 0.2)]
+    )
+    image_dpi = _pipeline.calculate_image_dpi(ctx)
+    assert image_dpi.x < 200
+    with caplog.at_level(logging.WARNING):
+        _pipeline.calculate_raster_dpi(ctx)
+    assert 'Weighted average image DPI' in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -266,3 +344,79 @@ def test_triage_pdf_silent_without_image_dpi(resources, tmp_path, caplog):
     _pipeline.triage('trivial.pdf', resources / 'trivial.pdf', output_file, options)
 
     assert '--image-dpi' not in caplog.text
+
+
+def _predictor_image_pdf(path, filter_as_array):
+    """A PDF whose image is Flate-compressed with a TIFF predictor."""
+    width, height = 64, 64
+    data = zlib.compress(bytes(range(256)) * (width * height * 3 // 256))
+    filter_ = pikepdf.Name.FlateDecode
+    decodeparms = pikepdf.Dictionary(Predictor=2, Colors=3, Columns=width)
+    if filter_as_array:
+        filter_ = pikepdf.Array([filter_])
+        decodeparms = pikepdf.Array([decodeparms])
+    pdf = pikepdf.new()
+    image = pikepdf.Stream(pdf, data)
+    image.stream_dict = pikepdf.Dictionary(
+        Type=pikepdf.Name.XObject,
+        Subtype=pikepdf.Name.Image,
+        Width=width,
+        Height=height,
+        ColorSpace=pikepdf.Name.DeviceRGB,
+        BitsPerComponent=8,
+        Filter=filter_,
+        DecodeParms=decodeparms,
+    )
+    pdf.add_blank_page(page_size=(width, height))
+    pdf.pages[0].Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary(Im0=image))
+    pdf.pages[0].Contents = pdf.make_stream(b'q 64 0 0 64 0 0 cm /Im0 Do Q')
+    pdf.save(path, compress_streams=False)
+    return data
+
+
+@pytest.mark.parametrize('filter_as_array', [True, False])
+def test_triage_preserves_flate_predictor(tmp_path, filter_as_array):
+    """Triage must not let qpdf strip a Flate predictor (#1620)."""
+    input_file = tmp_path / 'predictor.pdf'
+    output_file = tmp_path / 'triaged.pdf'
+    data = _predictor_image_pdf(input_file, filter_as_array=filter_as_array)
+    options = Mock()
+    options.image_dpi = None
+
+    _pipeline.triage('predictor.pdf', input_file, output_file, options)
+
+    with pikepdf.open(output_file) as pdf:
+        image = pdf.pages[0].Resources.XObject.Im0
+        assert image.Filter == pikepdf.Name.FlateDecode
+        assert image.DecodeParms.Predictor == 2
+        assert image.read_raw_bytes() == data
+
+
+def test_unwrap_single_filter_arrays():
+    pdf = pikepdf.new()
+    single = pdf.make_stream(b'x', Filter=pikepdf.Array([pikepdf.Name.FlateDecode]))
+    single_dp = pdf.make_stream(
+        b'x',
+        Filter=pikepdf.Array([pikepdf.Name.FlateDecode]),
+        DecodeParms=pikepdf.Array([pikepdf.Dictionary(Predictor=12, Columns=4)]),
+    )
+    null_dp = pdf.make_stream(
+        b'x',
+        Filter=pikepdf.Array([pikepdf.Name.FlateDecode]),
+        DecodeParms=pikepdf.Array([None]),
+    )
+    chain = pdf.make_stream(
+        b'x',
+        Filter=pikepdf.Array([pikepdf.Name.FlateDecode, pikepdf.Name.DCTDecode]),
+    )
+
+    _pipeline.unwrap_single_filter_arrays(pdf)
+
+    assert single.Filter == pikepdf.Name.FlateDecode
+    assert pikepdf.Name.DecodeParms not in single
+    assert single_dp.Filter == pikepdf.Name.FlateDecode
+    assert single_dp.DecodeParms.Predictor == 12
+    assert null_dp.Filter == pikepdf.Name.FlateDecode
+    assert pikepdf.Name.DecodeParms not in null_dp
+    assert isinstance(chain.Filter, pikepdf.Array)
+    assert len(chain.Filter) == 2

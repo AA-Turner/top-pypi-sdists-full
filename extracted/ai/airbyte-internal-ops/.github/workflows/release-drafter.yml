@@ -25,18 +25,20 @@ jobs:
             tag-prefix: v
             config-name: release-drafter-airbyte-internal-ops.yml
             dist-dir: dist/airbyte-internal-ops
+            # Main package auto-publishes on push to main; the CLI stays draft-only.
+            auto-publish: true
           - name: airbyte-cloud-cli
             tag-prefix: airbyte-cloud-cli/v
             config-name: release-drafter-airbyte-cloud-cli.yml
             dist-dir: dist/airbyte-cloud-cli
+            auto-publish: false
     steps:
       # Stage 1: create/update the draft release with a "NOT READY" banner
       # (creating it if missing) before any artifacts exist. The banner links
       # to this workflow run so admins know a build is in flight, and the
       # release id is captured to finalize the exact same draft in stage 2.
       - name: Create draft release (not ready)
-        # This repo is a canary for release drafter, intentionally not version-pinned.
-        uses: aaronsteers/semantic-pr-release-drafter@main
+        uses: aaronsteers/semantic-pr-release-drafter@bf6b3e79da46f4e5414adc520269b16e05f91d41 # v2.4.4
         id: release-drafter
         with:
           config-name: ${{ matrix.package.config-name }}
@@ -66,8 +68,7 @@ jobs:
       # Stage 2: finalize the exact draft created in stage 1 (point-read by id),
       # attaching the built artifacts and removing the "NOT READY" banner.
       - name: Finalize draft release with artifacts
-        # This repo is a canary for release drafter, intentionally not version-pinned.
-        uses: aaronsteers/semantic-pr-release-drafter@main
+        uses: aaronsteers/semantic-pr-release-drafter@bf6b3e79da46f4e5414adc520269b16e05f91d41 # v2.4.4
         with:
           config-name: ${{ matrix.package.config-name }}
           prepared-release-id: ${{ steps.release-drafter.outputs.id }}
@@ -76,3 +77,23 @@ jobs:
             ${{ matrix.package.dist-dir }}/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Authenticate as GitHub App
+        if: github.event_name == 'push' && matrix.package.auto-publish
+        id: get-app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+
+      - name: Publish release
+        if: github.event_name == 'push' && matrix.package.auto-publish
+        uses: aaronsteers/semantic-pr-release-drafter@bf6b3e79da46f4e5414adc520269b16e05f91d41 # v2.4.4
+        with:
+          config-name: ${{ matrix.package.config-name }}
+          # Publish only after all assets are attached; manual dispatches leave the draft in place.
+          prepared-release-id: ${{ steps.release-drafter.outputs.id }}
+          publish: true
+        env:
+          # App token so the published release triggers publish.yml (GITHUB_TOKEN-created events don't spawn workflow runs).
+          GITHUB_TOKEN: ${{ steps.get-app-token.outputs.token }}

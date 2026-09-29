@@ -92,19 +92,30 @@ class RecurringCredit(google.protobuf.message.Message):
     LINE_ITEM_UID_FIELD_NUMBER: builtins.int
     TYPE_FIELD_NUMBER: builtins.int
     AMOUNT_FIELD_NUMBER: builtins.int
+    ID_FIELD_NUMBER: builtins.int
+    INITIAL_CONTRACT_ID_FIELD_NUMBER: builtins.int
+    REMAINING_PERIODS_FIELD_NUMBER: builtins.int
     line_item_uid: builtins.str
     """Present only when type is UNITS; null for monetary types."""
     type: global___RecurringCreditType.ValueType
     amount: builtins.int
+    id: builtins.int
+    initial_contract_id: builtins.int
+    """The contract the credit was granted on."""
+    remaining_periods: builtins.int
+    """Periods the credit still covers, counting the requested contract's period."""
     def __init__(
         self,
         *,
         line_item_uid: builtins.str | None = ...,
         type: global___RecurringCreditType.ValueType = ...,
         amount: builtins.int = ...,
+        id: builtins.int = ...,
+        initial_contract_id: builtins.int = ...,
+        remaining_periods: builtins.int = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_line_item_uid", b"_line_item_uid", "line_item_uid", b"line_item_uid"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_line_item_uid", b"_line_item_uid", "amount", b"amount", "line_item_uid", b"line_item_uid", "type", b"type"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_line_item_uid", b"_line_item_uid", "amount", b"amount", "id", b"id", "initial_contract_id", b"initial_contract_id", "line_item_uid", b"line_item_uid", "remaining_periods", b"remaining_periods", "type", b"type"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_line_item_uid", b"_line_item_uid"]) -> typing.Literal["line_item_uid"] | None: ...
 
 global___RecurringCredit = RecurringCredit

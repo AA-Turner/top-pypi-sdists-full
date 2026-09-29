@@ -13,6 +13,7 @@ import logging
 from dataclasses import fields as _dc_fields
 from typing import Any, Dict, List, Optional
 
+from ...advanced_tracker.rtp_clock import RtpClock
 from ..base import BaseObjectTracker, DetectionDict
 from ..config import MatriceTrackerConfig
 
@@ -89,16 +90,55 @@ class AdvancedTrackerAdapter(BaseObjectTracker):
             tracker_config.new_track_thresh = float(config.confidence_threshold)
 
         self._tracker = AdvancedTracker(tracker_config, namespace=namespace)
+        self._rtp_clock = RtpClock()
+
+    #: ``stream_info`` keys carrying a frame presentation time already in SECONDS.
+    _SECONDS_KEYS = ("frame_timestamp", "frame_time", "pts_seconds", "timestamp")
+    #: ``stream_info`` keys carrying a raw uint32 RTP timestamp (90 kHz clock).
+    _RTP_KEYS = ("rtp_timestamp", "rtp_ts")
+
+    def _frame_timestamp(self, stream_info: Optional[Dict[str, Any]]) -> Optional[float]:
+        """Pull this frame's presentation time (seconds) out of ``stream_info``.
+
+        The RTP timestamp is preferred: it is the source clock the gateway
+        forwards byte-identically, so it survives sampling. A seconds-valued key
+        is accepted as-is. Anything unusable returns ``None``, which the tracker
+        treats as "no time base this frame" and logs.
+        """
+        if not stream_info:
+            return None
+
+        for key in self._RTP_KEYS:
+            raw = stream_info.get(key)
+            if raw is None:
+                continue
+            try:
+                return self._rtp_clock.to_seconds(int(raw))
+            except (TypeError, ValueError):
+                logger.warning("AdvancedTrackerAdapter: ignoring non-integer %s=%r", key, raw)
+                return None
+
+        for key in self._SECONDS_KEYS:
+            raw = stream_info.get(key)
+            if raw is None:
+                continue
+            try:
+                return float(raw)
+            except (TypeError, ValueError):
+                logger.warning("AdvancedTrackerAdapter: ignoring non-numeric %s=%r", key, raw)
+                return None
+
+        return None
 
     def update(
         self,
         detections: List[DetectionDict],
         stream_info: Optional[Dict[str, Any]] = None,
     ) -> List[DetectionDict]:
-        _ = stream_info
-        return self._tracker.update(detections)
+        return self._tracker.update(detections, timestamp=self._frame_timestamp(stream_info))
 
     def reset(self) -> None:
+        self._rtp_clock.reset()
         if hasattr(self._tracker, "reset"):
             self._tracker.reset()
 

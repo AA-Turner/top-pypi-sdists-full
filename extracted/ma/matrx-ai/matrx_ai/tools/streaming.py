@@ -60,8 +60,9 @@ class ToolStreamManager:
         self,
         message: str = "Starting...",
         arguments: dict[str, Any] | None = None,
+        display_name: str | None = None,
     ) -> None:
-        typed_data = ToolStartedData(arguments=arguments or {})
+        typed_data = ToolStartedData(arguments=arguments or {}, display_name=display_name)
         await self.emit(
             ToolStreamEvent(
                 event="tool_started",

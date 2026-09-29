@@ -54,7 +54,7 @@ def _endpoint_list_item_is_stopped(item: api_pb2.EndpointListItem) -> bool:
 
 
 async def _fetch_endpoint_lifecycle(client: _Client, endpoint_id: str) -> api_pb2.EndpointLifecycle:
-    resp = await client.stub.EndpointGetLifecycle(api_pb2.EndpointGetLifecycleRequest(endpoint_id=endpoint_id))
+    resp = await client._stub.EndpointGetLifecycle(api_pb2.EndpointGetLifecycleRequest(endpoint_id=endpoint_id))
     return resp.lifecycle
 
 
@@ -79,7 +79,7 @@ async def _resolve_endpoint_identifier(
         else:
             return endpoint_identifier, None, lifecycle.environment_name, lifecycle
 
-    resp = await client.stub.EndpointGetByName(
+    resp = await client._stub.EndpointGetByName(
         api_pb2.EndpointGetByNameRequest(name=endpoint_identifier, environment_name=env_name or "")
     )
     environment_name = resp.environment_name or env_name or ""
@@ -100,6 +100,73 @@ def _endpoint_already_stopped_message(
     if endpoint_name:
         return f"Endpoint '{endpoint_name}' in environment '{environment_name}' is already stopped."
     return f"Endpoint {endpoint_id} is already stopped."
+
+
+@endpoint_cli.command("list", panel="Management")
+@click.option("--json", is_flag=True, default=False)
+@env_option
+@synchronizer.create_blocking
+async def list_(*, json: bool = False, env: Optional[str] = None):
+    """List Endpoints that are provisioning or running in an environment."""
+    env_name = ensure_env(env)
+    environment_name = _get_environment_name(env_name)
+    client = await _Client.from_env()
+
+    items: list[api_pb2.EndpointListItem] = []
+
+    async def retrieve_page(created_before: float) -> bool:
+        max_page_size = 100
+        pagination = api_pb2.ListPagination(max_objects=max_page_size, created_before=created_before)
+        req = api_pb2.EndpointListRequest(environment_name=environment_name, pagination=pagination)
+        resp = await client._stub.EndpointList(req)
+        items.extend(resp.items)
+        return len(resp.items) < max_page_size
+
+    finished = await retrieve_page(datetime.now().timestamp())
+    while not finished:
+        finished = await retrieve_page(items[-1].metadata.creation_info.created_at)
+
+    active_items = [item for item in items if not _endpoint_list_item_is_stopped(item)]
+
+    env_part = f" in environment '{env_name}'" if env_name else ""
+    title = f"Endpoints{env_part}"
+    if json:
+        json_rows = [
+            (
+                item.name,
+                item.endpoint_id,
+                item.status,
+                timestamp_to_localized_str(item.metadata.creation_info.created_at, json) or "",
+                item.metadata.creation_info.created_by,
+            )
+            for item in active_items
+        ]
+        display_table(
+            ["Name", "Endpoint ID", "Status", "Created at", "Created by"],
+            json_rows,
+            json=True,
+            title=title,
+        )
+    else:
+        table_rows = [
+            (
+                item.name,
+                item.endpoint_id,
+                item.status,
+                _endpoint_created_at_table_value(item),
+            )
+            for item in active_items
+        ]
+        display_table(
+            [
+                Column("Name", width=14, overflow="ellipsis", no_wrap=True),
+                Column("Endpoint ID", width=25, no_wrap=True),
+                Column("Status", width=12, overflow="ellipsis", no_wrap=True),
+                Column("Created at", width=16, no_wrap=True),
+            ],
+            table_rows,
+            title=title,
+        )
 
 
 @endpoint_cli.command("create", panel="Management", no_args_is_help=True)
@@ -253,7 +320,7 @@ async def create(
     )
     if name:
         req.name = name
-    resp = await client.stub.EndpointCreate(req)
+    resp = await client._stub.EndpointCreate(req)
 
     output = OutputManager.get()
     output.print(f"[green]✓[/green] Endpoint '{resp.name}' ({resp.endpoint_id}) was created and started provisioning.")
@@ -262,73 +329,6 @@ async def create(
         output.print("  → The Endpoint will also appear in [cyan]modal endpoint list[/cyan].")
     else:
         output.print("  → The Endpoint will appear in [cyan]modal endpoint list[/cyan].")
-
-
-@endpoint_cli.command("list", panel="Management")
-@click.option("--json", is_flag=True, default=False)
-@env_option
-@synchronizer.create_blocking
-async def list_(*, json: bool = False, env: Optional[str] = None):
-    """List Endpoints that are provisioning or running in an environment."""
-    env_name = ensure_env(env)
-    environment_name = _get_environment_name(env_name)
-    client = await _Client.from_env()
-
-    items: list[api_pb2.EndpointListItem] = []
-
-    async def retrieve_page(created_before: float) -> bool:
-        max_page_size = 100
-        pagination = api_pb2.ListPagination(max_objects=max_page_size, created_before=created_before)
-        req = api_pb2.EndpointListRequest(environment_name=environment_name, pagination=pagination)
-        resp = await client.stub.EndpointList(req)
-        items.extend(resp.items)
-        return len(resp.items) < max_page_size
-
-    finished = await retrieve_page(datetime.now().timestamp())
-    while not finished:
-        finished = await retrieve_page(items[-1].metadata.creation_info.created_at)
-
-    active_items = [item for item in items if not _endpoint_list_item_is_stopped(item)]
-
-    env_part = f" in environment '{env_name}'" if env_name else ""
-    title = f"Endpoints{env_part}"
-    if json:
-        json_rows = [
-            (
-                item.name,
-                item.endpoint_id,
-                item.status,
-                timestamp_to_localized_str(item.metadata.creation_info.created_at, json) or "",
-                item.metadata.creation_info.created_by,
-            )
-            for item in active_items
-        ]
-        display_table(
-            ["Name", "Endpoint ID", "Status", "Created at", "Created by"],
-            json_rows,
-            json=True,
-            title=title,
-        )
-    else:
-        table_rows = [
-            (
-                item.name,
-                item.endpoint_id,
-                item.status,
-                _endpoint_created_at_table_value(item),
-            )
-            for item in active_items
-        ]
-        display_table(
-            [
-                Column("Name", width=14, overflow="ellipsis", no_wrap=True),
-                Column("Endpoint ID", width=25, no_wrap=True),
-                Column("Status", width=12, overflow="ellipsis", no_wrap=True),
-                Column("Created at", width=16, no_wrap=True),
-            ],
-            table_rows,
-            title=title,
-        )
 
 
 @endpoint_cli.command("stop", panel="Management", no_args_is_help=True)
@@ -358,7 +358,7 @@ async def stop(
             msg = f"Are you sure you want to stop Endpoint {endpoint_id}?"
         confirm_or_suggest_yes(msg)
 
-    await client.stub.EndpointStop(
+    await client._stub.EndpointStop(
         api_pb2.EndpointStopRequest(endpoint_id=endpoint_id, source=api_pb2.ENDPOINT_STOP_SOURCE_CLI)
     )
 

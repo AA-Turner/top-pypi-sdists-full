@@ -59,7 +59,8 @@ class MaterializedFeatureView:
         time_resolution: Bucket duration for time-series materialization, e.g. ``"1s"``.
         update_cadence: How often to refresh materialized data, as a cron expression or
             duration. Any finite cadence must be at least 10 minutes; more frequent
-            updates are not supported.
+            updates are not supported. Set ``update_cadence="infinity"`` to disable
+            automatic view refreshes.
         lower_bound: Fixed, inclusive lower bound on the feature times of observations
             included in the materialized feature view. Observations with earlier feature
             times continue to be retained in the observation tables, but are not copied
@@ -74,6 +75,13 @@ class MaterializedFeatureView:
             table acceleration are not aware of them. When both retention parameters
             are set, the later lower bound applies. Defaults to ``None``, which applies
             no moving retention window, and therefore retains data indefinitely.
+        plannable: Whether the planner includes this MaterializedFeatureView (MFV) as a candidate during planning
+            for any query. Defaults to ``True``. ``False`` excludes it from reads and
+            serves queries from observation tables while the MFV continues to be refreshed.
+            ``True`` makes it eligible in the planner for reads. Note that the query must also support wide-table
+            acceleration. I.e.m setting the per-query
+            ``planner_options={"offline_store_wide_read": False}`` does exclude all MFVs from the planner regardless
+            of a per-MFV `plannable` setting.
         background_compaction: Whether to include this view in automatic background
             compaction. Compaction combines multiple rows into a summary row when
             possible, making the table smaller and reads cheaper. Defaults to ``True``.
@@ -81,6 +89,8 @@ class MaterializedFeatureView:
         features: The scalar features to materialize, as feature references or fully-qualified
             name strings. Defaults to ``None``, which materializes every feature in the namespace
             that is eligible for the offline store.
+
+            This feature is not yet implemented on the engine.
 
             Naming a subset reduces the cost of the fill and of background compaction,
             which would otherwise process every column. Excluded features remain fully
@@ -111,6 +121,44 @@ class MaterializedFeatureView:
             ...     update_cadence="1d",
             ...     features=[User.credit_score, User.account_age_days],
             ... )
+
+    Examples:
+        Create and fill an MFV without having live queries use it:
+
+        ```python
+        MaterializedFeatureView(
+            User,
+            time_resolution="1s",
+            update_cadence="1h",
+            plannable=False,
+        )
+        ```
+
+        To cut over a live production system:
+
+        1. Enable wide-table acceleration and check query correctness in staging
+           with MFVs enabled.
+        2. Deploy the MFV in production with ``plannable=False`` using ``chalk apply`` and observe the initial fill/reresh happen.
+        3. Wait for the initial fill to complete.
+        4. When critical offline queries are not in flight, change the declaration
+           to ``plannable=True`` and redeploy via ``chalk apply`. Once the deploy succeeded, the planner will now automatically switch to MFVs whenever they're available for queries.
+
+        To disable scheduled writes while keeping the filled MFV eligible for reads,
+        use this declaration instead:
+
+        ```python
+        MaterializedFeatureView(
+            User,
+            time_resolution="1s",
+            update_cadence="infinity",
+            plannable=True,
+        )
+        ```
+
+        Set both ``plannable=False`` and ``update_cadence="infinity"`` to exclude
+        the MFV from normal query reads and disable scheduled writes. These settings
+        do not cancel an already-running query or fill. The UI also provides options
+        to manually trigger fills.
     """
 
     def __init__(
@@ -122,6 +170,7 @@ class MaterializedFeatureView:
         lower_bound: datetime | None = None,
         lookback_retention_period: Duration | None = None,
         background_compaction: bool = True,
+        plannable: bool = True,
         features: "Collection[FeatureReference] | None" = None,
     ):
         super().__init__()
@@ -143,17 +192,23 @@ class MaterializedFeatureView:
 
         if isinstance(update_cadence, timedelta):
             if update_cadence < _MIN_UPDATE_CADENCE:
-                raise ValueError(f"MaterializedFeatureView 'update_cadence' must be at least 10 minutes, but got {update_cadence!r}.")
+                raise ValueError(
+                    f"MaterializedFeatureView 'update_cadence' must be at least 10 minutes, but got {update_cadence!r}."
+                )
         elif isinstance(update_cadence, str):  # pyright: ignore[reportUnnecessaryIsInstance]
             if update_cadence not in ("infinity", "all"):
                 if _is_cron_expression(update_cadence):
                     min_interval = _cron_min_interval_minutes(update_cadence)
                     if min_interval < 10:
-                        raise ValueError(f"MaterializedFeatureView 'update_cadence' cron '{update_cadence}' can fire as frequently as every {min_interval} minute(s); the minimum allowed interval is 10 minutes.")
+                        raise ValueError(
+                            f"MaterializedFeatureView 'update_cadence' cron '{update_cadence}' can fire as frequently as every {min_interval} minute(s); the minimum allowed interval is 10 minutes."
+                        )
                 else:
                     td = parse_chalk_duration(update_cadence)
                     if td < _MIN_UPDATE_CADENCE:
-                        raise ValueError(f"MaterializedFeatureView 'update_cadence' must be at least 10 minutes, but got {update_cadence!r}.")
+                        raise ValueError(
+                            f"MaterializedFeatureView 'update_cadence' must be at least 10 minutes, but got {update_cadence!r}."
+                        )
         else:
             raise TypeError(
                 f"MaterializedFeatureView 'update_cadence' must be a string (cron expression or duration) or a timedelta, got {type(update_cadence).__name__!r}."
@@ -187,11 +242,10 @@ class MaterializedFeatureView:
         self.lower_bound = lower_bound
         self.lookback_retention_period = lookback_retention_period
         self.background_compaction = background_compaction
+        self.plannable = plannable
         # Order-preserving dedup, matching ScheduledAggregateBackfill. `None` stays `None` so the
         # proto converter can distinguish "materialize everything" from an explicit selection.
-        self.features = (
-            None if features is None else tuple(dict.fromkeys(str(feature) for feature in features))
-        )
+        self.features = None if features is None else tuple(dict.fromkeys(str(feature) for feature in features))
         self.filename = caller_filename
         self.source_line_start = source_line_start
         self.source_line_end = source_line_end
@@ -210,6 +264,7 @@ class MaterializedFeatureView:
             f"time_resolution={self.time_resolution!r}, "
             f"update_cadence={self.update_cadence!r}, "
             f"background_compaction={self.background_compaction!r}, "
+            f"plannable={self.plannable!r}, "
             f"features={self.features!r}"
             f")"
         )
@@ -224,6 +279,7 @@ class MaterializedFeatureView:
             and self.lower_bound == other.lower_bound
             and self.lookback_retention_period == other.lookback_retention_period
             and self.background_compaction == other.background_compaction
+            and self.plannable == other.plannable
             and self.features == other.features
         )
 

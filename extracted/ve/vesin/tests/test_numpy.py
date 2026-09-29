@@ -16,7 +16,16 @@ CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 def sort_neighbors(i, j, S, D, d):
-    ijS = np.concatenate((i.reshape(-1, 1), j.reshape(-1, 1), S), axis=1)
+    ijS = np.concatenate(
+        (
+            i.astype(np.int64).reshape(-1, 1),
+            j.astype(np.int64).reshape(-1, 1),
+            S.astype(np.int64).reshape(-1, 3),
+        ),
+        axis=1,
+    )
+    assert ijS.dtype == np.int64
+
     sort_indices = np.lexsort(np.flip(ijS, axis=1).T)
     return (
         i[sort_indices],
@@ -202,6 +211,20 @@ def test_errors():
         nl.compute(points, box, periodic=True, quantities="ij")
 
 
+def test_unknown_quantity():
+    points = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]])
+    box = np.eye(3, 3)
+
+    nl = NeighborList(cutoff=1.2, full_list=True)
+
+    message = "unexpected character in `quantities`: x"
+    with pytest.raises(ValueError, match=message):
+        nl.compute(points, box, periodic=True, quantities="x")
+
+    with pytest.raises(ValueError, match=message):
+        nl.compute(points, box, periodic=True, quantities="ijx")
+
+
 def test_cpu_brute_force_error():
     points = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], dtype=np.float64)
     box = np.eye(3, dtype=np.float64) * 10.0
@@ -257,9 +280,16 @@ def test_mixed_periodic(periodic):
     ase_ijS = np.concatenate(
         (ase_i.reshape(-1, 1), ase_j.reshape(-1, 1), ase_S), axis=1
     )
+
     vesin_ijS = np.concatenate(
-        (vesin_i.reshape(-1, 1), vesin_j.reshape(-1, 1), vesin_S), axis=1
+        (
+            vesin_i.astype(np.int64).reshape(-1, 1),
+            vesin_j.astype(np.int64).reshape(-1, 1),
+            vesin_S.astype(np.int64).reshape(-1, 3),
+        ),
+        axis=1,
     )
+    assert vesin_ijS.dtype == np.int64
 
     ase_sort_indices = np.lexsort(np.flip(ase_ijS, axis=1).T)
     vesin_sort_indices = np.lexsort(np.flip(vesin_ijS, axis=1).T)

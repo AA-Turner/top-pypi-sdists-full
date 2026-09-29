@@ -9,7 +9,8 @@ on reload, because the stored message holds only the ``decision_answers`` part
 
 from __future__ import annotations
 
-import inspect
+from matrx_utils.source_guard import stable_source
+
 from types import SimpleNamespace
 
 import pytest
@@ -148,6 +149,6 @@ async def test_the_emitter_is_restored_when_the_dispatch_raises(monkeypatch):
 
 
 def test_the_real_dispatch_installs_the_gate_with_the_overlay():
-    source = inspect.getsource(UnifiedAIClient._execute_dispatch)
+    source = stable_source(UnifiedAIClient._execute_dispatch)
     overlay_at = source.index("config.metadata[_VERBALIZED_DECISION_KEY] = _decision_overlay")
     assert "_install_decision_text_gate(config)" in source[overlay_at : overlay_at + 200]

@@ -114,6 +114,13 @@ MESSAGES = {
               " without the indent and without the trailing spaces, so the padding was"
               " taken off.",
     },
+    "translate.phrase.trimmed-value": {
+        "ru": "перевод окружён пробелами. Отступ строки комментария переводчик ставит сам,"
+              " и пробелы перевода легли бы поверх него, поэтому они сняты.",
+        "en": "the translation was padded with whitespace. The translator puts the indent of"
+              " the comment line back itself, and the padding would go on top of it, so it"
+              " was taken off.",
+    },
     "translate.phrase.newline-key": {
         "ru": "фраза не занимает несколько строк: каждую строку комментария переводчик ищет"
               " отдельно. Запишите строки отдельными записями.",
@@ -325,13 +332,20 @@ class Gap:
     suggestion: str = ""
     #: True when the name is a resource FILE (the stem of an icon and the like).
     resource: bool = False
+    #: A phrase gap: the short lines of the same comment a pair already translated, as
+    #: (line, translation) - the context the new line is to agree with (see
+    #: `FileReport.short_neighbors`).
+    neighbors: list[tuple[str, str]] = field(default_factory=list)
 
     def as_dict(self) -> dict:
-        return {
+        out = {
             "key": self.key, "kind": self.kind, "count": self.count,
             "places": [{"file": f, "line": ln} for f, ln in self.places],
             "suggestion": self.suggestion, "resource": self.resource,
         }
+        if self.neighbors:
+            out["neighbors"] = [{"key": key, "value": value} for key, value in self.neighbors]
+        return out
 
 
 def page_of(rows: list, limit: int, offset: int = 0, *, gaps: bool = False
@@ -448,8 +462,8 @@ def _readings(path: Path, text: str) -> tuple[set[str], set[str]]:
 
     The two readings have to agree character for character or a LIVE pair reads as an orphan -
     the one mistake `--prune` would act on. So this is not an imitation: a module is taken
-    through the lexer and its comment tokens through `code.comment_payloads`, the very
-    function the translating pass calls, block comments and `///` decoration included. A
+    through the lexer and its comment tokens through `code.comment_keys`, the very reading
+    the translating pass makes, block comments, `///` decoration and tag texts included. A
     private regex of this module did neither, and answered a doc comment with a slash glued
     to the text.
 
@@ -485,7 +499,7 @@ def _readings(path: Path, text: str) -> tuple[set[str], set[str]]:
     lines = {
         payload
         for token in tokens if token.kind == "COMMENT"
-        for _offset, _index, payload in code_module.comment_payloads(token)
+        for _index, payload in code_module.comment_keys(token)
     }
     return lines, code_module.literal_keys(tokens)
 
@@ -539,7 +553,7 @@ def _comment_bodies_of(suffix: str, text: str) -> set[str]:
     return {
         payload
         for token in tokens if token.kind == "COMMENT"
-        for _offset, _index, payload in code_module.comment_payloads(token)
+        for _index, payload in code_module.comment_keys(token)
     }
 
 
@@ -730,6 +744,12 @@ def _dictionary_side(root: Path, toplevel: Path, spec: str, since: str,
     costs nothing.
 
     A dictionary outside the repository has no diff to read and adds nothing.
+
+    A dictionary FILE the change created and has not added to the index is part of the change
+    as well, and `git diff` does not list it: a new `267-...yaml` answered with no dictionary
+    file and no added entry, though every pair in it was written by the change. When the diff
+    runs to the working tree, such a file counts whole. A range `A..B` examines commits, where
+    a file outside the index has no place.
     """
     dictionary_path = dictionary_path.resolve()
     try:
@@ -742,6 +762,14 @@ def _dictionary_side(root: Path, toplevel: Path, spec: str, since: str,
     )
     if code != 0:
         raise ValueError(i18n.t("translate.since.diff-failed", rev=since, error=error.strip()))
+
+    def added(line: str) -> None:
+        found = _EXPLICIT_KEY_RE.match(line) or _ENTRY_RE.match(line)
+        key = _key_of(found) if found else ""
+        if key:
+            removal.dictionary_added += 1
+            removal.added_keys.add(key)
+
     in_hunk = False
     for raw in diff.splitlines():
         if raw.startswith("diff --git "):
@@ -750,12 +778,25 @@ def _dictionary_side(root: Path, toplevel: Path, spec: str, since: str,
         elif raw.startswith("@@"):
             in_hunk = True
         elif in_hunk and raw.startswith("+"):
-            line = raw[1:]
-            found = _EXPLICIT_KEY_RE.match(line) or _ENTRY_RE.match(line)
-            key = _key_of(found) if found else ""
-            if key:
-                removal.dictionary_added += 1
-                removal.added_keys.add(key)
+            added(raw[1:])
+    if ".." in since:
+        return
+    code, listing, _error = _git(
+        root, "ls-files", "--others", "--exclude-standard", "-z", "--", str(dictionary_path),
+    )
+    if code != 0:
+        return
+    for name in filter(None, listing.split("\0")):
+        path = Path(name) if Path(name).is_absolute() else Path(root) / name
+        if path.suffix.lower() not in (".yaml", ".yml"):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError):
+            continue
+        removal.dictionary_files += 1
+        for line in text.splitlines():
+            added(line)
 
 
 #: How long one git call may take before the mode gives up on it and says so. Generous for
@@ -1049,7 +1090,7 @@ def _removed_comment_bodies(suffix: str, text: str, lines: set[int]) -> set[str]
                              if number in lines)
         return _marked_bodies(fragment, "//", code_module._LINE_COMMENT_RE)
     return {payload for token in tokens if token.kind == "COMMENT"
-            for _offset, index, payload in code_module.comment_payloads(token)
+            for index, payload in code_module.comment_keys(token)
             if token.line + index in lines and payload}
 
 
@@ -1184,10 +1225,12 @@ def gaps_of_report(report) -> list[Gap]:
             suggestion=_suggestion(name),
             resource=bool(info.get("resource")),
         ))
+    neighbors = report.merged_short_neighbors()
     for text, info in report.merged_missing_phrases().items():
         out.append(Gap(
             key=text, kind="phrase", count=int(info.get("count") or 0),
             places=_places(report, text, "phrase"),
+            neighbors=neighbors.get(text, []),
         ))
     # A literal carries no suggestion: the platform tables spell NAMES, and what stands
     # between the quotes is as often a sentence, where a table answer would be a guess.
@@ -1355,6 +1398,13 @@ def plan_entries(dictionary_path: Path, edits: list[dict], target: str = DEFAULT
                     # this edit corrects THAT one rather than adding a second spelling of it.
                     edit = {**edit, "key": key, "value": value}
                 normalized.extend({**note, "key": key, "kind": kind} for note in notes)
+        elif kind == "phrase":
+            # The key is taken as typed, the value is still pasted into the line as it stands.
+            notes = []
+            value = _phrase_value(value, notes)
+            if notes:
+                edit = {**edit, "value": value}
+                normalized.extend({**note, "key": key, "kind": kind} for note in notes)
         if (kind, key) in places:
             decided[(kind, key)] = edit
         else:
@@ -1389,11 +1439,16 @@ def plan_entries(dictionary_path: Path, edits: list[dict], target: str = DEFAULT
             lines[index:index + span] = [f"{indent}{scalar(entry.key)}: {scalar(value)}{newline}"]
             changed += 1
             if value != entry.value:
-                rewritten.append({
+                row = {
                     "key": entry.key, "kind": entry.kind,
                     "was": entry.value, "now": value,
                     "file": str(file), "line": entry.line,
-                })
+                }
+                # Named apart: a rewrite no reader of the English line can see is more often
+                # a slip of the batch than a correction, and it read like any other rewrite.
+                if value.split() == str(entry.value).split():
+                    row["whitespace_only"] = True
+                rewritten.append(row)
         files[str(file)] = "".join(lines)
 
     added = 0
@@ -1502,8 +1557,24 @@ def _phrase_edit(key: str, value: str) -> tuple[str, str, list[dict]]:
         notes.append({"was": fixed_key, "now": trimmed,
                       "reason": i18n.t("translate.phrase.trimmed-key")})
         fixed_key = trimmed
-    fixed_value = _phrase_side(value, "translate.phrase.escaped-quote-value", notes)
+    fixed_value = _phrase_value(
+        _phrase_side(value, "translate.phrase.escaped-quote-value", notes), notes)
     return fixed_key, fixed_value, notes
+
+
+def _phrase_value(value: str, notes: list[dict]) -> str:
+    """The value of a phrase without the padding round it, and a note when there was some.
+
+    The pass puts the indent of the comment line back itself, so the padding of a value was
+    written into the English line on top of it. A continuation line of a list came to the
+    writer with its indent on both sides; the key was trimmed, the value was not, and the
+    padded value overwrote a pair the dictionary already had.
+    """
+    trimmed = value.strip()
+    if trimmed != value:
+        notes.append({"was": value, "now": trimmed,
+                      "reason": i18n.t("translate.phrase.trimmed-value")})
+    return trimmed
 
 
 def _phrase_side(text: str, message: str, notes: list[str]) -> str:

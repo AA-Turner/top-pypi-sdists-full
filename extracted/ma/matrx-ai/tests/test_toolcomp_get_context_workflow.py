@@ -39,12 +39,19 @@ class _FakeInstance:
         return self._data.get(name)
 
 
+def _matches(row: dict[str, Any], key: str, value: Any) -> bool:
+    """Exact match, plus the ORM's ``<field>__isnull`` lookup (live rows skip Trash)."""
+    if key.endswith("__isnull"):
+        return (row.get(key[: -len("__isnull")]) is None) is bool(value)
+    return row.get(key) == value
+
+
 class _FakeQuery:
     def __init__(self, rows: list[dict[str, Any]]):
         self._rows = rows
 
     def filter(self, **kwargs: Any) -> _FakeQuery:
-        filtered = [r for r in self._rows if all(r.get(k) == v for k, v in kwargs.items())]
+        filtered = [r for r in self._rows if all(_matches(r, k, v) for k, v in kwargs.items())]
         return _FakeQuery(filtered)
 
     def order_by(self, *_args: Any, **_kwargs: Any) -> _FakeQuery:

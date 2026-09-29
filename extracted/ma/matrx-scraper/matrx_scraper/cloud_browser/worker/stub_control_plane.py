@@ -46,6 +46,27 @@ class StubControlPlane:
         self._sequence = self.sequence_base
         self.activation_key = uuid.uuid4().hex
         self.events: list[M.WorkerEvent] = []
+        # The stub is the test control-plane authority for ephemeral RTC
+        # material. This only proves the worker receives authenticated media
+        # readiness; production wires the real Selkies callback in http_app.
+        self.rtc_config = M.RtcConfig(
+            iceServers=[
+                M.RtcIceServer(
+                    urls=["turn:stub.invalid:3478"],
+                    username="stub-ephemeral",
+                    credential="stub-credential",
+                )
+            ],
+            expires_at=_now() + timedelta(minutes=5),
+        )
+        self.prepared_rtc: M.RtcConfig | None = None
+        worker.set_human_control_preparer(self._prepare_human_control)
+
+    def _prepare_human_control(self, rtc_config: M.RtcConfig) -> None:
+        """Accept only the stub-issued, still-live configuration."""
+        if rtc_config != self.rtc_config or rtc_config.expires_at <= _now():
+            raise RuntimeError("stub RTC authority rejected the configuration")
+        self.prepared_rtc = rtc_config
 
     # ── envelope + auth helpers ─────────────────────────────────────────────
 
@@ -186,6 +207,7 @@ class StubControlPlane:
             controller_ref=controller_ref,
             handoff_id=handoff_id,
             enable_human_input=enable_human_input,
+            rtc_config=self.rtc_config if to_state == "human_control" and enable_human_input else None,
         )
         resp = await self.worker.controller_transition(
             req, bearer=self._bearer("controller_transition")

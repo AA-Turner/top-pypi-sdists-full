@@ -87,6 +87,7 @@ permissions:
 env:
   DRY_RUN_FLAG: ${{ inputs.dry_run && '--dry-run' || '' }}
   CONNECTOR_FLAG: ${{ inputs.connector != '' && format('--connector {0}', inputs.connector) || '' }}
+  SENTRY_ENVIRONMENT: production
 
 jobs:
   autopilot:

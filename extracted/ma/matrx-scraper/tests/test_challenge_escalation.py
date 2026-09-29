@@ -271,9 +271,10 @@ async def test_exhausted_rate_limit_spends_one_browser_attempt_before_failing(
 
     await crawler.run()
 
-    # The throttled rounds run first (initial + 5 requeues, each with its
-    # proxy-bypass retry), then exactly ONE last-chance browser navigation.
-    assert calls.count("http") >= 6
+    # The throttled rounds run first (initial + `crawl.max_retries_per_url`
+    # requeues — 3, OPENSEO-TOOLS-SPEC §10 — each with its proxy-bypass retry),
+    # then exactly ONE last-chance browser navigation.
+    assert calls.count("http") >= 4
     assert calls.count("browser") == 1
     assert calls[-1] == "browser"
     fetched = sink.of_type(CrawlPageFetchedEvent)

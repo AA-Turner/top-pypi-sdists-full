@@ -1,3 +1,4 @@
+import binascii
 import errno
 import json as jsonlib
 import os
@@ -9,8 +10,6 @@ from urllib.parse import urlencode
 
 import brotli
 import gevent
-from urllib3 import encode_multipart_formdata
-from urllib3.fields import RequestField
 
 from geventhttpclient.client import HTTPClient, HTTPClientPool
 from geventhttpclient.url import URL, to_key_val_list
@@ -40,7 +39,7 @@ class ConnectionError(Exception):
     def __repr__(self):
         repr_str = super().__repr__()
         if self.kw_text:
-            return repr_str.replace(")", "".join([", ", self.kw_text, ")"]))
+            return repr_str.replace(")", f", {self.kw_text})")
         return repr_str
 
 
@@ -130,7 +129,7 @@ class CompatRequest:
     def redirect(self, code, location):
         """Modify the request inplace to point to the new location"""
         self.set_url(self.url_split.redirect(location))
-        if code in (302, 303):
+        if code in (301, 302, 303):
             self._drop_payload()
         self._drop_cookies()
 
@@ -138,7 +137,7 @@ class CompatRequest:
 class CompatResponse:
     """Adapter for urllib3-style responses."""
 
-    __slots__ = "headers", "_response", "_request", "_sent_request", "_cached_content"
+    __slots__ = "_cached_content", "_request", "_response", "_sent_request", "headers"
 
     def __init__(self, ghc_response, request=None, sent_request=None):
         self._response = ghc_response
@@ -277,8 +276,8 @@ class CompatResponse:
 class UserAgent:
     response_type = CompatResponse
     request_type = CompatRequest
-    valid_response_codes = frozenset([200, 206, 301, 302, 303, 307])
-    redirect_resonse_codes = frozenset([301, 302, 303, 307])
+    valid_response_codes = frozenset([200, 206, 301, 302, 303, 307, 308])
+    redirect_response_codes = frozenset([301, 302, 303, 307, 308])
 
     def __init__(
         self,
@@ -318,18 +317,20 @@ class UserAgent:
         exceed the limit.
         Temporary errors should be swallowed here for automatic retries.
         """
-        if isinstance(e, (socket.timeout, gevent.Timeout)):
-            return e
-        elif isinstance(e, socket.error) and e.errno in {
-            errno.ETIMEDOUT,
-            errno.ENOLINK,
-            errno.ENOENT,
-            errno.EPIPE,
-        }:
-            return e
-        elif isinstance(e, ssl.SSLError) and "read operation timed out" in str(e):
-            return e
-        elif isinstance(e, EmptyResponse):
+        if (
+            isinstance(e, (socket.timeout, gevent.Timeout))
+            or isinstance(e, socket.error)
+            and e.errno
+            in {
+                errno.ETIMEDOUT,
+                errno.ENOLINK,
+                errno.ENOENT,
+                errno.EPIPE,
+            }
+            or isinstance(e, ssl.SSLError)
+            and "read operation timed out" in str(e)
+            or isinstance(e, EmptyResponse)
+        ):
             return e
         raise e.with_traceback(sys.exc_info()[2])
 
@@ -392,7 +393,7 @@ class UserAgent:
                     resp = self._urlopen(req)
                 except gevent.GreenletExit:
                     raise
-                except BaseException as e:
+                except BaseException as e:  # noqa: BLE001
                     e.request = req
                     last_error = self._handle_error(e, url=req.url)
                     break  # Continue with next retry
@@ -408,7 +409,7 @@ class UserAgent:
 
                 try:
                     self._verify_status(resp.status_code, url=req.url)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     # Basic transmission successful, but not the wished result
                     # Let's collect some debug info
                     e.response = resp
@@ -421,12 +422,12 @@ class UserAgent:
                 redirection = resp.headers.get("location")
                 if isinstance(redirection, bytes):
                     redirection = redirection.decode("utf-8")
-                if resp.status_code in self.redirect_resonse_codes and redirection:
+                if resp.status_code in self.redirect_response_codes and redirection:
                     resp.release()
                     try:
                         req.redirect(resp.status_code, redirection)
                         continue
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001
                         last_error = self._handle_error(e, url=req.url)
                         break
 
@@ -437,7 +438,7 @@ class UserAgent:
                     # bodies as error and continue retries automatically
                     try:
                         ret = resp.content
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001
                         last_error = self._handle_error(e, url=req.url)
                         break
                     else:
@@ -450,8 +451,7 @@ class UserAgent:
             else:
                 e = RetriesExceeded(url, f"Redirection limit reached ({self.max_redirects})")
                 last_error = self._handle_error(e, url=url)
-        else:
-            return self._handle_retries_exceeded(url, last_error=last_error)
+        return self._handle_retries_exceeded(url, last_error=last_error)
 
     def _urlopen(self, request):
         client = self.clientpool.get_client(request.url_split)
@@ -522,7 +522,7 @@ class UserAgent:
                         while data:
                             f.write(data)
                             data = resp.read(chunk_size)
-                except BaseException as e:
+                except BaseException as e:  # noqa: BLE001
                     self._handle_error(e, url=url)
                     if resp.headers.get("accept-ranges") == "bytes":
                         # Only if this header is set, we can fall back to partial download
@@ -583,11 +583,37 @@ def _guess_filename(file):
         return os.path.basename(name)
 
 
+def _quote_param(value):
+    """Quote a Content-Disposition parameter value (HTML5 style)."""
+    return str(value).replace('"', "%22")
+
+
+def _multipart_part(
+    boundary,
+    name,
+    data,
+    filename=None,
+    content_type=None,
+    extra_headers=None,
+):
+    """Render a single multipart/form-data part."""
+    disposition = f'Content-Disposition: form-data; name="{_quote_param(name)}"'
+    if filename is not None:
+        disposition += f'; filename="{_quote_param(filename)}"'
+    lines = [disposition.encode()]
+    if content_type is not None:
+        lines.append(f"Content-Type: {content_type}".encode())
+    for key, value in to_key_val_list(extra_headers or {}):
+        lines.append(f"{key}: {value}".encode())
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    return b"".join(
+        (b"--", boundary, b"\r\n", b"\r\n".join(lines), b"\r\n\r\n", bytes(data), b"\r\n")
+    )
+
+
 def _encode_multipart_formdata(files, data):
     """
-    Method taken from models in requests library , usage is the same. The only difference is that
-    you can add custom boundary in 5-tuple version.
-
     Build the body for a multipart/form-data request.
 
     Will successfully encode files when passed as a dict or a list of
@@ -610,30 +636,32 @@ def _encode_multipart_formdata(files, data):
     elif isinstance(data, (str, bytes)):
         raise ValueError("Data must not be a string.")
 
-    new_fields = []
-    fields = to_key_val_list(data or {})
-    files = to_key_val_list(files or {})
+    file_items = to_key_val_list(files or {})
+    # a custom boundary can be given in the 5-tuple form of a file
+    boundary = next(
+        (item[4] for _, item in file_items if isinstance(item, (tuple, list)) and len(item) >= 5),
+        None,
+    )
+    if boundary is None:
+        boundary = binascii.hexlify(os.urandom(16)).decode("ascii")
+    boundary_bytes = boundary.encode("ascii")
 
-    for field, val in fields:
+    parts = []
+    for field, val in to_key_val_list(data or {}):
         if isinstance(val, (str, bytes)) or not hasattr(val, "__iter__"):
             val = [val]
         for v in val:
             if v is not None:
+                if isinstance(field, bytes):
+                    field = field.decode("utf-8")
                 if not isinstance(v, bytes):
                     v = str(v)
+                parts.append(_multipart_part(boundary_bytes, field, v))
 
-                new_fields.append(
-                    (
-                        field.decode("utf-8") if isinstance(field, bytes) else field,
-                        v.encode("utf-8") if isinstance(v, str) else v,
-                    )
-                )
-
-    for k, v in files:
+    for k, v in file_items:
         # support for explicit filename
         ft = None
         fh = None
-        boundary = None
         if isinstance(v, (tuple, list)):
             if len(v) == 2:
                 fn, fp = v
@@ -642,7 +670,9 @@ def _encode_multipart_formdata(files, data):
             elif len(v) == 4:
                 fn, fp, ft, fh = v
             else:
-                fn, fp, ft, fh, boundary = v
+                # strict unpacking keeps the ValueError for wrong lengths;
+                # the boundary was already determined above and must not change
+                fn, fp, ft, fh, _ = v
         else:
             fn = _guess_filename(v) or k
             fp = v
@@ -656,10 +686,14 @@ def _encode_multipart_formdata(files, data):
         else:
             fdata = fp
 
-        rf = RequestField(name=k, data=fdata, filename=fn, headers=fh)
-        rf.make_multipart(content_type=ft)
-        new_fields.append(rf)
+        name = k.decode("utf-8") if isinstance(k, bytes) else k
+        parts.append(
+            _multipart_part(
+                boundary_bytes, name, fdata, filename=fn, content_type=ft, extra_headers=fh
+            )
+        )
 
-    body, content_type = encode_multipart_formdata(new_fields, boundary)
+    body = b"".join(parts) + b"--%s--\r\n" % boundary_bytes
+    content_type = f"multipart/form-data; boundary={boundary}"
 
     return body, content_type

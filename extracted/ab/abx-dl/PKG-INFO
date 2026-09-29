@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.13.70
+Version: 1.13.79
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -41,9 +41,9 @@ Project-URL: Donate, https://github.com/ArchiveBox/ArchiveBox/wiki/Donations
 Requires-Python: <3.15,>=3.12
 Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
-Requires-Dist: abxbus==2.5.65
-Requires-Dist: abxpkg==1.13.14
-Requires-Dist: abx-plugins==1.13.100
+Requires-Dist: abxbus==2.5.70
+Requires-Dist: abxpkg==1.13.21
+Requires-Dist: abx-plugins==1.13.109
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: platformdirs>=4.0.0
@@ -119,7 +119,9 @@ test -s pdf/output.pdf
 test -s readability/content.html
 grep -q 'Example Domain' title/title.txt
 grep -q 'Example Domain' wget/example.com/index.html
-grep -q 'Example Domain' readability/content.txt
+# Readability extracts article body, which may omit the heading. The live
+# example.com DOM now does; title extraction is checked separately above.
+grep -Fq 'This domain is for use in documentation examples without needing permission.' readability/content.txt
 grep -q '"plugin": "wget".*"status": "succeeded"' index.jsonl
 grep -q '"plugin": "screenshot".*"status": "succeeded"' index.jsonl
 grep -q '"plugin": "pdf".*"status": "succeeded"' index.jsonl

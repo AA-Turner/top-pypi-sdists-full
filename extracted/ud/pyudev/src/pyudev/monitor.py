@@ -15,21 +15,19 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    pyudev.monitor
-    ==============
+pyudev.monitor
+==============
 
-    Monitor implementation.
+Monitor implementation.
 
-    .. moduleauthor::  Sebastian Wiesner  <lunaryorn@gmail.com>
+.. moduleauthor::  Sebastian Wiesner  <lunaryorn@gmail.com>
 """
 
-# isort: STDLIB
 import errno
 import os
 from functools import partial
 from threading import Thread
 
-# isort: LOCAL
 from pyudev._os import pipe, poll
 from pyudev._util import eintr_retry_call, ensure_byte_string
 from pyudev.device import Device
@@ -104,18 +102,18 @@ class Monitor:
         Return a new :class:`Monitor` object, which is connected to the
         given source.  Raise :exc:`~exceptions.ValueError`, if an invalid
         source has been specified.  Raise
-        :exc:`~exceptions.EnvironmentError`, if the creation of the monitor
+        :exc:`~exceptions.OSError`, if the creation of the monitor
         failed.
         """
         if source not in ("kernel", "udev"):
             raise ValueError(
                 f'Invalid source: {source!r}. Must be one of "udev" or "kernel"'
             )
-        monitor = context._libudev.udev_monitor_new_from_netlink(  # pylint: disable=protected-access
+        monitor = context._libudev.udev_monitor_new_from_netlink(
             context, ensure_byte_string(source)
         )
         if not monitor:
-            raise EnvironmentError("Could not create udev monitor")
+            raise OSError("Could not create udev monitor")
         return cls(context, monitor)
 
     @property
@@ -199,7 +197,7 @@ class Monitor:
            affected versions this method always raises
            :exc:`~exceptions.ValueError`.
 
-        Raise :exc:`~exceptions.EnvironmentError` if removal of installed
+        Raise :exc:`~exceptions.OSError` if removal of installed
         filters failed.
 
         .. versionadded:: 0.15
@@ -223,11 +221,13 @@ class Monitor:
         .. deprecated:: 0.16
            Will be removed in 1.0. Use :meth:`start()` instead.
         """
-        # isort: STDLIB
-        import warnings  # pylint: disable=import-outside-toplevel
+
+        import warnings  # noqa: PLC0415
 
         warnings.warn(
-            "Will be removed in 1.0. Use Monitor.start() instead.", DeprecationWarning
+            "Will be removed in 1.0. Use Monitor.start() instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
         self.start()
 
@@ -264,7 +264,7 @@ class Monitor:
 
            The CAP_NET_ADMIN capability must be contained in the effective
            capability set of the caller for this method to succeed.  Otherwise
-           :exc:`~exceptions.EnvironmentError` will be raised, with ``errno``
+           :exc:`~exceptions.OSError` will be raised, with ``errno``
            set to :data:`~errno.EPERM`.  Unprivileged processes typically lack
            this capability.  You can check the capabilities of the current
            process with the python-prctl_ module:
@@ -272,7 +272,7 @@ class Monitor:
            >>> import prctl
            >>> prctl.cap_effective.net_admin
 
-        Raise :exc:`~exceptions.EnvironmentError`, if the buffer size could not
+        Raise :exc:`~exceptions.OSError`, if the buffer size could not
         bet set.
 
         .. versionadded:: 0.13
@@ -292,7 +292,7 @@ class Monitor:
             try:
                 device_p = self._libudev.udev_monitor_receive_device(self)
                 return Device(self.context, device_p) if device_p else None
-            except EnvironmentError as error:
+            except OSError as error:
                 if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                     # No data available
                     return None
@@ -334,7 +334,7 @@ class Monitor:
            This method implicitly calls :meth:`start()`.
 
         Return the received :class:`Device`, or ``None`` if a timeout
-        occurred. Raise :exc:`~exceptions.EnvironmentError` if event retrieval
+        occurred. Raise :exc:`~exceptions.OSError` if event retrieval
         failed.
 
         .. seealso::
@@ -381,17 +381,19 @@ class Monitor:
         ``'offline'``
           The device is offline now
 
-        Raise :exc:`~exceptions.EnvironmentError`, if no device could be
+        Raise :exc:`~exceptions.OSError`, if no device could be
         read.
 
         .. deprecated:: 0.16
            Will be removed in 1.0. Use :meth:`Monitor.poll()` instead.
         """
-        # isort: STDLIB
-        import warnings  # pylint: disable=import-outside-toplevel
+
+        import warnings  # noqa: PLC0415
 
         warnings.warn(
-            "Will be removed in 1.0. Use Monitor.poll() instead.", DeprecationWarning
+            "Will be removed in 1.0. Use Monitor.poll() instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
         device = self.poll()
         return device.action, device
@@ -414,14 +416,15 @@ class Monitor:
            Will be removed in 1.0. Use an explicit loop over :meth:`poll()`
            instead, or monitor asynchronously with :class:`MonitorObserver`.
         """
-        # isort: STDLIB
-        import warnings  # pylint: disable=import-outside-toplevel
+
+        import warnings  # noqa: PLC0415
 
         warnings.warn(
             "Will be removed in 1.0. Use an explicit loop over "
             '"poll()" instead, or monitor asynchronously with '
             '"MonitorObserver".',
             DeprecationWarning,
+            stacklevel=2,
         )
         self.start()
         while True:
@@ -472,9 +475,7 @@ class MonitorObserver(Thread):
        :meth:`Monitor.start()` is implicitly called when the thread is started.
     """
 
-    def __init__(
-        self, monitor, event_handler=None, callback=None, *args, **kwargs
-    ):  # pylint: disable=keyword-arg-before-vararg
+    def __init__(self, monitor, event_handler=None, callback=None, *args, **kwargs):
         """
         Create a new observer for the given ``monitor``.
 
@@ -507,17 +508,15 @@ class MonitorObserver(Thread):
         self.daemon = True
         self._stop_event = None
         if event_handler is not None:
-            # isort: STDLIB
-            import warnings  # pylint: disable=import-outside-toplevel
+            import warnings  # noqa: PLC0415
 
             warnings.warn(
                 '"event_handler" argument will be removed in 1.0. '
                 "Use Monitor.poll() instead.",
                 DeprecationWarning,
+                stacklevel=2,
             )
-            callback = lambda d: event_handler(  # pylint: disable=unnecessary-lambda-assignment
-                d.action, d
-            )
+            callback = lambda d: event_handler(d.action, d)
         self._callback = callback
 
     def start(self):
@@ -546,7 +545,7 @@ class MonitorObserver(Thread):
                     for device in iter(read_device, None):
                         self._callback(device)
                 else:
-                    raise EnvironmentError("Observed monitor hung up")
+                    raise OSError("Observed monitor hung up")
 
     def send_stop(self):
         """
@@ -576,7 +575,7 @@ class MonitorObserver(Thread):
            This method can safely be called from the observer thread. In this
            case it is equivalent to :meth:`send_stop()`.
 
-        Send a stop signal to the backgroud (see :meth:`send_stop`), and waits
+        Send a stop signal to the background (see :meth:`send_stop`), and waits
         for the background thread to exit (see :meth:`~threading.Thread.join`)
         if the current thread is *not* the observer thread.
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <simpleble/Advanced.h>
 #include <simpleble/Exceptions.h>
 #include <simpleble/Service.h>
 #include <simpleble/Types.h>
@@ -10,11 +11,15 @@
 #include <kvn_safe_map.hpp>
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <limits>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 
-#include "AdapterBaseTypes.h"
+#include "AdvertisingData.h"
 #include "protocol/d2h.pb.h"
 #include "serial/Protocol.h"
 
@@ -22,7 +27,8 @@ namespace SimpleBLE {
 
 class PeripheralDongl : public PeripheralBase {
   public:
-    PeripheralDongl(std::shared_ptr<Dongl::Serial::Protocol> serial_protocol, advertising_data_t advertising_data);
+    PeripheralDongl(std::shared_ptr<Dongl::Serial::Protocol> serial_protocol,
+                    Dongl::advertising_data_t advertising_data);
     virtual ~PeripheralDongl();
 
     void* underlying() const override;
@@ -40,6 +46,10 @@ class PeripheralDongl : public PeripheralBase {
     virtual bool is_connectable() override;
     virtual bool is_paired() override;
     virtual void unpair() override;
+
+    void set_passkey_request_callback(const std::function<std::optional<std::string>()>& callback);
+    void set_passkey_display_callback(const std::function<void(const std::string& passkey)>& callback);
+    void set_numeric_comparison_callback(const std::function<bool(const std::string& passkey)>& callback);
 
     virtual std::vector<std::shared_ptr<ServiceBase>> available_services() override;
     virtual std::vector<std::shared_ptr<ServiceBase>> advertised_services() override;
@@ -64,14 +74,16 @@ class PeripheralDongl : public PeripheralBase {
     // Internal methods not exposed to the user.
     // TODO: Make these private and the adapter a friend.
     uint16_t conn_handle() const;
-    void update_advertising_data(advertising_data_t advertising_data);
+    void update_advertising_data(Dongl::advertising_data_t advertising_data);
     void notify_connected(uint16_t conn_handle);
     void notify_disconnected();
     void notify_service_discovered(simpleble_ServiceDiscoveredEvt const& service_discovered_evt);
     void notify_characteristic_discovered(simpleble_CharacteristicDiscoveredEvt const& characteristic_discovered_evt);
     void notify_descriptor_discovered(simpleble_DescriptorDiscoveredEvt const& descriptor_discovered_evt);
-    void notify_attribute_discovery_complete();
+    void notify_connect_complete(simpleble_ConnectCompleteEvt const& connect_complete_evt);
     void notify_value_changed(simpleble_ValueChangedEvt const& value_changed_evt);
+    void notify_passkey_display(simpleble_PasskeyDisplayEvt const& passkey_display_evt);
+    void notify_auth_key_request(simpleble_AuthKeyRequestEvt const& auth_key_request_evt);
 
     const uint16_t BLE_CONN_HANDLE_INVALID = 0xFFFF;
     const uint16_t BLE_CONN_HANDLE_PENDING = 0xFFFE;
@@ -103,28 +115,44 @@ class PeripheralDongl : public PeripheralBase {
         std::vector<CharacteristicDefinition> characteristics;
     };
 
-    bool _attempt_connect();
-    BluetoothUUID _uuid_from_uuid16(uint16_t uuid16);
-    BluetoothUUID _uuid_from_uuid32(uint32_t uuid32);
-    BluetoothUUID _uuid_from_uuid128(const uint8_t uuid[16]);
-    BluetoothUUID _uuid_from_proto(simpleble_UUID const& uuid);
+    static constexpr std::chrono::milliseconds CONNECT_TIMEOUT{10000};
+    static constexpr std::chrono::milliseconds CONNECT_RESULT_MARGIN{5000};
+
+    void _resolve_missing_uuids();
 
     ServiceDefinition& _find_service_from_handle(uint16_t handle);
     CharacteristicDefinition& _find_characteristic_from_handle(uint16_t handle);
     CharacteristicDefinition& _find_characteristic_from_uuid(BluetoothUUID const& service,
                                                              BluetoothUUID const& characteristic);
+    DescriptorDefinition& _find_descriptor_from_uuid(BluetoothUUID const& service, BluetoothUUID const& characteristic,
+                                                     BluetoothUUID const& descriptor);
+    void _send_auth_key_reply(uint16_t conn_handle, uint32_t request_id, const std::vector<uint8_t>& key, bool accept);
 
-    uint16_t _conn_handle = BLE_CONN_HANDLE_INVALID;
+    std::atomic<uint16_t> _conn_handle{BLE_CONN_HANDLE_INVALID};  // Written by the serial reader thread.
+    std::atomic_bool _connection_announced = false;
+    uint16_t _mtu = 0;
     std::string _identifier;
+    bool _identifier_complete = false;
     BluetoothAddress _address;
     BluetoothAddressType _address_type;
     int16_t _rssi;
-    int16_t _tx_power;
+    // Advertising fields are written by the serial reader thread during scans and read by user threads.
+    mutable std::mutex _advertising_mutex;
     bool _connectable;
-    std::map<uint16_t, ByteArray> _manufacturer_data;
     std::map<BluetoothUUID, ByteArray> _service_data;
 
+    // Fields of the latest advertisement and the latest scan response. Like the OS backends, the peripheral reports
+    // what is currently advertised, so a field that stops being advertised disappears. Service data accumulates.
+    struct PacketFields {
+        int16_t tx_power = std::numeric_limits<int16_t>::min();
+        std::map<uint16_t, ByteArray> manufacturer_data;
+    };
+    PacketFields _advertisement;
+    PacketFields _scan_response;
+
     std::vector<ServiceDefinition> _services;
+    std::optional<simpleble_ConnectCompleteEvt> _connect_result;
+    bool _connect_pending = false;  // Guarded by connection_mutex_.
 
     std::shared_ptr<Dongl::Serial::Protocol> _serial_protocol;
 
@@ -132,8 +160,11 @@ class PeripheralDongl : public PeripheralBase {
     std::mutex connection_mutex_;
     std::condition_variable disconnection_cv_;
     std::mutex disconnection_mutex_;
-    std::condition_variable attributes_discovered_cv_;
-    std::mutex attributes_discovered_mutex_;
+    kvn::safe_callback<std::optional<std::string>()> passkey_request_callback_;
+    kvn::safe_callback<void(const std::string& passkey)> passkey_display_callback_;
+    kvn::safe_callback<bool(const std::string& passkey)> numeric_comparison_callback_;
+    // Runs work that issues Dongl commands off the serial reader thread, which must stay free to receive responses.
+    TaskRunner task_runner_;
 
     kvn::safe_callback<void()> _callback_on_connected;
     kvn::safe_callback<void()> _callback_on_disconnected;

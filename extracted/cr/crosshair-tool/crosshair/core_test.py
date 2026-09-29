@@ -787,7 +787,7 @@ def TODO_test_cannot_strengthen_inherited_preconditions():
             return AirSample.SMOKE in air_samples
 
     actual, expected = check_messages(
-        analyze_class(PowerHungrySmokeDetector), state=MessageType.PRE_INVALID
+        analyze_class(PowerHungrySmokeDetector), state=MessageType.PRE_UNSAT
     )
     assert actual == expected
 
@@ -1200,17 +1200,15 @@ def test_unrelated_regex() -> None:
     check_states(f, CANNOT_CONFIRM)
 
 
-if sys.version_info >= (3, 9):
+def test_new_style_type_hints():
+    def f(ls: list[int]) -> List[int]:
+        """
+        pre: len(ls) == 1
+        post: _[0] != 'a'
+        """
+        return ls
 
-    def test_new_style_type_hints():
-        def f(ls: list[int]) -> List[int]:
-            """
-            pre: len(ls) == 1
-            post: _[0] != 'a'
-            """
-            return ls
-
-        check_states(f, CONFIRMED)
+    check_states(f, CONFIRMED)
 
 
 def test_nondeterministic_detected_via_condition() -> None:

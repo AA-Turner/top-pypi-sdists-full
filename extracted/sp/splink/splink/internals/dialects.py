@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from abc import ABC, abstractproperty
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Literal, Type, TypeVar, final
+
+from splink.internals.input_column import InputColumn
+from splink.internals.unique_id_concat import _composite_unique_id_from_nodes_sql
 
 if TYPE_CHECKING:
     from splink.internals.comparison_level_library import (
@@ -11,6 +14,11 @@ if TYPE_CHECKING:
 
 # equivalent to typing.Self in python >= 3.11
 Self = TypeVar("Self", bound="SplinkDialect")
+
+# Resolution of the deterministic proportion sampler.  A high modulus means the
+# integer threshold can closely approximate any requested proportion in (0, 1].
+# Kept below 2**31 so it remains safe for backends whose hash is only 32-bit
+_DETERMINISTIC_SAMPLE_MODULUS = 1_000_000_000
 
 
 class SplinkDialect(ABC):
@@ -29,7 +37,8 @@ class SplinkDialect(ABC):
             cls._dialect_instances[cls] = instance
         return cls._dialect_instances[cls]
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def sql_dialect_str(self):
         pass
 
@@ -72,8 +81,7 @@ class SplinkDialect(ABC):
     @property
     def levenshtein_function_name(self):
         raise NotImplementedError(
-            f"Backend '{self.sql_dialect_str}' does not have a "
-            "'Levenshtein' function"
+            f"Backend '{self.sql_dialect_str}' does not have a 'Levenshtein' function"
         )
 
     @property
@@ -86,8 +94,7 @@ class SplinkDialect(ABC):
     @property
     def jaro_winkler_function_name(self):
         raise NotImplementedError(
-            f"Backend '{self.sql_dialect_str}' does not have a "
-            "'Jaro-Winkler' function"
+            f"Backend '{self.sql_dialect_str}' does not have a 'Jaro-Winkler' function"
         )
 
     @property
@@ -138,29 +145,65 @@ class SplinkDialect(ABC):
     @property
     def greatest_function_name(self):
         raise NotImplementedError(
-            f"Backend '{self.sql_dialect_str}' does not have a " "'Greatest' function"
+            f"Backend '{self.sql_dialect_str}' does not have a 'Greatest' function"
         )
 
     @property
     def least_function_name(self):
         raise NotImplementedError(
-            f"Backend '{self.sql_dialect_str}' does not have a " "'Least' function"
-        )
-
-    def random_sample_sql(
-        self, proportion, sample_size, seed=None, table=None, unique_id=None
-    ):
-        raise NotImplementedError(
-            f"Backend '{self.sql_dialect_str}' needs a random_sample_sql "
-            "added to its dialect"
+            f"Backend '{self.sql_dialect_str}' does not have a 'Least' function"
         )
 
     @property
-    def infinity_expression(self):
+    def hash_function_name(self) -> str:
+        """Return the name of a hash function that returns a bigint/int64.
+        Used for deterministic chunking of records during prediction.
+        """
         raise NotImplementedError(
-            f"Backend '{self.sql_dialect_str}' needs an infinity_expression "
-            "added to its dialect"
+            f"hash_function_name not implemented for {self.__class__.__name__}"
         )
+
+    def hash_function_expression(self, col_expression: str) -> str:
+        """Return a SQL expression that hashes the given column expression."""
+        return f"{self.hash_function_name}({col_expression})"
+
+    def hash_bucket_expression(self, col_expression: str, modulus: int) -> str:
+        """Return a deterministic hash bucket in the range [0, modulus - 1]."""
+        if modulus <= 0:
+            raise ValueError("modulus must be positive")
+        hash_expr = self.hash_function_expression(col_expression)
+        return f"((({hash_expr}) % {modulus}) + {modulus}) % {modulus}"
+
+    def proportion_sample_sql(
+        self,
+        proportion: float,
+        unique_id_cols: list[InputColumn],
+        seed: int | None = None,
+    ) -> str:
+        """Return a SQL clause that deterministically samples a proportion of rows.
+
+        Which rows are selected is a pure function of the composite unique id
+        (and the optional seed), so the same rows are returned on every run.
+
+        Returns:
+            A SQL ``WHERE`` clause condition such as
+            ``" AND ((hash(...) % 1000000000) + 1000000000) % 1000000000 < 250000000"``,
+            or an empty string when ``proportion >= 1.0``.
+        """
+        if proportion >= 1.0:
+            return ""
+
+        composite_id = _composite_unique_id_from_nodes_sql(unique_id_cols)
+        if seed is not None:
+            # Mix the seed into the hashed value so different seeds select
+            # different subsets.
+            composite_id = f"({composite_id}) || '_{seed}'"
+
+        threshold = max(1, round(proportion * _DETERMINISTIC_SAMPLE_MODULUS))
+        sample_bucket = self.hash_bucket_expression(
+            composite_id, _DETERMINISTIC_SAMPLE_MODULUS
+        )
+        return f" AND {sample_bucket} < {threshold}"
 
     @staticmethod
     def _wrap_in_nullif(func):
@@ -170,19 +213,23 @@ class SplinkDialect(ABC):
 
         return nullif_wrapped_function
 
-    def try_parse_date(self, name: str, date_format: str = None) -> str:
+    def try_parse_date(self, name: str, date_format: str | None = None) -> str:
         return self._try_parse_date_raw(name, date_format)
 
-    def _try_parse_date_raw(self, name: str, date_format: str = None) -> str:
+    def _try_parse_date_raw(self, name: str, date_format: str | None = None) -> str:
         raise NotImplementedError(
             f"Backend '{self.sql_dialect_str}' does not have a "
             "'try_parse_date' function"
         )
 
-    def try_parse_timestamp(self, name: str, timestamp_format: str = None) -> str:
+    def try_parse_timestamp(
+        self, name: str, timestamp_format: str | None = None
+    ) -> str:
         return self._try_parse_timestamp_raw(name, timestamp_format)
 
-    def _try_parse_timestamp_raw(self, name: str, timestamp_format: str = None) -> str:
+    def _try_parse_timestamp_raw(
+        self, name: str, timestamp_format: str | None = None
+    ) -> str:
         raise NotImplementedError(
             f"Backend '{self.sql_dialect_str}' does not have a "
             "'try_parse_timestamp' function"
@@ -198,8 +245,7 @@ class SplinkDialect(ABC):
         self, name: str, pattern: str, capture_group: int = 0
     ) -> str:
         raise NotImplementedError(
-            f"Backend '{self.sql_dialect_str}' does not have a "
-            "'regex_extract' function"
+            f"Backend '{self.sql_dialect_str}' does not have a 'regex_extract' function"
         )
 
     def access_extreme_array_element(
@@ -273,6 +319,16 @@ class DuckDBDialect(SplinkDialect):
         return "least"
 
     @property
+    def hash_function_name(self) -> str:
+        return "hash"  # DuckDB's hash() returns int64
+
+    def hash_bucket_expression(self, col_expression: str, modulus: int) -> str:
+        if modulus <= 0:
+            raise ValueError("modulus must be positive")
+        hash_expr = self.hash_function_expression(col_expression)
+        return f"{hash_expr} % {modulus}"
+
+    @property
     def default_date_format(self):
         return "%Y-%m-%d"
 
@@ -280,12 +336,14 @@ class DuckDBDialect(SplinkDialect):
     def default_timestamp_format(self):
         return "%Y-%m-%dT%H:%M:%SZ"
 
-    def _try_parse_date_raw(self, name: str, date_format: str = None) -> str:
+    def _try_parse_date_raw(self, name: str, date_format: str | None = None) -> str:
         if date_format is None:
             date_format = self.default_date_format
         return f"""try_strptime({name}, '{date_format}')"""
 
-    def _try_parse_timestamp_raw(self, name: str, timestamp_format: str = None) -> str:
+    def _try_parse_timestamp_raw(
+        self, name: str, timestamp_format: str | None = None
+    ) -> str:
         if timestamp_format is None:
             timestamp_format = self.default_timestamp_format
         return f"""try_strptime({name}, '{timestamp_format}')"""
@@ -300,21 +358,6 @@ class DuckDBDialect(SplinkDialect):
         self, name: str, pattern: str, capture_group: int = 0
     ) -> str:
         return f"regexp_extract({name}, '{pattern}', {capture_group})"
-
-    @property
-    def infinity_expression(self):
-        return "cast('infinity' as float8)"
-
-    def random_sample_sql(
-        self, proportion, sample_size, seed=None, table=None, unique_id=None
-    ):
-        if proportion == 1.0:
-            return ""
-        percent = proportion * 100
-        if seed:
-            return f"USING SAMPLE bernoulli({percent}%) REPEATABLE({seed})"
-        else:
-            return f"USING SAMPLE {percent}% (bernoulli)"
 
     def access_extreme_array_element(
         self, name: str, first_or_last: Literal["first", "last"]
@@ -348,8 +391,8 @@ class DuckDBDialect(SplinkDialect):
                 + columns_to_explode
             )
             other_columns_to_retain.append(column_to_explode)
-            return f"""select {','.join(cols_to_select)}
-                from ({self.explode_arrays_sql(tbl_name,columns_to_explode,other_columns_to_retain)})"""  # noqa: E501
+            return f"""select {",".join(cols_to_select)}
+                from ({self.explode_arrays_sql(tbl_name, columns_to_explode, other_columns_to_retain)})"""  # noqa: E501
 
     @property
     def cosine_similarity_function_name(self):
@@ -362,6 +405,26 @@ class SparkDialect(SplinkDialect):
     @property
     def sql_dialect_str(self):
         return "spark"
+
+    def cosine_similarity_sql(self, col_l: str, col_r: str) -> str:
+        # Spark has no native array cosine similarity function, so it is
+        # computed using Spark SQL's higher-order array functions
+        # (zip_with/transform/aggregate), which are natively supported.
+        dot_product = (
+            f"aggregate(zip_with({col_l}, {col_r}, (x, y) -> x * y), "
+            "CAST(0.0 AS DOUBLE), (acc, x) -> acc + x)"
+        )
+        norm_l = (
+            f"sqrt(aggregate(transform({col_l}, x -> x * x), "
+            "CAST(0.0 AS DOUBLE), (acc, x) -> acc + x))"
+        )
+        norm_r = (
+            f"sqrt(aggregate(transform({col_r}, x -> x * x), "
+            "CAST(0.0 AS DOUBLE), (acc, x) -> acc + x))"
+        )
+
+        denominator = f"nullif(({norm_l}) * ({norm_r}), 0.0)"
+        return f"({dot_product}) / ({denominator})"
 
     @property
     def levenshtein_function_name(self):
@@ -415,35 +478,32 @@ class SparkDialect(SplinkDialect):
     def default_timestamp_format(self):
         return "yyyy-MM-dd\\'T\\'HH:mm:ssXXX"
 
-    def _try_parse_date_raw(self, name: str, date_format: str = None) -> str:
+    def _try_parse_date_raw(self, name: str, date_format: str | None = None) -> str:
         if date_format is None:
             date_format = self.default_date_format
         return f"""date(try_to_timestamp({name}, '{date_format}'))"""
 
-    def _try_parse_timestamp_raw(self, name: str, timestamp_format: str = None) -> str:
+    def _try_parse_timestamp_raw(
+        self, name: str, timestamp_format: str | None = None
+    ) -> str:
         if timestamp_format is None:
             timestamp_format = self.default_timestamp_format
         return f"""try_to_timestamp({name}, '{timestamp_format}')"""
+
+    def absolute_date_difference(self, clc: AbsoluteTimeDifferenceLevel) -> str:
+        # need custom solution as generic solution fails if we have date columns
+        clc.col_expression.sql_dialect = self
+        col = clc.col_expression
+
+        return (
+            f"abs(datediff({col.name_l}, {col.name_r})) "
+            f"<= floor({clc.time_threshold_seconds} / 86400)"
+        )
 
     def _regex_extract_raw(
         self, name: str, pattern: str, capture_group: int = 0
     ) -> str:
         return f"regexp_extract({name}, '{pattern}', {capture_group})"
-
-    @property
-    def infinity_expression(self):
-        return "'infinity'"
-
-    def random_sample_sql(
-        self, proportion, sample_size, seed=None, table=None, unique_id=None
-    ):
-        if proportion == 1.0:
-            return ""
-        percent = proportion * 100
-        if seed:
-            return f" ORDER BY rand({seed}) LIMIT {round(sample_size)}"
-        else:
-            return f" TABLESAMPLE ({percent} PERCENT) "
 
     def access_extreme_array_element(
         self, name: str, first_or_last: Literal["first", "last"]
@@ -475,8 +535,18 @@ class SparkDialect(SplinkDialect):
                 + other_columns_to_retain
                 + columns_to_explode
             )
-        return f"""select {','.join(cols_to_select)}
-                from ({self.explode_arrays_sql(tbl_name,columns_to_explode,other_columns_to_retain+[column_to_explode])})"""  # noqa: E501
+        return f"""select {",".join(cols_to_select)}
+                from ({self.explode_arrays_sql(tbl_name, columns_to_explode, other_columns_to_retain + [column_to_explode])})"""  # noqa: E501
+
+    @property
+    def hash_function_name(self) -> str:
+        return "hash"  # Spark's hash() returns int
+
+    def hash_bucket_expression(self, col_expression: str, modulus: int) -> str:
+        if modulus <= 0:
+            raise ValueError("modulus must be positive")
+        hash_expr = self.hash_function_expression(col_expression)
+        return f"pmod({hash_expr}, {modulus})"
 
 
 class SQLiteDialect(SplinkDialect):
@@ -505,10 +575,6 @@ class SQLiteDialect(SplinkDialect):
         return "jaro_winkler"
 
     @property
-    def infinity_expression(self):
-        return "'infinity'"
-
-    @property
     def greatest_function_name(self):
         # SQLite uses min/max scalar functions instead of least/greatest
         return "max"
@@ -517,22 +583,11 @@ class SQLiteDialect(SplinkDialect):
     def least_function_name(self):
         return "min"
 
-    def random_sample_sql(
-        self, proportion, sample_size, seed=None, table=None, unique_id=None
-    ):
-        if proportion == 1.0:
-            return ""
-        if seed:
-            raise NotImplementedError(
-                "SQLite does not support seeds in random ",
-                "samples. Please remove the `seed` parameter.",
-            )
-
-        sample_size = int(sample_size)
-
-        return f"""ORDER BY RANDOM()
-            LIMIT {sample_size}
-            """
+    @property
+    def hash_function_name(self) -> str:
+        # SQLite doesn't have a native hash function.
+        # splink_hash is a UDF registered by Splink's SQLite backend.
+        return "splink_hash"
 
 
 class PostgresDialect(SplinkDialect):
@@ -566,6 +621,10 @@ class PostgresDialect(SplinkDialect):
             f"<= {clc.time_threshold_seconds}"
         )
 
+    def absolute_date_difference(self, clc: AbsoluteTimeDifferenceLevel) -> str:
+        # need to provide a date difference as well as time difference
+        return self.absolute_time_difference(clc)
+
     def _regex_extract_raw(
         self, name: str, pattern: str, capture_group: int = 0
     ) -> str:
@@ -588,12 +647,14 @@ class PostgresDialect(SplinkDialect):
     def default_timestamp_format(self):
         return "YYYY-MM-DDTHH24:MI:SS"
 
-    def try_parse_date(self, name: str, date_format: str = None) -> str:
+    def try_parse_date(self, name: str, date_format: str | None = None) -> str:
         if date_format is None:
             date_format = self.default_date_format
         return f"""try_cast_date({name}, '{date_format}')"""
 
-    def try_parse_timestamp(self, name: str, timestamp_format: str = None) -> str:
+    def try_parse_timestamp(
+        self, name: str, timestamp_format: str | None = None
+    ) -> str:
         if timestamp_format is None:
             timestamp_format = self.default_timestamp_format
         return f"""try_cast_timestamp({name}, '{timestamp_format}')"""
@@ -605,29 +666,6 @@ class PostgresDialect(SplinkDialect):
         return f"""
         CARDINALITY(ARRAY_INTERSECT({col.name_l}, {col.name_r})) >= {threshold}
         """.strip()
-
-    def random_sample_sql(
-        self, proportion, sample_size, seed=None, table=None, unique_id=None
-    ):
-        if proportion == 1.0:
-            return ""
-        if seed:
-            # TODO: we could maybe do seeds by handling it in calling function
-            # need to execute setseed() in surrounding session
-            raise NotImplementedError(
-                "Postgres does not support seeds in random "
-                "samples. Please remove the `seed` parameter."
-            )
-
-        sample_size = int(sample_size)
-
-        return f"""ORDER BY RANDOM()
-            LIMIT {sample_size}
-            """
-
-    @property
-    def infinity_expression(self):
-        return "'infinity'"
 
     @property
     def array_first_index(self):
@@ -645,45 +683,10 @@ class PostgresDialect(SplinkDialect):
             f"received: '{first_or_last}'"
         )
 
-
-class AthenaDialect(SplinkDialect):
-    _dialect_name_for_factory = "athena"
-
     @property
-    def sql_dialect_str(self):
-        return "athena"
+    def hash_function_name(self) -> str:
+        return "hashtext"
 
-    @property
-    def sqlglot_dialect(self):
-        return "presto"
-
-    @property
-    def _levenshtein_name(self):
-        return "levenshtein_distance"
-
-    def random_sample_sql(
-        self, proportion, sample_size, seed=None, table=None, unique_id=None
-    ):
-        if proportion == 1.0:
-            return ""
-        percent = proportion * 100
-        if seed:
-            return f"USING SAMPLE bernoulli({percent}%) REPEATABLE({seed})"
-        else:
-            return f"USING SAMPLE {percent}% (bernoulli)"
-
-    @property
-    def infinity_expression(self):
-        return "infinity()"
-
-    @property
-    def levenshtein_function_name(self):
-        return "levenshtein_distance"
-
-    @property
-    def greatest_function_name(self):
-        return "greatest"
-
-    @property
-    def least_function_name(self):
-        return "least"
+    def hash_function_expression(self, col_expression: str) -> str:
+        """PostgreSQL's hashtext requires text input, so cast the column."""
+        return f"hashtext(({col_expression})::text)"

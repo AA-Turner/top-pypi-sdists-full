@@ -15,15 +15,14 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    pyudev._util
-    ============
+pyudev._util
+============
 
-    Internal utilities
+Internal utilities
 
-    .. moduleauthor::  Sebastian Wiesner  <lunaryorn@gmail.com>
+.. moduleauthor::  Sebastian Wiesner  <lunaryorn@gmail.com>
 """
 
-# isort: STDLIB
 import errno
 import os
 import stat
@@ -114,7 +113,7 @@ def get_device_type(filename):
     Return ``'char'`` if ``filename`` is a character device, or ``'block'`` if
     ``filename`` is a block device.  Raise :exc:`~exceptions.ValueError` if
     ``filename`` is no device file at all.  Raise
-    :exc:`~exceptions.EnvironmentError` if ``filename`` does not exist or if
+    :exc:`~exceptions.OSError` if ``filename`` does not exist or if
     its metadata was inaccessible.
 
     .. versionadded:: 0.15
@@ -142,22 +141,13 @@ def eintr_retry_call(func, *args, **kwargs):
     This function is based on _eintr_retry_call in python's subprocess.py.
     """
 
-    # select.error inherits from Exception instead of OSError in Python 2
-    # isort: STDLIB
-    import select  # pylint: disable=import-outside-toplevel
+    import select  # noqa: PLC0415
 
     while True:
         try:
             return func(*args, **kwargs)
-        except (OSError, IOError, select.error) as err:
-            # If this is not an IOError or OSError, it's the old select.error
-            # type, which means that the errno is only accessible via subscript
-            if isinstance(err, (OSError, IOError)):
-                error_code = err.errno
-            else:
-                error_code = err.args[0]
-
-            if error_code == errno.EINTR:
+        except (OSError, select.error) as err:
+            if err.errno == errno.EINTR:
                 continue
             raise
 
@@ -174,16 +164,15 @@ def udev_version():
 
     As libudev itself does not provide a function to query the version number,
     this function calls the ``udevadm`` utility, so be prepared to catch
-    :exc:`~exceptions.EnvironmentError` and
+    :exc:`~exceptions.OSError` and
     :exc:`~subprocess.CalledProcessError` if you call this function.
 
     Return the version number as single integer.  Raise
     :exc:`~exceptions.ValueError`, if the version number retrieved from udev
     could not be converted to an integer.  Raise
-    :exc:`~exceptions.EnvironmentError`, if ``udevadm`` was not found, or could
+    :exc:`~exceptions.OSError`, if ``udevadm`` was not found, or could
     not be executed.  Raise :exc:`subprocess.CalledProcessError`, if
-    ``udevadm`` returned a non-zero exit code.  On Python 2.7 or newer, the
-    ``output`` attribute of this exception is correctly set.
+    ``udevadm`` returned a non-zero exit code.
 
     .. versionadded:: 0.8
     """

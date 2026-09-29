@@ -1,0 +1,1 @@
+import{t as e}from"./use-api-vFHwBU1G.js";import{n as t}from"./entity-service-CASr-uvp.js";function n(){let{data:n,isLoading:r,error:i,refetch:a}=e(t);return{allExperiments:n,isLoading:r,error:i,refresh:a}}export{n as t};

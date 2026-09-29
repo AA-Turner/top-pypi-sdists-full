@@ -99,30 +99,64 @@ public:
     bool getNextTuplesInternal(ExecutionContext* context) override;
 
     std::unique_ptr<PhysicalOperator> copy() override {
+        std::unique_ptr<ScanRelTable> result;
         if (sourceMode) {
             if (sourceNodeScanMode) {
-                return std::make_unique<ScanRelTable>(opInfo.copy(), tableInfo.copy(),
+                result = std::make_unique<ScanRelTable>(opInfo.copy(), tableInfo.copy(),
                     copyVector(sourceNodeTableInfos), sourceNodeSharedStates,
                     sourceNodeProgressSharedState, sourceNodeScanInfo.copy(), id, printInfo->copy(),
                     operatorType);
+            } else {
+                result = std::make_unique<ScanRelTable>(opInfo.copy(), tableInfo.copy(),
+                    sourceNodeTables, id, printInfo->copy(), operatorType);
             }
-            return std::make_unique<ScanRelTable>(opInfo.copy(), tableInfo.copy(), sourceNodeTables,
-                id, printInfo->copy(), operatorType);
+        } else {
+            result = std::make_unique<ScanRelTable>(opInfo.copy(), tableInfo.copy(),
+                children[0]->copy(), id, printInfo->copy(), operatorType);
         }
-        return std::make_unique<ScanRelTable>(opInfo.copy(), tableInfo.copy(), children[0]->copy(),
-            id, printInfo->copy(), operatorType);
+        result->multiParentPackedScanEnabled = multiParentPackedScanEnabled;
+        result->nbrNodeMaskMap = nbrNodeMaskMap;
+        return result;
     }
 
 protected:
     void initGlobalStateInternal(ExecutionContext* context) override;
     bool fetchNextBoundNodeBatch(transaction::Transaction* transaction);
     void updatePackedChildSlices(common::sel_t outputSize) const;
-    // Pre-allocate packedChildSlices for the current input batch. The number of parents that will
-    // be processed in this batch is known up front from cachedBoundNodeSelVector, so we reserve
-    // once per batch to keep subsequent appendPackedChildSlice() calls reallocation-free.
-    void reservePackedChildSlicesForBatch() const;
+
+    // Multi-parent packed batches (see docs/multi_parent_lifetime.md). Disabled by default:
+    // standard consumers of the packed extend output rely on the one-parent-per-batch
+    // factorization contract (bound vector flat with selSize 1). Only packed-aware consumers
+    // (currently PackedFilteredCount, which reads the PackedChildSlices descriptor) enable
+    // this, via setMultiParentPackedScanEnabled(), so the CSR scan may pack children of many
+    // parents into one output batch.
+    bool multiParentPackedScanEnabled = false;
+
+public:
+    void setMultiParentPackedScanEnabled(bool enabled) { multiParentPackedScanEnabled = enabled; }
+
+    // Semi mask on the neighbour node (outVectors[0]). Created at map time for every
+    // extend that scans the nbr ID; enabled (populated) only when a hash-join SIP
+    // SemiMasker targets this operator. Shared across plan copies so every copy filters
+    // by the same masks, mirroring ScanNodeTableSharedState behaviour.
+    void setNbrNodeMaskMap(std::shared_ptr<common::NodeOffsetMaskMap> maskMap) {
+        nbrNodeMaskMap = std::move(maskMap);
+    }
+    common::table_id_map_t<common::SemiMask*> getNbrNodeMasks() const {
+        if (nbrNodeMaskMap == nullptr) {
+            return {};
+        }
+        return nbrNodeMaskMap->getMasks();
+    }
 
 protected:
+    // Thin wrappers over the shared ScanTable helpers; ScanRelTable additionally skips
+    // filtering for multi-parent packed batches (packed output violates the one-parent-
+    // per-batch contract the filter assumes).
+    common::sel_t applyNbrNodeMask();
+    void refreshNbrMaskCache();
+    std::shared_ptr<common::NodeOffsetMaskMap> nbrNodeMaskMap;
+
     ScanRelTableInfo tableInfo;
     std::unique_ptr<storage::RelTableScanState> scanState;
     std::vector<storage::NodeTable*> sourceNodeTables;

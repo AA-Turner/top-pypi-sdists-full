@@ -231,6 +231,63 @@ class TestArtifactSubmit:
         assert mock_post.call_count == 2
 
 
+class TestArtifactSubmitBatch:
+    def _make_client(self) -> RunlayerClient:
+        return RunlayerClient(hostname="https://example.com", secret="test-key")
+
+    @pytest.mark.parametrize(
+        ("method_name", "path", "items_key"),
+        [
+            ("submit_skills_batch", "ai-watch/skills/submit-batch", "skills"),
+            ("submit_plugins_batch", "ai-watch/plugins/submit-batch", "plugins"),
+        ],
+    )
+    def test_posts_envelope_plus_items_once(
+        self, method_name: str, path: str, items_key: str
+    ) -> None:
+        expected = {"results": [{"created": True, "has_content": True}]}
+        mock_post = MagicMock(return_value=_mock_response(200, expected))
+
+        with patch("httpx.Client") as mock_httpx:
+            mock_httpx.return_value.__enter__ = MagicMock(
+                return_value=MagicMock(post=mock_post)
+            )
+            mock_httpx.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = getattr(self._make_client(), method_name)(
+                {"device_id": "d1", "hostname": "h1"}, [{"identifier": "a"}]
+            )
+
+        assert result == expected
+        assert mock_post.call_count == 1
+        assert mock_post.call_args.args[0].endswith(path)
+        assert mock_post.call_args.kwargs["json"] == {
+            "device_id": "d1",
+            "hostname": "h1",
+            items_key: [{"identifier": "a"}],
+        }
+        assert mock_httpx.call_args.kwargs["timeout"] == 120.0
+
+    @pytest.mark.parametrize(
+        "method_name", ["submit_skills_batch", "submit_plugins_batch"]
+    )
+    def test_404_is_unsupported_without_legacy_prefix_retry(
+        self, method_name: str
+    ) -> None:
+        mock_post = MagicMock(return_value=_mock_response(404))
+
+        with patch("httpx.Client") as mock_httpx:
+            mock_httpx.return_value.__enter__ = MagicMock(
+                return_value=MagicMock(post=mock_post)
+            )
+            mock_httpx.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = getattr(self._make_client(), method_name)({}, [{}])
+
+        assert result == {"unsupported": True}
+        assert mock_post.call_count == 1
+
+
 class TestGetAIWatchConfig:
     config: SyncedAIWatchConfig = {
         "version": 1,

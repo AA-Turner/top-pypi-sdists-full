@@ -235,8 +235,23 @@ def test_a_map_stays_a_map_in_the_portable_contract() -> None:
         mode="json", by_alias=True, exclude_none=True
     )
     portable = rf["json_schema"]["schema"]["properties"]
-    assert portable["labels"]["additionalProperties"] == {"type": "string"}
-    assert portable["hints"]["additionalProperties"] is True
+
+    def unwrap_nullable(node: dict[str, Any]) -> dict[str, Any]:
+        """Look through the nullable wrapper an OPTIONAL property now carries.
+
+        The portable contract lists every property in `required` so one schema
+        satisfies every provider, and expresses the ones the author left optional
+        as `anyOf: [X, {"type": "null"}]` — `null` carrying "absent", measured to
+        be the ONE spelling all three providers accept. This check is about the MAP
+        surviving, not about which of the two forms carries it.
+        """
+        branches = node.get("anyOf")
+        if isinstance(branches, list):
+            return next(b for b in branches if b.get("type") != "null")
+        return node
+
+    assert unwrap_nullable(portable["labels"])["additionalProperties"] == {"type": "string"}
+    assert unwrap_nullable(portable["hints"])["additionalProperties"] is True
 
 
 def _ladder_payload(schema_unions: int, tool_count: int) -> tuple[dict[str, Any], dict[str, Any]]:

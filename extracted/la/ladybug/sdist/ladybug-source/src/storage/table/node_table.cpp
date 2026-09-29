@@ -314,7 +314,15 @@ void NodeTable::initScanState(Transaction* transaction, TableScanState& scanStat
     } break;
     case TableScanSource::UNCOMMITTED: {
         const auto localTable = transaction->getLocalStorage()->getLocalTable(tableID);
-        DASSERT(localTable);
+        // An UNCOMMITTED morsel without a local table means a stale scan shared state
+        // survived from an earlier (committed) write transaction (see
+        // https://github.com/LadybugDB/ladybug/issues/1030). Throw instead of
+        // dereferencing null.
+        if (localTable == nullptr) {
+            throw common::RuntimeException(
+                "Node table scan reached uncommitted data that is no longer available. "
+                "The scan state is stale; please retry the query.");
+        }
         const auto& localNodeTable = localTable->cast<LocalNodeTable>();
         nodeGroup = localNodeTable.getNodeGroup(nodeScanState.nodeGroupIdx);
         DASSERT(nodeGroup);
@@ -821,6 +829,16 @@ void NodeTable::rollbackGroupCollectionInsert(row_idx_t numRows_) {
 void NodeTable::rollbackCheckpoint() {
     for (auto& index : indexes) {
         index.rollbackCheckpoint();
+    }
+}
+
+void NodeTable::finalizeCheckpoint(main::ClientContext& context) {
+    // Publish ONLY the primary-key index's staged checkpoint. Other indexes (e.g. extension
+    // HNSW/FTS indexes) define Index::finalize for their own explicit flows with a live
+    // transaction; invoking it here post-commit crashes (no active transaction), and main
+    // never calls it from the checkpoint path.
+    if (auto* pkIndex = tryGetPKIndex()) {
+        pkIndex->finalize(&context);
     }
 }
 

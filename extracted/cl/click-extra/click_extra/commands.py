@@ -39,8 +39,6 @@ from .accessibility import ACCESSIBLE_ENVVAR, AccessibleOption
 from .color import ColorOption, NoColorOption, _reset_invocation_color
 from .command_doc import HelpFormatOption, ManOption, normalize_examples
 from .config import (
-    DEFAULT_SUBCOMMANDS_KEY,
-    PREPEND_SUBCOMMANDS_KEY,
     ConfigOption,
     ConfigValidator,
     ExportConfigOption,
@@ -49,6 +47,10 @@ from .config import (
     make_schema_callable,
 )
 from .config.schema import _opaque_paths
+from .config.subcommands import (
+    _descend_to_group_config,
+    inject_reserved_subcommands,
+)
 from .context import Context
 from .envvar import clean_envvar_id, param_envvar_ids
 from .execution import TimerOption
@@ -1205,61 +1207,6 @@ def _make_help_command() -> HelpCommand:
     )
 
 
-def _descend_to_group_config(ctx: click.Context) -> dict[str, Any] | None:
-    """Return the loaded config section for the current group's command path.
-
-    Reads the full configuration document from `ctx.meta`, descends into the
-    root command's section, then walks from the root context down to `ctx`
-    following each group name. Returns the resolved mapping, or `None` when no
-    configuration was loaded or any segment along the path is missing.
-    """
-    full_config = context.get(ctx, context.CONF_FULL)
-    if not full_config:
-        return None
-
-    root_ctx = ctx.find_root()
-    config_branch = full_config.get(root_ctx.command.name)
-    if not isinstance(config_branch, dict):
-        return None
-
-    # Walk from root context down to the current group.
-    path: list[str] = []
-    current: click.Context | None = ctx
-    while current is not None and current is not root_ctx:
-        if current.command.name is not None:
-            path.append(current.command.name)
-        current = current.parent
-    path.reverse()
-
-    for segment in path:
-        config_branch = config_branch.get(segment)
-        if not isinstance(config_branch, dict):
-            return None
-
-    return config_branch
-
-
-def _dedupe_subcommands(raw: list[str], key: str) -> list[str]:
-    """Drop duplicate subcommand names, keeping the first occurrence.
-
-    Warns when duplicates are dropped, naming the configuration `key` they
-    came from.
-    """
-    seen: set[str] = set()
-    deduped: list[str] = []
-    for name in raw:
-        if name in seen:
-            continue
-        seen.add(name)
-        deduped.append(name)
-    if len(deduped) < len(raw):
-        logger.warning(
-            f"Duplicate entries in {key}: {raw!r}. "
-            f"Keeping first occurrences: {deduped!r}."
-        )
-    return deduped
-
-
 class Group(Command, cloup.Group):  # type: ignore[misc]
     """Like `cloup.Group`, with sane defaults and extra help screen colorization."""
 
@@ -1427,107 +1374,71 @@ class Group(Command, cloup.Group):  # type: ignore[misc]
                 del self.commands[cmd_name]
         super().add_command(cmd, name, **kwargs)
 
-    def invoke(self, ctx: click.Context) -> Any:
-        """Inject `_default_subcommands` and `_prepend_subcommands` from config.
+    def _resolve_config_subcommands_eagerly(
+        self,
+        ctx: click.Context,
+        config_option: ConfigOption,
+    ) -> list[str]:
+        """Settle the reserved subcommand keys ahead of the no-args help screen.
 
-        If the user has not provided any subcommands explicitly, and the loaded
-        configuration contains a `_default_subcommands` list for this group, those
-        subcommands are injected into `ctx.protected_args` so that Click's normal
-        `Group.invoke()` dispatches them.
+        Click raises its `no_args_is_help` error before any parameter runs, so a
+        bare invocation never reads the configuration that could name subcommands
+        for it. This pre-pass processes `--config` on its own, which loads the
+        document and returns the names to dispatch. The command line is empty by
+        the time the only caller reaches here, so the option is handed no parsed
+        value and falls back to its own auto-discovery.
 
-        `_prepend_subcommands` always prepends subcommands to the invocation,
-        regardless of whether CLI subcommands were provided. Only works with
-        `chain=True` groups.
+        Returns an empty list when the configuration names nothing, which leaves
+        Click's help screen in place. A broken configuration is swallowed too, the
+        way {meth}`Command._resolve_presentation_eagerly` defers its own errors: a
+        bare invocation prints the help screen, never a configuration error. The
+        regular parameter loop reports that error on the next invocation naming a
+        subcommand.
         """
-        if not ctx._protected_args and not ctx.args:
-            default_subcmds = self._get_default_subcommands(ctx)
-            if default_subcmds is not None:
-                ctx._protected_args = list(default_subcmds)
-        elif ctx._protected_args or ctx.args:
-            # CLI subcommands were given explicitly; log if config defaults exist.
-            default_subcmds = self._get_default_subcommands(ctx)
-            if default_subcmds is not None:
-                logger.debug(
-                    f"CLI subcommands provided; ignoring {DEFAULT_SUBCOMMANDS_KEY}"
-                    f" config: {default_subcmds!r}."
-                )
+        try:
+            _, injected = config_option.handle_parse_result(ctx, {}, [])
+        except click.ClickException:
+            return []
+        return injected
 
-        # Always prepend _prepend_subcommands, regardless of CLI args.
-        prepend_subcmds = self._get_prepend_subcommands(ctx)
-        if prepend_subcmds is not None:
-            logger.info(
-                f"Prepending {PREPEND_SUBCOMMANDS_KEY} config: {prepend_subcmds!r}."
-            )
-            ctx._protected_args = list(prepend_subcmds) + ctx._protected_args
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        """Like parent's `parse_args`, but honoring the reserved subcommand keys.
 
-        return super().invoke(ctx)
+        A group carrying its own `--config` is served by
+        {meth}`click_extra.config.option.ConfigOption.handle_parse_result`, which
+        splices the names in as that option is processed. Two cases escape it, and
+        this override covers both:
 
-    def _read_subcommand_list(self, ctx: click.Context, key: str) -> list[str] | None:
-        """Read, validate, dedupe, and existence-check a subcommand-list config key.
-
-        Returns the deduplicated list of subcommand names declared under `key`
-        in the loaded configuration, or `None` when the key is absent or empty.
-        Shared by {meth}`_get_default_subcommands` and
-        {meth}`_get_prepend_subcommands`; each caller layers on its own chain-mode
-        rule (the only behavior that differs between the two keys).
-
-        :raises click.UsageError: when the value is not a list of strings, or when
-            a listed subcommand does not exist in this group.
+        - A group reached through an ancestor's `--config` never holds that option,
+          so it applies its own `[parent.group]` section here. The document is
+          already loaded by the time a subgroup is parsed.
+        - A bare invocation short-circuits to the help screen before any parameter
+          runs. `no_args_is_help` is suppressed for the invocation once the
+          configuration is known to name subcommands, since the user asking for
+          them outranks the author's help screen.
         """
-        config_branch = _descend_to_group_config(ctx)
-        if config_branch is None:
-            return None
+        config_option = next(
+            (p for p in self.get_params(ctx) if isinstance(p, ConfigOption)),
+            None,
+        )
 
-        raw = config_branch.get(key)
-        if raw is None:
-            return None
+        if config_option is None:
+            # Injecting before delegating also settles no_args_is_help, since an
+            # injected subcommand makes the invocation non-empty.
+            return super().parse_args(ctx, inject_reserved_subcommands(ctx, args))
 
-        # Validate type.
-        if not isinstance(raw, list) or not all(isinstance(s, str) for s in raw):
-            raise click.UsageError(f"{key} must be a list of strings, got {raw!r}.")
+        if not args and self.no_args_is_help and not ctx.resilient_parsing:
+            args = self._resolve_config_subcommands_eagerly(ctx, config_option)
+            if args:
+                # Click reads `no_args_is_help` off the group twice on the way
+                # down, so the flag itself is cleared rather than either check.
+                original, self.no_args_is_help = self.no_args_is_help, False
+                try:
+                    return super().parse_args(ctx, args)
+                finally:
+                    self.no_args_is_help = original
 
-        if not raw:
-            return None
-
-        raw = _dedupe_subcommands(raw, key)
-
-        # Validate that all subcommands exist.
-        for name in raw:
-            if self.get_command(ctx, name) is None:
-                raise click.UsageError(
-                    f"Subcommand {name!r} from {key} not found in group {self.name!r}."
-                )
-
-        return raw
-
-    def _get_default_subcommands(self, ctx: click.Context) -> list[str] | None:
-        """Read and validate `_default_subcommands` from the loaded configuration."""
-        raw = self._read_subcommand_list(ctx, DEFAULT_SUBCOMMANDS_KEY)
-        if raw is None:
-            return None
-
-        # Non-chained groups can only have one default subcommand.
-        if not self.chain and len(raw) > 1:
-            raise click.UsageError(
-                f"Non-chained group {self.name!r} can have at most 1 default "
-                f"subcommand, got {len(raw)}: {raw!r}."
-            )
-
-        return raw
-
-    def _get_prepend_subcommands(self, ctx: click.Context) -> list[str] | None:
-        """Read and validate `_prepend_subcommands` from the loaded configuration."""
-        raw = self._read_subcommand_list(ctx, PREPEND_SUBCOMMANDS_KEY)
-        if raw is None:
-            return None
-
-        # Prepend subcommands only work with chained groups.
-        if not self.chain:
-            raise click.UsageError(
-                f"{PREPEND_SUBCOMMANDS_KEY} requires chain=True on group {self.name!r}."
-            )
-
-        return raw
+        return super().parse_args(ctx, args)
 
 
 @dataclass(frozen=True)

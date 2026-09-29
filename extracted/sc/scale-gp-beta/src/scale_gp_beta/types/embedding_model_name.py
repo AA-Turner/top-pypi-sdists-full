@@ -6,9 +6,7 @@ __all__ = ["EmbeddingModelName"]
 
 EmbeddingModelName: TypeAlias = Literal[
     "sentence-transformers/all-MiniLM-L12-v2",
-    "sentence-transformers/all-mpnet-base-v2",
     "sentence-transformers/multi-qa-distilbert-cos-v1",
-    "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
     "openai/text-embedding-ada-002",
     "openai/text-embedding-3-small",
     "openai/text-embedding-3-large",

@@ -36,6 +36,7 @@ remembering to:
 
 import argparse
 import ast
+import glob as _glob
 import sqlite3
 import sys
 from pathlib import Path
@@ -220,11 +221,23 @@ def _region_id_lookup(parser, country):
 
 
 def export_predictions(parser, db_paths, out_path, *, models=None,
-                       experiment_name="default", verbose=True):
+                       experiment_name="default", verbose=True,
+                       min_observed_years=0,
+                       nullify_negative_predictions=False):
     """Write the join-ready CSV for one or more result DBs. Returns the path.
 
     ``db_paths`` may hold several databases -- a per-fold run writes one DB per
     forecast year, and the deliverable is their concatenation.
+
+    ``min_observed_years`` drops regions with fewer than N distinct years of
+    REPORTED yield. A region with none at all can never be validated -- the
+    model is extrapolating into a place it has never seen a number for -- and
+    those regions produce most of the physically impossible output.
+
+    ``nullify_negative_predictions`` blanks a negative predicted yield while
+    keeping the row and its observed value, so the record of "we forecast this
+    region-year and the answer was not usable" survives instead of the
+    region-year silently disappearing.
     """
     from geocif.ml.stats import _norm_region_name
 
@@ -286,6 +299,26 @@ def export_predictions(parser, db_paths, out_path, *, models=None,
            .sort_values(["model", "year", "lead", id_col], kind="stable")
            .reset_index(drop=True))
 
+    n_dropped_regions = n_nulled = 0
+    if min_observed_years > 0:
+        # Count distinct YEARS, not rows: the observed yield is a season-level
+        # value repeated across every lead, so counting rows would overstate
+        # the history by the number of stages.
+        obs_years = (out[out[OBS_OUT].notna()]
+                     .groupby(id_col)["year"].nunique())
+        keep = set(obs_years[obs_years >= min_observed_years].index)
+        n_dropped_regions = out[id_col].nunique() - len(keep)
+        out = out[out[id_col].isin(keep)].reset_index(drop=True)
+        if out.empty:
+            raise ValueError(
+                f"min_observed_years={min_observed_years} removed every region; "
+                f"the most any region has is {int(obs_years.max()) if len(obs_years) else 0}."
+            )
+    if nullify_negative_predictions:
+        neg = out[PRED_OUT] < 0
+        n_nulled = int(neg.sum())
+        out.loc[neg, PRED_OUT] = float("nan")
+
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(out_path, index=False)
@@ -296,6 +329,12 @@ def export_predictions(parser, db_paths, out_path, *, models=None,
         print(f"  leads       : {int(out['lead'].min())}-{int(out['lead'].max())}")
         print(f"  models      : {', '.join(sorted(out['model'].unique()))}")
         print(f"  observed    : {out[OBS_OUT].notna().sum():,} of {len(out):,} rows")
+        if min_observed_years:
+            print(f"  dropped     : {n_dropped_regions:,} region(s) with "
+                  f"<{min_observed_years} year(s) of reported yield")
+        if nullify_negative_predictions:
+            print(f"  nullified   : {n_nulled:,} negative prediction(s) "
+                  f"(row and observed value kept)")
     return out_path
 
 
@@ -314,7 +353,13 @@ def export_from_parser(parser, logger=None):
     obj = gc.Geocif(logger=logger, parser=parser, project_name=project_name)
     db_path = Path(obj.db_path)
     out_path = db_path.parent / f"{db_path.stem}_predictions.csv"
-    return export_predictions(parser, [db_path], out_path)
+    return export_predictions(
+        parser, [db_path], out_path,
+        min_observed_years=parser.getint(
+            "ML", "export_min_observed_years", fallback=0),
+        nullify_negative_predictions=parser.getboolean(
+            "ML", "export_nullify_negative_predictions", fallback=False),
+    )
 
 
 def main(argv=None):
@@ -330,6 +375,12 @@ def main(argv=None):
                    help="restrict to these models (default: every model in the DB)")
     p.add_argument("--experiment-name", default="default",
                    help="'default' for geocif_runner DBs, 'outlook' for yield_outlook")
+    p.add_argument("--min-observed-years", type=int, default=0,
+                   help="drop regions with fewer than N years of reported yield "
+                        "(1 = drop regions that have none at all)")
+    p.add_argument("--nullify-negative-predictions", action="store_true",
+                   help="blank negative predicted yields, keeping the row and "
+                        "its observed value")
     a = p.parse_args(argv)
 
     from geocif import logger as log
@@ -338,14 +389,19 @@ def main(argv=None):
     dbs = []
     for pattern in a.db:
         if any(ch in pattern for ch in "*?["):
-            dbs.extend(sorted(Path().glob(pattern)))
+            # glob.glob, not Path().glob: the latter raises
+            # NotImplementedError on an ABSOLUTE pattern, which is the normal
+            # way this is called (a full /gpfs/... path to the db directory).
+            dbs.extend(sorted(Path(m) for m in _glob.glob(pattern)))
         else:
             dbs.append(Path(pattern))
     if not dbs:
         raise SystemExit(f"no databases matched {a.db}")
     print(f"reading {len(dbs)} database(s)")
     export_predictions(parser, dbs, a.out, models=a.model,
-                       experiment_name=a.experiment_name)
+                       experiment_name=a.experiment_name,
+                       min_observed_years=a.min_observed_years,
+                       nullify_negative_predictions=a.nullify_negative_predictions)
     return 0
 
 

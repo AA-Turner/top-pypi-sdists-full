@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Tuple
+from typing import Any, Literal, Tuple
 
 import neo4j
 from pandas import DataFrame
@@ -52,7 +52,7 @@ from graphdatascience.procedure_surface.api.model.model_catalog_endpoints import
 from graphdatascience.procedure_surface.api.node_embedding.embedding_endpoints import EmbeddingEndpoints
 from graphdatascience.procedure_surface.api.node_embedding.fastpath_endpoints import FastPathEndpoints
 from graphdatascience.procedure_surface.api.node_embedding.fastrp_endpoints import FastRPEndpoints
-from graphdatascience.procedure_surface.api.node_embedding.graphsage_endpoints import GraphSageEndpoints
+from graphdatascience.procedure_surface.api.node_embedding.graphsage_endpoints import SessionGraphSageEndpoints
 from graphdatascience.procedure_surface.api.node_embedding.hashgnn_endpoints import HashGNNEndpoints
 from graphdatascience.procedure_surface.api.node_embedding.node2vec_endpoints import Node2VecEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.all_shortest_path_endpoints import AllShortestPathEndpoints
@@ -137,8 +137,14 @@ from graphdatascience.procedure_surface.arrow.node_embedding.fastrp_arrow_endpoi
 from graphdatascience.procedure_surface.arrow.node_embedding.graphsage_predict_arrow_endpoints import (
     GraphSagePredictArrowEndpoints,
 )
+from graphdatascience.procedure_surface.arrow.node_embedding.graphsage_supervised_arrow_endpoints import (
+    GraphSageSupervisedArrowEndpoints,
+)
 from graphdatascience.procedure_surface.arrow.node_embedding.graphsage_train_arrow_endpoints import (
     GraphSageTrainArrowEndpoints,
+)
+from graphdatascience.procedure_surface.arrow.node_embedding.graphsage_unsupervised_arrow_endpoints import (
+    GraphSageUnsupervisedArrowEndpoints,
 )
 from graphdatascience.procedure_surface.arrow.node_embedding.hashgnn_arrow_endpoints import HashGNNArrowEndpoints
 from graphdatascience.procedure_surface.arrow.node_embedding.node2vec_arrow_endpoints import Node2VecArrowEndpoints
@@ -522,11 +528,11 @@ class AuraGraphDataScience:
         )
 
     @property
-    def graph_sage(self) -> GraphSageEndpoints:
+    def graph_sage(self) -> SessionGraphSageEndpoints:
         """
         Return endpoints for the GraphSage algorithm.
         """
-        return GraphSageEndpoints(
+        return SessionGraphSageEndpoints(
             train_endpoints=GraphSageTrainArrowEndpoints(
                 self._authenticated_arrow_client, self._write_protocol, show_progress=self._show_progress
             ),
@@ -534,6 +540,12 @@ class AuraGraphDataScience:
                 self._authenticated_arrow_client, self._write_protocol, show_progress=self._show_progress
             ),
             catalog_endpoints=self.model,
+            unsupervised_endpoints=GraphSageUnsupervisedArrowEndpoints(
+                self._authenticated_arrow_client, self._write_protocol, show_progress=self._show_progress
+            ),
+            supervised_endpoints=GraphSageSupervisedArrowEndpoints(
+                self._authenticated_arrow_client, self._write_protocol, show_progress=self._show_progress
+            ),
         )
 
     @property
@@ -850,7 +862,8 @@ class AuraGraphDataScience:
         query: str,
         params: dict[str, Any] | None = None,
         database: str | None = None,
-        mode: QueryMode = QueryMode.WRITE,
+        mode: QueryMode | Literal["READ", "WRITE"] = QueryMode.WRITE,
+        auto_commit: bool = False,
     ) -> DataFrame:
         """
         Run a Cypher query against the Neo4j database.
@@ -863,8 +876,10 @@ class AuraGraphDataScience:
             parameters to the query
         database: str
             the database on which to run the query
-        mode: QueryMode
-            the query mode to use (READ or WRITE). Set based on the operation performed in the query.
+        mode
+            the query mode to use. Set based on the operation performed in the query.
+        auto_commit: bool
+            run the query in an auto-commit transaction. This is required for queries using `CALL { ... } IN TRANSACTIONS`.
 
         Returns
         -------
@@ -873,6 +888,13 @@ class AuraGraphDataScience:
         """
         if not self._db_query_runner:
             raise NotAvailableInStandaloneSessions("Running Cypher queries")
+
+        mode = QueryMode.of(mode)
+
+        if auto_commit:
+            return self._db_query_runner.run_cypher(
+                query, QueryType.USER_DIRECTED, params, database, mode, custom_error=False
+            )
 
         return self._db_query_runner.run_retryable_cypher(
             query, QueryType.USER_DIRECTED, params, database, custom_error=False, mode=mode
@@ -943,6 +965,25 @@ class AuraGraphDataScience:
         if not self._db_query_runner:
             raise NotAvailableInStandaloneSessions("Getting the database")
         return self._db_query_runner.database()
+
+    def db_driver(self) -> neo4j.Driver:
+        """
+        Get the Neo4j driver used by this client to communicate with the Neo4j DBMS.
+
+        This is mainly useful when the `run_cypher()` API is too simple for a use case,
+        as the driver allows full control over sessions and transactions.
+
+        The driver is always created and managed by this client, and closed by `close()`,
+        after which it is unusable.
+
+        Returns
+        -------
+        neo4j.Driver
+            The Neo4j driver used by this client.
+        """
+        if not self._db_query_runner:
+            raise NotAvailableInStandaloneSessions("Getting the Neo4j driver")
+        return self._db_query_runner.db_driver()
 
     def bookmarks(self) -> neo4j.Bookmarks | None:
         """

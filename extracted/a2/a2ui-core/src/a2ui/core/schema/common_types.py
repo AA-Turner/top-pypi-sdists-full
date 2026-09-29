@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Auto-generated. Do not edit manually.
-from typing import Annotated, Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, Field, ConfigDict, GetCoreSchemaHandler
-from pydantic_core import CoreSchema
+from __future__ import annotations
+import sys
+from typing import Any, Dict, List, Optional, Union
+from pydantic import BaseModel, ConfigDict, Field, GetCoreSchemaHandler, ValidationInfo, field_validator, StrictBool, StrictFloat, StrictInt, StrictStr
+from pydantic_core import CoreSchema, PydanticUndefined
 
 
 class ComponentReference:
@@ -32,7 +33,7 @@ class SingleReference(str, ComponentReference):
 
         return core_schema.no_info_after_validator_function(
             cls,
-            core_schema.str_schema(),
+            core_schema.str_schema(ref="ComponentId"),
             serialization=core_schema.plain_serializer_function_ser_schema(str),
         )
 
@@ -44,8 +45,61 @@ class ListReference(ComponentReference):
 class StrictBaseModel(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
+    @field_validator("version", mode="after", check_fields=False)
+    @classmethod
+    def validate_version_field(cls, v: Any, info: ValidationInfo) -> Any:
+        context = info.context if isinstance(info.context, dict) else {}
+        target_version = context.get("target_version") or context.get(
+            "protocol_version"
+        )
+        if target_version is None:
+            if "version" in cls.model_fields:
+                default_val = cls.model_fields["version"].default
+                if (
+                    default_val is not None
+                    and default_val != PydanticUndefined
+                    and isinstance(default_val, str)
+                ):
+                    target_version = default_val
+            if target_version is None and cls.__module__:
+                mod = sys.modules.get(cls.__module__)
+                if mod:
+                    target_version = getattr(mod, "PROTOCOL_VERSION", None)
+        if target_version is not None:
+            mod = sys.modules.get(cls.__module__) if cls.__module__ else None
+            valid_versions = None
+            if mod:
+                valid_versions = getattr(mod, "SUPPORTED_PROTOCOL_VERSIONS", None)
+                if (
+                    valid_versions is None
+                    and hasattr(mod, "__package__")
+                    and mod.__package__
+                ):
+                    try:
+                        constants_mod = sys.modules.get(f"{mod.__package__}.constants")
+                        if constants_mod:
+                            valid_versions = getattr(
+                                constants_mod, "SUPPORTED_PROTOCOL_VERSIONS", None
+                            )
+                    except Exception:
+                        pass
+            if valid_versions is None:
+                valid_versions = (
+                    {target_version}
+                    if isinstance(target_version, str)
+                    else set(target_version)
+                )
+            if v not in valid_versions:
+                raise ValueError(f"Input should be '{target_version}'")
+        return v
+
 
 ComponentId = SingleReference
+Child = SingleReference
+
+
+class ComponentCommon(StrictBaseModel):
+    id: ComponentId = Field(...)
 
 
 class DataBinding(StrictBaseModel):
@@ -55,31 +109,34 @@ class DataBinding(StrictBaseModel):
 
 
 class FunctionCall(StrictBaseModel):
+    """Invokes a named function."""
+
     call: str = Field(..., description="The name of the function to call.")
     args: Optional[Dict[str, Any]] = Field(
         None, description="Arguments passed to the function."
     )
-    return_type: Optional[
-        Literal["string", "number", "boolean", "array", "object", "any", "void"]
-    ] = Field(
-        alias="returnType",
-        description="The expected return type of the function call.",
-        default="boolean",
+    catalog_id: Optional[str] = Field(
+        None,
+        alias="catalogId",
+        description=(
+            "The catalog ID for this function, overriding any surface-level default"
+            " catalogId."
+        ),
     )
 
 
-DynamicValue = Union[str, float, bool, List[Any], DataBinding, FunctionCall]
-
-DynamicString = Union[str, DataBinding, FunctionCall]
-
-DynamicNumber = Union[float, DataBinding, FunctionCall]
-
-DynamicBoolean = Union[bool, DataBinding, FunctionCall]
-
-DynamicStringList = Union[List[str], DataBinding, FunctionCall]
+DynamicString = Union[StrictStr, DataBinding, FunctionCall]
+DynamicNumber = Union[StrictFloat, StrictInt, DataBinding, FunctionCall]
+DynamicBoolean = Union[StrictBool, DataBinding, FunctionCall]
+DynamicStringList = Union[List[StrictStr], DataBinding, FunctionCall]
 
 
 class TemplateChildList(StrictBaseModel, ListReference):
+    """A template for generating a dynamic list of children from a data model list.
+
+    The `componentId` is the component to use as a template.
+    """
+
     component_id: ComponentId = Field(..., alias="componentId")
     path: str = Field(
         ...,
@@ -90,61 +147,3 @@ class TemplateChildList(StrictBaseModel, ListReference):
 
 
 ChildList = Union[List[ComponentId], TemplateChildList]
-
-
-class AccessibilityAttributes(StrictBaseModel):
-    label: Optional[DynamicString] = Field(
-        None,
-        description=(
-            "A short string, typically 1 to 3 words, used by assistive technologies to"
-            " convey the purpose or intent of an element. For example, an input field"
-            " might have an accessible label of 'User ID' or a button might be labeled"
-            " 'Submit'."
-        ),
-    )
-    description: Optional[DynamicString] = Field(
-        None,
-        description=(
-            "Additional information provided by assistive technologies about an element"
-            " such as instructions, format requirements, or result of an action. For"
-            " example, a mute button might have a label of 'Mute' and a description of"
-            " 'Silences notifications about this conversation'."
-        ),
-    )
-
-
-class CheckRule(StrictBaseModel):
-    condition: DynamicBoolean = Field(...)
-    message: str = Field(
-        ..., description="The error message to display if the check fails."
-    )
-
-
-class ActionEvent(StrictBaseModel):
-    name: str = Field(
-        ..., description="The name of the action to be dispatched to the server."
-    )
-    context: Optional[Dict[str, Any]] = Field(
-        None,
-        description=(
-            "A JSON object containing the key-value pairs for the action context."
-            " Values can be literals or paths. Use literal values unless the value must"
-            " be dynamically bound to the data model. Do NOT use paths for static IDs."
-        ),
-    )
-
-
-class ActionEventWrapper(StrictBaseModel):
-    event: ActionEvent = Field(..., description="The event to dispatch to the server.")
-
-
-class ActionFunctionCallWrapper(StrictBaseModel):
-    function_call: FunctionCall = Field(..., alias="functionCall")
-
-
-Action = Union[ActionEventWrapper, ActionFunctionCallWrapper]
-
-
-class ComponentCommon(StrictBaseModel):
-    id: ComponentId = Field(...)
-    accessibility: Optional[AccessibilityAttributes] = Field(None)

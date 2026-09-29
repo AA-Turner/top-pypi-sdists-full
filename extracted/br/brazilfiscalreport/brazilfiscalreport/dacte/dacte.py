@@ -5,7 +5,6 @@ import textwrap
 import warnings
 import xml.etree.ElementTree as ET
 from io import BytesIO
-from typing import Optional
 from xml.etree.ElementTree import Element
 
 from barcode.codex import Code128
@@ -44,7 +43,7 @@ def extract_text(node: Element, tag: str) -> str:
     return get_tag_text(node, URL, tag)
 
 
-def to_float(value: Optional[str]) -> float:
+def to_float(value: str | None) -> float:
     """Converte valor numérico cru do XML, tolerando ausência/formato inválido."""
     try:
         return float(value)
@@ -1487,7 +1486,7 @@ class Dacte(xFPDF):
             f"{self.v_icms_st}",
         ]
 
-        for i, (title, value) in enumerate(zip(tax_titles, tax_values)):
+        for i, (title, value) in enumerate(zip(tax_titles, tax_values, strict=False)):
             self.set_xy(x_margin + i * col_width, section_start_y - 15)
             self.multi_cell(w=col_width, h=4, text=title, align="L")
             self.set_font(self.default_font, "B", 6)
@@ -1697,7 +1696,7 @@ class Dacte(xFPDF):
             f"R$ {self.vTar}",
         ]
 
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
             self.set_font(self.default_font, "B", 7)
@@ -1738,7 +1737,7 @@ class Dacte(xFPDF):
         ]
 
         text_y = section_start_y - 12
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             x_pos = x_margin + i * col_width
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
@@ -1790,7 +1789,7 @@ class Dacte(xFPDF):
             f"{self.xDime}",
         ]
 
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
             if i == 3:
@@ -1914,7 +1913,7 @@ class Dacte(xFPDF):
             f"{self.respFat}",
         ]
 
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
             self.set_font(self.default_font, "B", 7)
@@ -1971,7 +1970,7 @@ class Dacte(xFPDF):
             ferro1["xNome"],
         ]
 
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
             self.set_font(self.default_font, "B", 7)
@@ -2015,7 +2014,7 @@ class Dacte(xFPDF):
             ferro2["xNome"],
         ]
 
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
             self.set_font(self.default_font, "B", 7)
@@ -2103,7 +2102,7 @@ class Dacte(xFPDF):
             f"{self.nCont}",
         ]
 
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
             self.set_font(self.default_font, "B", 7)
@@ -2148,7 +2147,7 @@ class Dacte(xFPDF):
             f"R$ {self.vAFRMM}",
         ]
 
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
             if i == 3:
@@ -2236,7 +2235,7 @@ class Dacte(xFPDF):
         ]
 
         text_y = section_start_y - 12
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             x_pos = x_margin + i * col_width
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
@@ -2288,7 +2287,7 @@ class Dacte(xFPDF):
             f"{self.nAver}",
         ]
 
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
             self.set_font(self.default_font, "B", 7)
@@ -2372,7 +2371,7 @@ class Dacte(xFPDF):
             f"{self.p_icms}",
         ]
 
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
             self.set_font(self.default_font, "B", 7)
@@ -2418,7 +2417,7 @@ class Dacte(xFPDF):
             f"{self.emit_name}",
         ]
 
-        for i, (title, value) in enumerate(zip(road_titles, road_values)):
+        for i, (title, value) in enumerate(zip(road_titles, road_values, strict=False)):
             self.set_xy(x_margin + i * col_width, section_start_y - 10)
             self.multi_cell(w=col_width, h=3, text=title, align="L")
             if i == 5:
@@ -2502,7 +2501,9 @@ class Dacte(xFPDF):
                 "",
             ]
 
-            for i, (title, value) in enumerate(zip(road_titles, road_values)):
+            for i, (title, value) in enumerate(
+                zip(road_titles, road_values, strict=False)
+            ):
                 self.set_xy(x_margin + i * col_width, section_start_y - 10)
                 self.multi_cell(w=col_width, h=3, text=title, align="L")
                 self.set_font(self.default_font, "B", 7)

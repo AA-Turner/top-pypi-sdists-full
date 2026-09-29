@@ -227,6 +227,7 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
     VOLUME_MOUNTS_FIELD_NUMBER: builtins.int
     NETWORK_ACCESS_FIELD_NUMBER: builtins.int
     PTY_INFO_FIELD_NUMBER: builtins.int
+    MEMORY_RESERVE_CONSUME_MIB_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     container_name: builtins.str
     """Logical container name."""
@@ -251,6 +252,11 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
     @property
     def pty_info(self) -> modal_proto.api_pb2.PTYInfo:
         """Optional PTY info for sidecar."""
+    memory_reserve_consume_mib: builtins.int
+    """Memory, in MiB, the sidecar consumes from the sandbox's sidecar memory
+    reserve (experimental option vm_sidecar_memory_reserve_mib); unset
+    consumes whatever is left of it. Ignored without a reserve.
+    """
     def __init__(
         self,
         *,
@@ -264,9 +270,12 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
         volume_mounts: collections.abc.Iterable[modal_proto.api_pb2.VolumeMount] | None = ...,
         network_access: modal_proto.api_pb2.NetworkAccess | None = ...,
         pty_info: modal_proto.api_pb2.PTYInfo | None = ...,
+        memory_reserve_consume_mib: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_network_access", b"_network_access", "_pty_info", b"_pty_info", "network_access", b"network_access", "pty_info", b"pty_info"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_network_access", b"_network_access", "_pty_info", b"_pty_info", "args", b"args", "container_name", b"container_name", "env", b"env", "image_id", b"image_id", "network_access", b"network_access", "pty_info", b"pty_info", "secret_ids", b"secret_ids", "task_id", b"task_id", "volume_mounts", b"volume_mounts", "workdir", b"workdir"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_memory_reserve_consume_mib", b"_memory_reserve_consume_mib", "_network_access", b"_network_access", "_pty_info", b"_pty_info", "memory_reserve_consume_mib", b"memory_reserve_consume_mib", "network_access", b"network_access", "pty_info", b"pty_info"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_memory_reserve_consume_mib", b"_memory_reserve_consume_mib", "_network_access", b"_network_access", "_pty_info", b"_pty_info", "args", b"args", "container_name", b"container_name", "env", b"env", "image_id", b"image_id", "memory_reserve_consume_mib", b"memory_reserve_consume_mib", "network_access", b"network_access", "pty_info", b"pty_info", "secret_ids", b"secret_ids", "task_id", b"task_id", "volume_mounts", b"volume_mounts", "workdir", b"workdir"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_memory_reserve_consume_mib", b"_memory_reserve_consume_mib"]) -> typing_extensions.Literal["memory_reserve_consume_mib"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_network_access", b"_network_access"]) -> typing_extensions.Literal["network_access"] | None: ...
     @typing.overload
@@ -920,6 +929,35 @@ class TaskSetNetworkAccessResponse(google.protobuf.message.Message):
     ) -> None: ...
 
 global___TaskSetNetworkAccessResponse = TaskSetNetworkAccessResponse
+
+class TaskSetOutboundPolicyRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    OUTBOUND_POLICY_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    @property
+    def outbound_policy(self) -> modal_proto.api_pb2.OutboundPolicy:
+        """Replaces the task's outbound policy."""
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        outbound_policy: modal_proto.api_pb2.OutboundPolicy | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["outbound_policy", b"outbound_policy"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["outbound_policy", b"outbound_policy", "task_id", b"task_id"]) -> None: ...
+
+global___TaskSetOutboundPolicyRequest = TaskSetOutboundPolicyRequest
+
+class TaskSetOutboundPolicyResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___TaskSetOutboundPolicyResponse = TaskSetOutboundPolicyResponse
 
 class TaskSnapshotDirectoryRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

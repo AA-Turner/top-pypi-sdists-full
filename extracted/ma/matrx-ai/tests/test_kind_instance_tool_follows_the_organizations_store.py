@@ -147,11 +147,12 @@ class LegacyTable:
 
         return _Q()
 
-    async def update_where(self, where: dict[str, Any], **updates: Any) -> None:
+    async def update_where(self, where: dict[str, Any], **updates: Any) -> Any:
         self.updates.append((where, updates))
         row = self.rows[str(where["id"])]
         for key, value in updates.items():
             setattr(row, key, value)
+        return SimpleNamespace(rows_affected=1, updated_rows=[vars(row)])
 
 
 @pytest.fixture

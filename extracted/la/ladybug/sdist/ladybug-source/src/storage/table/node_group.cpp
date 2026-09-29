@@ -180,7 +180,9 @@ void NodeGroup::initializeScanState(const Transaction*, const UniqLock& lock,
     auto& nodeGroupScanState = *state.nodeGroupScanState;
     nodeGroupScanState.chunkedGroupIdx = 0;
     ChunkedNodeGroup* firstChunkedGroup = chunkedGroups.getFirstGroup(lock);
-    nodeGroupScanState.nextRowToScan = firstChunkedGroup->getStartRowIdx();
+    // A sub-node-group morsel may start after the first row of the group.
+    nodeGroupScanState.nextRowToScan =
+        std::max(firstChunkedGroup->getStartRowIdx(), state.scanStartRowInGroup);
     initializeScanStateForChunkedGroup(state, firstChunkedGroup);
 }
 
@@ -189,31 +191,43 @@ NodeGroupScanResult NodeGroup::scan(const Transaction* transaction, TableScanSta
     const auto lock = chunkedGroups.lock();
     auto& nodeGroupScanState = *state.nodeGroupScanState;
     DASSERT(nodeGroupScanState.chunkedGroupIdx < chunkedGroups.getNumGroups(lock));
-    const auto chunkedGroup = chunkedGroups.getGroup(lock, nodeGroupScanState.chunkedGroupIdx);
-    if (nodeGroupScanState.nextRowToScan >=
-        chunkedGroup->getNumRows() + chunkedGroup->getStartRowIdx()) {
+    // A sub-node-group morsel may start several chunked groups past the beginning of the
+    // node group, so keep advancing until the chunk containing nextRowToScan is reached.
+    // (A plain sequential scan only ever advances a single chunk per call.)
+    auto chunkedGroup = chunkedGroups.getGroup(lock, nodeGroupScanState.chunkedGroupIdx);
+    while (nodeGroupScanState.nextRowToScan >=
+           chunkedGroup->getNumRows() + chunkedGroup->getStartRowIdx()) {
         nodeGroupScanState.chunkedGroupIdx++;
         if (nodeGroupScanState.chunkedGroupIdx >= chunkedGroups.getNumGroups(lock)) {
             return NODE_GROUP_SCAN_EMPTY_RESULT;
         }
-        ChunkedNodeGroup* currentChunkedGroup =
-            chunkedGroups.getGroup(lock, nodeGroupScanState.chunkedGroupIdx);
-        initializeScanStateForChunkedGroup(state, currentChunkedGroup);
+        chunkedGroup = chunkedGroups.getGroup(lock, nodeGroupScanState.chunkedGroupIdx);
+        initializeScanStateForChunkedGroup(state, chunkedGroup);
     }
     const auto& chunkedGroupToScan =
         *chunkedGroups.getGroup(lock, nodeGroupScanState.chunkedGroupIdx);
     DASSERT(nodeGroupScanState.nextRowToScan >= chunkedGroupToScan.getStartRowIdx());
     const auto rowIdxInChunkToScan =
         nodeGroupScanState.nextRowToScan - chunkedGroupToScan.getStartRowIdx();
-    const auto numRowsToScan =
+    auto numRowsToScan =
         std::min(chunkedGroupToScan.getNumRows() - rowIdxInChunkToScan, DEFAULT_VECTOR_CAPACITY);
+    // Honor sub-node-group morsel boundaries (see ScanNodeTableSharedState::nextMorsel).
+    numRowsToScan = std::min<row_idx_t>(numRowsToScan,
+        state.scanEndRowInGroup - nodeGroupScanState.nextRowToScan);
+    if (numRowsToScan == 0) {
+        return NODE_GROUP_SCAN_EMPTY_RESULT;
+    }
     bool enableSemiMask =
         state.source == TableScanSource::COMMITTED && state.semiMask && state.semiMask->isEnabled();
+    const auto startNodeOffset = nodeGroupScanState.nextRowToScan +
+                                 StorageUtils::getStartOffsetOfNodeGroup(state.nodeGroupIdx);
     if (enableSemiMask) {
-        const auto startNodeOffset = nodeGroupScanState.nextRowToScan +
-                                     StorageUtils::getStartOffsetOfNodeGroup(state.nodeGroupIdx);
-        NodeTable::applySemiMaskFilter(state, startNodeOffset, numRowsToScan,
-            state.outState->getSelVectorUnsafe());
+        // Cheap chunk pre-check: skip column I/O entirely when the chunk holds no masked
+        // row. Reset the selection first: it still holds the previous chunk's (possibly
+        // filtered) state, which applySemiMaskFilter would otherwise intersect with.
+        auto& selVector = state.outState->getSelVectorUnsafe();
+        selVector.setToUnfiltered(numRowsToScan);
+        NodeTable::applySemiMaskFilter(state, startNodeOffset, numRowsToScan, selVector);
         if (state.outState->getSelVector().getSelSize() == 0) {
             state.nodeGroupScanState->nextRowToScan += numRowsToScan;
             return NodeGroupScanResult{nodeGroupScanState.nextRowToScan, 0};
@@ -223,6 +237,18 @@ NodeGroupScanResult NodeGroup::scan(const Transaction* transaction, TableScanSta
         numRowsToScan);
     const auto startRow = nodeGroupScanState.nextRowToScan;
     nodeGroupScanState.nextRowToScan += numRowsToScan;
+    if (enableSemiMask) {
+        // The chunk scan above resets the selection (visibility/zonemap), discarding the
+        // pre-check's subset. Intersect the mask with the surviving rows so only masked
+        // rows are materialized instead of the whole chunk. Like the pre-check above,
+        // report an empty chunk as {nextRow, 0} (not EMPTY) so the caller keeps scanning
+        // the rest of the node group.
+        NodeTable::applySemiMaskFilter(state, startNodeOffset, numRowsToScan,
+            state.outState->getSelVectorUnsafe());
+        if (state.outState->getSelVector().getSelSize() == 0) {
+            return NodeGroupScanResult{nodeGroupScanState.nextRowToScan, 0};
+        }
+    }
     return NodeGroupScanResult{startRow, numRowsToScan};
 }
 
@@ -230,23 +256,43 @@ NodeGroupScanResult NodeGroup::scan(Transaction* transaction, TableScanState& st
     offset_t startOffsetInGroup, offset_t numRowsToScan) const {
     bool enableSemiMask =
         state.source == TableScanSource::COMMITTED && state.semiMask && state.semiMask->isEnabled();
+    const auto startNodeOffset =
+        startOffsetInGroup + StorageUtils::getStartOffsetOfNodeGroup(state.nodeGroupIdx);
     if (enableSemiMask) {
-        const auto startNodeOffset =
-            startOffsetInGroup + StorageUtils::getStartOffsetOfNodeGroup(state.nodeGroupIdx);
-        NodeTable::applySemiMaskFilter(state, startNodeOffset, numRowsToScan,
-            state.outState->getSelVectorUnsafe());
+        // See the sequential overload above: reset the selection first so the chunk
+        // pre-check does not intersect with a stale selection, then skip column I/O
+        // when the range holds no masked row.
+        auto& selVector = state.outState->getSelVectorUnsafe();
+        selVector.setToUnfiltered(numRowsToScan);
+        NodeTable::applySemiMaskFilter(state, startNodeOffset, numRowsToScan, selVector);
         if (state.outState->getSelVector().getSelSize() == 0) {
             state.nodeGroupScanState->nextRowToScan += numRowsToScan;
             return NodeGroupScanResult{state.nodeGroupScanState->nextRowToScan, 0};
         }
     }
+    NodeGroupScanResult scanResult;
     if (state.outputVectors.size() == 0) {
         DASSERT(scanInternal(chunkedGroups.lock(), transaction, state, startOffsetInGroup,
                     numRowsToScan) == NodeGroupScanResult(startOffsetInGroup, numRowsToScan));
-        return NodeGroupScanResult{startOffsetInGroup, numRowsToScan};
+        scanResult = NodeGroupScanResult{startOffsetInGroup, numRowsToScan};
+    } else {
+        scanResult = scanInternal(chunkedGroups.lock(), transaction, state, startOffsetInGroup,
+            numRowsToScan);
     }
-    return scanInternal(chunkedGroups.lock(), transaction, state, startOffsetInGroup,
-        numRowsToScan);
+    // scanInternal resets the selection (visibility/zonemap), clobbering the pre-check's
+    // subset even when outputVectors is empty (the anchor sel vector is rewritten before
+    // the column loop). Intersect the mask with the surviving rows in all cases so only
+    // masked rows are reported. Only the actually scanned prefix (scanResult.numRows) is
+    // valid: the requested range may span chunked groups while a single call scans the
+    // first one.
+    if (enableSemiMask) {
+        NodeTable::applySemiMaskFilter(state, startNodeOffset, scanResult.numRows,
+            state.outState->getSelVectorUnsafe());
+        if (state.outState->getSelVector().getSelSize() == 0) {
+            return NodeGroupScanResult{state.nodeGroupScanState->nextRowToScan, 0};
+        }
+    }
+    return scanResult;
 }
 
 NodeGroupScanResult NodeGroup::scanInternal(const UniqLock& lock, Transaction* transaction,
@@ -346,11 +392,11 @@ void NodeGroup::update(const Transaction* transaction, row_idx_t rowIdxInGroup,
 
 // NOLINTNEXTLINE(readability-make-member-function-const): Semantically non-const.
 bool NodeGroup::delete_(const Transaction* transaction, row_idx_t rowIdxInGroup) {
-    ChunkedNodeGroup* groupToDelete = nullptr;
-    {
-        const auto lock = chunkedGroups.lock();
-        groupToDelete = findChunkedGroupFromRowIdx(lock, rowIdxInGroup);
-    }
+    // Hold the chunked-groups lock for the whole delete, as scans, commit and rollback do. The
+    // delete may create the chunked group's version info and allocates a vector's deletion
+    // versions after publishing its deletion status; a scan must not observe either halfway.
+    const auto lock = chunkedGroups.lock();
+    auto* groupToDelete = findChunkedGroupFromRowIdx(lock, rowIdxInGroup);
     DASSERT(groupToDelete);
     const auto rowIdxInChunkedGroup = rowIdxInGroup - groupToDelete->getStartRowIdx();
     return groupToDelete->delete_(transaction, rowIdxInChunkedGroup);

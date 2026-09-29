@@ -53,7 +53,7 @@ async def stream_pty_shell_input(client: "_Client", exec_id: str, finish_event: 
     """
 
     async def _handle_input(data: bytes, message_index: int):
-        await client.stub.ContainerExecPutInput(
+        await client._stub.ContainerExecPutInput(
             api_pb2.ContainerExecPutInputRequest(
                 exec_id=exec_id, input=api_pb2.RuntimeInputMessage(message=data, message_index=message_index)
             ),
@@ -101,6 +101,7 @@ async def get_app_logs_loop(
     function_id: str = "",
     function_call_id: str = "",
     search_text: str = "",
+    parametrized_function_id: str = "",
 ):
     last_log_batch_entry_id = last_entry_id
     _prefixes = prefix_fields or []
@@ -127,8 +128,8 @@ async def get_app_logs_loop(
     async def _put_log(log_batch: api_pb2.TaskLogsBatch, log: api_pb2.TaskLogs):
         if log.task_state:
             output_mgr.update_task_state(log_batch.task_id, log.task_state)
-            if log.task_state == api_pb2.TASK_STATE_WORKER_ASSIGNED:
-                # Close function's queueing progress bar (if it exists)
+            if log_batch.function_id:
+                # Any task state the server reports means the task is on a worker, so close queueing progress
                 output_mgr.update_queueing_progress(
                     function_id=log_batch.function_id, completed=1, total=1, description=None
                 )
@@ -172,10 +173,11 @@ async def get_app_logs_loop(
             last_entry_id=last_log_batch_entry_id,
             file_descriptor=file_descriptor,
             function_id=function_id,
+            parametrized_function_id=parametrized_function_id,
             function_call_id=function_call_id,
         )
         log_batch: api_pb2.TaskLogsBatch
-        async for log_batch in client.stub.AppGetLogs.unary_stream(request):
+        async for log_batch in client._stub.AppGetLogs.unary_stream(request):
             if log_batch.entry_id:
                 # log_batch entry_id is empty for fd="server" messages from AppGetLogs
                 last_log_batch_entry_id = log_batch.entry_id

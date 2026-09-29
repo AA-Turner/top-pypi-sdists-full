@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openbb-platform-api
-Version: 2.0.0
+Version: 2.0.1
 Summary: OpenBB Platform API: launcher and widgets builder for the Open Data Platform REST API and OpenBB Workspace custom-backend connector.
 Project-URL: Homepage, https://openbb.co
 Project-URL: Repository, https://github.com/OpenBB-finance/OpenBB
@@ -9,7 +9,7 @@ Author-email: OpenBB Team <hello@openbb.co>
 License: Apache-2.0
 Requires-Python: <4,>=3.10
 Requires-Dist: deepdiff>=8.6.2
-Requires-Dist: openbb-core>=2.0.0
+Requires-Dist: openbb-core>=2.0.1
 Requires-Dist: tomli>=2.0; python_version < '3.11'
 Description-Content-Type: text/markdown
 

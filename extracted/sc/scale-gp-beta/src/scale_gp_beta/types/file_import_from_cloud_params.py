@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from typing import Iterable
-from typing_extensions import Required, TypedDict
+from typing_extensions import Required, Annotated, TypedDict
+
+from .._utils import PropertyInfo
 
 __all__ = ["FileImportFromCloudParams", "File"]
 
@@ -11,6 +13,8 @@ __all__ = ["FileImportFromCloudParams", "File"]
 class FileImportFromCloudParams(TypedDict, total=False):
     files: Required[Iterable[File]]
     """List of files to import from cloud storage"""
+
+    x_project_id: Annotated[str, PropertyInfo(alias="x-project-id")]
 
 
 class File(TypedDict, total=False):

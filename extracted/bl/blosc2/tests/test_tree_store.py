@@ -17,6 +17,94 @@ import blosc2
 from blosc2.tree_store import TreeStore
 
 
+@pytest.mark.parametrize("suffix", ["b2d", "b2z"])
+def test_metadata_only_groups_survive_materialization(tmp_path, suffix):
+    source = tmp_path / f"source.{suffix}"
+    destination = tmp_path / f"copy.{suffix}"
+    with TreeStore(source, mode="w") as tree:
+        tree.get_subtree("/group/empty").attrs[:] = {}
+        tree.get_subtree("/group/note").attrs["title"] = "metadata only"
+    with TreeStore(source, mode="r") as tree:
+        assert "/group/empty" in tree
+        assert tree.get_children("/group") == ["/group/empty", "/group/note"]
+        assert list(tree.walk("/group")) == [
+            ("/group", ["empty", "note"], []),
+            ("/group/empty", [], []),
+            ("/group/note", [], []),
+        ]
+        assert "empty" in str(tree.info)
+        tree.materialize(destination)
+    with TreeStore(destination, mode="a") as tree:
+        assert tree["group/empty"].attrs[:] == {}
+        assert tree["group/note"].attrs["title"] == "metadata only"
+        del tree["group/empty"]
+        assert "/group/empty" not in tree
+        del tree["group"]
+        assert list(tree.keys()) == []
+    with TreeStore(destination, mode="r") as tree:
+        assert list(tree.keys()) == []
+
+
+def _memory_remote_store(tmp_path, name="remote"):
+    fsspec = pytest.importorskip("fsspec")
+    source = tmp_path / f"{name}.b2z"
+    with blosc2.TreeStore(source, mode="w") as tree:
+        tree["/region/value"] = np.arange(5)
+    url = f"memory://{tmp_path.name}-{name}.b2z"
+    fsspec.filesystem("memory").pipe(url, source.read_bytes())
+    return blosc2.RemoteStore(url, dataset="region")
+
+
+@pytest.mark.parametrize("suffix", [".b2d", ".b2z"])
+def test_remote_store_reference_roundtrip_is_lazy(tmp_path, suffix):
+    path = tmp_path / f"catalog{suffix}"
+    remote = _memory_remote_store(tmp_path, suffix[1:])
+    source = remote.source
+    with blosc2.TreeStore(path, mode="w") as tree:
+        tree["/external/weather"] = remote
+        assert "/external/weather" in tree
+        with pytest.raises(ValueError, match="Delete it first"):
+            tree["/external/weather"] = remote
+    remote.close()
+
+    with blosc2.TreeStore(path, mode="r") as tree:
+        assert "/external/weather" in tree
+        linked = tree["/external/weather"]
+        assert isinstance(linked, blosc2.RemoteStore)
+        assert linked.source == source
+        assert linked._owner is None
+        with linked:
+            np.testing.assert_array_equal(linked["value"][:], np.arange(5))
+
+    with blosc2.TreeStore(path, mode="a") as tree:
+        del tree["/external/weather"]
+        assert "/external/weather" not in tree
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda ref: ref.update(version=2),
+        lambda ref: ref.update(kind="netcdf"),
+        lambda ref: ref.update(urlpath="https://user:secret@example.org/data.zarr"),
+        lambda ref: ref.update(dataset="../private"),
+        lambda ref: ref.update(max_cache_bytes=-1),
+    ],
+)
+def test_remote_store_reference_validation(mutation):
+    from blosc2.remote_store import validate_remote_store_reference
+
+    descriptor = {
+        "kind": "zarr",
+        "version": 1,
+        "urlpath": "https://example.org/data.zarr",
+        "dataset": "group",
+    }
+    mutation(descriptor)
+    with pytest.raises(ValueError):
+        validate_remote_store_reference(descriptor)
+
+
 def _rename_store_member(store_path, old_name, new_name):
     """Rename an external leaf inside a .b2d/.b2z store without changing its contents."""
     if str(store_path).endswith(".b2d"):

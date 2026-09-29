@@ -99,6 +99,19 @@ def make_facts(**overrides) -> PageFacts:
         exact_sha256="abc",
         http_status=200,
         latest_snapshot_id="s1",
+        # A snapshot-backed page: `_extract_page_facts` always sets this, and
+        # the healthy page's head is healthy too.
+        head_captured=True,
+        lang="en",
+        head_meta={"viewport": "width=device-width, initial-scale=1", "refresh": None},
+        og={
+            "og:title": "A perfectly reasonable page title here",
+            "og:description": "A description that is long enough to look like real prose.",
+            "og:image": "https://example.com/share.png",
+            "og:url": "https://example.com/a",
+            "og:type": "website",
+        },
+        twitter={"twitter:card": "summary_large_image"},
     )
     base.update(overrides)
     return PageFacts(**base)
@@ -763,3 +776,37 @@ def test_crawl_depth_keeps_a_shallow_pass_but_withholds_a_penalty_on_a_partial_g
     assert deep.status == "n_a" and deep.score is None
     assert "6 clicks" in deep.reasoning and deep.remediation is not None
     assert_db_valid(deep)
+
+
+def test_x_robots_tag_header_counts_as_a_robots_directive():
+    """The header and the meta tag are one set of directives (badseo.dev noindex-header)."""
+    from matrx_scraper.seo_audit import effective_robots_directives
+
+    assert effective_robots_directives(None, {"X-Robots-Tag": "noindex"}) == "noindex"
+    assert effective_robots_directives("index, follow", {"x-robots-tag": "nofollow"}) == (
+        "index, follow, nofollow"
+    )
+    # Scoped to Google: applies. Scoped to another crawler: ignored.
+    assert effective_robots_directives(None, {"x-robots-tag": "googlebot: noindex"}) == "noindex"
+    assert effective_robots_directives(None, {"x-robots-tag": "bingbot: noindex"}) is None
+    # A valued directive is not a crawler name.
+    assert effective_robots_directives(None, {"x-robots-tag": "max-snippet: 20"}) == (
+        "max-snippet: 20"
+    )
+    assert effective_robots_directives("noindex", None) == "noindex"
+
+
+def test_a_blocked_fetch_is_never_a_broken_or_failing_page():
+    """401/403/challenge/rate-limit walls answer n_a naming the block (blocked is not broken)."""
+    from matrx_scraper.seo_audit import check_broken_page_4xx, check_server_error_5xx
+
+    for status, reason in ((403, "blocked"), (403, "cloudflare_block"), (503, "cloudflare_block")):
+        facts = make_facts(http_status=status, fetch_blocked_reason=reason, head_captured=False)
+        for check in (check_broken_page_4xx, check_server_error_5xx):
+            outcome = check(facts)
+            assert outcome.status == "n_a", (check.__name__, status, reason)
+            assert outcome.reasoning.startswith("Blocked — could not assess")
+            assert outcome.evidence == {"blocked_reason": reason, "http_status": status}
+    # Without the block the same statuses are still real failures.
+    assert check_broken_page_4xx(make_facts(http_status=404)).status == "fail"
+    assert check_server_error_5xx(make_facts(http_status=503)).status == "fail"

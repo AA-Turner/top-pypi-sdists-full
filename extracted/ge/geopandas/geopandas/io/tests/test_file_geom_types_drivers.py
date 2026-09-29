@@ -265,6 +265,9 @@ def engine(request):
     return request.param
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Unexpected data type for geometry column:RuntimeWarning"
+)  # https://github.com/OSGeo/gdal/issues/15096
 def test_to_file_roundtrip(tmpdir, geodataframe, ogr_driver, engine):
     driver, ext = ogr_driver
     output_file = os.path.join(str(tmpdir), "output_file" + ext)
@@ -287,7 +290,7 @@ def test_to_file_roundtrip(tmpdir, geodataframe, ogr_driver, engine):
     expected_error = _expected_error_on(geodataframe, driver)
     if expected_error:
         with pytest.raises(
-            RuntimeError, match="Failed to write record|Could not add feature to layer"
+            RuntimeError, match=r"Failed to write record|Could not add feature to layer"
         ):
             geodataframe.to_file(
                 output_file, driver=driver, engine=engine, **write_kwargs

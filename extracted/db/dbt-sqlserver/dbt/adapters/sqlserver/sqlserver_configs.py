@@ -10,7 +10,8 @@ from dbt.adapters.sqlserver.relation_configs import SQLServerIndexConfig
 @dataclass
 class SQLServerConfigs(AdapterConfig):
     auto_provision_aad_principals: Optional[bool] = False
-    prefer_single_alter_column: Optional[bool] = False
+    # unset: single ALTER COLUMN for same-family widening, four-step otherwise
+    prefer_single_alter_column: Optional[bool] = None
     column_type_expansion_max_rows: int = 1000000
     indexes: Optional[Tuple[SQLServerIndexConfig, ...]] = None
     # false (default) | warn | true - how index reconciliation treats
@@ -23,5 +24,13 @@ class SQLServerConfigs(AdapterConfig):
     # directory-level default and a per-model tweak combine instead of one
     # replacing the whole dict.
     masks: Optional[Dict[str, Any]] = field(
+        default_factory=dict, metadata=MergeBehavior.Update.meta()
+    )
+    # privilege -> [principals] map for the model-level `denies` surface, shaped
+    # like `grants`. Re-applied after each build because an object-level DENY is
+    # stored against object_id and discarded on drop-and-recreate. Same key-wise
+    # MergeBehavior.Update as `masks`, so a directory-level default and a
+    # per-model tweak combine instead of one clobbering the whole dict.
+    denies: Optional[Dict[str, Any]] = field(
         default_factory=dict, metadata=MergeBehavior.Update.meta()
     )

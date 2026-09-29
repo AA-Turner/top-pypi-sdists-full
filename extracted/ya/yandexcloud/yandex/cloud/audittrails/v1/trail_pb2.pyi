@@ -6,6 +6,7 @@ isort:skip_file
 import builtins
 import collections.abc
 import google.protobuf.descriptor
+import google.protobuf.duration_pb2
 import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
@@ -118,6 +119,7 @@ class Trail(google.protobuf.message.Message):
         CLOUD_LOGGING_FIELD_NUMBER: builtins.int
         DATA_STREAM_FIELD_NUMBER: builtins.int
         EVENTROUTER_FIELD_NUMBER: builtins.int
+        MONIUM_FIELD_NUMBER: builtins.int
         @property
         def object_storage(self) -> global___Trail.ObjectStorage:
             """Configuration for event delivery to Object Storage
@@ -136,6 +138,10 @@ class Trail(google.protobuf.message.Message):
         def eventrouter(self) -> global___Trail.EventRouter:
             """Configuration for event delivery to EventRouter"""
 
+        @property
+        def monium(self) -> global___Trail.Monium:
+            """Configuration for event delivery to Monium"""
+
         def __init__(
             self,
             *,
@@ -143,10 +149,11 @@ class Trail(google.protobuf.message.Message):
             cloud_logging: global___Trail.CloudLogging | None = ...,
             data_stream: global___Trail.DataStream | None = ...,
             eventrouter: global___Trail.EventRouter | None = ...,
+            monium: global___Trail.Monium | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing.Literal["cloud_logging", b"cloud_logging", "data_stream", b"data_stream", "destination", b"destination", "eventrouter", b"eventrouter", "object_storage", b"object_storage"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["cloud_logging", b"cloud_logging", "data_stream", b"data_stream", "destination", b"destination", "eventrouter", b"eventrouter", "object_storage", b"object_storage"]) -> None: ...
-        def WhichOneof(self, oneof_group: typing.Literal["destination", b"destination"]) -> typing.Literal["object_storage", "cloud_logging", "data_stream", "eventrouter"] | None: ...
+        def HasField(self, field_name: typing.Literal["cloud_logging", b"cloud_logging", "data_stream", b"data_stream", "destination", b"destination", "eventrouter", b"eventrouter", "monium", b"monium", "object_storage", b"object_storage"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["cloud_logging", b"cloud_logging", "data_stream", b"data_stream", "destination", b"destination", "eventrouter", b"eventrouter", "monium", b"monium", "object_storage", b"object_storage"]) -> None: ...
+        def WhichOneof(self, oneof_group: typing.Literal["destination", b"destination"]) -> typing.Literal["object_storage", "cloud_logging", "data_stream", "eventrouter", "monium"] | None: ...
 
     @typing.final
     class ObjectStorage(google.protobuf.message.Message):
@@ -154,19 +161,29 @@ class Trail(google.protobuf.message.Message):
 
         BUCKET_ID_FIELD_NUMBER: builtins.int
         OBJECT_PREFIX_FIELD_NUMBER: builtins.int
+        AGGREGATION_PERIOD_FIELD_NUMBER: builtins.int
         bucket_id: builtins.str
         """Name of the destination bucket"""
         object_prefix: builtins.str
         """Prefix for exported objects. Optional
         If specified, uploaded objects will have prefix <object_prefix>/<trail_id>/
         """
+        @property
+        def aggregation_period(self) -> google.protobuf.duration_pb2.Duration:
+            """Target interval between the starts of exports to Object Storage.
+            Must be between 1 minute and 1 hour, inclusive.
+            If omitted, the default interval is 5 minutes.
+            """
+
         def __init__(
             self,
             *,
             bucket_id: builtins.str = ...,
             object_prefix: builtins.str = ...,
+            aggregation_period: google.protobuf.duration_pb2.Duration | None = ...,
         ) -> None: ...
-        def ClearField(self, field_name: typing.Literal["bucket_id", b"bucket_id", "object_prefix", b"object_prefix"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["aggregation_period", b"aggregation_period"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["aggregation_period", b"aggregation_period", "bucket_id", b"bucket_id", "object_prefix", b"object_prefix"]) -> None: ...
 
     @typing.final
     class CloudLogging(google.protobuf.message.Message):
@@ -219,6 +236,16 @@ class Trail(google.protobuf.message.Message):
             eventrouter_connector_id: builtins.str = ...,
         ) -> None: ...
         def ClearField(self, field_name: typing.Literal["eventrouter_connector_id", b"eventrouter_connector_id"]) -> None: ...
+
+    @typing.final
+    class Monium(google.protobuf.message.Message):
+        """Monium destination has no user-configurable parameters."""
+
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        def __init__(
+            self,
+        ) -> None: ...
 
     @typing.final
     class Filter(google.protobuf.message.Message):

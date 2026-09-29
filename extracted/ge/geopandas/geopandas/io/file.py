@@ -7,6 +7,7 @@ from http import HTTPStatus
 from io import IOBase
 from packaging.version import Version
 from pathlib import Path
+from typing import Any
 
 # Adapted from pandas.io.common
 from urllib.parse import urlparse as parse_url
@@ -273,6 +274,11 @@ def _read_file(
     For faster data reading with the default pyogrio engine when
     pyarrow is installed, pass ``use_arrow=True`` as an argument. See the User
     Guide page :doc:`../../user_guide/io` for details.
+
+    Some formats (e.g. GeoPackage) store a feature ID (``fid``) that is not
+    included in the columns by default. With the pyogrio engine, pass
+    ``fid_as_index=True`` to use it as the index of the returned GeoDataFrame.
+    See the User Guide page :doc:`../../user_guide/io` for details.
 
 
     When specifying a URL, geopandas will check if the server supports reading
@@ -893,3 +899,31 @@ def _list_layers(filename) -> pd.DataFrame:
     return pd.DataFrame(
         pyogrio.list_layers(filename), columns=["name", "geometry_type"]
     )
+
+
+def _read_file_info(filename, layer=None) -> dict[str, Any]:
+    """Read layer information from a file.
+
+    Parameters
+    ----------
+    filename : str, path object or file-like object
+       Either the absolute or relative path to the file or URL to
+       be opened, or any object with a read() method (such as an open file
+       or StringIO)
+    layer : str or int, optional
+        If the file contains multiple layers, the name or number of the layer to be
+        read.
+        If None, the first layer is read.
+
+    Returns
+    -------
+    dict
+        A dictionary with layer metadata.
+
+    """
+    _import_pyogrio()
+    _check_pyogrio("read_info")
+
+    import pyogrio
+
+    return pyogrio.read_info(filename, layer=layer)

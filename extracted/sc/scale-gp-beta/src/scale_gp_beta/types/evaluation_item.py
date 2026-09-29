@@ -38,3 +38,12 @@ class EvaluationItem(BaseModel):
 
     task_errors: Optional[Dict[str, TaskError]] = None
     """Map of task alias to error info."""
+
+    task_result_statuses: Optional[Dict[str, Literal["completed", "skipped", "errored", "pending", "prefilled"]]] = None
+    """Per-alias task-result lifecycle status derived from `task_result_cache`.
+
+    Present when at least one alias has a recorded status; `null` for legacy rows
+    with an empty cache. Renderers use this to distinguish `prefilled` from
+    `completed` on the wire (values themselves are already merged into `data` by
+    `merge_task_result_cache_into_data`).
+    """

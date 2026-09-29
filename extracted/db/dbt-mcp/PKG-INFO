@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-mcp
-Version: 2.4.0
+Version: 2.5.0
 Summary: A MCP (Model Context Protocol) server for interacting with dbt resources.
 Project-URL: Documentation, https://docs.getdbt.com/docs/dbt-ai/about-mcp
 Project-URL: Issues, https://github.com/dbt-labs/dbt-mcp/issues
@@ -225,15 +225,15 @@ Requires-Dist: dbt-artifacts-parser>=0.13.2
 Requires-Dist: dbt-protos~=1.0.431
 Requires-Dist: dbt-sl-sdk[sync]~=0.13.3
 Requires-Dist: dbtlabs-vortex~=0.2.0
-Requires-Dist: fastapi~=0.128.0
+Requires-Dist: fastapi~=0.141.0
 Requires-Dist: filelock~=3.20.3
 Requires-Dist: httpx~=0.28.1
 Requires-Dist: jq>=1.12.0
-Requires-Dist: mcp[cli]==1.26.0
-Requires-Dist: pydantic-settings~=2.10.1
+Requires-Dist: mcp[cli]==1.30.0
+Requires-Dist: pydantic-settings~=2.14.1
 Requires-Dist: pyjwt<2.14,>=2.12
 Requires-Dist: pyyaml~=6.0.2
-Requires-Dist: starlette~=0.50.0
+Requires-Dist: starlette~=1.6.0
 Requires-Dist: uvicorn~=0.38.0
 Description-Content-Type: text/markdown
 
@@ -286,7 +286,7 @@ To learn more about the dbt Discovery API, click [here](https://docs.getdbt.com/
 - `get_all_sources`: Gets all sources with freshness status; option to filter by source name.
 - `get_exposure_details`: *(deprecated — use `get_node_details` instead)*
 - `get_exposures`: Gets all exposures (downstream dashboards, apps, or analyses).
-- `get_lineage`: Gets full lineage graph (ancestors and descendants) with type and depth filtering.
+- `get_lineage`: Gets a bounded lineage graph with type, depth, and direction filtering.
 - `get_macro_details`: *(deprecated — use `get_node_details` instead)*
 - `get_mart_models`: Retrieves all mart models.
 - `get_model_children`: *(deprecated — use `get_lineage` instead)*

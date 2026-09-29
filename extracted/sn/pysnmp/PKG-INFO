@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pysnmp
-Version: 7.1.29
+Version: 7.1.30
 Summary: A Python library for SNMP
 Author-email: Ilya Etingof <etingof@gmail.com>, "LeXtudio Inc." <support@lextudio.com>
 Requires-Python: >=3.10
@@ -24,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Communications
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE.rst
-Requires-Dist: pyasn1>=0.6.3
+Requires-Dist: pyasn1>=0.6.4
 Requires-Dist: codecov>=2.1.12 ; extra == "dev"
 Requires-Dist: pytest>=7.2.0 ; extra == "dev"
 Requires-Dist: pytest-codecov>=0.4.0 ; extra == "dev"
@@ -42,7 +42,7 @@ Requires-Dist: pre-commit==2.21.0 ; extra == "dev"
 Requires-Dist: doc8>=1.0.0 ; extra == "dev"
 Requires-Dist: flake8>=7.0.0 ; extra == "dev"
 Requires-Dist: pep8-naming>=0.14.1 ; extra == "dev"
-Requires-Dist: cryptography>=50.0.0 ; extra == "dev"
+Requires-Dist: cryptography>=50.0.1 ; extra == "dev"
 Requires-Dist: pysmi>=2.0.0 ; extra == "dev"
 Requires-Dist: bump2version>=1.0.1 ; extra == "dev"
 Requires-Dist: ruff>=0.11.7 ; extra == "dev"

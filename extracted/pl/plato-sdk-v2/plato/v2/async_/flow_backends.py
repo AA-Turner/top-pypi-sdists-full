@@ -17,6 +17,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from plato.utils.browser_tooling import AGENT_BROWSER_SOCKET_DIR_EXPORT
 from plato.utils.subprocess import run_ssh
 
 if TYPE_CHECKING:
@@ -234,7 +235,8 @@ def _assert_title(step: VerifyStep, actual_title: str) -> None:
 
 CLAUDE_CODE_SSH_SHELL_PREFIX = (
     'export PATH="$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | '
-    'head -1)/bin:$HOME/.bun/bin:/usr/local/bin:$PATH"'
+    'head -1)/bin:$HOME/.bun/bin:/usr/local/bin:$PATH"; '
+    f"{AGENT_BROWSER_SOCKET_DIR_EXPORT}"
 )
 """``shell_prefix`` for reaching ``agent-browser`` over non-interactive SSH on
 the claude-code / gemini-cli / codex base images.
@@ -243,7 +245,9 @@ Inside an interactive agent subshell, ``plato.agents.browser_tooling``'s
 ``AGENT_BROWSER_PATH_EXPORT`` is enough because nvm.sh is already sourced.
 Over SSH the non-interactive shell doesn't source nvm, so we hand-roll the
 absolute node bin dir via ``ls | head -1`` in addition to adding
-``$HOME/.bun/bin``. Callers on other images should pass their own
+``$HOME/.bun/bin``. Both paths also export the same daemon socket directory,
+so PAM's SSH-only XDG_RUNTIME_DIR cannot select a different browser session.
+Callers on other images should pass their own
 ``shell_prefix``.
 """
 

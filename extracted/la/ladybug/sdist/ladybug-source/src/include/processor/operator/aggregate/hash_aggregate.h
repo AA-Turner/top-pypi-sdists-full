@@ -52,17 +52,26 @@ public:
         auto numBytesPerTuple = factorizedTable.getTableSchema()->getNumBytesPerTuple();
         for (ft_tuple_idx_t tupleIdx = 0; tupleIdx < factorizedTable.getNumTuples(); tupleIdx++) {
             auto tuple = factorizedTable.getTuple(tupleIdx);
-            auto hash = *reinterpret_cast<common::hash_t*>(tuple + hashOffset);
-            auto& partition =
-                globalPartitions[(hash >> shiftForPartitioning) % globalPartitions.size()];
+            // Tuples are packed without alignment padding; use memcpy for the hash load.
+            common::hash_t hash;
+            memcpy(&hash, tuple + hashOffset, sizeof(common::hash_t));
+            // shiftForPartitioning is 64 when there is a single partition
+            // (64 - bit_width(0)); shifting a 64-bit value by 64 is UB, and the
+            // partition index is trivially 0 in that case.
+            const auto partitionIdx = shiftForPartitioning >= 64 ?
+                                          0 :
+                                          (hash >> shiftForPartitioning) % globalPartitions.size();
+            auto& partition = globalPartitions[partitionIdx];
             partition.queue->appendTuple(std::span(tuple, numBytesPerTuple));
         }
     }
 
     void appendDistinctTuple(size_t distinctFuncIndex, std::span<uint8_t> tuple,
         common::hash_t hash) override {
-        auto& partition =
-            globalPartitions[(hash >> shiftForPartitioning) % globalPartitions.size()];
+        const auto partitionIdx = shiftForPartitioning >= 64 ?
+                                      0 :
+                                      (hash >> shiftForPartitioning) % globalPartitions.size();
+        auto& partition = globalPartitions[partitionIdx];
         partition.distinctTableQueues[distinctFuncIndex]->appendTuple(tuple);
     }
 

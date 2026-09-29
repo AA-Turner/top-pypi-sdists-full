@@ -16,15 +16,16 @@ from matrx_ai.config.citations import (
     log_citations_disabled,
     resolve_citations_disabled_reason,
 )
+from matrx_ai.config.message_config import MessageSanitizationError
 from matrx_ai.config.tool_result_guard import (
     LAYER_ANTHROPIC,
     dedupe_tool_result_dicts,
     report_tool_result_duplicates,
 )
-from matrx_ai.config.message_config import MessageSanitizationError
 from matrx_ai.providers.base_translator import BaseTranslator
 from matrx_ai.providers.cache_guard import PROMPT_CACHING_ENABLED
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
+from matrx_ai.providers.structured_output_findings import response_format_identity
 
 # ============================================================================
 # ANTHROPIC TRANSLATOR
@@ -575,10 +576,15 @@ class AnthropicTranslator(BaseTranslator):
                 color="yellow",
                 verbose=True,
             )
+            # `response_format_identity` is imported at MODULE scope. Importing it
+            # here made it a local of the whole function, so the forcing-function
+            # branch below raised UnboundLocalError on every schema whose
+            # violations survived translation — the request died on a Python
+            # error and the very finding that branch exists to write was never
+            # written (SCHEMA-TRANSLATION-VERIFY.md, R9; 10 live schemas).
             from matrx_ai.providers.structured_output_findings import (
                 ENFORCEMENT_DROPPED,
                 record_structured_output_finding_sync,
-                response_format_identity,
             )
             from matrx_ai.schema.answer_contract import mark_enforcement_dropped
 
@@ -672,10 +678,96 @@ class AnthropicTranslator(BaseTranslator):
         # schema only — Anthropic's JSONOutputFormatParam has no name/strict.
         return {"type": "json_schema", "schema": schema}
 
+    #: The largest compiled-grammar COST (``anthropic_grammar_cost``) this
+    #: translator will spend on widened optional fields. Measured on 2,700
+    #: distinct bodies probed against ``claude-sonnet-5`` on 2026-09-28: the
+    #: lowest "compiled grammar is too large" refusal scored 72.0 (a body THIS
+    #: translator had widened up to a 72 ceiling — the search pushes every body
+    #: to the ceiling, so the ceiling needs a real margin, not a fitted edge);
+    #: the next lowest 81.0. 64 keeps 8 below the lowest refusal and still admits
+    #: 2,221 of the 2,476 accepted bodies. A schema whose forced form already
+    #: costs more than this gets no widening at all — its wire body is the shape
+    #: Anthropic accepted before any widening existed
+    #: (SCHEMA-TRANSLATION-VERIFY.md, R5).
+    GRAMMAR_COST_CEILING: float = 64.0
+    #: What each attached tool is charged against that ceiling. Tools share the
+    #: grammar with the schema (grammar_budget.py); a strict tool schema is
+    #: typically several properties plus a union or two.
+    GRAMMAR_COST_PER_TOOL: float = 8.0
+
     @staticmethod
     def translate_output_schema(
         schema: dict[str, Any], *, tool_count: int = 0
     ) -> tuple[dict[str, Any], list[str], list[str]]:
+        """Translate a declared JSON Schema into the subset Anthropic compiles,
+        spending the grammar budget on widened optional fields only while the
+        request stays under the measured ceiling.
+
+        An optional field is expressed as required-and-nullable (lossless) as long
+        as the whole request still fits Anthropic's compiled-grammar budget and the
+        16 union parameters; past that, the remaining optional fields are FORCED
+        (the shape Anthropic accepted before any widening existed) and named in
+        ``narrowed``. The author's own nullable fields keep their union slots
+        first. Widening must never turn a request Anthropic accepts into one it
+        refuses — that is what R5 measured happening on 29 live schemas.
+        """
+        from matrx_ai.schema.rules import (
+            WideningBudget,
+            anthropic_grammar_cost,
+            count_union_params,
+        )
+
+        ceiling = AnthropicTranslator.GRAMMAR_COST_CEILING - (
+            AnthropicTranslator.GRAMMAR_COST_PER_TOOL * tool_count
+        )
+
+        def attempt(limit: int | None) -> tuple[Any, WideningBudget]:
+            budget = WideningBudget(limit=limit)
+            return AnthropicTranslator._translate_output_schema_once(
+                schema, tool_count=tool_count, budget=budget
+            ), budget
+
+        def fits(result: Any) -> bool:
+            """Does the copy we are ABOUT TO SEND fit Anthropic's two ceilings?
+
+            🚨 It used to read ``unions_before_collapse`` — the count BEFORE the
+            nullable-union collapse ran — so the predicate answered a question
+            about a schema that was never sent, in both directions. That is how 3
+            live wires went out carrying 24 / 21 / 18 union parameters over
+            Anthropic's documented 16 while the translator's own notes said it
+            had narrowed 25 fields to respect the cap, and all 3 were refused
+            live (SCHEMA-TRANSLATION-VERIFY.md, F7). Counting the wire is the
+            only measurement that can be honest: a collapse that did NOT reach
+            the cap (there is nothing nullable left to narrow) is now visible
+            here, and the widening search stops spending budget on a request
+            that cannot be accepted anyway.
+            """
+            wire, _narrowed, _relaxed, _unions_before_collapse, limit = result
+            return count_union_params(wire) <= limit and anthropic_grammar_cost(wire) <= ceiling
+
+        full, full_budget = attempt(None)
+        if full_budget.widened == 0 or fits(full):
+            return full[0], full[1], full[2]
+        # Largest number of widened fields that still fits (widening only ever
+        # adds cost, so the predicate is monotone in the limit).
+        low, high = 0, full_budget.widened - 1
+        best, _ = attempt(0)
+        if not fits(best):
+            # The forced form is already over the line: add nothing to it.
+            return best[0], best[1], best[2]
+        while low < high:
+            mid = (low + high + 1) // 2
+            candidate, _ = attempt(mid)
+            if fits(candidate):
+                low, best = mid, candidate
+            else:
+                high = mid - 1
+        return best[0], best[1], best[2]
+
+    @staticmethod
+    def _translate_output_schema_once(
+        schema: dict[str, Any], *, tool_count: int = 0, budget: Any = None
+    ) -> tuple[dict[str, Any], list[str], list[str], int, int]:
         """Translate a declared JSON Schema into the subset Anthropic compiles.
 
         Returns ``(wire_schema, narrowed, relaxed)``:
@@ -707,15 +799,18 @@ class AnthropicTranslator(BaseTranslator):
           > 12 optional parameters    -> "Schema is too complex." (after up to 180 s)
           ~70+ properties             -> "The compiled grammar is too large"
         """
+        from matrx_ai.schema.lint import make_portable
         from matrx_ai.schema.rules import (
             ANTHROPIC_UNION_PARAM_LIMIT,
             NORMALIZATION_NOTES_KEY,
             classify_normalization_notes,
             collapse_nullable_unions,
+            OPEN_SCALAR_ITEM_SCHEMA,
             concretize_empty_schemas,
             count_nullable_union_params,
             count_optional_properties,
             count_union_params,
+            dedupe_combinator_branches,
             dedupe_identical_subtrees,
             drop_refinement_combinators,
             enforce_additional_properties_false,
@@ -726,12 +821,19 @@ class AnthropicTranslator(BaseTranslator):
             normalize_combinator_siblings,
             prune_unreachable_defs,
             rewrite_oneof_as_anyof,
+            split_enum_from_type_union,
             take_normalization_notes,
             unroll_recursive_refs,
         )
 
         narrowed: list[str] = []
         relaxed: list[str] = []
+
+        # THE SHARED FIRST STEP: the author's schema closed, every property listed
+        # in `required`, each optional one widened to nullable while `budget`
+        # allows and forced (and named) past it. Idempotent on a stored portable
+        # copy.
+        schema = make_portable(schema, budget=budget, notes=narrowed)
 
         # additionalProperties:false on every object (nullable objects included);
         # a dynamic-key map is NARROWED to {} and named — the only shape compiled.
@@ -755,7 +857,20 @@ class AnthropicTranslator(BaseTranslator):
         schema = rewrite_oneof_as_anyof(schema)
         schema = normalize_combinator_siblings(schema)
         schema = normalize_array_items(schema)
-        schema = concretize_empty_schemas(schema)
+        # An unspecified array ELEMENT becomes the widest shape a strict decoder
+        # compiles (every scalar and null), named as a narrowing — never `string`.
+        schema = concretize_empty_schemas(schema, item_placeholder=OPEN_SCALAR_ITEM_SCHEMA)
+        # Lossless, and it must run HERE — after the rules above, because they are
+        # what CREATES the duplicates. `make_portable` already dropped the ones the
+        # author wrote; `A | A` only appears in the Docker-Hub tool's `digest` once
+        # `{"not": {}}` has been emptied and concretized into the same
+        # `{"type": "string"}` its sibling already was. Left in place a degenerate
+        # union costs a slot of Anthropic's 16 AND survives
+        # `collapse_nullable_unions` — narrowing `anyOf: [anyOf: [A, A], null]`
+        # leaves `anyOf: [A, A]`, still a union parameter — which is how 3 live
+        # wires went out at 24 / 21 / 18 unions and were refused
+        # (SCHEMA-TRANSLATION-VERIFY.md, F7). It runs before the count below.
+        schema = dedupe_combinator_branches(schema)
         schema = prune_unreachable_defs(schema)
         # Recursion is refused outright; a bounded tree is the closest shape.
         schema = unroll_recursive_refs(schema, depth=4, notes=relaxed)
@@ -776,10 +891,18 @@ class AnthropicTranslator(BaseTranslator):
         # excess, naming every field it narrows. A `const` (`__kind`) is forced
         # and not widened: its value is already determined, so nothing is lost.
         optional_before = count_optional_properties(schema)
-        enforce_all_required(schema, express_optional_as_nullable=True, notes=narrowed)
+        enforce_all_required(
+            schema, express_optional_as_nullable=True, notes=narrowed, budget=budget
+        )
+        # An enum beside a type ARRAY is refused outright, so a nullable enum —
+        # the widening above, and every Pydantic `Optional[SomeEnum]` that ever
+        # reached here — becomes `anyOf` branches. Lossless, and it still costs
+        # exactly one union parameter, so the budget collapse below is unaffected.
+        schema = split_enum_from_type_union(schema)
         # The documented ceiling of 16 union parameters (one tool spends one).
         limit = ANTHROPIC_UNION_PARAM_LIMIT - (1 if tool_count else 0)
         total_unions = count_union_params(schema)
+        unions_before_collapse = total_unions
         if total_unions > limit:
             # Only the NULLABLE unions can be narrowed; the others (a real choice
             # between shapes — and a nullable choice between SEVERAL shapes, which
@@ -815,7 +938,7 @@ class AnthropicTranslator(BaseTranslator):
                 verbose=True,
             )
         schema.pop(NORMALIZATION_NOTES_KEY, None)
-        return schema, narrowed, relaxed
+        return schema, narrowed, relaxed, unions_before_collapse, limit
 
     @staticmethod
     def _enforce_anthropic_strict_schema(node: Any) -> Any:

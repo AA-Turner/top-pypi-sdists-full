@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: code-coordinator
-Version: 0.5.529
+Version: 0.5.532
 Summary: Coordinate Claude Code workers across multiple machines and repos.
 Author-email: John Donaghy <johnfdonaghy@gmail.com>
 License-Expression: LicenseRef-FSL-1.1-MIT
@@ -28,10 +28,14 @@ Requires-Dist: websockets>=12.0; extra == "server"
 Requires-Dist: psutil>=5.9; extra == "server"
 Provides-Extra: postgres
 Requires-Dist: psycopg[binary]>=3.1; extra == "postgres"
+Provides-Extra: reports-xlsx
+Requires-Dist: openpyxl>=3.1; extra == "reports-xlsx"
 Provides-Extra: all
 Requires-Dist: code-coordinator[server]; extra == "all"
+Requires-Dist: code-coordinator[reports-xlsx]; extra == "all"
 Provides-Extra: dev
 Requires-Dist: code-coordinator[server]; extra == "dev"
+Requires-Dist: code-coordinator[reports-xlsx]; extra == "dev"
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
 Requires-Dist: pytest-xdist>=3.5; extra == "dev"

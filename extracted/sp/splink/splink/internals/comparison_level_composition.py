@@ -12,7 +12,7 @@ from .comparison_level import ComparisonLevel
 def _ensure_is_comparison_level_creator(
     cl: Union[ComparisonLevelCreator, dict[str, Any]],
 ) -> ComparisonLevelCreator:
-    if isinstance(cl, dict):
+    if not isinstance(cl, ComparisonLevelCreator):
         from .comparison_level_library import CustomLevel
 
         return CustomLevel(**cl)
@@ -107,8 +107,7 @@ class Not(ComparisonLevelCreator):
 
 
 def _unify_sql_dialects(cls: Iterable[ComparisonLevel | BlockingRule]) -> str | None:
-    sql_dialects = set(cl.sqlglot_dialect for cl in cls)
-    sql_dialects.discard(None)
+    sql_dialects = {cl.sqlglot_dialect for cl in cls if cl.sqlglot_dialect is not None}
     if len(sql_dialects) > 1:
         raise ValueError("Cannot combine comparison levels with different SQL dialects")
     elif len(sql_dialects) == 0:

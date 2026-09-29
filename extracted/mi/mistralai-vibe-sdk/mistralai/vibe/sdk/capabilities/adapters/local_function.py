@@ -173,13 +173,9 @@ async def _handle_call_function(
             if inspect.isawaitable(result):
                 result = await result
         except ValueError as e:
-            # Expected, model-facing tool failure: builtins raise ValueError for
-            # cases the model can recover from (missing file, non-unique match,
-            # undecodable content). Returned to the model as a tool result, not
-            # an application error, so it logs at warning and stays out of
-            # Sentry. Only the tool call itself is scoped here: SDK-internal
-            # errors (import, snapshot, serialization) fall through below.
-            logger.warning("tool.execution_failed", error=str(e))
+            # Expected, model-facing tool failures are returned to the model
+            # without logging. Only the tool call itself is scoped here:
+            # SDK-internal errors fall through to exception logging below.
             return [FunctionComplete(output_state=_failed_state(state, e))]
 
         # TODO(HAR-399): Make ToolResult the default response for all tools.

@@ -1,8 +1,10 @@
 # Copyright Modal Labs 2023
 import asyncio
+import base64
 import builtins
 import concurrent.futures
 import functools
+import hashlib
 import multiprocessing
 import os
 import platform
@@ -71,12 +73,32 @@ from ._utils.http_utils import ClientSessionRegistry
 from ._utils.name_utils import check_object_name
 from ._utils.time_utils import as_timestamp, timestamp_to_localized_dt
 from .client import _Client
-from .config import logger
+from .config import config, logger
 from .types import FileEntry, FileEntryType as FileEntryType, VolumeCreateOptions, VolumeInfo
 
 # Max duration for uploading to volumes files
 # As a guide, files >40GiB will take >10 minutes to upload.
 VOLUME_PUT_FILE_CLIENT_TIMEOUT = 60 * 60
+
+
+def _expected_block_lengths(start: int, length: int, num_blocks: int) -> list[int]:
+    """Number of bytes of a byte range that fall into each of its `BLOCK_SIZE`-aligned blocks.
+
+    A downloaded block may be shorter than this (trailing zero bytes are left out),
+    so the caller extends it with zeros to the expected length.
+    """
+    lengths = []
+    pos = start
+    for idx in range(num_blocks):
+        block_end = min(start + length, (start // BLOCK_SIZE + idx + 1) * BLOCK_SIZE)
+        lengths.append(max(0, block_end - pos))
+        pos = block_end
+    return lengths
+
+
+# Error bodies are only quoted in the exception message, so at most this many bytes
+# of one are ever read; the rest of the body is discarded unread.
+_ERROR_BODY_LIMIT = 4096
 
 
 async def _raise_on_block_response_error(response) -> None:
@@ -90,13 +112,127 @@ async def _raise_on_block_response_error(response) -> None:
         return
 
     try:
-        body = await response.text()
+        raw = b""
+        while len(raw) < _ERROR_BODY_LIMIT and not response.content.at_eof():
+            raw += await response.content.read(_ERROR_BODY_LIMIT - len(raw))
+        body = raw.decode(response.get_encoding() or "utf-8", errors="replace")
+        if not response.content.at_eof():
+            body += "..."
     except Exception:
         body = "<unavailable>"
 
     if response.status == 503:
         raise ServiceError(f"Service temporarily unavailable: {body}")
     raise ExecutionError(f"Request failed with status {response.status} {response.reason}: {body}")
+
+
+# A block download may carry an RFC 9530 `Repr-Digest`. Only the `sha-256`
+# member is understood, and it covers the whole body; every other algorithm
+# key is ignored, as the RFC prescribes, and a body carrying only unknown keys
+# is left unverified. The field is a Structured Fields Dictionary (RFC 8941):
+# parameters on a member carry no meaning here and are dropped, and when a key
+# repeats the last occurrence wins.
+_REPR_DIGEST_MEMBER_RE = re.compile(r"^sha-256=:([A-Za-z0-9+/]+={0,2}):(;.*)?$")
+
+
+def _split_sf_members(header: str) -> list[str]:
+    # Splits a Structured Fields List/Dictionary on commas, except commas inside
+    # quoted (possibly backslash-escaped) parameter strings.
+    members: list[str] = []
+    start = 0
+    in_quote = False
+    escaped = False
+    for i, ch in enumerate(header):
+        if escaped:
+            escaped = False
+        elif in_quote:
+            if ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_quote = False
+        elif ch == '"':
+            in_quote = True
+        elif ch == ",":
+            members.append(header[start:i])
+            start = i + 1
+    members.append(header[start:])
+    return members
+
+
+def _parse_repr_digest(header: str | None) -> bytes | None:
+    if not header:
+        return None
+    sha256: bytes | None = None
+    for member in _split_sf_members(header):
+        match = _REPR_DIGEST_MEMBER_RE.match(member.strip())
+        if match is None:
+            continue
+        try:
+            decoded = base64.b64decode(match.group(1), validate=True)
+        except ValueError:
+            continue
+        if len(decoded) != 32:
+            continue
+        sha256 = decoded
+    if sha256 is None:
+        logger.debug(f"ignoring unrecognized Repr-Digest: {header!r}")
+    return sha256
+
+
+class _BlockDigestVerifier:
+    """Checks a streamed block body against the digest its response advertised.
+
+    Feed the body through `update` in order, then call `finish`. Without a
+    digest both are no-ops, so callers can use one unconditionally.
+    """
+
+    def __init__(self, sha256: bytes | None):
+        self._sha256 = sha256
+        self._hasher = hashlib.sha256() if sha256 is not None else None
+
+    def update(self, chunk: bytes) -> None:
+        if self._hasher is not None:
+            self._hasher.update(chunk)
+
+    def finish(self) -> None:
+        if self._sha256 is None or self._hasher is None:
+            return
+        actual = self._hasher.digest()
+        if actual != self._sha256:
+            raise ExecutionError(f"Block download corrupted: expected sha256 {self._sha256.hex()}, got {actual.hex()}")
+
+
+async def _read_block_body(response, expected_len: int) -> bytes:
+    """Read a block response body, verifying any digest it advertises.
+
+    The body may be shorter than `expected_len` (trailing zero bytes are left out),
+    but never longer: the read is abandoned as soon as it passes that budget, so a
+    response can never make the client buffer an unbounded amount of data.
+    """
+    verifier = _BlockDigestVerifier(_parse_repr_digest(response.headers.get("Repr-Digest")))
+    chunks: list[bytes] = []
+    num_bytes_read = 0
+    async for chunk in response.content.iter_any():
+        num_bytes_read += len(chunk)
+        if num_bytes_read > expected_len:
+            raise ExecutionError(f"Block response is longer than the expected {expected_len} bytes")
+        verifier.update(chunk)
+        chunks.append(chunk)
+    verifier.finish()
+    return b"".join(chunks)
+
+
+def _block_download_timeout():
+    """Per-request timeout for a block download.
+
+    Only inactivity is bounded: a healthy transfer may take as long as its size
+    requires, and a connection that stops delivering bytes is abandoned so that the
+    attempt can be retried.
+    """
+    from aiohttp import ClientTimeout
+
+    read_timeout = config["volume_block_read_timeout"]
+    return ClientTimeout(sock_read=read_timeout if read_timeout else None)
 
 
 def _validate_volume_version(
@@ -200,7 +336,7 @@ class _VolumeManager:
             ),
         )
         try:
-            response = await client.stub.VolumeGetOrCreate(req)
+            response = await client._stub.VolumeGetOrCreate(req)
             if version is not None:
                 _validate_volume_version(version, response.metadata.version, name)
         except AlreadyExistsError:
@@ -261,7 +397,7 @@ class _VolumeManager:
             req = api_pb2.VolumeListRequest(
                 environment_name=_get_environment_name(environment_name), pagination=pagination
             )
-            resp = await client.stub.VolumeList(req)
+            resp = await client._stub.VolumeList(req)
             items.extend(resp.items)
             finished = (len(resp.items) < max_page_size) or (max_objects is not None and len(items) >= max_objects)
             return finished
@@ -322,7 +458,7 @@ class _VolumeManager:
                 raise
         else:
             req = api_pb2.VolumeDeleteRequest(volume_id=obj.object_id)
-            await obj.client.stub.VolumeDelete(req)
+            await obj.client._stub.VolumeDelete(req)
 
 
 VolumeManager = synchronize_api(_VolumeManager)
@@ -618,7 +754,7 @@ class _Volume(_Object, type_prefix="vo"):
                 version=self._get_version_proto(version),
                 create_options=_volume_create_options_to_proto(create_options),
             )
-            response = await load_context.client.stub.VolumeGetOrCreate(req)
+            response = await load_context.client._stub.VolumeGetOrCreate(req)
             if version is not None:
                 _validate_volume_version(version, response.metadata.version, name)
             self._hydrate(response.volume_id, load_context.client, response.metadata)
@@ -668,7 +804,7 @@ class _Volume(_Object, type_prefix="vo"):
 
         async def _load(self: _Volume, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
             req = api_pb2.VolumeGetByIdRequest(volume_id=volume_id)
-            response = await load_context.client.stub.VolumeGetById(req)
+            response = await load_context.client._stub.VolumeGetById(req)
             self._hydrate(response.volume_id, load_context.client, response.metadata)
 
         rep = f"Volume.from_id({volume_id!r})"
@@ -719,10 +855,10 @@ class _Volume(_Object, type_prefix="vo"):
             version=api_pb2.VOLUME_FS_VERSION_UNSPECIFIED if version is None else version,
             create_options=_volume_create_options_to_proto(create_options),
         )
-        response = await client.stub.VolumeGetOrCreate(request)
+        response = await client._stub.VolumeGetOrCreate(request)
         async with TaskContext() as tc:
             request = api_pb2.VolumeHeartbeatRequest(volume_id=response.volume_id)
-            tc.infinite_loop(lambda: client.stub.VolumeHeartbeat(request), sleep=_heartbeat_sleep)
+            tc.infinite_loop(lambda: client._stub.VolumeHeartbeat(request), sleep=_heartbeat_sleep)
             yield cls._new_hydrated(
                 response.volume_id,
                 client,
@@ -746,7 +882,7 @@ class _Volume(_Object, type_prefix="vo"):
     async def _do_reload(self, lock=True):
         async with (await self._get_lock()) if lock else asyncnullcontext():
             req = api_pb2.VolumeReloadRequest(volume_id=self.object_id)
-            _ = await self.client.stub.VolumeReload(req)
+            _ = await self.client._stub.VolumeReload(req)
 
     @live_method
     async def commit(self):
@@ -759,7 +895,7 @@ class _Volume(_Object, type_prefix="vo"):
             req = api_pb2.VolumeCommitRequest(volume_id=self.object_id)
             try:
                 # TODO(gongy): only apply indefinite retries on 504 status.
-                resp = await self.client.stub.VolumeCommit(req, retry=Retry(max_retries=90))
+                resp = await self.client._stub.VolumeCommit(req, retry=Retry(max_retries=90))
                 if not resp.skip_reload:
                     # Reload changes on successful commit.
                     await self._do_reload(lock=False)
@@ -814,12 +950,12 @@ class _Volume(_Object, type_prefix="vo"):
 
         if self._is_v1:
             req = api_pb2.VolumeListFilesRequest(volume_id=self.object_id, path=path, recursive=recursive)
-            async for batch in self.client.stub.VolumeListFiles.unary_stream(req):
+            async for batch in self.client._stub.VolumeListFiles.unary_stream(req):
                 for entry in batch.entries:
                     yield FileEntry._from_proto(entry)
         else:
             req = api_pb2.VolumeListFiles2Request(volume_id=self.object_id, path=path, recursive=recursive)
-            async for batch in self.client.stub.VolumeListFiles2.unary_stream(req):
+            async for batch in self.client._stub.VolumeListFiles2.unary_stream(req):
                 for entry in batch.entries:
                     yield FileEntry._from_proto(entry)
 
@@ -854,22 +990,28 @@ class _Volume(_Object, type_prefix="vo"):
             print(len(data))  # == 1024 * 1024
             ```
         """
-        req = api_pb2.VolumeGetFile2Request(volume_id=self.object_id, path=path)
+        req = api_pb2.VolumeGetFile2Request(volume_id=self.object_id, path=path, client_pads_blocks=True)
 
         try:
-            response = await self.client.stub.VolumeGetFile2(req)
+            response = await self.client._stub.VolumeGetFile2(req)
         except modal.exception.NotFoundError as exc:
             raise FileNotFoundError(exc.args[0])
 
         @retry(n_attempts=5, base_delay=0.1, attempt_timeout=None)
-        async def read_block(block_url: str) -> bytes:
-            async with ClientSessionRegistry.get_session().get(block_url) as get_response:
+        async def read_block(block: tuple[str, int]) -> bytes:
+            block_url, expected_len = block
+            session = ClientSessionRegistry.get_session()
+            async with session.get(block_url, timeout=_block_download_timeout()) as get_response:
                 await _raise_on_block_response_error(get_response)
-                return await get_response.content.read()
+                body = await _read_block_body(get_response, expected_len)
+            # Trailing zero bytes may be omitted from the body; restore them.
+            return body.ljust(expected_len, b"\0")
 
-        async def iter_urls() -> AsyncGenerator[str]:
-            for url in response.get_urls:
-                yield url
+        block_lengths = _expected_block_lengths(response.start, response.len, len(response.get_urls))
+
+        async def iter_urls() -> AsyncGenerator[tuple[str, int]]:
+            for url, expected_len in zip(response.get_urls, block_lengths):
+                yield url, expected_len
 
         # TODO(dflemstr): Reasonable default? Make configurable?
         prefetch_num_blocks = multiprocessing.cpu_count()
@@ -910,7 +1052,7 @@ class _Volume(_Object, type_prefix="vo"):
         if concurrency is None:
             concurrency = multiprocessing.cpu_count()
 
-        req = api_pb2.VolumeGetFile2Request(volume_id=self.object_id, path=path)
+        req = api_pb2.VolumeGetFile2Request(volume_id=self.object_id, path=path, client_pads_blocks=True)
 
         # Acquire RPC semaphore if provided to limit concurrent VolumeGetFile2 RPCs.
         # This is used by CLI downloads to prevent overwhelming the server.
@@ -919,7 +1061,7 @@ class _Volume(_Object, type_prefix="vo"):
         rpc_ctx = rpc_semaphore if rpc_semaphore is not None else asyncnullcontext()
         async with rpc_ctx:
             try:
-                response = await self.client.stub.VolumeGetFile2(req)
+                response = await self.client._stub.VolumeGetFile2(req)
             except modal.exception.NotFoundError as exc:
                 raise FileNotFoundError(exc.args[0])
 
@@ -929,33 +1071,74 @@ class _Volume(_Object, type_prefix="vo"):
         write_lock = asyncio.Lock()
         start_pos = fileobj.tell()
 
-        @retry(n_attempts=5, base_delay=0.1, attempt_timeout=None)
+        block_lengths = _expected_block_lengths(response.start, response.len, len(response.get_urls))
+
         async def download_block(idx, url) -> int:
             block_start_pos = start_pos + idx * BLOCK_SIZE
-            num_bytes_written = 0
+            expected_len = block_lengths[idx]
+            # Progress is reported against the furthest byte any attempt has written, so
+            # a retry that rewrites the slice does not count the same bytes twice.
+            num_bytes_reported = 0
 
-            async with download_semaphore, ClientSessionRegistry.get_session().get(url) as get_response:
-                await _raise_on_block_response_error(get_response)
-                async for chunk in get_response.content.iter_any():
-                    num_chunk_bytes_written = 0
+            def report_progress(num_bytes_written: int) -> None:
+                nonlocal num_bytes_reported
+                if num_bytes_written > num_bytes_reported:
+                    progress_cb(advance=num_bytes_written - num_bytes_reported)
+                    num_bytes_reported = num_bytes_written
 
-                    while num_chunk_bytes_written < len(chunk):
+            @retry(n_attempts=5, base_delay=0.1, attempt_timeout=None)
+            async def attempt() -> int:
+                # Every attempt writes into exactly this slice, so a retry after a rejected
+                # response overwrites everything the rejected attempt wrote.
+                num_bytes_written = 0
+
+                session = ClientSessionRegistry.get_session()
+                async with download_semaphore, session.get(url, timeout=_block_download_timeout()) as get_response:
+                    await _raise_on_block_response_error(get_response)
+                    verifier = _BlockDigestVerifier(_parse_repr_digest(get_response.headers.get("Repr-Digest")))
+                    async for chunk in get_response.content.iter_any():
+                        if num_bytes_written + len(chunk) > expected_len:
+                            raise ExecutionError(
+                                f"Block {idx} response is longer than the expected {expected_len} bytes"
+                            )
+                        verifier.update(chunk)
+                        num_chunk_bytes_written = 0
+
+                        while num_chunk_bytes_written < len(chunk):
+                            async with write_lock:
+                                fileobj.seek(block_start_pos + num_bytes_written + num_chunk_bytes_written)
+                                # TODO(dflemstr): this is a small write, but nonetheless might block the event loop
+                                #  for some time:
+                                n = fileobj.write(chunk[num_chunk_bytes_written:])
+                                if not n:
+                                    raise OSError("File object write made no progress")
+
+                            num_chunk_bytes_written += n
+                            report_progress(num_bytes_written + num_chunk_bytes_written)
+
+                        num_bytes_written += len(chunk)
+
+                    # Trailing zero bytes may be omitted from the body; restore them.
+                    while num_bytes_written < expected_len:
+                        padding = b"\0" * min(expected_len - num_bytes_written, 1024 * 1024)
                         async with write_lock:
-                            fileobj.seek(block_start_pos + num_bytes_written + num_chunk_bytes_written)
-                            # TODO(dflemstr): this is a small write, but nonetheless might block the event loop for some
-                            #  time:
-                            n = fileobj.write(chunk)
+                            fileobj.seek(block_start_pos + num_bytes_written)
+                            n = fileobj.write(padding)
+                        num_bytes_written += n
+                        report_progress(num_bytes_written)
 
-                        num_chunk_bytes_written += n
-                        progress_cb(advance=n)
+                    verifier.finish()
 
-                    num_bytes_written += len(chunk)
+                return num_bytes_written
 
-            return num_bytes_written
+            return await attempt()
 
         coros = [download_block(idx, url) for idx, url in enumerate(response.get_urls)]
 
-        total_size = sum(await asyncio.gather(*coros))
+        # `TaskContext.gather` cancels and awaits the remaining blocks when one of them
+        # fails, so that no block is still writing into `fileobj` once this method raises
+        # and the caller is free to close it.
+        total_size = sum(await TaskContext.gather(*coros))
         fileobj.seek(start_pos + total_size)
 
         return total_size
@@ -969,10 +1152,10 @@ class _Volume(_Object, type_prefix="vo"):
         try:
             if self._is_v1:
                 req = api_pb2.VolumeRemoveFileRequest(volume_id=self.object_id, path=path, recursive=recursive)
-                await self.client.stub.VolumeRemoveFile(req)
+                await self.client._stub.VolumeRemoveFile(req)
             else:
                 req = api_pb2.VolumeRemoveFile2Request(volume_id=self.object_id, path=path, recursive=recursive)
-                await self.client.stub.VolumeRemoveFile2(req)
+                await self.client._stub.VolumeRemoveFile2(req)
         except modal.exception.NotFoundError as exc:
             raise FileNotFoundError(exc.args[0])
 
@@ -1015,12 +1198,12 @@ class _Volume(_Object, type_prefix="vo"):
             request = api_pb2.VolumeCopyFilesRequest(
                 volume_id=self.object_id, src_paths=src_paths, dst_path=dst_path, recursive=recursive
             )
-            await self.client.stub.VolumeCopyFiles(request, retry=Retry(base_delay=1))
+            await self.client._stub.VolumeCopyFiles(request, retry=Retry(base_delay=1))
         else:
             request = api_pb2.VolumeCopyFiles2Request(
                 volume_id=self.object_id, src_paths=src_paths, dst_path=dst_path, recursive=recursive
             )
-            await self.client.stub.VolumeCopyFiles2(request, retry=Retry(base_delay=1))
+            await self.client._stub.VolumeCopyFiles2(request, retry=Retry(base_delay=1))
 
     @live_method_contextmanager
     @asynccontextmanager
@@ -1060,7 +1243,7 @@ class _Volume(_Object, type_prefix="vo"):
 
     @live_method
     async def _instance_delete(self):
-        await self.client.stub.VolumeDelete(api_pb2.VolumeDeleteRequest(volume_id=self.object_id))
+        await self.client._stub.VolumeDelete(api_pb2.VolumeDeleteRequest(volume_id=self.object_id))
 
     @staticmethod
     async def rename(
@@ -1072,7 +1255,7 @@ class _Volume(_Object, type_prefix="vo"):
     ):
         obj = await _Volume.from_name(old_name, environment_name=environment_name).hydrate(client)
         req = api_pb2.VolumeRenameRequest(volume_id=obj.object_id, name=new_name)
-        await obj.client.stub.VolumeRename(req)
+        await obj.client._stub.VolumeRename(req)
 
 
 Volume = synchronize_api(_Volume)
@@ -1174,7 +1357,7 @@ class _VolumeUploadContextManager(_AbstractVolumeUploadContextManager):
                 disallow_overwrite_existing_files=not self._force,
             )
             try:
-                await self._client.stub.VolumePutFiles(request, retry=Retry(base_delay=1))
+                await self._client._stub.VolumePutFiles(request, retry=Retry(base_delay=1))
             except AlreadyExistsError as exc:
                 raise FileExistsError(str(exc))
 
@@ -1237,7 +1420,7 @@ class _VolumeUploadContextManager(_AbstractVolumeUploadContextManager):
         remote_filename = file_spec.mount_filename
         progress_task_id = self._progress_cb(name=remote_filename, size=file_spec.size)
         request = api_pb2.MountPutFileRequest(sha256_hex=file_spec.sha256_hex)
-        response = await self._client.stub.MountPutFile(request, retry=Retry(base_delay=1))
+        response = await self._client._stub.MountPutFile(request, retry=Retry(base_delay=1))
 
         start_time = time.monotonic()
         if not response.exists:
@@ -1246,7 +1429,7 @@ class _VolumeUploadContextManager(_AbstractVolumeUploadContextManager):
                 with file_spec.source() as fp:
                     blob_id = await blob_upload_file(
                         fp,
-                        self._client.stub,
+                        self._client._stub,
                         functools.partial(self._progress_cb, progress_task_id),
                         sha256_hex=file_spec.sha256_hex,
                         md5_hex=file_spec.md5_hex,
@@ -1266,7 +1449,7 @@ class _VolumeUploadContextManager(_AbstractVolumeUploadContextManager):
                 self._progress_cb(task_id=progress_task_id, complete=True)
 
             while (time.monotonic() - start_time) < VOLUME_PUT_FILE_CLIENT_TIMEOUT:
-                response = await self._client.stub.MountPutFile(request2, retry=Retry(base_delay=1))
+                response = await self._client._stub.MountPutFile(request2, retry=Retry(base_delay=1))
                 if response.exists:
                     break
 
@@ -1429,7 +1612,7 @@ class _VolumeUploadContextManager2(_AbstractVolumeUploadContextManager):
             )
 
             try:
-                response = await self._client.stub.VolumePutFiles2(request, retry=Retry(base_delay=1))
+                response = await self._client._stub.VolumePutFiles2(request, retry=Retry(base_delay=1))
             except AlreadyExistsError as exc:
                 raise FileExistsError(str(exc))
 

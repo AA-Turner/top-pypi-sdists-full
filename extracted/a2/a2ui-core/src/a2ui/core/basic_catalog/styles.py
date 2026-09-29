@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,38 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Auto-generated. Do not edit manually.
-from typing import Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, Field, ConfigDict
+"""Deprecated shim for a2ui.core.basic_catalog.styles."""
 
-from ..schema.common_types import StrictBaseModel
+from a2ui.core._compat import reexport_all as _reexport_all, warn_moved as _warn_moved
+from a2ui.core.basic_catalog.v0_9.styles import *
 
-
-class Theme(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-    primary_color: Optional[str] = Field(
-        None,
-        alias="primaryColor",
-        description=(
-            "The primary brand color used for highlights (e.g., primary buttons, active"
-            " borders). Renderers may generate variants of this color for different"
-            " contexts. Format: Hexadecimal code (e.g., '#00BFFF')."
-        ),
-        pattern="^#[0-9a-fA-F]{6}$",
-    )
-    icon_url: Optional[str] = Field(
-        None,
-        alias="iconUrl",
-        description=(
-            "A URL for an image that identifies the agent or tool associated with the"
-            " surface."
-        ),
-    )
-    agent_display_name: Optional[str] = Field(
-        None,
-        alias="agentDisplayName",
-        description=(
-            "Text to be displayed next to the surface to identify the agent or tool"
-            " that created it."
-        ),
-    )
+_warn_moved(
+    "a2ui.core.basic_catalog.styles",
+    "a2ui.core.basic_catalog.v0_9.styles",
+)
+__all__ = _reexport_all("a2ui.core.basic_catalog.v0_9.styles", globals())

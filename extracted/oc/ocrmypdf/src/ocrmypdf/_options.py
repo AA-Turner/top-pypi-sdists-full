@@ -5,10 +5,12 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import os
 import shlex
+import sys
 import unicodedata
 from collections.abc import Sequence
 from enum import StrEnum
@@ -41,6 +43,8 @@ PdfRenderer = Literal['auto', 'sandwich', 'fpdf2', 'hocr', 'hocrdebug']
 
 Rasterizer = Literal['auto', 'ghostscript', 'pypdfium']
 
+PdfaBackend = Literal['auto', 'ghostscript', 'internal']
+
 
 class ProcessingMode(StrEnum):
     """OCR processing mode for handling pages with existing text.
@@ -48,7 +52,9 @@ class ProcessingMode(StrEnum):
     This enum controls how OCRmyPDF handles pages that already contain text:
 
     - ``default``: Error if text is found (standard OCR behavior)
-    - ``force``: Rasterize all content and run OCR regardless of existing text
+    - ``force``: Rasterize all content and run OCR regardless of existing text;
+      hyperlinks (Link annotations) are kept
+    - ``force_ocr_no_links``: Like ``force``, but also discard hyperlinks
     - ``skip``: Skip OCR on pages that already have text
     - ``redo``: Re-OCR pages, stripping old invisible text layer
     - ``strip``: Remove the invisible OCR text layer in place; do not OCR
@@ -56,6 +62,7 @@ class ProcessingMode(StrEnum):
 
     default = 'default'
     force = 'force'
+    force_ocr_no_links = 'force-ocr-no-links'
     skip = 'skip'
     redo = 'redo'
     # User-facing value is '--mode strip'; the member is named strip_text to
@@ -147,6 +154,30 @@ def _pages_from_ranges(ranges: str, total_pages: int | None = None) -> set[int]:
     return set(pages)
 
 
+def _register_plugin_models_by_path(plugin_models: dict[str, str]) -> None:
+    """Register plugin option models given as ``{namespace: 'module:qualname'}``.
+
+    Namespaces that are already registered are left alone. Models that cannot
+    be imported are skipped; accessing their namespace will then fail with the
+    usual error.
+    """
+    for namespace, path in plugin_models.items():
+        if namespace in _plugin_option_models:
+            continue
+        module_name, _, qualname = path.partition(':')
+        try:
+            module = sys.modules.get(module_name) or importlib.import_module(
+                module_name
+            )
+            obj: Any = module
+            for part in qualname.split('.'):
+                obj = getattr(obj, part)
+        except (ImportError, AttributeError) as e:
+            log.debug("Could not restore plugin option model %s: %s", path, e)
+            continue
+        _plugin_option_models[namespace] = obj
+
+
 class OcrOptions(BaseModel):
     """Internal options model that can masquerade as argparse.Namespace.
 
@@ -164,13 +195,19 @@ class OcrOptions(BaseModel):
     # Core OCR options
     languages: list[str] = Field(default_factory=lambda: [DEFAULT_LANGUAGE])
     output_type: OutputType = 'auto'
+    pdfa_backend: PdfaBackend = 'auto'
     mode: ProcessingMode = ProcessingMode.default
 
     # Backward compatibility properties for force_ocr, skip_text, redo_ocr
     @property
     def force_ocr(self) -> bool:
-        """Backward compatibility alias for mode == ProcessingMode.force."""
-        return self.mode == ProcessingMode.force
+        """Backward compatibility alias for a force mode (see is_force_mode)."""
+        return self.is_force_mode
+
+    @property
+    def is_force_mode(self) -> bool:
+        """True if the mode rasterizes all content (force or force-ocr-no-links)."""
+        return self.mode in (ProcessingMode.force, ProcessingMode.force_ocr_no_links)
 
     @property
     def skip_text(self) -> bool:
@@ -315,6 +352,22 @@ class OcrOptions(BaseModel):
         # Convert string ranges to set of page numbers
         return _pages_from_ranges(v)
 
+    @field_validator('tesseract_thresholding', mode='before')
+    @classmethod
+    def validate_tesseract_thresholding(cls, v):
+        """Accept thresholding method names (e.g. 'adaptive-otsu') as well as ints."""
+        if not isinstance(v, str) or v.strip().isdigit():
+            return v
+        from ocrmypdf._exec.tesseract import TESSERACT_THRESHOLDING_METHODS
+
+        try:
+            return TESSERACT_THRESHOLDING_METHODS[v.lower()]
+        except KeyError:
+            valid = ', '.join(TESSERACT_THRESHOLDING_METHODS)
+            raise ValueError(
+                f"Invalid thresholding method '{v}'. Must be one of: {valid}"
+            ) from None
+
     @field_validator('unpaper_args', mode='before')
     @classmethod
     def validate_unpaper_args(cls, v):
@@ -365,14 +418,18 @@ class OcrOptions(BaseModel):
 
             if legacy_count == 1:
                 expected_mode = legacy_true[0][1]
-                if mode_is_set and current_mode != expected_mode:
+                compatible_modes = {expected_mode}
+                if expected_mode == ProcessingMode.force:
+                    compatible_modes.add(ProcessingMode.force_ocr_no_links)
+                if mode_is_set and current_mode not in compatible_modes:
                     legacy_flag = f"--{expected_mode.value.replace('_', '-')}-ocr"
                     raise ValueError(
                         f"Conflicting options: --mode {current_mode.value} "
                         f"cannot be used with {legacy_flag} or similar legacy flag."
                     )
                 # Set mode from legacy option
-                data['mode'] = expected_mode
+                if not mode_is_set:
+                    data['mode'] = expected_mode
 
         return data
 
@@ -422,7 +479,7 @@ class OcrOptions(BaseModel):
             [
                 self.deskew,
                 self.clean_final,
-                self.mode == ProcessingMode.force,
+                self.is_force_mode,
                 self.remove_background,
             ]
         )
@@ -474,6 +531,16 @@ class OcrOptions(BaseModel):
             if filtered_extra:
                 serializable_data['_extra_attrs'] = _serialize_value(filtered_extra)
 
+        # Plugin option models are recorded by import path so that a worker
+        # process, which does not inherit the parent's registry, can resolve
+        # plugin namespaces such as options.tesseract.
+        plugin_models = {
+            namespace: f'{model.__module__}:{model.__qualname__}'
+            for namespace, model in _plugin_option_models.items()
+        }
+        if plugin_models:
+            serializable_data['_plugin_models'] = plugin_models
+
         return json.dumps(serializable_data)
 
     @classmethod
@@ -502,6 +569,10 @@ class OcrOptions(BaseModel):
         deserialized_data = {}
         extra_attrs = {}
 
+        plugin_models = data.pop('_plugin_models', None)
+        if plugin_models:
+            _register_plugin_models_by_path(plugin_models)
+
         for key, value in data.items():
             if key == '_extra_attrs':
                 extra_attrs = _deserialize_value(value)
@@ -529,6 +600,22 @@ class OcrOptions(BaseModel):
         """
         global _plugin_option_models
         _plugin_option_models.update(models)
+
+    def __getstate__(self) -> dict[Any, Any]:
+        state = super().__getstate__()
+        # Model classes pickle by reference. Carrying them lets processes that
+        # were not forked from the parent (spawn, forkserver) resolve plugin
+        # namespaces after unpickling.
+        state['_ocrmypdf_plugin_models'] = dict(_plugin_option_models)
+        return state
+
+    def __setstate__(self, state: dict[Any, Any]) -> None:
+        state = dict(state)
+        plugin_models = state.pop('_ocrmypdf_plugin_models', None)
+        if plugin_models:
+            for namespace, model in plugin_models.items():
+                _plugin_option_models.setdefault(namespace, model)
+        super().__setstate__(state)
 
     def _get_plugin_options(self, namespace: str) -> Any:
         """Get or create a plugin options instance for the given namespace.

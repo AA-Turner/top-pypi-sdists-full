@@ -41,6 +41,7 @@ A contract that is neither enforced NOR checked is a contract nobody holds.
 from __future__ import annotations
 
 import json
+import re
 from contextvars import ContextVar, Token
 from typing import Any
 
@@ -96,6 +97,33 @@ def bind_declared_output_contract(response_format: Any) -> Token:
     if not isinstance(schema, dict):
         return _DECLARED.set(None)
     return _DECLARED.set({"schema": schema, "name": name, "enforced": True})
+
+
+def use_declared_output_contract(contract: Any) -> Token:
+    """Re-bind a contract that was recorded EARLIER, on another call.
+
+    For the batch lane: the request is rendered (and the contract bound) hours
+    before the answer arrives, in a different task. The contract travels on the
+    work item exactly as :func:`declared_output_contract` returned it at render
+    time — the AUTHOR's schema, its name, and whether the provider was enforcing
+    it — and is re-bound here so the answer runs through the SAME
+    :func:`conform_answer_to_contract` + :func:`verify_answer_and_record` step a
+    live answer does. Anything that is not a contract binds ``None``.
+    """
+    if not isinstance(contract, dict) or not isinstance(contract.get("schema"), dict):
+        return _DECLARED.set(None)
+    return _DECLARED.set(
+        {
+            "schema": contract["schema"],
+            "name": contract.get("name"),
+            "enforced": bool(contract.get("enforced", True)),
+            **(
+                {"dropped_because": contract["dropped_because"]}
+                if contract.get("dropped_because")
+                else {}
+            ),
+        }
+    )
 
 
 def mark_enforcement_dropped(reason: str) -> None:
@@ -222,29 +250,181 @@ def verify_answer(answer: Any, schema: Any) -> list[str]:
     return problems
 
 
+def _plain_text_of(content: Any) -> str:
+    """Text out of whatever ``content`` is, when the canonical accessor cannot
+    read it. ``UnifiedMessage.content`` is normally a list of content blocks, but
+    the dataclass accepts a bare string too, and ``get_output()`` then raises
+    ``AttributeError: 'str' object has no attribute 'get_output'``."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                if block.get("type") in (None, "text", "output_text"):
+                    parts.append(str(block.get("text") or ""))
+            else:
+                text = getattr(block, "text", None)
+                if isinstance(text, str) and type(block).__name__ != "ThinkingContent":
+                    parts.append(text)
+        return "\n".join(part for part in parts if part)
+    return ""
+
+
 def _answer_text(response: Any) -> str:
     """The last assistant turn's OUTPUT text — reasoning excluded, via the
-    canonical accessor rather than a second reader."""
+    canonical accessor, with a plain-content fallback.
+
+    🚨 The fallback is not defensive padding. This function used to
+    ``return ""`` on any exception, and ``UnifiedMessage(content="…")`` — a bare
+    string, which the dataclass accepts — makes ``get_output()`` raise, so the
+    contract check was SKIPPED and reported nothing. A check that quietly does not
+    run is worse than no check: it is the very defect this module exists to fix,
+    reproduced inside the fix. Found by driving a real provider call through it.
+    """
     for message in reversed(list(getattr(response, "messages", None) or [])):
         if str(getattr(message, "role", "")) not in ("assistant", "Role.ASSISTANT"):
             continue
         getter = getattr(message, "get_output", None)
-        if getter is None:
-            continue
-        try:
-            text = getter()
-        except Exception:  # noqa: BLE001
-            return ""
-        return text or ""
+        if getter is not None:
+            try:
+                text = getter()
+            except Exception as exc:  # noqa: BLE001 — say so, never swallow
+                vcprint(
+                    f"[answer_contract] get_output() failed on the assistant turn "
+                    f"({type(exc).__name__}: {exc}); reading its content directly so the "
+                    "contract check still runs.",
+                    color="yellow",
+                )
+            else:
+                if text:
+                    return text
+        return _plain_text_of(getattr(message, "content", None))
     return ""
+
+
+def _carries_tool_call(message: Any) -> bool:
+    from matrx_ai.config.tools_config import ToolCallContent
+
+    for block in getattr(message, "content", None) or ():
+        if isinstance(block, ToolCallContent):
+            return True
+        if isinstance(block, dict) and block.get("type") in ("tool_call", "function_call"):
+            return True
+    return False
 
 
 def _turn_is_final(response: Any) -> bool:
     """A turn that asked for a tool is not the answer — the contract is judged on
-    the turn that ANSWERS. Judged from the unified finish reason so it reads the
-    same for every provider."""
+    the turn that ANSWERS.
+
+    🚨 Read off the response's CONTENT, never off the finish reason alone. Gemini
+    never returns a tool-call finish reason: a turn carrying a ``functionCall``
+    comes back ``finishReason: STOP`` with a narrating text part ("I will fetch
+    the webpage…"), ``FinishReason.from_google`` maps it to ``stop``, and judging
+    by the reason alone called that narration the final answer. On 2026-09-28
+    that produced 335 false HIGH ``answer_off_contract`` rows for one mandate in
+    ~40 minutes, every one "no JSON object could be recovered" from a turn that
+    was busy calling a tool (SCHEMA-TRANSLATION-VERIFY.md, R2). A check that cries
+    wolf teaches everyone to ignore it.
+    """
     reason = str(getattr(response, "finish_reason", None) or "")
-    return reason not in ("tool_calls", "malformed_function_call", "unexpected_tool_call")
+    if reason in ("tool_calls", "malformed_function_call", "unexpected_tool_call"):
+        return False
+    for message in getattr(response, "messages", None) or ():
+        if str(getattr(message, "role", "")) in ("assistant", "Role.ASSISTANT") and (
+            _carries_tool_call(message)
+        ):
+            return False
+    return True
+
+
+def _final_assistant_message(response: Any) -> Any:
+    for message in reversed(list(getattr(response, "messages", None) or [])):
+        if str(getattr(message, "role", "")) in ("assistant", "Role.ASSISTANT"):
+            return message
+    return None
+
+
+_FENCE = re.compile(r"```(?:json|JSON)?[ \t]*\n(.*?)\n?```", re.DOTALL)
+
+
+def _json_fences(text: str) -> list[tuple[int, int]]:
+    """``(start, end)`` spans of the BODY of every fenced ```json block."""
+    return [(m.start(1), m.end(1)) for m in _FENCE.finditer(text)]
+
+
+def conform_answer_to_contract(response: Any) -> list[str]:
+    """Rewrite the FINAL answer in ``response`` so it says what the author's
+    contract says: every ``null`` the boundary asked for becomes the absence the
+    author meant. Returns the changes made (empty when nothing changed).
+
+    This is the one place every answer passes through before any consumer reads
+    it — the kind validator, a Pydantic output model, ``extract_json``, the
+    persisted message, the ``STRUCTURED_OUTPUT`` event. Until 2026-09-28 the
+    pruning ran only inside :func:`verify_answer`, on a private copy, so every
+    consumer received ``null`` where the author's schema says "absent": the kind
+    validator rejected 4 of 4 live kinds tested and Pydantic output models with a
+    defaulted field failed to parse (SCHEMA-TRANSLATION-VERIFY.md, R1).
+
+    Only a JSON answer is touched, and only when pruning changes it: an answer
+    that is the whole text (provider-enforced), or one fenced ```json block
+    (prompt-guided). Anything it cannot locate exactly is left alone — the
+    contract check then reports it; nothing is ever rewritten on a guess.
+    """
+    contract = declared_output_contract()
+    if not contract or not _turn_is_final(response):
+        return []
+    schema = contract.get("schema")
+    message = _final_assistant_message(response)
+    if message is None or not isinstance(schema, dict):
+        return []
+    from matrx_ai.config.unified_content import TextContent
+    from matrx_ai.schema.rules import prune_optional_nulls
+
+    blocks = [
+        (index, block)
+        for index, block in enumerate(getattr(message, "content", None) or [])
+        if isinstance(block, TextContent) and block.text
+    ]
+    if not blocks:
+        return []
+
+    def _pruned_json(raw: str) -> str | None:
+        try:
+            parsed = json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(parsed, (dict, list)):
+            return None
+        pruned = prune_optional_nulls(parsed, schema)
+        if pruned == parsed:
+            return None
+        return json.dumps(pruned, ensure_ascii=False)
+
+    whole = "".join(block.text for _, block in blocks)
+    replacement = _pruned_json(whole.strip())
+    if replacement is not None:
+        first_index, first = blocks[0]
+        first.text = replacement
+        drop = {index for index, _ in blocks[1:]}
+        if drop:
+            message.content = [b for i, b in enumerate(message.content) if i not in drop]
+        return ["$: optional fields answered null were removed (the author's contract says absent)"]
+
+    for _, block in blocks:
+        spans = _json_fences(block.text)
+        for start, end in reversed(spans):
+            replacement = _pruned_json(block.text[start:end].strip())
+            if replacement is not None:
+                block.text = block.text[:start] + replacement + block.text[end:]
+                return [
+                    "$: optional fields answered null were removed from the fenced answer "
+                    "(the author's contract says absent)"
+                ]
+    return []
 
 
 async def verify_answer_and_record(
@@ -253,9 +433,14 @@ async def verify_answer_and_record(
     provider: str,
     model: str | None,
     was_enforced: bool | None = None,
+    identity: dict[str, Any] | None = None,
 ) -> list[str]:
     """Judge the answer against the declared contract and, on a mismatch, RECORD
     it. Never raises into the caller's request; returns the problems it found.
+
+    ``identity`` names the agent when the call has no app context to name it —
+    the batch lane, whose answer is judged hours later in a handler dispatcher
+    that runs as nobody. It overrides the context-derived identity.
 
     ``was_enforced=False`` says the provider was not holding the contract on this
     call, which is the case the finding text has to say out loud — the schema was
@@ -273,7 +458,14 @@ async def verify_answer_and_record(
 
     from matrx_ai.agents.response_parser import extract_json
 
+    # `extract_json(schema=…)` is a candidate SELECTOR (type + required at depth
+    # 1). It picks the right object out of prose when there are several — and
+    # when the answer misses a required key it returns nothing, which used to be
+    # reported as "no JSON could be recovered". Fall back to the plain extraction
+    # so the finding names the key that is actually missing.
     parsed = extract_json(text, schema=schema)
+    if parsed is None:
+        parsed = extract_json(text)
     if parsed is None:
         problems = [
             "$: no JSON object could be recovered from the answer at all — "
@@ -284,8 +476,11 @@ async def verify_answer_and_record(
     if not problems:
         return []
 
-    from matrx_ai.providers.structured_output_findings import record_structured_output_finding
-    from matrx_ai.providers.structured_output_findings import schema_fingerprint
+    from matrx_ai.providers.structured_output_findings import (
+        record_structured_output_finding,
+        schema_fingerprint,
+        schema_name_from_schema,
+    )
 
     remedy = (
         "the provider was NOT enforcing this contract on this call, so nothing held it — "
@@ -300,7 +495,7 @@ async def verify_answer_and_record(
         data={
             "provider": provider,
             "model": model,
-            "schema_name": contract.get("name"),
+            "schema_name": contract.get("name") or schema_name_from_schema(schema),
             "provider_enforced": was_enforced,
             "failures": problems,
         },
@@ -314,12 +509,13 @@ async def verify_answer_and_record(
         provider=provider,
         model=model,
         detail={
-            "schema_name": contract.get("name"),
+            "schema_name": contract.get("name") or schema_name_from_schema(schema),
             "schema_fingerprint": schema_fingerprint(schema),
             "provider_enforced": was_enforced,
             "dropped_because": contract.get("dropped_because"),
             "failures": problems,
             "remedy": remedy,
+            **(identity or {}),
         },
         was_recovered=False,
     )
@@ -328,6 +524,7 @@ async def verify_answer_and_record(
 
 __all__ = [
     "ANSWER_OFF_CONTRACT",
+    "conform_answer_to_contract",
     "append_json_text_contract_to_system",
     "attach_json_text_contract",
     "bind_declared_output_contract",
@@ -336,6 +533,7 @@ __all__ = [
     "json_text_contract",
     "mark_enforcement_dropped",
     "release_declared_output_contract",
+    "use_declared_output_contract",
     "verify_answer",
     "verify_answer_and_record",
 ]

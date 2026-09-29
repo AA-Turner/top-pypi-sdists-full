@@ -39,6 +39,12 @@ editor-only, because ``data_snapshot`` carries the exact crashing ``__kind``
 payload (potentially another user's business data).
 """
 
+# 🚧 WRITES HERE STAY ON THE PRIVILEGED CONNECTION FOR NOW (chair ruling 2026-09-27):
+# content_ir.kind_component and content_ir.kind_component_incident are in
+# kind_shared.KIND_TABLES_PENDING_CANONICAL_RLS — not yet certified. Every write is
+# preceded by the RLS-decided ensure_can_edit_kind gate (plus the platform-staff
+# door for component code). They move into the person's session when the
+# read-lane v2 lane has re-run iam.apply_rls on those tables.
 from __future__ import annotations
 
 import traceback

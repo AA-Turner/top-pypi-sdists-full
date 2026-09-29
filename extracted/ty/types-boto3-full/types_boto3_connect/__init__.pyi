@@ -32,6 +32,7 @@ Usage::
         ListDataTablesPaginator,
         ListDefaultVocabulariesPaginator,
         ListEntitySecurityProfilesPaginator,
+        ListEvaluationFormAIVersionsPaginator,
         ListEvaluationFormVersionsPaginator,
         ListEvaluationFormsPaginator,
         ListExtractionDefinitionsPaginator,
@@ -123,6 +124,7 @@ Usage::
     list_data_tables_paginator: ListDataTablesPaginator = client.get_paginator("list_data_tables")
     list_default_vocabularies_paginator: ListDefaultVocabulariesPaginator = client.get_paginator("list_default_vocabularies")
     list_entity_security_profiles_paginator: ListEntitySecurityProfilesPaginator = client.get_paginator("list_entity_security_profiles")
+    list_evaluation_form_ai_versions_paginator: ListEvaluationFormAIVersionsPaginator = client.get_paginator("list_evaluation_form_ai_versions")
     list_evaluation_form_versions_paginator: ListEvaluationFormVersionsPaginator = client.get_paginator("list_evaluation_form_versions")
     list_evaluation_forms_paginator: ListEvaluationFormsPaginator = client.get_paginator("list_evaluation_forms")
     list_extraction_definitions_paginator: ListExtractionDefinitionsPaginator = client.get_paginator("list_extraction_definitions")
@@ -214,6 +216,7 @@ from .paginator import (
     ListDataTableValuesPaginator,
     ListDefaultVocabulariesPaginator,
     ListEntitySecurityProfilesPaginator,
+    ListEvaluationFormAIVersionsPaginator,
     ListEvaluationFormsPaginator,
     ListEvaluationFormVersionsPaginator,
     ListExtractionDefinitionsPaginator,
@@ -307,6 +310,7 @@ __all__ = (
     "ListDataTablesPaginator",
     "ListDefaultVocabulariesPaginator",
     "ListEntitySecurityProfilesPaginator",
+    "ListEvaluationFormAIVersionsPaginator",
     "ListEvaluationFormVersionsPaginator",
     "ListEvaluationFormsPaginator",
     "ListExtractionDefinitionsPaginator",

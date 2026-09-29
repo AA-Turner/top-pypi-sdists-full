@@ -30,6 +30,8 @@ from xml.etree import ElementTree
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from matrx_scraper.utils.proxy import redact_url_secrets
+
 __all__ = [
     "FeedEntry",
     "FeedParseError",
@@ -352,14 +354,22 @@ def parse_feed(
     """Parse an RSS 2.0, RSS 1.0 (RDF) or Atom document. Raises :class:`FeedParseError`."""
     raw = document.encode() if isinstance(document, str) else document
     if _ENTITY_DECL.search(raw):
-        raise FeedParseError(f"feed {feed_url!r} declares XML entities; refusing to parse it")
+        raise FeedParseError(
+            f"feed {redact_url_secrets(feed_url)!r} declares XML entities; refusing to parse it"
+        )
     try:
         root = ElementTree.fromstring(raw)
     except ElementTree.ParseError as exc:
-        raise FeedParseError(f"feed {feed_url!r} is not well-formed XML: {exc}") from exc
+        raise FeedParseError(
+            f"feed {redact_url_secrets(feed_url)!r} is not well-formed XML: "
+            f"{redact_url_secrets(exc)}"
+        ) from None
     root_name = _local(root.tag)
     if root_name not in {"rss", "feed", "rdf"}:
-        raise FeedParseError(f"feed {feed_url!r} is not RSS or Atom (root element <{root_name}>)")
+        raise FeedParseError(
+            f"feed {redact_url_secrets(feed_url)!r} is not RSS or Atom "
+            f"(root element <{root_name}>)"
+        )
 
     items = [element for element in root.iter() if _local(element.tag) in {"item", "entry"}]
     feed_title = ""
@@ -387,4 +397,3 @@ def parse_feed(
         if limit is not None and limit > 0 and len(entries) >= limit:
             break
     return ParsedFeed(title=feed_title, feed_url=feed_url, format=feed_format, entries=entries, **meta)
-

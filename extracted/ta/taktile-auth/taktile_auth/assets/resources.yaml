@@ -184,9 +184,12 @@ workspace_agent_management:
   # read: can view agents and agent versions
   # write: can create and update agents and agent versions
   # delete: can delete agents and agent versions
+  # deploy: can publish agents and agent versions
   org_id: wildcard
   ws_id: wildcard
   type: wildcard
+  additional_actions:
+    - deploy
 workspace_agent_execution:
   # write: can execute agents
   # read: can read agent execution results
@@ -194,6 +197,11 @@ workspace_agent_execution:
   ws_id: wildcard
   env: wildcard
   type: wildcard
+agent_sessions:
+  # read: can view agent session history
+  org_id: wildcard
+  ws_id: wildcard
+  env: wildcard
 workspace_prebuilt_agent_management:
   # read: can view prebuilt agents (including exposed system prompt)
   # write: can update prebuilt agents

@@ -24,6 +24,8 @@ class RapidataFlowManager:
         min_response_threshold: int | None = None,
         validation_set_id: str | None = None,
         settings: Sequence[RapidataSetting] | None = None,
+        drain_duration: int | None = None,
+        serve_timeout: int | None = None,
     ) -> RapidataRankingFlow:
         """Create a new ranking flow."""
         if min_response_threshold is None:
@@ -48,6 +50,8 @@ class RapidataFlowManager:
                         if settings
                         else None
                     ),
+                    drainDurationSeconds=drain_duration,
+                    serveTimeoutSeconds=serve_timeout,
                 ),
             )
 
@@ -68,6 +72,8 @@ class RapidataFlowManager:
         min_responses_per_datapoint: int = 10,
         validation_set_id: str | None = None,
         settings: Sequence[RapidataSetting] | None = None,
+        drain_duration: int | None = None,
+        serve_timeout: int | None = None,
     ) -> RapidataClassifyFlow:
         """Create a new classify flow."""
         category_pairs: list[tuple[str, str]] = [
@@ -122,6 +128,8 @@ class RapidataFlowManager:
                         if settings
                         else None
                     ),
+                    drainDurationSeconds=drain_duration,
+                    serveTimeoutSeconds=serve_timeout,
                 ),
             )
 

@@ -1663,6 +1663,32 @@ def test_new_sections_of_added_kinds(tmp_path):
     assert action["Имя"] == "ИзменениеЦены" and action["Ид"]
 
 
+def test_constants_set_is_born_with_a_placeholder_constant(tmp_path):
+    """An empty constants set does not compile ("Empty constant sets are not supported").
+
+    The set is born with a placeholder string constant, the way a register is born with a
+    placeholder dimension, and the first real constant takes its place instead of joining it.
+    """
+    result = scaffold.op_new_object(tmp_path, "НаборКонстант", "НастройкиОбмена")
+    apply_result(result)
+    path = tmp_path / "НастройкиОбмена.yaml"
+    constants = _valid_yaml(path.read_text(encoding="utf-8"))["Константы"]
+    assert len(constants) == 1
+    assert constants[0]["Имя"] == "Константа1" and constants[0]["Тип"] == "Строка"
+    assert constants[0]["Ид"]
+    assert any("Константа1" in note for note in result.notes)
+
+    added = scaffold.op_add_field(path, "константа", "АдресОбмена", type_="Строка")
+    apply_result(added)
+    constants = _valid_yaml(path.read_text(encoding="utf-8"))["Константы"]
+    assert [c["Имя"] for c in constants] == ["АдресОбмена"]
+    assert any("Константа1" in note for note in added.notes)
+    # The second constant joins the first one: the placeholder is gone already.
+    apply_result(scaffold.op_add_field(path, "константа", "Период", type_="Число"))
+    constants = _valid_yaml(path.read_text(encoding="utf-8"))["Константы"]
+    assert [c["Имя"] for c in constants] == ["АдресОбмена", "Период"]
+
+
 def test_new_project_version_follows_standard(tmp_path):
     apply_result(scaffold.op_new_project(tmp_path, "vendor", "Приложение"))
     project = _valid_yaml(
@@ -2281,7 +2307,162 @@ def test_set_access_on_an_english_object(tmp_path):
     # The section lands before the first data section, not at the end of the file.
     assert text.index("AccessControl:") < text.index("Attributes:")
     assert scaffold.access_info(text)["default"] == "РазрешеноВсем"
+    # The right and the method are spelled like the file too, whatever the caller spoke.
+    assert "        Default: PermitEveryone\n" in text
     assert _valid_yaml(text)
+
+
+# --- English words of the tool --------------------------------------------------------------
+
+
+def test_field_kinds_are_taken_in_english(tmp_path):
+    """An English project is filled in with English words: `attribute` is the attribute kind,
+    `tabular-part` the tabular part one - case and hyphens aside. The words are a table of the
+    tool, so they work without the platform data as well."""
+    subsystem = _make_project(tmp_path)
+    apply_result(scaffold.op_new_object(subsystem, "Справочник", "Товары"))
+    yaml_path = subsystem / "Товары.yaml"
+    apply_result(scaffold.op_add_field(yaml_path, "attribute", "Цвет"))
+    apply_result(scaffold.op_add_field(yaml_path, "TabularPart", "Состав"))
+    apply_result(scaffold.op_add_fields(yaml_path, "Attribute", ["Вес", "Объем"], type_="Число"))
+    apply_result(scaffold.op_add_field(yaml_path, "attribute", "Количество", type_="Число",
+                                       tabular="Состав"))
+    apply_result(scaffold.op_set_field_property(yaml_path, "attribute", "Цвет",
+                                                {"Представление": "Цвет товара"}))
+    parsed = _valid_yaml(yaml_path.read_text(encoding="utf-8"))
+    assert [a["Имя"] for a in parsed["Реквизиты"]] == ["Цвет", "Вес", "Объем"]
+    assert parsed["Реквизиты"][0]["Представление"] == "Цвет товара"
+    assert [a["Имя"] for a in parsed["ТабличныеЧасти"][0]["Реквизиты"]] == ["Количество"]
+    assert scaffold.field_kind_of("query-parameter") == "параметр-запроса"
+    assert scaffold.field_kind_of("табличная-часть") == "табличная-часть"
+
+
+def test_a_field_kind_refusal_names_the_english_words(tmp_path):
+    """A word the tool does not know is quoted back as written, next to both vocabularies."""
+    subsystem = _make_project(tmp_path)
+    apply_result(scaffold.op_new_object(subsystem, "Справочник", "Товары"))
+    with pytest.raises(ScaffoldError, match=r"'atribute'.*реквизит \(attribute\)"):
+        scaffold.op_add_field(subsystem / "Товары.yaml", "atribute", "Цвет")
+    with pytest.raises(ScaffoldError, match=r"нет секции для 'измерение'.*реквизит \(attribute\)"):
+        scaffold.op_add_field(subsystem / "Товары.yaml", "dimension", "Склад")
+
+
+def test_the_english_field_kinds_cover_the_russian_ones_one_to_one():
+    assert set(scaffold.FIELD_KINDS_EN) == set(scaffold.ADD_FIELD_KINDS)
+    folded = [scaffold._folded_word(word) for word in scaffold.FIELD_KINDS_EN.values()]
+    assert len(set(folded)) == len(folded)
+    assert not set(folded) & {scaffold._folded_word(word) for word in scaffold.ADD_FIELD_KINDS}
+
+
+def _kebab(camel: str) -> str:
+    return re.sub(r"(?<!^)(?=[A-Z])", "-", camel).lower()
+
+
+@pytest.mark.needs_data
+def test_the_english_field_kinds_are_the_platform_words():
+    """Each English word is the platform's own: the term dictionary's word for the singular
+    noun, or - where it has none - the singular of the section's English key. The negative
+    control is the pair a hand would guess: `tabular-section` is neither."""
+    def platform_word(russian: str) -> set[str]:
+        camel = "".join(part[:1].upper() + part[1:] for part in russian.split("-"))
+        words = set()
+        if (single := scaffold.terms.common_english(camel)):
+            words.add(_kebab(single))
+        spec = scaffold._SECTION_SPECS.get(russian) or scaffold._MAPPING_SPECS[russian]
+        section = scaffold.key_forms(spec["section"])[-1]
+        for plural, singular in (("ies", "y"), ("es", ""), ("s", "")):
+            if section.isascii() and section.endswith(plural):
+                words.add(_kebab(section[: -len(plural)] + singular))
+        return words
+
+    for russian, english in scaffold.FIELD_KINDS_EN.items():
+        assert english in platform_word(russian), russian
+    assert "tabular-section" not in platform_word("табличная-часть")
+
+
+@pytest.mark.needs_data
+def test_set_access_takes_english_words_in_an_english_project(tmp_path):
+    """`Read=PermitEveryone` is what an English yaml writes, so it is what the caller passes;
+    the summary reads it back in the spelling of the tables, and a Russian call over the same
+    right replaces the line in place without turning it Russian."""
+    subsystem = _make_english_project(tmp_path)
+    yaml_path = subsystem / "Tasks.yaml"
+    apply_result(scaffold.op_set_access(tmp_path, name="Tasks", default="PermitAuthenticated",
+                                        permissions={"Read": "PermitEveryone"}))
+    text = yaml_path.read_text(encoding="utf-8")
+    assert "        Default: PermitAuthenticated\n" in text
+    assert "        Read: PermitEveryone\n" in text
+    info = scaffold.access_info(text)
+    assert info["default"] == "РазрешеноАутентифицированным"
+    assert info["permissions"] == {"ПоУмолчанию": "РазрешеноАутентифицированным",
+                                   "Чтение": "РазрешеноВсем"}
+
+    again = scaffold.op_set_access(tmp_path, name="Tasks", permissions={"Read": "PermitEveryone"})
+    assert again.changes == [] and any("уже имеют такие значения" in n for n in again.notes)
+
+    apply_result(scaffold.op_set_access(tmp_path, name="Tasks",
+                                        permissions={"Чтение": "РазрешеноАдминистраторам",
+                                                     "Delete": "PermitAdmins"}))
+    text = yaml_path.read_text(encoding="utf-8")
+    assert "        Read: PermitAdmins\n" in text and "        Delete: PermitAdmins\n" in text
+    assert not re.search("[А-Яа-я]", text.split("AccessControl:")[1].split("Attributes:")[0])
+    assert _valid_yaml(text)
+
+
+@pytest.mark.needs_data
+def test_set_access_takes_english_words_in_a_russian_project(tmp_path):
+    subsystem = _make_project(tmp_path)
+    apply_result(scaffold.op_new_object(subsystem, "Справочник", "Товары"))
+    result = scaffold.op_set_access(tmp_path, name="Товары", default="PermitEveryone",
+                                    permissions={"Read": "PermissionsComputed"})
+    apply_result(result)
+    perms = _valid_yaml((subsystem / "Товары.yaml").read_text(encoding="utf-8"))["КонтрольДоступа"]
+    assert perms["Разрешения"] == {"ПоУмолчанию": "РазрешеноВсем",
+                                   "Чтение": "РазрешенияВычисляются"}
+    assert any("ВычислитьРазрешенияДоступа" in n for n in result.notes)
+
+    with pytest.raises(ScaffoldError, match=r"'PermitGuests'.*РазрешеноВсем \(PermitEveryone\)"):
+        scaffold.op_set_access(tmp_path, name="Товары", default="PermitGuests")
+    with pytest.raises(ScaffoldError, match=r"нет права 'Call'.*Чтение \(Read\)"):
+        scaffold.op_set_access(tmp_path, name="Товары", permissions={"Call": "PermitEveryone"})
+
+
+@pytest.mark.needs_data
+def test_new_object_takes_an_english_access_method(tmp_path):
+    subsystem = _make_english_project(tmp_path)
+    apply_result(scaffold.op_new_object(subsystem, "Catalog", "Notes", access="PermitEveryone"))
+    text = (subsystem / "Notes.yaml").read_text(encoding="utf-8")
+    assert "    Permissions:\n        Default: PermitEveryone\n" in text
+
+    russian = _make_project(tmp_path / "ru")
+    apply_result(scaffold.op_new_object(russian, "HttpСервис", "Каталог",
+                                        access="PermitAuthenticated"))
+    service = _valid_yaml((russian / "Каталог.yaml").read_text(encoding="utf-8"))
+    assert service["КонтрольДоступа"]["Разрешения"]["Вызов"] == "РазрешеноАутентифицированным"
+
+
+@pytest.mark.needs_data
+def test_the_summary_of_an_english_file_has_its_default(tmp_path):
+    """An English object as the platform writes it: read by its Russian key alone, the default
+    right was not there at all, and the overview said the platform default applied."""
+    subsystem = _make_english_project(tmp_path)
+    (subsystem / "Tasks.yaml").write_text(
+        ENGLISH_CATALOG.replace("Attributes:", "AccessControl:\n    Permissions:\n"
+                                "        Default: PermitEveryone\nAttributes:", 1),
+        encoding="utf-8",
+    )
+    overview = scaffold.project_info(tmp_path)
+    tasks = next(o for o in overview["objects"] if o["name"] == "Tasks")
+    assert tasks["access_default"] == "РазрешеноВсем"
+
+
+def test_english_access_words_need_the_data(monkeypatch):
+    """The English methods are the platform's term pairs: with the pairs cut off they are not
+    known - the negative control of the lookup - and the Russian names still are."""
+    monkeypatch.setattr(scaffold.terms, "russian", lambda value, section: None)
+    monkeypatch.setattr(scaffold.terms, "common_russian", lambda value: None)
+    assert scaffold.access_method("PermitEveryone") is None
+    assert scaffold.access_method("РазрешеноВсем") == "РазрешеноВсем"
 
 
 @pytest.mark.needs_data
@@ -2728,8 +2909,9 @@ def test_add_field_writes_item_properties(tmp_path):
     assert constant["Имя"] == "АдресExtApi"
     assert constant["ЗначениеПоУмолчанию"] == "https://example.com/a/adm/hs/ext_api"
     assert constant["Представление"] == "Адрес ExtAPI"
-    # An address carries a colon - a bare scalar would lie about the value; a plain word does not.
-    assert 'ЗначениеПоУмолчанию: "https://example.com/a/adm/hs/ext_api"' in text
+    # The colon of an address is not followed by a blank: a bare scalar reads back as the
+    # address itself, and the sources of the distribution write a default address bare.
+    assert "ЗначениеПоУмолчанию: https://example.com/a/adm/hs/ext_api\n" in text
 
 
 @pytest.mark.needs_data
@@ -3119,24 +3301,68 @@ def test_new_object_presentation_only_where_the_kind_has_one(tmp_path):
 
 
 @pytest.mark.needs_data
-def test_new_object_presentation_is_a_caption_or_an_attribute_name(tmp_path):
-    """Presentation means two different things, and the tool refuses the wrong one.
+def test_new_object_caption_of_an_attribute_name_kind_goes_into_the_interface(tmp_path):
+    """Presentation means two different things, and the caption goes where the kind keeps it.
 
-    A catalog shows the value of a string ATTRIBUTE (metamodel type AttributeName); a
-    caption written there compiles into "Field specified as a presentation field is not
-    found" (checked on the server 07.08.2026). A constants set has no attributes at all -
-    there the value is a caption, and the server takes it.
+    A catalog shows the value of a string ATTRIBUTE (metamodel type AttributeName); a caption
+    written there compiles into "Field specified as a presentation field is not found" - an
+    identifier as much as a phrase, since a new catalog declares no attribute to name. Its
+    caption lives in the interface section, and a live probe applied a catalog, a document, an
+    exchange plan and a settings storage captioned there with no attribute declared. A
+    constants set has no attributes at all - there the top-level value is the caption.
     """
-    with pytest.raises(ScaffoldError, match="ИМЯ строкового реквизита"):
-        scaffold.op_new_object(tmp_path, "Справочник", "Товары", presentation="Товары склада")
-    apply_result(scaffold.op_new_object(
-        tmp_path, "Справочник", "Товары", presentation="Название",
-    ))
-    assert "Представление: Название" in (tmp_path / "Товары.yaml").read_text(encoding="utf-8")
+    result = scaffold.op_new_object(tmp_path, "Справочник", "Товары", presentation="Товары склада")
+    apply_result(result)
+    text = (tmp_path / "Товары.yaml").read_text(encoding="utf-8")
+    data = _valid_yaml(text)
+    assert "Представление" not in data
+    assert data["Интерфейс"] == {"Список": {"Представление": "Товары склада"}}
+    assert "Интерфейс.Объект.Представление" in result.notes[0]
+    assert "имя строкового реквизита" in result.notes[0]
+    # An identifier is a caption too: nothing it could name exists yet.
+    apply_result(scaffold.op_new_object(tmp_path, "Документ", "Заказы", presentation="Заказы"))
+    data = _valid_yaml((tmp_path / "Заказы.yaml").read_text(encoding="utf-8"))
+    assert "Представление" not in data and data["Интерфейс"]["Список"]["Представление"] == "Заказы"
     apply_result(scaffold.op_new_object(
         tmp_path, "НаборКонстант", "Настройки", presentation="Настройки приложения",
     ))
     assert "Представление: Настройки приложения" in (tmp_path / "Настройки.yaml").read_text(encoding="utf-8")
+
+
+@pytest.mark.needs_data
+def test_new_object_caption_of_a_kind_without_a_top_level_one(tmp_path):
+    # A register names its list in the interface, a processing the interface itself; both
+    # used to be refused as having no Presentation at all.
+    result = scaffold.op_new_object(tmp_path, "РегистрСведений", "Курсы", presentation="Курсы валют")
+    apply_result(result)
+    data = _valid_yaml((tmp_path / "Курсы.yaml").read_text(encoding="utf-8"))
+    assert data["Интерфейс"] == {"Список": {"Представление": "Курсы валют"}}
+    assert "Интерфейс.Запись.Представление" in result.notes[0]
+    assert data["Измерения"]  # the starter dimension stays
+    apply_result(scaffold.op_new_object(tmp_path, "Обработка", "Загрузка", presentation="Загрузка цен"))
+    data = _valid_yaml((tmp_path / "Загрузка.yaml").read_text(encoding="utf-8"))
+    assert data["Интерфейс"] == {"Представление": "Загрузка цен"}
+
+
+@pytest.mark.needs_data
+def test_new_object_caption_replaces_the_one_a_kind_writes_itself(tmp_path):
+    # A command is born captioned with its name; the caller's caption used to be written
+    # next to it - two top-level keys of one name.
+    apply_result(scaffold.op_new_object(
+        tmp_path, "ОбычнаяКоманда", "Отправить", presentation="Отправить письмо",
+    ))
+    text = (tmp_path / "Отправить.yaml").read_text(encoding="utf-8")
+    assert text.count("Представление:") == 1
+    assert _valid_yaml(text)["Представление"] == "Отправить письмо"
+
+
+@pytest.mark.needs_data
+def test_new_object_caption_in_an_english_project(tmp_path):
+    subsystem = _make_english_project(tmp_path)
+    apply_result(scaffold.op_new_object(subsystem, "Catalog", "Goods", presentation="Goods in stock"))
+    data = _valid_yaml((subsystem / "Goods.yaml").read_text(encoding="utf-8"))
+    assert data["Interface"] == {"List": {"Presentation": "Goods in stock"}}
+    assert "Presentation" not in data
 
 
 # --- routes_for: the verbs are checked, not just upper-cased -------------------------------

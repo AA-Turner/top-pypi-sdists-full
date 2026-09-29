@@ -95,9 +95,13 @@ DEFAULT_RETRY_ERRORS: tuple[str, ...] = (
 #
 # Everything ELSE (check-constraint violations, schema drift, unique
 # violations, NOT-NULL) is a genuine bug, NOT an ordering race — it must NOT be
-# blindly auto-retried, because retrying can't fix it and would mask it. Those
-# stay stuck for a human (the watchdog keeps alerting). This list is the
-# precise boundary between "the platform self-heals" and "stop the line".
+# blindly auto-retried, because retrying can't fix it and would mask it. The
+# auto-replay QUARANTINES those on sight (retry_count pinned at the cap) and
+# files ONE ``persistence_replay_quarantined`` system_error per request group —
+# the human queue — instead of leaving them below the cap where the lifecycle
+# watchdog re-fired on them every hour forever (4 rows, ~68h, 2026-09-28).
+# This list is the precise boundary between "the platform self-heals" and
+# "stop the line".
 #   * DiskSpillRecovered — an op that was spilled to disk during a TOTAL DB
 #     outage (record_failures couldn't even reach system_write_failure) and then
 #     re-landed into the table by drain_spilled_ops once the DB returned. The
@@ -120,6 +124,14 @@ DEFAULT_RETRY_ERRORS: tuple[str, ...] = (
 #   * LockNotAvailableError — PostgreSQL refused the statement before it could
 #     acquire the required relation lock. The transaction is rolled back and
 #     the complete operation is safe to retry on a fresh connection.
+#   * coordinator drop — the Coordinator could not QUEUE the op (its phase had
+#     already errored or closed) and ``_capture_lost_op`` preserved it
+#     byte-for-byte precisely so it could be replayed. It was never attempted.
+#   * NOT NULL on an inherited ``organization_id`` — the parent the DB copies it
+#     from had not landed yet (see INHERITED_COLUMN_NOTNULL_SIGNATURES). It was
+#     always classified recoverable but never ELIGIBLE, so it sat unreplayed.
+COORDINATOR_DROP_MARKER = "coordinator drop:"
+
 RECOVERABLE_RETRY_ERRORS: tuple[str, ...] = (
     "ForeignKeyViolationError",
     "InterfaceError: cannot perform operation: another operation is in progress",
@@ -129,6 +141,8 @@ RECOVERABLE_RETRY_ERRORS: tuple[str, ...] = (
     "commit hard-deadline",
     "QueryTimeoutError",
     "LockNotAvailableError",
+    COORDINATOR_DROP_MARKER,
+    'null value in column "organization_id"',
 )
 
 
@@ -637,8 +651,13 @@ async def _fetch_pending(
     limit: int,
     max_attempts: int | None = None,
     ids: Sequence[str] | None = None,
+    unreplayable: list[dict[str, Any]] | None = None,
 ) -> list[Any]:
     """Fetch unrecovered failure rows, optionally filtered by error_text.
+
+    ``unreplayable`` (when given) receives every scanned row the
+    ``retry_errors`` filter REFUSED, so the caller can settle it instead of
+    leaving it below the attempt cap forever.
 
     Two-stage fetch:
       1. SELECT id+error_text only (small, fast) for ALL unrecovered rows.
@@ -664,22 +683,32 @@ async def _fetch_pending(
         id_qb = id_qb.filter(id__in=list(ids))
     if max_attempts is not None:
         id_qb = id_qb.filter(retry_count__lt=int(max_attempts))
-    id_rows = await id_qb.order_by("failed_at").limit(int(limit)).values("id", "error_text")
+    id_rows = await id_qb.order_by("failed_at").limit(int(limit)).values(
+        "id",
+        "error_text",
+        "request_id",
+        "table_target",
+        "retry_count",
+        "failed_at",
+        "user_id",
+        "conversation_id",
+    )
     if retry_errors is not None:
         # SUBSTRING match, not exact. A failure's error_text carries variable
         # per-row detail (e.g. a FK violation embeds the specific key/UUID), so
         # eligibility is keyed off an error-CLASS signature appearing anywhere
         # in the text. Exact-match would never catch the FK-ordering class.
         signatures = tuple(retry_errors)
-        eligible_ids = [
-            r["id"]
-            for r in id_rows
+        eligible_ids = []
+        for r in id_rows:
             if (
                 r["error_text"]
                 and not _is_query_timeout_capture_text(r["error_text"])
                 and any(sig in r["error_text"] for sig in signatures)
-            )
-        ]
+            ):
+                eligible_ids.append(r["id"])
+            elif unreplayable is not None:
+                unreplayable.append(dict(r))
     else:
         eligible_ids = [r["id"] for r in id_rows]
     if not eligible_ids:
@@ -812,6 +841,54 @@ async def _capture_replay_failure(
         logger.exception("persistence_replay_error_capture_failed")
 
 
+async def _quarantine_unreplayable(
+    rows: Sequence[dict[str, Any]], report: ReplayReport, *, max_attempts: int | None
+) -> None:
+    """Settle rows no self-healing class covers: quarantine them, say so ONCE.
+
+    A row the auto-replay will never attempt can only change by a human's hand,
+    so it leaves the watchdog's hourly alarm (retry_count pinned at the cap —
+    the same boundary both loops read) and lands as one
+    ``persistence_replay_quarantined`` system_error per request group, with the
+    rows still honestly unrecovered in the admin /persistence quarantine view,
+    where a person can force-replay them.
+    """
+    by_request: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_request.setdefault(str(row.get("request_id") or "_orphan"), []).append(row)
+    for request_id, group_rows in by_request.items():
+        reason = RuntimeError(
+            "Replay refused: the captured failure matches no self-healing class "
+            "(a deterministic refusal, or a write whose own completion is ambiguous), "
+            "so re-sending it automatically cannot be trusted. Quarantined for a "
+            "human (admin /persistence)."
+        )
+        await _capture_replay_failure(
+            reason,
+            request_id=request_id,
+            rows=group_rows,
+            phase="unreplayable_class",
+            kind="persistence_replay_quarantined",
+        )
+        try:
+            report.quarantined_count += await _record_failed_attempt(
+                group_rows, max_attempts=max_attempts, permanent=True
+            )
+        except Exception as bump_exc:  # noqa: BLE001 — accounting must never crash the sweep
+            vcprint(
+                f"[Replay] failed to quarantine unreplayable request {request_id}: "
+                f"{type(bump_exc).__name__}: {bump_exc}",
+                color="red",
+            )
+            continue
+        report.by_request[request_id] = "quarantined (unreplayable class)"
+        vcprint(
+            f"[Replay] QUARANTINED {len(group_rows)} unreplayable op(s) for request "
+            f"{request_id} ({', '.join(sorted({str(r.get('table_target')) for r in group_rows}))})",
+            color="yellow",
+        )
+
+
 async def replay_pending(
     *,
     dry_run: bool = True,
@@ -854,10 +931,23 @@ async def replay_pending(
 
     report = ReplayReport()
 
-    # Phase 1: SELECT candidate failures.
-    rows = await _fetch_pending(
-        retry_errors=retry_errors, limit=limit, max_attempts=max_attempts, ids=ids
+    # Phase 1: SELECT candidate failures. In AUTO mode (a give-up boundary, an
+    # error-class filter, no hand-picked ids) the rows the filter refuses are
+    # collected too: the sweep settles EVERY row the lifecycle watchdog watches,
+    # never leaves one below the cap to alarm forever.
+    settles_unreplayable = (
+        not dry_run and max_attempts is not None and retry_errors is not None and ids is None
     )
+    unreplayable: list[dict[str, Any]] = []
+    rows = await _fetch_pending(
+        retry_errors=retry_errors,
+        limit=limit,
+        max_attempts=max_attempts,
+        ids=ids,
+        unreplayable=unreplayable if settles_unreplayable else None,
+    )
+    if unreplayable:
+        await _quarantine_unreplayable(unreplayable, report, max_attempts=max_attempts)
 
     report.candidates = len(rows)
     report.eligible = len(rows)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-sqlserver
-Version: 1.11.2
+Version: 1.12.0
 Summary: A Microsoft SQL Server adapter plugin for dbt
 Author: Mikael Ene, Anders Swanson, Sam Debruyn, Cor Zuurmond, Cody Scott
 License: MIT
@@ -18,29 +18,30 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dbt-core<2.0,>=1.11.0
+Requires-Dist: dbt-core<2.0,>=1.12.0
 Requires-Dist: dbt-common<2.0,>=1.22.0
-Requires-Dist: dbt-adapters<2.0,>=1.24.1
-Requires-Dist: pyodbc>=5.2.0
+Requires-Dist: dbt-adapters<2.0,>=1.24.5
 Provides-Extra: azure
 Requires-Dist: azure-identity>=1.12.0; extra == "azure"
 Provides-Extra: pyodbc
 Requires-Dist: pyodbc>=5.2.0; extra == "pyodbc"
 Provides-Extra: mssql
 Requires-Dist: mssql-python>=1.7.1; extra == "mssql"
-Requires-Dist: azure-identity>=1.12.0; extra == "mssql"
-Requires-Dist: azure-core>=1.0.0; extra == "mssql"
+Provides-Extra: adbc
+Requires-Dist: adbc-driver-manager>=1.0.0; extra == "adbc"
+Requires-Dist: pyarrow>=14.0.0; extra == "adbc"
 Dynamic: license-file
 
 # dbt-sqlserver
 
 [dbt](https://www.getdbt.com) adapter for Microsoft SQL Server and Azure SQL services.
 
-The adapter supports dbt-core 1.11 or newer and follows the same versioning scheme.
-E.g. version 1.11.x of the adapter is compatible with dbt-core 1.11.x.
+The adapter supports dbt-core 1.12 or newer and follows the same versioning scheme.
+E.g. version 1.12.x of the adapter is compatible with dbt-core 1.12.x.
 
 ## Supported Python versions
 
@@ -52,6 +53,7 @@ The adapter is tested against:
 | 3.11 | Officially supported |
 | 3.12 | Officially supported |
 | 3.13 | Officially supported |
+| 3.14 | Officially supported |
 
 ## Supported SQL Server versions
 
@@ -75,7 +77,7 @@ We've bundled all documentation on the dbt docs site:
 - [Profile setup & authentication](https://docs.getdbt.com/reference/warehouse-profiles/mssql-profile)
 - [Adapter documentation, usage and important notes](https://docs.getdbt.com/reference/resource-configs/mssql-configs)
 
-Join us on the [dbt Slack](https://getdbt.slack.com/archives/CMRMDDQ9W) to ask questions, get help, or to discuss the project.
+Ask questions and get help in [GitHub Discussions](https://github.com/dbt-msft/dbt-sqlserver/discussions/categories/q-a). The [dbt Slack](https://getdbt.slack.com/archives/CMRMDDQ9W) channel is there for chatting with the community.
 
 ## Installation
 
@@ -91,6 +93,7 @@ Latest pre-release: ![GitHub tag (latest SemVer pre-release)](https://img.shield
 |---|---|---|
 | `pyodbc` | `dbt-sqlserver[pyodbc]` or `pyodbc` | `unixodbc-dev` plus the Microsoft ODBC Driver for SQL Server |
 | `mssql-python` | `dbt-sqlserver[mssql]` or `mssql-python` | `libltdl7`, `libkrb5-3`, `libgssapi-krb5-2` |
+| `adbc` *(experimental)* | `dbt-sqlserver[adbc]` | none (driver binary installed separately via the `dbc` CLI) |
 
 
 ### `pyodbc` backend
@@ -155,31 +158,41 @@ your_profile:
       backend: mssql-python  # <-- enables this backend
 ```
 
+### `adbc` backend *(experimental)*
+
+An Arrow-native backend built on [ADBC](https://arrow.apache.org/adbc/), avoiding the row-based ODBC/DB-API bridge entirely. SQL Server authentication only (no Azure AD / Windows auth yet).
+
+```shell
+pip install -U "dbt-sqlserver[adbc]"
+```
+
+The driver binary is not on PyPI and must be installed once via the `dbc` CLI. See [docs/adbc_backend.md](https://github.com/dbt-msft/dbt-sqlserver/blob/master/docs/adbc_backend.md) for the full setup, configuration, and known-differences guide.
+
 ## Changelog
 
-See [the changelog](https://github.com/dbt-msft/dbt-sqlserver/blob/release/v1.11/CHANGELOG.md)
+See [the changelog](https://github.com/dbt-msft/dbt-sqlserver/blob/master/CHANGELOG.md)
 
 ## Configuration
 
 ### `dbt_sqlserver_use_default_schema_concat`
 
-*(default: `false`)* Controls schema name generation when a [custom schema](https://docs.getdbt.com/docs/build/custom-schemas) is set on a model.
+*(default: `true`)* Controls schema name generation when a [custom schema](https://docs.getdbt.com/docs/build/custom-schemas) is set on a model.
 
 | Flag value | `custom_schema_name` | Result |
 |---|---|---|
-| `false` (default, legacy) | *(none)* | `target.schema` |
-| `false` (default, legacy) | `"reporting"` | `reporting` |
-| `true` (dbt-core standard) | *(none)* | `target.schema` |
-| `true` (dbt-core standard) | `"reporting"` | `target.schema_reporting` |
+| `true` (default, dbt-core standard) | *(none)* | `target.schema` |
+| `true` (default, dbt-core standard) | `"reporting"` | `target.schema_reporting` |
+| `false` (legacy, deprecated) | *(none)* | `target.schema` |
+| `false` (legacy, deprecated) | `"reporting"` | `reporting` |
 
-When `false` (the default), the adapter uses its legacy behaviour: `custom_schema_name` is used **as-is** without being prefixed by `target.schema`.  
-When `true`, the adapter delegates to dbt-core's `default__generate_schema_name`, which concatenates `target.schema` + `_` + `custom_schema_name`.
+When `true` (the default), the adapter delegates to dbt-core's `default__generate_schema_name`, which concatenates `target.schema` + `_` + `custom_schema_name`. This also matches the behavior dbt-core v2 (Fusion) ships unconditionally.  
+When `false`, the adapter uses its legacy behaviour: `custom_schema_name` is used **as-is** without being prefixed by `target.schema`. This legacy behavior is deprecated and will be removed in a future release.
 
 **Example usage in `dbt_project.yml`:**
 
 ```yaml
 flags:
-  dbt_sqlserver_use_default_schema_concat: true  # Enable standard schema concatenation
+  dbt_sqlserver_use_default_schema_concat: false  # Opt back into the deprecated legacy behavior
 ```
 
 The same setting is also honoured via `vars:` for backwards compatibility; the behavior flag under `flags:` takes precedence when both are set.
@@ -188,7 +201,7 @@ The same setting is also honoured via `vars:` for backwards compatibility; the b
 
 ### `backend`
 
-*(default: `pyodbc`)* Set to `mssql-python` in a profile target to use the `mssql-python` backend instead of `pyodbc`. The adapter fails if the required backend package (Python dependency), such as `pyodbc` or `mssql-python`, is not installed.
+*(default: `pyodbc`)* Set to `mssql-python` or `adbc` (experimental, see [docs/adbc_backend.md](https://github.com/dbt-msft/dbt-sqlserver/blob/master/docs/adbc_backend.md)) in a profile target to use that backend instead of `pyodbc`. The adapter fails if the required backend package (Python dependency), such as `pyodbc`, `mssql-python`, or `adbc-driver-manager`, is not installed.
 
 ### `dbt_sqlserver_enable_safe_type_expansion`
 
@@ -202,22 +215,46 @@ The same setting is also honoured via `vars:` for backwards compatibility; the b
 
 Safe expansions are further gated by `column_type_expansion_max_rows` (default 1,000,000 rows) to avoid long-running operations on large tables.
 
+### `pre_hook_transaction_scope`
+
+_(default: `load`)_ Where a `table`, `incremental` or `snapshot` build resolves its schema
+(the tmp view and the empty `CREATE`) relative to its in-transaction pre-hooks.
+`load` stages it before them, so the new table's `Sch-M` lock is released in an
+instant and the load blocks no metadata reader in other sessions; a
+`transaction: true` pre-hook still rolls back with a failed load, except on the
+two paths that commit a full-refresh marker before the load
+(`full_refresh_build: prebuilt`, and an incremental `--full-refresh` of an
+existing table), where neither scope can roll it back. `build` stages
+it inside the hook's transaction, for the one case `load` cannot serve: a
+`transaction: true` pre-hook that creates an object the model reads. See
+[docs/transaction_scope.md](https://github.com/dbt-msft/dbt-sqlserver/blob/master/docs/transaction_scope.md) for the full flow and
+the post-hook ordering change.
+
 ### `dbt_sqlserver_use_dbt_transactions`
 
-_(default: `false`)_ When enabled, makes dbt's transaction hooks real at the SQL Server level by emitting `BEGIN TRANSACTION` / `COMMIT TRANSACTION` through the adapter's `add_begin_query` and `add_commit_query` methods.
+_(default: `true`)_ Makes dbt's transaction hooks real at the SQL Server level by emitting `BEGIN TRANSACTION` / `COMMIT TRANSACTION` through the adapter's `add_begin_query` and `add_commit_query` methods.
 
-The default is `false`, preserving existing behavior where `begin`/`commit` hooks are logical no-ops and the ODBC driver auto-commits each statement. When `dbt_sqlserver_use_dbt_transactions: true`, the adapter emits real T-SQL transaction statements, and rollback uses `IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION`.
+The default is `true`, so dbt-managed transaction hooks emit real T-SQL transaction statements and rollback uses `IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION`. Set it to `false` to opt back into the deprecated legacy behavior where `begin`/`commit` hooks are logical no-ops and the driver auto-commits each statement.
 
 The driver connection remains in autocommit mode (`autocommit=true`) in both modes.
 
-This mode is opt-in and should be tested carefully with project-specific materializations and hooks.
+This is now the default and should be tested carefully with project-specific materializations and hooks. Projects that depend on autocommit-only behavior should set the flag to `false` during migration.
 
 **Compatibility notes:** Enabling `dbt_sqlserver_use_dbt_transactions: true` may expose transaction-state assumptions hidden by autocommit-only mode. Explicit transaction macros may interact with dbt-managed transactions, and cleanup after failed DDL/DML may differ. Review pre/post hooks for in-transaction vs out-of-transaction semantics.
 
 ```yaml
 # dbt_project.yml
 flags:
-  dbt_sqlserver_use_dbt_transactions: true # <-- opt-in; default is false
+  dbt_sqlserver_use_dbt_transactions: false # legacy autocommit; deprecated
+```
+
+### `dbt_sqlserver_use_native_string_types`
+
+*(default: `true`)* Controls the SQL Server-native mappings used for dbt string types. With the default enabled, `STRING` maps to `VARCHAR(MAX)`, `NCHAR` maps to `NCHAR(1)`, and `NVARCHAR` maps to `NVARCHAR(4000)`. Set it to `false` to opt back into the deprecated legacy mappings: `STRING` and `NVARCHAR` map to `VARCHAR(8000)`, while `NCHAR` maps to `CHAR(1)`.
+
+```yaml
+flags:
+  dbt_sqlserver_use_native_string_types: false  # deprecated legacy behavior
 ```
 
 ### `xact_abort`
@@ -251,7 +288,11 @@ your_profile:
 
 ### `prefer_single_alter_column`
 
-*(default: `false`)* Model-level config that controls how `alter_column_type` changes column types on tables. When `false` (default), the adapter uses the safer approach: add a temporary column, copy data, drop the original, and rename. When `true`, the adapter uses a single `ALTER COLUMN` statement, which is faster on small, medium tables and instant on safe type expansions but may fail for types that cannot be implicitly converted.
+*(default: unset)* Model-level config that controls how `alter_column_type` changes column types on tables:
+
+* `true`: a single `ALTER COLUMN` statement. It is atomic, instant for a longer `varchar`/`nvarchar`, and keeps the column's indexes, default constraint and position. It fails for types that cannot be implicitly converted, and changing `varchar` to `nvarchar` on a large clustered columnstore table can fail with Msg 35357 (dictionary size limit).
+* `false`: add a temporary column, copy the data, drop the original and rename. It fails when an index, default constraint or statistics object depends on the column, and it moves the column to the end of the table. A failed attempt no longer blocks the next run.
+* unset (default): `true` when column type expansion widens a column within its type (a longer `varchar`, or `varchar(max)`), `false` for every other change.
 
 ```sql
 -- In an incremental model
@@ -284,6 +325,10 @@ You can also set it per model:
 
 With `table_refresh_method: dml`, a schema change makes the refresh fall back to a rename-swap. On that run — and only that run — the scratch table is rebuilt the way this adapter builds every other table, so it carries the model's columnstore index, and under an enforced contract its `NOT NULL`s and inline constraints, into the swap. That run therefore executes the model's SQL twice — once for the `SELECT … INTO` that probes for the schema change, once for the rebuild — and builds the columnstore index once. Steady-state refreshes are unaffected and keep the single `SELECT … INTO`. A table that lost its columnstore index to this bug before you upgraded is not repaired automatically: its schema still matches, so it stays on the cheap path. To rebuild it, temporarily set `full_refresh_build: prebuilt` and run with `--full-refresh`.
 
+### Ephemeral models
+
+Ephemeral models are supported, with one limit: an ephemeral model can't start with its own `WITH`. dbt inlines it as a CTE, and T-SQL can't nest a `WITH` inside one (still true on SQL Server 2025). Write it with derived tables instead, or materialize it as a `view`, which SQL Server expands into the calling query the same way.
+
 ### Constraints
 
 Constraints declared in a model's yaml are applied when — and only when — the model's [contract](https://docs.getdbt.com/reference/resource-configs/contract) is enforced, which is what every dbt adapter does and keeps their cost opt-in. (dbt-core does not raise if you declare constraints with the contract off — they are simply never emitted.) `not_null`, `check`, `unique`, `primary_key` and `foreign_key` are all supported.
@@ -296,7 +341,7 @@ A *model-level* constraint carrying `name:` is applied by `ALTER TABLE … ADD C
 
 Name a constraint when you want it stable across environments (schema-comparison tools report the generated names as differences) or need to reference it later. A `name:` on a *column-level* constraint is ignored with a warning — declare it under the model's `constraints:` key instead.
 
-The full set of rules, with the test that verifies each, is in [docs/constraints.md](https://github.com/dbt-msft/dbt-sqlserver/blob/release/v1.11/docs/constraints.md).
+The full set of rules, with the test that verifies each, is in [docs/constraints.md](https://github.com/dbt-msft/dbt-sqlserver/blob/master/docs/constraints.md).
 
 ```yaml
 models:
@@ -431,14 +476,31 @@ Behaviour:
 
 **Version notes.** All masking DDL the adapter emits (`ADD MASKED`, `MASKED WITH`, `DROP MASKED`) and the functions `default()`, `email()`, `random(a,b)` and `partial(...)` work on 2016+. The `datetime()` partial-date function and granular column/schema/table-scoped `UNMASK` are SQL Server 2022+ only; the adapter never emits them, but mask-function strings are passed through verbatim, so using a 2022-only function on an older server will be rejected by SQL Server.
 
+### Object-level DENY (`denies`)
+
+In SQL Server, an object-level `DENY` is the only way to carve an exception out of a schema-level `GRANT` — grant a principal `SELECT` on a whole schema, then `DENY SELECT` on the individual PII-bearing models. But a `DENY` is stored against the object's `object_id`, so dbt destroys it every time it drops and recreates the relation (which is *every* run for a view). The schema grant survives; its exceptions silently evaporate, leaving a **fail-open** posture that no run reports.
+
+The `denies` config re-applies object-level DENYs after each build, diffed against `sys.database_permissions`, the same way `masks` re-applies Dynamic Data Masking. Its shape mirrors `grants` — a `{privilege: [principals]}` map — and it is settable in the in-file `{{ config() }}`, the model's `.yml` `config:` block, or a directory-wide default in `dbt_project.yml` (merging key-wise across those levels, like `masks`):
+
+```sql
+{{ config(denies={'select': ['Restricted_Read_Only']}) }}
+```
+
+- **Survives rebuilds:** the DENY is present after `dbt run` and *still present after the next run*, for `table`, `view`, `incremental` (append and full-refresh) and `snapshot`. Unlike masks, this **includes views** — a view is a valid securable and is recreated on every run, which is where a DENY is lost most often.
+- **Reconciled:** the adapter diffs the config against the live DENY state and emits only what changed — `DENY` for configured-not-present, `REVOKE` for present-not-configured (a `REVOKE` removes a `DENY`). Removing a principal from `denies` revokes its DENY on the next run; a converged, persisted relation issues no DDL.
+- **Scope:** object-level DENY for the table privileges `select`, `insert`, `update`, `delete`, `references`. An unsupported privilege is warned and skipped (the warning surfaces the likely typo without taking down the build). Column-, database- and server-scoped permissions are out of scope (the latter survive a rebuild already).
+- **Absent principal:** a `DENY` to a non-existent database principal is warned-and-skipped (the run still succeeds), so one config runs unchanged across dev, CI and prod where the principal set differs.
+- **Ordering vs `grants`:** grants are applied first, then denies, so the final state is unambiguous. A `(privilege, principal)` pair appearing in both `grants` and `denies` is warned as a likely mistake (a DENY overrides a GRANT in SQL Server).
+- **Other adapters:** `denies` is a no-op on non-SQL-Server adapters, not an error. This is SQL-Server-specific by design — `DENY` is absent from the SQL standard and does not port.
+
 ## Contributing
 
 [![Unit tests](https://github.com/dbt-msft/dbt-sqlserver/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/dbt-msft/dbt-sqlserver/actions/workflows/unit-tests.yml)
 [![Integration tests on SQL Server](https://github.com/dbt-msft/dbt-sqlserver/actions/workflows/integration-tests-sqlserver.yml/badge.svg)](https://github.com/dbt-msft/dbt-sqlserver/actions/workflows/integration-tests-sqlserver.yml)
 
 This adapter is community-maintained.
-You are welcome to contribute by creating issues, opening or reviewing pull requests, or helping other users in the Slack channel.
-If you're unsure how to get started, check out our [contributing guide](https://github.com/dbt-msft/dbt-sqlserver/blob/release/v1.11/CONTRIBUTING.md).
+You are welcome to contribute by creating issues, opening or reviewing pull requests, or helping other users in [Discussions](https://github.com/dbt-msft/dbt-sqlserver/discussions) and on the [dbt Slack](https://getdbt.slack.com/archives/CMRMDDQ9W).
+If you're unsure how to get started, check out our [contributing guide](https://github.com/dbt-msft/dbt-sqlserver/blob/master/CONTRIBUTING.md).
 
 ## License
 

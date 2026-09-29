@@ -286,6 +286,15 @@ class SelfCalibrator:
         """True once there is a camera, or once it is established there will not be one."""
         return self.result is not None and (self.result.ok or self.result.permanent)
 
+    @property
+    def failed(self) -> bool:
+        """True once no camera will come from paint: declared permanent, or out of attempts."""
+        if self.result is not None and self.result.ok:
+            return False
+        return (self.result is not None and self.result.permanent) or (
+            self._attempts >= self.max_attempts
+        )
+
     def observe_frame(self, frame: np.ndarray) -> None:
         """Feed one frame into the background model. Cheap; safe to call per frame."""
         self._bg.apply(frame)

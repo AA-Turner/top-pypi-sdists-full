@@ -34,25 +34,41 @@ REDACTED = "***"
 # `user:password@` right after a URL's `//` — greedy to the LAST `@` before the
 # path, so a raw `@` inside a password cannot leave its tail behind.
 _URL_USERINFO = re.compile(r"(?<=//)[^/\s?#'\"]*@")
-_SECRET_QUERY_VALUE = re.compile(
-    r"(?i)([?&;](?:" + "|".join(re.escape(name) for name in SECRET_QUERY_PARAMS) + r")=)[^&#\s'\"]*"
+# A URL fragment is client-side only, but it still reaches exception text and
+# logs verbatim. Treat its ``key=value`` pairs exactly like query pairs. Match
+# the parameter shape broadly, then percent-decode/case-fold only the NAME for
+# the canonical secret-name comparison; the original spelling stays visible in
+# output and every non-secret parameter/anchor remains byte-for-byte intact.
+_URL_PARAM_VALUE = re.compile(
+    r"(?P<prefix>[?&;]|#(?=[^/?=&#\s'\"]+=))"
+    r"(?P<name>[^=?&#\s'\"]+)=(?P<value>[^&#;\s'\"]*)"
 )
+_SECRET_PARAM_NAMES = frozenset(name.casefold() for name in SECRET_QUERY_PARAMS)
 
 
 def redact_url_secrets(value: object) -> str:
     """The ONE redaction for URLs headed to OUTPUT — logs, vcprint, exception text.
 
     Strips every URL's ``user:password@`` and every ``SECRET_QUERY_PARAMS``
-    value from ``str(value)``, keeping scheme, host, port, path, and every other
-    parameter, and marking each cut with ``***``. Accepts any object (a URL, an
-    exception whose message echoes one) because both reach the same log line.
+    value from ``str(value)``, whether it appears in a query or fragment. It
+    keeps scheme, host, port, path, ordinary anchors, and every non-secret
+    parameter, marking each cut with ``***``. Parameter names are compared
+    case-insensitively after percent decoding, so an encoded spelling cannot
+    create a log-only escape hatch. Accepts any object (a URL, an exception
+    whose message echoes one) because both reach the same log line.
 
     Output only: never route a URL used for identity, dedupe, cache keys, or a
     fetch through this — redaction is lossy by design.
     """
     text = str(value)
     text = _URL_USERINFO.sub(f"{REDACTED}@", text)
-    return _SECRET_QUERY_VALUE.sub(rf"\1{REDACTED}", text)
+
+    def redact_param(match: re.Match[str]) -> str:
+        if unquote(match.group("name")).casefold() in _SECRET_PARAM_NAMES:
+            return f"{match.group('prefix')}{match.group('name')}={REDACTED}"
+        return match.group(0)
+
+    return _URL_PARAM_VALUE.sub(redact_param, text)
 
 
 def playwright_proxy(proxy: str) -> dict[str, str]:

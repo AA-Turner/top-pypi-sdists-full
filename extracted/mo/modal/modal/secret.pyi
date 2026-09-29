@@ -7,6 +7,7 @@ import modal.client
 import modal.object
 import modal.types
 import modal_proto.api_pb2
+import pathlib
 import synchronicity
 import typing
 import typing_extensions
@@ -423,6 +424,7 @@ class _Secret(modal._object._Object):
     """
 
     _metadata: typing.Optional[modal_proto.api_pb2.SecretMetadata]
+    _keys: typing.Optional[set[str]]
     _load_env_dict: typing.Optional[collections.abc.Callable[[], dict[str, str]]]
 
     @synchronicity.classproperty
@@ -430,8 +432,10 @@ class _Secret(modal._object._Object):
     def objects(cls) -> _SecretManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
+    async def _refresh_metadata(self): ...
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self) -> modal_proto.api_pb2.SecretMetadata: ...
+    async def _get_keys(self, *, refresh: bool = False) -> set[str]: ...
     @property
     def _is_ephemeral(self) -> bool:
         """Whether this Secret is backed by a locally-resolvable env dict rather than a named deployment.
@@ -477,7 +481,12 @@ class _Secret(modal._object._Object):
         ...
 
     @staticmethod
-    def from_dotenv(path=None, *, filename=".env", client: typing.Optional[modal.client._Client] = None) -> _Secret:
+    def from_dotenv(
+        path: typing.Union[str, pathlib.Path, None] = None,
+        *,
+        filename: str = ".env",
+        client: typing.Optional[modal.client._Client] = None,
+    ) -> _Secret:
         """Load environment variables from a `.env` file into a Secret.
 
         With no `path`, searches from the current working directory (not the caller's file path).
@@ -543,6 +552,32 @@ class _Secret(modal._object._Object):
         ...
 
     @staticmethod
+    def _from_id(secret_id: str, *, client: typing.Optional[modal.client._Client] = None):
+        """mdmd:hidden
+
+        Reference a Secret by ID.
+
+        Hydration is lazy until the Secret is used.
+
+        Args:
+            secret_id: ID of the Secret.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A `Secret` handle (possibly not yet hydrated).
+
+        Examples:
+            ```python
+            secret = modal.Secret._from_id("st-1234")
+
+            @app.function(secrets=[secret])
+            def run():
+                ...
+            ```
+        """
+        ...
+
+    @staticmethod
     async def _create_deployed(
         deployment_name: str,
         env_dict: dict[str, str],
@@ -565,12 +600,12 @@ class _Secret(modal._object._Object):
         """
         ...
 
-def _split_env_dict_and_resolvable_secrets(secrets: list[_Secret]) -> tuple[dict[str, str], list[_Secret]]:
-    """Split secrets into secrets that can be resolved locally and secrets that are remote.
+def _resolvable_secrets(secrets: collections.abc.Collection[_Secret]) -> list[_Secret]:
+    """Secrets that must be resolved server-side and referenced by id, e.g. `Secret.from_name`."""
+    ...
 
-    Locally resolvable secrets include: `Secret.from_dict`, `Secret.from_dotenv`
-    Remote secrets include: `Secret.from_name`
-    """
+def _local_secret_env(secrets: collections.abc.Collection[_Secret]) -> dict[str, str]:
+    """Env vars from locally resolvable Secrets (`Secret.from_dict`, `Secret.from_dotenv`, ...)."""
     ...
 
 class Secret(modal.object.Object):
@@ -584,6 +619,7 @@ class Secret(modal.object.Object):
     """
 
     _metadata: typing.Optional[modal_proto.api_pb2.SecretMetadata]
+    _keys: typing.Optional[set[str]]
     _load_env_dict: typing.Optional[collections.abc.Callable[[], dict[str, str]]]
 
     def __init__(self, *args, **kwargs):
@@ -595,8 +631,22 @@ class Secret(modal.object.Object):
     def objects(cls) -> SecretManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
+
+    class ___refresh_metadata_spec(typing_extensions.Protocol):
+        def __call__(self, /): ...
+        async def aio(self, /): ...
+
+    _refresh_metadata: ___refresh_metadata_spec
+
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self) -> modal_proto.api_pb2.SecretMetadata: ...
+
+    class ___get_keys_spec(typing_extensions.Protocol):
+        def __call__(self, /, *, refresh: bool = False) -> set[str]: ...
+        async def aio(self, /, *, refresh: bool = False) -> set[str]: ...
+
+    _get_keys: ___get_keys_spec
+
     @property
     def _is_ephemeral(self) -> bool:
         """Whether this Secret is backed by a locally-resolvable env dict rather than a named deployment.
@@ -642,7 +692,12 @@ class Secret(modal.object.Object):
         ...
 
     @staticmethod
-    def from_dotenv(path=None, *, filename=".env", client: typing.Optional[modal.client.Client] = None) -> Secret:
+    def from_dotenv(
+        path: typing.Union[str, pathlib.Path, None] = None,
+        *,
+        filename: str = ".env",
+        client: typing.Optional[modal.client.Client] = None,
+    ) -> Secret:
         """Load environment variables from a `.env` file into a Secret.
 
         With no `path`, searches from the current working directory (not the caller's file path).
@@ -699,6 +754,32 @@ class Secret(modal.object.Object):
         Examples:
             ```python
             secret = modal.Secret.from_name("my-secret")
+
+            @app.function(secrets=[secret])
+            def run():
+                ...
+            ```
+        """
+        ...
+
+    @staticmethod
+    def _from_id(secret_id: str, *, client: typing.Optional[modal.client.Client] = None):
+        """mdmd:hidden
+
+        Reference a Secret by ID.
+
+        Hydration is lazy until the Secret is used.
+
+        Args:
+            secret_id: ID of the Secret.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A `Secret` handle (possibly not yet hydrated).
+
+        Examples:
+            ```python
+            secret = modal.Secret._from_id("st-1234")
 
             @app.function(secrets=[secret])
             def run():

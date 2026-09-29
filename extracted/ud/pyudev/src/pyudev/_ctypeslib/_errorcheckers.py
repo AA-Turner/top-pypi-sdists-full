@@ -15,13 +15,12 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    pyudev._ctypeslib._errorcheckers
-    ================================
+pyudev._ctypeslib._errorcheckers
+================================
 
-    Error checkers for ctypes wrappers.
+Error checkers for ctypes wrappers.
 """
 
-# isort: STDLIB
 import errno
 import os
 from ctypes import get_errno
@@ -44,19 +43,19 @@ def exception_from_errno(errnum):
     exception = ERRNO_EXCEPTIONS.get(errnum)
     errorstr = os.strerror(errnum)
     if exception is None:
-        return EnvironmentError(errnum, errorstr)
+        return OSError(errnum, errorstr)
     return exception(errorstr)
 
 
 def check_negative_errorcode(result, _func, *_args):
-    """Error checker for funtions, which return negative error codes.
+    """Error checker for functions, which return negative error codes.
 
     If ``result`` is smaller than ``0``, it is interpreted as negative error
     code, and an appropriate exception is raised:
 
     - ``-ENOMEM`` raises a :exc:`~exceptions.MemoryError`
     - ``-EOVERFLOW`` raises a :exc:`~exceptions.OverflowError`
-    - all other error codes raise :exc:`~exceptions.EnvironmentError`
+    - all other error codes raise :exc:`~exceptions.OSError`
 
     If result is greater or equal to ``0``, it is returned unchanged.
 
@@ -64,6 +63,26 @@ def check_negative_errorcode(result, _func, *_args):
     if result < 0:
         # udev returns the *negative* errno code at this point
         errnum = -result
+        raise exception_from_errno(errnum)
+    return result
+
+
+def check_negative_errorcode_or_errno(result, _func, *_args):
+    """Error checker for functions, which return a negative error code in
+    current libudev, but ``-1`` with ``errno`` set in old udev versions.
+
+    If ``result`` is ``-1`` and :func:`ctypes.get_errno()` is not ``0``, an
+    exception according to this errno is raised. If ``result`` is smaller
+    than ``0`` otherwise, it is interpreted as negative error code, as in
+    :func:`check_negative_errorcode`.
+
+    If result is greater or equal to ``0``, it is returned unchanged.
+
+    """
+    if result < 0:
+        errnum = -result
+        if result == -1:
+            errnum = get_errno() or errnum
         raise exception_from_errno(errnum)
     return result
 
@@ -91,7 +110,7 @@ def check_errno_on_null_pointer_return(result, _func, *_args):
     raised.  Otherwise nothing happens.
 
     """
-    # pylint: disable=invalid-name
+
     if not result:
         errnum = get_errno()
         if errnum != 0:

@@ -54,12 +54,13 @@ class BuildResource(SyncAPIResource):
     def create(
         self,
         *,
-        context_archive: FileTypes,
         image_name: str,
         agent_id: str | Omit = omit,
         agent_name: str | Omit = omit,
         build_args: str | Omit = omit,
+        context_archive: FileTypes | Omit = omit,
         image_tag: str | Omit = omit,
+        image_url: str | Omit = omit,
         platform: Literal["linux/amd64", "linux/arm64", "linux/arm/v7"] | Omit = omit,
         source_commit: str | Omit = omit,
         source_dirty: bool | Omit = omit,
@@ -75,27 +76,21 @@ class BuildResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudBuild:
         """
-        Submit a container image build from an uploaded build context and return the
-        created build record.
+        Create a container image build record.
 
-        The request is multipart form data: a tar.gz `context_archive` with the
-        Dockerfile at its root is streamed to cloud object storage, along with the
-        target `image_name`, an optional `image_tag` (defaults to `latest`), optional
-        Docker `build_args` supplied as a JSON string, and an optional target
-        `platform`. Exactly one of `agent_name` or `agent_id` must be provided: pass
-        `agent_name` to create a brand-new agent for a first-time build (rejected if an
-        agent with that name already exists), or `agent_id` to build for an agent that
-        already exists. The build is handed to the configured cloud build provider and
-        runs asynchronously, so the returned record reflects the build's initial status
-        (typically queued or running) rather than a finished image; poll Get Build or
-        follow Stream Build Logs to observe progression to a terminal state. The request
-        is rejected if the archive is missing or empty, exceeds 500MB, or if
-        `build_args` is not valid JSON.
+        This multipart request accepts exactly one image source. Provide
+        `context_archive` to stream a tar.gz build context to the configured cloud build
+        provider, or provide `image_url` to register an existing tagged image as an
+        immediately successful build without invoking the provider. `build_args` and
+        `platform` apply only to archive builds.
+
+        Exactly one of `agent_name` or `agent_id` must identify the target agent.
+        `agent_name` creates a new build-only agent and must be unused. `agent_id`
+        targets an existing agent. Archive builds normally return in a queued or running
+        state; prebuilt images can immediately be passed to Cloud Deploy using the
+        returned build ID. Archives must be non-empty and no larger than 500 MB.
 
         Args:
-          context_archive: tar.gz archive containing the build context (Dockerfile and any files needed for
-              the build)
-
           image_name: Name for the built image
 
           agent_id: ID of the existing agent this build targets
@@ -104,7 +99,12 @@ class BuildResource(SyncAPIResource):
 
           build_args: JSON string of build arguments
 
+          context_archive: tar.gz archive containing the build context (Dockerfile and any files needed for
+              the build)
+
           image_tag: Tag for the built image
+
+          image_url: Existing tagged image to register instead of running a build
 
           platform: Target platform for the Docker build. Defaults to the build host's native
               architecture when not specified.
@@ -131,12 +131,13 @@ class BuildResource(SyncAPIResource):
         """
         body = deepcopy_with_paths(
             {
-                "context_archive": context_archive,
                 "image_name": image_name,
                 "agent_id": agent_id,
                 "agent_name": agent_name,
                 "build_args": build_args,
+                "context_archive": context_archive,
                 "image_tag": image_tag,
+                "image_url": image_url,
                 "platform": platform,
                 "source_commit": source_commit,
                 "source_dirty": source_dirty,
@@ -406,12 +407,13 @@ class AsyncBuildResource(AsyncAPIResource):
     async def create(
         self,
         *,
-        context_archive: FileTypes,
         image_name: str,
         agent_id: str | Omit = omit,
         agent_name: str | Omit = omit,
         build_args: str | Omit = omit,
+        context_archive: FileTypes | Omit = omit,
         image_tag: str | Omit = omit,
+        image_url: str | Omit = omit,
         platform: Literal["linux/amd64", "linux/arm64", "linux/arm/v7"] | Omit = omit,
         source_commit: str | Omit = omit,
         source_dirty: bool | Omit = omit,
@@ -427,27 +429,21 @@ class AsyncBuildResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudBuild:
         """
-        Submit a container image build from an uploaded build context and return the
-        created build record.
+        Create a container image build record.
 
-        The request is multipart form data: a tar.gz `context_archive` with the
-        Dockerfile at its root is streamed to cloud object storage, along with the
-        target `image_name`, an optional `image_tag` (defaults to `latest`), optional
-        Docker `build_args` supplied as a JSON string, and an optional target
-        `platform`. Exactly one of `agent_name` or `agent_id` must be provided: pass
-        `agent_name` to create a brand-new agent for a first-time build (rejected if an
-        agent with that name already exists), or `agent_id` to build for an agent that
-        already exists. The build is handed to the configured cloud build provider and
-        runs asynchronously, so the returned record reflects the build's initial status
-        (typically queued or running) rather than a finished image; poll Get Build or
-        follow Stream Build Logs to observe progression to a terminal state. The request
-        is rejected if the archive is missing or empty, exceeds 500MB, or if
-        `build_args` is not valid JSON.
+        This multipart request accepts exactly one image source. Provide
+        `context_archive` to stream a tar.gz build context to the configured cloud build
+        provider, or provide `image_url` to register an existing tagged image as an
+        immediately successful build without invoking the provider. `build_args` and
+        `platform` apply only to archive builds.
+
+        Exactly one of `agent_name` or `agent_id` must identify the target agent.
+        `agent_name` creates a new build-only agent and must be unused. `agent_id`
+        targets an existing agent. Archive builds normally return in a queued or running
+        state; prebuilt images can immediately be passed to Cloud Deploy using the
+        returned build ID. Archives must be non-empty and no larger than 500 MB.
 
         Args:
-          context_archive: tar.gz archive containing the build context (Dockerfile and any files needed for
-              the build)
-
           image_name: Name for the built image
 
           agent_id: ID of the existing agent this build targets
@@ -456,7 +452,12 @@ class AsyncBuildResource(AsyncAPIResource):
 
           build_args: JSON string of build arguments
 
+          context_archive: tar.gz archive containing the build context (Dockerfile and any files needed for
+              the build)
+
           image_tag: Tag for the built image
+
+          image_url: Existing tagged image to register instead of running a build
 
           platform: Target platform for the Docker build. Defaults to the build host's native
               architecture when not specified.
@@ -483,12 +484,13 @@ class AsyncBuildResource(AsyncAPIResource):
         """
         body = deepcopy_with_paths(
             {
-                "context_archive": context_archive,
                 "image_name": image_name,
                 "agent_id": agent_id,
                 "agent_name": agent_name,
                 "build_args": build_args,
+                "context_archive": context_archive,
                 "image_tag": image_tag,
+                "image_url": image_url,
                 "platform": platform,
                 "source_commit": source_commit,
                 "source_dirty": source_dirty,

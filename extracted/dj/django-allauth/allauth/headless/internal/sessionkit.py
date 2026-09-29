@@ -3,10 +3,11 @@ from __future__ import annotations
 from importlib import import_module
 
 from django.conf import settings
-from django.contrib.auth import SESSION_KEY, get_user_model
+from django.contrib.auth import SESSION_KEY
 from django.contrib.sessions.backends.base import SessionBase
 from django.http import HttpRequest
 
+from allauth.core.internal.sessionkit import get_session_user
 from allauth.headless import app_settings
 from allauth.headless.constants import Client
 
@@ -38,15 +39,10 @@ def authenticate_by_x_session_token(token: str) -> tuple | None:
     session = app_settings.TOKEN_STRATEGY.lookup_session(token)
     if not session:
         return None
-    user_id_str = session.get(SESSION_KEY)
-    if user_id_str:
-        meta_pk = get_user_model()._meta.pk
-        if meta_pk:
-            user_id = meta_pk.to_python(user_id_str)
-            user = get_user_model().objects.filter(pk=user_id).first()
-            if user and user.is_active:
-                return (user, session)
-    return None
+    user = get_session_user(session)
+    if user is None:
+        return None
+    return (user, session)
 
 
 def lookup_session(session_key: str) -> SessionBase | None:

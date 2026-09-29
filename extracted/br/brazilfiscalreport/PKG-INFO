@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: BrazilFiscalReport
-Version: 1.1.0
+Version: 1.1.1
 Summary: Python library for generating Brazilian auxiliary fiscal documents in PDF from XML documents.
 Author: Engenere
 License:   GNU LESSER GENERAL PUBLIC LICENSE
@@ -178,17 +178,16 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: fpdf2>=2.8.3
+Requires-Dist: fpdf2>=2.8.6
 Requires-Dist: phonenumbers
 Requires-Dist: python-barcode
 Provides-Extra: dacte
@@ -249,7 +248,7 @@ Every Brazilian electronic invoice is issued by the tax authority as an XML file
 - 📄 **4 document types** — DANFE, DACTE, DAMDFE and DANFSe (plus the DACCe correction-letter event), straight from the official XML
 - 🎨 **Customizable** — issuer logo, margins, fonts, decimal precision, cancellation watermarks and more
 - ⚡ **3 ways to use it** — Python API, `bfrep` command line, or the [online demo](https://brazilfiscalreport.streamlit.app)
-- ✅ **Python 3.8+** — tested on Python 3.8 through 3.13
+- ✅ **Python 3.10+** — tested on Python 3.10 through 3.14
 
 ## Installation
 

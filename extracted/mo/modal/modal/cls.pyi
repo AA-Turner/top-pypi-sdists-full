@@ -294,17 +294,7 @@ class _Cls(modal._object._Object):
         ...
 
     @staticmethod
-    def validate_construction_mechanism(user_cls):
-        """mdmd:hidden"""
-        ...
-
-    @staticmethod
     def _from_local(user_cls, app: modal.app._App, class_service_function: modal._functions._Function) -> _Cls:
-        """mdmd:hidden"""
-        ...
-
-    @staticmethod
-    def from_local(user_cls, app: modal.app._App, class_service_function: modal._functions._Function) -> _Cls:
         """mdmd:hidden"""
         ...
 
@@ -520,17 +510,7 @@ class Cls(modal.object.Object):
         ...
 
     @staticmethod
-    def validate_construction_mechanism(user_cls):
-        """mdmd:hidden"""
-        ...
-
-    @staticmethod
     def _from_local(user_cls, app: modal.app.App, class_service_function: modal.functions.Function) -> Cls:
-        """mdmd:hidden"""
-        ...
-
-    @staticmethod
-    def from_local(user_cls, app: modal.app.App, class_service_function: modal.functions.Function) -> Cls:
         """mdmd:hidden"""
         ...
 

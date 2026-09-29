@@ -67,8 +67,8 @@ DEFAULT_ITEM_LEASE_SECONDS = 600
 # adaptive host rate-limiter is the real pacer; this just avoids a hot re-claim.
 DEFAULT_RETRY_BACKOFF_SECONDS = 5.0
 # The store's attempt budget per item. MUST stay comfortably above the
-# crawler's own retry policy (initial attempt + MAX_RATE_LIMIT_RETRIES=5
-# requeues = 6 claims) plus headroom for lease reclaims, each of which burns
+# crawler's own retry policy (initial attempt + `crawl.max_retries_per_url`
+# requeues — knob default 3, row max 8) plus headroom for lease reclaims, each of which burns
 # an attempt. When the two caps were the SAME number (5), the store
 # dead-lettered a rate-limited item on the crawler's last requeue while the
 # crawler believed it was queued — pages silently vanished under

@@ -2,6 +2,26 @@
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 # Functions
+def bbox_is_normalized(bbox: Optional[Dict[str, Any]]) -> bool:
+    """
+    True when all four coordinates lie in ``[0, 1]`` and the box is not empty.
+    
+        The same rule the config client applies to zone polygons
+        (``PostProcessingConfigClient._is_normalized_points``). An all-zero box is not called
+        normalized: it carries no geometry to scale.
+    """
+    ...
+def bbox_xyxy_pixels(bbox: Optional[Dict[str, Any]], image_width: float, image_height: float) -> Tuple[float, float, float, float]:
+    """
+    ``(x1, y1, x2, y2)`` of ``bbox`` in PIXELS, whether it arrived normalized or in pixels.
+    
+        New-flow detections arrive normalized ``[0, 1]`` (see ``post_processor._backfill_stream_resolution``),
+        so anything that gates or crops in pixels has to scale first. A normalized box is scaled by
+        ``image_width`` / ``image_height``. A pixel box is returned unchanged, so pixel inputs behave
+        exactly as before. A normalized box with no known size (either dimension ``<= 0``) is also
+        returned unchanged; callers that care check :func:`bbox_is_normalized` and say so.
+    """
+    ...
 def calculate_bbox_overlap(bbox1: Dict[str, float], bbox2: Dict[str, float]) -> float:
     """
     Calculate IoU (Intersection over Union) between two bounding boxes.

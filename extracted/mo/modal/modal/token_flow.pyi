@@ -10,7 +10,10 @@ class _TokenFlow:
         ...
 
     def start(
-        self, utm_source: typing.Optional[str] = None, next_url: typing.Optional[str] = None
+        self,
+        utm_source: typing.Optional[str] = None,
+        next_url: typing.Optional[str] = None,
+        expires_in_seconds: typing.Optional[int] = None,
     ) -> typing.AsyncContextManager[tuple[str, str, str]]:
         """mdmd:hidden"""
         ...
@@ -26,13 +29,21 @@ class TokenFlow:
 
     class __start_spec(typing_extensions.Protocol):
         def __call__(
-            self, /, utm_source: typing.Optional[str] = None, next_url: typing.Optional[str] = None
+            self,
+            /,
+            utm_source: typing.Optional[str] = None,
+            next_url: typing.Optional[str] = None,
+            expires_in_seconds: typing.Optional[int] = None,
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[tuple[str, str, str]]:
             """mdmd:hidden"""
             ...
 
         def aio(
-            self, /, utm_source: typing.Optional[str] = None, next_url: typing.Optional[str] = None
+            self,
+            /,
+            utm_source: typing.Optional[str] = None,
+            next_url: typing.Optional[str] = None,
+            expires_in_seconds: typing.Optional[int] = None,
         ) -> typing.AsyncContextManager[tuple[str, str, str]]:
             """mdmd:hidden"""
             ...
@@ -61,6 +72,7 @@ async def _new_token(
     verify: bool = True,
     source: typing.Optional[str] = None,
     next_url: typing.Optional[str] = None,
+    expires_in_seconds: typing.Optional[int] = None,
 ): ...
 async def _set_token(
     token_id: str,

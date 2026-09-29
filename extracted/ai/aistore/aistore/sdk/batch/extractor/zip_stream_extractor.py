@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2025-2026, NVIDIA CORPORATION. All rights reserved.
 #
 
 import zipfile
@@ -37,7 +37,7 @@ class ZipStreamExtractor(ArchiveStreamExtractor):
         """
         Extract from zip archive stream.
 
-        Note: ZIP format requires random access, so the entire stream
+        Note: ZIP format requires random access, so non-seekable input
         is loaded into memory before extraction begins.
 
         Args:
@@ -49,31 +49,30 @@ class ZipStreamExtractor(ArchiveStreamExtractor):
         Yields:
             Tuple[MossOut, bytes]: (MossOut, content) tuples
         """
-        # ZIP requires random access - load into memory if needed
-        if not hasattr(data_stream, "read"):
-            data_stream = BytesIO(data_stream)
-        elif moss_req.streaming_get:
-            # For streaming mode, read entire response into memory
-            data_stream = BytesIO(data_stream.read())
-
         index = 0
         try:
+            # ZIP requires random access, including when multipart decoding streams.
+            if not hasattr(data_stream, "read"):
+                data_stream = BytesIO(data_stream)
+            elif not hasattr(data_stream, "seekable") or not data_stream.seekable():
+                data_stream = BytesIO(data_stream.read())
+
             with zipfile.ZipFile(data_stream, "r") as zip_file:
                 for zip_info in zip_file.infolist():
                     if zip_info.is_dir():
                         continue
 
                     try:
-                        content = zip_file.read(zip_info.filename)
+                        content = zip_file.read(zip_info)
 
                         # Get MossOut (from response or build from request)
                         moss_out = self._get_moss_out(
-                            index, len(content), moss_req, moss_resp
+                            index,
+                            len(content),
+                            moss_req,
+                            moss_resp,
+                            member_name=zip_info.filename,
                         )
-
-                        # Check for missing
-                        # TODO: FIXME: what to do with missing files?
-                        # moss_out.is_missing = zip_info.filename.startswith(GB_MISSING_FILES_DIR)
 
                         index += 1
                         yield moss_out, content

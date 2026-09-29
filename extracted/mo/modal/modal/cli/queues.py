@@ -32,6 +32,66 @@ def partition_option(func):
     )(func)
 
 
+@queue_cli.command("list", panel="Management")
+@click.option("--json", is_flag=True, default=False)
+@env_option
+@synchronizer.create_blocking
+async def list_(*, json: bool = False, env: str | None = None):
+    """List all named Queues."""
+    env = ensure_env(env)
+    client = await _Client.from_env()
+    max_total_size = 100_000  # Limit on the *Queue size* that we report
+
+    items: list[api_pb2.QueueListResponse.QueueInfo] = []
+
+    # Note that we need to continue using the gRPC API directly here rather than using Queue.objects.list.
+    # There is some metadata that historically appears in the CLI output (num_partitions, total_size) that
+    # doesn't make sense to transmit as hydration metadata, because the values can change over time and
+    # the metadata retrieved at hydration time could get stale. Alternatively, we could rewrite this using
+    # only public API by sequentially retrieving the queues and then querying their dynamic metadata, but
+    # that would require multiple round trips and would add lag to the CLI.
+    async def retrieve_page(created_before: float) -> bool:
+        max_page_size = 100
+        pagination = api_pb2.ListPagination(max_objects=max_page_size, created_before=created_before)
+        req = api_pb2.QueueListRequest(environment_name=env, pagination=pagination, total_size_limit=max_total_size)
+        resp = await client._stub.QueueList(req)
+        items.extend(resp.queues)
+        return len(resp.queues) < max_page_size
+
+    finished = await retrieve_page(datetime.now().timestamp())
+    while True:
+        if finished:
+            break
+        finished = await retrieve_page(items[-1].metadata.creation_info.created_at)
+
+    queues = [_Queue._new_hydrated(item.queue_id, client, item.metadata, skip_reload=True) for item in items]
+
+    rows = []
+    for obj, resp_data in zip(queues, items):
+        info = await obj.info()
+        row: list[str | int | bool | None] = [
+            obj.name,
+            timestamp_to_localized_str(info.created_at.timestamp(), json),
+            info.created_by,
+        ]
+        if json:
+            row += [
+                resp_data.num_partitions,
+                resp_data.total_size,
+                resp_data.total_size >= max_total_size,
+            ]
+        else:
+            row += [
+                str(resp_data.num_partitions),
+                str(resp_data.total_size) if resp_data.total_size < max_total_size else f">={max_total_size}",
+            ]
+        rows.append(row)
+    columns = ["Name", "Created at", "Created by", "Partitions", "Total size"]
+    if json:
+        columns.append("Total size truncated")
+    display_table(columns, rows, json)
+
+
 @queue_cli.command("create", panel="Management", no_args_is_help=True)
 @click.argument("name")
 @env_option
@@ -47,6 +107,32 @@ async def create(name: str, *, env: str | None = None):
     async with TaskContext() as tc:
         load_context = LoadContext(client=client, environment_name=env, task_context=tc)
         await resolver.load(q, load_context)
+
+
+@queue_cli.command("clear", panel="Management", no_args_is_help=True)
+@click.argument("name")
+@partition_option
+@click.option("-a", "--all", "all", is_flag=True, default=False, help="Clear the contents of all partitions.")
+@yes_option
+@env_option
+@synchronizer.create_blocking
+async def clear(
+    name: str,
+    partition: str | None = None,
+    all: bool = False,
+    yes: bool = False,
+    *,
+    env: str | None = None,
+):
+    """Clear the contents of a Queue by removing all of its data."""
+    q = _Queue.from_name(name, environment_name=env)
+    if not yes:
+        click.confirm(
+            f"Are you sure you want to irrevocably delete the contents of modal.Queue '{name}'?",
+            default=False,
+            abort=True,
+        )
+    await q.clear(partition=partition, all=all)
 
 
 @queue_cli.command("delete", panel="Management", no_args_is_help=True)
@@ -71,81 +157,6 @@ async def delete(
             abort=True,
         )
     await _Queue.objects.delete(name, environment_name=env, allow_missing=allow_missing)
-
-
-@queue_cli.command("list", panel="Management")
-@click.option("--json", is_flag=True, default=False)
-@env_option
-@synchronizer.create_blocking
-async def list_(*, json: bool = False, env: str | None = None):
-    """List all named Queues."""
-    env = ensure_env(env)
-    client = await _Client.from_env()
-    max_total_size = 100_000  # Limit on the *Queue size* that we report
-
-    items: list[api_pb2.QueueListResponse.QueueInfo] = []
-
-    # Note that we need to continue using the gRPC API directly here rather than using Queue.objects.list.
-    # There is some metadata that historically appears in the CLI output (num_partitions, total_size) that
-    # doesn't make sense to transmit as hydration metadata, because the values can change over time and
-    # the metadata retrieved at hydration time could get stale. Alternatively, we could rewrite this using
-    # only public API by sequentially retrieving the queues and then querying their dynamic metadata, but
-    # that would require multiple round trips and would add lag to the CLI.
-    async def retrieve_page(created_before: float) -> bool:
-        max_page_size = 100
-        pagination = api_pb2.ListPagination(max_objects=max_page_size, created_before=created_before)
-        req = api_pb2.QueueListRequest(environment_name=env, pagination=pagination, total_size_limit=max_total_size)
-        resp = await client.stub.QueueList(req)
-        items.extend(resp.queues)
-        return len(resp.queues) < max_page_size
-
-    finished = await retrieve_page(datetime.now().timestamp())
-    while True:
-        if finished:
-            break
-        finished = await retrieve_page(items[-1].metadata.creation_info.created_at)
-
-    queues = [_Queue._new_hydrated(item.queue_id, client, item.metadata, skip_reload=True) for item in items]
-
-    rows = []
-    for obj, resp_data in zip(queues, items):
-        info = await obj.info()
-        rows.append(
-            (
-                obj.name,
-                timestamp_to_localized_str(info.created_at.timestamp(), json),
-                info.created_by,
-                str(resp_data.num_partitions),
-                str(resp_data.total_size) if resp_data.total_size <= max_total_size else f">{max_total_size}",
-            )
-        )
-    display_table(["Name", "Created at", "Created by", "Partitions", "Total size"], rows, json)
-
-
-@queue_cli.command("clear", panel="Management", no_args_is_help=True)
-@click.argument("name")
-@partition_option
-@click.option("-a", "--all", "all", is_flag=True, default=False, help="Clear the contents of all partitions.")
-@yes_option
-@env_option
-@synchronizer.create_blocking
-async def clear(
-    name: str,
-    partition: str | None = None,
-    all: bool = False,
-    yes: bool = False,
-    *,
-    env: str | None = None,
-):
-    """Clear the contents of a queue by removing all of its data."""
-    q = _Queue.from_name(name, environment_name=env)
-    if not yes:
-        click.confirm(
-            f"Are you sure you want to irrevocably delete the contents of modal.Queue '{name}'?",
-            default=False,
-            abort=True,
-        )
-    await q.clear(partition=partition, all=all)
 
 
 @queue_cli.command("peek", panel="Inspection", no_args_is_help=True)

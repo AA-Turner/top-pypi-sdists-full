@@ -1336,6 +1336,77 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="List partner businesses of the Page",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_list_business_partners(account_id: str) -> str:
+        """List partner businesses of the Page
+
+        Args:
+            account_id: Zernio SocialAccount id of the Facebook or Instagram account. (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.list_business_partners(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Share the Page with a partner business",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_grant_business_partner(
+        account_id: str, business_id: str, permitted_tasks: list[str] | None = None
+    ) -> str:
+        """Share the Page with a partner business
+
+        Args:
+            account_id: Zernio SocialAccount id of the Facebook or Instagram account. (required)
+            business_id: Meta business portfolio id of the partner (numeric string). (required)
+            permitted_tasks: Tasks granted on the Page, Meta's permitted_tasks vocabulary. Defaults to ADVERTISE and ANALYZE. The bare names are what Business Settings shows; the PROFILE_PLUS_ names are the New Pages Experience tasks and the only way to grant FACEBOOK_ACCESS or REVENUE. Granting MANAGE also yields MANAGE_LEADS."""
+        client = _get_client()
+        try:
+            response = client.accounts.grant_business_partner(
+                account_id=account_id,
+                business_id=business_id,
+                permitted_tasks=permitted_tasks,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Revoke a partner business from the Page",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_revoke_business_partner(account_id: str, business_id: str) -> str:
+        """Revoke a partner business from the Page
+
+        Args:
+            account_id: Zernio SocialAccount id of the Facebook or Instagram account. (required)
+            business_id: Meta business portfolio id of the partner (numeric string). (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.revoke_business_partner(
+                account_id=account_id, business_id=business_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Resolve LinkedIn mention",
             readOnlyHint=True,
             destructiveHint=False,
@@ -1824,6 +1895,117 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_accounts.list_meta_businesses(
                 account_id=account_id, limit=limit, after=after
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Business users",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_accounts_list_meta_business_users(account_id: str, business_id: str) -> str:
+        """Business users
+
+        Args:
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            business_id: Meta business portfolio id. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.list_meta_business_users(
+                account_id=account_id, business_id=business_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Page users of a business",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_accounts_list_page_users(
+        account_id: str, page_id: str, business_id: str
+    ) -> str:
+        """Page users of a business
+
+        Args:
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            page_id: Facebook Page id. (required)
+            business_id: Business portfolio whose people to list. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.list_page_users(
+                account_id=account_id, page_id=page_id, business_id=business_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Assign a user to a Page",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_assign_page_user(
+        account_id: str,
+        page_id: str,
+        business_id: str,
+        user_id: str,
+        tasks: list[str] | None,
+    ) -> str:
+        """Assign a user to a Page
+
+        Args:
+            account_id: Zernio SocialAccount id used to resolve the Meta token. (required)
+            page_id: Facebook Page id. (required)
+            business_id: Business portfolio the user belongs to. (required)
+            user_id: Business-scoped user id from GET /v1/ads/businesses/users. (required)
+            tasks: (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.assign_page_user(
+                account_id=account_id,
+                page_id=page_id,
+                business_id=business_id,
+                user_id=user_id,
+                tasks=tasks,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove a user from a Page",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_remove_page_user(
+        account_id: str, page_id: str, user_id: str
+    ) -> str:
+        """Remove a user from a Page
+
+        Args:
+            account_id: Zernio SocialAccount id used to resolve the Meta token. (required)
+            page_id: Facebook Page id. (required)
+            user_id: Business-scoped user id. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.remove_page_user(
+                account_id=account_id, page_id=page_id, user_id=user_id
             )
             return _format_response(response)
         except Exception as e:
@@ -3010,6 +3192,90 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Ad account users",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_accounts_list_ad_account_users(
+        account_id: str, ad_account_id: str, business_id: str
+    ) -> str:
+        """Ad account users
+
+        Args:
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            ad_account_id: Meta ad account id (act_<n>). (required)
+            business_id: Business portfolio whose people to list. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.list_ad_account_users(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                business_id=business_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Assign a user to an ad account",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_assign_ad_account_user(
+        account_id: str, ad_account_id: str, user_id: str, tasks: list[str] | None
+    ) -> str:
+        """Assign a user to an ad account
+
+        Args:
+            account_id: Zernio SocialAccount id used to resolve the Meta token. (required)
+            ad_account_id: Meta ad account id (act_<n>). (required)
+            user_id: Business-scoped user id from GET /v1/ads/businesses/users. (required)
+            tasks: (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.assign_ad_account_user(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                user_id=user_id,
+                tasks=tasks,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove a user from an ad account",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_remove_ad_account_user(
+        account_id: str, ad_account_id: str, user_id: str
+    ) -> str:
+        """Remove a user from an ad account
+
+        Args:
+            account_id: Zernio SocialAccount id used to resolve the Meta token. (required)
+            ad_account_id: Meta ad account id (act_<n>). (required)
+            user_id: Business-scoped user id. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.remove_ad_account_user(
+                account_id=account_id, ad_account_id=ad_account_id, user_id=user_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Ad account finances",
             readOnlyHint=True,
             destructiveHint=False,
@@ -3134,7 +3400,10 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_update_ad_account(
         account_id: str,
         ad_account_id: str,
-        default_dsa_beneficiary: str,
+        name: str | None = None,
+        spend_cap: str | None = None,
+        reset_amount_spent: bool | None = None,
+        default_dsa_beneficiary: str | None = None,
         default_dsa_payor: str | None = None,
     ) -> str:
         """Update ad account settings
@@ -3142,13 +3411,19 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: Account ID (metaads, or a facebook/instagram posting account) (required)
             ad_account_id: Meta ad account ID (act_...) (required)
-            default_dsa_beneficiary: Legal entity benefiting from ads on this ad account (required)
-            default_dsa_payor: Legal entity paying for ads on this ad account. Defaults to defaultDsaBeneficiary when omitted."""
+            name: New ad account name.
+            spend_cap: Account spend cap in whole currency units; null removes it.
+            reset_amount_spent: Restart the amount counted against the cap from zero. Cannot be combined with spendCap null.
+            default_dsa_beneficiary: Legal entity benefiting from ads on this ad account
+            default_dsa_payor: Legal entity paying for ads on this ad account. Defaults to defaultDsaBeneficiary when omitted. Requires defaultDsaBeneficiary."""
         client = _get_client()
         try:
             response = client.ad_accounts.update_ad_account(
                 account_id=account_id,
                 ad_account_id=ad_account_id,
+                name=name,
+                spend_cap=spend_cap,
+                reset_amount_spent=reset_amount_spent,
                 default_dsa_beneficiary=default_dsa_beneficiary,
                 default_dsa_payor=default_dsa_payor,
             )
@@ -3538,6 +3813,102 @@ def register_generated_tools(mcp, _get_client):
                 effective_instagram_media_id=effective_instagram_media_id,
                 from_date=from_date,
                 to_date=to_date,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Google Ads recommendations",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaigns_list_google_recommendations(
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+        campaign_id: str | None = None,
+        types: str | None = None,
+    ) -> str:
+        """List Google Ads recommendations
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Google customer id, digits only. Defaults to the connection's only customer.
+            customer_id: Alias of adAccountId, kept for consistency with other Google endpoints.
+            campaign_id: Only recommendations targeting this campaign.
+            types: Comma-separated Google RecommendationType values, for example CAMPAIGN_BUDGET,KEYWORD,SET_TARGET_CPA."""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.list_google_recommendations(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                campaign_id=campaign_id,
+                types=types,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Apply Google Ads recommendations",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_apply_google_recommendations(
+        account_id: str,
+        recommendations: list[dict[str, Any]] | None,
+        ad_account_id: str | None = None,
+    ) -> str:
+        """Apply Google Ads recommendations
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Google customer id, digits only. Required when the connection has several customers.
+            recommendations: (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.apply_google_recommendations(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                recommendations=recommendations,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Dismiss Google Ads recommendations",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_dismiss_google_recommendations(
+        account_id: str,
+        resource_names: list[str] | None,
+        ad_account_id: str | None = None,
+    ) -> str:
+        """Dismiss Google Ads recommendations
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Google customer id, digits only. Required when the connection has several customers.
+            resource_names: Recommendation resource names from the list, or their ids. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.dismiss_google_recommendations(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                resource_names=resource_names,
             )
             return _format_response(response)
         except Exception as e:
@@ -4266,8 +4637,8 @@ def register_generated_tools(mcp, _get_client):
             platform: (required)
             deep_copy: Copy child ad sets + ads + creatives + targeting
             status_option: ACTIVE = launch the clone immediately (spends the moment LinkedIn approves it). PAUSED = clone stays DRAFT, safe default. INHERITED_FROM_SOURCE = mirror each entity's source status per-entity. Duplicating an ACTIVE campaign this way starts a second front of spend.
-            start_time: Reschedule the copied hierarchy's start time
-            end_time
+            start_time: Reschedule the copied hierarchy's start (ISO 8601). On Meta and TikTok a value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone; LinkedIn ad accounts carry no timezone, so there it is read as UTC. TikTok defaults to a start a few minutes after the copy.
+            end_time: Reschedule the copied hierarchy's end, read like `startTime`; a date-only end runs to 23:59:59 local. Defaults to the source's end.
             rename_strategy
             rename_prefix
             rename_suffix
@@ -4440,8 +4811,8 @@ def register_generated_tools(mcp, _get_client):
             campaign_id: Destination platform campaign id (defaults to the source's campaign)
             deep_copy: Copy child ads + creatives
             status_option
-            start_time: Reschedule the copy's start time
-            end_time
+            start_time: Reschedule the copy's start (ISO 8601). A value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone.
+            end_time: Reschedule the copy's end, read like `startTime`; a date-only end runs to 23:59:59 local.
             rename_strategy
             rename_prefix
             rename_suffix
@@ -4676,6 +5047,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str | None = None,
         profile_id: str | None = None,
         campaign_id: str | None = None,
+        search: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
         has_delivery: bool | None = None,
@@ -4697,6 +5069,7 @@ def register_generated_tools(mcp, _get_client):
             account_id: Account ID
             profile_id: Profile ID
             campaign_id: Restrict the tree to a single campaign by its platform campaign id (the id the platform assigns, e.g. Meta's numeric campaign id). Filters the campaign set itself, so it works regardless of account size and pagination. Pass this when you already hold a campaign id instead of paging the tree to find it. Mirrors the `campaignId` filter on GET /v1/ads.
+            search: Case-insensitive substring match on campaign, ad set and ad names (`_`, `%` and spaces match literally), or an exact platform campaign, ad set or ad id. A campaign whose name matches returns with all its ad sets and ads; a match on an ad set or ad name returns only the matching branch. Filters the campaign set itself, so `pagination.total` counts only matching campaigns.
             from_date: Start of the METRICS date range (YYYY-MM-DD). On its own it affects only the spend/impression numbers overlaid on each node, not which campaigns are returned. Pass `hasDelivery` or `minSpend` to also filter the campaign set to this window. Defaults to 90 days ago.
             to_date: End of metrics date range (YYYY-MM-DD). Defaults to today. Max 730-day range.
             has_delivery: Return only campaigns that delivered between `fromDate` and `toDate`: spend above zero, or impressions served at zero spend. Unlike `status`, which reads a campaign's CURRENT state, this filters on what happened inside the window, so a campaign that spent then and is paused today is still returned. Filters the campaign set itself, so `pagination.total` counts only matching campaigns.
@@ -4717,6 +5090,7 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 profile_id=profile_id,
                 campaign_id=campaign_id,
+                search=search,
                 from_date=from_date,
                 to_date=to_date,
                 has_delivery=has_delivery,
@@ -5351,8 +5725,8 @@ def register_generated_tools(mcp, _get_client):
                 destination_type: Meta only. Ad-set destination_type: where the click LANDS, as opposed to instagramAccountId which is who the ad runs as. Independent of plain link CTAs and their goal. A messaging callToAction selects its destination automatically; an explicit destinationType must then match. Lead ads use ON_AD.
                 whatsapp_phone_number: Meta WhatsApp only. E.164 number already paired with the Page. Omit to use the default pairing. Requires WHATSAPP_MESSAGE callToAction. Stored as creative.whatsappPhoneNumber on the ad.
                 currency: ISO 4217 currency code matching the ad account's currency. Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is).
-                start_date: Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the ad set's `start_time`. When omitted the ad starts delivering immediately. Same field as on POST /v1/ads/create.
-                end_date: Ad-set end time (ISO 8601), mapped to the ad set's `end_time`. Required for lifetime budgets. Same field as on POST /v1/ads/create.
+                start_date: Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the ad set's `start_time`. When omitted the ad starts delivering immediately. On Meta, TikTok, X and Pinterest a value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone. Same field as on POST /v1/ads/create.
+                end_date: Ad-set end time (ISO 8601), mapped to the ad set's `end_time`. Required for lifetime budgets. On Meta, TikTok, X and Pinterest a value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone, and a date-only end runs to 23:59:59 local. Same field as on POST /v1/ads/create.
                 schedule: Alias of the top-level `startDate` / `endDate`, kept for existing callers. Sending both forms with differing values is a 400.
                 targeting: Same geo/demographic fields as the `TargetingSpec` used by /v1/ads/create.
         Geo keys (`regions`/`cities`/`zips`/`metros`) resolve via
@@ -6150,10 +6524,17 @@ def register_generated_tools(mcp, _get_client):
         numeric IDs from Meta verification. Keys vary by category (e.g. universal_beneficiary /
         universal_payer for BRAZIL_REGULATION and THAILAND_UNIVERSAL). If omitted, Meta uses
         Ads Manager defaults when configured.
-                end_date: Required for lifetime budgets
-                start_date: Meta only. Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the
-        ad set's `start_time`. When omitted the ad starts delivering immediately. For lifetime
-        budgets Meta also requires `endDate`. Same field as on `POST /v1/ads/boost`.
+                end_date: Required for lifetime budgets. Read like `startDate` (account timezone on Meta, TikTok, X, Pinterest and OpenAI; whole account-local days on Google; UTC on LinkedIn), and a date-only end runs to 23:59:59 local.
+                start_date: Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the ad set's
+        start (Meta `start_time`, TikTok ad group `schedule_start_time`, LinkedIn / Pinterest / X
+        / Google campaign start). When omitted the ad starts delivering immediately. For lifetime
+        budgets Meta also requires `endDate`. On Meta, TikTok, X, Pinterest and OpenAI a value
+        without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read
+        in the ad account timezone (Meta itself would read it as UTC). Google runs whole days in
+        the customer account timezone and takes the value's calendar date as written. LinkedIn
+        ad accounts carry no timezone, so there a value without an offset is read as UTC. The created ad's `schedule` echoes the start
+        and end the platform stored, as UTC instants; when attaching to an existing ad set
+        (`adSetId`) it is that ad set's start and end. Same field as on `POST /v1/ads/boost`.
                 page_id: Meta only. The Facebook Page the ad runs as (`object_story_spec.page_id`). Defaults to
         the Page bound to the connection. Pass another Page ID to run the ad as that Page: any
         Page granted to the connection is accepted (for a business-login connection, every Page
@@ -7390,6 +7771,12 @@ def register_generated_tools(mcp, _get_client):
         object_id: str | None = None,
         query: str | None = None,
         ad_account_id: str | None = None,
+        report_type: str = "BASIC",
+        data_level: str | None = None,
+        dimensions: str | None = None,
+        metrics: str | None = None,
+        page: int = 1,
+        page_size: int = 100,
         customer_id: str | None = None,
         page_token: str | None = None,
         level: str | None = None,
@@ -7410,10 +7797,16 @@ def register_generated_tools(mcp, _get_client):
         """Flexible live insights query
 
         Args:
-            account_id: Zernio SocialAccount id (posting or ads variant); its platform selects the Meta or Google contract. (required)
+            account_id: Zernio SocialAccount id (posting or ads variant); its platform selects the Meta, Google or TikTok contract. (required)
             object_id: Meta only (required there): insights node (act_<n>, campaign id, ad set id or ad id).
             query: Google only (required there): the GAQL SELECT statement to run.
-            ad_account_id: Google only: platform ad account ID (Google customer ID, digits only) when the connection has several Google Ads accounts.
+            ad_account_id: Google: platform ad account ID (Google customer ID, digits only) when the connection has several Google Ads accounts. TikTok (required there): the advertiser id.
+            report_type: TikTok only: report_type.
+            data_level: TikTok only (required there): data_level.
+            dimensions: TikTok only (required there): 1-4 comma-separated TikTok dimensions (e.g. country_code, campaign_id, stat_time_day).
+            metrics: TikTok only (required there): comma-separated TikTok metrics (e.g. reach,impressions,frequency,spend).
+            page: TikTok only: page number.
+            page_size: TikTok only: rows per page.
             customer_id: Alias of adAccountId, kept for existing callers
             page_token: Google only: cursor from paging.nextPageToken of the previous page.
             level: Row granularity
@@ -7423,9 +7816,9 @@ def register_generated_tools(mcp, _get_client):
             action_attribution_windows: Comma-separated Meta attribution windows. Action values are returned keyed per window.
             action_report_time: When actions are counted: impression, conversion or mixed.
             use_unified_attribution_setting: Use the ad sets' own attribution settings for action counting.
-            filtering: JSON array of Meta filter objects: [{"field", "operator", "value"}]. Applied server-side by Meta.
+            filtering: JSON array of filter objects: [{"field", "operator", "value"}]. Applied server-side by Meta or TikTok (TikTok fields e.g. campaign_ids, adgroup_ids, ad_ids).
             date_preset: Meta date_preset (e.g. last_7d, last_30d, this_month). Mutually exclusive with fromDate/toDate.
-            from_date: Start of range (YYYY-MM-DD); requires toDate.
+            from_date: Start of range (YYYY-MM-DD); requires toDate. Required on TikTok.
             to_date: End of range (YYYY-MM-DD); requires fromDate.
             time_increment: Days per row (1-90), monthly, or all_days.
             limit: Rows per page
@@ -7437,6 +7830,12 @@ def register_generated_tools(mcp, _get_client):
                 object_id=object_id,
                 query=query,
                 ad_account_id=ad_account_id,
+                report_type=report_type,
+                data_level=data_level,
+                dimensions=dimensions,
+                metrics=metrics,
+                page=page,
+                page_size=page_size,
                 customer_id=customer_id,
                 page_token=page_token,
                 level=level,
@@ -9367,6 +9766,470 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.blogs.delete_blog_article(
                 account_id=account_id, blog_id=blog_id, article_id=article_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    # BRANDED_CALLING
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Register a business for Branded Calling",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def branded_calling_create_branded_calling_enterprise(
+        legal_name: str,
+        doing_business_as: str,
+        organization_type: str,
+        organization_legal_type: str,
+        country_code: str,
+        jurisdiction_of_incorporation: str,
+        website: str,
+        fein: str,
+        industry: str,
+        number_of_employees: str,
+        organization_contact: dict[str, Any] | None,
+        billing_contact: dict[str, Any] | None,
+        physical_address: dict[str, Any] | None,
+        billing_address: dict[str, Any] | None,
+    ) -> str:
+        """Register a business for Branded Calling
+
+        Args:
+            legal_name: Exactly as on the tax record. (required)
+            doing_business_as: (required)
+            organization_type: (required)
+            organization_legal_type: (required)
+            country_code: ISO 3166-1 alpha-2. US or CA. (required)
+            jurisdiction_of_incorporation: State, province or country of registration. (required)
+            website: (required)
+            fein: US Federal Employer Identification Number (NN-NNNNNNN) or the Canadian equivalent. Stored encrypted; only the last four digits are ever returned. (required)
+            industry: One of the carrier industry labels, e.g. technology, healthcare, retail, finance, legal, insurance, real estate, logistics, education. (required)
+            number_of_employees: (required)
+            organization_contact: (required)
+            billing_contact: (required)
+            physical_address: (required)
+            billing_address: (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.create_branded_calling_enterprise(
+                legal_name=legal_name,
+                doing_business_as=doing_business_as,
+                organization_type=organization_type,
+                organization_legal_type=organization_legal_type,
+                country_code=country_code,
+                jurisdiction_of_incorporation=jurisdiction_of_incorporation,
+                website=website,
+                fein=fein,
+                industry=industry,
+                number_of_employees=number_of_employees,
+                organization_contact=organization_contact,
+                billing_contact=billing_contact,
+                physical_address=physical_address,
+                billing_address=billing_address,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List registered businesses",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def branded_calling_list_branded_calling_enterprises() -> str:
+        """List registered businesses"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.list_branded_calling_enterprises()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a registered business",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def branded_calling_get_branded_calling_enterprise(id: str) -> str:
+        """Get a registered business
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.get_branded_calling_enterprise(id=id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a registered business",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def branded_calling_delete_branded_calling_enterprise(id: str) -> str:
+        """Delete a registered business
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.delete_branded_calling_enterprise(id=id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a caller identity share link",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def branded_calling_share_branded_calling_identity_form(
+        enterprise_id: str | None = None, identity_id: str | None = None
+    ) -> str:
+        """Create a caller identity share link
+
+        Args:
+            enterprise_id: A registered business the identity belongs to.
+            identity_id: An identity in review to complete. Not with enterpriseId."""
+        client = _get_client()
+        try:
+            response = client.branded_calling.share_branded_calling_identity_form(
+                enterprise_id=enterprise_id, identity_id=identity_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List pre-approved call reasons",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def branded_calling_list_branded_calling_call_reasons() -> str:
+        """List pre-approved call reasons"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.list_branded_calling_call_reasons()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a caller identity",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def branded_calling_create_branded_calling_identity(
+        enterprise_id: str,
+        display_name: str,
+        call_reasons: list[str] | None,
+        authorizer: dict[str, Any] | None,
+        references: dict[str, Any] | None,
+        logo_url: str | None = None,
+    ) -> str:
+        """Create a caller identity
+
+        Args:
+            enterprise_id: A business from POST /v1/branded-calling/enterprises. (required)
+            display_name: Shown on the callee's screen. No emoji. (required)
+            call_reasons: 1 to 10 reasons you call, each up to 64 characters. Pick from GET /v1/branded-calling/call-reasons to skip manual vetting. (required)
+            logo_url: HTTPS URL of a PNG, JPEG, WebP or SVG logo. Zernio converts it to the 256x256 BMP the carriers require and hosts it.
+            authorizer: (required)
+            references: (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.create_branded_calling_identity(
+                enterprise_id=enterprise_id,
+                display_name=display_name,
+                call_reasons=call_reasons,
+                logo_url=logo_url,
+                authorizer=authorizer,
+                references=references,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List caller identities",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def branded_calling_list_branded_calling_identities() -> str:
+        """List caller identities"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.list_branded_calling_identities()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Dry-run a caller identity before creating it",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def branded_calling_preflight_branded_calling_identity(
+        enterprise_id: str,
+        display_name: str,
+        call_reasons: list[str] | None,
+        authorizer: dict[str, Any] | None,
+        references: dict[str, Any] | None,
+        logo_url: str | None = None,
+    ) -> str:
+        """Dry-run a caller identity before creating it
+
+        Args:
+            enterprise_id: (required)
+            display_name: (required)
+            call_reasons: (required)
+            logo_url
+            authorizer: (required)
+            references: (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.preflight_branded_calling_identity(
+                enterprise_id=enterprise_id,
+                display_name=display_name,
+                call_reasons=call_reasons,
+                logo_url=logo_url,
+                authorizer=authorizer,
+                references=references,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a caller identity",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def branded_calling_get_branded_calling_identity(id: str) -> str:
+        """Get a caller identity
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.get_branded_calling_identity(id=id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Edit or resubmit a caller identity",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def branded_calling_update_branded_calling_identity(
+        id: str,
+        display_name: str | None = None,
+        call_reasons: list[str] | None = None,
+        logo_url: str | None = None,
+        authorizer: dict[str, Any] | None = None,
+        references: dict[str, Any] | None = None,
+        review_answers: dict[str, Any] | None = None,
+        review_note: str | None = None,
+    ) -> str:
+        """Edit or resubmit a caller identity
+
+        Args:
+            id: (required)
+            display_name: Shown on the callee's screen. No emoji.
+            call_reasons: 1 to 10 reasons you call, each up to 64 characters. Pick from GET /v1/branded-calling/call-reasons to skip manual vetting.
+            logo_url: HTTPS URL of a PNG, JPEG, WebP or SVG logo. Zernio converts it to the 256x256 BMP the carriers require and hosts it.
+            authorizer
+            references
+            review_answers: One entry per point id of the open reviewRequest. A text point takes text; a link point takes url; file and link_or_file points take url set to the URL of a file you uploaded first (POST /v1/media/upload). A point id that is not on the open request is a 422.
+            review_note"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.update_branded_calling_identity(
+                id=id,
+                display_name=display_name,
+                call_reasons=call_reasons,
+                logo_url=logo_url,
+                authorizer=authorizer,
+                references=references,
+                review_answers=review_answers,
+                review_note=review_note,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a caller identity",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def branded_calling_delete_branded_calling_identity(id: str) -> str:
+        """Delete a caller identity
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.delete_branded_calling_identity(id=id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Resend the authorizer's code",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def branded_calling_resend_branded_calling_authorizer_code(id: str) -> str:
+        """Resend the authorizer's code
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.resend_branded_calling_authorizer_code(
+                id=id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Confirm the authorizer's code",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def branded_calling_confirm_branded_calling_authorizer_email(
+        id: str, code: str
+    ) -> str:
+        """Confirm the authorizer's code
+
+        Args:
+            id: (required)
+            code: (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.confirm_branded_calling_authorizer_email(
+                id=id, code=code
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List the numbers on a caller identity",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def branded_calling_list_branded_calling_identity_numbers(id: str) -> str:
+        """List the numbers on a caller identity
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.list_branded_calling_identity_numbers(
+                id=id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Attach numbers to a verified identity",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def branded_calling_attach_branded_calling_numbers(
+        id: str, phone_number_ids: list[str] | None, signature: dict[str, Any] | None
+    ) -> str:
+        """Attach numbers to a verified identity
+
+        Args:
+            id: (required)
+            phone_number_ids: Phone number record ids (from GET /v1/phone-numbers). Active US numbers only. (required)
+            signature: (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.attach_branded_calling_numbers(
+                id=id, phone_number_ids=phone_number_ids, signature=signature
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Detach numbers from an identity",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def branded_calling_detach_branded_calling_numbers(
+        id: str, phone_numbers: list[str] | None
+    ) -> str:
+        """Detach numbers from an identity
+
+        Args:
+            id: (required)
+            phone_numbers: E.164 numbers currently on this identity. (required)"""
+        client = _get_client()
+        try:
+            response = client.branded_calling.detach_branded_calling_numbers(
+                id=id, phone_numbers=phone_numbers
             )
             return _format_response(response)
         except Exception as e:
@@ -11917,7 +12780,7 @@ def register_generated_tools(mcp, _get_client):
             Args:
                 platform: Social media platform to connect. `snapchat` is a closed beta with no public release date: it returns 403 `PLATFORM_BETA_RESTRICTED` until the account is approved. (required)
                 profile_id: Your Zernio profile ID (get from /v1/profiles). For WhatsApp, a Zernio-provisioned number can only be connected on the profile it was provisioned to; connecting from any other profile is rejected with a 409. (required)
-                redirect_url: Your custom redirect URL after connection completes. MUST be an absolute http(s) URL or a custom app scheme for mobile deeplinks (e.g. myapp://callback); a relative path is rejected with 400 INVALID_REDIRECT_URL. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
+                redirect_url: Your custom redirect URL after connection completes. MUST be an absolute http(s) URL or a custom app scheme for mobile deeplinks (e.g. myapp://callback); a relative path is rejected with 400 INVALID_REDIRECT_URL. X (twitter) caps the OAuth `state` at 500 characters and the redirect is carried inside it, so the URL-encoded `redirect_url` must be at most 258 characters for API callers (310 for dashboard sessions; in headless mode the appended `headless=true` counts toward it); a longer one is rejected with 400 INVALID_REDIRECT_URL. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
 
         On failure, the browser is sent to the same redirect_url with `error` and `platform` appended.
         `error` and `platform` are always present. `error_message`, `is_user_fixable`, `reason`,
@@ -14052,8 +14915,8 @@ def register_generated_tools(mcp, _get_client):
         """Get Event Match Quality
 
         Args:
-            account_id: SocialAccount _id (must be a metaads account). (required)
-            destination_id: Meta pixel/dataset ID. (required)"""
+            account_id: SocialAccount _id (a metaads or pinterestads account). (required)
+            destination_id: Meta pixel/dataset ID, or the numeric Pinterest ad account id. (required)"""
         client = _get_client()
         try:
             response = client.conversions.get_conversions_quality(
@@ -14081,15 +14944,15 @@ def register_generated_tools(mcp, _get_client):
         """Send conversion events
 
             Args:
-                account_id: SocialAccount ID (metaads, googleads, linkedinads, tiktokads, or openaiads). (required)
+                account_id: SocialAccount ID (metaads, googleads, linkedinads, tiktokads, openaiads, or pinterestads). (required)
                 destination_id: Platform destination identifier. For Meta, the pixel/dataset
         ID. For Google, the conversion action resource name. For
         LinkedIn, the conversion rule ID or full
         `urn:lla:llaPartnerConversion:{id}` URN. For OpenAI Ads, the
-        pixel wire id.
+        pixel wire id. For Pinterest, the numeric ad account id.
          (required)
                 events: (required)
-                test_code: Meta `test_event_code` passthrough. Ignored by Google, LinkedIn, and OpenAI Ads.
+                test_code: Meta `test_event_code` passthrough. On Pinterest any value sends the batch with `test=true` (validated, not recorded). Ignored by Google, LinkedIn, and OpenAI Ads.
                 consent: Batch-level user consent. Required by Google for EEA/UK
         events under the Feb 2026 restrictions. On Meta, any
         DENIED flag enables Limited Data Use on every event in
@@ -14462,7 +15325,7 @@ def register_generated_tools(mcp, _get_client):
         """List conversion destinations
 
         Args:
-            account_id: SocialAccount ID (metaads, googleads, linkedinads, tiktokads, or openaiads). (required)"""
+            account_id: SocialAccount ID (metaads, googleads, linkedinads, tiktokads, openaiads, or pinterestads). (required)"""
         client = _get_client()
         try:
             response = client.conversions.list_conversion_destinations(
@@ -15673,6 +16536,53 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.discord.delete_discord_scheduled_event(
                 guild_id=guild_id, event_id=event_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    # FEEDBACK
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Submit feedback",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def feedback_submit_feedback(
+        type: str,
+        summary: str,
+        details: str | None = None,
+        endpoint: str | None = None,
+        request_id: str | None = None,
+        expected: str | None = None,
+        actual: str | None = None,
+        agent: dict[str, Any] | None = None,
+    ) -> str:
+        """Submit feedback
+
+        Args:
+            type: What kind of feedback this is. (required)
+            summary: One line describing the problem or the missing capability. Also the dedup key. (required)
+            details: Longer explanation: what you were trying to do, steps to reproduce, the use case.
+            endpoint: The endpoint involved, e.g. `POST /v1/posts`.
+            request_id: The `x-request-id` header of the failing response, if any.
+            expected: What you expected to happen.
+            actual: What actually happened, e.g. the error message.
+            agent: Optional identification of the agent submitting the feedback."""
+        client = _get_client()
+        try:
+            response = client.feedback.submit_feedback(
+                type=type,
+                summary=summary,
+                details=details,
+                endpoint=endpoint,
+                request_id=request_id,
+                expected=expected,
+                actual=actual,
+                agent=agent,
             )
             return _format_response(response)
         except Exception as e:
@@ -17965,6 +18875,8 @@ def register_generated_tools(mcp, _get_client):
         regional_regulation_identities: dict[str, Any] | None = None,
         destination: str | None = None,
         destinations: list[str] | None = None,
+        placement_assets: dict[str, Any] | None = None,
+        validate_only: bool | None = None,
     ) -> str:
         """Create messaging ad
 
@@ -18108,7 +19020,19 @@ def register_generated_tools(mcp, _get_client):
         Both beneficiary and payer must be included. If omitted and the advertiser has
         set defaults in Meta Ads Manager advertising settings, Meta auto-fills them.
                 destination: Where the conversation opens when the ad is tapped. Set this OR `destinations`, not both.
-                destinations: Two or three messaging apps on ONE ad set, like Ads Manager's "all messaging apps": the ad set gets Meta's combined destination_type (e.g. MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP) and the creative one CTA per app, so Meta opens the app each viewer is likeliest to answer from. WhatsApp in the list still needs the Page paired with a WhatsApp Business number. With `adSetId`, the existing ad set must already use that combined destination_type. Set this OR `destination`, not both."""
+                destinations: Two or three messaging apps on ONE ad set, like Ads Manager's "all messaging apps": the ad set gets Meta's combined destination_type (e.g. MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP) and the creative one CTA per app, so Meta opens the app each viewer is likeliest to answer from. WhatsApp in the list still needs the Page paired with a WhatsApp Business number. With `adSetId`, the existing ad set must already use that combined destination_type. Set this OR `destination`, not both.
+                placement_assets: A different image or video per placement on one messaging ad, e.g. a 4:5 image on
+        Feed and a 9:16 image on Stories/Reels. Replaces top-level `imageUrl` / `video`
+        (sending either alongside is a 400); `headline` and `body` stay required as the
+        default copy. The CTA, `welcomeMessage` and `whatsappPhoneNumber` apply to every
+        placement. Works on the single-creative shape and on attach (`adSetId`).
+
+        Single `destination` only: Meta cannot combine per-placement media with
+        `destinations` (it drops the placement rules from a multi-destination creative, or
+        refuses more than one call to action per placement rule with error 1885878), so
+        that combination is a 400. Also a 400 with `creatives[]`, `platformPostId`,
+        `existingPostId` or `objectStoryId`, and on POST /v1/ads/call.
+                validate_only: Dry-runs the ad on Meta with execution_options validate_only as ONE inline campaign + ad set + creative + ad (or creative + ad on the existing ad set with `adSetId`). Nothing is uploaded or created and nothing is stored; media is checked by URL. Supports one creative with `imageUrl`, image `placementAssets`, an existing `video.id`, or an existing post. Several creatives, a new `video.url` and video `placementAssets` need uploads first and return 400. Success returns 200 with per-node results; a Meta rejection returns the Meta error."""
         client = _get_client()
         try:
             response = client.messaging_ads.create_messaging_ad(
@@ -18160,6 +19084,8 @@ def register_generated_tools(mcp, _get_client):
                 regional_regulation_identities=regional_regulation_identities,
                 destination=destination,
                 destinations=destinations,
+                placement_assets=placement_assets,
+                validate_only=validate_only,
             )
             return _format_response(response)
         except Exception as e:
@@ -20859,6 +21785,356 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    # RCS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List RCS brands",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def rcs_list_rcs_brands() -> str:
+        """List RCS brands"""
+        client = _get_client()
+        try:
+            response = client.rcs.list_rcs_brands()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List RCS agents",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def rcs_list_rcs_agents(include_closed: bool | None = None) -> str:
+        """List RCS agents
+
+        Args:
+            include_closed: Include rejected and deactivated agents."""
+        client = _get_client()
+        try:
+            response = client.rcs.list_rcs_agents(include_closed=include_closed)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Request an RCS agent",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def rcs_create_rcs_agent(
+        profile_id: str,
+        display_name: str,
+        use_case: str,
+        profile: dict[str, Any] | None,
+        brand_id: str | None = None,
+        brand: dict[str, Any] | None = None,
+        sms_fallback_from: str | None = None,
+    ) -> str:
+        """Request an RCS agent
+
+        Args:
+            profile_id: (required)
+            brand_id
+            brand
+            display_name: Shown as the sender name. (required)
+            use_case: (required)
+            profile: (required)
+            sms_fallback_from: One of your SMS-enabled numbers. Phones without RCS get the message as SMS from it."""
+        client = _get_client()
+        try:
+            response = client.rcs.create_rcs_agent(
+                profile_id=profile_id,
+                brand_id=brand_id,
+                brand=brand,
+                display_name=display_name,
+                use_case=use_case,
+                profile=profile,
+                sms_fallback_from=sms_fallback_from,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get an RCS agent",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def rcs_get_rcs_agent(agent_id: str) -> str:
+        """Get an RCS agent
+
+        Args:
+            agent_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.rcs.get_rcs_agent(agent_id=agent_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update an RCS agent",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def rcs_update_rcs_agent(
+        agent_id: str,
+        display_name: str | None = None,
+        use_case: str | None = None,
+        profile: dict[str, Any] | None = None,
+        brand: dict[str, Any] | None = None,
+        sms_fallback_from: str | None = None,
+    ) -> str:
+        """Update an RCS agent
+
+        Args:
+            agent_id: (required)
+            display_name
+            use_case
+            profile
+            brand
+            sms_fallback_from"""
+        client = _get_client()
+        try:
+            response = client.rcs.update_rcs_agent(
+                agent_id=agent_id,
+                display_name=display_name,
+                use_case=use_case,
+                profile=profile,
+                brand=brand,
+                sms_fallback_from=sms_fallback_from,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Deactivate an RCS agent",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def rcs_deactivate_rcs_agent(agent_id: str) -> str:
+        """Deactivate an RCS agent
+
+        Args:
+            agent_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.rcs.deactivate_rcs_agent(agent_id=agent_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Send the launch filing",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def rcs_request_rcs_agent_launch(
+        agent_id: str,
+        company_overview: str,
+        agent_overview: str,
+        interactions: list[dict[str, Any]] | None,
+        message_examples: list[str] | None,
+        consent: dict[str, Any] | None,
+        test_video_url: str,
+        additional_information: str | None = None,
+    ) -> str:
+        """Send the launch filing
+
+        Args:
+            agent_id: (required)
+            company_overview: (required)
+            agent_overview: (required)
+            interactions: (required)
+            message_examples: (required)
+            consent: (required)
+            test_video_url: Public video of a test phone sending START, STOP and HELP plus one example conversation. (required)
+            additional_information"""
+        client = _get_client()
+        try:
+            response = client.rcs.request_rcs_agent_launch(
+                agent_id=agent_id,
+                company_overview=company_overview,
+                agent_overview=agent_overview,
+                interactions=interactions,
+                message_examples=message_examples,
+                consent=consent,
+                test_video_url=test_video_url,
+                additional_information=additional_information,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List RCS test phones",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def rcs_list_rcs_test_devices(agent_id: str) -> str:
+        """List RCS test phones
+
+        Args:
+            agent_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.rcs.list_rcs_test_devices(agent_id=agent_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Invite an RCS test phone",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def rcs_add_rcs_test_device(agent_id: str, phone_number: str) -> str:
+        """Invite an RCS test phone
+
+        Args:
+            agent_id: (required)
+            phone_number: E.164 (required)"""
+        client = _get_client()
+        try:
+            response = client.rcs.add_rcs_test_device(
+                agent_id=agent_id, phone_number=phone_number
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove an RCS test phone",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def rcs_remove_rcs_test_device(agent_id: str, test_device_id: str) -> str:
+        """Remove an RCS test phone
+
+        Args:
+            agent_id: (required)
+            test_device_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.rcs.remove_rcs_test_device(
+                agent_id=agent_id, test_device_id=test_device_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Upload an RCS logo or banner",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def rcs_upload_rcs_asset() -> str:
+        """Upload an RCS logo or banner"""
+        client = _get_client()
+        try:
+            response = client.rcs.upload_rcs_asset()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Send an RCS message",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def rcs_send_rcs_message(
+        agent_id: str,
+        to: str,
+        text: str | None = None,
+        content: dict[str, Any] | None = None,
+        fallback_text: str | None = None,
+        ttl_seconds: int | None = None,
+    ) -> str:
+        """Send an RCS message
+
+        Args:
+            agent_id: (required)
+            to: Recipient number (E.164; formatting is normalized). (required)
+            text
+            content
+            fallback_text
+            ttl_seconds: Seconds before an undelivered message expires."""
+        client = _get_client()
+        try:
+            response = client.rcs.send_rcs_message(
+                agent_id=agent_id,
+                to=to,
+                text=text,
+                content=content,
+                fallback_text=fallback_text,
+                ttl_seconds=ttl_seconds,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Check RCS capability",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def rcs_get_rcs_capabilities(agent_id: str, numbers: str) -> str:
+        """Check RCS capability
+
+        Args:
+            agent_id: (required)
+            numbers: Comma-separated E.164 numbers, max 100. (required)"""
+        client = _get_client()
+        try:
+            response = client.rcs.get_rcs_capabilities(
+                agent_id=agent_id, numbers=numbers
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # REACH_AND_FREQUENCY
 
     @mcp.tool(
@@ -22145,6 +23421,7 @@ def register_generated_tools(mcp, _get_client):
         ad_account_id: str,
         name: str,
         default_event_type: str | None = None,
+        automatic_matching_fields: list[str] | None = None,
     ) -> str:
         """Create a tracking tag
 
@@ -22152,7 +23429,8 @@ def register_generated_tools(mcp, _get_client):
             account_id: Ads SocialAccount id (platform `metaads` or `openaiads`). (required)
             ad_account_id: Meta ad account id, e.g. `act_123456789`. Required by this endpoint but ignored for OpenAI Ads. (required)
             name: (required)
-            default_event_type: OpenAI Ads only (ignored by Meta). When set, also provisions a standard conversion event setting wired to the new pixel, so `goal: conversions` ad creates on `POST /v1/ads/create` have an event to reference immediately."""
+            default_event_type: OpenAI Ads only (ignored by Meta). When set, also provisions a standard conversion event setting wired to the new pixel, so `goal: conversions` ad creates on `POST /v1/ads/create` have an event to reference immediately.
+            automatic_matching_fields: Pinterest only (400 elsewhere). Customer data the new tag matches automatically (automatic enhanced match): `em` email, `ph` phone, `fn`/`ln` name, `ge` gender, `db` date of birth, `ct`/`st`/`zp`/`country` location, `external_id`. Pinterest has one switch for the name and one for the location, so `fn` turns on `ln` too and any location code turns on all four."""
         client = _get_client()
         try:
             response = client.tracking_tags.create_tracking_tag(
@@ -22160,6 +23438,7 @@ def register_generated_tools(mcp, _get_client):
                 ad_account_id=ad_account_id,
                 name=name,
                 default_event_type=default_event_type,
+                automatic_matching_fields=automatic_matching_fields,
             )
             return _format_response(response)
         except Exception as e:
@@ -22173,16 +23452,19 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def tracking_tags_get_tracking_tag(account_id: str, tag_id: str) -> str:
+    def tracking_tags_get_tracking_tag(
+        account_id: str, tag_id: str, ad_account_id: str | None = None
+    ) -> str:
         """Get a tracking tag
 
         Args:
             account_id: (required)
-            tag_id: Pixel id. (required)"""
+            tag_id: Tag id (`TrackingTag.id`). (required)
+            ad_account_id: Scopes the lookup on platforms whose tag ids live inside an ad account. Ignored elsewhere."""
         client = _get_client()
         try:
             response = client.tracking_tags.get_tracking_tag(
-                account_id=account_id, tag_id=tag_id
+                account_id=account_id, tag_id=tag_id, ad_account_id=ad_account_id
             )
             return _format_response(response)
         except Exception as e:
@@ -22199,17 +23481,21 @@ def register_generated_tools(mcp, _get_client):
     def tracking_tags_update_tracking_tag(
         account_id: str,
         tag_id: str,
+        ad_account_id: str | None = None,
         name: str | None = None,
         enable_automatic_matching: bool | None = None,
         automatic_matching_fields: list[str] | None = None,
         first_party_cookie_status: str | None = None,
         data_use_setting: str | None = None,
+        enable_first_party_cookies: bool | None = None,
+        auto_tagging: bool | None = None,
     ) -> str:
         """Update a tracking tag
 
             Args:
                 account_id: (required)
                 tag_id: Pixel id. (required)
+                ad_account_id: Scopes the lookup on platforms whose tag ids live inside an ad account. Ignored elsewhere.
                 name
                 enable_automatic_matching: Meta Advanced Matching toggle (`enable_automatic_matching`).
                 automatic_matching_fields: Which user fields Advanced Matching may collect. Meta's
@@ -22217,17 +23503,22 @@ def register_generated_tools(mcp, _get_client):
         name, ge=gender, db=date of birth, ct=city, st=state,
         zp=zip.
                 first_party_cookie_status
-                data_use_setting"""
+                data_use_setting
+                enable_first_party_cookies: First-party cookie on or off (TikTok, LinkedIn). Platform-neutral alternative to `firstPartyCookieStatus`.
+                auto_tagging: Google Ads: turn gclid auto-tagging on or off for the ad account."""
         client = _get_client()
         try:
             response = client.tracking_tags.update_tracking_tag(
                 account_id=account_id,
                 tag_id=tag_id,
+                ad_account_id=ad_account_id,
                 name=name,
                 enable_automatic_matching=enable_automatic_matching,
                 automatic_matching_fields=automatic_matching_fields,
                 first_party_cookie_status=first_party_cookie_status,
                 data_use_setting=data_use_setting,
+                enable_first_party_cookies=enable_first_party_cookies,
+                auto_tagging=auto_tagging,
             )
             return _format_response(response)
         except Exception as e:
@@ -22312,6 +23603,406 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Install on a Shopify store or WordPress site",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def tracking_tags_install_tracking_tag_on_store(
+        account_id: str,
+        tag_id: str,
+        store_account_id: str,
+        ad_account_id: str | None = None,
+        sidebar_id: str | None = None,
+        verify_homepage: bool = True,
+    ) -> str:
+        """Install on a Shopify store or WordPress site
+
+        Args:
+            account_id: (required)
+            tag_id: Tag id (`TrackingTag.id`). (required)
+            store_account_id: The connected Shopify (`shopify`) or WordPress (`wordpress`) account id. (required)
+            ad_account_id: Scopes the tag lookup on platforms whose tag ids live inside an ad account. Ignored elsewhere.
+            sidebar_id: WordPress only: widget area to use (see `install.preflight.sidebars` from GET). Defaults to a footer area.
+            verify_homepage: WordPress only: fetch the homepage afterwards and report `homepageCheck`."""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.install_tracking_tag_on_store(
+                account_id=account_id,
+                tag_id=tag_id,
+                store_account_id=store_account_id,
+                ad_account_id=ad_account_id,
+                sidebar_id=sidebar_id,
+                verify_homepage=verify_homepage,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get store install status",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def tracking_tags_get_tracking_tag_store_install(
+        account_id: str,
+        tag_id: str,
+        store_account_id: str,
+        ad_account_id: str | None = None,
+    ) -> str:
+        """Get store install status
+
+        Args:
+            account_id: (required)
+            tag_id: Tag id (`TrackingTag.id`). (required)
+            store_account_id: The connected Shopify or WordPress account id. (required)
+            ad_account_id: Scopes the tag lookup on platforms whose tag ids live inside an ad account."""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.get_tracking_tag_store_install(
+                account_id=account_id,
+                tag_id=tag_id,
+                store_account_id=store_account_id,
+                ad_account_id=ad_account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove from a Shopify store or WordPress site",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def tracking_tags_remove_tracking_tag_from_store(
+        account_id: str,
+        tag_id: str,
+        store_account_id: str,
+        ad_account_id: str | None = None,
+    ) -> str:
+        """Remove from a Shopify store or WordPress site
+
+        Args:
+            account_id: (required)
+            tag_id: Tag id (`TrackingTag.id`). (required)
+            store_account_id: The connected Shopify or WordPress account id. (required)
+            ad_account_id: Scopes the tag lookup on platforms whose tag ids live inside an ad account."""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.remove_tracking_tag_from_store(
+                account_id=account_id,
+                tag_id=tag_id,
+                store_account_id=store_account_id,
+                ad_account_id=ad_account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List conversion events",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def tracking_tags_list_tracking_tag_events(
+        account_id: str, tag_id: str, ad_account_id: str | None = None
+    ) -> str:
+        """List conversion events
+
+        Args:
+            account_id: (required)
+            tag_id: Tag id (`TrackingTag.id`). (required)
+            ad_account_id: Scopes the lookup on platforms whose tag ids live inside an ad account."""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.list_tracking_tag_events(
+                account_id=account_id, tag_id=tag_id, ad_account_id=ad_account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a conversion event",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def tracking_tags_create_tracking_tag_event(
+        account_id: str,
+        tag_id: str,
+        name: str,
+        ad_account_id: str | None = None,
+        type: str | None = None,
+        site_event: str | None = None,
+        enabled: bool | None = None,
+        default_value: float | None = None,
+        currency: str | None = None,
+        click_window_days: int | None = None,
+        view_window_days: int | None = None,
+        url_contains: str | None = None,
+    ) -> str:
+        """Create a conversion event
+
+        Args:
+            account_id: (required)
+            tag_id: Tag id (`TrackingTag.id`). (required)
+            ad_account_id: Scopes the lookup on platforms whose tag ids live inside an ad account.
+            name: (required)
+            type: The platform's own event type enum value (e.g. `PURCHASE`).
+            site_event: Neutral alternative to `type`, mapped to the platform's closest type.
+            enabled
+            default_value
+            currency: ISO 4217 code.
+            click_window_days
+            view_window_days
+            url_contains: Fire only on pages whose URL contains this text (case-insensitive)."""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.create_tracking_tag_event(
+                account_id=account_id,
+                tag_id=tag_id,
+                ad_account_id=ad_account_id,
+                name=name,
+                type=type,
+                site_event=site_event,
+                enabled=enabled,
+                default_value=default_value,
+                currency=currency,
+                click_window_days=click_window_days,
+                view_window_days=view_window_days,
+                url_contains=url_contains,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a conversion event",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def tracking_tags_update_tracking_tag_event(
+        account_id: str,
+        tag_id: str,
+        event_id: str,
+        ad_account_id: str | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        site_event: str | None = None,
+        enabled: bool | None = None,
+        default_value: float | None = None,
+        currency: str | None = None,
+        click_window_days: int | None = None,
+        view_window_days: int | None = None,
+        url_contains: str | None = None,
+    ) -> str:
+        """Update a conversion event
+
+        Args:
+            account_id: (required)
+            tag_id: (required)
+            event_id: Event id (`TrackingTagEvent.id`). (required)
+            ad_account_id: Scopes the lookup on platforms whose tag ids live inside an ad account.
+            name
+            type: The platform's own event type enum value (e.g. `PURCHASE`).
+            site_event: Neutral alternative to `type`, mapped to the platform's closest type.
+            enabled
+            default_value
+            currency: ISO 4217 code.
+            click_window_days
+            view_window_days
+            url_contains: Fire only on pages whose URL contains this text (case-insensitive)."""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.update_tracking_tag_event(
+                account_id=account_id,
+                tag_id=tag_id,
+                event_id=event_id,
+                ad_account_id=ad_account_id,
+                name=name,
+                type=type,
+                site_event=site_event,
+                enabled=enabled,
+                default_value=default_value,
+                currency=currency,
+                click_window_days=click_window_days,
+                view_window_days=view_window_days,
+                url_contains=url_contains,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a conversion event",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def tracking_tags_delete_tracking_tag_event(
+        account_id: str, tag_id: str, event_id: str, ad_account_id: str | None = None
+    ) -> str:
+        """Delete a conversion event
+
+        Args:
+            account_id: (required)
+            tag_id: (required)
+            event_id: Event id (`TrackingTagEvent.id`). (required)
+            ad_account_id: Scopes the lookup on platforms whose tag ids live inside an ad account."""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.delete_tracking_tag_event(
+                account_id=account_id,
+                tag_id=tag_id,
+                event_id=event_id,
+                ad_account_id=ad_account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List tag users",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def tracking_tags_list_tracking_tag_users(account_id: str, tag_id: str) -> str:
+        """List tag users
+
+        Args:
+            account_id: (required)
+            tag_id: Tag id (`TrackingTag.id`). (required)"""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.list_tracking_tag_users(
+                account_id=account_id, tag_id=tag_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Assign a user to a tag",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def tracking_tags_assign_tracking_tag_user(
+        account_id: str, tag_id: str, user_id: str, tasks: list[str] | None
+    ) -> str:
+        """Assign a user to a tag
+
+        Args:
+            account_id: (required)
+            tag_id: Tag id (`TrackingTag.id`). (required)
+            user_id: (required)
+            tasks: (required)"""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.assign_tracking_tag_user(
+                account_id=account_id, tag_id=tag_id, user_id=user_id, tasks=tasks
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove a user from a tag",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def tracking_tags_remove_tracking_tag_user(
+        account_id: str, tag_id: str, user_id: str
+    ) -> str:
+        """Remove a user from a tag
+
+        Args:
+            account_id: (required)
+            tag_id: (required)
+            user_id: User id (`TrackingTagUser.id`). (required)"""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.remove_tracking_tag_user(
+                account_id=account_id, tag_id=tag_id, user_id=user_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List partner businesses of a tag",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def tracking_tags_list_tracking_tag_partners(account_id: str, tag_id: str) -> str:
+        """List partner businesses of a tag
+
+        Args:
+            account_id: (required)
+            tag_id: Tag id (`TrackingTag.id`). (required)"""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.list_tracking_tag_partners(
+                account_id=account_id, tag_id=tag_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get tag diagnostics",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def tracking_tags_get_tracking_tag_diagnostics(account_id: str, tag_id: str) -> str:
+        """Get tag diagnostics
+
+        Args:
+            account_id: (required)
+            tag_id: Tag id (`TrackingTag.id`). (required)"""
+        client = _get_client()
+        try:
+            response = client.tracking_tags.get_tracking_tag_diagnostics(
+                account_id=account_id, tag_id=tag_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get aggregated event stats",
             readOnlyHint=True,
             destructiveHint=False,
@@ -22321,6 +24012,7 @@ def register_generated_tools(mcp, _get_client):
     def tracking_tags_get_tracking_tag_stats(
         account_id: str,
         tag_id: str,
+        ad_account_id: str | None = None,
         aggregation: str = "event",
         start_time: int | None = None,
         end_time: int | None = None,
@@ -22329,8 +24021,9 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: (required)
-            tag_id: Pixel id. (required)
-            aggregation: Aggregation dimension. Defaults to `event`.
+            tag_id: Tag id (`TrackingTag.id`). (required)
+            ad_account_id: Scopes the lookup on platforms whose tag ids live inside an ad account. Ignored elsewhere.
+            aggregation: Meta only (400 on other platforms): aggregation dimension. Defaults to `event`.
             start_time: Unix seconds lower bound.
             end_time: Unix seconds upper bound."""
         client = _get_client()
@@ -22338,6 +24031,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.tracking_tags.get_tracking_tag_stats(
                 account_id=account_id,
                 tag_id=tag_id,
+                ad_account_id=ad_account_id,
                 aggregation=aggregation,
                 start_time=start_time,
                 end_time=end_time,
@@ -23132,6 +24826,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def voice_get_voice_call_estimate(
         to: str,
+        from_: str | None = None,
         minutes: int = 1,
         recording: bool | None = None,
         transcription: bool | None = None,
@@ -23140,13 +24835,18 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             to: Destination number, E.164 (leading + optional). (required)
+            from_: The number the call would dial from, E.164. When it is verified on a Branded Calling identity and `to` is a US number, the estimate includes the per-call Branded Calling surcharge.
             minutes
             recording
             transcription"""
         client = _get_client()
         try:
             response = client.voice.get_voice_call_estimate(
-                to=to, minutes=minutes, recording=recording, transcription=transcription
+                to=to,
+                from_=from_,
+                minutes=minutes,
+                recording=recording,
+                transcription=transcription,
             )
             return _format_response(response)
         except Exception as e:

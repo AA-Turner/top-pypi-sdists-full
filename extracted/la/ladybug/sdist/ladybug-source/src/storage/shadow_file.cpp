@@ -45,6 +45,7 @@ void ShadowFile::setDatabasePath(const std::string& databasePath_) {
 }
 
 void ShadowFile::clearShadowPage(file_idx_t originalFile, page_idx_t originalPage) {
+    std::unique_lock lck{mtx};
     if (hasShadowPage(originalFile, originalPage)) {
         shadowPagesMap.at(originalFile).erase(originalPage);
         if (shadowPagesMap.at(originalFile).empty()) {
@@ -53,20 +54,87 @@ void ShadowFile::clearShadowPage(file_idx_t originalFile, page_idx_t originalPag
     }
 }
 
-page_idx_t ShadowFile::getOrCreateShadowPage(file_idx_t originalFile, page_idx_t originalPage) {
-    if (hasShadowPage(originalFile, originalPage)) {
-        return shadowPagesMap[originalFile][originalPage];
-    }
+page_idx_t ShadowFile::createShadowPage(file_idx_t originalFile, page_idx_t originalPage) {
+    DASSERT(!hasShadowPage(originalFile, originalPage));
+    std::unique_lock lck{mtx};
     const auto shadowPageIdx = getOrCreateShadowingFH()->addNewPage();
-    shadowPagesMap[originalFile][originalPage] = shadowPageIdx;
+    // Records must stay in the same order as the shadow pages (see applyShadowPages). Readers
+    // only use shadowPagesMap, so the page is not visible to them until it is published.
     shadowPageRecords.push_back({originalFile, originalPage});
     return shadowPageIdx;
+}
+
+void ShadowFile::publishShadowPage(file_idx_t originalFile, page_idx_t originalPage,
+    page_idx_t shadowPageIdx) {
+    std::unique_lock lck{mtx};
+    shadowPagesMap[originalFile][originalPage] = shadowPageIdx;
+    // Pairs with the acquire load in readShadowVersionIfExists.
+    hasShadowPages.store(true, std::memory_order_release);
+}
+
+ShadowFile::ShadowSavepoint ShadowFile::createSavepoint() const {
+    std::shared_lock lck{mtx};
+    return shadowPageRecords.size();
+}
+
+void ShadowFile::rollbackToSavepoint(ShadowSavepoint savepoint) {
+    std::unique_lock lck{mtx};
+    DASSERT(savepoint <= shadowPageRecords.size());
+    if (savepoint == shadowPageRecords.size()) {
+        return;
+    }
+    // Drop the map entries for shadow pages created since the savepoint. An entry may
+    // already be gone if its page was reclaimed via clearShadowPage, so tolerate misses.
+    for (auto i = savepoint; i < shadowPageRecords.size(); i++) {
+        const auto& record = shadowPageRecords[i];
+        auto fileIt = shadowPagesMap.find(record.originalFileIdx);
+        if (fileIt != shadowPagesMap.end()) {
+            fileIt->second.erase(record.originalPageIdx);
+            if (fileIt->second.empty()) {
+                shadowPagesMap.erase(fileIt);
+            }
+        }
+    }
+    if (shadowingFH != nullptr) {
+        // Evict the dropped pages' frames without flushing: their contents belong to the
+        // failed checkpoint attempt and must not reach the data file. Frames of other
+        // groups' shadow pages are left untouched. removePageFromFrameIfNecessary skips
+        // pages that are not in a frame.
+        const auto numPages = shadowingFH->getNumPages();
+        for (auto pageIdx = savepoint + 1; pageIdx < numPages; pageIdx++) {
+            shadowingFH->removePageFromFrameIfNecessary(static_cast<page_idx_t>(pageIdx));
+        }
+        // Truncate the page counter so later allocations reuse the freed indices, keeping
+        // shadowPageRecords[i] describing shadow page i+1. Frame groups are retained at
+        // their high-water mark and reused when the file grows again. Stale bytes possibly
+        // left on disk past the truncation point are harmless: createShadowPage pins new
+        // pages without reading them and fills them with the original page contents.
+        shadowingFH->removePageIdxAndTruncateIfNecessary(static_cast<page_idx_t>(savepoint + 1));
+    }
+    shadowPageRecords.resize(savepoint);
+    hasShadowPages.store(!shadowPagesMap.empty(), std::memory_order_relaxed);
 }
 
 page_idx_t ShadowFile::getShadowPage(file_idx_t originalFile, page_idx_t originalPage) const {
     DASSERT(hasShadowPage(originalFile, originalPage));
     return shadowPagesMap.at(originalFile).at(originalPage);
 }
+
+bool ShadowFile::readShadowVersionIfExists(file_idx_t originalFile, page_idx_t originalPage,
+    const std::function<void(uint8_t*)>& readOp) const {
+    if (!hasShadowPages.load(std::memory_order_acquire)) {
+        return false;
+    }
+    std::shared_lock lck{mtx};
+    if (!hasShadowPage(originalFile, originalPage)) {
+        return false;
+    }
+    // Optimistic reads let concurrent readers share the page and retry if the checkpointer is
+    // updating it at the same time.
+    shadowingFH->optimisticReadPage(shadowPagesMap.at(originalFile).at(originalPage), readOp);
+    return true;
+}
+
 void ShadowFile::applyShadowPages(StorageManager& storageManager, ClientContext& context) const {
     const auto pageBuffer = std::make_unique<uint8_t[]>(LBUG_PAGE_SIZE);
     page_idx_t shadowPageIdx = 1; // Skip header page.
@@ -191,6 +259,8 @@ void ShadowFile::flushAll(main::ClientContext& context) const {
 
 void ShadowFile::clear(BufferManager& bm) {
     DASSERT(shadowingFH);
+    // Concurrent readers may be reading shadow pages (see readShadowVersionIfExists).
+    std::unique_lock lck{mtx};
     // Evict pages, truncate to zero pages (which also truncates the on-disk file), then unlink
     // the path and drop the stale fd so no leftover .shadow file exists at rest (a present
     // .shadow is treated as "checkpoint in progress" by recovery/startup probes). The
@@ -203,6 +273,7 @@ void ShadowFile::clear(BufferManager& bm) {
     vfs->removeFileIfExists(shadowFilePath);
     shadowPagesMap.clear();
     shadowPageRecords.clear();
+    hasShadowPages.store(false, std::memory_order_relaxed);
 }
 
 void ShadowFile::reset() {
@@ -218,6 +289,7 @@ void ShadowFile::reset() {
     if (shadowingFH == nullptr) {
         return;
     }
+    std::unique_lock lck{mtx};
     // If clear() already ran (the normal checkpoint flow calls both), the file was truncated,
     // unlinked and the fd dropped; just make sure the in-memory maps are empty.
     if (shadowingFH->getFileInfo() != nullptr) {
@@ -228,6 +300,7 @@ void ShadowFile::reset() {
     }
     shadowPagesMap.clear();
     shadowPageRecords.clear();
+    hasShadowPages.store(false, std::memory_order_relaxed);
 }
 
 FileHandle* ShadowFile::getOrCreateShadowingFH() {

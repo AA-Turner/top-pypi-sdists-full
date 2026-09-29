@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Annotated, Any, NoReturn
 
 import typer
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 from rich.console import Console
 from rich.table import Table
 
@@ -847,6 +847,19 @@ def mcp_config_from_flags(enabled: bool | None, port: int | None, path: str | No
     )
 
 
+_ARTIFACT_METADATA = TypeAdapter(dict[str, JsonValue])
+
+
+def metadata_from_flag(raw: str | None) -> dict[str, JsonValue] | None:
+    """Parse --metadata: a JSON object stored on the artifact as-is."""
+    if raw is None:
+        return None
+    try:
+        return _ARTIFACT_METADATA.validate_json(raw)
+    except ValidationError:
+        raise typer.BadParameter('must be a JSON object, e.g. \'{"ref": "abc123"}\'', param_hint="--metadata") from None
+
+
 SnapshotResponse = AppApiV2SchemasSessionCreateSnapshotResponse | CreateSnapshotResult | CreateCheckpointResult
 
 
@@ -1015,6 +1028,13 @@ def sandbox_snapshot(
             help="Free text stored on the artifact, e.g. to mark a throwaway or gate snapshot for later cleanup.",
         ),
     ] = None,
+    metadata: Annotated[
+        str | None,
+        typer.Option(
+            "--metadata",
+            help='JSON object stored on the artifact as additional_metadata, e.g. \'{"ref": "abc123"}\'. Not inherited from the parent artifact.',
+        ),
+    ] = None,
     wait: Annotated[
         bool,
         typer.Option(
@@ -1047,9 +1067,11 @@ def sandbox_snapshot(
         plato sandbox snapshot --mcp-port 3000 --mcp-path /api/mcp   # Serve MCP from the artifact (implies --mcp-enabled)
         plato sandbox snapshot --no-mcp-enabled   # Turn the artifact's MCP endpoint off
         plato sandbox snapshot --description 'ci gate: safe to delete'   # Label the artifact
+        plato sandbox snapshot --metadata '{"ref": "abc123"}'   # Attach freeform metadata
     """
     # Raised outside sandbox_context so a bad flag is a usage error, not a run failure.
     mcp = mcp_config_from_flags(mcp_enabled, mcp_port, mcp_path)
+    additional_metadata = metadata_from_flag(metadata)
 
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
         _renew_lease()
@@ -1068,6 +1090,7 @@ def sandbox_snapshot(
                 target=target,
                 mcp=mcp,
                 description=description,
+                additional_metadata=additional_metadata,
             )
             _report_snapshot(client, out, full_response, wait=wait, timeout=timeout)
             return
@@ -1082,6 +1105,7 @@ def sandbox_snapshot(
                 target=target,
                 mcp=mcp,
                 description=description,
+                additional_metadata=additional_metadata,
             )
             _report_snapshot(client, out, response, wait=wait, timeout=timeout)
             return
@@ -1094,6 +1118,7 @@ def sandbox_snapshot(
             target=target,
             mcp=mcp,
             description=description,
+            additional_metadata=additional_metadata,
         )
         _report_snapshot(client, out, response, wait=wait, timeout=timeout)
 

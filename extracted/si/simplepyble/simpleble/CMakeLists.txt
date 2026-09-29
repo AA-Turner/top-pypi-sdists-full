@@ -42,6 +42,9 @@ set(SIMPLEBLE_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/base/Service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/base/Characteristic.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/base/Descriptor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/base/LocalPeripheral.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/base/LocalService.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/base/LocalCharacteristic.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/base/Backend.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/common/AdapterBase.cpp
@@ -50,6 +53,7 @@ set(SIMPLEBLE_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/common/DescriptorBase.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Config.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Error.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Exceptions.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Logging.cpp
@@ -112,45 +116,29 @@ list(APPEND PRIVATE_COMPILE_DEFINITIONS SIMPLEBLE_LOG_LEVEL=SIMPLEBLE_LOG_LEVEL_
 list(APPEND PRIVATE_COMPILE_DEFINITIONS SIMPLEBLE_VERSION="${SIMPLEBLE_VERSION}")
 list(APPEND PRIVATE_COMPILE_DEFINITIONS FMT_HEADER_ONLY)
 
+set(SIMPLEBLE_BACKEND_LINUX OFF)
+set(SIMPLEBLE_BACKEND_WINDOWS OFF)
+set(SIMPLEBLE_BACKEND_MACOS OFF)
+set(SIMPLEBLE_BACKEND_IOS OFF)
+set(SIMPLEBLE_BACKEND_ANDROID OFF)
+
 if(NOT SIMPLEBLE_TEST AND NOT SIMPLEBLE_PLAIN)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         set(SIMPLEBLE_BACKEND_LINUX ON)
-    else()
-        set(SIMPLEBLE_BACKEND_LINUX OFF)
-    endif()
-
-    if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
         set(SIMPLEBLE_BACKEND_WINDOWS ON)
-    else()
-        set(SIMPLEBLE_BACKEND_WINDOWS OFF)
-    endif()
-
-    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-        set(SIMPLEBLE_BACKEND_MACOS ON)
-    else()
-        set(SIMPLEBLE_BACKEND_MACOS OFF)
-    endif()
-
-    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_CXX_COMPILER_TARGET MATCHES "-macabi$")
+        # Catalyst uses the iOS backend, without macOS-only IOBluetooth/IOKit APIs.
         set(SIMPLEBLE_BACKEND_IOS ON)
-    else()
-        set(SIMPLEBLE_BACKEND_IOS OFF)
-    endif()
-
-    if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        set(SIMPLEBLE_BACKEND_MACOS ON)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
         set(SIMPLEBLE_BACKEND_ANDROID ON)
-    else()
-        set(SIMPLEBLE_BACKEND_ANDROID OFF)
     endif()
-else()
-    set(SIMPLEBLE_BACKEND_LINUX OFF)
-    set(SIMPLEBLE_BACKEND_WINDOWS OFF)
-    set(SIMPLEBLE_BACKEND_MACOS OFF)
-    set(SIMPLEBLE_BACKEND_IOS OFF)
-    set(SIMPLEBLE_BACKEND_ANDROID OFF)
 endif()
 
-target_compile_definitions(simpleble PRIVATE
+target_compile_definitions(simpleble PUBLIC
+                        SIMPLEBLE_BACKEND_DONGL=1
                         SIMPLEBLE_BACKEND_PLAIN=$<BOOL:${SIMPLEBLE_PLAIN}>
                         SIMPLEBLE_BACKEND_LINUX=$<BOOL:${SIMPLEBLE_BACKEND_LINUX}>
                         SIMPLEBLE_BACKEND_WINDOWS=$<BOOL:${SIMPLEBLE_BACKEND_WINDOWS}>
@@ -162,9 +150,11 @@ target_compile_definitions(simpleble PRIVATE
 set(SIMPLEBLE_DONGL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/usb/UsbHelper.cpp
 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/AdvancedDongl.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/BackendDongl.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/AdapterDongl.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/PeripheralDongl.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/Utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/serial/Protocol.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/serial/ProtocolBase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/serial/Wire.cpp
@@ -231,6 +221,9 @@ elseif(SIMPLEBLE_BACKEND_LINUX)
 
     target_sources(simpleble PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux/AdapterLinux.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux/LocalCharacteristicLinux.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux/LocalPeripheralLinux.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux/LocalServiceLinux.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux/PeripheralLinux.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux/BackendBluez.cpp
 
@@ -289,6 +282,8 @@ elseif(SIMPLEBLE_BACKEND_LINUX)
 elseif(SIMPLEBLE_BACKEND_WINDOWS)
     message(STATUS "Windows Host Detected")
 
+    target_link_libraries(simpleble PUBLIC setupapi)
+
     set(WINVERSION_CODE 0x0A00) # Selected Windows 10 based on https://docs.microsoft.com/en-us/cpp/porting/modifying-winver-and-win32-winnt
 
     if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -314,6 +309,9 @@ elseif(SIMPLEBLE_BACKEND_WINDOWS)
 
     target_sources(simpleble PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/windows/AdapterWindows.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/windows/LocalCharacteristicWindows.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/windows/LocalPeripheralWindows.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/windows/LocalServiceWindows.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/windows/PeripheralWindows.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/windows/BackendWinRT.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/windows/MtaManager.cpp
@@ -334,6 +332,10 @@ elseif(SIMPLEBLE_BACKEND_MACOS OR SIMPLEBLE_BACKEND_IOS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/macos/Utils.mm
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/macos/AdapterMac.mm
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/macos/AdapterBaseMacOS.mm
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/macos/LocalCharacteristicMac.mm
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/macos/LocalPeripheralMac.mm
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/macos/LocalPeripheralBaseMacOS.mm
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/macos/LocalServiceMac.mm
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/macos/PeripheralMac.mm
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/macos/PeripheralBaseMacOS.mm
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/macos/BackendCoreBluetooth.mm)
@@ -357,16 +359,27 @@ elseif(SIMPLEBLE_BACKEND_ANDROID)
     target_sources(simpleble PRIVATE
         ${SIMPLEJNI_SOURCES}
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/AdapterAndroid.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/LocalCharacteristicAndroid.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/LocalPeripheralAndroid.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/LocalServiceAndroid.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/PeripheralAndroid.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/BackendAndroid.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/bridge/AdvertiseCallback.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/bridge/BluetoothGattCallback.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/bridge/GattServerCallback.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/bridge/ScanCallback.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/BluetoothAdapter.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/BluetoothDevice.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/BluetoothGatt.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/BluetoothGattServer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/BluetoothGattService.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/BluetoothGattCharacteristic.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/BluetoothGattDescriptor.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/BluetoothManager.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/content/Context.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/le/AdvertiseData.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/le/AdvertiseSettings.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/le/BluetoothLeAdvertiser.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/bluetooth/le/BluetoothScanner.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/java/util/UUID.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/android/os/ParcelUUID.cpp

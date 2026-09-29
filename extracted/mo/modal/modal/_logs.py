@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 class LogsFilters:
     source: "api_pb2.FileDescriptor.ValueType" = api_pb2.FILE_DESCRIPTOR_UNSPECIFIED
     function_id: str = ""
+    parametrized_function_id: str = ""
     function_call_id: str = ""
     task_id: str = ""
     sandbox_id: str = ""
@@ -249,12 +250,13 @@ async def _refine_dense_ranges(
                     bucket_secs=smaller_secs,
                     source=filters.source,
                     function_id=filters.function_id,
+                    parametrized_function_id=filters.parametrized_function_id,
                     function_call_id=filters.function_call_id,
                     task_id=filters.task_id,
                     sandbox_id=filters.sandbox_id,
                     search_text=filters.search_text,
                 )
-                sub_resp = await client.stub.AppCountLogs(sub_req)
+                sub_resp = await client._stub.AppCountLogs(sub_req)
                 sub_ranges = _buckets_to_ranges(list(sub_resp.buckets), smaller_secs)
                 # Clamp the edge sub-ranges to the parent boundaries. Bucket
                 # alignment can make the first bucket begin before the parent
@@ -303,12 +305,13 @@ async def _fetch_interval(
         limit=limit,
         source=filters.source,
         function_id=filters.function_id,
+        parametrized_function_id=filters.parametrized_function_id,
         function_call_id=filters.function_call_id,
         task_id=filters.task_id,
         sandbox_id=filters.sandbox_id,
         search_text=filters.search_text,
     )
-    resp: api_pb2.AppFetchLogsResponse = await client.stub.AppFetchLogs(req)
+    resp: api_pb2.AppFetchLogsResponse = await client._stub.AppFetchLogs(req)
     return list(resp.batches)
 
 
@@ -356,12 +359,13 @@ async def tail_logs(
             limit=n,
             source=filters.source,
             function_id=filters.function_id,
+            parametrized_function_id=filters.parametrized_function_id,
             function_call_id=filters.function_call_id,
             task_id=filters.task_id,
             sandbox_id=filters.sandbox_id,
             search_text=filters.search_text,
         )
-        resp = await client.stub.AppFetchLogs(req)
+        resp = await client._stub.AppFetchLogs(req)
         for batch in resp.batches:
             yield batch
         return
@@ -377,12 +381,13 @@ async def tail_logs(
             limit=n,
             source=filters.source,
             function_id=filters.function_id,
+            parametrized_function_id=filters.parametrized_function_id,
             function_call_id=filters.function_call_id,
             task_id=filters.task_id,
             sandbox_id=filters.sandbox_id,
             search_text=filters.search_text,
         )
-        resp = await client.stub.AppFetchLogs(req)
+        resp = await client._stub.AppFetchLogs(req)
 
         total_items = sum(len(b.items) for b in resp.batches)
         if total_items >= n or lookback == _TAIL_LOOKBACKS[-1]:
@@ -422,12 +427,13 @@ async def fetch_logs(
         bucket_secs=bucket_secs,
         source=filters.source,
         function_id=filters.function_id,
+        parametrized_function_id=filters.parametrized_function_id,
         function_call_id=filters.function_call_id,
         task_id=filters.task_id,
         sandbox_id=filters.sandbox_id,
         search_text=filters.search_text,
     )
-    count_resp: api_pb2.AppCountLogsResponse = await client.stub.AppCountLogs(count_req)
+    count_resp: api_pb2.AppCountLogsResponse = await client._stub.AppCountLogs(count_req)
 
     ranges = _buckets_to_ranges(list(count_resp.buckets), bucket_secs)
     total_logs = sum(count for _, _, count in ranges)

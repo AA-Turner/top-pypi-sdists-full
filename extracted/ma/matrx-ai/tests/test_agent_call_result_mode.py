@@ -24,7 +24,7 @@ async def test_agent_call_reference_never_stores_incomplete_child(
     from matrx_ai.tools.models import ToolContext
 
     @contextlib.asynccontextmanager
-    async def acting_as_caller():
+    async def acting_as_caller(_ctx=None):
         yield
 
     monkeypatch.setitem(ext._registry, "acting_as_caller", acting_as_caller)

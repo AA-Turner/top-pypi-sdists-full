@@ -105,6 +105,11 @@ class TaskCommandRouterStub(object):
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessResponse.FromString,
                 )
+        self.TaskSetOutboundPolicy = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskSetOutboundPolicy',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyResponse.FromString,
+                )
         self.TaskSnapshotDirectory = channel.unary_unary(
                 '/modal.task_command_router.TaskCommandRouter/TaskSnapshotDirectory',
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryRequest.SerializeToString,
@@ -257,6 +262,13 @@ class TaskCommandRouterServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def TaskSetOutboundPolicy(self, request, context):
+        """Replace the task's outbound policy.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def TaskSnapshotDirectory(self, request, context):
         """Snapshot a directory with a mounted image, including any local changes, into a new image.
         """
@@ -380,6 +392,11 @@ def add_TaskCommandRouterServicer_to_server(servicer, server):
                     servicer.TaskSetNetworkAccess,
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessRequest.FromString,
                     response_serializer=modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessResponse.SerializeToString,
+            ),
+            'TaskSetOutboundPolicy': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskSetOutboundPolicy,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyResponse.SerializeToString,
             ),
             'TaskSnapshotDirectory': grpc.unary_unary_rpc_method_handler(
                     servicer.TaskSnapshotDirectory,
@@ -714,6 +731,23 @@ class TaskCommandRouter(object):
         return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskSetNetworkAccess',
             modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessRequest.SerializeToString,
             modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TaskSetOutboundPolicy(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskSetOutboundPolicy',
+            modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

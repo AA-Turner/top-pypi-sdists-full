@@ -228,61 +228,68 @@ class CoreState(ABC):  # pylint: disable=R0904
         """Delete one federation-app association; its FAB remains in state."""
 
     @abstractmethod
-    def upsert_connector(
+    def create_connector(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
-        flwr_aid: str,
+        federation_id: str,
         connector_ref: str,
         credentials_json: str,
         config_json: str,
-    ) -> bool:
-        """Create or update a connector for an account.
+        created_by: str,
+    ) -> int | None:
+        """Create a connector for a federation.
 
         Parameters
         ----------
-        flwr_aid : str
-            Account ID owning the connector.
+        federation_id : str
+            Federation ID owning the connector.
         connector_ref : str
-            Connector reference unique within the account.
+            Connector reference.
         credentials_json : str
             Serialized connector credentials.
         config_json : str
             Serialized connector configuration.
+        created_by : str
+            Account ID creating the connector.
 
         Returns
         -------
-        bool
-            ``True`` if the connector was stored, otherwise ``False``.
+        int | None
+            The connector ID if the connector is created, otherwise ``None``.
         """
 
     @abstractmethod
-    def get_connector(
-        self, flwr_aid: str, connector_ref: str
-    ) -> ConnectorRecord | None:
-        """Return an account's connector, if present.
+    def get_connectors_by_ref(
+        self, federation_id: str, connector_ref: str
+    ) -> Sequence[ConnectorRecord]:
+        """Return a federation's connectors for one provider.
 
         Parameters
         ----------
-        flwr_aid : str
-            Account ID owning the connector.
+        federation_id : str
+            Federation ID owning the connector.
         connector_ref : str
-            Connector reference unique within the account.
+            Connector reference.
 
         Returns
         -------
-        ConnectorRecord | None
-            The stored connector, or `None` if it does not exist.
+        Sequence[ConnectorRecord]
+            The stored connectors.
         """
 
     @abstractmethod
-    def delete_connector(self, flwr_aid: str, connector_ref: str) -> bool:
-        """Delete an account's connector if it exists.
+    def get_connector_by_id(self, connector_id: int) -> ConnectorRecord | None:
+        """Return a connector by ID, if present."""
+
+    @abstractmethod
+    def delete_connector(self, federation_id: str, connector_id: int) -> bool:
+        """Delete a federation's connector if it exists.
 
         Parameters
         ----------
-        flwr_aid : str
-            Account ID owning the connector.
-        connector_ref : str
-            Connector reference unique within the account.
+        federation_id : str
+            Federation ID owning the connector.
+        connector_id : int
+            ID of the connector to delete.
 
         Returns
         -------
@@ -291,20 +298,19 @@ class CoreState(ABC):  # pylint: disable=R0904
         """
 
     @abstractmethod
-    def bind_connectors_to_run(
-        self, run_id: int, connector_refs: Sequence[str]
-    ) -> bool:
-        """Associate connector references with a run."""
+    def bind_connectors_to_run(self, run_id: int, connector_ids: Sequence[int]) -> bool:
+        """Associate connector IDs with a run."""
 
     @abstractmethod
-    def get_run_connector_refs(self, run_id: int) -> Sequence[str]:
-        """Return connector references associated with a run."""
+    def get_run_connector_ids(self, run_id: int) -> Sequence[int]:
+        """Return connector IDs associated with a run."""
 
     @abstractmethod
     def create_connector_oauth_session(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         oauth_session_id: str,
         flwr_aid: str,
+        federation_id: str,
         connector_ref: str,
         state: str,
         redirect_uri: str,
@@ -319,6 +325,8 @@ class CoreState(ABC):  # pylint: disable=R0904
             Unique ID of the OAuth session.
         flwr_aid : str
             Account ID owning the OAuth session.
+        federation_id : str
+            Federation receiving the connector.
         connector_ref : str
             Reference of the connector being authorized.
         state : str
@@ -728,6 +736,7 @@ class CoreState(ABC):  # pylint: disable=R0904
         fab_hash: str | None = None,
         model_ref: str | None = None,
         connector_ref: str | None = None,
+        connector_id: int | None = None,
         requesting_task_id: int | None = None,
     ) -> int | None:
         """Create a new task.
@@ -744,6 +753,8 @@ class CoreState(ABC):  # pylint: disable=R0904
             Model reference associated with the task, if applicable.
         connector_ref : Optional[str] (default: None)
             Connector reference associated with the task, if applicable.
+        connector_id : Optional[int] (default: None)
+            Connector ID associated with the task, if applicable.
         requesting_task_id : Optional[int] (default: None)
             Task requesting creation of the new task. If set, task creation fails
             when the requesting task does not exist or is already finished.

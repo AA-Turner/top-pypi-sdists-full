@@ -13,6 +13,57 @@ from typing import Any, Literal, TypeAlias
 from uuid import uuid4
 
 from slackblocks._core import RenderableMixin, resolve
+from slackblocks._limits import (
+    ACTIONS_ELEMENTS_MAX_ITEMS,
+    ALERT_TEXT_MAX_LENGTH,
+    BLOCK_ID_MAX_LENGTH,
+    CARD_ACTIONS_MAX_ITEMS,
+    CARD_BODY_MAX_LENGTH,
+    CARD_SUBTEXT_MAX_LENGTH,
+    CARD_SUBTITLE_MAX_LENGTH,
+    CARD_TITLE_MAX_LENGTH,
+    CAROUSEL_ELEMENTS_MAX_ITEMS,
+    CAROUSEL_ELEMENTS_MIN_ITEMS,
+    CONTAINER_CHILD_BLOCKS_MAX_ITEMS,
+    CONTAINER_CHILD_BLOCKS_MIN_ITEMS,
+    CONTAINER_SUBTITLE_MAX_LENGTH,
+    CONTAINER_TITLE_MAX_LENGTH,
+    CONTEXT_ACTIONS_ELEMENTS_MAX_ITEMS,
+    CONTEXT_ELEMENTS_MAX_ITEMS,
+    DATA_TABLE_CELL_TEXT_MIN_LENGTH,
+    DATA_TABLE_COLUMNS_MAX_ITEMS,
+    DATA_TABLE_COLUMNS_MIN_ITEMS,
+    DATA_TABLE_CONTENT_MAX_LENGTH,
+    DATA_TABLE_PAGE_SIZE_MAX,
+    DATA_TABLE_PAGE_SIZE_MIN,
+    DATA_TABLE_ROW_HEADER_COLUMN_INDEX_MIN,
+    DATA_TABLE_ROWS_MAX_ITEMS,
+    DATA_TABLE_ROWS_MIN_ITEMS,
+    DATA_VISUALIZATION_TITLE_MAX_LENGTH,
+    HEADER_TEXT_MAX_LENGTH,
+    IMAGE_ALT_TEXT_MAX_LENGTH,
+    IMAGE_IMAGE_URL_MAX_LENGTH,
+    IMAGE_TITLE_MAX_LENGTH,
+    INPUT_HINT_MAX_LENGTH,
+    INPUT_LABEL_MAX_LENGTH,
+    MARKDOWN_TEXT_MAX_LENGTH,
+    PLAN_TASKS_MAX_ITEMS,
+    SECTION_FIELDS_ITEM_MAX_LENGTH,
+    SECTION_FIELDS_MAX_ITEMS,
+    SECTION_TEXT_MAX_LENGTH,
+    TABLE_COLUMN_SETTINGS_MAX_ITEMS,
+    TABLE_COLUMNS_MAX_ITEMS,
+    TABLE_ROWS_MAX_ITEMS,
+    VIDEO_ALT_TEXT_MAX_LENGTH,
+    VIDEO_AUTHOR_NAME_MAX_LENGTH,
+    VIDEO_DESCRIPTION_MAX_LENGTH,
+    VIDEO_PROVIDER_ICON_URL_MAX_LENGTH,
+    VIDEO_PROVIDER_NAME_MAX_LENGTH,
+    VIDEO_THUMBNAIL_URL_MAX_LENGTH,
+    VIDEO_TITLE_MAX_LENGTH,
+    VIDEO_TITLE_URL_MAX_LENGTH,
+    VIDEO_VIDEO_URL_MAX_LENGTH,
+)
 from slackblocks.elements import (
     Button,
     ChannelMultiSelectMenu,
@@ -57,6 +108,7 @@ from slackblocks.objects import (
     CompositionObjectType,
     RawNumber,
     RawText,
+    SlackFile,
     SlackIcon,
     Text,
     TextLike,
@@ -150,8 +202,9 @@ class Block(RenderableMixin, ABC):
     def __init__(self, type_: BlockType, block_id: str | None = None) -> None:
         self.type = type_
         self.block_id = validate_string(
-            block_id, "block_id", max_length=255, allow_none=True
+            block_id, "block_id", max_length=BLOCK_ID_MAX_LENGTH, allow_none=True
         ) or str(uuid4())
+        self._generated_block_id = self.block_id != block_id
 
     def __add__(self, other: Block):
         return [self, other]
@@ -249,7 +302,7 @@ class ActionsBlock(Block):
     ) -> None:
         super().__init__(type_=BlockType.ACTIONS, block_id=block_id)
         self.elements: list[Element] | None = coerce_to_list(
-            elements, (Element), allow_none=True, max_size=25
+            elements, (Element), allow_none=True, max_size=ACTIONS_ELEMENTS_MAX_ITEMS
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -296,7 +349,7 @@ class ContextBlock(Block):
                     raise TypeMismatchError(
                         f"Context blocks can only hold image and text elements, not {element.type}"
                     )
-        if len(self.elements) > 10:
+        if len(self.elements) > CONTEXT_ELEMENTS_MAX_ITEMS:
             raise LengthError("Context blocks can hold a maximum of ten elements")
 
     def _resolve(self) -> dict[str, Any]:
@@ -365,7 +418,7 @@ class FileBlock(Block):
     ) -> None:
         super().__init__(type_=BlockType.FILE, block_id=block_id)
         self.external_id = external_id
-        self.source = source
+        self.source = validate_string(source, "source")
 
     def _resolve(self) -> dict[str, Any]:
         return {
@@ -397,7 +450,9 @@ class HeaderBlock(Block):
 
     def __init__(self, text: str | Text, block_id: str | None = None) -> None:
         super().__init__(type_=BlockType.HEADER, block_id=block_id)
-        self.text = Text.to_text_nonnull(text=text, force_plaintext=True, max_length=150)
+        self.text = Text.to_text_nonnull(
+            text=text, force_plaintext=True, max_length=HEADER_TEXT_MAX_LENGTH
+        )
 
     def _resolve(self) -> dict[str, Any]:
         return resolve({**self._attributes(), "text": self.text})
@@ -412,67 +467,74 @@ class HeaderBlock(Block):
 
 class ImageBlock(Block):
     """
-    An Image Block contains a single graphic, accessed by URL.
+    An Image Block contains a single graphic, accessed by URL or hosted in Slack.
+
+    Exactly one of `image_url` or `slack_file` must be provided.
 
     Args:
         image_url: the URL pointing to the image file you want to display.
         alt_text: alternative text for accessibility purposes and when the image fails to load.
-        title: an optional text title to be presented with the image.
+        title: an optional text title to be presented with the image (max 2000 chars).
         block_id: you can use this field to provide a deterministic identifier for the block.
+        slack_file: a [`SlackFile`](/slackblocks/latest/reference/objects/#objects.SlackFile)
+            to display in place of `image_url`.
 
     Throws:
-        InvalidUsageError: when one or more of the provided args fails validation.
+        InvalidUsageError: when one or more of the provided args fails validation,
+            or both/neither of `image_url` and `slack_file` are provided.
     """
 
     def __init__(
         self,
-        image_url: str,
+        image_url: str | None = None,
         alt_text: str | None = " ",
         title: Text | str | None = None,
         block_id: str | None = None,
+        slack_file: SlackFile | None = None,
     ) -> None:
         super().__init__(type_=BlockType.IMAGE, block_id=block_id)
+        if image_url is None and slack_file is None:
+            raise MissingRequiredError("ImageBlock requires one of `image_url` or `slack_file`.")
+        if image_url is not None and slack_file is not None:
+            raise MutualExclusivityError(
+                "ImageBlock cannot have both `image_url` and `slack_file`."
+            )
         self.image_url = validate_string(
             string=image_url,
-            field_name="title",
-            max_length=3000,
+            field_name="image_url",
+            max_length=IMAGE_IMAGE_URL_MAX_LENGTH,
+            allow_none=True,
         )
-        self.alt_text = validate_string(alt_text, field_name="alt_text", max_length=2000)
-        if title and isinstance(title, Text):
-            if title.text_type == TextType.MARKDOWN:
-                # Coerce title into plaintext
-                self.title = Text(
-                    text=title.text,
-                    type_=TextType.PLAINTEXT,
-                    emoji=title.emoji,
-                    verbatim=title.verbatim,
-                )
-            else:
-                self.title = title
-        elif isinstance(title, str):
-            self.title = Text(text=title, type_=TextType.PLAINTEXT)
+        self.slack_file = validate_type(slack_file, SlackFile, "slack_file", allow_none=True)
+        self.alt_text = validate_string(
+            alt_text, field_name="alt_text", max_length=IMAGE_ALT_TEXT_MAX_LENGTH
+        )
+        self.title = Text.to_text(
+            title, force_plaintext=True, max_length=IMAGE_TITLE_MAX_LENGTH, allow_none=True
+        )
 
     def _resolve(self) -> dict[str, Any]:
         return resolve(
             {
                 **self._attributes(),
                 "image_url": self.image_url,
+                "slack_file": self.slack_file,
                 "alt_text": self.alt_text if self.alt_text else None,
-                "title": getattr(self, "title", None),
+                "title": self.title,
             }
         )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ImageBlock:
         """Parse a Slack ``image`` block payload."""
-        if "image_url" not in data:
-            raise MissingRequiredError("ImageBlock payload is missing required `image_url` field.")
         title_raw = data.get("title")
+        slack_file_raw = data.get("slack_file")
         return cls(
-            image_url=data["image_url"],
+            image_url=data.get("image_url"),
             alt_text=data.get("alt_text", " "),
             title=Text.from_dict(title_raw) if title_raw is not None else None,
             block_id=data.get("block_id"),
+            slack_file=SlackFile.from_dict(slack_file_raw) if slack_file_raw is not None else None,
         )
 
 
@@ -506,14 +568,18 @@ class InputBlock(Block):
         optional: bool = False,
     ) -> None:
         super().__init__(type_=BlockType.INPUT, block_id=block_id)
-        self.label = Text.to_text(label, force_plaintext=True, max_length=2000, allow_none=False)
+        self.label = Text.to_text(
+            label, force_plaintext=True, max_length=INPUT_LABEL_MAX_LENGTH, allow_none=False
+        )
         if not isinstance(element, ALLOWED_INPUT_ELEMENTS):
             raise TypeMismatchError(
                 f"InputBlocks can only hold elements of type: {ALLOWED_INPUT_ELEMENTS}"
             )
         self.element = element
         self.dispatch_action = dispatch_action
-        self.hint = Text.to_text(hint, force_plaintext=True, max_length=2000, allow_none=True)
+        self.hint = Text.to_text(
+            hint, force_plaintext=True, max_length=INPUT_HINT_MAX_LENGTH, allow_none=True
+        )
         self.optional = optional
 
     def _resolve(self) -> dict[str, Any]:
@@ -552,12 +618,12 @@ class MarkdownBlock(Block):
     See: <https://api.slack.com/reference/block-kit/blocks#markdown>.
 
     Args:
-        text: the Markdown-formatted text to display (1-12000 characters).
+        text: the Markdown-formatted text to display (max 12000 characters).
         block_id: you can use this field to provide a deterministic identifier
             for the block.
 
     Throws:
-        LengthError: if `text` is empty or longer than 12000 characters.
+        LengthError: if `text` is longer than 12000 characters.
     """
 
     def __init__(
@@ -569,8 +635,7 @@ class MarkdownBlock(Block):
         self.text = validate_string_nonnull(
             text,
             field_name="text",
-            min_length=1,
-            max_length=12000,
+            max_length=MARKDOWN_TEXT_MAX_LENGTH,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -674,16 +739,16 @@ class SectionBlock(Block):
             raise MissingRequiredError(
                 "Must supply either `text` or `fields` or `both` to SectionBlock."
             )
-        self.text = Text.to_text(text, max_length=3000, allow_none=True)
+        self.text = Text.to_text(text, max_length=SECTION_TEXT_MAX_LENGTH, allow_none=True)
         self.fields: list[Text] | None
         if fields is not None:
             field_list: list[str | Text] = coerce_to_list_nonnull(fields, class_=(str, Text))
             self.fields = [
-                Text.to_text_nonnull(field, max_length=2000)
+                Text.to_text_nonnull(field, max_length=SECTION_FIELDS_ITEM_MAX_LENGTH)
                 for field in field_list
                 if field is not None
             ]
-            if len(self.fields) > 10:
+            if len(self.fields) > SECTION_FIELDS_MAX_ITEMS:
                 raise LengthError("Section blocks can hold a maximum of ten fields")
         else:
             self.fields = None
@@ -737,8 +802,6 @@ class TableBlock(Block):
 
     Throws:
         InvalidUsageError: when items in `rows` are not `RawText` or `RichTextObject` objects.
-        InvalidUsageError: when the number of column_settings does not match the number of
-            columns in each row.
         InvalidUsageError: when the number of rows is greater than 100.
         InvalidUsageError: when the number of columns in a row is greater than 20.
         InvalidUsageError: when the number of column_settings is greater than 20.
@@ -754,20 +817,10 @@ class TableBlock(Block):
         # Validate that there is at least one row
         if len(rows) < 1:
             raise LengthError("`rows` must have at least one row.")
-        # If column_settings are provided, make sure each row has the same number of elements
-        num_columns = len(rows[0])
-        for row in rows:
-            if len(row) != num_columns:
-                raise InvalidUsageError("All rows must have the same number of columns.")
-        if column_settings is not None and num_columns != len(column_settings):
-            raise InvalidUsageError(
-                f"Number of column_settings ({len(column_settings)}) must"
-                f"match number of columns in each row ({num_columns})."
-            )
-        if len(rows) > 100:
+        if len(rows) > TABLE_ROWS_MAX_ITEMS:
             raise LengthError("`rows` can have a maximum of 100 items.")
         for row in rows:
-            if len(row) > 20:
+            if len(row) > TABLE_COLUMNS_MAX_ITEMS:
                 raise LengthError("Each row can have a maximum of 20 cells.")
         # Validate each cell is an allowed type
         self.rows = []
@@ -781,7 +834,7 @@ class TableBlock(Block):
                     )
                 validated_row.append(cell)
             self.rows.append(validated_row)
-        if column_settings and len(column_settings) > 20:
+        if column_settings and len(column_settings) > TABLE_COLUMN_SETTINGS_MAX_ITEMS:
             raise LengthError("`column_settings` can have a maximum of 20 items.")
         self.column_settings = column_settings
 
@@ -835,7 +888,7 @@ class VideoBlock(Block):
 
     Args:
         alt_text: a plain-text summary of the video, used for accessibility
-            and notifications (max 200 chars).
+            and notifications (max 2000 chars; may be empty).
         thumbnail_url: a URL pointing to the preview image shown before
             playback. Must be HTTPS in production usage.
         title: the title shown above the video player (plain text, max 200
@@ -871,26 +924,50 @@ class VideoBlock(Block):
     ) -> None:
         super().__init__(type_=BlockType.VIDEO, block_id=block_id)
         self.alt_text = validate_string_nonnull(
-            alt_text, field_name="alt_text", min_length=1, max_length=200
+            alt_text,
+            field_name="alt_text",
+            max_length=VIDEO_ALT_TEXT_MAX_LENGTH,
         )
         self.thumbnail_url = validate_string_nonnull(
-            thumbnail_url, field_name="thumbnail_url", min_length=1
+            thumbnail_url,
+            field_name="thumbnail_url",
+            min_length=1,
+            max_length=VIDEO_THUMBNAIL_URL_MAX_LENGTH,
         )
-        self.title = Text.to_text(title, force_plaintext=True, max_length=200)
-        self.video_url = validate_string_nonnull(video_url, field_name="video_url", min_length=1)
+        self.title = Text.to_text(title, force_plaintext=True, max_length=VIDEO_TITLE_MAX_LENGTH)
+        self.video_url = validate_string_nonnull(
+            video_url, field_name="video_url", min_length=1, max_length=VIDEO_VIDEO_URL_MAX_LENGTH
+        )
         self.author_name = validate_string(
-            author_name, field_name="author_name", max_length=50, allow_none=True
+            author_name,
+            field_name="author_name",
+            max_length=VIDEO_AUTHOR_NAME_MAX_LENGTH,
+            allow_none=True,
         )
         self.description = Text.to_text(
-            description, force_plaintext=True, max_length=200, allow_none=True
+            description,
+            force_plaintext=True,
+            max_length=VIDEO_DESCRIPTION_MAX_LENGTH,
+            allow_none=True,
         )
         self.provider_icon_url = validate_string(
-            provider_icon_url, field_name="provider_icon_url", allow_none=True
+            provider_icon_url,
+            field_name="provider_icon_url",
+            max_length=VIDEO_PROVIDER_ICON_URL_MAX_LENGTH,
+            allow_none=True,
         )
         self.provider_name = validate_string(
-            provider_name, field_name="provider_name", max_length=50, allow_none=True
+            provider_name,
+            field_name="provider_name",
+            max_length=VIDEO_PROVIDER_NAME_MAX_LENGTH,
+            allow_none=True,
         )
-        self.title_url = validate_string(title_url, field_name="title_url", allow_none=True)
+        self.title_url = validate_string(
+            title_url,
+            field_name="title_url",
+            max_length=VIDEO_TITLE_URL_MAX_LENGTH,
+            allow_none=True,
+        )
 
     def _resolve(self) -> dict[str, Any]:
         return resolve(
@@ -961,7 +1038,7 @@ class AlertBlock(Block):
         super().__init__(BlockType.ALERT, block_id)
         if level not in {"default", "info", "warning", "error", "success"}:
             raise TypeMismatchError("Unknown alert `level`.")
-        self.text = Text.to_text(text, max_length=200)
+        self.text = Text.to_text(text, max_length=ALERT_TEXT_MAX_LENGTH)
         self.level = level
 
     def _resolve(self) -> dict[str, Any]:
@@ -1024,18 +1101,20 @@ class CardBlock(Block):
         super().__init__(BlockType.CARD, block_id)
         if icon is not None and slack_icon is not None:
             raise MutualExclusivityError("`icon` and `slack_icon` cannot both be provided.")
-        self.actions = coerce_to_list(actions, Button, allow_none=True, max_size=3)
+        self.actions = coerce_to_list(
+            actions, Button, allow_none=True, max_size=CARD_ACTIONS_MAX_ITEMS
+        )
         if hero_image is None and title is None and body is None and not self.actions:
             raise MissingRequiredError(
                 "CardBlock requires at least one of `hero_image`, `title`, `actions`, or `body`."
             )
         self.hero_image = validate_type(hero_image, Image, "hero_image", allow_none=True)
         self.icon = validate_type(icon, Image, "icon", allow_none=True)
-        self.title = Text.to_text(title, max_length=150, allow_none=True)
-        self.subtitle = Text.to_text(subtitle, max_length=150, allow_none=True)
-        self.body = Text.to_text(body, max_length=200, allow_none=True)
+        self.title = Text.to_text(title, max_length=CARD_TITLE_MAX_LENGTH, allow_none=True)
+        self.subtitle = Text.to_text(subtitle, max_length=CARD_SUBTITLE_MAX_LENGTH, allow_none=True)
+        self.body = Text.to_text(body, max_length=CARD_BODY_MAX_LENGTH, allow_none=True)
         self.slack_icon = validate_type(slack_icon, SlackIcon, "slack_icon", allow_none=True)
-        self.subtext = Text.to_text(subtext, max_length=200, allow_none=True)
+        self.subtext = Text.to_text(subtext, max_length=CARD_SUBTEXT_MAX_LENGTH, allow_none=True)
 
     def _resolve(self) -> dict[str, Any]:
         return resolve(
@@ -1078,7 +1157,10 @@ class CarouselBlock(Block):
     def __init__(self, elements: list[CardBlock], block_id: str | None = None) -> None:
         super().__init__(BlockType.CAROUSEL, block_id)
         self.elements: list[CardBlock] = coerce_to_list_nonnull(
-            elements, CardBlock, min_size=1, max_size=10
+            elements,
+            CardBlock,
+            min_size=CAROUSEL_ELEMENTS_MIN_ITEMS,
+            max_size=CAROUSEL_ELEMENTS_MAX_ITEMS,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -1166,15 +1248,22 @@ class ContainerBlock(Block):
                 "`has_header_divider` is only valid on non-collapsible containers."
             )
         self.child_blocks: list[Block] = coerce_to_list_nonnull(
-            child_blocks, Block, min_size=1, max_size=10
+            child_blocks,
+            Block,
+            min_size=CONTAINER_CHILD_BLOCKS_MIN_ITEMS,
+            max_size=CONTAINER_CHILD_BLOCKS_MAX_ITEMS,
         )
         if any(block.type not in self._CHILD_TYPES for block in self.child_blocks):
             raise TypeMismatchError("ContainerBlock contains an unsupported child block type.")
-        self.title = Text.to_text(title, force_plaintext=True, max_length=150, allow_none=True)
+        self.title = Text.to_text(
+            title, force_plaintext=True, max_length=CONTAINER_TITLE_MAX_LENGTH, allow_none=True
+        )
         self.rich_text_title = validate_type(
             rich_text_title, RichTextBlock, "rich_text_title", allow_none=True
         )
-        self.subtitle = Text.to_text(subtitle, max_length=150, allow_none=True)
+        self.subtitle = Text.to_text(
+            subtitle, max_length=CONTAINER_SUBTITLE_MAX_LENGTH, allow_none=True
+        )
         self.width = width
         self.icon = validate_type(icon, Image, "icon", allow_none=True)
         self.is_collapsible = is_collapsible
@@ -1226,7 +1315,10 @@ class ContextActionsBlock(Block):
     ) -> None:
         super().__init__(BlockType.CONTEXT_ACTIONS, block_id)
         self.elements: list[FeedbackButtons | IconButton] = coerce_to_list_nonnull(
-            elements, (FeedbackButtons, IconButton), min_size=1, max_size=5
+            elements,
+            (FeedbackButtons, IconButton),
+            min_size=1,
+            max_size=CONTEXT_ACTIONS_ELEMENTS_MAX_ITEMS,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -1272,10 +1364,13 @@ class DataTableBlock(Block):
         block_id: str | None = None,
     ) -> None:
         super().__init__(BlockType.DATA_TABLE, block_id)
-        if len(rows) < 2 or len(rows) > 201:
+        if len(rows) < DATA_TABLE_ROWS_MIN_ITEMS or len(rows) > DATA_TABLE_ROWS_MAX_ITEMS:
             raise LengthError("`rows` must contain between 2 and 201 rows.")
         column_count = len(rows[0])
-        if column_count < 1 or column_count > 20:
+        if (
+            column_count < DATA_TABLE_COLUMNS_MIN_ITEMS
+            or column_count > DATA_TABLE_COLUMNS_MAX_ITEMS
+        ):
             raise LengthError("Data table rows must contain between 1 and 20 columns.")
         for row in rows:
             if len(row) != column_count:
@@ -1283,17 +1378,21 @@ class DataTableBlock(Block):
             for cell in row:
                 if not isinstance(cell, RawText | RawNumber | RichTextBlock):
                     raise TypeMismatchError("Unsupported data table cell type.")
-                if isinstance(cell, RawText) and len(cell.text) < 1:
+                if isinstance(cell, RawText) and len(cell.text) < DATA_TABLE_CELL_TEXT_MIN_LENGTH:
                     raise LengthError("Data table raw text cells cannot be empty.")
         if any(isinstance(cell, RichTextBlock) for cell in rows[0]):
             raise TypeMismatchError("Data table header cells cannot contain rich text.")
-        self.page_size = validate_int(page_size, min_value=1, max_value=100)
+        self.page_size = validate_int(
+            page_size, min_value=DATA_TABLE_PAGE_SIZE_MIN, max_value=DATA_TABLE_PAGE_SIZE_MAX
+        )
         self.row_header_column_index = validate_int(
-            row_header_column_index, min_value=0, max_value=column_count - 1
+            row_header_column_index,
+            min_value=DATA_TABLE_ROW_HEADER_COLUMN_INDEX_MIN,
+            max_value=column_count - 1,
         )
         self.caption = validate_string_nonnull(caption, "caption", min_length=1)
         self.rows = rows
-        if _text_character_count(resolve(rows)) > 20_000:
+        if _text_character_count(resolve(rows)) > DATA_TABLE_CONTENT_MAX_LENGTH:
             raise LengthError("Data table cell text cannot exceed 20,000 total characters.")
 
     def _resolve(self) -> dict[str, Any]:
@@ -1345,7 +1444,9 @@ class DataVisualizationBlock(Block):
 
     def __init__(self, title: str, chart: Chart, block_id: str | None = None) -> None:
         super().__init__(BlockType.DATA_VISUALIZATION, block_id)
-        self.title = validate_string_nonnull(title, "title", min_length=1, max_length=50)
+        self.title = validate_string_nonnull(
+            title, "title", min_length=1, max_length=DATA_VISUALIZATION_TITLE_MAX_LENGTH
+        )
         if not isinstance(chart, Chart):
             raise TypeMismatchError("`chart` must be a pie, bar, area, or line chart.")
         self.chart = chart
@@ -1378,8 +1479,10 @@ class TaskCardBlock(Block):
         output: a `RichTextBlock` containing the output of the task.
         sources: a list of `URLSource` elements linking to the sources
             used by the task.
-        status: the state of the task, one of `pending`, `in_progress`,
-            `complete`, or `error`.
+        status: the state of the task (required), one of `pending`, `in_progress`,
+            `complete`, or `error`. Only tasks in a `PlanBlock` can be `pending`;
+            a standalone task card with `pending` status is rejected when placed
+            in a message or attachment.
         block_id: you can use this field to provide a deterministic identifier for the block.
 
     Throws:
@@ -1397,7 +1500,9 @@ class TaskCardBlock(Block):
         block_id: str | None = None,
     ) -> None:
         super().__init__(BlockType.TASK_CARD, block_id)
-        if status is not None and status not in {"pending", "in_progress", "complete", "error"}:
+        if status is None:
+            raise MissingRequiredError("TaskCardBlock requires a `status`.")
+        if status not in {"pending", "in_progress", "complete", "error"}:
             raise TypeMismatchError("Unknown task-card `status`.")
         self.task_id = validate_string_nonnull(task_id, "task_id", min_length=1)
         self.title = validate_string_nonnull(title, "title", min_length=1)
@@ -1441,7 +1546,8 @@ class PlanBlock(Block):
 
     Args:
         title: the title of the plan.
-        tasks: a list of `TaskCardBlock` objects making up the plan.
+        tasks: a list of up to 50 `TaskCardBlock` objects making up the plan
+            (required). Each task's `task_id` must be unique within the plan.
         block_id: you can use this field to provide a deterministic identifier for the block.
 
     Throws:
@@ -1456,18 +1562,21 @@ class PlanBlock(Block):
     ) -> None:
         super().__init__(BlockType.PLAN, block_id)
         self.title = validate_string_nonnull(title, "title", min_length=1)
-        self.tasks: list[TaskCardBlock] | None = coerce_to_list(
-            tasks, TaskCardBlock, allow_none=True
+        if tasks is None:
+            raise MissingRequiredError("PlanBlock requires `tasks`.")
+        self.tasks: list[TaskCardBlock] = coerce_to_list_nonnull(
+            tasks, TaskCardBlock, max_size=PLAN_TASKS_MAX_ITEMS
         )
+        task_ids = [task.task_id for task in self.tasks]
+        if len(set(task_ids)) != len(task_ids):
+            raise InvalidUsageError("Task IDs must be unique within a PlanBlock.")
 
     def _resolve(self) -> dict[str, Any]:
         return resolve(
             {
                 **self._attributes(),
                 "title": self.title,
-                "tasks": [task._resolve_for_plan() for task in self.tasks]
-                if self.tasks is not None
-                else None,
+                "tasks": [task._resolve_for_plan() for task in self.tasks],
             }
         )
 

@@ -15,16 +15,16 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    pyudev.version
-    ==============
+pyudev.version
+==============
 
-    Version information.
+Version information.
 
-    .. moduleauthor::  mulhern  <amulhern@redhat.com>
+.. moduleauthor::  mulhern  <amulhern@redhat.com>
 """
 
-__version_info__ = (0, 24, 4, "")
+__version_info__ = (0, 24, 5, "")
 __version__ = (
-    f'{".".join(str(x) for x in __version_info__[:3])}'
-    f'{"".join(str(x) for x in __version_info__[3:])}'
+    f"{'.'.join(str(x) for x in __version_info__[:3])}"
+    f"{''.join(str(x) for x in __version_info__[3:])}"
 )

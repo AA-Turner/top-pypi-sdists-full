@@ -110,6 +110,7 @@ pub struct Cte {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Query {
     pub ctes: Vec<Cte>,
+    pub recursive: bool,
     pub body: Body,
     pub order_by: Vec<SortExpr>,
     pub limit: Option<i64>,
@@ -138,6 +139,7 @@ impl Query {
     fn from_select(select: Select) -> Self {
         Query {
             ctes: vec![],
+            recursive: false,
             body: Body::Select(Box::new(select)),
             order_by: vec![],
             limit: None,
@@ -232,6 +234,17 @@ impl Query {
         self
     }
 
+    /// Add a recursive CTE; reference it later by name in a `FROM` slot.
+    #[must_use]
+    pub fn with_recursive_cte(mut self, name: impl Into<String>, query: Query) -> Self {
+        self.recursive = true;
+        self.ctes.push(Cte {
+            name: name.into(),
+            query,
+        });
+        self
+    }
+
     /// Combine with another query via a set operation. The new outer query starts with no
     /// CTEs/ORDER BY/LIMIT (add them afterward to apply to the whole result); each operand keeps
     /// its own, and any operand carrying them is wrapped in a derived subquery during lowering.
@@ -239,6 +252,7 @@ impl Query {
     pub fn set_op(self, op: SetOp, all: bool, other: Query) -> Self {
         Query {
             ctes: vec![],
+            recursive: false,
             body: Body::SetOp {
                 op,
                 all,

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import statistics
 from collections.abc import Callable, Container, Iterable, Iterator
 from contextlib import nullcontext
@@ -21,13 +22,13 @@ from pikepdf import Dictionary, Name, NamePath, Page, Pdf
 from ocrmypdf._concurrent import Executor, SerialExecutor
 from ocrmypdf._pageboxes import coerce_box
 from ocrmypdf.exceptions import EncryptedPdfError
-from ocrmypdf.helpers import (
-    Resolution,
-    pikepdf_get_bool,
-    pikepdf_get_decimal,
-    pikepdf_get_int,
+from ocrmypdf.helpers import Resolution
+from ocrmypdf.pdfinfo._contentstream import (
+    TextboxInfo,
+    TextMarker,
+    VectorMarker,
+    VisibleTextMarker,
 )
-from ocrmypdf.pdfinfo._contentstream import TextboxInfo, TextMarker, VectorMarker
 from ocrmypdf.pdfinfo._image import ImageInfo, _process_content_streams
 from ocrmypdf.pdfinfo._types import FloatRect
 from ocrmypdf.pdfinfo._worker import _pdf_pageinfo_concurrent
@@ -47,35 +48,6 @@ def _box_rect(values: Iterable) -> FloatRect:
     """Coerce a page box to a normalized ``FloatRect`` (4-tuple)."""
     b = coerce_box(values)
     return (b[0], b[1], b[2], b[3])
-
-
-def _page_has_text(text_blocks: Iterable[FloatRect], page_width, page_height) -> bool:
-    """Smarter text detection that ignores text in margins."""
-    pw, ph = float(page_width), float(page_height)  # pylint: disable=invalid-name
-
-    margin_ratio = 0.125
-    interior_bbox = (
-        margin_ratio * pw,  # left
-        (1 - margin_ratio) * ph,  # top
-        (1 - margin_ratio) * pw,  # right
-        margin_ratio * ph,  # bottom  (first quadrant: bottom < top)
-    )
-
-    def rects_intersect(a: FloatRect, b: FloatRect) -> bool:
-        """Check if two 4-tuple rects intersect.
-
-        Where (a,b) are 4-tuple rects (left-0, top-1, right-2, bottom-3)
-        https://stackoverflow.com/questions/306316/determine-if-two-rectangles-overlap-each-other
-        Formula assumes all boxes are in first quadrant.
-        """
-        return a[0] < b[2] and a[2] > b[0] and a[1] > b[3] and a[3] < b[1]
-
-    has_text = False
-    for bbox in text_blocks:
-        if rects_intersect(bbox, interior_bbox):
-            has_text = True
-            break
-    return has_text
 
 
 def simplify_textboxes(
@@ -120,11 +92,19 @@ class PageResolutionProfile(NamedTuple):
     This indicates the prevalence of high-resolution content on the page.
     """
 
+    max_dpi_page_coverage: float = 0.0
+    """The printed area of all maximum-DPI images divided by the page area.
+
+    Capped at 1.0. A value near 1.0 means the highest resolution content spans
+    the whole page, rather than being a small high-detail region.
+    """
+
 
 class PageInfo:
     """Information about type of contents on each page in a PDF."""
 
     _has_text: bool | None
+    _has_visible_text: bool | None
     _has_vector: bool | None
     _images: list[ImageInfo] = []
 
@@ -179,24 +159,21 @@ class PageInfo:
                 )
             else:
                 self._textboxes = []
-            bboxes = (box.bbox for box in self._textboxes)
-
-            self._has_text = _page_has_text(bboxes, width_pt, height_pt)
         else:
             self._textboxes = []
-            self._has_text = None  # i.e. "no information"
 
-        userunit = pikepdf_get_decimal(page.obj, Name.UserUnit, Decimal(1))
+        userunit = page.obj.get_decimal(Name.UserUnit, Decimal(1), coerce=True)
         self._userunit = userunit
         self._width_inches = width_pt * userunit / Decimal(72.0)
         self._height_inches = height_pt * userunit / Decimal(72.0)
-        self._rotate = int(getattr(page.obj, 'Rotate', 0))
+        self._rotate = page.obj.get_int(Name.Rotate, 0, coerce=True)
 
         userunit_shorthand = (userunit, 0, 0, userunit, 0, 0)
 
         if check_this_page:
             self._has_vector = False
             self._has_text = False
+            self._has_visible_text = False
             self._images = []
             for info in _process_content_streams(
                 pdf=pdf, container=page.obj, shorthand=userunit_shorthand
@@ -205,6 +182,8 @@ class PageInfo:
                     self._has_vector = True
                 elif isinstance(info, TextMarker):
                     self._has_text = True
+                    if isinstance(info, VisibleTextMarker):
+                        self._has_visible_text = True
                 elif isinstance(info, ImageInfo):
                     self._images.append(info)
                 else:
@@ -212,6 +191,7 @@ class PageInfo:
         else:
             self._has_vector = None  # i.e. "no information"
             self._has_text = None
+            self._has_visible_text = None
             self._images = []
 
         self._dpi = None
@@ -232,6 +212,16 @@ class PageInfo:
     def has_text(self) -> bool:
         """Return True if page has text, False if not or unknown."""
         return bool(self._has_text)
+
+    @property
+    def has_visible_text(self) -> bool:
+        """Return True if page has visible text, False if not or unknown.
+
+        Text drawn in an invisible text render mode or with a glyphless font,
+        such as an OCR text layer over a scanned image, is not visible.
+        Such text still counts towards :attr:`has_text`.
+        """
+        return bool(self._has_visible_text)
 
     @property
     def has_corrupt_text(self) -> bool:
@@ -386,11 +376,22 @@ class PageInfo:
 
         arg_max_dpi = image_dpis.index(max_dpi)
         max_area_ratio = image_areas[arg_max_dpi] / total_drawn_area
+
+        page_area = float(self.width_inches * self.height_inches)
+        max_dpi_area = sum(
+            area
+            for dpi, area in zip(image_dpis, image_areas, strict=True)
+            if math.isclose(dpi, max_dpi, rel_tol=0.01)
+        )
+        max_dpi_page_coverage = (
+            min(1.0, max_dpi_area / page_area) if page_area > 0 else 0.0
+        )
         return PageResolutionProfile(
             weighted_dpi,
             max_dpi,
             dpi_average_max_ratio,
             max_area_ratio,
+            max_dpi_page_coverage,
         )
 
     def __repr__(self):
@@ -433,7 +434,7 @@ class PdfInfo:
         if check_pages is None:
             check_pages = range(0, 1_000_000_000)
 
-        with Pdf.open(infile) as pdf:
+        with Pdf.open(infile, conversion_mode='explicit') as pdf:
             if pdf.is_encrypted:
                 raise EncryptedPdfError()  # Triggered by encryption with empty passwd
             pscript5_mode = str(pdf.docinfo.get(Name.Creator, "")).startswith(
@@ -456,13 +457,17 @@ class PdfInfo:
                     detailed_analysis=detailed_analysis,
                     miner_state=miner_state,
                 )
-            self._needs_rendering = pikepdf_get_bool(pdf.Root, Name.NeedsRendering)
+            self._needs_rendering = pdf.Root.get_bool(
+                Name.NeedsRendering, False, coerce=True
+            )
             acroform = pdf.Root.get(Name.AcroForm)
             if isinstance(acroform, Dictionary):
                 if len(acroform.get(Name.Fields, [])) > 0 or Name.XFA in acroform:
                     self._has_acroform = True
-                self._has_signature = bool(pikepdf_get_int(acroform, Name.SigFlags) & 1)
-            self._is_tagged = pikepdf_get_bool(pdf.Root, MARKINFO_MARKED)
+                self._has_signature = bool(
+                    acroform.get_int(Name.SigFlags, 0, coerce=True) & 1
+                )
+            self._is_tagged = pdf.Root.get_bool(MARKINFO_MARKED, False, coerce=True)
             self._has_structure_tree = Name.StructTreeRoot in pdf.Root
 
     @property

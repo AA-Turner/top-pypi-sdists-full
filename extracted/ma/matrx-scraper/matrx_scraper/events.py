@@ -366,8 +366,13 @@ class CrawlCompletedEvent(_BaseCrawlEvent):
     issues_count: int
     duration_ms: int
     bytes_downloaded: int = 0
-    status: Literal["completed", "canceled", "failed"] = "completed"
+    # `stopped` = the crawler ended the run itself before the frontier drained
+    # (today: the site's rate limits made going on futile). Persisted as session
+    # status `partial` with `stats.stop_reason` — never a false "complete".
+    status: Literal["completed", "canceled", "failed", "stopped"] = "completed"
     error_message: str | None = None
+    #: Machine reason for a `stopped` run (`rate_limited`); None otherwise.
+    stop_reason: str | None = None
     # Static request scope is not enough to authorize negative reconciliation.
     # The run must also prove at runtime that it drained discovery without a
     # cap, cancellation, or failed fetch that could hide downstream pages.

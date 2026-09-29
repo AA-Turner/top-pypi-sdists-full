@@ -46,7 +46,9 @@ def _patch_client_path(
         else resolved_path.parent
     )
     monkeypatch.setattr(clients_module, path_function, lambda: config_dir)
-    monkeypatch.setattr(clients_module, "_reown_to_console_user", lambda _path: None)
+    monkeypatch.setattr(
+        clients_module, "_reown_to_console_user", lambda _path, **_kw: None
+    )
     monkeypatch.setattr(safe_fs.platform, "system", lambda: "Windows")
     return resolved_path
 

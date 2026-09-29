@@ -8,6 +8,7 @@ import time
 from dateutil.parser import isoparse
 from aistore.sdk.bucket import Bucket
 from aistore.sdk.const import (
+    GO_ZERO_TIME,
     HTTP_METHOD_GET,
     HTTP_METHOD_PUT,
     QPARAM_WHAT,
@@ -107,7 +108,7 @@ class Job:
             ValueError: If the job does not have an assigned ID
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.ReadTimeout: Timed out waiting response from AIStore
         """
         if not self._job_id:
@@ -158,7 +159,7 @@ class Job:
         Raises:
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.ReadTimeout: Timed out waiting response from AIStore
             errors.Timeout: Timeout while waiting for the job to finish
             errors.JobInfoNotFound: If `job_kind` is empty and `job_id` is not found
@@ -201,7 +202,6 @@ class Job:
         verbose: bool,
     ) -> WaitResult:
         """Poll `status()` until the job reaches a terminal state."""
-        logger.disabled = not verbose
         passed = 0
         sleep_time = probing_frequency(timeout)
 
@@ -209,18 +209,20 @@ class Job:
             status = self.status()
 
             if passed > timeout:
-                logger.error(
-                    "Timeout waiting for job '%s' after %ds. Job status: %s",
-                    status.uuid,
-                    timeout,
-                    status,
-                )
+                if verbose:
+                    logger.error(
+                        "Timeout waiting for job '%s' after %ds. Job status: %s",
+                        status.uuid,
+                        timeout,
+                        status,
+                    )
                 raise Timeout(f"job '{status.uuid}'", f"after {timeout}s")
 
             if status.end_time == 0:
                 time.sleep(sleep_time)
                 passed += sleep_time
-                logger.info("Waiting on job '%s'...", status.uuid)
+                if verbose:
+                    logger.info("Waiting on job '%s'...", status.uuid)
                 continue
 
             end_time = (
@@ -237,10 +239,11 @@ class Job:
                 end_time=end_time,
             )
 
-            if success:
-                logger.info("Job '%s' finished successfully", status.uuid)
-            else:
-                logger.error("Job '%s' failed: %s", status.uuid, result.error)
+            if verbose:
+                if success:
+                    logger.info("Job '%s' finished successfully", status.uuid)
+                else:
+                    logger.error("Job '%s' failed: %s", status.uuid, result.error)
 
             return result
 
@@ -262,7 +265,7 @@ class Job:
         Raises:
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.ReadTimeout: Timed out waiting response from AIStore
             errors.Timeout: Timeout while waiting for the job to finish
         """
@@ -288,7 +291,7 @@ class Job:
         Raises:
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.ReadTimeout: Timed out waiting response from AIStore
             errors.Timeout: Timeout while waiting for the job to finish
         """
@@ -318,7 +321,7 @@ class Job:
         Raises:
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.ReadTimeout: Timed out waiting response from AIStore
         """
         job_args = JobArgs(kind=self._job_kind, daemon_id=daemon_id)
@@ -353,7 +356,7 @@ class Job:
             ValueError: If neither job_id nor job_kind is set
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.ReadTimeout: Timed out waiting response from AIStore
         """
         if not self._job_id and not self._job_kind:
@@ -373,7 +376,7 @@ class Job:
             end_time (datetime, optional): The end of the timeframe for monitoring jobs.
 
         Returns:
-            List[JobSnapshot]: A list of jobs that meet the specified timeframe criteria.
+            List[JobSnap]: A list of jobs that meet the specified timeframe criteria.
 
         Raises:
             JobInfoNotFound: Raised when no relevant job info is found.
@@ -399,7 +402,7 @@ class Job:
         Retrieve detailed job snapshot information across all targets.
 
         Returns:
-            AggregatedJobSnapshots: A snapshot containing detailed metrics for the job.
+            AggregatedJobSnap: A snapshot containing detailed metrics for the job.
         """
         job_args = JobArgs(id=self._job_id, kind=self._job_kind).as_dict()
         query_params = {QPARAM_WHAT: WHAT_QUERY_XACT_STATS}
@@ -414,7 +417,7 @@ class Job:
     def get_total_time(self) -> Optional[timedelta]:
         """
         Calculates the total job duration as the difference between the earliest start time
-        and the latest end time among all job snapshots. If any snapshot is missing an end_time,
+        and the latest end time among all job snapshots. If any snapshot has a missing or zero end_time,
         returns None to indicate the job is incomplete.
 
         Returns:
@@ -431,7 +434,7 @@ class Job:
 
             for s in snapshots:
                 # First check for incomplete jobs
-                if s.end_time is None:
+                if not s.end_time or s.end_time == GO_ZERO_TIME:
                     return None
 
                 current_end = isoparse(s.end_time)
@@ -460,7 +463,6 @@ class Job:
     def _wait_for_condition(
         self, condition_fn, timeout: int, verbose: bool, state: str
     ) -> WaitResult:
-        logger.disabled = not verbose
         passed = 0
         sleep_time = probing_frequency(timeout)
 
@@ -469,26 +471,32 @@ class Job:
             snaps = details.list_snapshots()
 
             if passed > timeout:
-                logger.error(
-                    "Timeout waiting for job '%s' after %ds. Job snapshots: %s",
-                    self._job_id,
-                    timeout,
-                    snaps,
-                )
+                if verbose:
+                    logger.error(
+                        "Timeout waiting for job '%s' after %ds. Job snapshots: %s",
+                        self._job_id,
+                        timeout,
+                        snaps,
+                    )
                 raise Timeout(f"job '{self._job_id}'", f"after {timeout}s")
 
             if not snaps:
-                logger.info("No info for job '%s', retrying", self._job_id)
+                if verbose:
+                    logger.info("No info for job '%s', retrying", self._job_id)
             else:
                 if condition_fn(details):
                     result = WaitResult.from_snapshots(self._job_id, snaps)
-                    if result.success:
-                        logger.info("Job '%s' %s", self._job_id, state)
-                    else:
-                        logger.error("Job '%s' failed: %s", self._job_id, result.error)
+                    if verbose:
+                        if result.success:
+                            logger.info("Job '%s' %s", self._job_id, state)
+                        else:
+                            logger.error(
+                                "Job '%s' failed: %s", self._job_id, result.error
+                            )
                     return result
 
-                logger.info("Waiting on job '%s'...", self._job_id)
+                if verbose:
+                    logger.info("Waiting on job '%s'...", self._job_id)
 
             time.sleep(sleep_time)
             passed += sleep_time

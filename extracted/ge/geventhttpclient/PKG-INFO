@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geventhttpclient
-Version: 2.3.9
+Version: 2.5.0
 Summary: HTTP client library for gevent
 Author-email: Antonin Amand <antonin.amand@gmail.com>
 License-Expression: MIT
@@ -13,22 +13,20 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE-MIT
 Requires-Dist: gevent
 Requires-Dist: certifi
 Requires-Dist: brotli
-Requires-Dist: urllib3
 Provides-Extra: dev
+Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: dpkt; extra == "dev"
 Requires-Dist: requests; extra == "dev"
@@ -76,10 +74,12 @@ simple use-cases, it can serve as a drop-in replacement.
 
 ```python
 import geventhttpclient as requests
+
 requests.get("https://github.com").text
 requests.post("http://httpbingo.org/post", data="asdfasd").json()
 
 from geventhttpclient import Session
+
 s = Session()
 s.get("http://httpbingo.org/headers").json()
 s.get("https://github.com").content
@@ -117,6 +117,7 @@ patch before you import or the `super()` calls will fail.
 
 ```python
 import geventhttpclient.httplib
+
 geventhttpclient.httplib.patch()
 
 import httplib2
@@ -152,6 +153,7 @@ assert response.status_code == 200
 # the json parser as it's being read.
 data = json.load(response)["data"]
 
+
 def print_friend_username(client, friend_id):
     friend_url = URL(f"/{friend_id}", params={"access_token": TOKEN})
     # the greenlet will block until a connection is available
@@ -162,6 +164,7 @@ def print_friend_username(client, friend_id):
         print(f"{friend['username']}: {friend['name']}")
     else:
         print(f"{friend['name']} has no username.")
+
 
 # allow to run 20 greenlet at a time, this is more than concurrency
 # of the http client but isn't a problem since the client has its own
@@ -192,13 +195,78 @@ client = HTTPClient.from_url(url)
 response = client.get(url.query_string)
 assert response.status_code == 200
 
-CHUNK_SIZE = 1024 * 16 # 16KB
+CHUNK_SIZE = 1024 * 16  # 16KB
 with open("/tmp/100.dat", "w") as f:
     data = response.read(CHUNK_SIZE)
     while data:
         f.write(data)
         data = response.read(CHUNK_SIZE)
 ```
+
+## Chunked request bodies
+
+Requests with `Transfer-Encoding: chunked` are supported. Add the header
+explicitly to have the body chunk-encoded automatically:
+
+```python
+client = HTTPClient.from_url(url)
+response = client.post(
+    "/upload",
+    body=data,
+    headers={"Transfer-Encoding": "chunked"},
+)
+```
+
+Bodies of unknown length are chunk-encoded automatically, so generators and
+iterables of bytes work as request bodies as well:
+
+```python
+def generate_data():
+    for i in range(100):
+        yield b"some data block\n"
+
+
+response = client.post("/upload", body=generate_data())
+```
+
+Chunked transfer encoding requires HTTP/1.1; a `ValueError` is raised for
+HTTP/1.0 requests. A user-provided `Content-Length` header is dropped when
+chunked encoding is used.
+
+## Proxy support
+
+`HTTPClient` can route requests through an HTTP proxy. Plain HTTP requests are
+forwarded with an absolute request URI, HTTPS requests are tunneled with
+`CONNECT`, optionally with `Basic` proxy authentication:
+
+```python
+client = HTTPClient(
+    "target.example.com",
+    port=443,
+    ssl=True,
+    proxy_host="proxy.example.com",
+    proxy_port=3128,
+    proxy_user="user",
+    proxy_password="pass",
+)
+```
+
+The same keyword arguments are accepted by `UserAgent` and `HTTPClientPool`.
+
+## Expect: 100-continue
+
+Add an `Expect: 100-continue` header to let the server reject a request with a
+large body before the body is sent. The client sends the headers first, waits
+for an interim `100 Continue` response before sending the body, and returns
+the final response directly if the server rejects the request:
+
+```python
+client = HTTPClient.from_url(url)
+response = client.post("/upload", body=data, headers={"Expect": "100-continue"})
+```
+
+Note that servers not answering an `Expect: 100-continue` request block until
+the network timeout is reached.
 
 ## Benchmarks
 

@@ -7,7 +7,6 @@ from splink.internals.column_expression import ColumnExpression
 from splink.internals.comparison_creator import ComparisonCreator
 from splink.internals.comparison_level_creator import ComparisonLevelCreator
 from splink.internals.comparison_level_library import CustomLevel, DateMetricType
-from splink.internals.dialects import SplinkDialect
 from splink.internals.misc import ensure_is_iterable
 
 
@@ -425,7 +424,7 @@ class AbsoluteTimeDifferenceAtThresholds(ComparisonCreator):
         input_is_string: bool,
         metrics: Union[DateMetricType, List[DateMetricType]],
         thresholds: Union[int, float, List[Union[int, float]]],
-        datetime_format: str = None,
+        datetime_format: str | None = None,
         term_frequency_adjustments: bool = False,
         invalid_dates_as_null: bool = True,
     ):
@@ -648,8 +647,8 @@ class CustomComparison(ComparisonCreator):
     def __init__(
         self,
         comparison_levels: List[Union[ComparisonLevelCreator, dict[str, Any]]],
-        output_column_name: str = None,
-        comparison_description: str = None,
+        output_column_name: str | None = None,
+        comparison_description: str | None = None,
     ):
         """
         Represents a comparison of the data with custom supplied levels.
@@ -685,28 +684,9 @@ class CustomComparison(ComparisonCreator):
     def _convert_to_creator(
         comparison_creator: dict[str, Any] | ComparisonCreator,
     ) -> ComparisonCreator:
-        if isinstance(comparison_creator, dict):
+        if not isinstance(comparison_creator, ComparisonCreator):
             return CustomComparison(**comparison_creator)
         return comparison_creator
-
-
-class _DamerauLevenshteinIfSupportedElseLevenshteinLevel(ComparisonLevelCreator):
-    def __init__(self, col_name: Union[str, ColumnExpression], distance_threshold: int):
-        self.col_expression = ColumnExpression.instantiate_if_str(col_name)
-        self.distance_threshold = distance_threshold
-
-    def create_sql(self, sql_dialect: SplinkDialect) -> str:
-        self.col_expression.sql_dialect = sql_dialect
-        col = self.col_expression
-        try:
-            lev_fn = sql_dialect.damerau_levenshtein_function_name
-        except NotImplementedError:
-            lev_fn = sql_dialect.levenshtein_function_name
-        return f"{lev_fn}({col.name_l}, {col.name_r}) <= {self.distance_threshold}"
-
-    def create_label_for_charts(self) -> str:
-        col = self.col_expression
-        return f"Levenshtein distance of {col.label} <= {self.distance_threshold}"
 
 
 class DateOfBirthComparison(ComparisonCreator):
@@ -721,7 +701,7 @@ class DateOfBirthComparison(ComparisonCreator):
             "year",
             "year",
         ],
-        datetime_format: str = None,
+        datetime_format: str | None = None,
         invalid_dates_as_null: bool = True,
     ):
         """
@@ -734,7 +714,7 @@ class DateOfBirthComparison(ComparisonCreator):
         The default arguments will give a comparison with comparison levels:
 
         - Exact match (all other dates)
-        - Damerau-Levenshtein distance <= 1
+        - Levenshtein distance <= 1
         - Date difference <= 1 month
         - Date difference <= 1 year
         - Date difference <= 10 years
@@ -805,9 +785,9 @@ class DateOfBirthComparison(ComparisonCreator):
             col_expr_as_string = self.col_expression.cast_to_string()
 
         levels.append(
-            _DamerauLevenshteinIfSupportedElseLevenshteinLevel(
-                col_expr_as_string, distance_threshold=1
-            ).configure(label_for_charts="DamerauLevenshtein distance <= 1")
+            cll.LevenshteinLevel(col_expr_as_string, distance_threshold=1).configure(
+                label_for_charts="Levenshtein distance <= 1"
+            )
         )
 
         if self.datetime_thresholds:
@@ -820,6 +800,7 @@ class DateOfBirthComparison(ComparisonCreator):
                         threshold=threshold,
                         metric=metric,
                         input_is_string=self.input_is_string,
+                        datetime_format=self.datetime_format,
                     ).configure(
                         label_for_charts=f"Abs date difference <= {threshold} {metric}"
                     )
@@ -843,8 +824,8 @@ class PostcodeComparison(ComparisonCreator):
         col_name: Union[str, ColumnExpression],
         *,
         invalid_postcodes_as_null: bool = False,
-        lat_col: Union[str, ColumnExpression] = None,
-        long_col: Union[str, ColumnExpression] = None,
+        lat_col: Union[str, ColumnExpression] | None = None,
+        long_col: Union[str, ColumnExpression] | None = None,
         km_thresholds: Union[float, List[float]] = [1, 10, 100],
     ):
         """
@@ -1007,7 +988,7 @@ class NameComparison(ComparisonCreator):
         col_name: Union[str, ColumnExpression],
         *,
         jaro_winkler_thresholds: Union[float, list[float]] = [0.92, 0.88, 0.7],
-        dmeta_col_name: str = None,
+        dmeta_col_name: str | None = None,
     ):
         """
         Generate an 'out of the box' comparison for a name column in the `col_name`
@@ -1093,7 +1074,7 @@ class ForenameSurnameComparison(ComparisonCreator):
         surname_col_name: Union[str, ColumnExpression],
         *,
         jaro_winkler_thresholds: Union[float, list[float]] = [0.92, 0.88],
-        forename_surname_concat_col_name: str = None,
+        forename_surname_concat_col_name: str | None = None,
     ):
         """
         Generate an 'out of the box' comparison for forename and surname columns

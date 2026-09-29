@@ -18,7 +18,7 @@ from ..types import (
     span_upsert_batch_params,
 )
 from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from .._utils import path_template, maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, strip_not_given, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -74,6 +74,8 @@ class SpansResource(SyncAPIResource):
         group_id: str | Omit = omit,
         input: Dict[str, object] | Omit = omit,
         metadata: Dict[str, object] | Omit = omit,
+        obs_span_id: str | Omit = omit,
+        obs_trace_id: str | Omit = omit,
         output: Dict[str, object] | Omit = omit,
         parent_id: str | Omit = omit,
         status: SpanStatus | Omit = omit,
@@ -90,21 +92,60 @@ class SpansResource(SyncAPIResource):
 
         Use this for one-off span ingestion; to write many spans in one request use POST
         /v5/spans/batch. When `id` is omitted the server generates a UUID. Depending on
-        per-account server configuration the span is persisted to Postgres, to the
-        ClickHouse-backed tracing service, or both; when the tracing service is the
-        primary store, a write failure returns a retryable 503 with a Retry-After
-        header.
+        per-account server configuration the span is persisted to the legacy trace
+        store, to the tracing service, or both. `end_timestamp` must not precede
+        `start_timestamp`, which is rejected with a 422. When the tracing service is the
+        primary store, its 400, 413 and 422 rejections keep that status and detail, as
+        does a 403 when the request carried its own API key, and every other failure
+        returns a 503 with a Retry-After header. A span whose parent belongs to another
+        trace is rejected with 409 before either store is written. The parent is looked
+        up in Postgres, so that check ends once the account's spans stop being written
+        there. Which writes the tracing service rejects depends in part on its storage
+        engine: on Postgres deployments a NUL byte or invalid UTF-8 inside `trace_id`,
+        `id`, `parent_id` or `group_id` rejects the span with a 400 naming the field,
+        because replacing the byte would change the identity the response echoes; a NUL
+        byte or invalid UTF-8 in any other field is replaced with U+FFFD and the span is
+        persisted. ClickHouse deployments store the bytes verbatim.
+
+        Credential redaction: values in the free-form `input`, `output`, `metadata`, and
+        `expected` objects, and in `name`, that are credential-shaped (bearer/JWT, API
+        keys, connection-string passwords) or under a credential-named key are replaced
+        with `[REDACTED:credential]` before the span is persisted, so the stored and
+        returned span reflects the redacted value (EY 12.3).
 
         Args:
+          start_timestamp: When the span started. With trace_id and id it forms the span's storage
+              identity, so a span re-sent with a start_timestamp on another UTC day is stored
+              as a second row that the store never collapses. Get span and trace detail return
+              the newest version. Search returns the newest version whose start_timestamp
+              falls in the queried window. Export, metrics and facets count both rows until
+              the trace is deleted and re-sent.
+
           trace_id: id for grouping traces together, uuid is recommended
 
-          id: The id of the span
+          id: The id of the span, at most 256 bytes. A value longer than 256 characters is
+              refused here with a 422 before it is forwarded; a value within that count whose
+              UTF-8 form exceeds 256 bytes is refused with a 400 naming the field once the
+              tracing service is the account's primary store, and accepted for accounts still
+              written primarily to the legacy trace store.
 
           application_interaction_id: The optional application interaction ID this span belongs to
 
           application_variant_id: The optional application variant ID this span belongs to
 
-          group_id: Reference to a group_id
+          group_id: Reference to a group_id, at most 256 bytes. A value longer than 256 characters
+              is refused here with a 422 before it is forwarded; a value within that count
+              whose UTF-8 form exceeds 256 bytes is refused with a 400 naming the field once
+              the tracing service is the account's primary store, and accepted for accounts
+              still written primarily to the legacy trace store.
+
+          obs_span_id: W3C span id (16 lowercase hex chars) of the observability span this span
+              executed in. Requires obs_trace_id.
+
+          obs_trace_id: W3C trace id (32 lowercase hex chars) of the observability trace this span
+              executed in, for correlating a business span with the infrastructure work it
+              caused. Stored only by the sgp-traces service, so accounts still served by the
+              legacy store accept the field and read it back as null.
 
           parent_id: Reference to a parent span_id
 
@@ -131,6 +172,8 @@ class SpansResource(SyncAPIResource):
                     "group_id": group_id,
                     "input": input,
                     "metadata": metadata,
+                    "obs_span_id": obs_span_id,
+                    "obs_trace_id": obs_trace_id,
                     "output": output,
                     "parent_id": parent_id,
                     "status": status,
@@ -159,12 +202,15 @@ class SpansResource(SyncAPIResource):
         """
         Retrieve a single span by its id.
 
-        The span is read from Postgres or, for accounts migrated to the
-        ClickHouse-backed tracing service, from that service — with automatic fallback
-        to Postgres on error unless the account is in strict mode, where a
-        tracing-service failure surfaces as a 503. Access is authorized against the
-        span's parent trace, so a span in a trace the caller cannot read is rejected; an
-        unknown id returns 404.
+        The span is read from the legacy trace store or, for accounts migrated to the
+        tracing service, from that service — with automatic fallback to the legacy trace
+        store on error unless the account is in strict mode, where a tracing-service
+        failure surfaces as a 503. Access is authorized against the span's parent trace,
+        so a span in a trace the caller cannot read is rejected; an unknown id
+        returns 404. `input_tokens` and `output_tokens` carry the token usage the span's
+        producer reported at ingest, and are absent both for a span that reported none
+        and for every span served from the legacy trace store, which keeps no token
+        counts.
 
         Args:
           extra_headers: Send extra headers
@@ -205,11 +251,17 @@ class SpansResource(SyncAPIResource):
         Partially update a span's mutable fields and return the updated span.
 
         Only the provided fields among name, end timestamp, output, metadata, and status
-        are changed. This endpoint is available only for accounts still backed solely by
-        Postgres: once an account begins dual-writing to the ClickHouse-backed tracing
+        are changed. This endpoint is available only for accounts still served solely by
+        the legacy trace store: once an account begins dual-writing to the tracing
         service — which is upsert-only and has no partial-update operation — PATCH
         returns 501 and PUT /v5/spans/batch must be used instead. Updates are authorized
         against the span's parent trace, and an unknown id returns 404.
+
+        Credential redaction: values in the free-form `input`, `output`, `metadata`, and
+        `expected` objects, and in `name`, that are credential-shaped (bearer/JWT, API
+        keys, connection-string passwords) or under a credential-named key are replaced
+        with `[REDACTED:credential]` before the span is persisted, so the stored and
+        returned span reflects the redacted value (EY 12.3).
 
         Args:
           extra_headers: Send extra headers
@@ -260,8 +312,27 @@ class SpansResource(SyncAPIResource):
         exist, since this endpoint inserts new spans rather than overwriting. A batch
         larger than 1000 spans is rejected with a validation error. Each item follows
         the same id-generation and per-account dual-write rules as the single-span
-        create, and when the tracing service is the primary store a write failure
-        returns a retryable 503.
+        create, including that `end_timestamp` must not precede `start_timestamp`, which
+        rejects the request with a 422. When the tracing service is the primary store,
+        its 400, 413 and 422 rejections keep that status and detail, as does a 403 when
+        the request carried its own API key, and every other failure returns a 503 with
+        a Retry-After header. A batch that forms a cycle, or a span whose parent belongs
+        to another trace, is rejected with 409 before either store is written. A parent
+        outside the batch is looked up in Postgres, so that part of the check ends once
+        the account's spans stop being written there. Postgres rejects an `id` that
+        already exists, while the tracing service treats the write as an upsert. Which
+        writes the tracing service rejects depends in part on its storage engine: on
+        Postgres deployments a NUL byte or invalid UTF-8 inside `trace_id`, `id`,
+        `parent_id` or `group_id` fails the whole batch with a 400 naming the field,
+        because replacing the byte would change the identity the response echoes; a NUL
+        byte or invalid UTF-8 in any other field is replaced with U+FFFD and the span is
+        persisted. ClickHouse deployments store the bytes verbatim.
+
+        Credential redaction: values in the free-form `input`, `output`, `metadata`, and
+        `expected` objects, and in `name`, that are credential-shaped (bearer/JWT, API
+        keys, connection-string passwords) or under a credential-named key are replaced
+        with `[REDACTED:credential]` before the span is persisted, so the stored and
+        returned span reflects the redacted value (EY 12.3).
 
         Args:
           extra_headers: Send extra headers
@@ -284,6 +355,7 @@ class SpansResource(SyncAPIResource):
     def search(
         self,
         *,
+        allow_short_pages: bool | Omit = omit,
         ending_before: str | Omit = omit,
         from_ts: Union[str, datetime] | Omit = omit,
         limit: int | Omit = omit,
@@ -304,6 +376,8 @@ class SpansResource(SyncAPIResource):
         max_duration_ms: int | Omit = omit,
         min_duration_ms: int | Omit = omit,
         names: SequenceNotStr[str] | Omit = omit,
+        obs_span_ids: SequenceNotStr[str] | Omit = omit,
+        obs_trace_ids: SequenceNotStr[str] | Omit = omit,
         parent_ids: SequenceNotStr[str] | Omit = omit,
         parents_only: bool | Omit = omit,
         search_texts: SequenceNotStr[str] | Omit = omit,
@@ -312,6 +386,7 @@ class SpansResource(SyncAPIResource):
         statuses: List[SpanStatus] | Omit = omit,
         trace_ids: SequenceNotStr[str] | Omit = omit,
         types: List[SpanType] | Omit = omit,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -327,15 +402,38 @@ class SpansResource(SyncAPIResource):
         free-text search, metadata, duration bounds, and more, scoped to an optional
         time window. Results are keyset-paginated on indexed columns rather than
         offset-paginated, and `total` is not computed (it is always 0); use the
-        pagination cursors to page through results. Reads route to Postgres or the
-        ClickHouse-backed tracing service per account (with Postgres fallback outside
-        strict mode), and results are narrowed to traces the caller is authorized to
-        read — a filter that resolves to no authorized traces yields an empty page
-        rather than an error. A reversed time window (`from_ts` after `to_ts`) is
-        rejected with 422, as is a request whose combined `trace_ids`, `span_ids`,
-        `excluded_span_ids`, `excluded_trace_ids`, and `parent_ids` count exceeds 10000.
+        pagination cursors to page through results. Reads route to the legacy trace
+        store or the tracing service per account (with fallback to the legacy trace
+        store outside strict mode), and results are narrowed to traces the caller is
+        authorized to read — a filter that resolves to no authorized traces yields an
+        empty page rather than an error. A reversed time window (`from_ts` after
+        `to_ts`) is rejected with 422, as is a request whose combined `trace_ids`,
+        `span_ids`, `excluded_span_ids`, `excluded_trace_ids`, and `parent_ids` count
+        exceeds 10000. `sort_by` accepts `start_timestamp`, `duration_ms`,
+        `input_tokens` and `output_tokens`; the token counts are read from usage
+        reported at ingest, and a span whose producer reported none sorts as zero, so it
+        lands last descending and first ascending. The two token sorts are rejected for
+        an account still served by the legacy trace store, which keeps no token count to
+        order by. Any other unsupported sort falls back to timestamp order there. Spans
+        sharing a sort key are ordered by `trace_id` and `id` bytewise on both
+        tracing-service engines. Text search tokenization, indexed-prefix, word-length,
+        locale and metadata-bytes behavior differs between Postgres and ClickHouse
+        deployments of the tracing service as the `search_texts` field describes.
+
+        `x-project-id` narrows the result to traces whose root span carries that
+        project, when `PROJECT_SCOPED_SPAN_LISTING` is on for the account. An account
+        the tracing service serves holds no project placement, so a request carrying the
+        header is rejected with 422 there.
 
         Args:
+          allow_short_pages: Return however many spans fit the server byte budget instead of a 400
+              SEARCH_RESULT_TOO_LARGE, reporting the rest through has_more plus next_cursor
+              going forward or prev_cursor going back. Send it only if the client reads
+              has_more, because under it a page shorter than limit no longer means the end of
+              the list. Honored by the tracing service on either of its storage engines.
+              Accounts still served by the legacy trace store ignore it and page by item
+              count, where a short page still means the end of the list.
+
           from_ts: The starting (oldest) timestamp in ISO format.
 
           to_ts: The ending (most recent) timestamp in ISO format.
@@ -358,19 +456,38 @@ class SpansResource(SyncAPIResource):
 
           excluded_trace_ids: List of trace IDs to exclude from results
 
-          extra_metadata: Filter on custom metadata key-value pairs
+          extra_metadata: Filter on custom metadata: each key must equal its value, or any value of an
+              array, and keys are ANDed. On the ClickHouse read path `$or` and `$and` also
+              compose nested groups of predicates. On Postgres a `$`-prefixed key is an
+              ordinary metadata key matched literally. Array values match element-wise; a
+              negative zero inside an array equals zero on Postgres-served accounts and not on
+              ClickHouse-served ones.
 
           group_id: Filter by group ID
 
-          max_duration_ms: Maximum span duration in milliseconds (inclusive). An in-flight span with no end
-              time has no known duration and is treated as unbounded, so it never falls within
-              a maximum and is excluded.
+          max_duration_ms: Maximum span duration in milliseconds (inclusive). Matched on completed
+              duration, so a span with no end time is never returned: fetch it by its own id
+              or in its trace's span list.
 
-          min_duration_ms: Minimum span duration in milliseconds (inclusive). An in-flight span with no end
-              time has no known duration and is treated as unbounded, so it matches every
-              minimum.
+          min_duration_ms: Minimum span duration in milliseconds (inclusive). Matched on completed
+              duration, so a span with no end time is not reliably returned: fetch it by its
+              own id or in its trace's span list.
 
           names: Filter by trace/span name
+
+          obs_span_ids: Filter to the business spans that executed in any of these observability spans.
+              Each id must be 16 lowercase hex characters. A W3C span id is unique per trace
+              only, so combine with obs_trace_ids for exact identity, the same looseness
+              span_ids carries versus the spans pair filter. ANDs with obs_trace_ids when both
+              are set. Served only by the sgp-traces service, so a request using this filter
+              against an account still on the legacy store returns 422 rather than silently
+              ignoring it.
+
+          obs_trace_ids: Filter to the business spans that executed in any of these observability traces
+              (the obs-to-business reverse lookup). Each id must be 32 lowercase hex
+              characters. Served only by the sgp-traces service, so a request using this
+              filter against an account still on the legacy store returns 422 rather than
+              silently ignoring it.
 
           parent_ids: Filter to the direct children of any of these parent span IDs
 
@@ -382,16 +499,57 @@ class SpansResource(SyncAPIResource):
               words matches as a contiguous phrase whose words each appear as whole words. All
               other terms (punctuated, non-ASCII, longer) match as substrings, where mid-word
               fragments match and an inflected form such as a plural matches only where it
-              appears literally. Multiple terms are ANDed, and UUID-shaped terms match trace
-              IDs instead. A span must match every non-UUID term, and each term may match any
-              of the searched fields. UUID matches are ORed onto the text match. Each term
-              must be at least 2 characters, and at most 10 terms are supported. For exact
-              trace ID lookup, use the `trace_ids` filter. Accounts still served by the legacy
-              trace store match differently until migrated: every term matches as stemmed
-              whole words (so inflected forms match and multi-word terms match word-adjacent),
-              only input and output are searched, the 2-character minimum is not enforced, and
-              characters like `:`, `|`, or `!` inside a term may be interpreted as query
-              operators or cause an error.
+              appears literally. Wrapping a term in double quotes makes it a phrase: the
+              quotes mark the phrase and are never matched, a backslash escapes a quote or a
+              backslash inside them, the phrase must appear contiguously inside one searched
+              value (the input, the output, or the metadata), a phrase of up to 8 ASCII
+              letter-and-digit words additionally requires each of those words to appear there
+              as a whole word, and a UUID-shaped phrase stays a text search. A term whose
+              quote is unterminated or left unescaped mid-term is matched literally, quotes
+              included. Multiple terms are ANDed, and UUID-shaped terms match trace IDs
+              instead. A span must match every non-UUID term, and each term may match any of
+              the searched fields. UUID matches are ORed onto the text match. Each term must
+              be at least 2 characters, measured between the quotes and ignoring outer
+              whitespace for a phrase, and at most 10 terms are supported. For exact trace ID
+              lookup, use the `trace_ids` filter. The tracing service runs on either
+              ClickHouse or Postgres, and the two engines match differently. On Postgres
+              deployments the whole-word match uses the simple text-search parser, which keeps
+              hosts, e-mail addresses, file paths, version strings, hyphenated compounds, URLs
+              and query strings as single words (https://x.com/path?q=1 yields x.com/path?q=1,
+              x.com and /path?q=1, never path, q or 1; user@example.com and v1.2.3 are one
+              word each; gpt-4o yields the compound and its parts), whereas ClickHouse
+              deployments split on every non-alphanumeric ASCII byte. A single word inside
+              such a value is a whole-word hit on ClickHouse and a miss on Postgres; the
+              substring forms behave identically on both. On Postgres deployments a value over
+              80000 bytes has only its first 20000 characters indexed for whole-word matching;
+              text past that is reachable only by the substring forms. Words longer than 2047
+              bytes are matched as substrings, never as whole words. Case folding of non-ASCII
+              text follows the database's LC_CTYPE on Postgres deployments, for the whole-word
+              index, the quoted-phrase and substring forms and the word-boundary check alike;
+              under a C-locale database non-ASCII letters are not folded. ASCII folds
+              everywhere. Input and output behave identically on both engines. A
+              substring-form term, or a text-filtered metrics request, reads every row of the
+              time window that survives the other filters. A term that matches too many rows
+              in the window is refused by the tracing service as QUERY_TOO_BROAD, at an
+              engine-specific threshold; whether this API relays that refusal as a 400 or
+              answers the page from the legacy trace store follows its read-routing rules, and
+              an export's refusal is reported as the failed export's reason on the export
+              status, not on the POST. On Postgres deployments each term is counted on its
+              own, in every class (whole word, phrase and substring alike) and on every read
+              that carries text, and is refused when it alone matches more than 50000 rows of
+              the window that survive the other filters, with or without assessment_types. On
+              ClickHouse deployments the refusal is the candidate-set cap, a
+              deployment-configured limit counted over the matches of all terms together: a
+              search page bounds its candidates to the page, so there the cap is a backstop
+              rather than a limit a common term meets; metrics and by-span resolve every match
+              and can trip it; and an export runs under its own 2000000-row set cap on every
+              request, assessment_types included. Accounts still served by the legacy trace
+              store match differently until migrated: every term matches as stemmed whole
+              words (so inflected forms match and multi-word terms match word-adjacent), only
+              input and output are searched, the 2-character minimum is not enforced, quoting
+              a term changes nothing (the quotes are stripped and a multi-word term is already
+              matched word-adjacent), and characters like `:`, `|`, or `!` inside a term may
+              be interpreted as query operators or cause an error.
 
           span_ids: Filter by span IDs
 
@@ -412,6 +570,7 @@ class SpansResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._get_api_list(
             "/v5/spans/search",
             page=SyncCursorPage[Span],
@@ -430,6 +589,8 @@ class SpansResource(SyncAPIResource):
                     "max_duration_ms": max_duration_ms,
                     "min_duration_ms": min_duration_ms,
                     "names": names,
+                    "obs_span_ids": obs_span_ids,
+                    "obs_trace_ids": obs_trace_ids,
                     "parent_ids": parent_ids,
                     "parents_only": parents_only,
                     "search_texts": search_texts,
@@ -448,6 +609,7 @@ class SpansResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "allow_short_pages": allow_short_pages,
                         "ending_before": ending_before,
                         "from_ts": from_ts,
                         "limit": limit,
@@ -475,16 +637,36 @@ class SpansResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> APIListSpan:
         """
-        Insert or replace multiple spans (up to 1000) in a single request, keyed by span
-        `id`.
+        Insert or replace multiple spans (up to 1000) in a single request.
 
-        Use this for idempotent ingestion where a span with the same `id` may already
-        exist — it will be overwritten — unlike POST /v5/spans/batch, which only
-        inserts. Items without an `id` are assigned a generated UUID, and duplicate
-        `id`s within the request are collapsed to the last occurrence. A batch larger
-        than 1000 spans is rejected with a validation error. The write follows the same
-        per-account dual-write rules, and when the tracing service is the primary store
-        a write failure returns a retryable 503.
+        Use this for idempotent ingestion when spans may already exist, unlike POST
+        /v5/spans/batch, which only inserts. Items without an `id` are assigned a
+        generated UUID. The legacy trace store treats `id` as global and collapses
+        repeated `id`s to the last occurrence. The tracing service keys spans by
+        `trace_id` and `id`; it retains cross-trace ID collisions, and for a repeated
+        pair keeps a completed span over an in-progress one, otherwise the later
+        occurrence wins. In dual-write phases each store applies its own rule, and the
+        primary store determines the returned list. A batch larger than 1000 spans is
+        rejected with a validation error, as is any item whose `end_timestamp` precedes
+        its `start_timestamp`, which returns a 422. When the tracing service is the
+        primary store, its 400, 413 and 422 rejections keep that status and detail, as
+        does a 403 when the request carried its own API key, and every other failure
+        returns a 503 with a Retry-After header. A batch that forms a cycle, or a span
+        whose parent belongs to another trace, is rejected with 409 before either store
+        is written. A parent outside the batch is looked up in Postgres, so that part of
+        the check ends once the account's spans stop being written there. Which writes
+        the tracing service rejects depends in part on its storage engine: on Postgres
+        deployments a NUL byte or invalid UTF-8 inside `trace_id`, `id`, `parent_id` or
+        `group_id` fails the whole batch with a 400 naming the field, because replacing
+        the byte would change the identity the response echoes; a NUL byte or invalid
+        UTF-8 in any other field is replaced with U+FFFD and the span is persisted.
+        ClickHouse deployments store the bytes verbatim.
+
+        Credential redaction: values in the free-form `input`, `output`, `metadata`, and
+        `expected` objects, and in `name`, that are credential-shaped (bearer/JWT, API
+        keys, connection-string passwords) or under a credential-named key are replaced
+        with `[REDACTED:credential]` before the span is persisted, so the stored and
+        returned span reflects the redacted value (EY 12.3).
 
         Args:
           extra_headers: Send extra headers
@@ -539,6 +721,8 @@ class AsyncSpansResource(AsyncAPIResource):
         group_id: str | Omit = omit,
         input: Dict[str, object] | Omit = omit,
         metadata: Dict[str, object] | Omit = omit,
+        obs_span_id: str | Omit = omit,
+        obs_trace_id: str | Omit = omit,
         output: Dict[str, object] | Omit = omit,
         parent_id: str | Omit = omit,
         status: SpanStatus | Omit = omit,
@@ -555,21 +739,60 @@ class AsyncSpansResource(AsyncAPIResource):
 
         Use this for one-off span ingestion; to write many spans in one request use POST
         /v5/spans/batch. When `id` is omitted the server generates a UUID. Depending on
-        per-account server configuration the span is persisted to Postgres, to the
-        ClickHouse-backed tracing service, or both; when the tracing service is the
-        primary store, a write failure returns a retryable 503 with a Retry-After
-        header.
+        per-account server configuration the span is persisted to the legacy trace
+        store, to the tracing service, or both. `end_timestamp` must not precede
+        `start_timestamp`, which is rejected with a 422. When the tracing service is the
+        primary store, its 400, 413 and 422 rejections keep that status and detail, as
+        does a 403 when the request carried its own API key, and every other failure
+        returns a 503 with a Retry-After header. A span whose parent belongs to another
+        trace is rejected with 409 before either store is written. The parent is looked
+        up in Postgres, so that check ends once the account's spans stop being written
+        there. Which writes the tracing service rejects depends in part on its storage
+        engine: on Postgres deployments a NUL byte or invalid UTF-8 inside `trace_id`,
+        `id`, `parent_id` or `group_id` rejects the span with a 400 naming the field,
+        because replacing the byte would change the identity the response echoes; a NUL
+        byte or invalid UTF-8 in any other field is replaced with U+FFFD and the span is
+        persisted. ClickHouse deployments store the bytes verbatim.
+
+        Credential redaction: values in the free-form `input`, `output`, `metadata`, and
+        `expected` objects, and in `name`, that are credential-shaped (bearer/JWT, API
+        keys, connection-string passwords) or under a credential-named key are replaced
+        with `[REDACTED:credential]` before the span is persisted, so the stored and
+        returned span reflects the redacted value (EY 12.3).
 
         Args:
+          start_timestamp: When the span started. With trace_id and id it forms the span's storage
+              identity, so a span re-sent with a start_timestamp on another UTC day is stored
+              as a second row that the store never collapses. Get span and trace detail return
+              the newest version. Search returns the newest version whose start_timestamp
+              falls in the queried window. Export, metrics and facets count both rows until
+              the trace is deleted and re-sent.
+
           trace_id: id for grouping traces together, uuid is recommended
 
-          id: The id of the span
+          id: The id of the span, at most 256 bytes. A value longer than 256 characters is
+              refused here with a 422 before it is forwarded; a value within that count whose
+              UTF-8 form exceeds 256 bytes is refused with a 400 naming the field once the
+              tracing service is the account's primary store, and accepted for accounts still
+              written primarily to the legacy trace store.
 
           application_interaction_id: The optional application interaction ID this span belongs to
 
           application_variant_id: The optional application variant ID this span belongs to
 
-          group_id: Reference to a group_id
+          group_id: Reference to a group_id, at most 256 bytes. A value longer than 256 characters
+              is refused here with a 422 before it is forwarded; a value within that count
+              whose UTF-8 form exceeds 256 bytes is refused with a 400 naming the field once
+              the tracing service is the account's primary store, and accepted for accounts
+              still written primarily to the legacy trace store.
+
+          obs_span_id: W3C span id (16 lowercase hex chars) of the observability span this span
+              executed in. Requires obs_trace_id.
+
+          obs_trace_id: W3C trace id (32 lowercase hex chars) of the observability trace this span
+              executed in, for correlating a business span with the infrastructure work it
+              caused. Stored only by the sgp-traces service, so accounts still served by the
+              legacy store accept the field and read it back as null.
 
           parent_id: Reference to a parent span_id
 
@@ -596,6 +819,8 @@ class AsyncSpansResource(AsyncAPIResource):
                     "group_id": group_id,
                     "input": input,
                     "metadata": metadata,
+                    "obs_span_id": obs_span_id,
+                    "obs_trace_id": obs_trace_id,
                     "output": output,
                     "parent_id": parent_id,
                     "status": status,
@@ -624,12 +849,15 @@ class AsyncSpansResource(AsyncAPIResource):
         """
         Retrieve a single span by its id.
 
-        The span is read from Postgres or, for accounts migrated to the
-        ClickHouse-backed tracing service, from that service — with automatic fallback
-        to Postgres on error unless the account is in strict mode, where a
-        tracing-service failure surfaces as a 503. Access is authorized against the
-        span's parent trace, so a span in a trace the caller cannot read is rejected; an
-        unknown id returns 404.
+        The span is read from the legacy trace store or, for accounts migrated to the
+        tracing service, from that service — with automatic fallback to the legacy trace
+        store on error unless the account is in strict mode, where a tracing-service
+        failure surfaces as a 503. Access is authorized against the span's parent trace,
+        so a span in a trace the caller cannot read is rejected; an unknown id
+        returns 404. `input_tokens` and `output_tokens` carry the token usage the span's
+        producer reported at ingest, and are absent both for a span that reported none
+        and for every span served from the legacy trace store, which keeps no token
+        counts.
 
         Args:
           extra_headers: Send extra headers
@@ -670,11 +898,17 @@ class AsyncSpansResource(AsyncAPIResource):
         Partially update a span's mutable fields and return the updated span.
 
         Only the provided fields among name, end timestamp, output, metadata, and status
-        are changed. This endpoint is available only for accounts still backed solely by
-        Postgres: once an account begins dual-writing to the ClickHouse-backed tracing
+        are changed. This endpoint is available only for accounts still served solely by
+        the legacy trace store: once an account begins dual-writing to the tracing
         service — which is upsert-only and has no partial-update operation — PATCH
         returns 501 and PUT /v5/spans/batch must be used instead. Updates are authorized
         against the span's parent trace, and an unknown id returns 404.
+
+        Credential redaction: values in the free-form `input`, `output`, `metadata`, and
+        `expected` objects, and in `name`, that are credential-shaped (bearer/JWT, API
+        keys, connection-string passwords) or under a credential-named key are replaced
+        with `[REDACTED:credential]` before the span is persisted, so the stored and
+        returned span reflects the redacted value (EY 12.3).
 
         Args:
           extra_headers: Send extra headers
@@ -725,8 +959,27 @@ class AsyncSpansResource(AsyncAPIResource):
         exist, since this endpoint inserts new spans rather than overwriting. A batch
         larger than 1000 spans is rejected with a validation error. Each item follows
         the same id-generation and per-account dual-write rules as the single-span
-        create, and when the tracing service is the primary store a write failure
-        returns a retryable 503.
+        create, including that `end_timestamp` must not precede `start_timestamp`, which
+        rejects the request with a 422. When the tracing service is the primary store,
+        its 400, 413 and 422 rejections keep that status and detail, as does a 403 when
+        the request carried its own API key, and every other failure returns a 503 with
+        a Retry-After header. A batch that forms a cycle, or a span whose parent belongs
+        to another trace, is rejected with 409 before either store is written. A parent
+        outside the batch is looked up in Postgres, so that part of the check ends once
+        the account's spans stop being written there. Postgres rejects an `id` that
+        already exists, while the tracing service treats the write as an upsert. Which
+        writes the tracing service rejects depends in part on its storage engine: on
+        Postgres deployments a NUL byte or invalid UTF-8 inside `trace_id`, `id`,
+        `parent_id` or `group_id` fails the whole batch with a 400 naming the field,
+        because replacing the byte would change the identity the response echoes; a NUL
+        byte or invalid UTF-8 in any other field is replaced with U+FFFD and the span is
+        persisted. ClickHouse deployments store the bytes verbatim.
+
+        Credential redaction: values in the free-form `input`, `output`, `metadata`, and
+        `expected` objects, and in `name`, that are credential-shaped (bearer/JWT, API
+        keys, connection-string passwords) or under a credential-named key are replaced
+        with `[REDACTED:credential]` before the span is persisted, so the stored and
+        returned span reflects the redacted value (EY 12.3).
 
         Args:
           extra_headers: Send extra headers
@@ -749,6 +1002,7 @@ class AsyncSpansResource(AsyncAPIResource):
     def search(
         self,
         *,
+        allow_short_pages: bool | Omit = omit,
         ending_before: str | Omit = omit,
         from_ts: Union[str, datetime] | Omit = omit,
         limit: int | Omit = omit,
@@ -769,6 +1023,8 @@ class AsyncSpansResource(AsyncAPIResource):
         max_duration_ms: int | Omit = omit,
         min_duration_ms: int | Omit = omit,
         names: SequenceNotStr[str] | Omit = omit,
+        obs_span_ids: SequenceNotStr[str] | Omit = omit,
+        obs_trace_ids: SequenceNotStr[str] | Omit = omit,
         parent_ids: SequenceNotStr[str] | Omit = omit,
         parents_only: bool | Omit = omit,
         search_texts: SequenceNotStr[str] | Omit = omit,
@@ -777,6 +1033,7 @@ class AsyncSpansResource(AsyncAPIResource):
         statuses: List[SpanStatus] | Omit = omit,
         trace_ids: SequenceNotStr[str] | Omit = omit,
         types: List[SpanType] | Omit = omit,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -792,15 +1049,38 @@ class AsyncSpansResource(AsyncAPIResource):
         free-text search, metadata, duration bounds, and more, scoped to an optional
         time window. Results are keyset-paginated on indexed columns rather than
         offset-paginated, and `total` is not computed (it is always 0); use the
-        pagination cursors to page through results. Reads route to Postgres or the
-        ClickHouse-backed tracing service per account (with Postgres fallback outside
-        strict mode), and results are narrowed to traces the caller is authorized to
-        read — a filter that resolves to no authorized traces yields an empty page
-        rather than an error. A reversed time window (`from_ts` after `to_ts`) is
-        rejected with 422, as is a request whose combined `trace_ids`, `span_ids`,
-        `excluded_span_ids`, `excluded_trace_ids`, and `parent_ids` count exceeds 10000.
+        pagination cursors to page through results. Reads route to the legacy trace
+        store or the tracing service per account (with fallback to the legacy trace
+        store outside strict mode), and results are narrowed to traces the caller is
+        authorized to read — a filter that resolves to no authorized traces yields an
+        empty page rather than an error. A reversed time window (`from_ts` after
+        `to_ts`) is rejected with 422, as is a request whose combined `trace_ids`,
+        `span_ids`, `excluded_span_ids`, `excluded_trace_ids`, and `parent_ids` count
+        exceeds 10000. `sort_by` accepts `start_timestamp`, `duration_ms`,
+        `input_tokens` and `output_tokens`; the token counts are read from usage
+        reported at ingest, and a span whose producer reported none sorts as zero, so it
+        lands last descending and first ascending. The two token sorts are rejected for
+        an account still served by the legacy trace store, which keeps no token count to
+        order by. Any other unsupported sort falls back to timestamp order there. Spans
+        sharing a sort key are ordered by `trace_id` and `id` bytewise on both
+        tracing-service engines. Text search tokenization, indexed-prefix, word-length,
+        locale and metadata-bytes behavior differs between Postgres and ClickHouse
+        deployments of the tracing service as the `search_texts` field describes.
+
+        `x-project-id` narrows the result to traces whose root span carries that
+        project, when `PROJECT_SCOPED_SPAN_LISTING` is on for the account. An account
+        the tracing service serves holds no project placement, so a request carrying the
+        header is rejected with 422 there.
 
         Args:
+          allow_short_pages: Return however many spans fit the server byte budget instead of a 400
+              SEARCH_RESULT_TOO_LARGE, reporting the rest through has_more plus next_cursor
+              going forward or prev_cursor going back. Send it only if the client reads
+              has_more, because under it a page shorter than limit no longer means the end of
+              the list. Honored by the tracing service on either of its storage engines.
+              Accounts still served by the legacy trace store ignore it and page by item
+              count, where a short page still means the end of the list.
+
           from_ts: The starting (oldest) timestamp in ISO format.
 
           to_ts: The ending (most recent) timestamp in ISO format.
@@ -823,19 +1103,38 @@ class AsyncSpansResource(AsyncAPIResource):
 
           excluded_trace_ids: List of trace IDs to exclude from results
 
-          extra_metadata: Filter on custom metadata key-value pairs
+          extra_metadata: Filter on custom metadata: each key must equal its value, or any value of an
+              array, and keys are ANDed. On the ClickHouse read path `$or` and `$and` also
+              compose nested groups of predicates. On Postgres a `$`-prefixed key is an
+              ordinary metadata key matched literally. Array values match element-wise; a
+              negative zero inside an array equals zero on Postgres-served accounts and not on
+              ClickHouse-served ones.
 
           group_id: Filter by group ID
 
-          max_duration_ms: Maximum span duration in milliseconds (inclusive). An in-flight span with no end
-              time has no known duration and is treated as unbounded, so it never falls within
-              a maximum and is excluded.
+          max_duration_ms: Maximum span duration in milliseconds (inclusive). Matched on completed
+              duration, so a span with no end time is never returned: fetch it by its own id
+              or in its trace's span list.
 
-          min_duration_ms: Minimum span duration in milliseconds (inclusive). An in-flight span with no end
-              time has no known duration and is treated as unbounded, so it matches every
-              minimum.
+          min_duration_ms: Minimum span duration in milliseconds (inclusive). Matched on completed
+              duration, so a span with no end time is not reliably returned: fetch it by its
+              own id or in its trace's span list.
 
           names: Filter by trace/span name
+
+          obs_span_ids: Filter to the business spans that executed in any of these observability spans.
+              Each id must be 16 lowercase hex characters. A W3C span id is unique per trace
+              only, so combine with obs_trace_ids for exact identity, the same looseness
+              span_ids carries versus the spans pair filter. ANDs with obs_trace_ids when both
+              are set. Served only by the sgp-traces service, so a request using this filter
+              against an account still on the legacy store returns 422 rather than silently
+              ignoring it.
+
+          obs_trace_ids: Filter to the business spans that executed in any of these observability traces
+              (the obs-to-business reverse lookup). Each id must be 32 lowercase hex
+              characters. Served only by the sgp-traces service, so a request using this
+              filter against an account still on the legacy store returns 422 rather than
+              silently ignoring it.
 
           parent_ids: Filter to the direct children of any of these parent span IDs
 
@@ -847,16 +1146,57 @@ class AsyncSpansResource(AsyncAPIResource):
               words matches as a contiguous phrase whose words each appear as whole words. All
               other terms (punctuated, non-ASCII, longer) match as substrings, where mid-word
               fragments match and an inflected form such as a plural matches only where it
-              appears literally. Multiple terms are ANDed, and UUID-shaped terms match trace
-              IDs instead. A span must match every non-UUID term, and each term may match any
-              of the searched fields. UUID matches are ORed onto the text match. Each term
-              must be at least 2 characters, and at most 10 terms are supported. For exact
-              trace ID lookup, use the `trace_ids` filter. Accounts still served by the legacy
-              trace store match differently until migrated: every term matches as stemmed
-              whole words (so inflected forms match and multi-word terms match word-adjacent),
-              only input and output are searched, the 2-character minimum is not enforced, and
-              characters like `:`, `|`, or `!` inside a term may be interpreted as query
-              operators or cause an error.
+              appears literally. Wrapping a term in double quotes makes it a phrase: the
+              quotes mark the phrase and are never matched, a backslash escapes a quote or a
+              backslash inside them, the phrase must appear contiguously inside one searched
+              value (the input, the output, or the metadata), a phrase of up to 8 ASCII
+              letter-and-digit words additionally requires each of those words to appear there
+              as a whole word, and a UUID-shaped phrase stays a text search. A term whose
+              quote is unterminated or left unescaped mid-term is matched literally, quotes
+              included. Multiple terms are ANDed, and UUID-shaped terms match trace IDs
+              instead. A span must match every non-UUID term, and each term may match any of
+              the searched fields. UUID matches are ORed onto the text match. Each term must
+              be at least 2 characters, measured between the quotes and ignoring outer
+              whitespace for a phrase, and at most 10 terms are supported. For exact trace ID
+              lookup, use the `trace_ids` filter. The tracing service runs on either
+              ClickHouse or Postgres, and the two engines match differently. On Postgres
+              deployments the whole-word match uses the simple text-search parser, which keeps
+              hosts, e-mail addresses, file paths, version strings, hyphenated compounds, URLs
+              and query strings as single words (https://x.com/path?q=1 yields x.com/path?q=1,
+              x.com and /path?q=1, never path, q or 1; user@example.com and v1.2.3 are one
+              word each; gpt-4o yields the compound and its parts), whereas ClickHouse
+              deployments split on every non-alphanumeric ASCII byte. A single word inside
+              such a value is a whole-word hit on ClickHouse and a miss on Postgres; the
+              substring forms behave identically on both. On Postgres deployments a value over
+              80000 bytes has only its first 20000 characters indexed for whole-word matching;
+              text past that is reachable only by the substring forms. Words longer than 2047
+              bytes are matched as substrings, never as whole words. Case folding of non-ASCII
+              text follows the database's LC_CTYPE on Postgres deployments, for the whole-word
+              index, the quoted-phrase and substring forms and the word-boundary check alike;
+              under a C-locale database non-ASCII letters are not folded. ASCII folds
+              everywhere. Input and output behave identically on both engines. A
+              substring-form term, or a text-filtered metrics request, reads every row of the
+              time window that survives the other filters. A term that matches too many rows
+              in the window is refused by the tracing service as QUERY_TOO_BROAD, at an
+              engine-specific threshold; whether this API relays that refusal as a 400 or
+              answers the page from the legacy trace store follows its read-routing rules, and
+              an export's refusal is reported as the failed export's reason on the export
+              status, not on the POST. On Postgres deployments each term is counted on its
+              own, in every class (whole word, phrase and substring alike) and on every read
+              that carries text, and is refused when it alone matches more than 50000 rows of
+              the window that survive the other filters, with or without assessment_types. On
+              ClickHouse deployments the refusal is the candidate-set cap, a
+              deployment-configured limit counted over the matches of all terms together: a
+              search page bounds its candidates to the page, so there the cap is a backstop
+              rather than a limit a common term meets; metrics and by-span resolve every match
+              and can trip it; and an export runs under its own 2000000-row set cap on every
+              request, assessment_types included. Accounts still served by the legacy trace
+              store match differently until migrated: every term matches as stemmed whole
+              words (so inflected forms match and multi-word terms match word-adjacent), only
+              input and output are searched, the 2-character minimum is not enforced, quoting
+              a term changes nothing (the quotes are stripped and a multi-word term is already
+              matched word-adjacent), and characters like `:`, `|`, or `!` inside a term may
+              be interpreted as query operators or cause an error.
 
           span_ids: Filter by span IDs
 
@@ -877,6 +1217,7 @@ class AsyncSpansResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._get_api_list(
             "/v5/spans/search",
             page=AsyncCursorPage[Span],
@@ -895,6 +1236,8 @@ class AsyncSpansResource(AsyncAPIResource):
                     "max_duration_ms": max_duration_ms,
                     "min_duration_ms": min_duration_ms,
                     "names": names,
+                    "obs_span_ids": obs_span_ids,
+                    "obs_trace_ids": obs_trace_ids,
                     "parent_ids": parent_ids,
                     "parents_only": parents_only,
                     "search_texts": search_texts,
@@ -913,6 +1256,7 @@ class AsyncSpansResource(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "allow_short_pages": allow_short_pages,
                         "ending_before": ending_before,
                         "from_ts": from_ts,
                         "limit": limit,
@@ -940,16 +1284,36 @@ class AsyncSpansResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> APIListSpan:
         """
-        Insert or replace multiple spans (up to 1000) in a single request, keyed by span
-        `id`.
+        Insert or replace multiple spans (up to 1000) in a single request.
 
-        Use this for idempotent ingestion where a span with the same `id` may already
-        exist — it will be overwritten — unlike POST /v5/spans/batch, which only
-        inserts. Items without an `id` are assigned a generated UUID, and duplicate
-        `id`s within the request are collapsed to the last occurrence. A batch larger
-        than 1000 spans is rejected with a validation error. The write follows the same
-        per-account dual-write rules, and when the tracing service is the primary store
-        a write failure returns a retryable 503.
+        Use this for idempotent ingestion when spans may already exist, unlike POST
+        /v5/spans/batch, which only inserts. Items without an `id` are assigned a
+        generated UUID. The legacy trace store treats `id` as global and collapses
+        repeated `id`s to the last occurrence. The tracing service keys spans by
+        `trace_id` and `id`; it retains cross-trace ID collisions, and for a repeated
+        pair keeps a completed span over an in-progress one, otherwise the later
+        occurrence wins. In dual-write phases each store applies its own rule, and the
+        primary store determines the returned list. A batch larger than 1000 spans is
+        rejected with a validation error, as is any item whose `end_timestamp` precedes
+        its `start_timestamp`, which returns a 422. When the tracing service is the
+        primary store, its 400, 413 and 422 rejections keep that status and detail, as
+        does a 403 when the request carried its own API key, and every other failure
+        returns a 503 with a Retry-After header. A batch that forms a cycle, or a span
+        whose parent belongs to another trace, is rejected with 409 before either store
+        is written. A parent outside the batch is looked up in Postgres, so that part of
+        the check ends once the account's spans stop being written there. Which writes
+        the tracing service rejects depends in part on its storage engine: on Postgres
+        deployments a NUL byte or invalid UTF-8 inside `trace_id`, `id`, `parent_id` or
+        `group_id` fails the whole batch with a 400 naming the field, because replacing
+        the byte would change the identity the response echoes; a NUL byte or invalid
+        UTF-8 in any other field is replaced with U+FFFD and the span is persisted.
+        ClickHouse deployments store the bytes verbatim.
+
+        Credential redaction: values in the free-form `input`, `output`, `metadata`, and
+        `expected` objects, and in `name`, that are credential-shaped (bearer/JWT, API
+        keys, connection-string passwords) or under a credential-named key are replaced
+        with `[REDACTED:credential]` before the span is persisted, so the stored and
+        returned span reflects the redacted value (EY 12.3).
 
         Args:
           extra_headers: Send extra headers

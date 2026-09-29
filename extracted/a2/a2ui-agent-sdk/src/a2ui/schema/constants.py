@@ -64,7 +64,7 @@ VERSION_0_9 = "0.9"
 VERSION_0_9_1 = "0.9.1"
 VERSION_1_0 = "1.0"
 
-SPEC_VERSION_MAP = {
+PROTOCOL_VERSION_MAP = {
     VERSION_0_8: {
         SERVER_TO_CLIENT_SCHEMA_KEY: "specification/v0_8/json/server_to_client.json",
     },
@@ -81,6 +81,8 @@ SPEC_VERSION_MAP = {
         COMMON_TYPES_SCHEMA_KEY: "specification/v1_0/json/common_types.json",
     },
 }
+
+SPEC_VERSION_MAP = PROTOCOL_VERSION_MAP
 
 SPECIFICATION_DIR = "specification"
 
@@ -106,7 +108,6 @@ The generated response MUST follow these rules:
     - Parent components MUST appear before their child components.
     This specific ordering allows the streaming parser to yield and render the UI incrementally as it arrives.
 """
-
 
 # A2UI Tool constants
 A2UI_TOOL_NAME = "send_a2ui_json_to_client"

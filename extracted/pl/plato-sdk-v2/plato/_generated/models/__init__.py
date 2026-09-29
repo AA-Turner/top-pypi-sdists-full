@@ -274,6 +274,10 @@ class Path(RootModel[str]):
     root: Annotated[str, Field(min_length=1, pattern="^\\S+$", title="Path")]
 
 
+class JsonValue(RootModel[Any]):
+    root: Any
+
+
 class ArtifactMcpConfig(BaseModel):
     model_config = ConfigDict(
         extra="allow",
@@ -6005,6 +6009,13 @@ class ArtifactFullDetails(BaseModel):
     created_at: Annotated[datetime, Field(title="Created At")]
 
 
+class ArtifactMetadataUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    additional_metadata: Annotated[dict[str, JsonValue] | None, Field(title="Additional Metadata")] = None
+
+
 class ArtifactInfoResponse(BaseModel):
     model_config = ConfigDict(
         extra="allow",
@@ -6031,6 +6042,9 @@ class ArtifactInfoResponse(BaseModel):
     has_flows: Annotated[bool | None, Field(title="Has Flows")] = False
     has_plato_config: Annotated[bool | None, Field(title="Has Plato Config")] = False
     notes: Annotated[str | None, Field(title="Notes")] = None
+    source_session_id: Annotated[str | None, Field(title="Source Session Id")] = None
+    source_job_id: Annotated[str | None, Field(title="Source Job Id")] = None
+    additional_metadata: Annotated[dict[str, JsonValue] | None, Field(title="Additional Metadata")] = None
 
 
 class ArtifactLineageResponse(BaseModel):
@@ -6225,6 +6239,10 @@ class CreateCheckpointRequest(BaseModel):
     snapshotted_at: Annotated[datetime | None, Field(title="Snapshotted At")] = None
     """
     Override the snapshot timestamp. If not provided, calculates as parent's snapshotted_at + 30min or current time
+    """
+    additional_metadata: Annotated[dict[str, JsonValue] | None, Field(title="Additional Metadata")] = None
+    """
+    Freeform JSON object stored on the artifact as-is. Never inherited from the parent artifact
     """
 
 

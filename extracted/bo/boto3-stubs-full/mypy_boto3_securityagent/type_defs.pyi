@@ -50,6 +50,7 @@ from .literals import (
     ResourceTypeType,
     RiskLevelType,
     RiskTypeType,
+    ScopeDecisionType,
     SecurityRequirementArtifactFormatType,
     SecurityRequirementPackImportStatusType,
     SecurityRequirementPackStatusType,
@@ -142,6 +143,7 @@ __all__ = (
     "BlobTypeDef",
     "CaCertificateSourceTypeDef",
     "CategoryTypeDef",
+    "CiCdConfigurationTypeDef",
     "CloudWatchLogTypeDef",
     "CodeLocationTypeDef",
     "CodeRemediationTaskDetailsTypeDef",
@@ -331,6 +333,8 @@ __all__ = (
     "ReportFiltersTypeDef",
     "ReportFiltersUnionTypeDef",
     "ResponseMetadataTypeDef",
+    "ScopeChangeTypeDef",
+    "ScopeResultTypeDef",
     "SecurityRequirementArtifactTypeDef",
     "SecurityRequirementPackSummaryTypeDef",
     "SecurityRequirementSummaryTypeDef",
@@ -626,6 +630,9 @@ class CaCertificateSourceTypeDef(TypedDict):
 class CategoryTypeDef(TypedDict):
     name: NotRequired[str]
     isPrimary: NotRequired[bool]
+
+class CiCdConfigurationTypeDef(TypedDict):
+    enabled: NotRequired[bool]
 
 class CloudWatchLogTypeDef(TypedDict):
     logGroup: NotRequired[str]
@@ -1008,6 +1015,7 @@ class ListPentestJobsForPentestInputTypeDef(TypedDict):
     agentSpaceId: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    jobType: NotRequired[JobTypeType]
 
 class PentestJobSummaryTypeDef(TypedDict):
     pentestJobId: str
@@ -1016,6 +1024,8 @@ class PentestJobSummaryTypeDef(TypedDict):
     status: NotRequired[JobStatusType]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
+    jobType: NotRequired[JobTypeType]
+    reportUrl: NotRequired[str]
 
 class ListPentestsInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -1162,6 +1172,17 @@ class NetworkTrafficRuleTypeDef(TypedDict):
     pattern: NotRequired[str]
     networkTrafficRuleType: NotRequired[Literal["URL"]]
 
+class ScopeChangeTypeDef(TypedDict):
+    integrationId: str
+    providerResourceId: str
+    headCommitSha: str
+    baseCommitSha: NotRequired[str]
+    triggerRunId: NotRequired[str]
+
+class ScopeResultTypeDef(TypedDict):
+    decision: ScopeDecisionType
+    reason: str
+
 class SelfManagedInputTypeDef(TypedDict):
     resourceConfigurationId: str
     certificate: NotRequired[str]
@@ -1192,12 +1213,6 @@ class StartCodeRemediationInputTypeDef(TypedDict):
     findingIds: Sequence[str]
     pentestJobId: NotRequired[str]
     codeReviewJobId: NotRequired[str]
-
-class StartPentestJobInputTypeDef(TypedDict):
-    agentSpaceId: str
-    pentestId: str
-    jobType: NotRequired[JobTypeType]
-    selectedFindingIds: NotRequired[Sequence[str]]
 
 class StartThreatModelJobInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -1856,6 +1871,7 @@ class ListPentestJobTasksInputPaginateTypeDef(TypedDict):
 class ListPentestJobsForPentestInputPaginateTypeDef(TypedDict):
     pentestId: str
     agentSpaceId: str
+    jobType: NotRequired[JobTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPentestsInputPaginateTypeDef(TypedDict):
@@ -1975,6 +1991,13 @@ class NetworkTrafficConfigOutputTypeDef(TypedDict):
 class NetworkTrafficConfigTypeDef(TypedDict):
     rules: NotRequired[Sequence[NetworkTrafficRuleTypeDef]]
     customHeaders: NotRequired[Sequence[CustomHeaderTypeDef]]
+
+class StartPentestJobInputTypeDef(TypedDict):
+    agentSpaceId: str
+    pentestId: str
+    jobType: NotRequired[JobTypeType]
+    selectedFindingIds: NotRequired[Sequence[str]]
+    scopeChanges: NotRequired[Sequence[ScopeChangeTypeDef]]
 
 class PrivateConnectionModeTypeDef(TypedDict):
     serviceManaged: NotRequired[ServiceManagedInputTypeDef]
@@ -2226,6 +2249,10 @@ class PentestJobTypeDef(TypedDict):
     jobType: NotRequired[JobTypeType]
     selectedFindingIds: NotRequired[list[str]]
     reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportUrl: NotRequired[str]
+    scopeResult: NotRequired[ScopeResultTypeDef]
+    scopeChanges: NotRequired[list[ScopeChangeTypeDef]]
+    cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2355,6 +2382,7 @@ class CreatePentestOutputTypeDef(TypedDict):
     agentSpaceId: str
     reportDestination: ReportDestinationTypeDef
     reportFilters: ReportFiltersOutputTypeDef
+    cicdConfiguration: CiCdConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateThreatModelOutputTypeDef(TypedDict):
@@ -2387,6 +2415,7 @@ class PentestTypeDef(TypedDict):
     maxTaskHours: NotRequired[float]
     reportDestination: NotRequired[ReportDestinationTypeDef]
     reportFilters: NotRequired[ReportFiltersOutputTypeDef]
+    cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2431,6 +2460,7 @@ class UpdatePentestOutputTypeDef(TypedDict):
     agentSpaceId: str
     reportDestination: ReportDestinationTypeDef
     reportFilters: ReportFiltersOutputTypeDef
+    cicdConfiguration: CiCdConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateThreatModelOutputTypeDef(TypedDict):
@@ -2535,6 +2565,7 @@ class CreatePentestInputTypeDef(TypedDict):
     maxTaskHours: NotRequired[float]
     reportDestination: NotRequired[ReportDestinationTypeDef]
     reportFilters: NotRequired[ReportFiltersUnionTypeDef]
+    cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
 
 class CreateThreatModelInputTypeDef(TypedDict):
     title: str
@@ -2574,6 +2605,7 @@ class UpdatePentestInputTypeDef(TypedDict):
     maxTaskHours: NotRequired[float]
     reportDestination: NotRequired[ReportDestinationTypeDef]
     reportFilters: NotRequired[ReportFiltersUnionTypeDef]
+    cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
 
 class UpdateThreatModelInputTypeDef(TypedDict):
     threatModelId: str

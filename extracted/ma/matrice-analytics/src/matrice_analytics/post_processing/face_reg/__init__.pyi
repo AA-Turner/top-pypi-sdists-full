@@ -6,6 +6,8 @@ from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, Proces
 from ..core.config import AlertConfig, BaseConfig
 from ..utils import apply_category_mapping, filter_by_categories, filter_by_confidence, match_results_structure
 from ..utils.format_utils import face_landmarks
+from ..utils.geometry_utils import bbox_is_normalized, bbox_xyxy_pixels, resolve_frame_dims
+from ..utils.geometry_utils import bbox_xyxy_pixels
 from ..utils.location_name_cache import LocationNameCache
 from ..utils.public_ip import resolve_public_ip_once
 from .embedding_manager import EmbeddingConfig, EmbeddingManager
@@ -17,6 +19,7 @@ ALIGN: bool = ...  # From compare_similarity
 DETECTOR_BACKEND: str = ...  # From compare_similarity
 MODEL_NAME: str = ...  # From compare_similarity
 cmd: List[Any] = ...  # From face_recognition
+ACTIVITY_BBOX_GRID: int = ...  # From people_activity_logging
 
 # Functions
 # From compare_similarity

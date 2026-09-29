@@ -13,6 +13,49 @@ from itertools import chain
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
 from ._core import RenderableMixin, resolve
+from ._limits import (
+    BUTTON_ACCESSIBILITY_LABEL_MAX_LENGTH,
+    BUTTON_TEXT_MAX_LENGTH,
+    BUTTON_URL_MAX_LENGTH,
+    BUTTON_VALUE_MAX_LENGTH,
+    CHECKBOXES_OPTIONS_MAX_ITEMS,
+    CHECKBOXES_OPTIONS_MIN_ITEMS,
+    DATE_PICKER_PLACEHOLDER_MAX_LENGTH,
+    EMAIL_INPUT_PLACEHOLDER_MAX_LENGTH,
+    FEEDBACK_BUTTON_ACCESSIBILITY_LABEL_MAX_LENGTH,
+    FEEDBACK_BUTTON_TEXT_MAX_LENGTH,
+    FEEDBACK_BUTTON_VALUE_MAX_LENGTH,
+    FILE_INPUT_MAX_FILES_MAX,
+    FILE_INPUT_MAX_FILES_MIN,
+    ICON_BUTTON_ACCESSIBILITY_LABEL_MAX_LENGTH,
+    ICON_BUTTON_VALUE_MAX_LENGTH,
+    ICON_BUTTON_VISIBLE_TO_USER_IDS_MAX_ITEMS,
+    IMAGE_ELEMENT_ALT_TEXT_MAX_LENGTH,
+    IMAGE_ELEMENT_IMAGE_URL_MAX_LENGTH,
+    MULTI_SELECT_MAX_SELECTED_ITEMS_MIN,
+    NUMBER_INPUT_PLACEHOLDER_MAX_LENGTH,
+    OVERFLOW_OPTIONS_MAX_ITEMS,
+    OVERFLOW_OPTIONS_MIN_ITEMS,
+    PLAIN_TEXT_INPUT_MAX_LENGTH_MAX,
+    PLAIN_TEXT_INPUT_MAX_LENGTH_MIN,
+    PLAIN_TEXT_INPUT_MIN_LENGTH_MAX,
+    PLAIN_TEXT_INPUT_MIN_LENGTH_MIN,
+    PLAIN_TEXT_INPUT_PLACEHOLDER_MAX_LENGTH,
+    RADIO_BUTTONS_OPTIONS_MAX_ITEMS,
+    RADIO_BUTTONS_OPTIONS_MIN_ITEMS,
+    RICH_TEXT_INPUT_MAX_LINES_MAX,
+    RICH_TEXT_INPUT_MAX_LINES_MIN,
+    RICH_TEXT_INPUT_MIN_LINES_MAX,
+    RICH_TEXT_INPUT_MIN_LINES_MIN,
+    RICH_TEXT_INPUT_PLACEHOLDER_MAX_LENGTH,
+    SELECT_OPTION_GROUPS_MAX_ITEMS,
+    SELECT_OPTIONS_MAX_ITEMS,
+    SELECT_PLACEHOLDER_MAX_LENGTH,
+    TIME_PICKER_PLACEHOLDER_MAX_LENGTH,
+    URL_INPUT_PLACEHOLDER_MAX_LENGTH,
+    WORKFLOW_BUTTON_ACCESSIBILITY_LABEL_MAX_LENGTH,
+    WORKFLOW_BUTTON_TEXT_MAX_LENGTH,
+)
 from .errors import (
     LengthError,
     MissingRequiredError,
@@ -41,7 +84,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from .rich_text import RichText
+    from .blocks import RichTextBlock
 
 
 ButtonStyleName: TypeAlias = Literal["primary", "danger"]
@@ -132,7 +175,7 @@ class Button(Element):
     def __init__(
         self,
         text: TextLike,
-        action_id: str,
+        action_id: str | None = None,
         url: str | None = None,
         value: str | None = None,
         style: ButtonStyle | ButtonStyleName | None = None,
@@ -140,13 +183,15 @@ class Button(Element):
         accessibility_label: str | None = None,
     ) -> None:
         super().__init__(type_=ElementType.BUTTON)
-        self.text = Text.to_text(text, max_length=75, force_plaintext=True)
-        self.action_id = validate_action_id(action_id)
-        self.url = validate_string(url, field_name="url", max_length=3000, allow_none=True)
+        self.text = Text.to_text(text, max_length=BUTTON_TEXT_MAX_LENGTH, force_plaintext=True)
+        self.action_id = validate_action_id(action_id, allow_none=True)
+        self.url = validate_string(
+            url, field_name="url", max_length=BUTTON_URL_MAX_LENGTH, allow_none=True
+        )
         self.value = validate_string(
             value,
             field_name="value",
-            max_length=2000,
+            max_length=BUTTON_VALUE_MAX_LENGTH,
             allow_none=True,
         )
         self.style: str | None = None
@@ -160,7 +205,7 @@ class Button(Element):
         self.accessibility_label = validate_string(
             accessibility_label,
             "accessibility_label",
-            max_length=75,
+            max_length=BUTTON_ACCESSIBILITY_LABEL_MAX_LENGTH,
             allow_none=True,
         )
 
@@ -203,12 +248,14 @@ class FeedbackButton(RenderableMixin):
         value: str,
         accessibility_label: str | None = None,
     ) -> None:
-        self.text = Text.to_text(text, force_plaintext=True, max_length=75)
-        self.value = validate_string(value, "value", max_length=2000)
+        self.text = Text.to_text(
+            text, force_plaintext=True, max_length=FEEDBACK_BUTTON_TEXT_MAX_LENGTH
+        )
+        self.value = validate_string(value, "value", max_length=FEEDBACK_BUTTON_VALUE_MAX_LENGTH)
         self.accessibility_label = validate_string(
             accessibility_label,
             "accessibility_label",
-            max_length=75,
+            max_length=FEEDBACK_BUTTON_ACCESSIBILITY_LABEL_MAX_LENGTH,
             allow_none=True,
         )
 
@@ -298,21 +345,28 @@ class IconButton(Element):
         visible_to_user_ids: list[str] | None = None,
     ) -> None:
         super().__init__(ElementType.ICON_BUTTON)
+        if icon is None:
+            raise MissingRequiredError("`icon` is required.")
         if icon != "trash":
             raise TypeMismatchError("`icon` must be `trash`.")
         self.icon = icon
         self.text = Text.to_text(text, force_plaintext=True)
         self.action_id = validate_action_id(action_id, allow_none=True)
-        self.value = validate_string(value, "value", max_length=2000, allow_none=True)
+        self.value = validate_string(
+            value, "value", max_length=ICON_BUTTON_VALUE_MAX_LENGTH, allow_none=True
+        )
         self.confirm = validate_type(confirm, ConfirmationDialogue, "confirm", allow_none=True)
         self.accessibility_label = validate_string(
             accessibility_label,
             "accessibility_label",
-            max_length=75,
+            max_length=ICON_BUTTON_ACCESSIBILITY_LABEL_MAX_LENGTH,
             allow_none=True,
         )
         self.visible_to_user_ids: list[str] | None = coerce_to_list(
-            visible_to_user_ids, str, allow_none=True, max_size=10
+            visible_to_user_ids,
+            str,
+            allow_none=True,
+            max_size=ICON_BUTTON_VISIBLE_TO_USER_IDS_MAX_ITEMS,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -338,7 +392,7 @@ class URLSource(Element):
     See: <https://docs.slack.dev/reference/block-kit/blocks/task-card-block>.
 
     Args:
-        url: the URL of the source (max 3000 chars).
+        url: the URL of the source.
         text: the label displayed for the source.
 
     Throws:
@@ -347,7 +401,7 @@ class URLSource(Element):
 
     def __init__(self, url: str, text: str) -> None:
         super().__init__(ElementType.URL_SOURCE)
-        self.url = validate_string(url, "url", min_length=1, max_length=3000)
+        self.url = validate_string(url, "url")
         self.text = validate_string(text, "text")
 
     def _resolve(self) -> dict[str, Any]:
@@ -380,15 +434,20 @@ class CheckboxGroup(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None,
         options: Option | list[Option],
         initial_options: Option | list[Option] | None = None,
         confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
     ) -> None:
         super().__init__(type_=ElementType.CHECKBOXES)
-        self.action_id = validate_action_id(action_id)
-        self.options = coerce_to_list(options, Option, min_size=1, max_size=10)
+        self.action_id = validate_action_id(action_id, allow_none=True)
+        self.options = coerce_to_list(
+            options,
+            Option,
+            min_size=CHECKBOXES_OPTIONS_MIN_ITEMS,
+            max_size=CHECKBOXES_OPTIONS_MAX_ITEMS,
+        )
         self.initial_options = coerce_to_list(initial_options, Option, allow_none=True)
         self.confirm = confirm
         self.focus_on_load = focus_on_load
@@ -429,21 +488,24 @@ class DatePicker(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_date: str | None = None,
         confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.DATE_PICKER)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_date: str | None = None
         if initial_date:
             self.initial_date = datetime.strptime(initial_date, "%Y-%m-%d").strftime("%Y-%m-%d")
         self.confirm = confirm
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
-            placeholder, force_plaintext=True, max_length=150, allow_none=True
+            placeholder,
+            force_plaintext=True,
+            max_length=DATE_PICKER_PLACEHOLDER_MAX_LENGTH,
+            allow_none=True,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -481,13 +543,13 @@ class DateTimePicker(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_datetime: int | None = None,
         confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
     ) -> None:
         super().__init__(type_=ElementType.DATETIME_PICKER)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_datetime = initial_datetime
         self.confirm = confirm
         self.focus_on_load = focus_on_load
@@ -527,19 +589,22 @@ class EmailInput(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_value: str | None = None,
         dispatch_action_config: DispatchActionConfiguration | None = None,
         focus_on_load: bool = False,
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.EMAIL_INPUT)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_value = initial_value
         self.dispatch_action_config = dispatch_action_config
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
-            placeholder, max_length=150, force_plaintext=True, allow_none=True
+            placeholder,
+            max_length=EMAIL_INPUT_PLACEHOLDER_MAX_LENGTH,
+            force_plaintext=True,
+            allow_none=True,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -579,13 +644,18 @@ class FileInput(Element):
         max_files: int | None = None,
     ) -> None:
         super().__init__(ElementType.FILE_INPUT)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.filetypes = coerce_to_list(
             filetypes,
             (str),
             allow_none=True,
         )
-        self.max_files = validate_int(max_files, min_value=1, max_value=10, allow_none=True)
+        self.max_files = validate_int(
+            max_files,
+            min_value=FILE_INPUT_MAX_FILES_MIN,
+            max_value=FILE_INPUT_MAX_FILES_MAX,
+            allow_none=True,
+        )
 
     def _resolve(self) -> dict[str, Any]:
         return resolve(
@@ -631,8 +701,15 @@ class Image(Element):
             raise MissingRequiredError("Must provide one of `image_url` or `slack_file`")
         if image_url and slack_file:
             raise MutualExclusivityError("Cannot provide both `image_url` or `slack_file`")
-        self.image_url = image_url
-        self.alt_text = alt_text
+        self.image_url = validate_string(
+            image_url,
+            field_name="image_url",
+            max_length=IMAGE_ELEMENT_IMAGE_URL_MAX_LENGTH,
+            allow_none=True,
+        )
+        self.alt_text = validate_string(
+            alt_text, field_name="alt_text", max_length=IMAGE_ELEMENT_ALT_TEXT_MAX_LENGTH
+        )
         self.slack_file = slack_file
 
     def _resolve(self) -> dict[str, Any]:
@@ -678,7 +755,7 @@ class StaticMultiSelectMenu(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None,
         options: Option | list[Option],
         option_groups: OptionGroup | list[OptionGroup] | None = None,
         initial_options: Option | list[Option] | OptionGroup | list[OptionGroup] | None = None,
@@ -688,20 +765,24 @@ class StaticMultiSelectMenu(Element):
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.MULTI_SELECT_STATIC)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         if options and option_groups:
             raise MutualExclusivityError(
                 "Cannot set both `options` and `option_groups` parameters."
             )
-        self.options = coerce_to_list(options, class_=Option, allow_none=True, max_size=100)
+        self.options = coerce_to_list(
+            options, class_=Option, allow_none=True, max_size=SELECT_OPTIONS_MAX_ITEMS
+        )
         self.option_groups = coerce_to_list(
-            option_groups, class_=OptionGroup, allow_none=True, max_size=100
+            option_groups,
+            class_=OptionGroup,
+            allow_none=True,
+            max_size=SELECT_OPTION_GROUPS_MAX_ITEMS,
         )
         self.initial_options = coerce_to_list(
             initial_options,  # type: ignore
             class_=(Option, OptionGroup),
             allow_none=True,
-            max_size=100,
         )
         if (
             options
@@ -737,10 +818,15 @@ class StaticMultiSelectMenu(Element):
                 )
 
         self.confirm = confirm
-        self.max_selected_items = max_selected_items
+        self.max_selected_items = validate_int(
+            max_selected_items, min_value=MULTI_SELECT_MAX_SELECTED_ITEMS_MIN, allow_none=True
+        )
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
-            placeholder, force_plaintext=True, max_length=150, allow_none=True
+            placeholder,
+            force_plaintext=True,
+            max_length=SELECT_PLACEHOLDER_MAX_LENGTH,
+            allow_none=True,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -787,7 +873,7 @@ class ExternalMultiSelectMenu(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         min_query_length: int | None = None,
         initial_options: Option | list[Option] | OptionGroup | list[OptionGroup] | None = None,
         confirm: ConfirmationDialogue | None = None,
@@ -796,19 +882,23 @@ class ExternalMultiSelectMenu(Element):
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.MULTI_SELECT_EXTERNAL)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.min_query_length = min_query_length
         self.initial_options = coerce_to_list(
             initial_options,  # type: ignore
             class_=(Option, OptionGroup),
             allow_none=True,
-            max_size=100,
         )
         self.confirm = confirm
-        self.max_selected_items = max_selected_items
+        self.max_selected_items = validate_int(
+            max_selected_items, min_value=MULTI_SELECT_MAX_SELECTED_ITEMS_MIN, allow_none=True
+        )
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
-            placeholder, force_plaintext=True, max_length=150, allow_none=True
+            placeholder,
+            force_plaintext=True,
+            max_length=SELECT_PLACEHOLDER_MAX_LENGTH,
+            allow_none=True,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -852,7 +942,7 @@ class UserMultiSelectMenu(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_users: list[str] | None = None,
         confirm: ConfirmationDialogue | None = None,
         max_selected_items: int | None = None,
@@ -860,13 +950,18 @@ class UserMultiSelectMenu(Element):
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.MULTI_SELECT_USERS)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_users: list[str] | None = coerce_to_list(initial_users, str, allow_none=True)
         self.confirm = confirm
-        self.max_selected_items = max_selected_items
+        self.max_selected_items = validate_int(
+            max_selected_items, min_value=MULTI_SELECT_MAX_SELECTED_ITEMS_MIN, allow_none=True
+        )
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
-            placeholder, force_plaintext=True, max_length=150, allow_none=True
+            placeholder,
+            force_plaintext=True,
+            max_length=SELECT_PLACEHOLDER_MAX_LENGTH,
+            allow_none=True,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -915,7 +1010,7 @@ class ConversationMultiSelectMenu(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_conversations: list[str] | None = None,
         default_to_current_conversation: bool | None = False,
         confirm: ConfirmationDialogue | None = None,
@@ -925,17 +1020,22 @@ class ConversationMultiSelectMenu(Element):
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.MULTI_SELECT_CONVERSATIONS)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_conversations: list[str] | None = coerce_to_list(
             initial_conversations, str, allow_none=True
         )
         self.default_to_current_conversation = default_to_current_conversation
         self.confirm = confirm
-        self.max_selected_items = max_selected_items
+        self.max_selected_items = validate_int(
+            max_selected_items, min_value=MULTI_SELECT_MAX_SELECTED_ITEMS_MIN, allow_none=True
+        )
         self.filter = filter
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
-            placeholder, force_plaintext=True, max_length=150, allow_none=True
+            placeholder,
+            force_plaintext=True,
+            max_length=SELECT_PLACEHOLDER_MAX_LENGTH,
+            allow_none=True,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -984,7 +1084,7 @@ class ChannelMultiSelectMenu(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_channels: list[str] | None = None,
         confirm: ConfirmationDialogue | None = None,
         max_selected_items: int | None = None,
@@ -992,15 +1092,20 @@ class ChannelMultiSelectMenu(Element):
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.MULTI_SELECT_CHANNELS)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_channels: list[str] | None = coerce_to_list(
             initial_channels, class_=str, allow_none=True
         )
         self.confirm = confirm
-        self.max_selected_items = max_selected_items
+        self.max_selected_items = validate_int(
+            max_selected_items, min_value=MULTI_SELECT_MAX_SELECTED_ITEMS_MIN, allow_none=True
+        )
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
-            placeholder, force_plaintext=True, max_length=150, allow_none=True
+            placeholder,
+            force_plaintext=True,
+            max_length=SELECT_PLACEHOLDER_MAX_LENGTH,
+            allow_none=True,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -1054,6 +1159,8 @@ class NumberInput(Element):
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.NUMBER_INPUT)
+        if is_decimal_allowed is None:
+            raise MissingRequiredError("`is_decimal_allowed` is required.")
         self.is_decimal_allowed = is_decimal_allowed
         self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_value = initial_value
@@ -1074,7 +1181,10 @@ class NumberInput(Element):
         self.dispatch_action_config = dispatch_action_config
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
-            placeholder, max_length=150, force_plaintext=True, allow_none=True
+            placeholder,
+            max_length=NUMBER_INPUT_PLACEHOLDER_MAX_LENGTH,
+            force_plaintext=True,
+            allow_none=True,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -1113,13 +1223,18 @@ class OverflowMenu(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None,
         options: Option | list[Option],
         confirm: ConfirmationDialogue | None = None,
     ) -> None:
         super().__init__(type_=ElementType.OVERFLOW_MENU)
-        self.action_id = validate_action_id(action_id)
-        self.options = coerce_to_list(options, Option, min_size=1, max_size=5)
+        self.action_id = validate_action_id(action_id, allow_none=True)
+        self.options = coerce_to_list(
+            options,
+            Option,
+            min_size=OVERFLOW_OPTIONS_MIN_ITEMS,
+            max_size=OVERFLOW_OPTIONS_MAX_ITEMS,
+        )
         self.confirm = confirm
 
     def _resolve(self) -> dict[str, Any]:
@@ -1163,7 +1278,7 @@ class PlainTextInput(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_value: str | None = None,
         multiline: bool = False,
         min_length: int | None = None,
@@ -1173,17 +1288,28 @@ class PlainTextInput(Element):
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.PLAIN_TEXT_INPUT)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.multiline = multiline
         self.initial_value = initial_value
-        self.min_length = min_length
-        if max_length and max_length > 3000:
-            raise RangeError("`max_length` value cannot exceed 3000 characters")
-        self.max_length = max_length
+        self.min_length = validate_int(
+            min_length,
+            min_value=PLAIN_TEXT_INPUT_MIN_LENGTH_MIN,
+            max_value=PLAIN_TEXT_INPUT_MIN_LENGTH_MAX,
+            allow_none=True,
+        )
+        self.max_length = validate_int(
+            max_length,
+            min_value=PLAIN_TEXT_INPUT_MAX_LENGTH_MIN,
+            max_value=PLAIN_TEXT_INPUT_MAX_LENGTH_MAX,
+            allow_none=True,
+        )
         self.dispatch_action_config = dispatch_action_config
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
-            placeholder, max_length=150, force_plaintext=True, allow_none=True
+            placeholder,
+            max_length=PLAIN_TEXT_INPUT_PLACEHOLDER_MAX_LENGTH,
+            force_plaintext=True,
+            allow_none=True,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -1227,15 +1353,18 @@ class RadioButtonGroup(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None,
         options: list[Option],
         initial_option: Option | None = None,
         confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
     ) -> None:
         super().__init__(type_=ElementType.RADIO_BUTTON_GROUP)
-        self.action_id = validate_action_id(action_id)
-        if len(options) < 1 or len(options) > 10:
+        self.action_id = validate_action_id(action_id, allow_none=True)
+        if (
+            len(options) < RADIO_BUTTONS_OPTIONS_MIN_ITEMS
+            or len(options) > RADIO_BUTTONS_OPTIONS_MAX_ITEMS
+        ):
             raise LengthError(
                 "Number of options to RadioButtonGroup must be between 1 and 10 (inclusive)."
             )
@@ -1291,7 +1420,7 @@ class StaticSelectMenu(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         options: list[Option] | None = None,
         option_groups: list[OptionGroup] | None = None,
         initial_option: Option | OptionGroup | None = None,
@@ -1300,16 +1429,19 @@ class StaticSelectMenu(Element):
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.STATIC_SELECT_MENU)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         if options and option_groups:
             raise MutualExclusivityError(
                 "Cannot set both `options` and `option_groups` parameters."
             )
         self.options: list[Option] | None = coerce_to_list(
-            options, class_=Option, allow_none=True, max_size=100
+            options, class_=Option, allow_none=True, max_size=SELECT_OPTIONS_MAX_ITEMS
         )
         self.option_groups: list[OptionGroup] | None = coerce_to_list(
-            option_groups, class_=OptionGroup, allow_none=True, max_size=100
+            option_groups,
+            class_=OptionGroup,
+            allow_none=True,
+            max_size=SELECT_OPTION_GROUPS_MAX_ITEMS,
         )
         if options and initial_option and not isinstance(initial_option, Option):
             raise TypeMismatchError(
@@ -1340,7 +1472,10 @@ class StaticSelectMenu(Element):
         self.confirm = confirm
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
-            placeholder, max_length=150, force_plaintext=True, allow_none=True
+            placeholder,
+            max_length=SELECT_PLACEHOLDER_MAX_LENGTH,
+            force_plaintext=True,
+            allow_none=True,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -1385,7 +1520,7 @@ class ExternalSelectMenu(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_option: Option | OptionGroup | None = None,
         min_query_length: int | None = None,
         confirm: ConfirmationDialogue | None = None,
@@ -1393,14 +1528,14 @@ class ExternalSelectMenu(Element):
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.EXTERNAL_SELECT_MENU)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_option = initial_option
         self.min_query_length = min_query_length
         self.confirm = confirm
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
             placeholder,
-            max_length=150,
+            max_length=SELECT_PLACEHOLDER_MAX_LENGTH,
             force_plaintext=True,
             allow_none=True,
         )
@@ -1443,19 +1578,22 @@ class UserSelectMenu(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_user: str | None = None,
         confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.USERS_SELECT_MENU)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_user = initial_user
         self.confirm = confirm
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
-            placeholder, max_length=150, force_plaintext=True, allow_none=True
+            placeholder,
+            max_length=SELECT_PLACEHOLDER_MAX_LENGTH,
+            force_plaintext=True,
+            allow_none=True,
         )
 
     def _resolve(self) -> dict[str, Any]:
@@ -1504,7 +1642,7 @@ class ConversationSelectMenu(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_conversation: str | None = None,
         default_to_current_conversation: bool | None = False,
         confirm: ConfirmationDialogue | None = None,
@@ -1514,7 +1652,7 @@ class ConversationSelectMenu(Element):
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.CONVERSATIONS_SELECT_MENU)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_conversation = initial_conversation
         self.default_to_current_conversation = default_to_current_conversation
         self.confirm = confirm
@@ -1523,7 +1661,7 @@ class ConversationSelectMenu(Element):
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
             placeholder,
-            max_length=150,
+            max_length=SELECT_PLACEHOLDER_MAX_LENGTH,
             force_plaintext=True,
             allow_none=True,
         )
@@ -1577,7 +1715,7 @@ class ChannelSelectMenu(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_channel: str | None = None,
         confirm: ConfirmationDialogue | None = None,
         response_url_enabled: bool | None = False,
@@ -1585,14 +1723,14 @@ class ChannelSelectMenu(Element):
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.CHANNELS_SELECT_MENU)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_channel = initial_channel
         self.confirm = confirm
         self.response_url_enabled = response_url_enabled
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
             placeholder,
-            max_length=150,
+            max_length=SELECT_PLACEHOLDER_MAX_LENGTH,
             force_plaintext=True,
             allow_none=True,
         )
@@ -1636,7 +1774,7 @@ class TimePicker(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_time: str | None = None,
         confirm: ConfirmationDialogue | None = None,
         focus_on_load: bool = False,
@@ -1644,13 +1782,13 @@ class TimePicker(Element):
         timezone: str | None = None,
     ) -> None:
         super().__init__(type_=ElementType.TIME_PICKER)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_time = initial_time
         self.confirm = confirm
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
             placeholder,
-            max_length=150,
+            max_length=TIME_PICKER_PLACEHOLDER_MAX_LENGTH,
             force_plaintext=True,
             allow_none=True,
         )
@@ -1694,21 +1832,21 @@ class URLInput(Element):
 
     def __init__(
         self,
-        action_id: str,
+        action_id: str | None = None,
         initial_value: str | None = None,
         dispatch_action_config: DispatchActionConfiguration | None = None,
         focus_on_load: bool = False,
         placeholder: TextLike | None = None,
     ) -> None:
         super().__init__(type_=ElementType.URL_INPUT)
-        self.action_id = validate_action_id(action_id)
+        self.action_id = validate_action_id(action_id, allow_none=True)
         self.initial_value = initial_value
         self.dispatch_action_config = dispatch_action_config
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
             placeholder,
             force_plaintext=True,
-            max_length=150,
+            max_length=URL_INPUT_PLACEHOLDER_MAX_LENGTH,
             allow_none=True,
         )
 
@@ -1770,6 +1908,7 @@ class WorkflowButton(Element):
             object for this.
         accessibility_label: a string label for longer descriptive text about
             a button element. Used by screen readers (max 75 chars).
+        action_id: an identifier so the source of the action can be known (required).
 
     Throws:
         InvalidUsageError: if any of the provided arguments fail validation.
@@ -1781,18 +1920,28 @@ class WorkflowButton(Element):
         workflow: Workflow | None = None,
         style: ButtonStyleLike | None = ButtonStyle.DEFAULT,
         accessibility_label: str | None = None,
+        action_id: str | None = None,
     ) -> None:
         super().__init__(type_=ElementType.WORKFLOW_BUTTON)
-        self.text = Text.to_text(text, force_plaintext=True, max_length=75)
+        self.action_id = validate_action_id(action_id)
+        self.text = Text.to_text(
+            text, force_plaintext=True, max_length=WORKFLOW_BUTTON_TEXT_MAX_LENGTH
+        )
         self.workflow = workflow
         self.style = ButtonStyle.to_button_style(style).value
-        self.accessibility_label = accessibility_label
+        self.accessibility_label = validate_string(
+            accessibility_label,
+            "accessibility_label",
+            max_length=WORKFLOW_BUTTON_ACCESSIBILITY_LABEL_MAX_LENGTH,
+            allow_none=True,
+        )
 
     def _resolve(self) -> dict[str, Any]:
         return resolve(
             {
                 **self._attributes(),
                 "text": self.text,
+                "action_id": self.action_id,
                 "workflow": self.workflow,
                 "style": self.style,
                 "accessibility_label": self.accessibility_label
@@ -1811,7 +1960,8 @@ class RichTextInput(Element):
 
     Args:
         action_id: an identifier so the source of the action can be known.
-        initial_value: The initial value in the rich text input when it is loaded.
+        initial_value: a [`RichTextBlock`](/slackblocks/latest/reference/blocks/#blocks.RichTextBlock)
+            holding the initial value of the rich text input when it is loaded.
         dispatch_action_config: a `DispatchActionConfiguration` object that
             determines when during text input the element returns a
             `block_actions` payload.
@@ -1819,6 +1969,8 @@ class RichTextInput(Element):
             within the view object.
         placeholder: a plain-text `Text` object (max 150 chars) that shows
             in the menu when it's initially rendered.
+        min_lines: the minimum visible height of the input, in lines (1-100).
+        max_lines: the maximum visible height of the input, in lines (1-100).
 
     Throws:
         InvalidUsageError: if any of the provided arguments fail validation.
@@ -1827,20 +1979,38 @@ class RichTextInput(Element):
     def __init__(
         self,
         action_id: str,
-        initial_value: RichText | None = None,
+        initial_value: RichTextBlock | None = None,
         dispatch_action_config: DispatchActionConfiguration | None = None,
         focus_on_load: bool = False,
         placeholder: TextLike | None = None,
+        min_lines: int | None = None,
+        max_lines: int | None = None,
     ) -> None:
+        from .blocks import RichTextBlock
+
         super().__init__(ElementType.RICH_TEXT_INPUT)
         self.action_id = validate_action_id(action_id)
-        self.initial_value = initial_value
+        self.initial_value = validate_type(
+            initial_value, RichTextBlock, "initial_value", allow_none=True
+        )
+        self.min_lines = validate_int(
+            min_lines,
+            min_value=RICH_TEXT_INPUT_MIN_LINES_MIN,
+            max_value=RICH_TEXT_INPUT_MIN_LINES_MAX,
+            allow_none=True,
+        )
+        self.max_lines = validate_int(
+            max_lines,
+            min_value=RICH_TEXT_INPUT_MAX_LINES_MIN,
+            max_value=RICH_TEXT_INPUT_MAX_LINES_MAX,
+            allow_none=True,
+        )
         self.dispatch_action_config = dispatch_action_config
         self.focus_on_load = focus_on_load
         self.placeholder = Text.to_text(
             placeholder,
             force_plaintext=True,
-            max_length=150,
+            max_length=RICH_TEXT_INPUT_PLACEHOLDER_MAX_LENGTH,
             allow_none=True,
         )
 
@@ -1849,13 +2019,19 @@ class RichTextInput(Element):
         # ``if self.focus_on_load is not None``, which is always true given the
         # default of False). Preserving this behaviour to avoid breaking the
         # existing test golden file.
+        initial_value = resolve(self.initial_value)
+        if self.initial_value is not None and self.initial_value._generated_block_id:
+            # A generated block_id carries no meaning inside an initial value.
+            del initial_value["block_id"]
         return resolve(
             {
                 **self._attributes(),
                 "action_id": self.action_id,
-                "initial_value": self.initial_value,
+                "initial_value": initial_value,
                 "dispatch_action_config": self.dispatch_action_config,
                 "focus_on_load": self.focus_on_load,
                 "placeholder": self.placeholder,
+                "min_lines": self.min_lines,
+                "max_lines": self.max_lines,
             }
         )

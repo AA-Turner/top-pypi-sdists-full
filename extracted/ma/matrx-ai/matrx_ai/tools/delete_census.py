@@ -19,6 +19,13 @@ something is listed here ONCE with the table it touches and how:
 * ``owner_pending`` — hard on a soft-deletable table, owned by another lane. The
                       guard asserts it is STILL hard; when the owner fixes it, the
                       guard goes red and says: flip this row to ``soft``.
+* ``soft_pending``  — the code already ARCHIVES, but the table's soft-delete column
+                      arrives with a named, not-yet-applied migration (``migration``).
+                      Until then the path REFUSES loudly and removes nothing. The
+                      guard walks it exactly like ``soft`` (no reachable hard delete,
+                      the ``soft_via`` marker present) and asserts the generated
+                      model does NOT have the column yet; the day it does, the guard
+                      goes red and says: flip this row to ``soft``.
 
 The guard (``aidream/tools/tests/test_delete_actions_archive.py``) derives the
 delete-class action list from the registered tools themselves — every action
@@ -35,7 +42,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-Mode = Literal["soft", "per_table", "hard", "no_row", "waived", "owner_pending"]
+Mode = Literal["soft", "per_table", "hard", "no_row", "waived", "owner_pending", "soft_pending"]
 
 #: An action whose NAME reads as a removal is delete-class even if nobody
 #: classified it that way.
@@ -55,12 +62,12 @@ class DeletePath:
     soft_via: str | None = None
     #: per_table only: the name of the guard's probe that drives it.
     probe: str | None = None
+    #: soft_pending only: the migration that adds the soft-delete column.
+    migration: str | None = None
 
 
-_CMS_NO_COLUMN = (
-    "the CMS table has no soft-delete column (checked live 2026-09-26), so removal is the only "
-    "thing possible. It holds a person's site content and SHOULD get deleted_at — DDL is out of "
-    "this lane's scope; recorded for the CMS owner."
+_CMS_SOFT = (
+    "sets deleted_at (CMS 0041, applied 2026-09-28); restore clears it. "
 )
 
 DELETE_CENSUS: dict[str, DeletePath] = {
@@ -127,8 +134,14 @@ DELETE_CENSUS: dict[str, DeletePath] = {
         soft_via="record_delete",
     ),
     "instance_delete": DeletePath(
-        "content_ir.kind_instance", "soft", "sets deleted_at (platform tombstone)",
-        impl=("matrx_ai.tools.implementations.kind_instance:instance_delete",),
+        "content_ir.kind_instance", "soft",
+        "sets deleted_at (platform tombstone); an organization whose kind records live in the "
+        "record store archives through the store arm, whose delete is the store's soft delete "
+        "(matrx_records gateway: 'The soft delete, and its undo')",
+        impl=(
+            "matrx_ai.tools.implementations.kind_instance:instance_delete",
+            "aidream.services.kind_records.routed:KindRecordToolArm.delete",
+        ),
         model="db.models.content_ir:KindInstance",
         soft_via="deleted_at",
     ),
@@ -156,47 +169,55 @@ DELETE_CENSUS: dict[str, DeletePath] = {
         model="db.models.plan:Node",
         soft_via="deleted_at",
     ),
-    # ── tables with no soft-delete column ───────────────────────────────────────
+    # ── CMS content: archives through deleted_at (CMS 0041, applied 2026-09-28) ──
     "cms_asset:delete": DeletePath(
-        "public.client_assets (CMS db)", "hard",
-        _CMS_NO_COLUMN + " The underlying cld_files file is NOT destroyed; this row is library membership.",
+        "public.client_assets (CMS db)", "soft",
+        _CMS_SOFT + "The underlying cld_files file is never touched; this row is library membership.",
         impl=("aidream.services.cms_assets.service:CmsAssetService.delete",),
         model="matrx_cms.db.models:ClientAssets",
+        soft_via="archive_where",
     ),
     "cms_component:delete": DeletePath(
-        "public.client_components (CMS db)", "hard", _CMS_NO_COLUMN,
+        "public.client_components (CMS db)", "soft", _CMS_SOFT,
         impl=("aidream.services.cms.components:CmsComponentService.delete",),
         model="matrx_cms.db.models:ClientComponents",
+        soft_via="archive_where",
     ),
     "cms_page:delete": DeletePath(
-        "public.client_pages (CMS db)", "hard", _CMS_NO_COLUMN + " Version history survives in cms versions.",
+        "public.client_pages (CMS db)", "soft",
+        _CMS_SOFT + "cms_archive_page archives the page and its live sub-pages with one stamp.",
         impl=("aidream.services.cms.pages:CmsPageService.delete",),
         model="matrx_cms.db.models:ClientPages",
+        soft_via="cms_archive_page",
     ),
     "cms_site:delete": DeletePath(
-        "public.client_sites + public.client_pages (CMS db)", "hard",
-        _CMS_NO_COLUMN + " With force=true it also removes every page of the site — the widest hard "
-        "delete an agent can reach; highest priority for a deleted_at column.",
+        "public.client_sites + every child table (CMS db)", "soft",
+        _CMS_SOFT + "cms_archive_site archives the site and every live page, component, asset, "
+        "redirect, collection and item with one stamp; cms_site restore brings exactly that set back.",
         impl=("aidream.services.cms.sites:CmsSiteService.delete",),
         model="matrx_cms.db.models:ClientSites",
+        soft_via="cms_archive_site",
     ),
     "cms_site:redirect_delete": DeletePath(
-        "public.client_redirects (CMS db)", "hard",
-        "a redirect ledger row; no soft-delete column (checked live) and the removal is logged to the activity log",
+        "public.client_redirects (CMS db)", "soft",
+        _CMS_SOFT + "An archived redirect never redirects; the archive is logged to the activity log.",
         impl=("aidream.services.cms.redirects:CmsRedirectService.delete",),
         model="matrx_cms.db.models:ClientRedirects",
+        soft_via="archive_where",
     ),
     "html_page:delete": DeletePath(
-        "public.html_pages (CMS db)", "hard", _CMS_NO_COLUMN,
+        "public.html_pages (CMS db)", "soft", _CMS_SOFT,
         impl=("aidream.services.cms.html_pages:HtmlPageService.delete",),
         model="matrx_cms.db.models:HtmlPages",
+        soft_via="archive_where",
     ),
     "dictionary:delete_entries": DeletePath(
-        "dictionary.dict_entries", "hard",
-        "public.dict_delete_entries_for runs DELETE FROM; the table has no soft-delete column (checked live). "
-        "Dictionary entries are a person's vocabulary and SHOULD get deleted_at — DDL is out of this lane's scope.",
+        "dictionary.dict_entries", "soft",
+        "public.dict_delete_entries_for ARCHIVES (sets deleted_at; migration 1355, applied 2026-09-28). "
+        "Re-adding an archived term through upsert_entries revives it; restore_entries brings entries back.",
         impl=("matrx_ai.tools.implementations.dictionary:dictionary",),
         model="db.models.dictionary:DictEntries",
+        soft_via="dictionary_archive_live",
     ),
     # ── removes no row ────────────────────────────────────────────────────────
     "workflow_plan:retire": DeletePath(
@@ -205,6 +226,12 @@ DELETE_CENSUS: dict[str, DeletePath] = {
         "definition via a RemoveNodeOp patch; the workflow.plan row, its notes and samples are never "
         "deleted and the definition keeps its version history. A person-made step is refused.",
         impl=("aidream.services.workflow_plans.service:retire_plan_anchor",),
+    ),
+    "seo_keywords:remove_saved": DeletePath(
+        "seo keyword tag associations", "no_row",
+        "removes selected facet associations (or clears all tags) through keyword_facet_set; "
+        "it never deletes the saved keyword or its market row.",
+        impl=("aidream.tools.seo_keywords_tool:_remove_saved",),
     ),
     # ── waived ────────────────────────────────────────────────────────────────
     "tasks:remove": DeletePath(

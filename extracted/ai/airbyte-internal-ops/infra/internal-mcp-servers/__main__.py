@@ -1046,6 +1046,7 @@ def main() -> None:
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
         min_instances=MIN_INSTANCES,
         extra_envs=[
+            _env("SENTRY_ENVIRONMENT", "production"),
             *ops_mcp_backend_envs,
             *_firestore_storage_envs(ops_mcp_firestore),
         ],
@@ -1060,6 +1061,7 @@ def main() -> None:
         oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
         extra_envs=[
+            _env("SENTRY_ENVIRONMENT", "preview"),
             *ops_mcp_backend_envs,
             *_firestore_storage_envs(ops_mcp_preview_firestore),
         ],

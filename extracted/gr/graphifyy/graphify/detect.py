@@ -2,7 +2,9 @@
 from __future__ import annotations
 import fnmatch
 import json
+import ntpath
 import os
+import posixpath
 import re
 import shlex
 import stat
@@ -12,7 +14,7 @@ import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Iterable
 
 from graphify.google_workspace import (
     GOOGLE_WORKSPACE_EXTENSIONS,
@@ -2170,13 +2172,32 @@ def _looks_absolute(key: str) -> bool:
     )
 
 
+def _normpath_own_flavor(key: str) -> str:
+    """``normpath`` an absolute ``key`` under its OWN platform's syntax.
+
+    ``os.path.normpath`` applies the current platform's rules, so on Windows
+    it rewrites a POSIX key ``/home/u/foo.py`` to ``\\home\\u\\foo.py`` —
+    a string POSIX can no longer read back, since ``posixpath`` does not
+    treat ``\\`` as a separator. Pick the flavor from the key itself: a
+    drive letter or leading backslash is Windows, a leading ``/`` that the
+    current platform does not consider absolute is POSIX.
+    """
+    if Path(key).is_absolute():
+        return os.path.normpath(key)
+    if key.startswith("\\") or _DRIVE_LETTER_RE.match(key):
+        return ntpath.normpath(key)
+    return posixpath.normpath(key)
+
+
 def _to_absolute_from_storage(key: str, root: Path) -> str:
     """Inverse of :func:`_to_relative_for_storage`.
 
     Re-anchor a stored key against ``root``. Already-absolute keys
     (legacy manifests, out-of-root entries, or a foreign-platform key —
-    see :func:`_looks_absolute`) pass through unchanged so that newly-loaded
-    manifests from before this change remain readable.
+    see :func:`_looks_absolute`) are not re-anchored, so that newly-loaded
+    manifests from before this change remain readable; they are only
+    dot-segment normalized under their own platform's syntax
+    (:func:`_normpath_own_flavor`).
     Uses ``Path(root).resolve()`` so the produced absolute path matches
     what :func:`detect` returns (which also resolves the scan root).
     NFC both sides so a relative key and an NFD-resolved root still join
@@ -2194,13 +2215,15 @@ def _to_absolute_from_storage(key: str, root: Path) -> str:
     :func:`_to_relative_for_storage`'s own choice not to resolve the key.
     """
     if _looks_absolute(key):
-        return os.path.normpath(key)
+        return _normpath_own_flavor(key)
     # NFC the joined result so an NFD-resolved root + relative key lands on
     # the same form load_manifest / detect_incremental compare against.
     return _nfc(os.path.normpath(str(Path(root).resolve() / Path(key))))
 
 
-def _collapse_manifest_duplicates(items, key_fn) -> dict:
+def _collapse_manifest_duplicates(
+    items: Iterable[tuple[str, Any]], key_fn: Callable[[str], str]
+) -> dict[str, Any]:
     """Canonicalize each raw key via ``key_fn``, keeping the more recently
     observed entry when two distinct raw keys collapse to the same
     canonical one (#1964).
@@ -2222,7 +2245,7 @@ def _collapse_manifest_duplicates(items, key_fn) -> dict:
     current. Legacy scalar/partial entries (no ``seen``, or either side not
     a dict) fall back to the historical last-wins behavior, unchanged.
     """
-    result: dict = {}
+    result: dict[str, Any] = {}
     for k, v in items:
         canonical = key_fn(k)
         if canonical in result:

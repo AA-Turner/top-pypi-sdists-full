@@ -39,6 +39,27 @@ ADDRESS = "10.0.0.5:8080"
             "https://cdn.example/a.png?w=10&X-Amz-Signature=abc123&token=t0k#frag",
             "https://cdn.example/a.png?w=10&X-Amz-Signature=***&token=***#frag",
         ),
+        # Fragments reach logs just as verbatim as queries. Preserve an ordinary
+        # anchor and sibling safe parameters while cutting every credential form.
+        (
+            "https://alice:secret@x.example/a?token=tok&safe=yes#access_token=frag789&panel=overview",
+            "https://***@x.example/a?token=***&safe=yes#access_token=***&panel=overview",
+        ),
+        (
+            "https://x.example/#/callback?ACCESS%5ftoken=frag789&safe=yes#summary",
+            "https://x.example/#/callback?ACCESS%5ftoken=***&safe=yes#summary",
+        ),
+        # Semicolons are admitted parameter separators too; a safe value must
+        # not consume the secret pair that follows. A percent-encoded semicolon
+        # remains literal value data, not a separator.
+        (
+            "https://x.example/a?safe=one%3Btwo;token=semi-secret&panel=overview#tab=read;access_token=fragment-secret",
+            "https://x.example/a?safe=one%3Btwo;token=***&panel=overview#tab=read;access_token=***",
+        ),
+        (
+            "https://x.example/a?safe=yes#section-2",
+            "https://x.example/a?safe=yes#section-2",
+        ),
         ("https://api.example/v1?key=AIzaSECRET", "https://api.example/v1?key=***"),
         # names that merely CONTAIN a secret word are not secrets
         ("https://shop.example/?monkey=1&tokens_left=3", "https://shop.example/?monkey=1&tokens_left=3"),
@@ -67,6 +88,107 @@ def _assert_address_kept_secrets_gone(caplog: pytest.LogCaptureFixture) -> None:
     assert ADDRESS in logged, f"the refused address was not logged at all:\n{logged}"
     for secret in SECRETS:
         assert secret not in logged, f"{secret!r} leaked into the log:\n{logged}"
+
+
+@pytest.mark.asyncio
+async def test_press_clip_placeholder_log_redacts_userinfo_query_and_fragment_credentials(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The real PressClip log sink must inherit the canonical fragment redaction.
+
+    This is deliberately a renderer call, not a direct logger assertion: the
+    placeholder sweep is the actual path that writes a source URL to PressClip
+    logs. Browser collaborators are minimal owned fakes; no network or real
+    credentials are involved.
+    """
+    from types import SimpleNamespace
+
+    from matrx_scraper.press_clip import renderer
+    from matrx_scraper.press_clip.logo import LogoResolution
+    import matrx_scraper.ai_browser.url_guard as url_guard
+    import playwright.async_api as playwright_api
+
+    leaky_url = (
+        "https://clip-user:clip-pass@example.test/story?safe=yes;token=query-token&panel=overview"
+        "#tab=summary;access_token=fragment-token"
+    )
+    secrets = ("clip-user", "clip-pass", "query-token", "fragment-token")
+
+    class Page:
+        url = leaky_url
+
+        async def goto(self, *_args, **_kwargs):
+            return None
+
+        async def wait_for_timeout(self, *_args, **_kwargs):
+            return None
+
+        async def evaluate(self, script, *_args):
+            if "readMeta" in script:
+                return {}
+            if "clip(o)" in script:
+                return {"removed_placeholders": ["div.ad-slot"], "section_applied": False}
+            if "finalSweep" in script:
+                return []
+            return None
+
+        async def add_style_tag(self, **_kwargs):
+            return None
+
+        async def screenshot(self, **_kwargs):
+            return b"preview"
+
+        async def pdf(self, **_kwargs):
+            return b"pdf"
+
+    class Context:
+        async def route(self, *_args, **_kwargs):
+            return None
+
+        async def new_page(self):
+            return Page()
+
+    class Browser:
+        async def new_context(self, **_kwargs):
+            return Context()
+
+        async def close(self):
+            return None
+
+    class Playwright:
+        chromium = SimpleNamespace(launch=lambda **_kwargs: _async(Browser()))
+
+        async def stop(self):
+            return None
+
+    async def _async(value):
+        return value
+
+    monkeypatch.setattr(playwright_api, "async_playwright", lambda: SimpleNamespace(start=lambda: _async(Playwright())))
+    monkeypatch.setattr(url_guard, "guard_target", _async_noop)
+    monkeypatch.setattr(url_guard, "install_egress_guard", _async_noop)
+    monkeypatch.setattr(renderer, "install_block_route", _async_noop)
+    monkeypatch.setattr(renderer, "_scroll_for_lazy_content", _async_noop)
+    monkeypatch.setattr(renderer, "rasterize_pdf", lambda _pdf: [b"raster"])
+
+    async def resolve_logo(**_kwargs):
+        return LogoResolution("explicit", url="https://logo.example.test/logo.png")
+
+    monkeypatch.setattr(renderer, "resolve_logo", resolve_logo)
+    caplog.set_level("INFO", logger="matrx_scraper.press_clip.renderer")
+
+    await renderer.render_clip_document(url=leaky_url, client_name="")
+
+    messages = [record.getMessage() for record in caplog.records if record.getMessage().startswith("press clip ")]
+    assert len(messages) == 1, messages
+    message = messages[0]
+    assert "safe=yes" in message and "panel=overview" in message and "tab=summary" in message
+    for secret in secrets:
+        assert secret not in message, f"{secret!r} leaked into PressClip logging: {message}"
+
+
+async def _async_noop(*_args, **_kwargs):
+    return None
 
 
 @pytest.mark.asyncio

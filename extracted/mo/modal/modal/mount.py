@@ -139,6 +139,7 @@ class _MountDir(_MountEntry):
     remote_path: PurePosixPath
     ignore: Callable[[Path], bool] | modal.file_pattern_matcher._AbstractPatternMatcher
     recursive: bool
+    filter_external_links: bool = False
 
     def description(self):
         return str(self.local_dir.expanduser().absolute())
@@ -171,6 +172,8 @@ class _MountDir(_MountEntry):
             msg = f"local dir {local_dir} is not a directory"
             raise NotADirectoryError(msg)
 
+        resolved_local_dir = local_dir.resolve() if self.filter_external_links else None
+
         if self.recursive:
             if (
                 isinstance(self.ignore, modal.file_pattern_matcher._AbstractPatternMatcher)
@@ -187,7 +190,10 @@ class _MountDir(_MountEntry):
             rel_local_path = local_path.relative_to(local_dir)
             if not self.ignore(rel_local_path):
                 mount_path = self.remote_path / rel_local_path.as_posix()
-                yield local_path.resolve(), mount_path
+                resolved_local_path = local_path.resolve()
+                if resolved_local_dir is not None and not resolved_local_path.is_relative_to(resolved_local_dir):
+                    continue
+                yield resolved_local_path, mount_path
 
     def watch_entry(self):
         return self.local_dir.resolve().expanduser(), None
@@ -371,6 +377,7 @@ class _Mount(_Object, type_prefix="mo"):
         local_path: Path,
         remote_path: PurePosixPath,
         ignore: Callable[[Path], bool] = modal.file_pattern_matcher._NOTHING,
+        filter_external_links: bool = False,
     ):
         return _Mount._new()._extend(
             _MountDir(
@@ -378,6 +385,7 @@ class _Mount(_Object, type_prefix="mo"):
                 remote_path=remote_path,
                 ignore=ignore,
                 recursive=True,
+                filter_external_links=filter_external_links,
             ),
         )
 
@@ -494,7 +502,7 @@ class _Mount(_Object, type_prefix="mo"):
                 request = api_pb2.MountBatchedCheckExistenceRequest(
                     sha256_hex_hashes=[spec.sha256_hex for spec in batch]
                 )
-                response = await client.stub.MountBatchedCheckExistence(request, retry=Retry(base_delay=1))
+                response = await client._stub.MountBatchedCheckExistence(request, retry=Retry(base_delay=1))
                 missing_hashes = set(response.missing_sha256_hex_hashes)
 
                 for spec in batch:
@@ -586,7 +594,7 @@ class _Mount(_Object, type_prefix="mo"):
                 async with blob_upload_concurrency:
                     with file_spec.source() as fp:
                         blob_id = await blob_upload_file(
-                            fp, load_context.client.stub, sha256_hex=file_spec.sha256_hex, md5_hex=file_spec.md5_hex
+                            fp, load_context.client._stub, sha256_hex=file_spec.sha256_hex, md5_hex=file_spec.md5_hex
                         )
 
                 logger.debug(f"Uploading blob file {file_spec.source_description} as {remote_filename}")
@@ -606,7 +614,7 @@ class _Mount(_Object, type_prefix="mo"):
 
             start_time = time.monotonic()
             while time.monotonic() - start_time < MOUNT_PUT_FILE_CLIENT_TIMEOUT:
-                response = await load_context.client.stub.MountPutFile(request, retry=Retry(base_delay=1))
+                response = await load_context.client._stub.MountPutFile(request, retry=Retry(base_delay=1))
 
                 if response.exists:
                     n_finished += 1
@@ -667,8 +675,8 @@ class _Mount(_Object, type_prefix="mo"):
                 environment_name=load_context.environment_name,
             )
 
-        resp = await load_context.client.stub.MountGetOrCreate(req, retry=Retry(base_delay=1))
-        status_row.finish(f"Created mount {message_label}")
+        resp = await load_context.client._stub.MountGetOrCreate(req, retry=Retry(base_delay=1))
+        status_row.finish(f"Uploaded {message_label}")
 
         logger.debug(f"Uploaded {total_uploads} new files and {total_bytes} bytes in {time.monotonic() - t0}s")
         self._hydrate(resp.mount_id, load_context.client, resp.handle_metadata)
@@ -714,7 +722,7 @@ class _Mount(_Object, type_prefix="mo"):
                 namespace=namespace,
                 environment_name=load_context.environment_name,
             )
-            response = await load_context.client.stub.MountGetOrCreate(req)
+            response = await load_context.client._stub.MountGetOrCreate(req)
             provider._hydrate(response.mount_id, load_context.client, response.handle_metadata)
 
         return _Mount._from_loader(
@@ -851,7 +859,7 @@ async def _create_single_client_dependency_mount(
         print(f"📦 Building {mount_name}.")  # noqa: T201
         requirements = os.path.join(os.path.dirname(__file__), f"builder/{builder_version}.txt")
         cmd = [
-            "uv",
+            os.environ.get("MODAL_UV_PATH", "uv"),
             "pip",
             "install",
             "--strict",
@@ -867,6 +875,11 @@ async def _create_single_client_dependency_mount(
             "--python",
             python_version,
         ]
+        # A directory holding wheels for every pin in the requirements file, for
+        # building mounts where no package index is reachable.
+        find_links = os.environ.get("MODAL_BUILDER_WHEEL_DIR")
+        if find_links:
+            cmd += ["--no-index", "--find-links", find_links]
         # Retry uv pip install on transient failures (e.g. network blips,
         # resource contention).  uv exits with non-zero on recoverable errors
         # like rate limits or connection resets.

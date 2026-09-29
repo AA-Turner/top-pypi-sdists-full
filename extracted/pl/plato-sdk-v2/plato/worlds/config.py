@@ -154,6 +154,17 @@ class AgentConfig(BaseModel):
     image: str = ""
     runtime: RuntimeConfig = Field(default_factory=VMRuntimeConfig)
     config: dict[str, Any] = Field(default_factory=dict)
+    computer_use_artifact_id: str | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "Provision an isolated Ubuntu desktop from this artifact for each agent execution. "
+            "The SDK enables computer-use MCP and injects its URL, then removes the desktop "
+            "after execution (including continuations). Requires a VM runtime and session. "
+            "Overrides computer_use_vm_url / computer_use_mcp_enabled for that execution. "
+            "The desktop is an additional environment, outside the agent warm-pool budget."
+        ),
+    )
     max_parallel: int = Field(
         default=1,
         ge=1,

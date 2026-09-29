@@ -56,7 +56,7 @@ class _WorkspaceMembersManager:
         ```
         """
         await self._workspace.hydrate()
-        resp = await self._workspace.client.stub.WorkspaceMembersList(Empty())
+        resp = await self._workspace.client._stub.WorkspaceMembersList(Empty())
         return [
             WorkspaceMemberInfo(
                 user_id=item.user_id,
@@ -99,7 +99,7 @@ class _Workspace(_Object, type_prefix="ac"):
         async def _load(
             self: "_Workspace", resolver: Resolver, load_context: LoadContext, existing_object_id: Optional[str]
         ):
-            response = await load_context.client.stub.WorkspaceNameLookup(Empty())
+            response = await load_context.client._stub.WorkspaceNameLookup(Empty())
             self._name = response.username or None
             self._client = load_context.client
             self._is_hydrated = True
@@ -137,18 +137,41 @@ class _WorkspaceProxyTokenManager:
         """mdmd:hidden"""
         self._workspace = workspace
 
-    async def create(self) -> TokenData:
+    async def create(self, name: str = "") -> TokenData:
         """Create a new proxy token for the Workspace.
+
+        Args:
+            name: An optional name to help identify the token.
 
         Examples:
             ```python notest
-            token = modal.Workspace.from_context().proxy_tokens.create()
+            token = modal.Workspace.from_context().proxy_tokens.create(name="production-webhooks")
             print(token.token_id, token.token_secret)
             ```
         """
         await self._workspace.hydrate()
-        resp = await self._workspace.client.stub.WebhookTokenCreate(api_pb2.WebhookTokenCreateRequest())
+        resp = await self._workspace.client._stub.WebhookTokenCreate(api_pb2.WebhookTokenCreateRequest(name=name))
         return TokenData(token_id=resp.token_id, token_secret=resp.token_secret)
+
+    async def update(self, proxy_token_id: str, *, name: str) -> None:
+        """Update a proxy token in the Workspace.
+
+        An empty name removes the token's name.
+
+        Args:
+            proxy_token_id: The token ID (`wk-...`) to update.
+            name: The updated name for the token.
+
+        Examples:
+            ```python notest
+            ws = modal.Workspace.from_context()
+            ws.proxy_tokens.update(token_id, name="production-webhooks")
+            ```
+        """
+        await self._workspace.hydrate()
+        await self._workspace.client._stub.WebhookTokenUpdate(
+            api_pb2.WebhookTokenUpdateRequest(token_id=proxy_token_id, name=name)
+        )
 
     async def list(self, environment_name: Optional[str] = None) -> builtins.list[ProxyTokenInfo]:
         """List proxy tokens in the Workspace.
@@ -170,9 +193,9 @@ class _WorkspaceProxyTokenManager:
         """
         await self._workspace.hydrate()
         if environment_name is None:
-            resp = await self._workspace.client.stub.WebhookTokenList(Empty())
+            resp = await self._workspace.client._stub.WebhookTokenList(Empty())
         else:
-            resp = await self._workspace.client.stub.WebhookTokenListForEnvironment(
+            resp = await self._workspace.client._stub.WebhookTokenListForEnvironment(
                 api_pb2.WebhookTokenListForEnvironmentRequest(environment_name=environment_name)
             )
         return [
@@ -180,6 +203,8 @@ class _WorkspaceProxyTokenManager:
                 token_id=token.token_id,
                 created_at=timestamp_to_localized_dt(token.created_at),
                 scoped=token.scoped,
+                name=token.name,
+                created_by=token.created_by.username,
             )
             for token in resp.tokens
         ]
@@ -201,7 +226,7 @@ class _WorkspaceProxyTokenManager:
         await self._workspace.hydrate()
         environment_id = await self._environment_id(environment_name)
         req = api_pb2.WebhookTokenEnvironmentAddRequest(token_id=proxy_token_id, environment_id=environment_id)
-        await self._workspace.client.stub.WebhookTokenEnvironmentAdd(req)
+        await self._workspace.client._stub.WebhookTokenEnvironmentAdd(req)
 
     async def revoke(self, proxy_token_id: str, environment_name: str) -> None:
         """Revoke a proxy token's access to a given Environment.
@@ -222,7 +247,7 @@ class _WorkspaceProxyTokenManager:
         await self._workspace.hydrate()
         environment_id = await self._environment_id(environment_name)
         req = api_pb2.WebhookTokenEnvironmentRemoveRequest(token_id=proxy_token_id, environment_id=environment_id)
-        await self._workspace.client.stub.WebhookTokenEnvironmentRemove(req)
+        await self._workspace.client._stub.WebhookTokenEnvironmentRemove(req)
 
     async def delete(self, proxy_token_id: str) -> None:
         """Delete a proxy token from the Workspace.
@@ -239,7 +264,7 @@ class _WorkspaceProxyTokenManager:
             ```
         """
         await self._workspace.hydrate()
-        await self._workspace.client.stub.WebhookTokenDelete(api_pb2.TokenDeleteRequest(token_id=proxy_token_id))
+        await self._workspace.client._stub.WebhookTokenDelete(api_pb2.TokenDeleteRequest(token_id=proxy_token_id))
 
     async def _environment_id(self, environment_name: str) -> str:
         # The environment-association RPCs key on environment ID, so resolve the name first.
@@ -324,7 +349,7 @@ class _WorkspaceBillingManager:
         if not self._workspace._is_hydrated:
             await self._workspace.hydrate()
 
-        response = await self._workspace.client.stub.WorkspaceBillingRates(
+        response = await self._workspace.client._stub.WorkspaceBillingRates(
             api_pb2.WorkspaceBillingRatesRequest(),
         )
 
@@ -398,7 +423,7 @@ class _WorkspaceBillingManager:
 
         return [
             BillingReportItem._from_proto(pb_item)
-            async for pb_item in self._workspace.client.stub.WorkspaceBillingReport.unary_stream(request)
+            async for pb_item in self._workspace.client._stub.WorkspaceBillingReport.unary_stream(request)
         ]
 
     async def summary(
@@ -463,7 +488,7 @@ class _WorkspaceBillingManager:
         request = api_pb2.WorkspaceBillingSummaryRequest()
         request.start_timestamp.FromDatetime(cycle)
 
-        return WorkspaceBillingSummary._from_proto(await self._workspace.client.stub.WorkspaceBillingSummary(request))
+        return WorkspaceBillingSummary._from_proto(await self._workspace.client._stub.WorkspaceBillingSummary(request))
 
 
 class _WorkspaceSettingsManager:
@@ -485,7 +510,7 @@ class _WorkspaceSettingsManager:
         """
         if not self._workspace._is_hydrated:
             await self._workspace.hydrate()
-        resp = await self._workspace.client.stub.WorkspaceSettings(Empty())
+        resp = await self._workspace.client._stub.WorkspaceSettings(Empty())
         return WorkspaceSettings(
             default_environment=resp.default_environment_name, image_builder_version=resp.image_builder_version
         )
@@ -497,14 +522,14 @@ class _WorkspaceSettingsManager:
         if not self._workspace._is_hydrated:
             await self._workspace.hydrate()
         req = api_pb2.WorkspaceSetImageBuilderVersionRequest(new_image_builder_version=version)
-        await self._workspace.client.stub.WorkspaceSetImageBuilderVersion(req)
+        await self._workspace.client._stub.WorkspaceSetImageBuilderVersion(req)
 
     async def _set_default_environment(self, name: str) -> None:
         """Set the default environment for the Workspace."""
         if not self._workspace._is_hydrated:
             await self._workspace.hydrate()
         req = api_pb2.WorkspaceSetDefaultEnvironmentRequest(environment_name=name)
-        await self._workspace.client.stub.WorkspaceSetDefaultEnvironment(req)
+        await self._workspace.client._stub.WorkspaceSetDefaultEnvironment(req)
 
     async def set(self, name: str, value: str) -> None:
         """Set a workspace setting to a new value. Must be workspace manager or owner.

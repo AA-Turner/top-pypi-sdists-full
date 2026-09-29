@@ -388,6 +388,7 @@ def convert_type_to_gql(
             incrementalSources=None if t.incremental_resolvers is None else list(t.incremental_resolvers),
             resourceGroup=t.resource_group,
             plannerOptions=t.planner_options,
+            envOverrides=t.env_overrides,
             completionDeadline=None if t.completion_deadline is None else timedelta_to_duration(t.completion_deadline),
             numShards=t.num_shards,
             numWorkers=t.num_workers,
@@ -395,6 +396,7 @@ def convert_type_to_gql(
             maxRetries=t.max_retries,
             resources=t.resources.dict() if t.resources is not None else None,
             environment=t.environment,
+            useMetaplanner=t.use_metaplanner,
         )
 
     if isinstance(t, NamedQuery):

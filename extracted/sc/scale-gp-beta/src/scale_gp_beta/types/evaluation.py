@@ -24,13 +24,13 @@ class Evaluation(BaseModel):
     created_by: Identity
     """The identity that created the entity."""
 
-    datasets: List[Dataset]
+    datasets: Optional[List[Dataset]] = None
 
     name: str
 
     status: Literal["failed", "completed", "running"]
 
-    tags: List[str]
+    tags: Optional[List[str]] = None
     """The tags associated with the entity"""
 
     archived_at: Optional[datetime] = None

@@ -11,6 +11,7 @@ import signal
 import sys
 
 import uvicorn
+from airbyte_ops_mcp._sentry import init_sentry_tracking
 from fastmcp.cli.apps_dev import (
     _EXT_APPS_VERSION,
     _HOST_HTML_TEMPLATE,
@@ -93,6 +94,7 @@ class _NullMessageLog:
 
 def main() -> None:
     """Serve the webapp host and its local FastMCP backend."""
+    init_sentry_tracking(mode="webapp")
     asyncio.run(_serve())
 
 

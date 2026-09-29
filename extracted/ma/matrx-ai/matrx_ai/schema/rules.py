@@ -22,6 +22,7 @@ without host DB configuration. Re-deriving this rule anywhere else is forbidden.
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 
@@ -172,6 +173,16 @@ NORMALIZATION_NOTES_KEY = "x-matrx-normalization-notes"
 _NOTES_KEY = NORMALIZATION_NOTES_KEY
 
 
+#: The JSON Schema EXTENSION prefix (RFC-style ``x-`` vendor keywords). A
+#: constrained decoder refuses an unknown property on a schema node outright —
+#: Anthropic, verbatim: ``For 'object' type, property 'x-contract-dynamic' is not
+#: supported`` — and an extension is by definition not in any enumeration we could
+#: keep, so it is stripped by PREFIX. Found on live schemas (``x-contract-dynamic``,
+#: ``x-kind``) by probing the 50 largest of them against the real provider, 2026-09-27;
+#: enumerating keywords would never have caught the next one.
+STRUCTURED_OUTPUT_EXTENSION_PREFIX = "x-"
+
+
 def strip_unsupported_keywords(
     node: Any, unsupported: frozenset[str] = STRUCTURED_OUTPUT_UNSUPPORTED_KEYWORDS
 ) -> Any:
@@ -180,14 +191,19 @@ def strip_unsupported_keywords(
     ``anyOf``/``oneOf``/``allOf``, nested objects — everywhere). The input is
     never mutated (schemas may be shared or persisted configs). Property / defs
     NAMES are preserved verbatim — only schema *keywords* are stripped, so a
-    property whose name happens to match a stripped keyword is left untouched."""
+    property whose name happens to match a stripped keyword is left untouched.
+
+    Every ``x-`` EXTENSION keyword goes too, by prefix
+    (:data:`STRUCTURED_OUTPUT_EXTENSION_PREFIX`): a constrained decoder refuses an
+    unknown property on a node outright, and an extension is by definition not in
+    any enumeration we could keep ahead of it."""
     if isinstance(node, list):
         return [strip_unsupported_keywords(item, unsupported) for item in node]
     if not isinstance(node, dict):
         return node
     out: dict[str, Any] = {}
     for key, value in node.items():
-        if key in unsupported:
+        if key in unsupported or key.startswith(STRUCTURED_OUTPUT_EXTENSION_PREFIX):
             continue
         if key in _SCHEMA_NAME_MAP_KEYS and isinstance(value, dict):
             out[key] = {
@@ -571,7 +587,224 @@ def normalize_combinator_siblings(node: Any) -> Any:
     return out
 
 
-def concretize_empty_schemas(node: Any, placeholder_type: str = "string") -> Any:
+def split_enum_from_type_union(node: Any) -> Any:
+    """Return a copy in which no ``enum`` sits beside a type ARRAY — the union
+    becomes ``anyOf`` branches instead. The input is never mutated.
+
+    Anthropic refuses an enum beside a type array OUTRIGHT, measured live
+    2026-09-27 on ``claude-sonnet-5`` and quoted verbatim:
+
+        ``{"type": ["string","null"], "enum": ["a","b", null]}``
+            -> ``Invalid schema: Enum value 'a' does not match declared type
+               '['string', 'null']'``
+        ``{"type": ["string","null"], "enum": ["a","b"]}``  (no null in the enum)
+            -> the SAME refusal, so it is the type ARRAY it objects to, not the
+               null member
+        ``{"anyOf": [{"type":"string","enum":["a","b"]}, {"type":"null"}]}``
+            -> **200**
+
+    This is not a shape only this boundary creates. ``Optional[SomeEnum]`` in
+    Pydantic emits exactly ``{"type": ["string","null"], "enum": [...]}``, so every
+    live contract with a nullable enum has been refused by Anthropic all along —
+    ``research_page_analysis`` (``page_type``, ``analysis_status``,
+    ``recommended_use``) is one. Fixing it where the shape is translated fixes the
+    class for anything that can produce it.
+
+    LOSSLESS: the branches admit exactly the same documents the union did. The
+    rewritten node still counts as ONE union parameter
+    (:func:`is_union_param` reads ``anyOf`` and a type array alike), so the
+    provider's 16-parameter budget is unaffected, and
+    :func:`collapse_nullable_unions` narrows the ``anyOf`` form as readily as the
+    type-array form.
+    """
+    if isinstance(node, list):
+        return [split_enum_from_type_union(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+
+    out: dict[str, Any] = {}
+    for key, value in node.items():
+        if key in _SCHEMA_NAME_MAP_KEYS and isinstance(value, dict):
+            out[key] = {name: split_enum_from_type_union(sub) for name, sub in value.items()}
+        elif key in ("enum", "const", "required", _NOTES_KEY):
+            out[key] = value
+        else:
+            out[key] = split_enum_from_type_union(value)
+
+    types = out.get("type")
+    enum = out.get("enum")
+    if not (isinstance(enum, list) and enum):
+        return out
+    if isinstance(types, str) and types != "null" and None in enum:
+        # SIBLING (2026-09-28): a null MEMBER beside a scalar type. ``type:
+        # "string"`` already refuses null, so that member admits nothing and the
+        # validator names it ("Enum value None does not match declared type").
+        # Dropping it is the identical constraint; widening to null instead would
+        # let the model answer a value the author's own schema then refuses.
+        values = [v for v in enum if v is not None]
+        if not values:
+            return {k: v for k, v in out.items() if k != "enum"} | {"type": "null"}
+        return {**out, "enum": values}
+    if not isinstance(types, list):
+        return out
+
+    concrete = [t for t in types if t != "null"]
+    nullable = "null" in types or None in enum
+    values = [v for v in enum if v is not None]
+    if not concrete or not values:
+        # Nothing but null left to say — the enum carried no real value.
+        return {k: v for k, v in out.items() if k != "enum"} | {"type": "null"}
+
+    # Annotations stay on the union; EVERY other keyword (minLength, format, …)
+    # travels on the value branch, so nothing the author constrained is lost —
+    # and the enum is NOT repeated beside the union: carrying the original
+    # null-bearing enum up there kept the very member the validator names.
+    annotations = {k: v for k, v in out.items() if k in _NULLABLE_ANNOTATION_KEYS}
+    branch: dict[str, Any] = {
+        k: v for k, v in out.items() if k not in _NULLABLE_ANNOTATION_KEYS
+    }
+    branch["type"] = concrete[0] if len(concrete) == 1 else concrete
+    branch["enum"] = values
+    if not nullable:
+        # A multi-type enum with no null: the type array is still the problem.
+        return {**annotations, **branch}
+    return {**annotations, "anyOf": [branch, {"type": "null"}]}
+
+
+#: What stays on the union node when a nullable value is split into ``anyOf``
+#: branches — annotations only; the value's constraints belong to its branch.
+_NULLABLE_ANNOTATION_KEYS: frozenset[str] = frozenset({"title", "description", "default"})
+
+
+def nullable_enum_violations(node: Any, path: str = "#") -> list[str]:
+    """Every node where an ``enum``/``const`` sits beside a type ARRAY, or holds a
+    ``null`` member its scalar ``type`` refuses — the shapes Anthropic rejects
+    ("Enum value 'victim' does not match declared type '['string', 'null']'",
+    live 2026-09-28) and :func:`split_enum_from_type_union` rewrites. Paths are
+    JSON-pointer style, rooted at ``path``."""
+    found: list[str] = []
+    if isinstance(node, list):
+        for index, item in enumerate(node):
+            found.extend(nullable_enum_violations(item, f"{path}/{index}"))
+        return found
+    if not isinstance(node, dict):
+        return found
+    types = node.get("type")
+    members = node.get("enum") if isinstance(node.get("enum"), list) else None
+    if members is None and "const" in node:
+        members = [node["const"]]
+    if members:
+        if isinstance(types, list) or (
+            isinstance(types, str) and types != "null" and None in members
+        ):
+            found.append(path)
+    for key, value in node.items():
+        if key in _SCHEMA_NAME_MAP_KEYS and isinstance(value, dict):
+            for name, sub in value.items():
+                found.extend(nullable_enum_violations(sub, f"{path}/{key}/{name}"))
+        elif key not in ("enum", "const", "required", _NOTES_KEY):
+            found.extend(nullable_enum_violations(value, f"{path}/{key}"))
+    return found
+
+
+#: What an ``items`` the author left UNSPECIFIED becomes at a provider that refuses
+#: the empty schema: the widest shape a strict decoder compiles without recursion
+#: — every JSON scalar and null. An object or array element cannot be expressed
+#: openly there (a strict object must name its properties), so this is still a
+#: NARROWING and is recorded as one; it is simply the smallest one available,
+#: where ``{"type": "string"}`` used to throw away numbers, booleans and null too.
+#: Measured live 2026-09-28 (SCHEMA-TRANSLATION.md §15): accepted by OpenAI strict
+#: and by Anthropic on every live wire that carries an unspecified array item.
+OPEN_SCALAR_ITEM_SCHEMA: dict[str, Any] = {
+    "anyOf": [
+        {"type": "string"},
+        {"type": "number"},
+        {"type": "boolean"},
+        {"type": "null"},
+    ]
+}
+
+
+_ARRAY_ONLY_KEYS: frozenset[str] = frozenset(
+    {"minItems", "maxItems", "uniqueItems", "contains", "minContains", "maxContains"}
+)
+
+
+def _includes_array(node: dict[str, Any]) -> bool:
+    kind = node.get("type")
+    return kind == "array" or (isinstance(kind, list) and "array" in kind)
+
+
+def make_array_items_explicit(node: Any) -> Any:
+    """Return a deep copy in which every node that admits an ARRAY and names no
+    item schema says so explicitly: ``items: {}``.
+
+    Lossless — in JSON Schema an absent ``items`` and ``items: {}`` admit exactly
+    the same documents (any element) — which is why it can run in the step every
+    provider shares. It exists because the absence is not portable: OpenAI strict
+    refuses it by name (``array schema missing items``, 5 live kind contracts
+    refused on 2026-09-28, the ``__kind`` fix having already cleared their other
+    refusal), while the permissive providers accept the explicit ``{}``. Once the
+    element schema is EXPLICIT, each provider's own rules decide what it becomes:
+    the permissive ones keep ``{}`` (nothing given up); the strict ones replace it
+    through :func:`concretize_empty_schemas` with their widest accepted shape and
+    record that narrowing, naming the unspecified item type.
+
+    Adds no notes on purpose: this runs before every translator, including Google,
+    whose pipeline does not strip normalization notes, and it gives nothing up.
+    """
+    if isinstance(node, list):
+        return [make_array_items_explicit(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for key, value in node.items():
+        if key in _SCHEMA_NAME_MAP_KEYS and isinstance(value, dict):
+            out[key] = {name: make_array_items_explicit(sub) for name, sub in value.items()}
+        elif key in ("enum", "const", "required"):
+            out[key] = value
+        else:
+            out[key] = make_array_items_explicit(value)
+    if not _includes_array(out) or "items" in out or "prefixItems" in out:
+        return out
+    kind = out.get("type")
+    if kind == "array" or kind == ["array"]:
+        out["items"] = {}
+        return out
+    if any(k in out for k in ("anyOf", "oneOf", "allOf", "$ref")):
+        # Not a live shape (census 2026-09-28: 0 of 133); a combinator here would
+        # need a merge this rule does not own. Say it explicitly and leave it.
+        out["items"] = {}
+        return out
+    # A type LIST that also admits an array (`["string", ..., "array", "null"]`,
+    # a bare `Any` spelled out): `items` beside it is read by a strict provider as
+    # a keyword of EVERY listed type — Anthropic, live: "For 'object' type,
+    # property 'items' is not supported". The same documents, split so the item
+    # schema belongs to the array alone: the array branch takes the array-only
+    # keywords, the other branch the rest, and annotations stay on the parent.
+    others = [t for t in kind if t != "array"]
+    array_branch: dict[str, Any] = {"type": "array", "items": {}}
+    other_branch: dict[str, Any] = {"type": others[0] if len(others) == 1 else others}
+    parent: dict[str, Any] = {}
+    for key, value in out.items():
+        if key == "type":
+            continue
+        if key in _ANNOTATION_ONLY_KEYS:
+            parent[key] = value
+        elif key in _ARRAY_ONLY_KEYS:
+            array_branch[key] = value
+        else:
+            other_branch[key] = value
+    return {**parent, "anyOf": [other_branch, array_branch]}
+
+
+def concretize_empty_schemas(
+    node: Any,
+    placeholder_type: str = "string",
+    *,
+    item_placeholder: dict[str, Any] | None = None,
+    _is_item: bool = False,
+) -> Any:
     """Return a deep copy in which no subschema is the EMPTY schema.
 
     ``output_config.format.schema: Empty schema ({}) that accepts any JSON value
@@ -586,19 +819,48 @@ def concretize_empty_schemas(node: Any, placeholder_type: str = "string") -> Any
     announces it rather than shipping a silently different contract.
     """
     if isinstance(node, list):
-        return [concretize_empty_schemas(item, placeholder_type) for item in node]
+        return [
+            concretize_empty_schemas(item, placeholder_type, item_placeholder=item_placeholder)
+            for item in node
+        ]
     if not isinstance(node, dict):
         return node
     out: dict[str, Any] = {}
     for key, value in node.items():
         if key in _SCHEMA_NAME_MAP_KEYS and isinstance(value, dict):
             out[key] = {
-                name: concretize_empty_schemas(sub, placeholder_type)
+                name: concretize_empty_schemas(
+                    sub, placeholder_type, item_placeholder=item_placeholder
+                )
                 for name, sub in value.items()
             }
         else:
-            out[key] = concretize_empty_schemas(value, placeholder_type)
+            out[key] = concretize_empty_schemas(
+                value,
+                placeholder_type,
+                item_placeholder=item_placeholder,
+                _is_item=key == "items" and isinstance(value, dict),
+            )
     shaping = {k for k in out if k not in ("title", "description", _NOTES_KEY)}
+    if not shaping and _is_item:
+        # The author said "an array" and never said of WHAT. The provider refuses
+        # an element schema that accepts any JSON value, so the element becomes
+        # the widest shape it does compile — named, never silent.
+        placeholder = copy.deepcopy(item_placeholder) if item_placeholder else {
+            "type": placeholder_type
+        }
+        described = (
+            "any JSON scalar or null"
+            if placeholder == OPEN_SCALAR_ITEM_SCHEMA
+            else f"type={placeholder.get('type')!r}"
+        )
+        out.update(placeholder)
+        out.setdefault(_NOTES_KEY, []).append(
+            "array item type left UNSPECIFIED by the author — the element schema was "
+            f"narrowed to {described}: the provider rejects an item schema that accepts "
+            "any JSON value, so an object or array element can no longer be answered here"
+        )
+        return out
     if not shaping:
         out["type"] = placeholder_type
         out.setdefault(_NOTES_KEY, []).append(
@@ -825,6 +1087,340 @@ def unroll_recursive_refs(
     return out
 
 
+def ref_cycle_members(schema: Any) -> set[str]:
+    """Every ``$defs`` entry that takes part in a ``$ref`` cycle."""
+    return {name for cycle in _ref_cycles(schema) for name in cycle}
+
+
+def _references_any(node: Any, names: set[str]) -> bool:
+    """Does this subtree ``$ref`` one of ``names`` (at any depth)?"""
+    if isinstance(node, list):
+        return any(_references_any(item, names) for item in node)
+    if not isinstance(node, dict):
+        return False
+    ref = node.get("$ref")
+    if isinstance(ref, str) and ref.rsplit("/", 1)[-1] in names:
+        return True
+    return any(
+        _references_any(value, names) for key, value in node.items() if key not in ("$ref", "enum", "const")
+    )
+
+
+def express_nullable_as_anyof(node: dict[str, Any]) -> dict[str, Any]:
+    """``{"type": ["T","null"], …}`` → ``{"anyOf": [{"type":"T", …}, {"type":"null"}]}``.
+
+    Same documents, different spelling. Gemini's ref-loop check recognises the
+    ``anyOf`` spelling as nullable and the type-ARRAY spelling as NOT nullable
+    (measured live, see :func:`open_ref_loops`), so the spelling is the whole fix.
+    """
+    types = node.get("type")
+    if not (isinstance(types, list) and "null" in types):
+        return dict(node)
+    concrete = [t for t in types if t != "null"]
+    if not concrete:
+        return dict(node)
+    # enum/const belong to the value branch ONLY — carrying them beside the union
+    # too repeated the null-bearing enum the validator refuses.
+    carried = {
+        k: v
+        for k, v in node.items()
+        if k in COMBINATOR_SAFE_SIBLINGS and k not in ("enum", "const")
+    }
+    branch = {
+        k: v
+        for k, v in node.items()
+        if k not in COMBINATOR_SAFE_SIBLINGS or k in ("enum", "const")
+    }
+    if isinstance(branch.get("enum"), list):
+        branch["enum"] = [v for v in branch["enum"] if v is not None]
+    branch["type"] = concrete[0] if len(concrete) == 1 else concrete
+    return {**carried, "anyOf": [branch, {"type": "null"}]}
+
+
+#: Keywords that stop an array from being POTENTIALLY ZERO-LENGTH, which is one of
+#: the three escapes Gemini's ref-loop rule accepts.
+_MIN_LENGTH_KEYS: tuple[str, ...] = ("minItems", "minContains")
+
+
+def open_ref_loops(
+    schema: Any, *, narrowed: list[str] | None = None, relaxed: list[str] | None = None
+) -> Any:
+    """Make every ``$ref`` cycle expressible, for a provider that accepts a cycle
+    only when the loop can TERMINATE. The input is never mutated.
+
+    Gemini states the rule in its own refusal, verbatim:
+
+        ``ref loops are only supported if they include optional or nullable
+        property values, or a potentially-zero-length array items, but a ref loop
+        of required fields was found at $defs.MapTopicNode.properties.children.items``
+
+    Measured live on ``gemini-3.8-flash``, 2026-09-27, one request per form —
+    because "nullable" does not mean what it looks like:
+
+    | loop-carrying property | Gemini |
+    |---|---|
+    | required + plain array (no ``minItems``) | **200** |
+    | required + ``type: ["array","null"]``    | **400** |
+    | required + ``anyOf: [array, null]``      | **200** |
+    | optional (out of ``required``)           | **200** |
+    | required + array with ``minItems: 1``    | **400** |
+    | unrolled, no cycle at all                | **200** |
+
+    So a type-ARRAY nullable does NOT satisfy it and an `anyOf` nullable does.
+    That is why ``seo.map_author``'s topic map was refused: the author left
+    ``children`` optional — which Gemini accepts — and the platform's own portable
+    step listed every property in ``required``, closing the only escape the cycle
+    had. **Our transformation created the refusal**, which under Arman's ruling of
+    2026-09-27 makes it our translator's bug, not a rule of Gemini's and not
+    something the kind's author has to work around.
+
+    The ladder, most faithful first:
+
+    1. a loop carrier that is nullable as a type ARRAY is re-spelled as ``anyOf``
+       — lossless, nothing but the spelling changes;
+    2. a loop carrier that is an ARRAY has its minimum-length floor removed so the
+       recursion can terminate — a RELAXATION, named in ``relaxed``;
+    3. a loop that still cannot terminate is UNROLLED to a bounded depth by
+       :func:`unroll_recursive_refs` — a NARROWING, named in ``narrowed``. A
+       required, non-nullable, non-array self-reference describes an INFINITE
+       document that no answer could ever satisfy, so a bounded reading is the
+       only expressible one.
+    """
+    if not isinstance(schema, dict):
+        return schema
+    members = ref_cycle_members(schema)
+    if not members:
+        return schema
+
+    def walk(node: Any, path: str) -> Any:
+        if isinstance(node, list):
+            return [walk(item, f"{path}[{index}]") for index, item in enumerate(node)]
+        if not isinstance(node, dict):
+            return node
+        out: dict[str, Any] = {}
+        released: set[str] = set()
+        for key, value in node.items():
+            if key == "properties" and isinstance(value, dict):
+                required = set(node.get("required") or ())
+                props: dict[str, Any] = {}
+                for name, sub in value.items():
+                    where = f"{path}.{name}"
+                    if isinstance(sub, dict) and name in required and _references_any(sub, members):
+                        sub = _open_carrier(sub, where)
+                        if _is_anyof_nullable(sub) and not _array_escape(sub):
+                            # (3) An OBJECT loop carrier escapes only by being
+                            # optional — `anyOf: [{$ref}, null]` does NOT satisfy
+                            # the provider (measured 2026-09-28, gemini-3.8-flash:
+                            # required + anyOf-nullable ref 400, optional 200,
+                            # both through `#` and through `$defs`). The author's
+                            # schema almost always left it optional — the portable
+                            # step listed it — so releasing it restores the
+                            # author's shape; the nullable spelling stays. A
+                            # REQUIRED, NON-nullable carrier is the author's own
+                            # infinite document and is unrolled below instead.
+                            released.add(name)
+                            if relaxed is not None:
+                                relaxed.append(
+                                    f"{where}: listed as optional again so the $ref cycle "
+                                    "through it can terminate — the provider accepts a cycle "
+                                    "only through an optional property or a potentially-"
+                                    "zero-length array (nullable is not enough)"
+                                )
+                    props[name] = walk(sub, where)
+                out[key] = props
+            elif key in _SCHEMA_NAME_MAP_KEYS and isinstance(value, dict):
+                out[key] = {n: walk(s, f"{path}.{key}.{n}") for n, s in value.items()}
+            elif key in ("required", "enum", "const", _NOTES_KEY):
+                out[key] = value
+            else:
+                out[key] = walk(value, f"{path}.{key}")
+        if released and isinstance(out.get("required"), list):
+            out["required"] = [name for name in out["required"] if name not in released]
+        return out
+
+    def _open_carrier(sub: dict[str, Any], where: str) -> dict[str, Any]:
+        # (1) re-spell a type-ARRAY nullable as anyOf — lossless.
+        if isinstance(sub.get("type"), list) and "null" in sub["type"]:
+            return express_nullable_as_anyof(sub)
+        if _is_anyof_nullable(sub):
+            return sub  # already the spelling the provider recognises
+        # (2) an array only has to be able to be EMPTY.
+        types = sub.get("type")
+        is_array = types == "array" or (isinstance(types, list) and "array" in types)
+        if is_array:
+            floors = [key for key in _MIN_LENGTH_KEYS if key in sub]
+            if floors:
+                if relaxed is not None:
+                    relaxed.append(
+                        f"{where}: {', '.join(floors)} dropped so the $ref cycle through this "
+                        "array can terminate — the provider accepts a cycle only through a "
+                        "potentially-zero-length array"
+                    )
+                return {k: v for k, v in sub.items() if k not in _MIN_LENGTH_KEYS}
+            return sub
+        return sub
+
+    opened = walk(schema, "$")
+    # (3) whatever still cannot terminate gets a bounded depth instead of a cycle.
+    if gemini_ref_loop_violations(opened):
+        notes: list[str] = []
+        opened = unroll_recursive_refs(opened, depth=4, notes=notes)
+        if narrowed is not None:
+            narrowed.extend(notes)
+            narrowed.append(
+                "a $ref cycle with no optional, nullable or zero-length-able property to "
+                "terminate on was unrolled to 4 levels — the provider cannot express an "
+                "unbounded cycle, and a required non-nullable self-reference describes an "
+                "infinite document no answer could satisfy"
+            )
+    return opened
+
+
+def _is_anyof_nullable(node: Any) -> bool:
+    """Nullable spelled ``anyOf`` with a ``{"type": "null"}`` branch.
+
+    NOT, on its own, an escape for a cycle: measured 2026-09-28 on
+    ``gemini-3.8-flash``, a REQUIRED ``anyOf: [{$ref}, null]`` carrier is refused
+    ("a ref loop of required fields was found at properties.no.anyOf.0"); the
+    2026-09-27 measurement that looked like a nullable escape was an ARRAY branch,
+    which escapes by being able to be empty (:func:`_array_escape`).
+    Original note: nullable in the ONE spelling the provider's cycle check recognises:
+    ``anyOf`` with a ``{"type": "null"}`` branch. A type ARRAY carrying ``"null"``
+    is NOT recognised (measured live on ``gemini-3.8-flash``, 2026-09-27)."""
+    if not isinstance(node, dict):
+        return False
+    branches = node.get("anyOf")
+    return isinstance(branches, list) and any(
+        isinstance(b, dict) and b.get("type") == "null" for b in branches
+    )
+
+
+def _array_escape(node: Any) -> bool:
+    """Can a cycle through ``node`` stop because it is an array that may be
+    EMPTY? A plain array with no minimum length, or an ``anyOf`` with such an
+    array branch (required + ``anyOf: [array, null]`` measured 200)."""
+    if not isinstance(node, dict):
+        return False
+    if node.get("type") == "array" and not any(key in node for key in _MIN_LENGTH_KEYS):
+        return True
+    branches = node.get("anyOf")
+    return isinstance(branches, list) and any(_array_escape(b) for b in branches)
+
+
+ROOT_DEF_NAME = "__root__"
+
+
+def hoist_root_recursion(schema: Any) -> Any:
+    """``{"$ref": "#"}`` — a schema that recurses through its own ROOT — rewritten
+    as the same cycle through a ``$defs`` entry. LOSSLESS: the root keeps its
+    body and every ``#`` pointer names an identical copy of it.
+
+    Every cycle rule here reads cycles between ``$defs`` entries, so a root
+    self-reference was invisible to all of them: the live ``decision_node`` and
+    ``decision_tree`` kinds (``yes``/``no`` → ``#``) went to Gemini with their
+    required recursion untouched and were refused on every call
+    (SCHEMA-TRANSLATION-VERIFY.md, R7).
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    def has_root_ref(node: Any) -> bool:
+        if isinstance(node, list):
+            return any(has_root_ref(item) for item in node)
+        if not isinstance(node, dict):
+            return False
+        if node.get("$ref") == "#":
+            return True
+        return any(has_root_ref(v) for k, v in node.items() if k not in ("enum", "const"))
+
+    if not has_root_ref(schema):
+        return schema
+    pointer = f"#/$defs/{ROOT_DEF_NAME}"
+
+    def repoint(node: Any) -> Any:
+        if isinstance(node, list):
+            return [repoint(item) for item in node]
+        if not isinstance(node, dict):
+            return node
+        return {
+            key: (pointer if key == "$ref" and value == "#" else repoint(value))
+            for key, value in node.items()
+        }
+
+    repointed = repoint(schema)
+    body = {k: v for k, v in repointed.items() if k not in ("$defs", "definitions")}
+    defs = dict(repointed.get("$defs") or {})
+    defs[ROOT_DEF_NAME] = copy.deepcopy(body)
+    out = dict(repointed)
+    out["$defs"] = defs
+    return out
+
+
+def gemini_ref_loop_violations(schema: Any) -> list[str]:
+    """Every ``$ref`` cycle in ``schema`` that the provider will refuse because the
+    loop cannot terminate — the forcing function for :func:`open_ref_loops`.
+
+    A cycle is expressible when EVERY path around it passes through at least one
+    escape: a property outside ``required``, an ``anyOf``-nullable property, or an
+    array with no minimum length. This reports a cycle where some member offers no
+    escape at all, which is exactly the shape whose 400 is quoted in
+    :func:`open_ref_loops`.
+    """
+    if not isinstance(schema, dict):
+        return []
+    members = ref_cycle_members(schema)
+    if not members:
+        return []
+    defs = schema.get("$defs") or schema.get("definitions") or {}
+    problems: list[str] = []
+
+    def escapes(node: Any, path: str) -> bool:
+        """Is there at least ONE way for the cycle through this node to stop?"""
+        if isinstance(node, list):
+            return any(escapes(item, path) for item in node)
+        if not isinstance(node, dict):
+            return False
+        props = node.get("properties")
+        if isinstance(props, dict):
+            required = set(node.get("required") or ())
+            for name, sub in props.items():
+                if not isinstance(sub, dict) or not _references_any(sub, members):
+                    continue
+                # NULLABLE means the `anyOf` spelling ONLY. A type-ARRAY nullable
+                # (`["array","null"]`) is refused — measured, and the whole reason
+                # this check exists rather than trusting `is_nullable_union`.
+                if name not in required or _array_escape(sub):
+                    return True
+                # A PLAIN array only. `["array","null"]` does not escape either —
+                # adding "null" to the type array breaks the zero-length escape as
+                # well as failing the nullable test (measured: plain array 200,
+                # ["array","null"] 400, both required).
+                if sub.get("type") == "array" and not any(
+                    key in sub for key in _MIN_LENGTH_KEYS
+                ):
+                    return True
+                if escapes(sub, f"{path}.{name}"):
+                    return True
+            return False
+        for key, value in node.items():
+            if key in ("required", "enum", "const", _NOTES_KEY, "$ref"):
+                continue
+            if escapes(value, f"{path}.{key}"):
+                return True
+        return False
+
+    for name in sorted(members):
+        body = defs.get(name)
+        if isinstance(body, dict) and not escapes(body, f"$defs.{name}"):
+            problems.append(
+                f"$defs.{name}: a `$ref` cycle through this definition can never terminate — "
+                "the provider supports a cycle only through an optional property, an "
+                "`anyOf`-nullable property, or a potentially-zero-length array "
+                "(open_ref_loops)"
+            )
+    return problems
+
+
 def is_nullable_union(node: Any) -> bool:
     """``["T", "null"]`` or ``anyOf: [..., {"type": "null"}]``."""
     if not isinstance(node, dict):
@@ -889,6 +1485,11 @@ def _without_null(node: dict[str, Any]) -> dict[str, Any]:
     t = out.get("type")
     if isinstance(t, list) and "null" in t:
         rest = [x for x in t if x != "null"]
+        # A node whose ONLY type was null has nothing left to narrow to. Emitting
+        # `"type": []` is a hard 400 ("[] is not valid under any of the given
+        # schemas"); the honest result is the null it already was.
+        if not rest:
+            return out if t == ["null"] else {**out, "type": "null"}
         out["type"] = rest[0] if len(rest) == 1 else rest
         if isinstance(out.get("enum"), list):
             out["enum"] = [v for v in out["enum"] if v is not None]
@@ -959,6 +1560,156 @@ def collapse_nullable_unions(
             "longer answer null there"
         )
     return result
+
+
+#: Keywords that only ANNOTATE a node (they constrain nothing), so a
+#: single-branch combinator may absorb them without changing what it admits.
+_ANNOTATION_ONLY_KEYS: frozenset[str] = frozenset(
+    {"title", "description", "default", "examples", "$comment", "readOnly", "writeOnly", "deprecated"}
+)
+
+def _without_normalization_notes(node: Any) -> Any:
+    """``node`` with every :data:`NORMALIZATION_NOTES_KEY` removed at every depth —
+    the shape the provider will actually see, used to compare two branches."""
+    if isinstance(node, list):
+        return [_without_normalization_notes(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    return {
+        key: (
+            value
+            if key in ("enum", "const", "required")
+            else _without_normalization_notes(value)
+        )
+        for key, value in node.items()
+        if key != _NOTES_KEY
+    }
+
+
+def _all_normalization_notes(node: Any) -> list[str]:
+    """Every normalization note anywhere inside ``node``, in document order."""
+    found: list[str] = []
+    if isinstance(node, list):
+        for item in node:
+            found.extend(_all_normalization_notes(item))
+        return found
+    if not isinstance(node, dict):
+        return found
+    for key, value in node.items():
+        if key == _NOTES_KEY:
+            if isinstance(value, list):
+                found.extend(str(entry) for entry in value)
+        elif key not in ("enum", "const", "required"):
+            found.extend(_all_normalization_notes(value))
+    return found
+
+
+def dedupe_combinator_branches(node: Any) -> Any:
+    """Return a copy in which every ``anyOf`` / ``oneOf`` / ``allOf`` list keeps
+    only the FIRST of each set of byte-identical branches, and a union left with
+    exactly one branch collapses into that branch.
+
+    Purely lossless — ``A | A`` admits exactly what ``A`` admits, and an
+    intersection of a branch with itself is that branch — but it is a real
+    provider-budget lever, because a union is the most expensive thing in a
+    constrained decoder's grammar and every provider counts the DEGENERATE ones
+    too. Measured live 2026-09-28 (SCHEMA-TRANSLATION-VERIFY.md, F7): 3 live
+    schemas reached Anthropic's wire with 24 / 21 / 18 union parameters over its
+    documented 16-union cap and were refused; the surplus was
+    ``{"anyOf": [{"type": "string"}, {"type": "string"}]}`` — an author's
+    generator emitting the same branch twice — and dropping the duplicate takes
+    them to 13 / 11 / 9.
+
+    This is a REQUEST-BOUNDARY normalization in the same family as
+    :func:`strip_unsupported_keywords`, :func:`rewrite_const_as_enum` and
+    :func:`hoist_discriminator_first`: the stored schema keeps exactly what the
+    author wrote.
+
+    A single-branch union collapses only when nothing would be lost — the
+    parent's remaining keys are annotations, or absent from the branch, or
+    byte-equal to the branch's. Anything else keeps the one-branch combinator
+    rather than resolving a conflict the author never declared. ``allOf`` is
+    deduplicated but never collapsed here: :func:`flatten_allof` owns that merge
+    and knows how to intersect the constraints.
+
+    🚨 Two branches are compared with :data:`NORMALIZATION_NOTES_KEY` REMOVED at
+    every depth, and the notes of every dropped duplicate are carried onto the
+    branch that is kept. That key is Matrx bookkeeping which
+    :func:`take_normalization_notes` strips before the wire, so two branches that
+    differ only in it are the SAME schema to the provider — and that is the live
+    shape: the Docker-Hub tool's ``digest`` arrives as
+    ``anyOf: [ anyOf: [ {"not": {}}, {"type": "string"} ], {"type": "null"} ]``,
+    :func:`concretize_empty_schemas` turns the emptied refinement branch into
+    ``{"type": "string"}`` **plus a note**, and only the note kept the two
+    branches apart. Comparing them with the note in place is what let the
+    degenerate union survive to the wire, and what left a union parameter behind
+    after :func:`collapse_nullable_unions` had narrowed the nullable away. Nothing
+    goes quiet: the note still reaches the findings channel from the kept branch.
+    """
+    import json
+
+    if isinstance(node, list):
+        return [dedupe_combinator_branches(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for key, value in node.items():
+        if key in _SCHEMA_NAME_MAP_KEYS and isinstance(value, dict):
+            out[key] = {
+                name: dedupe_combinator_branches(sub) for name, sub in value.items()
+            }
+        elif key in ("enum", "const", "required"):
+            out[key] = value
+        else:
+            out[key] = dedupe_combinator_branches(value)
+    for combinator in _COMBINATOR_KEYS:
+        branches = out.get(combinator)
+        if not isinstance(branches, list) or len(branches) < 2:
+            continue
+        first_at: dict[str, int] = {}
+        kept: list[Any] = []
+        for branch in branches:
+            fingerprint = json.dumps(
+                _without_normalization_notes(branch),
+                sort_keys=True,
+                separators=(",", ":"),
+                default=str,
+            )
+            if fingerprint in first_at:
+                # Identical schema, different bookkeeping: keep the note.
+                position = first_at[fingerprint]
+                carried = _all_normalization_notes(branch)
+                if carried and isinstance(kept[position], dict):
+                    existing = list(kept[position].get(_NOTES_KEY) or [])
+                    merged = existing + [n for n in carried if n not in existing]
+                    kept[position] = {**kept[position], _NOTES_KEY: merged}
+                continue
+            first_at[fingerprint] = len(kept)
+            kept.append(branch)
+        if len(kept) == len(branches):
+            continue
+        out[combinator] = kept
+    for combinator in ("anyOf", "oneOf"):
+        branches = out.get(combinator)
+        if not (isinstance(branches, list) and len(branches) == 1):
+            continue
+        branch = branches[0]
+        if not isinstance(branch, dict):
+            continue
+        siblings = {k: v for k, v in out.items() if k != combinator}
+        blocked = [
+            k
+            for k, v in siblings.items()
+            if k in branch and k not in _ANNOTATION_ONLY_KEYS and branch[k] != v
+        ]
+        if blocked:
+            continue
+        merged = dict(branch)
+        for k, v in siblings.items():
+            merged.setdefault(k, v)
+        out = merged
+        break
+    return out
 
 
 def dedupe_identical_subtrees(schema: Any) -> Any:
@@ -1134,6 +1885,61 @@ def structured_output_size(schema: Any) -> dict[str, int]:
 #: request spends one of them (15 compiles with a tool, 16 does not). This is a
 #: PROVIDER fact, not a platform opinion — it is not a knob.
 ANTHROPIC_UNION_PARAM_LIMIT = 16
+
+
+def anthropic_grammar_cost(schema: Any) -> float:
+    """What a wire schema costs against Anthropic's compiled-grammar budget —
+    a MEASURED model, not a guess.
+
+    Fitted on 1,838 distinct bodies probed against ``claude-sonnet-5`` on
+    2026-09-28 (the full live sweep's baseline, pre-fix and post-fix bodies; 224
+    of them refused "The compiled grammar is too large"):
+    ``properties + 1.5 × union parameters + 3 × arrays + 0.3 × enum members``,
+    each ``$defs`` entry counted ONCE (identical subtrees shared through
+    ``$defs`` compile once — grammar_budget.py). Over 2,700 probed bodies the
+    lowest refusal scores 72.0 and the next 81.0. Two earlier fits with unions,
+    arrays and enum members weighted lower each put a refused body under their
+    ceiling (65.5 / 66, then 72.0 — an io_contract with 36 properties, 8 arrays
+    and 45 enum members that three added nullable unions tipped over). It is an
+    estimate with a measured floor, not the provider's formula, which is why the
+    Anthropic translator's ceiling sits well below that floor. Byte size was
+    measured and is not the metric.
+    """
+    totals = {"props": 0, "unions": 0, "arrays": 0, "enum_members": 0}
+
+    def walk(node: Any) -> None:
+        if isinstance(node, list):
+            for item in node:
+                walk(item)
+            return
+        if not isinstance(node, dict):
+            return
+        props = node.get("properties")
+        if isinstance(props, dict):
+            totals["props"] += len(props)
+        if is_union_param(node):
+            totals["unions"] += 1
+        if node.get("type") == "array" or "items" in node:
+            totals["arrays"] += 1
+        enum = node.get("enum")
+        if isinstance(enum, list):
+            totals["enum_members"] += len(enum)
+        for key, value in node.items():
+            if key in ("required", "enum", "const", "default", "examples"):
+                continue
+            if key in _SCHEMA_NAME_MAP_KEYS and isinstance(value, dict):
+                for sub in value.values():
+                    walk(sub)
+            else:
+                walk(value)
+
+    walk(schema)
+    return (
+        totals["props"]
+        + 1.5 * totals["unions"]
+        + 3 * totals["arrays"]
+        + 0.3 * totals["enum_members"]
+    )
 
 
 def take_normalization_notes(node: Any) -> tuple[Any, list[str]]:
@@ -1429,8 +2235,26 @@ def structured_output_schema_violations(schema: Any) -> list[str]:
         for keyword in sorted(STRUCTURED_OUTPUT_UNSUPPORTED_KEYWORDS - {"default", "$schema", "$comment"}):
             if keyword in node:
                 problems.append(f"{path}: `{keyword}` is not supported by the constrained decoder")
+        for extension in sorted(
+            k for k in node if k.startswith(STRUCTURED_OUTPUT_EXTENSION_PREFIX)
+        ):
+            # "For 'object' type, property 'x-contract-dynamic' is not supported" —
+            # measured live on the largest live schemas, 2026-09-27.
+            problems.append(
+                f"{path}: `{extension}` is a schema EXTENSION; the constrained decoder "
+                "refuses an unknown property on a node"
+            )
         if isinstance(node.get("items"), list):
             problems.append(f"{path}.items: must be a single schema, not a list")
+        if isinstance(node.get("type"), list) and isinstance(node.get("enum"), list):
+            # "Enum value 'a' does not match declared type '['string', 'null']'" —
+            # measured live 2026-09-27, and it fires even when the enum holds no
+            # null, so it is the type ARRAY the validator objects to. An
+            # `Optional[SomeEnum]` in Pydantic is exactly this shape.
+            problems.append(
+                f"{path}: an `enum` may not sit beside a type ARRAY — rewrite as "
+                "`anyOf` branches (split_enum_from_type_union)"
+            )
         if (object_node(node) or _declares_object(node)) and node.get("additionalProperties") is not False:
             problems.append(f"{path}: object nodes must set `additionalProperties: false`")
         if "$ref" in node and (set(node) - {"$ref", "title", "description", "default"}):
@@ -1466,17 +2290,32 @@ def structured_output_schema_violations(schema: Any) -> list[str]:
             f"{ANTHROPIC_UNION_PARAM_LIMIT} (narrow with collapse_nullable_unions)"
         )
     for cycle in _ref_cycles(schema):
+        # Reaching this line is a TRANSLATOR gap, not an inexpressible schema: the
+        # boundary owns recursion and has two ways to handle it
+        # (`unroll_recursive_refs` for a decoder that refuses any cycle,
+        # `open_ref_loops` for one that accepts a terminating cycle). Say which,
+        # so the finding is actionable instead of a shrug.
         problems.append(
-            f"$defs: circular reference {' -> '.join(cycle)} — recursive schemas are not "
-            "supported and cannot be expressed in the accepted subset"
+            f"$defs: circular reference {' -> '.join(cycle)} survived translation — "
+            "this decoder compiles no cycle at all, so the boundary must unroll it to a "
+            "bounded depth (unroll_recursive_refs); reaching here means the translator "
+            "did not run that rule"
         )
     return problems
 
 
 def _ref_cycles(schema: Any) -> list[list[str]]:
     """Every self- or mutually-referencing ``$defs`` entry, as a name cycle.
-    ``Circular reference detected in schema definitions: N -> N`` is a hard 400
-    and no boundary rewrite can remove it, so it is reported, never "fixed"."""
+
+    🚨 This used to say ``Circular reference detected in schema definitions:
+    N -> N`` was a hard 400 that "no boundary rewrite can remove, so it is
+    reported, never fixed". That was untrue when it was written and is untrue now:
+    :func:`unroll_recursive_refs` removes the cycle (the Anthropic translator has
+    called it since 2026-09-27) and :func:`open_ref_loops` makes one EXPRESSIBLE
+    for a provider that supports a terminating cycle. FINDING a cycle is all this
+    function does; what to do about it belongs to those two, and "the provider
+    refuses it" is never the end of the sentence (Arman, 2026-09-27: fix it at the
+    core, no workarounds)."""
     if not isinstance(schema, dict):
         return []
     defs = schema.get("$defs") or schema.get("definitions")
@@ -1545,14 +2384,26 @@ _SHAPE_CONSTRAINT_KEYS: frozenset[str] = frozenset(
 def admits_null(node: Any) -> bool:
     """Does this declared node already accept ``null``?
 
-    Either explicitly (``["T","null"]`` / ``anyOf [..., null]``) or because it
-    constrains nothing at all: a bare ``{"description": "…"}`` is an unconstrained
-    schema and ``null`` is a JSON value, so it validates. 68 live schemas are
-    exactly that — an optional field with no type — and forcing them into
-    ``required`` takes nothing away, which is why they are not a finding."""
+    Three ways: explicitly (``["T","null"]`` / ``anyOf [..., null]``); because the
+    node IS null (``{"type": "null"}`` — which is what
+    :func:`unroll_recursive_refs` puts at its depth floor); or because it
+    constrains nothing at all — a bare ``{"description": "…"}`` is an
+    unconstrained schema and ``null`` is a JSON value, so it validates. 68 live
+    schemas are exactly that, an optional field with no type, and forcing them
+    into ``required`` takes nothing away, which is why they are not a finding.
+
+    The null-only case is load-bearing: without it, widening produced
+    ``{"type": ["null", "null"]}``, which the union collapse then reduced to
+    ``{"type": []}`` — and Anthropic refuses BOTH by name ("[] is not valid under
+    any of the given schemas", measured live 2026-09-27). ``decision_tree``, whose
+    recursive ``yes``/``no`` branches land on that floor, went from 200 to 400.
+    """
     if not isinstance(node, dict):
         return False
     if is_nullable_union(node):
+        return True
+    t = node.get("type")
+    if t == "null" or (isinstance(t, list) and set(t) == {"null"}):
         return True
     return not (_SHAPE_CONSTRAINT_KEYS & set(node))
 
@@ -1575,53 +2426,214 @@ def widen_to_nullable(node: Any) -> Any:
 
     This is how an OPTIONAL property survives a provider that demands every
     property in ``required``: required + nullable, answered ``null`` when the
-    author meant "absent". OpenAI documents exactly this ("emulate an optional
-    parameter by using a union type with null"), and it costs one of Anthropic's
-    16 union-parameter slots, which is the budget
-    :func:`collapse_nullable_unions` then enforces."""
+    author meant "absent". :func:`prune_optional_nulls` is the reader's half.
+
+    🚨 THE SPELLING IS ``anyOf``, NOT A TYPE ARRAY, and that is a measured
+    decision, not a style. ``{"type": ["T","null"]}`` reads like the obvious form
+    and every provider I probed refuses some part of it, each in its own way
+    (2026-09-27, one live request per shape):
+
+    * **Anthropic** refuses it beside an ``enum``, even an enum with no null in it:
+      ``Enum value 'a' does not match declared type '['string', 'null']'``. Every
+      Pydantic ``Optional[SomeEnum]`` is that shape.
+    * **Gemini** does not count it as nullable when deciding whether a ``$ref``
+      cycle can terminate, and adding ``"null"`` to the type array ALSO breaks the
+      zero-length-array escape, so a recursive contract goes from 200 to 400 by
+      being made nullable.
+    * **OpenAI strict** refuses some combinations of it outright with no context at
+      all — ``Invalid schema for response_format 'response'. Please ensure it is a
+      valid JSON Schema.`` Bisected to a single node on three live
+      ``commerce_intake.*`` kinds; the same node in a small schema is accepted, so
+      nothing in the error or the docs predicts it.
+
+    ``{"anyOf": [X, {"type": "null"}]}`` was accepted by all three, every time. One
+    spelling, measured, so the class cannot come back per provider. It still counts
+    as exactly ONE union parameter (:func:`is_union_param` reads ``anyOf`` and a
+    type array alike), so Anthropic's 16-parameter budget is unaffected, and
+    :func:`collapse_nullable_unions` narrows this form as readily as the other.
+    """
     if not isinstance(node, dict):
         return None
     if admits_null(node):
         return dict(node)
+
     out = dict(node)
-    t = out.get("type")
-    if isinstance(t, str):
-        out["type"] = [t, "null"]
-        if isinstance(out.get("enum"), list) and None not in out["enum"]:
-            out["enum"] = [*out["enum"], None]
-        return out
-    if isinstance(t, list) and t:
-        out["type"] = [*t, "null"]
-        if isinstance(out.get("enum"), list) and None not in out["enum"]:
-            out["enum"] = [*out["enum"], None]
-        return out
+    # Already a union of shapes: add the null branch to it rather than nesting.
     for combinator in ("anyOf", "oneOf"):
         branches = out.get(combinator)
         if isinstance(branches, list) and branches:
             out[combinator] = [*branches, {"type": "null"}]
             return out
-    if isinstance(out.get("$ref"), str):
-        # A `$ref` may carry no sibling constraints, so the union wraps it.
-        wrapper: dict[str, Any] = {"anyOf": [{"$ref": out["$ref"]}, {"type": "null"}]}
-        for key in ("title", "description"):
-            if key in out:
-                wrapper[key] = out[key]
-        return wrapper
-    if isinstance(out.get("enum"), list) and out["enum"]:
-        if None not in out["enum"]:
-            out["enum"] = [*out["enum"], None]
+
+    # Name the type the node only implied by its shape, so the branch stands alone.
+    if "type" not in out:
+        if isinstance(out.get("properties"), dict):
+            out["type"] = "object"
+        elif "items" in out:
+            out["type"] = "array"
+        elif not ({"$ref", "enum", "const"} & out.keys()):
+            return None
+
+    carried = {k: v for k, v in out.items() if k in ("title", "description")}
+    branch = {k: v for k, v in out.items() if k not in ("title", "description")}
+    if not branch:
+        return None
+    return {**carried, "anyOf": [branch, {"type": "null"}]}
+
+
+def disambiguate_unions_for_strict_validators(schema: Any) -> Any:
+    """Respell, LOSSLESSLY, the three union shapes a strict schema validator
+    refuses although they mean exactly what the author wrote.
+
+    Measured live on groq (``openai/gpt-oss-20b``, 2026-09-28), one request each:
+
+    * ``{"type": "object", "properties": {}, "required": []}`` → "'required'
+      present but 'properties' is missing". An empty ``required`` says nothing,
+      and an empty ``properties`` says nothing either: both are removed.
+    * ``anyOf: [{"$ref": "#/$defs/J"}, {"type": "null"}]`` where ``J`` is a
+      string or an enum → "anyOf branches must be disambiguated via a required
+      discriminator"; the same branch INLINED is accepted, and a ``$ref`` to an
+      object is accepted as is. So a non-object, non-recursive ``$ref`` branch
+      is inlined.
+    * two branches that both admit ``null`` → "multiple branches accept null".
+      The explicit ``{"type": "null"}`` branch is redundant there and is dropped.
+
+    These were 135 live schemas groq accepted with the optional field forced and
+    refused once it was widened (SCHEMA-TRANSLATION-VERIFY.md, R6).
+    """
+    if not isinstance(schema, dict):
+        return schema
+    root = schema
+    cycle_members = ref_cycle_members(schema)
+
+    def inline_target(branch: Any) -> Any:
+        if not (isinstance(branch, dict) and set(branch) <= {"$ref", "description", "title"}):
+            return branch
+        ref = branch.get("$ref")
+        if not isinstance(ref, str):
+            return branch
+        name = ref.rsplit("/", 1)[-1]
+        if name in cycle_members:
+            return branch
+        target = _resolve_local_ref(ref, root)
+        if not isinstance(target, dict) or is_object_node(target) or "$ref" in target:
+            return branch
+        return {**copy.deepcopy(target), **{k: v for k, v in branch.items() if k != "$ref"}}
+
+    def walk(node: Any) -> Any:
+        if isinstance(node, list):
+            return [walk(item) for item in node]
+        if not isinstance(node, dict):
+            return node
+        out = {key: walk(value) for key, value in node.items()}
+        props = out.get("properties")
+        if isinstance(props, dict) and not props:
+            out.pop("properties", None)
+            if not out.get("required"):
+                out.pop("required", None)
+        elif "required" in out and not isinstance(props, dict) and not out.get("required"):
+            out.pop("required", None)
+        branches = out.get("anyOf")
+        if isinstance(branches, list) and len(branches) > 1:
+            has_null_branch = any(
+                isinstance(b, dict) and b.get("type") == "null" for b in branches
+            )
+            if has_null_branch:
+                branches = [inline_target(b) for b in branches]
+                others_admit_null = any(
+                    isinstance(b, dict) and b.get("type") != "null" and admits_null(b)
+                    and (_SHAPE_CONSTRAINT_KEYS & set(b))
+                    for b in branches
+                )
+                if others_admit_null:
+                    branches = [
+                        b for b in branches if not (isinstance(b, dict) and b.get("type") == "null")
+                    ]
+                out["anyOf"] = branches
+                if len(branches) == 1 and isinstance(branches[0], dict):
+                    only = out.pop("anyOf")[0]
+                    out = {**only, **out}
         return out
-    # A node that declares its type only by SHAPE — `properties` with no
-    # `"type"`, or `items` with no `"type"` — is still an object / an array, and
-    # every rule in this module already reads it that way (`is_object_node`).
-    # Naming the implied type is what lets it carry null.
-    if isinstance(out.get("properties"), dict):
-        out["type"] = ["object", "null"]
-        return out
-    if "items" in out:
-        out["type"] = ["array", "null"]
-        return out
-    return None
+
+    return walk(schema)
+
+
+class WideningBudget:
+    """Which OPTIONAL properties a provider boundary may express as
+    required-and-nullable, and which it must force.
+
+    Widening is lossless for the contract but it is not free on the wire: every
+    widened field is one more union the provider's decoder has to compile. On
+    most providers that costs nothing measurable; on Anthropic it spends the
+    compiled-grammar budget (29 live schemas it accepted with the field forced
+    were refused once widened — SCHEMA-TRANSLATION-VERIFY.md, R5), and Groq's
+    validator refuses some union spellings outright (R6). So the decision is the
+    TRANSLATOR's, per provider, and this object carries it:
+
+    * ``limit`` — widen at most this many optional fields (in document order);
+      the rest are forced and NAMED in the notes. ``None`` = no limit.
+    * ``can_widen`` — a per-node veto for a shape the provider refuses as a
+      union. A vetoed field is forced and named, exactly as over-budget ones are.
+
+    A third lever, for a provider that UNROLLS a bounded array:
+
+    * ``unroll_budget`` — a widening inside ``{"maxItems": 40}`` is paid 40 times
+      by such a provider, so it spends 40 of this budget; one at the root spends
+      nothing. ``None`` = unmetered, which is every provider but Google.
+
+      Measured live against ``gemini-2.5-flash``, 2026-09-28: the identical item
+      schema is ACCEPTED under ``maxItems: 40`` and REFUSED under ``maxItems:
+      100``; 5 nullable item fields are accepted at ``maxItems: 40`` and 6 are
+      refused; and 80 nullable fields at the ROOT of a flat object are accepted,
+      so width on its own costs nothing measurable. That is the whole of Google's
+      F1 refusal: ONE extra nullable union inside a ``maxItems: 40`` array turned
+      a live schema Gemini accepts into one it refuses
+      (SCHEMA-TRANSLATION-VERIFY.md, F1). The spend is not Gemini's formula — the
+      frontier also moves with the rest of the schema — so the translator sets the
+      budget at the lowest ACCEPTED spend it measured, never the highest.
+
+    ``widened`` / ``forced`` count what happened, so a caller searching for the
+    largest budget that fits can read it back.
+    """
+
+    __slots__ = (
+        "limit",
+        "can_widen",
+        "widened",
+        "forced",
+        "candidates",
+        "unroll_budget",
+        "spent_unroll",
+    )
+
+    def __init__(
+        self,
+        limit: int | None = None,
+        can_widen: Any = None,
+        unroll_budget: float | None = None,
+    ) -> None:
+        self.limit = limit
+        self.can_widen = can_widen
+        self.unroll_budget = unroll_budget
+        self.widened = 0
+        self.forced = 0
+        self.candidates = 0
+        self.spent_unroll = 0.0
+
+    def allow(self, node: Any, unroll: float = 1.0) -> bool:
+        """May this optional field be widened? ``unroll`` is how many times the
+        provider pays for it — the product of the ``maxItems`` of every bounded
+        array it sits inside."""
+        self.candidates += 1
+        if self.can_widen is not None and not self.can_widen(node):
+            return False
+        if self.limit is not None and self.widened >= self.limit:
+            return False
+        if self.unroll_budget is not None and unroll > 1:
+            if self.spent_unroll + unroll > self.unroll_budget:
+                return False
+            self.spent_unroll += unroll
+        return True
 
 
 def enforce_all_required(
@@ -1629,7 +2641,9 @@ def enforce_all_required(
     *,
     express_optional_as_nullable: bool = False,
     notes: list[str] | None = None,
+    budget: WideningBudget | None = None,
     _path: str = "$",
+    _unroll: float = 1.0,
 ) -> None:
     """In place: set ``required`` to ALL property keys on every object node.
     OpenAI strict + Anthropic require every property listed in ``required``.
@@ -1675,11 +2689,21 @@ def enforce_all_required(
                 if not pins_one_value(sub):
                     forced.append(f"{_path}.{name}")
                 continue
+            if admits_null(sub):
+                # Already says "absent" (explicitly nullable, the null node, or an
+                # unconstrained schema): listing it in `required` takes nothing away.
+                continue
+            if budget is not None and not budget.allow(sub, _unroll):
+                budget.forced += 1
+                forced.append(f"{_path}.{name}")
+                continue
             widened = widen_to_nullable(sub)
             if widened is None:
                 forced.append(f"{_path}.{name}")
             else:
                 props[name] = widened
+                if budget is not None:
+                    budget.widened += 1
         if forced and notes is not None:
             shown = ", ".join(forced[:12]) + (
                 f" (+{len(forced) - 12} more)" if len(forced) > 12 else ""
@@ -1695,15 +2719,28 @@ def enforce_all_required(
                 value,
                 express_optional_as_nullable=express_optional_as_nullable,
                 notes=notes,
+                budget=budget,
                 _path=f"{_path}.{name}",
+                _unroll=_unroll,
             )
     items = node.get("items")
+    # A BOUNDED array multiplies everything under it for a provider that unrolls
+    # it (Google): `maxItems: 40` means the item schema — and every widening
+    # inside it — is compiled 40 times. An UNBOUNDED array is a loop and costs
+    # once, which is why the multiplier only moves when `maxItems` is a real
+    # positive integer.
+    raw_max = node.get("maxItems")
+    item_unroll = (
+        _unroll * min(int(raw_max), 256) if isinstance(raw_max, int) and raw_max > 0 else _unroll
+    )
     if isinstance(items, dict):
         enforce_all_required(
             items,
             express_optional_as_nullable=express_optional_as_nullable,
             notes=notes,
+            budget=budget,
             _path=f"{_path}[]",
+            _unroll=item_unroll,
         )
     elif isinstance(items, list):
         for index, item in enumerate(items):
@@ -1711,7 +2748,9 @@ def enforce_all_required(
                 item,
                 express_optional_as_nullable=express_optional_as_nullable,
                 notes=notes,
+                budget=budget,
                 _path=f"{_path}[{index}]",
+                _unroll=item_unroll,
             )
     for comb in ("anyOf", "oneOf", "allOf"):
         arr = node.get(comb)
@@ -1721,7 +2760,9 @@ def enforce_all_required(
                     item,
                     express_optional_as_nullable=express_optional_as_nullable,
                     notes=notes,
+                    budget=budget,
                     _path=f"{_path}.{comb}[{index}]",
+                    _unroll=_unroll,
                 )
     defs = node.get("$defs") or node.get("definitions")
     if isinstance(defs, dict):
@@ -1730,7 +2771,14 @@ def enforce_all_required(
                 value,
                 express_optional_as_nullable=express_optional_as_nullable,
                 notes=notes,
+                budget=budget,
                 _path=f"$defs.{name}",
+                # A `$defs` entry has no single position, so it carries no array
+                # multiplier of its own. It is reached by `$ref` from wherever it
+                # is used; a widening inside one that is referenced from a bounded
+                # array is therefore NOT metered here, and is the known limit of
+                # this measure.
+                _unroll=_unroll,
             )
 
 
@@ -1767,68 +2815,277 @@ def optional_nonnullable_properties(schema: Any) -> set[str]:
     return found
 
 
-def prune_optional_nulls(answer: Any, schema: Any, *, _path: str = "$") -> Any:
+_MAX_PRUNE_DEPTH = 64
+
+
+def _deref(node: Any, root: Any, *, limit: int = 32) -> Any:
+    """Follow a chain of internal ``$ref`` pointers from ``node`` to the schema it
+    names. A pointer that does not resolve leaves the node as it is — the caller
+    then reads no ``properties`` from it and prunes nothing, which is the honest
+    outcome for a contract it cannot read."""
+    seen = 0
+    while isinstance(node, dict) and "$ref" in node and seen < limit:
+        target = _resolve_local_ref(node.get("$ref"), root) if isinstance(root, dict) else None
+        if target is None:
+            return node
+        siblings = {k: v for k, v in node.items() if k != "$ref"}
+        node = {**target, **siblings} if siblings else target
+        seen += 1
+    return node
+
+
+def admits_null_in(node: Any, root: Any, *, _depth: int = 0) -> bool:
+    """:func:`admits_null`, reading THROUGH ``$ref`` and combinators.
+
+    ``{"$ref": "#/$defs/JsonValue"}`` admits ``null`` exactly when ``JsonValue``
+    does; an ``anyOf``/``oneOf`` admits it when any branch does; an ``allOf`` only
+    when every member does. The bare :func:`admits_null` reads one node and must
+    stay that way for the boundary rewrites, which have no root to resolve
+    against — the ANSWER side always has the whole document."""
+    if not isinstance(node, dict) or _depth > _MAX_PRUNE_DEPTH:
+        return False
+    node = _deref(node, root)
+    if not isinstance(node, dict):
+        return False
+    if admits_null(node) and "$ref" not in node:
+        return True
+    for combinator in ("anyOf", "oneOf"):
+        branches = node.get(combinator)
+        if isinstance(branches, list) and any(
+            admits_null_in(branch, root, _depth=_depth + 1) for branch in branches
+        ):
+            return True
+    members = node.get("allOf")
+    if isinstance(members, list) and members:
+        return all(admits_null_in(member, root, _depth=_depth + 1) for member in members)
+    return False
+
+
+def _branch_validates(value: Any, branch: Any, root: Any) -> bool:
+    try:
+        import jsonschema
+    except ImportError:  # pragma: no cover — jsonschema is a hard dependency
+        return False
+    if not isinstance(branch, dict):
+        return False
+    defs = (
+        {k: v for k, v in root.items() if k in ("$defs", "definitions")}
+        if isinstance(root, dict)
+        else {}
+    )
+    candidate = {**defs, **branch}
+    try:
+        validator = jsonschema.validators.validator_for(candidate)(candidate)
+        return next(iter(validator.iter_errors(value)), None) is None
+    except Exception:  # noqa: BLE001 — an unreadable branch simply does not match
+        return False
+
+
+_JSON_TYPE_OF: tuple[tuple[type, str], ...] = (
+    (bool, "boolean"),
+    (int, "integer"),
+    (float, "number"),
+    (str, "string"),
+    (list, "array"),
+    (dict, "object"),
+)
+
+
+def _type_can_hold(branch: dict[str, Any], value: Any) -> bool:
+    """Could ``branch`` accept a value of ``value``'s JSON type at all? Read from
+    ``type`` or from the shape keywords that imply one; an unconstrained or
+    combinator branch says yes."""
+    if value is None:
+        kind = "null"
+    else:
+        kind = next((name for py, name in _JSON_TYPE_OF if isinstance(value, py)), "")
+    declared = branch.get("type")
+    if declared is None:
+        if isinstance(branch.get("properties"), dict):
+            declared = "object"
+        elif "items" in branch or "prefixItems" in branch:
+            declared = "array"
+        elif "enum" in branch and isinstance(branch["enum"], list):
+            return value in branch["enum"]
+        elif "const" in branch:
+            return value == branch["const"]
+        else:
+            return True
+    names = set(declared) if isinstance(declared, list) else {declared}
+    if kind == "integer" and "number" in names:
+        return True
+    return kind in names
+
+
+def _prune_under_combinator(
+    answer: Any, branches: list[Any], root: Any, depth: int
+) -> Any:
+    """Prune ``answer`` under the ``anyOf``/``oneOf`` branch it actually answers.
+
+    The branch is chosen by the AUTHOR's contract, not guessed: the first branch
+    the pruned answer satisfies wins; failing that, the object branch that
+    declares the most of the answer's keys. An answer that fits no branch at all
+    is returned with only the branch-independent pruning applied — the contract
+    check reports it."""
+    resolved = [_deref(branch, root) for branch in branches if isinstance(branch, dict)]
+    fitting = [branch for branch in resolved if _type_can_hold(branch, answer)]
+    if len(fitting) == 1:
+        # The overwhelmingly common case — `anyOf: [X, null]` answered with an X.
+        return _prune(answer, fitting[0], root, depth + 1)
+    if fitting:
+        resolved = fitting
+    pruned_by_branch = [
+        (branch, _prune(answer, branch, root, depth + 1)) for branch in resolved
+    ]
+    for branch, pruned in pruned_by_branch:
+        if _branch_validates(pruned, branch, root):
+            return pruned
+    if isinstance(answer, dict):
+        keys = set(answer)
+        best = max(
+            pruned_by_branch,
+            key=lambda pair: len(keys & set((pair[0].get("properties") or {}).keys())),
+            default=None,
+        )
+        if best is not None and isinstance(best[0].get("properties"), dict):
+            return best[1]
+    return answer
+
+
+def _prune(answer: Any, schema: Any, root: Any, depth: int) -> Any:
+    if not isinstance(schema, dict) or depth > _MAX_PRUNE_DEPTH or answer is None:
+        return answer
+    schema = _deref(schema, root)
+    if not isinstance(schema, dict):
+        return answer
+
+    if isinstance(answer, list):
+        items = schema.get("items")
+        prefix = schema.get("prefixItems")
+        if isinstance(prefix, list) or isinstance(items, list):
+            positional = prefix if isinstance(prefix, list) else items
+            rest = items if isinstance(prefix, list) and isinstance(items, dict) else None
+            out: list[Any] = []
+            for index, item in enumerate(answer):
+                sub = positional[index] if index < len(positional) else rest
+                out.append(_prune(item, sub, root, depth + 1) if isinstance(sub, dict) else item)
+            answer = out
+        elif isinstance(items, dict):
+            answer = [_prune(item, items, root, depth + 1) for item in answer]
+
+    elif isinstance(answer, dict):
+        props = schema.get("properties")
+        if isinstance(props, dict):
+            required = set(schema.get("required") or ())
+            extra = schema.get("additionalProperties")
+            out_obj: dict[str, Any] = {}
+            for key, value in answer.items():
+                sub = props.get(key)
+                if (
+                    value is None
+                    and key not in required
+                    and isinstance(sub, dict)
+                    and not admits_null_in(sub, root)
+                ):
+                    continue
+                if isinstance(sub, dict):
+                    out_obj[key] = _prune(value, sub, root, depth + 1)
+                elif isinstance(extra, dict):
+                    # A map entry: never removed (a map's keys are the model's to
+                    # choose), only its value pruned.
+                    out_obj[key] = _prune(value, extra, root, depth + 1)
+                else:
+                    out_obj[key] = value
+            answer = out_obj
+        elif isinstance(schema.get("additionalProperties"), dict):
+            extra = schema["additionalProperties"]
+            answer = {key: _prune(value, extra, root, depth + 1) for key, value in answer.items()}
+
+        members = schema.get("allOf")
+        if isinstance(members, list) and members and isinstance(answer, dict):
+            resolved = [_deref(member, root) for member in members if isinstance(member, dict)]
+            required_somewhere: set[str] = set()
+            for member in resolved:
+                required_somewhere |= set(member.get("required") or ())
+            out_all: dict[str, Any] = {}
+            for key, value in answer.items():
+                declaring = [
+                    member["properties"][key]
+                    for member in resolved
+                    if isinstance(member.get("properties"), dict)
+                    and isinstance(member["properties"].get(key), dict)
+                ]
+                if (
+                    value is None
+                    and declaring
+                    and key not in required_somewhere
+                    and any(not admits_null_in(sub, root) for sub in declaring)
+                ):
+                    continue
+                out_all[key] = _prune(value, declaring[0], root, depth + 1) if declaring else value
+            answer = out_all
+
+    for combinator in ("anyOf", "oneOf"):
+        branches = schema.get(combinator)
+        if isinstance(branches, list) and branches:
+            answer = _prune_under_combinator(answer, branches, root, depth)
+            break
+    return answer
+
+
+def prune_optional_nulls(answer: Any, schema: Any, *, root: Any = None) -> Any:
     """Return a copy of ``answer`` with every ``null`` REMOVED wherever the
-    declared ``schema`` leaves that property optional and non-nullable.
+    declared ``schema`` leaves that property optional and does not allow ``null``.
 
     The reader's half of :func:`enforce_all_required`'s bargain. A provider that
     demands every property in ``required`` is answered with required+nullable, so
     the model says ``null`` where the author meant "absent" — and ``null`` is not
     a valid value under the declared contract. Dropping it restores exactly the
-    answer the author's schema describes, so the declared contract can judge the
-    answer without the boundary's compromise counting against the model.
+    answer the author's schema describes.
+
+    It reads the WHOLE contract: through ``$ref`` (every nested Pydantic model is
+    one), into ``anyOf``/``oneOf`` (under the branch the answer actually answers),
+    across ``allOf`` members, into array items and map values. Until 2026-09-28 it
+    walked ``properties`` and ``items`` only, so an optional field inside any
+    ``$defs`` object kept its ``null`` and a valid answer was reported off
+    contract (SCHEMA-TRANSLATION-VERIFY.md, R4).
 
     Only a ``null`` at a declared-optional, declared-non-nullable property is
     removed. A ``null`` the author DID allow is kept; a missing key stays missing.
     """
     if not isinstance(schema, dict):
         return answer
-    if isinstance(answer, list):
-        items = schema.get("items")
-        if isinstance(items, dict):
-            return [prune_optional_nulls(item, items, _path=f"{_path}[]") for item in answer]
-        return answer
-    if not isinstance(answer, dict):
-        return answer
-    props = schema.get("properties")
-    if not isinstance(props, dict):
-        return answer
-    required = set(schema.get("required") or ())
-    out: dict[str, Any] = {}
-    for key, value in answer.items():
-        sub = props.get(key)
-        if (
-            value is None
-            and key not in required
-            and isinstance(sub, dict)
-            and not admits_null(sub)
-        ):
-            continue
-        out[key] = (
-            prune_optional_nulls(value, sub, _path=f"{_path}.{key}")
-            if isinstance(sub, dict)
-            else value
-        )
-    return out
+    return _prune(answer, schema, schema if root is None else root, 0)
 
 
 __all__ = [
     "admits_null",
+    "admits_null_in",
     "ANTHROPIC_UNION_PARAM_LIMIT",
+    "anthropic_grammar_cost",
     "classify_normalization_notes",
     "COMBINATOR_SAFE_SIBLINGS",
     "collapse_nullable_unions",
     "count_nullable_union_params",
     "count_union_params",
+    "OPEN_SCALAR_ITEM_SCHEMA",
+    "dedupe_combinator_branches",
+    "make_array_items_explicit",
     "dedupe_identical_subtrees",
+    "disambiguate_unions_for_strict_validators",
     "drop_refinement_combinators",
     "is_map_node",
     "is_nullable_union",
     "ref_cycles",
+    "ref_cycle_members",
+    "open_ref_loops",
+    "gemini_ref_loop_violations",
+    "express_nullable_as_anyof",
     "unroll_recursive_refs",
     "unresolvable_refs",
     "NORMALIZATION_NOTES_KEY",
     "KIND_KEY",
+    "STRUCTURED_OUTPUT_EXTENSION_PREFIX",
     "STRUCTURED_OUTPUT_UNSUPPORTED_KEYWORDS",
     "concretize_empty_schemas",
     "count_optional_properties",
@@ -1838,8 +3095,10 @@ __all__ = [
     "pins_one_value",
     "prune_optional_nulls",
     "widen_to_nullable",
+    "WideningBudget",
     "flatten_allof",
     "hoist_nested_defs",
+    "hoist_root_recursion",
     "hoist_discriminator_first",
     "is_object_node",
     "is_root_object",
@@ -1848,6 +3107,7 @@ __all__ = [
     "prune_unreachable_defs",
     "rewrite_const_as_enum",
     "rewrite_oneof_as_anyof",
+    "split_enum_from_type_union",
     "strip_unsupported_keywords",
     "structured_output_schema_violations",
     "structured_output_size",

@@ -67,7 +67,7 @@ def harness(monkeypatch: pytest.MonkeyPatch):
     }
 
     @contextlib.asynccontextmanager
-    async def acting_as_caller():
+    async def acting_as_caller(_ctx: Any = None):
         # The host's seam: RLS decides inside it. Reads outside it are defects.
         bag["in_person_session"] = True
         try:

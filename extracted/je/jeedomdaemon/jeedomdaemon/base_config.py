@@ -1,9 +1,15 @@
-"""Module providing a base class to parse config of your daemon."""
+"""Module providing a base class to parse the configuration of your daemon.
+
+This module defines the BaseConfig class, which can be extended to add custom
+configuration options for your Jeedom daemon.
+"""
 
 from __future__ import annotations
 
 import argparse
 from typing import Sequence
+
+from .aio_connector import DEFAULT_MAX_CHANGES_PER_CYCLE, DEFAULT_MAX_PAYLOAD_SIZE
 
 
 class BaseConfig():
@@ -17,6 +23,8 @@ class BaseConfig():
     * --apikey
     * --pid
     * --cycle
+    * --maxchangespercycle
+    * --maxpayloadsize
 
     If you need additional arguments then simply create a child class and add them in your constructor, e.g.:
         ```
@@ -40,6 +48,8 @@ class BaseConfig():
         self.add_argument("--apikey", help="Plugin API Key", type=str)
         self.add_argument("--pid", help="daemon pid", type=str)
         self.add_argument("--cycle", help="cycle", type=float, default=0.5)
+        self.add_argument("--maxchangespercycle", help="Maximum number of changes (leaves) sent in a single request", type=int, default=DEFAULT_MAX_CHANGES_PER_CYCLE)
+        self.add_argument("--maxpayloadsize", help="Maximum approximate size in bytes of a single request payload", type=int, default=DEFAULT_MAX_PAYLOAD_SIZE)
 
     def add_argument(self, *args, **kwargs):
         """Add an argument to parse.
@@ -54,6 +64,11 @@ class BaseConfig():
         return self.__parser.add_argument(*args, **kwargs)
 
     def parse(self, args: Sequence[str] | None = None):
+        """Parse the provided command-line arguments.
+
+        Args:
+            args (Sequence[str] | None): List of arguments to parse. If None, parses sys.argv.
+        """
         """Actually parses the config, it will be done for you at daemon start."""
         if self._args is None:
             self._args = self.__parser.parse_args(args)
@@ -95,3 +110,13 @@ class BaseConfig():
     def cycle(self):
         """Returns the cycle."""
         return float(self._args.cycle)
+
+    @property
+    def max_changes_per_cycle(self):
+        """Returns the maximum number of changes (leaves) sent in a single request."""
+        return int(self._args.maxchangespercycle)
+
+    @property
+    def max_payload_size(self):
+        """Returns the maximum approximate size in bytes of a single request payload."""
+        return int(self._args.maxpayloadsize)

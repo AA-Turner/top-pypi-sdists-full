@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "common/api.h"
+#include "common/arrow/arrow.h"
 #include "common/types/value/value.h"
 #include "query_summary.h"
 
@@ -25,7 +26,8 @@ class Statement;
 }
 namespace binder {
 class Expression;
-}
+class ParameterExpression;
+} // namespace binder
 namespace planner {
 class LogicalPlan;
 }
@@ -52,6 +54,19 @@ struct CachedPreparedStatement {
     // ResultSet, so we snapshot them all from the freshly mapped tree and re-attach them onto
     // each cloned instance.
     std::vector<std::unique_ptr<processor::ResultSetDescriptor>> sinkResultSetDescriptors;
+
+    // Every typed parameter bound for this statement. Scanned for parameters whose values
+    // were frozen into a plan at plan-build time (ParameterExpression::wasBakedIntoPlan) —
+    // e.g. SKIP/LIMIT numbers baked to uint64_t by the mapper, or evaluated numbers baked
+    // into operators by optimizers. The scan is operator-agnostic, so future operators that
+    // bake parameter values (through a marking helper) are covered without touching this
+    // code (see https://github.com/LadybugDB/ladybug/issues/985).
+    std::vector<std::shared_ptr<binder::ParameterExpression>> boundParameters;
+    // True when a bound parameter was baked into a plan during prepare (bind/optimize), or
+    // during a previous physical mapping. Such statements always rebind/replan on
+    // re-execution and never populate or serve the physical-plan cache, since a cached
+    // plan would keep serving the first execution's frozen values.
+    bool hasBakedParameters = false;
 
     CachedPreparedStatement();
     ~CachedPreparedStatement();
@@ -82,6 +97,25 @@ public:
      * @return the prepared statement is read-only or not.
      */
     LBUG_API bool isReadOnly() const;
+    /**
+     * @return the column names of the query result, populated at prepare time
+     * (parse + bind + plan) without executing the query.
+     */
+    LBUG_API std::vector<std::string> getColumnNames() const;
+    /**
+     * @return the column data types of the query result, populated at prepare time
+     * without executing the query.
+     */
+    LBUG_API std::vector<common::LogicalType> getColumnTypes() const;
+    /**
+     * @brief Returns the arrow schema of the query result, derived from the bound
+     * and planned statement without executing the query.
+     * @return datatypes of the columns as an arrow schema
+     *
+     * It is the caller's responsibility to call the release function to release the underlying
+     * data. If converting to another arrow type, this is usually handled automatically.
+     */
+    LBUG_API std::unique_ptr<ArrowSchema> getArrowSchema() const;
 
     const std::unordered_set<std::string>& getUnknownParameters() const {
         return unknownParameters;

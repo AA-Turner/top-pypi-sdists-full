@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: awslambdaric
-Version: 4.0.4
+Version: 4.1.0
 Summary: AWS Lambda Runtime Interface Client for Python
 Home-page: https://github.com/aws/aws-lambda-python-runtime-interface-client
 Author: Amazon Web Services
@@ -10,14 +10,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
@@ -34,7 +34,7 @@ You can include this package in your preferred base image to make that base imag
 
 ## Requirements
 The Python Runtime Interface Client package currently supports Python versions:
- - 3.9.x up to and including 3.13.x
+ - 3.10.x up to and including 3.14.x
 
 ## Usage
 

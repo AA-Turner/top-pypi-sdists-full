@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, List
+from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING, Any, List
 
 from splink.internals.blocking import BlockingRule, block_using_rules_sqls
 from splink.internals.charts import (
-    ChartReturnType,
-    m_u_parameters_interactive_history_chart,
-    match_weights_interactive_history_chart,
-    probability_two_random_records_match_iteration_chart,
+    MatchWeightsInteractiveHistoryChart,
+    MUParametersInteractiveHistoryChart,
+    ProbabilityTwoRandomRecordsMatchIterationChart,
 )
 from splink.internals.comparison import Comparison
 from splink.internals.comparison_vector_values import (
     compute_comparison_vector_values_from_id_pairs_sqls,
 )
 from splink.internals.constants import LEVEL_NOT_OBSERVED_TEXT
+from splink.internals.em_sampling import resolve_em_sample_threshold
 from splink.internals.input_column import InputColumn
 from splink.internals.misc import bayes_factor_to_prob, prob_to_bayes_factor
 from splink.internals.parse_sql import get_columns_used_from_sql
@@ -22,10 +23,14 @@ from splink.internals.pipeline import CTEPipeline
 from splink.internals.settings import (
     ComparisonAndLevelDict,
     CoreModelSettings,
+    ModelParameterDetailedRecord,
     Settings,
     TrainingSettings,
 )
-from splink.internals.vertically_concatenate import compute_df_concat_with_tf
+from splink.internals.vertically_concatenate import (
+    enqueue_df_concat,
+    enqueue_df_concat_with_tf,
+)
 
 from .database_api import DatabaseAPISubClass
 from .exceptions import EMTrainingException
@@ -37,6 +42,30 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from splink.internals.linker import Linker
     from splink.internals.splink_dataframe import SplinkDataFrame
+
+
+@dataclass
+class ModelParameterIterationDetailedRecord(ModelParameterDetailedRecord):
+    iteration: int
+
+    @classmethod
+    def from_settings_param_detailed_record(
+        cls,
+        cl_rec: ModelParameterDetailedRecord,
+        *,
+        probability_two_random_records_match: float,
+        iteration: int,
+    ) -> ModelParameterIterationDetailedRecord:
+        cl_rec.probability_two_random_records_match = (
+            probability_two_random_records_match
+        )
+        return cls(
+            **asdict(cl_rec),
+            iteration=iteration,
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 class EMTrainingSession:
@@ -57,6 +86,8 @@ class EMTrainingSession:
         fix_m_probabilities: bool = False,
         fix_probability_two_random_records_match: bool = False,
         estimate_without_term_frequencies: bool = False,
+        max_pairs: float | None = None,
+        probe_proportion: float = 0.01,
     ):
         logger.info("\n----- Starting EM training session -----\n")
 
@@ -75,6 +106,13 @@ class EMTrainingSession:
 
         self._blocking_rule_for_training = blocking_rule_for_training
         self.estimate_without_term_frequencies = estimate_without_term_frequencies
+
+        # EM sampling configuration
+        self._max_pairs = max_pairs
+        self._probe_proportion = probe_proportion
+        self._sample_threshold: int | None = None
+        self._sample_modulus: int | None = None
+        self._sample_info: dict[str, Any] | None = None
 
         self._comparison_levels_to_reverse_blocking_rule: list[
             ComparisonAndLevelDict
@@ -169,27 +207,65 @@ class EMTrainingSession:
             f" since they are used in the blocking rules: {not_estimated_str}"
         )
 
+    def _ensure_em_sampling_settings(self) -> None:
+        if self._sample_info is not None:
+            return
+
+        sample_threshold, sample_modulus, sample_info = resolve_em_sample_threshold(
+            linker=self._original_linker,
+            blocking_rule=self._blocking_rule_for_training,
+            max_pairs=self._max_pairs,
+            probe_proportion=self._probe_proportion,
+        )
+        self._sample_threshold = sample_threshold
+        self._sample_modulus = sample_modulus
+        self._sample_info = sample_info
+
     def _comparison_vectors(self) -> SplinkDataFrame:
         self._training_log_message()
+        self._ensure_em_sampling_settings()
 
         pipeline = CTEPipeline()
-        nodes_with_tf = compute_df_concat_with_tf(self._original_linker, pipeline)
-        pipeline = CTEPipeline([nodes_with_tf])
+        enqueue_df_concat(self._original_linker, pipeline)
 
         orig_settings = self._original_linker._settings_obj
         sqls = block_using_rules_sqls(
-            input_tablename_l="__splink__df_concat_with_tf",
-            input_tablename_r="__splink__df_concat_with_tf",
+            input_tablename_l="__splink__df_concat",
+            input_tablename_r="__splink__df_concat",
             blocking_rules=[self._blocking_rule_for_training],
             link_type=orig_settings._link_type,
             source_dataset_input_column=orig_settings.column_info_settings.source_dataset_input_column,
             unique_id_input_column=orig_settings.column_info_settings.unique_id_input_column,
+            sample_threshold=self._sample_threshold,
+            sample_modulus=self._sample_modulus,
         )
         pipeline.enqueue_list_of_sqls(sqls)
 
         blocked_pairs = self.db_api.sql_pipeline_to_splink_dataframe(pipeline)
 
-        pipeline = CTEPipeline([blocked_pairs, nodes_with_tf])
+        if self._sample_threshold is not None:
+            count_pipeline = CTEPipeline()
+            count_pipeline.enqueue_sql(
+                f"select count(*) as row_count from {blocked_pairs.physical_name}",
+                "__splink__em_blocked_pair_count",
+            )
+            count_df = self.db_api.sql_pipeline_to_splink_dataframe(count_pipeline)
+            count_rows = count_df.as_record_list()
+            count_df.drop_table_from_database_and_remove_from_cache()
+            actual = int(count_rows[0]["row_count"]) if count_rows else 0
+            sample_info = self._sample_info
+            assert sample_info is not None
+            expected = sample_info.get("expected_pairs_after_sampling")
+            logger.info(
+                "[EM sampling] Materialised blocked pair count after sampling: "
+                "%d (expected ~%s, target max_pairs=%s)",
+                actual,
+                f"{expected:.0f}" if expected is not None else "n/a",
+                f"{self._max_pairs:.0f}" if self._max_pairs is not None else "n/a",
+            )
+
+        pipeline = CTEPipeline([blocked_pairs])
+        enqueue_df_concat_with_tf(self._original_linker, pipeline)
 
         sqls = compute_comparison_vector_values_from_id_pairs_sqls(
             orig_settings._columns_to_select_for_blocking,
@@ -203,13 +279,14 @@ class EMTrainingSession:
         pipeline.enqueue_list_of_sqls(sqls)
         return self.db_api.sql_pipeline_to_splink_dataframe(pipeline)
 
-    def _train(self, cvv: SplinkDataFrame = None) -> CoreModelSettings:
+    def _train(self, cvv: SplinkDataFrame | None = None) -> CoreModelSettings:
         if cvv is None:
+            self._ensure_em_sampling_settings()
             cvv = self._comparison_vectors()
 
         # check that the blocking rule actually generates _some_ record pairs,
         # if not give the user a helpful message
-        if not cvv.as_record_dict(limit=1):
+        if not cvv.as_record_list(limit=1):
             br_sql = f"`{self._blocking_rule_for_training.blocking_rule_sql}`"
             raise EMTrainingException(
                 f"Training rule {br_sql} resulted in no record pairs.  "
@@ -220,7 +297,7 @@ class EMTrainingSession:
                 "at least a few hundred, but preferably at least a few thousand.\n"
                 "You must revise your training blocking rule so that the set of "
                 "generated comparisons is not empty.  You can use "
-                "`count_comparisons_from_blocking_rule()` to compute "
+                "`count_comparisons_from_blocking_rules()` to compute "
                 "the number of comparisons that will be generated by a blocking rule."
             )
 
@@ -320,20 +397,20 @@ class EMTrainingSession:
         return adjusted_prop_m
 
     @property
-    def _iteration_history_records(self):
+    def _iteration_history_records(self) -> list[ModelParameterIterationDetailedRecord]:
         output_records = []
 
         for iteration, core_model_settings in enumerate(
             self._core_model_settings_history
         ):
-            records = core_model_settings.parameters_as_detailed_records
-
-            for r in records:
-                r["iteration"] = iteration
-                # TODO: why lambda from current settings, not history?
-                r["probability_two_random_records_match"] = (
-                    self.core_model_settings.probability_two_random_records_match
+            records = [
+                ModelParameterIterationDetailedRecord.from_settings_param_detailed_record(
+                    r,
+                    probability_two_random_records_match=self.core_model_settings.probability_two_random_records_match,
+                    iteration=iteration,
                 )
+                for r in core_model_settings.parameters_as_detailed_records
+            ]
 
             output_records.extend(records)
         return output_records
@@ -352,38 +429,43 @@ class EMTrainingSession:
             output_records.append(r)
         return output_records
 
-    def probability_two_random_records_match_iteration_chart(self) -> ChartReturnType:
+    def probability_two_random_records_match_iteration_chart(
+        self,
+    ) -> ProbabilityTwoRandomRecordsMatchIterationChart:
         """
         Display a chart showing the iteration history of the probability that two
         random records match.
 
         Returns:
-            An interactive Altair chart.
+            An interactive SplinkChart.
         """
         records = self._lambda_history_records
-        return probability_two_random_records_match_iteration_chart(records)
+        return ProbabilityTwoRandomRecordsMatchIterationChart(records)
 
-    def match_weights_interactive_history_chart(self) -> ChartReturnType:
+    def match_weights_interactive_history_chart(
+        self,
+    ) -> MatchWeightsInteractiveHistoryChart:
         """
         Display an interactive chart of the match weights history.
 
         Returns:
-            An interactive Altair chart.
+            An interactive SplinkChart.
         """
-        records = self._iteration_history_records
-        return match_weights_interactive_history_chart(
-            records, blocking_rule=self._blocking_rule_for_training.blocking_rule_sql
+        return MatchWeightsInteractiveHistoryChart(
+            self._iteration_history_records,
+            blocking_rule_text=self._blocking_rule_for_training.blocking_rule_sql,
         )
 
-    def m_u_values_interactive_history_chart(self) -> ChartReturnType:
+    def m_u_values_interactive_history_chart(
+        self,
+    ) -> MUParametersInteractiveHistoryChart:
         """
         Display an interactive chart of the m and u values.
 
         Returns:
-            An interactive Altair chart.
+            An interactive SplinkChart.
         """
-        records = self._iteration_history_records
-        return m_u_parameters_interactive_history_chart(records)
+        return MUParametersInteractiveHistoryChart(self._iteration_history_records)
 
     def __repr__(self):
         deactivated_cols = ", ".join(

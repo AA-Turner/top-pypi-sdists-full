@@ -4,6 +4,8 @@ import json
 import os
 from collections.abc import Sequence
 from datetime import datetime, timedelta
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as package_version
 from time import sleep
 from typing import Any, List, Union
 from urllib.parse import urlparse
@@ -25,6 +27,7 @@ class NotSet:
 
 AUTHORIZATION_HEADER = "Authorization"
 AUTHORIZATION_HEADER_ENV_VAR = "ANOMALO_AUTHORIZATION_HEADER"
+USER_AGENT_HEADER = "User-Agent"
 NOT_SET = NotSet()
 
 # Synthetic label id that matches tables with no labels. Pass it as label_id to
@@ -34,6 +37,15 @@ NOT_SET = NotSet()
 UNLABELED_LABEL_ID = -1
 
 OptionalStringList = Union[List[str], NotSet, None]
+
+
+def client_version() -> str:
+    # The release stamps the version into the package metadata only, so
+    # `anomalo.__version__` reads 0.0.0 in every published wheel.
+    try:
+        return package_version("anomalo")
+    except PackageNotFoundError:
+        return "unknown"
 
 
 class Client:
@@ -78,7 +90,10 @@ class Client:
         else:
             self.proto = proto if proto else "https"
 
-        self.request_headers = {}
+        # Support reads the client version from this header in server logs.
+        self.request_headers = {USER_AGENT_HEADER: f"anomalo-python/{client_version()}"}
+        if any(name.lower() == USER_AGENT_HEADER.lower() for name in headers):
+            del self.request_headers[USER_AGENT_HEADER]
         if self.api_token:
             self.request_headers.update(
                 {"X-Anomalo-Token": self.api_token}

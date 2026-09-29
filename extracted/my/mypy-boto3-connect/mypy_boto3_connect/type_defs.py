@@ -42,6 +42,7 @@ from .literals import (
     ChannelWorkloadBehaviorTypeType,
     ChatEventTypeType,
     ConfigurableNotificationPriorityType,
+    ConnectionTypeType,
     ContactFieldType,
     ContactFlowModuleStateType,
     ContactFlowModuleStatusType,
@@ -336,6 +337,7 @@ __all__ = (
     "CommonAttributeAndConditionTypeDef",
     "CompleteAttachedFileUploadRequestTypeDef",
     "ConditionTypeDef",
+    "ConnectionCredentialsTypeDef",
     "ConnectionDataTypeDef",
     "ContactAnalysisReferenceTypeDef",
     "ContactAnalysisTypeDef",
@@ -945,6 +947,7 @@ __all__ = (
     "ListEntitySecurityProfilesRequestPaginateTypeDef",
     "ListEntitySecurityProfilesRequestTypeDef",
     "ListEntitySecurityProfilesResponseTypeDef",
+    "ListEvaluationFormAIVersionsRequestPaginateTypeDef",
     "ListEvaluationFormAIVersionsRequestTypeDef",
     "ListEvaluationFormAIVersionsResponseTypeDef",
     "ListEvaluationFormVersionsRequestPaginateTypeDef",
@@ -1640,6 +1643,7 @@ __all__ = (
     "VoiceRecordingConfigurationTypeDef",
     "WebNotificationContentTypeDef",
     "WebNotificationSourceTypeDef",
+    "WebsocketTypeDef",
     "WidgetDestinationTypeDef",
     "WisdomInfoTypeDef",
     "WorkloadTypeConcurrencyTypeDef",
@@ -2269,6 +2273,11 @@ NumberConditionTypeDef = TypedDict(
         "ComparisonType": NotRequired[NumberComparisonTypeType],
     },
 )
+
+
+class ConnectionCredentialsTypeDef(TypedDict):
+    ConnectionToken: NotRequired[str]
+    Expiry: NotRequired[str]
 
 
 class ContactAnalysisReferenceTypeDef(TypedDict):
@@ -5041,6 +5050,11 @@ class UploadUrlMetadataTypeDef(TypedDict):
     HeadersToInclude: NotRequired[dict[str, str]]
 
 
+class WebsocketTypeDef(TypedDict):
+    Url: NotRequired[str]
+    ConnectionExpiry: NotRequired[str]
+
+
 class StartContactMediaProcessingRequestTypeDef(TypedDict):
     InstanceId: NotRequired[str]
     ContactId: NotRequired[str]
@@ -5788,14 +5802,6 @@ class SendChatIntegrationEventResponseTypeDef(TypedDict):
 
 
 class StartAssistantContactResponseTypeDef(TypedDict):
-    ContactId: str
-    ParticipantId: str
-    ParticipantToken: str
-    ContinuedFromContactId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class StartChatContactResponseTypeDef(TypedDict):
     ContactId: str
     ParticipantId: str
     ParticipantToken: str
@@ -7571,6 +7577,12 @@ class ListEntitySecurityProfilesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListEvaluationFormAIVersionsRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    ContactInteractionType: ContactInteractionTypeType
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListEvaluationFormVersionsRequestPaginateTypeDef(TypedDict):
     InstanceId: str
     EvaluationFormId: str
@@ -8469,6 +8481,17 @@ class StartAttachedFileUploadResponseTypeDef(TypedDict):
     FileStatus: FileStatusTypeType
     CreatedBy: CreatedByInfoTypeDef
     UploadUrlMetadata: UploadUrlMetadataTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartChatContactResponseTypeDef(TypedDict):
+    ContactId: str
+    ParticipantId: str
+    ParticipantToken: str
+    ContinuedFromContactId: str
+    ConnectionCredentials: ConnectionCredentialsTypeDef
+    Websocket: WebsocketTypeDef
+    StreamingId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -9592,6 +9615,8 @@ class StartChatContactRequestTypeDef(TypedDict):
     SegmentAttributes: NotRequired[Mapping[str, SegmentAttributeValueUnionTypeDef]]
     CustomerId: NotRequired[str]
     DisconnectOnCustomerExit: NotRequired[Sequence[Literal["AGENT"]]]
+    ConnectionTypes: NotRequired[Sequence[ConnectionTypeType]]
+    ChatStreamingConfiguration: NotRequired[ChatStreamingConfigurationTypeDef]
 
 
 class StartEmailContactRequestTypeDef(TypedDict):

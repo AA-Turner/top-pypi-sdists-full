@@ -146,9 +146,15 @@ def _read_credential_file(target: _CredentialTarget, *, mdm: bool) -> _ExistingF
             path,
         )
     # Bounded read, not a size pre-check: a file grown between lstat and read
-    # would still be pulled into memory as root.
+    # would still be pulled into memory as root. Runlayer-owned under
+    # ``~/.runlayer``: ``safe_fs`` fences that tree, so no link anywhere in the
+    # chain is followed, in-home or not.
     existing_file = _read_existing_bytes(
-        path, mdm=mdm, home=target["home"], max_bytes=MAX_CREDENTIAL_BYTES
+        path,
+        mdm=mdm,
+        home=target["home"],
+        max_bytes=MAX_CREDENTIAL_BYTES,
+        follow_in_home_links=False,
     )
     if existing_file is None:
         return {"content": None, "mode": 0o644, "home": target["home"]}
@@ -629,12 +635,18 @@ def _read_existing(path: Path, *, mdm: bool) -> _ExistingFile:
 
 
 def _read_existing_bytes(
-    path: Path, *, mdm: bool, home: Path | None, max_bytes: int | None = None
+    path: Path,
+    *,
+    mdm: bool,
+    home: Path | None,
+    follow_in_home_links: bool,
+    max_bytes: int | None = None,
 ) -> FileReadResult | None:
     """Guarded raw read shared by config and credential files; None when absent.
 
     Callers keep their own decode policy (a config must be UTF-8, a credential
-    that is not is simply malformed).
+    that is not is simply malformed) and their own link policy (a client config
+    follows the user's in-home links; the credential follows none).
     """
     if is_unsafe_windows_mdm_path(
         path,
@@ -642,14 +654,18 @@ def _read_existing_bytes(
         path_check=path_has_link_or_reparse_point,
     ):
         raise OSError(errno.ELOOP, "unsafe Windows MDM path", path)
-    existing_file = maybe_safe_read_file(path, home=home, max_bytes=max_bytes)
+    existing_file = maybe_safe_read_file(
+        path, home=home, max_bytes=max_bytes, follow_in_home_links=follow_in_home_links
+    )
     if existing_file is None and (path.exists() or path.is_symlink()):
         raise OSError(errno.EIO, "unreadable file", path)
     return existing_file
 
 
 def _read_existing_at(path: Path, *, mdm: bool, home: Path | None) -> _ExistingFile:
-    existing_file = _read_existing_bytes(path, mdm=mdm, home=home)
+    existing_file = _read_existing_bytes(
+        path, mdm=mdm, home=home, follow_in_home_links=True
+    )
     if existing_file is None:
         return {"content": None, "mode": 0o644, "home": home}
     try:
@@ -704,7 +720,6 @@ def _apply_prepared_write(prepared: _PreparedWrite) -> None:
         existing_text=prepared["previous"],
         home=prepared["home"],
         mode=prepared["mode"],
-        replace_symlink=not prepared["mdm"],
         mdm=prepared["mdm"],
         reown=prepared["mdm"],
         backup_mode=0o600,

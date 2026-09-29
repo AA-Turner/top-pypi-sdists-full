@@ -20,7 +20,7 @@ from typing_extensions import Self
 
 class Visibility(str, Enum):
     """
-    How much of the agent the source can actually see.  Independent of Detection: a certain detection can carry almost no depth, which is the normal case for an endpoint sweep, and is exactly the pairing the old single band could not express.  Staleness is NOT a member; it is a separate ``is_stale`` flag on the evidence record, so full visibility does not become limited when a credential expires.
+    How much of the agent the source can actually see.  Independent of Detection: a certain detection can carry almost no depth, which is the normal case for an endpoint scan, and is exactly the pairing the old single band could not express.  Staleness is NOT a member; it is a separate ``is_stale`` flag on the evidence record, so full visibility does not become limited when a credential expires.
     """
 
     """

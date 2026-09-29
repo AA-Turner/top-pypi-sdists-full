@@ -20,7 +20,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 from google.protobuf import wrappers_pb2 as google_dot_protobuf_dot_wrappers__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15modal_proto/api.proto\x12\x0cmodal.client\x1a\x19google/protobuf/any.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/wrappers.proto\"r\n\x1a\x41ppClientDisconnectRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x31\n\x06reason\x18\x02 \x01(\x0e\x32!.modal.client.AppDisconnectReason\x12\x11\n\texception\x18\x03 \x01(\t\"\xa7\x02\n\x13\x41ppCountLogsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0f\n\x07task_id\x18\x02 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x03 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x04 \x01(\t\x12\x12\n\nsandbox_id\x18\x05 \x01(\t\x12\x13\n\x0bsearch_text\x18\x06 \x01(\t\x12)\n\x05since\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x05until\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x62ucket_secs\x18\t \x01(\r\x12,\n\x06source\x18\n \x01(\x0e\x32\x1c.modal.client.FileDescriptor\"\xe6\x01\n\x14\x41ppCountLogsResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12=\n\x07\x62uckets\x18\x02 \x03(\x0b\x32,.modal.client.AppCountLogsResponse.LogBucket\x1a\x7f\n\tLogBucket\x12\x33\n\x0f\x62ucket_start_at\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0bstdout_logs\x18\x02 \x01(\x04\x12\x13\n\x0bstderr_logs\x18\x03 \x01(\x04\x12\x13\n\x0bsystem_logs\x18\x04 \x01(\x04\"\xe4\x01\n\x10\x41ppCreateRequest\x12\x11\n\tclient_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x05 \x01(\t\x12)\n\tapp_state\x18\x06 \x01(\x0e\x32\x16.modal.client.AppState\x12\x36\n\x04tags\x18\x07 \x03(\x0b\x32(.modal.client.AppCreateRequest.TagsEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"O\n\x11\x41ppCreateResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x14\n\x0c\x61pp_page_url\x18\x02 \x01(\t\x12\x14\n\x0c\x61pp_logs_url\x18\x03 \x01(\t\"\x91\x01\n\x10\x41ppDeployRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x15\n\robject_entity\x18\x04 \x01(\t\x12\x35\n\nvisibility\x18\x05 \x01(\x0e\x32!.modal.client.AppDeployVisibility\x12\x0b\n\x03tag\x18\x06 \x01(\tJ\x04\x08\x02\x10\x03\" \n\x11\x41ppDeployResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\"\xd5\x02\n\x14\x41ppDeploymentHistory\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\r\x12\x16\n\x0e\x63lient_version\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65ployed_at\x18\x04 \x01(\x01\x12\x13\n\x0b\x64\x65ployed_by\x18\x05 \x01(\t\x12\x1e\n\x16\x64\x65ployed_by_avatar_url\x18\t \x01(\t\x12\x0b\n\x03tag\x18\x06 \x01(\t\x12\x18\n\x10rollback_version\x18\x07 \x01(\r\x12\x18\n\x10rollback_allowed\x18\x08 \x01(\x08\x12\x32\n\x0b\x63ommit_info\x18\n \x01(\x0b\x32\x18.modal.client.CommitInfoH\x00\x88\x01\x01\x12\x35\n\x0f\x64\x65ployment_type\x18\x0b \x01(\x0e\x32\x1c.modal.client.DeploymentTypeB\x0e\n\x0c_commit_info\"-\n\x1b\x41ppDeploymentHistoryRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"\x84\x01\n\x1c\x41ppDeploymentHistoryResponse\x12\x44\n\x18\x61pp_deployment_histories\x18\x01 \x03(\x0b\x32\".modal.client.AppDeploymentHistory\x12\x1e\n\x16production_app_version\x18\x02 \x01(\r\"\xa1\x02\n\x13\x41ppFetchLogsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12)\n\x05since\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x05until\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05limit\x18\x04 \x01(\r\x12,\n\x06source\x18\x05 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x13\n\x0b\x66unction_id\x18\x06 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x07 \x01(\t\x12\x0f\n\x07task_id\x18\x08 \x01(\t\x12\x12\n\nsandbox_id\x18\t \x01(\t\x12\x13\n\x0bsearch_text\x18\n \x01(\t\"D\n\x14\x41ppFetchLogsResponse\x12,\n\x07\x62\x61tches\x18\x01 \x03(\x0b\x32\x1b.modal.client.TaskLogsBatch\"M\n\x1d\x41ppGetByDeploymentNameRequest\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\tJ\x04\x08\x01\x10\x02\"\x92\x01\n\x1e\x41ppGetByDeploymentNameResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x17\n\x0fprevious_app_id\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12-\n\tlifecycle\x18\x04 \x01(\x0b\x32\x1a.modal.client.AppLifecycle\"%\n\x13\x41ppGetLayoutRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"C\n\x14\x41ppGetLayoutResponse\x12+\n\napp_layout\x18\x01 \x01(\x0b\x32\x17.modal.client.AppLayout\"(\n\x16\x41ppGetLifecycleRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"H\n\x17\x41ppGetLifecycleResponse\x12-\n\tlifecycle\x18\x01 \x01(\x0b\x32\x1a.modal.client.AppLifecycle\"\x9f\x02\n\x11\x41ppGetLogsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\x12\x15\n\rlast_entry_id\x18\x04 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x05 \x01(\t\x12 \n\x18parametrized_function_id\x18\x0b \x01(\t\x12\x10\n\x08input_id\x18\x06 \x01(\t\x12\x0f\n\x07task_id\x18\x07 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\t \x01(\t\x12\x35\n\x0f\x66ile_descriptor\x18\x08 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x12\n\nsandbox_id\x18\n \x01(\t\x12\x13\n\x0bsearch_text\x18\x0c \x01(\t\"F\n\x11\x41ppGetObjectsItem\x12\x0b\n\x03tag\x18\x01 \x01(\t\x12$\n\x06object\x18\x06 \x01(\x0b\x32\x14.modal.client.Object\"^\n\x14\x41ppGetObjectsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x19\n\x11include_unindexed\x18\x02 \x01(\x08\x12\x1b\n\x13only_class_function\x18\x03 \x01(\x08\"G\n\x15\x41ppGetObjectsResponse\x12.\n\x05items\x18\x02 \x03(\x0b\x32\x1f.modal.client.AppGetObjectsItem\"\x83\x01\n\x15\x41ppGetOrCreateRequest\x12\x10\n\x08\x61pp_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x12>\n\x14object_creation_type\x18\x03 \x01(\x0e\x32 .modal.client.ObjectCreationType\"(\n\x16\x41ppGetOrCreateResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"#\n\x11\x41ppGetTagsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"{\n\x12\x41ppGetTagsResponse\x12\x38\n\x04tags\x18\x01 \x03(\x0b\x32*.modal.client.AppGetTagsResponse.TagsEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"%\n\x13\x41ppHeartbeatRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"\x91\x02\n\tAppLayout\x12%\n\x07objects\x18\x01 \x03(\x0b\x32\x14.modal.client.Object\x12>\n\x0c\x66unction_ids\x18\x02 \x03(\x0b\x32(.modal.client.AppLayout.FunctionIdsEntry\x12\x38\n\tclass_ids\x18\x03 \x03(\x0b\x32%.modal.client.AppLayout.ClassIdsEntry\x1a\x32\n\x10\x46unctionIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\rClassIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xc4\x01\n\x0c\x41ppLifecycle\x12)\n\tapp_state\x18\x01 \x01(\x0e\x32\x16.modal.client.AppState\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65ployed_at\x18\x04 \x01(\x01\x12\x13\n\x0b\x64\x65ployed_by\x18\x05 \x01(\t\x12\x0f\n\x07version\x18\x06 \x01(\x05\x12\x12\n\nstopped_at\x18\x07 \x01(\x01\x12\x12\n\nstopped_by\x18\x08 \x01(\t\"*\n\x0e\x41ppListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\"\xf5\x01\n\x0f\x41ppListResponse\x12\x37\n\x04\x61pps\x18\x01 \x03(\x0b\x32).modal.client.AppListResponse.AppListItem\x1a\xa8\x01\n\x0b\x41ppListItem\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12%\n\x05state\x18\x04 \x01(\x0e\x32\x16.modal.client.AppState\x12\x12\n\ncreated_at\x18\x05 \x01(\x01\x12\x12\n\nstopped_at\x18\x06 \x01(\x01\x12\x17\n\x0fn_running_tasks\x18\x08 \x01(\x05\x12\x0c\n\x04name\x18\n \x01(\t\">\n\x10\x41ppLookupRequest\x12\x10\n\x08\x61pp_name\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\"#\n\x11\x41ppLookupResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"4\n\x11\x41ppPromoteRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\x05\"f\n\x12\x41ppPromoteResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\x12.\n\x0fserver_warnings\x18\x02 \x03(\x0b\x32\x15.modal.client.Warning\x12\x13\n\x0b\x64\x65ployed_at\x18\x03 \x01(\x01\"\xf3\x05\n\x11\x41ppPublishRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x16\n\x0e\x64\x65ployment_tag\x18\x03 \x01(\t\x12)\n\tapp_state\x18\x04 \x01(\x0e\x32\x16.modal.client.AppState\x12\x46\n\x0c\x66unction_ids\x18\x05 \x03(\x0b\x32\x30.modal.client.AppPublishRequest.FunctionIdsEntry\x12@\n\tclass_ids\x18\x06 \x03(\x0b\x32-.modal.client.AppPublishRequest.ClassIdsEntry\x12J\n\x0e\x64\x65\x66inition_ids\x18\x07 \x03(\x0b\x32\x32.modal.client.AppPublishRequest.DefinitionIdsEntry\x12\x18\n\x10rollback_version\x18\x08 \x01(\r\x12\x16\n\x0e\x63lient_version\x18\t \x01(\t\x12-\n\x0b\x63ommit_info\x18\n \x01(\x0b\x32\x18.modal.client.CommitInfo\x12\x37\n\x04tags\x18\x0b \x03(\x0b\x32).modal.client.AppPublishRequest.TagsEntry\x12\x0e\n\x06staged\x18\x0c \x01(\x08\x12\x35\n\x0f\x64\x65ployment_type\x18\r \x01(\x0e\x32\x1c.modal.client.DeploymentType\x1a\x32\n\x10\x46unctionIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\rClassIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x34\n\x12\x44\x65\x66initionIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"f\n\x12\x41ppPublishResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\x12.\n\x0fserver_warnings\x18\x03 \x03(\x0b\x32\x15.modal.client.Warning\x12\x13\n\x0b\x64\x65ployed_at\x18\x04 \x01(\x01\"5\n\x12\x41ppRollbackRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\x05\"g\n\x13\x41ppRollbackResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\x12.\n\x0fserver_warnings\x18\x03 \x03(\x0b\x32\x15.modal.client.Warning\x12\x13\n\x0b\x64\x65ployed_at\x18\x04 \x01(\x01\"$\n\x12\x41ppRolloverRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"g\n\x13\x41ppRolloverResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\x12.\n\x0fserver_warnings\x18\x03 \x03(\x0b\x32\x15.modal.client.Warning\x12\x13\n\x0b\x64\x65ployed_at\x18\x04 \x01(\x01\"\x9b\x02\n\x14\x41ppSetObjectsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12T\n\x12indexed_object_ids\x18\x02 \x03(\x0b\x32\x38.modal.client.AppSetObjectsRequest.IndexedObjectIdsEntry\x12\x11\n\tclient_id\x18\x03 \x01(\t\x12\x1c\n\x14unindexed_object_ids\x18\x04 \x03(\t\x12-\n\rnew_app_state\x18\x05 \x01(\x0e\x32\x16.modal.client.AppState\x1a\x37\n\x15IndexedObjectIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01J\x04\x08\x06\x10\x07\"\x89\x01\n\x11\x41ppSetTagsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x37\n\x04tags\x18\x02 \x03(\x0b\x32).modal.client.AppSetTagsRequest.TagsEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"M\n\x0e\x41ppStopRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12+\n\x06source\x18\x02 \x01(\x0e\x32\x1b.modal.client.AppStopSource\"\xa3\x0e\n\x04\x41sgi\x12\'\n\x04http\x18\x01 \x01(\x0b\x32\x17.modal.client.Asgi.HttpH\x00\x12\x36\n\x0chttp_request\x18\x02 \x01(\x0b\x32\x1e.modal.client.Asgi.HttpRequestH\x00\x12\x43\n\x13http_response_start\x18\x03 \x01(\x0b\x32$.modal.client.Asgi.HttpResponseStartH\x00\x12\x41\n\x12http_response_body\x18\x04 \x01(\x0b\x32#.modal.client.Asgi.HttpResponseBodyH\x00\x12I\n\x16http_response_trailers\x18\x05 \x01(\x0b\x32\'.modal.client.Asgi.HttpResponseTrailersH\x00\x12<\n\x0fhttp_disconnect\x18\x06 \x01(\x0b\x32!.modal.client.Asgi.HttpDisconnectH\x00\x12\x31\n\twebsocket\x18\x07 \x01(\x0b\x32\x1c.modal.client.Asgi.WebsocketH\x00\x12@\n\x11websocket_connect\x18\x08 \x01(\x0b\x32#.modal.client.Asgi.WebsocketConnectH\x00\x12>\n\x10websocket_accept\x18\t \x01(\x0b\x32\".modal.client.Asgi.WebsocketAcceptH\x00\x12@\n\x11websocket_receive\x18\n \x01(\x0b\x32#.modal.client.Asgi.WebsocketReceiveH\x00\x12:\n\x0ewebsocket_send\x18\x0b \x01(\x0b\x32 .modal.client.Asgi.WebsocketSendH\x00\x12\x46\n\x14websocket_disconnect\x18\x0c \x01(\x0b\x32&.modal.client.Asgi.WebsocketDisconnectH\x00\x12<\n\x0fwebsocket_close\x18\r \x01(\x0b\x32!.modal.client.Asgi.WebsocketCloseH\x00\x1a\xc5\x01\n\x04Http\x12\x14\n\x0chttp_version\x18\x01 \x01(\t\x12\x0e\n\x06method\x18\x02 \x01(\t\x12\x0e\n\x06scheme\x18\x03 \x01(\t\x12\x0c\n\x04path\x18\x04 \x01(\t\x12\x14\n\x0cquery_string\x18\x05 \x01(\x0c\x12\x0f\n\x07headers\x18\x06 \x03(\x0c\x12\x18\n\x0b\x63lient_host\x18\x07 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0b\x63lient_port\x18\x08 \x01(\rH\x01\x88\x01\x01\x42\x0e\n\x0c_client_hostB\x0e\n\x0c_client_port\x1a.\n\x0bHttpRequest\x12\x0c\n\x04\x62ody\x18\x01 \x01(\x0c\x12\x11\n\tmore_body\x18\x02 \x01(\x08\x1a\x46\n\x11HttpResponseStart\x12\x0e\n\x06status\x18\x01 \x01(\r\x12\x0f\n\x07headers\x18\x02 \x03(\x0c\x12\x10\n\x08trailers\x18\x03 \x01(\x08\x1a\x33\n\x10HttpResponseBody\x12\x0c\n\x04\x62ody\x18\x01 \x01(\x0c\x12\x11\n\tmore_body\x18\x02 \x01(\x08\x1a>\n\x14HttpResponseTrailers\x12\x0f\n\x07headers\x18\x01 \x03(\x0c\x12\x15\n\rmore_trailers\x18\x02 \x01(\x08\x1a\x10\n\x0eHttpDisconnect\x1a\xd0\x01\n\tWebsocket\x12\x14\n\x0chttp_version\x18\x01 \x01(\t\x12\x0e\n\x06scheme\x18\x02 \x01(\t\x12\x0c\n\x04path\x18\x03 \x01(\t\x12\x14\n\x0cquery_string\x18\x04 \x01(\x0c\x12\x0f\n\x07headers\x18\x05 \x03(\x0c\x12\x18\n\x0b\x63lient_host\x18\x06 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0b\x63lient_port\x18\x07 \x01(\rH\x01\x88\x01\x01\x12\x14\n\x0csubprotocols\x18\x08 \x03(\tB\x0e\n\x0c_client_hostB\x0e\n\x0c_client_port\x1a\x12\n\x10WebsocketConnect\x1aL\n\x0fWebsocketAccept\x12\x18\n\x0bsubprotocol\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x0f\n\x07headers\x18\x02 \x03(\x0c\x42\x0e\n\x0c_subprotocol\x1a>\n\x10WebsocketReceive\x12\x0f\n\x05\x62ytes\x18\x01 \x01(\x0cH\x00\x12\x0e\n\x04text\x18\x02 \x01(\tH\x00\x42\t\n\x07\x63ontent\x1a;\n\rWebsocketSend\x12\x0f\n\x05\x62ytes\x18\x01 \x01(\x0cH\x00\x12\x0e\n\x04text\x18\x02 \x01(\tH\x00\x42\t\n\x07\x63ontent\x1a\x31\n\x13WebsocketDisconnect\x12\x11\n\x04\x63ode\x18\x01 \x01(\rH\x00\x88\x01\x01\x42\x07\n\x05_code\x1a<\n\x0eWebsocketClose\x12\x11\n\x04\x63ode\x18\x01 \x01(\rH\x00\x88\x01\x01\x12\x0e\n\x06reason\x18\x02 \x01(\tB\x07\n\x05_codeB\x06\n\x04type\"X\n\x13\x41ttemptAwaitRequest\x12\x15\n\rattempt_token\x18\x01 \x01(\t\x12\x14\n\x0crequested_at\x18\x02 \x01(\x01\x12\x14\n\x0ctimeout_secs\x18\x03 \x01(\x02\"\\\n\x14\x41ttemptAwaitResponse\x12\x39\n\x06output\x18\x01 \x01(\x0b\x32$.modal.client.FunctionGetOutputsItemH\x00\x88\x01\x01\x42\t\n\x07_output\"\x8e\x01\n\x13\x41ttemptRetryRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12\x32\n\x05input\x18\x03 \x01(\x0b\x32#.modal.client.FunctionPutInputsItem\x12\x15\n\rattempt_token\x18\x04 \x01(\t\"-\n\x14\x41ttemptRetryResponse\x12\x15\n\rattempt_token\x18\x01 \x01(\t\"\x88\x01\n\x13\x41ttemptStartRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12\x32\n\x05input\x18\x03 \x01(\x0b\x32#.modal.client.FunctionPutInputsItem\x12\x0f\n\x07proxied\x18\x04 \x01(\x08\"f\n\x14\x41ttemptStartResponse\x12\x15\n\rattempt_token\x18\x01 \x01(\t\x12\x37\n\x0cretry_policy\x18\x02 \x01(\x0b\x32!.modal.client.FunctionRetryPolicy\"\x15\n\x13\x41uthTokenGetRequest\"%\n\x14\x41uthTokenGetResponse\x12\r\n\x05token\x18\x01 \x01(\t\"\xaa\x03\n\x17\x41utoscalerConfiguration\x12\x32\n\x08settings\x18\x01 \x01(\x0b\x32 .modal.client.AutoscalerSettings\x12R\n\x0foverride_events\x18\x02 \x03(\x0b\x32\x39.modal.client.AutoscalerConfiguration.OverrideEventsEntry\x12:\n\x10\x64\x65\x66\x61ult_settings\x18\x03 \x01(\x0b\x32 .modal.client.AutoscalerSettings\x12\x39\n\x0fstatic_settings\x18\x04 \x01(\x0b\x32 .modal.client.AutoscalerSettings\x12;\n\x11override_settings\x18\x05 \x01(\x0b\x32 .modal.client.AutoscalerSettings\x1aS\n\x13OverrideEventsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12+\n\x05value\x18\x02 \x01(\x0b\x32\x1c.modal.client.UserActionInfo:\x02\x38\x01\"\xcc\x03\n\x12\x41utoscalerSettings\x12\x1b\n\x0emin_containers\x18\x01 \x01(\rH\x00\x88\x01\x01\x12\x1b\n\x0emax_containers\x18\x02 \x01(\rH\x01\x88\x01\x01\x12\x1e\n\x11\x62uffer_containers\x18\x03 \x01(\rH\x02\x88\x01\x01\x12\x1b\n\x0escaleup_window\x18\x04 \x01(\rH\x03\x88\x01\x01\x12\x1d\n\x10scaledown_window\x18\x05 \x01(\rH\x04\x88\x01\x01\x12\x1f\n\x12target_concurrency\x18\x07 \x01(\rH\x05\x88\x01\x01\x12!\n\x14scaledown_rate_limit\x18\x08 \x01(\rH\x06\x88\x01\x01\x12%\n\x18target_concurrency_float\x18\t \x01(\x01H\x07\x88\x01\x01\x42\x11\n\x0f_min_containersB\x11\n\x0f_max_containersB\x14\n\x12_buffer_containersB\x11\n\x0f_scaleup_windowB\x13\n\x11_scaledown_windowB\x15\n\x13_target_concurrencyB\x17\n\x15_scaledown_rate_limitB\x1b\n\x19_target_concurrency_floatJ\x04\x08\x06\x10\x07\"}\n\x12\x41utoscalingMetrics\x12\x19\n\x11\x63pu_usage_percent\x18\x01 \x01(\x01\x12\x1c\n\x14memory_usage_percent\x18\x02 \x01(\x01\x12\x1b\n\x13\x63oncurrent_requests\x18\x03 \x01(\r\x12\x11\n\ttimestamp\x18\x04 \x01(\x01\"7\n\tBaseImage\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x12\n\ndocker_tag\x18\x02 \x01(\tJ\x04\x08\x04\x10\x05\"_\n\x11\x42lobCreateRequest\x12\x13\n\x0b\x63ontent_md5\x18\x01 \x01(\t\x12\x1d\n\x15\x63ontent_sha256_base64\x18\x02 \x01(\t\x12\x16\n\x0e\x63ontent_length\x18\x03 \x01(\x03\"\x99\x02\n\x12\x42lobCreateResponse\x12\x0f\n\x07\x62lob_id\x18\x02 \x01(\t\x12\x14\n\nupload_url\x18\x01 \x01(\tH\x00\x12\x32\n\tmultipart\x18\x03 \x01(\x0b\x32\x1d.modal.client.MultiPartUploadH\x00\x12\x10\n\x08\x62lob_ids\x18\x04 \x03(\t\x12\x32\n\x0bupload_urls\x18\x05 \x01(\x0b\x32\x1b.modal.client.UploadUrlListH\x01\x12\x37\n\nmultiparts\x18\x06 \x01(\x0b\x32!.modal.client.MultiPartUploadListH\x01\x42\x13\n\x11upload_type_oneofB\x14\n\x12upload_types_oneof\"!\n\x0e\x42lobGetRequest\x12\x0f\n\x07\x62lob_id\x18\x01 \x01(\t\"\'\n\x0f\x42lobGetResponse\x12\x14\n\x0c\x64ownload_url\x18\x01 \x01(\t\"`\n\rBuildFunction\x12\x12\n\ndefinition\x18\x01 \x01(\t\x12\x0f\n\x07globals\x18\x02 \x01(\x0c\x12*\n\x05input\x18\x03 \x01(\x0b\x32\x1b.modal.client.FunctionInput\"`\n\x10\x43\x61ncelInputEvent\x12\x11\n\tinput_ids\x18\x01 \x03(\t\x12\x1c\n\x14terminate_containers\x18\x02 \x01(\x08\x12\x1b\n\x13\x63\x61ncellation_reason\x18\x03 \x01(\t\"\xf3\x01\n\x0e\x43heckpointInfo\x12\x10\n\x08\x63hecksum\x18\x01 \x01(\t\x12.\n\x06status\x18\x02 \x01(\x0e\x32\x1e.modal.client.CheckpointStatus\x12\x15\n\rcheckpoint_id\x18\x03 \x01(\t\x12\x1b\n\x13runtime_fingerprint\x18\x04 \x01(\t\x12\x0c\n\x04size\x18\x05 \x01(\x03\x12\x1e\n\x16\x63hecksum_is_file_index\x18\x06 \x01(\x08\x12\x18\n\x10original_task_id\x18\x07 \x01(\t\x12\x1d\n\x15runsc_runtime_version\x18\t \x01(\tJ\x04\x08\x08\x10\t\"\x8e\x01\n\x12\x43lassCreateRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x19\n\x11\x65xisting_class_id\x18\x02 \x01(\t\x12*\n\x07methods\x18\x03 \x03(\x0b\x32\x19.modal.client.ClassMethod\x12\x1b\n\x13only_class_function\x18\x05 \x01(\x08J\x04\x08\x04\x10\x05\"c\n\x13\x43lassCreateResponse\x12\x10\n\x08\x63lass_id\x18\x01 \x01(\t\x12:\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32!.modal.client.ClassHandleMetadata\"\x95\x01\n\x0f\x43lassGetRequest\x12\x10\n\x08\x61pp_name\x18\x01 \x01(\t\x12\x12\n\nobject_tag\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\x12\x1b\n\x13only_class_function\x18\n \x01(\x08\x12\x13\n\x0b\x61pp_version\x18\x0b \x01(\x05J\x04\x08\x03\x10\x04J\x04\x08\x08\x10\tJ\x04\x08\t\x10\n\"\x90\x01\n\x10\x43lassGetResponse\x12\x10\n\x08\x63lass_id\x18\x01 \x01(\t\x12:\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32!.modal.client.ClassHandleMetadata\x12.\n\x0fserver_warnings\x18\x03 \x03(\x0b\x32\x15.modal.client.Warning\"\xa3\x01\n\x13\x43lassHandleMetadata\x12*\n\x07methods\x18\x01 \x03(\x0b\x32\x19.modal.client.ClassMethod\x12\x19\n\x11\x63lass_function_id\x18\x02 \x01(\t\x12\x45\n\x17\x63lass_function_metadata\x18\x03 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\"\x81\x01\n\x0b\x43lassMethod\x12\x15\n\rfunction_name\x18\x01 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x02 \x01(\t\x12\x46\n\x18\x66unction_handle_metadata\x18\x03 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\"\xaf\x02\n\x12\x43lassParameterInfo\x12M\n\x06\x66ormat\x18\x01 \x01(\x0e\x32=.modal.client.ClassParameterInfo.ParameterSerializationFormat\x12\x30\n\x06schema\x18\x02 \x03(\x0b\x32 .modal.client.ClassParameterSpec\"\x97\x01\n\x1cParameterSerializationFormat\x12*\n&PARAM_SERIALIZATION_FORMAT_UNSPECIFIED\x10\x00\x12%\n!PARAM_SERIALIZATION_FORMAT_PICKLE\x10\x01\x12$\n PARAM_SERIALIZATION_FORMAT_PROTO\x10\x02\"J\n\x11\x43lassParameterSet\x12\x35\n\nparameters\x18\x01 \x03(\x0b\x32!.modal.client.ClassParameterValue\"\xa4\x02\n\x12\x43lassParameterSpec\x12\x0c\n\x04name\x18\x01 \x01(\t\x12)\n\x04type\x18\x02 \x01(\x0e\x32\x1b.modal.client.ParameterType\x12\x13\n\x0bhas_default\x18\x03 \x01(\x08\x12\x18\n\x0estring_default\x18\x04 \x01(\tH\x00\x12\x15\n\x0bint_default\x18\x05 \x01(\x03H\x00\x12\x18\n\x0epickle_default\x18\x06 \x01(\x0cH\x00\x12\x17\n\rbytes_default\x18\x07 \x01(\x0cH\x00\x12\x16\n\x0c\x62ool_default\x18\t \x01(\x08H\x00\x12\x33\n\tfull_type\x18\x08 \x01(\x0b\x32 .modal.client.GenericPayloadTypeB\x0f\n\rdefault_oneof\"\xcf\x01\n\x13\x43lassParameterValue\x12\x0c\n\x04name\x18\x01 \x01(\t\x12)\n\x04type\x18\x02 \x01(\x0e\x32\x1b.modal.client.ParameterType\x12\x16\n\x0cstring_value\x18\x03 \x01(\tH\x00\x12\x13\n\tint_value\x18\x04 \x01(\x03H\x00\x12\x16\n\x0cpickle_value\x18\x05 \x01(\x0cH\x00\x12\x15\n\x0b\x62ytes_value\x18\x06 \x01(\x0cH\x00\x12\x14\n\nbool_value\x18\x07 \x01(\x08H\x00\x42\r\n\x0bvalue_oneof\"u\n\x13\x43lientHelloResponse\x12\x0f\n\x07warning\x18\x01 \x01(\t\x12\x1d\n\x15image_builder_version\x18\x02 \x01(\t\x12.\n\x0fserver_warnings\x18\x04 \x03(\x0b\x32\x15.modal.client.Warning\"\xab\x05\n\x10\x43loudBucketMount\x12\x13\n\x0b\x62ucket_name\x18\x01 \x01(\t\x12\x12\n\nmount_path\x18\x02 \x01(\t\x12\x1d\n\x15\x63redentials_secret_id\x18\x03 \x01(\t\x12\x11\n\tread_only\x18\x04 \x01(\x08\x12>\n\x0b\x62ucket_type\x18\x05 \x01(\x0e\x32).modal.client.CloudBucketMount.BucketType\x12\x16\n\x0erequester_pays\x18\x06 \x01(\x08\x12 \n\x13\x62ucket_endpoint_url\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x17\n\nkey_prefix\x18\x08 \x01(\tH\x02\x88\x01\x01\x12\x1f\n\x12oidc_auth_role_arn\x18\t \x01(\tH\x03\x88\x01\x01\x12\x18\n\x10\x66orce_path_style\x18\n \x01(\x08\x12K\n\x11metadata_ttl_type\x18\x0b \x01(\x0e\x32..modal.client.CloudBucketMount.MetadataTTLTypeH\x00\x12\x1e\n\x14metadata_ttl_seconds\x18\x0c \x01(\x04H\x00\"6\n\nBucketType\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x06\n\x02S3\x10\x01\x12\x06\n\x02R2\x10\x02\x12\x07\n\x03GCP\x10\x03\"u\n\x0fMetadataTTLType\x12!\n\x1dMETADATA_TTL_TYPE_UNSPECIFIED\x10\x00\x12\x1d\n\x19METADATA_TTL_TYPE_MINIMAL\x10\x01\x12 \n\x1cMETADATA_TTL_TYPE_INDEFINITE\x10\x02\x42\x14\n\x12metadata_ttl_oneofB\x16\n\x14_bucket_endpoint_urlB\r\n\x0b_key_prefixB\x15\n\x13_oidc_auth_role_arn\"\'\n\x11\x43lusterGetRequest\x12\x12\n\ncluster_id\x18\x01 \x01(\t\"A\n\x12\x43lusterGetResponse\x12+\n\x07\x63luster\x18\x01 \x01(\x0b\x32\x1a.modal.client.ClusterStats\".\n\x12\x43lusterListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\"C\n\x13\x43lusterListResponse\x12,\n\x08\x63lusters\x18\x01 \x03(\x0b\x32\x1a.modal.client.ClusterStats\"X\n\x0c\x43lusterStats\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x10\n\x08task_ids\x18\x02 \x03(\t\x12\x12\n\ncluster_id\x18\x03 \x01(\t\x12\x12\n\nstarted_at\x18\x04 \x01(\x01\"/\n\x13\x43ommandRouterAccess\x12\x0b\n\x03jwt\x18\x01 \x01(\t\x12\x0b\n\x03url\x18\x02 \x01(\t\"\xa4\x01\n\nCommitInfo\x12\x0b\n\x03vcs\x18\x01 \x01(\t\x12\x0e\n\x06\x62ranch\x18\x02 \x01(\t\x12\x13\n\x0b\x63ommit_hash\x18\x03 \x01(\t\x12\x18\n\x10\x63ommit_timestamp\x18\x04 \x01(\x03\x12\r\n\x05\x64irty\x18\x05 \x01(\x08\x12\x13\n\x0b\x61uthor_name\x18\x06 \x01(\t\x12\x14\n\x0c\x61uthor_email\x18\x07 \x01(\t\x12\x10\n\x08repo_url\x18\x08 \x01(\t\"\xec\x03\n\x12\x43ontainerArguments\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x02 \x01(\t\x12\x0e\n\x06\x61pp_id\x18\x04 \x01(\t\x12,\n\x0c\x66unction_def\x18\x07 \x01(\x0b\x32\x16.modal.client.Function\x12+\n\nproxy_info\x18\x08 \x01(\x0b\x32\x17.modal.client.ProxyInfo\x12M\n\x0ftracing_context\x18\t \x03(\x0b\x32\x34.modal.client.ContainerArguments.TracingContextEntry\x12\x19\n\x11serialized_params\x18\n \x01(\x0c\x12\x0f\n\x07runtime\x18\x0b \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\r \x01(\t\x12\x1a\n\rcheckpoint_id\x18\x0e \x01(\tH\x00\x88\x01\x01\x12+\n\napp_layout\x18\x0f \x01(\x0b\x32\x17.modal.client.AppLayout\x12\x1e\n\x16input_plane_server_url\x18\x10 \x01(\t\x1a\x35\n\x13TracingContextEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x10\n\x0e_checkpoint_id\"3\n\x1a\x43ontainerCheckpointRequest\x12\x15\n\rcheckpoint_id\x18\x01 \x01(\t\"\xa9\x01\n\x1d\x43ontainerExecGetOutputRequest\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\x12\x18\n\x10last_batch_index\x18\x03 \x01(\x04\x12\x35\n\x0f\x66ile_descriptor\x18\x04 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x15\n\rget_raw_bytes\x18\x05 \x01(\x08\"a\n\x1c\x43ontainerExecPutInputRequest\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\x12\x30\n\x05input\x18\x02 \x01(\x0b\x32!.modal.client.RuntimeInputMessage\"\xed\x02\n\x14\x43ontainerExecRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63ommand\x18\x02 \x03(\t\x12,\n\x08pty_info\x18\x03 \x01(\x0b\x32\x15.modal.client.PTYInfoH\x00\x88\x01\x01\x12\'\n\x1bterminate_container_on_exit\x18\x04 \x01(\x08\x42\x02\x18\x01\x12\x15\n\rruntime_debug\x18\x05 \x01(\x08\x12\x35\n\rstdout_output\x18\x06 \x01(\x0e\x32\x1e.modal.client.ExecOutputOption\x12\x35\n\rstderr_output\x18\x07 \x01(\x0e\x32\x1e.modal.client.ExecOutputOption\x12\x14\n\x0ctimeout_secs\x18\x08 \x01(\r\x12\x14\n\x07workdir\x18\t \x01(\tH\x01\x88\x01\x01\x12\x12\n\nsecret_ids\x18\n \x03(\tB\x0b\n\t_pty_infoB\n\n\x08_workdir\"(\n\x15\x43ontainerExecResponse\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\"<\n\x18\x43ontainerExecWaitRequest\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"T\n\x19\x43ontainerExecWaitResponse\x12\x16\n\texit_code\x18\x01 \x01(\x05H\x00\x88\x01\x01\x12\x11\n\tcompleted\x18\x02 \x01(\x08\x42\x0c\n\n_exit_code\"4\n\x19\x43ontainerFileCloseRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\"\x9a\x01\n\x1f\x43ontainerFileDeleteBytesRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\x12\x1c\n\x0fstart_inclusive\x18\x02 \x01(\rH\x00\x88\x01\x01\x12\x1a\n\rend_exclusive\x18\x03 \x01(\rH\x01\x88\x01\x01\x42\x12\n\x10_start_inclusiveB\x10\n\x0e_end_exclusive\"4\n\x19\x43ontainerFileFlushRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\"&\n\x16\x43ontainerFileLsRequest\x12\x0c\n\x04path\x18\x01 \x01(\t\"?\n\x19\x43ontainerFileMkdirRequest\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x14\n\x0cmake_parents\x18\x02 \x01(\x08\"h\n\x18\x43ontainerFileOpenRequest\x12\x1c\n\x0f\x66ile_descriptor\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x0c\n\x04mode\x18\x03 \x01(\tB\x12\n\x10_file_descriptor\"7\n\x1c\x43ontainerFileReadLineRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\"I\n\x18\x43ontainerFileReadRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\x12\x0e\n\x01n\x18\x02 \x01(\rH\x00\x88\x01\x01\x42\x04\n\x02_n\"9\n\x16\x43ontainerFileRmRequest\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x11\n\trecursive\x18\x02 \x01(\x08\"m\n\x18\x43ontainerFileSeekRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\x12\x0e\n\x06offset\x18\x02 \x01(\x05\x12(\n\x06whence\x18\x03 \x01(\x0e\x32\x18.modal.client.SeekWhence\"h\n\x19\x43ontainerFileWatchRequest\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x11\n\trecursive\x18\x02 \x01(\x08\x12\x19\n\x0ctimeout_secs\x18\x03 \x01(\x04H\x00\x88\x01\x01\x42\x0f\n\r_timeout_secs\"\xae\x01\n%ContainerFileWriteReplaceBytesRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12\x1c\n\x0fstart_inclusive\x18\x03 \x01(\rH\x00\x88\x01\x01\x12\x1a\n\rend_exclusive\x18\x04 \x01(\rH\x01\x88\x01\x01\x42\x12\n\x10_start_inclusiveB\x10\n\x0e_end_exclusive\"B\n\x19\x43ontainerFileWriteRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\"K\n\'ContainerFilesystemExecGetOutputRequest\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"\x83\x08\n\x1e\x43ontainerFilesystemExecRequest\x12\x43\n\x11\x66ile_open_request\x18\x01 \x01(\x0b\x32&.modal.client.ContainerFileOpenRequestH\x00\x12\x45\n\x12\x66ile_write_request\x18\x02 \x01(\x0b\x32\'.modal.client.ContainerFileWriteRequestH\x00\x12\x43\n\x11\x66ile_read_request\x18\x03 \x01(\x0b\x32&.modal.client.ContainerFileReadRequestH\x00\x12\x45\n\x12\x66ile_flush_request\x18\x04 \x01(\x0b\x32\'.modal.client.ContainerFileFlushRequestH\x00\x12L\n\x16\x66ile_read_line_request\x18\x05 \x01(\x0b\x32*.modal.client.ContainerFileReadLineRequestH\x00\x12\x43\n\x11\x66ile_seek_request\x18\x06 \x01(\x0b\x32&.modal.client.ContainerFileSeekRequestH\x00\x12R\n\x19\x66ile_delete_bytes_request\x18\x07 \x01(\x0b\x32-.modal.client.ContainerFileDeleteBytesRequestH\x00\x12_\n file_write_replace_bytes_request\x18\x08 \x01(\x0b\x32\x33.modal.client.ContainerFileWriteReplaceBytesRequestH\x00\x12\x45\n\x12\x66ile_close_request\x18\t \x01(\x0b\x32\'.modal.client.ContainerFileCloseRequestH\x00\x12?\n\x0f\x66ile_ls_request\x18\x0b \x01(\x0b\x32$.modal.client.ContainerFileLsRequestH\x00\x12\x45\n\x12\x66ile_mkdir_request\x18\x0c \x01(\x0b\x32\'.modal.client.ContainerFileMkdirRequestH\x00\x12?\n\x0f\x66ile_rm_request\x18\r \x01(\x0b\x32$.modal.client.ContainerFileRmRequestH\x00\x12\x45\n\x12\x66ile_watch_request\x18\x0e \x01(\x0b\x32\'.modal.client.ContainerFileWatchRequestH\x00\x12\x0f\n\x07task_id\x18\n \x01(\tB\x19\n\x17\x66ile_exec_request_oneof\"d\n\x1f\x43ontainerFilesystemExecResponse\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\x12\x1c\n\x0f\x66ile_descriptor\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x12\n\x10_file_descriptor\"\x80\x01\n\x19\x43ontainerHeartbeatRequest\x12&\n\x1e\x63\x61nceled_inputs_return_outputs\x18\x04 \x01(\x08\x12)\n!canceled_inputs_return_outputs_v2\x18\x05 \x01(\x08J\x04\x08\x01\x10\x02J\x04\x08\x02\x10\x03J\x04\x08\x03\x10\x04\"t\n\x1a\x43ontainerHeartbeatResponse\x12?\n\x12\x63\x61ncel_input_event\x18\x01 \x01(\x0b\x32\x1e.modal.client.CancelInputEventH\x00\x88\x01\x01\x42\x15\n\x13_cancel_input_event\";\n\x13\x43ontainerLogRequest\x12$\n\x04logs\x18\x03 \x03(\x0b\x32\x16.modal.client.TaskLogs\"0\n\x1d\x43ontainerReloadVolumesRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\" \n\x1e\x43ontainerReloadVolumesResponse\"&\n$ContainerServerLifecycleReadyRequest\"9\n\x14\x43ontainerStopRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x10\n\x08graceful\x18\x02 \x01(\x08\"\x17\n\x15\x43ontainerStopResponse\"6\n\x0c\x43reationInfo\x12\x12\n\ncreated_at\x18\x01 \x01(\x01\x12\x12\n\ncreated_by\x18\x02 \x01(\t\"#\n\x14\x43urlAuthTokenRequest\x12\x0b\n\x03url\x18\x01 \x01(\t\"&\n\x15\x43urlAuthTokenResponse\x12\r\n\x05token\x18\x01 \x01(\t\"\"\n\x12\x43ustomDomainConfig\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x1f\n\x10\x43ustomDomainInfo\x12\x0b\n\x03url\x18\x01 \x01(\t\"S\n\tDNSRecord\x12)\n\x04type\x18\x01 \x01(\x0e\x32\x1b.modal.client.DNSRecordType\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\"\x7f\n\tDataChunk\x12-\n\x0b\x64\x61ta_format\x18\x01 \x01(\x0e\x32\x18.modal.client.DataFormat\x12\x0e\n\x04\x64\x61ta\x18\x02 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\x03 \x01(\tH\x00\x12\r\n\x05index\x18\x04 \x01(\x04\x42\x0c\n\ndata_oneof\"#\n\x10\x44ictClearRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\"3\n\x13\x44ictContainsRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x0c\"%\n\x14\x44ictContainsResponse\x12\r\n\x05\x66ound\x18\x01 \x01(\x08\"D\n\x13\x44ictContentsRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12\x0c\n\x04keys\x18\x02 \x01(\x08\x12\x0e\n\x06values\x18\x03 \x01(\x08\"$\n\x11\x44ictDeleteRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\"\'\n\tDictEntry\x12\x0b\n\x03key\x18\x01 \x01(\x0c\x12\r\n\x05value\x18\x02 \x01(\x0c\"%\n\x12\x44ictGetByIdRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\"T\n\x13\x44ictGetByIdResponse\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12,\n\x08metadata\x18\x02 \x01(\x0b\x32\x1a.modal.client.DictMetadata\"\xb8\x01\n\x16\x44ictGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationType\x12%\n\x04\x64\x61ta\x18\x05 \x03(\x0b\x32\x17.modal.client.DictEntryJ\x04\x08\x02\x10\x03\"X\n\x17\x44ictGetOrCreateResponse\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12,\n\x08metadata\x18\x02 \x01(\x0b\x32\x1a.modal.client.DictMetadata\".\n\x0e\x44ictGetRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x0c\">\n\x0f\x44ictGetResponse\x12\r\n\x05\x66ound\x18\x01 \x01(\x08\x12\x12\n\x05value\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x42\x08\n\x06_value\"\'\n\x14\x44ictHeartbeatRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\"!\n\x0e\x44ictLenRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\"\x1e\n\x0f\x44ictLenResponse\x12\x0b\n\x03len\x18\x01 \x01(\x05\"]\n\x0f\x44ictListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x30\n\npagination\x18\x02 \x01(\x0b\x32\x1c.modal.client.ListPagination\"\xd1\x01\n\x10\x44ictListResponse\x12\x36\n\x05\x64icts\x18\x01 \x03(\x0b\x32\'.modal.client.DictListResponse.DictInfo\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x1ak\n\x08\x44ictInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x0f\n\x07\x64ict_id\x18\x03 \x01(\t\x12,\n\x08metadata\x18\x04 \x01(\x0b\x32\x1a.modal.client.DictMetadata\"O\n\x0c\x44ictMetadata\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x31\n\rcreation_info\x18\x02 \x01(\x0b\x32\x1a.modal.client.CreationInfo\".\n\x0e\x44ictPopRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x0c\">\n\x0f\x44ictPopResponse\x12\r\n\x05\x66ound\x18\x01 \x01(\x08\x12\x12\n\x05value\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x42\x08\n\x06_value\"e\n\x11\x44ictUpdateRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12(\n\x07updates\x18\x02 \x03(\x0b\x32\x17.modal.client.DictEntry\x12\x15\n\rif_not_exists\x18\x03 \x01(\x08\"%\n\x12\x44ictUpdateResponse\x12\x0f\n\x07\x63reated\x18\x01 \x01(\x08\"\xaf\x01\n\x06\x44omain\x12\x11\n\tdomain_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64omain_name\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12;\n\x12\x63\x65rtificate_status\x18\x04 \x01(\x0e\x32\x1f.modal.client.CertificateStatus\x12,\n\x0b\x64ns_records\x18\x05 \x03(\x0b\x32\x17.modal.client.DNSRecord\"3\n\x1e\x44omainCertificateVerifyRequest\x12\x11\n\tdomain_id\x18\x01 \x01(\t\"G\n\x1f\x44omainCertificateVerifyResponse\x12$\n\x06\x64omain\x18\x01 \x01(\x0b\x32\x14.modal.client.Domain\"*\n\x13\x44omainCreateRequest\x12\x13\n\x0b\x64omain_name\x18\x01 \x01(\t\"W\n\x14\x44omainCreateResponse\x12\x11\n\tdomain_id\x18\x01 \x01(\t\x12,\n\x0b\x64ns_records\x18\x02 \x03(\x0b\x32\x17.modal.client.DNSRecord\"\x13\n\x11\x44omainListRequest\";\n\x12\x44omainListResponse\x12%\n\x07\x64omains\x18\x01 \x03(\x0b\x32\x14.modal.client.Domain\"\xee\x01\n\x19\x45ndpointComputeRegionSpec\x12&\n\x04\x61uto\x18\x01 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12+\n\tcolocated\x18\x02 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12K\n\x08\x65xplicit\x18\x03 \x01(\x0b\x32\x37.modal.client.EndpointComputeRegionSpec.ExplicitRegionsH\x00\x1a\"\n\x0f\x45xplicitRegions\x12\x0f\n\x07regions\x18\x01 \x03(\tB\x0b\n\tplacement\"\xa7\x03\n\x15\x45ndpointCreateRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x15\n\rproxy_regions\x18\x03 \x03(\t\x12?\n\x0e\x63ompute_region\x18\x04 \x01(\x0b\x32\'.modal.client.EndpointComputeRegionSpec\x12\x30\n\x05model\x18\x05 \x01(\x0b\x32!.modal.client.EndpointModelSource\x12\x36\n\x0c\x61pi_surfaces\x18\x06 \x03(\x0e\x32 .modal.client.EndpointApiSurface\x12=\n\x10input_modalities\x18\x07 \x03(\x0e\x32#.modal.client.EndpointInputModality\x12\x18\n\x10\x65nvironment_name\x18\x08 \x01(\t\x12\x17\n\x0funauthenticated\x18\t \x01(\x08\x12\x37\n\x0cserving_mode\x18\n \x01(\x0e\x32!.modal.client.EndpointServingMode\"V\n\x16\x45ndpointCreateResponse\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x19\n\x11\x65ndpoint_page_url\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\"\xce\x01\n\x19\x45ndpointCustomModelSource\x12\x1a\n\x12\x62\x61se_model_repo_id\x18\x01 \x01(\t\x12\x43\n\x0bhuggingface\x18\x02 \x01(\x0b\x32,.modal.client.EndpointHuggingFaceModelSourceH\x00\x12\x44\n\x0cmodal_volume\x18\x03 \x01(\x0b\x32,.modal.client.EndpointModalVolumeModelSourceH\x00\x42\n\n\x08location\"B\n\x18\x45ndpointGetByNameRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"J\n\x19\x45ndpointGetByNameResponse\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"2\n\x1b\x45ndpointGetLifecycleRequest\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\"R\n\x1c\x45ndpointGetLifecycleResponse\x12\x32\n\tlifecycle\x18\x01 \x01(\x0b\x32\x1f.modal.client.EndpointLifecycle\"^\n\x1e\x45ndpointHuggingFaceModelSource\x12\x0f\n\x07repo_id\x18\x01 \x01(\t\x12\x10\n\x08revision\x18\x02 \x01(\t\x12\x19\n\x11huggingface_token\x18\x03 \x01(\t\"\xb4\x01\n\x11\x45ndpointLifecycle\x12\x35\n\x06status\x18\x01 \x01(\x0e\x32%.modal.client.EndpointLifecycleStatus\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x12\x12\n\nstopped_at\x18\x04 \x01(\x01\x12\x12\n\nstopped_by\x18\x05 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x06 \x01(\t\"\x9d\x03\n\x10\x45ndpointListItem\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x1c\n\x14\x61\x63tive_deployment_id\x18\x04 \x01(\t\x12\x12\n\nupdated_at\x18\x05 \x01(\x01\x12\x30\n\x08metadata\x18\x06 \x01(\x0b\x32\x1e.modal.client.EndpointMetadata\x12)\n\tapp_state\x18\x07 \x01(\x0e\x32\x16.modal.client.AppState\x12\x13\n\x0b\x66unction_id\x18\x08 \x01(\t\x12\x1d\n\x15\x63reated_by_avatar_url\x18\t \x01(\t\x12\x45\n\x13provisioning_status\x18\n \x01(\x0e\x32(.modal.client.EndpointProvisioningStatus\x12\x0e\n\x06status\x18\x0b \x01(\t\x12\x37\n\x0cserving_mode\x18\x0c \x01(\x0e\x32!.modal.client.EndpointServingMode\"a\n\x13\x45ndpointListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x30\n\npagination\x18\x02 \x01(\x0b\x32\x1c.modal.client.ListPagination\"_\n\x14\x45ndpointListResponse\x12-\n\x05items\x18\x01 \x03(\x0b\x32\x1e.modal.client.EndpointListItem\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"S\n\x10\x45ndpointMetadata\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x31\n\rcreation_info\x18\x02 \x01(\x0b\x32\x1a.modal.client.CreationInfo\"G\n\x1e\x45ndpointModalVolumeModelSource\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x12\n\nmodel_path\x18\x02 \x01(\t\"x\n\x13\x45ndpointModelSource\x12\x1c\n\x12\x62\x61se_model_repo_id\x18\x01 \x01(\tH\x00\x12\x39\n\x06\x63ustom\x18\x02 \x01(\x0b\x32\'.modal.client.EndpointCustomModelSourceH\x00\x42\x08\n\x06source\"\\\n\x13\x45ndpointStopRequest\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x30\n\x06source\x18\x02 \x01(\x0e\x32 .modal.client.EndpointStopSource\"\x16\n\x14\x45ndpointStopResponse\"o\n EnvironmentBillingSummaryRequest\x12\x33\n\x0fstart_timestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x16\n\x0e\x65nvironment_id\x18\x03 \x01(\t\"\xc9\x02\n!EnvironmentBillingSummaryResponse\x12\x33\n\x0fstart_timestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rend_timestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x14\n\x0cmetered_cost\x18\x03 \x01(\t\x12i\n\x16metered_cost_breakdown\x18\x04 \x03(\x0b\x32I.modal.client.EnvironmentBillingSummaryResponse.MeteredCostBreakdownEntry\x1a;\n\x19MeteredCostBreakdownEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa4\x02\n\x18\x45nvironmentCreateRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\nis_managed\x18\x02 \x01(\x08\x12\x33\n\x08settings\x18\x03 \x01(\x0b\x32!.modal.client.EnvironmentSettings\x12\x37\n\x10\x65nvironment_type\x18\x04 \x01(\x0e\x32\x1d.modal.client.EnvironmentType\x12?\n\x13\x64\x65\x66\x61ult_member_role\x18\x05 \x01(\x0e\x32\x1d.modal.client.EnvironmentRoleH\x00\x88\x01\x01\x12\x1f\n\x17\x64\x65\x66\x61ult_member_role_str\x18\x06 \x01(\tB\x16\n\x14_default_member_role\"(\n\x18\x45nvironmentDeleteRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"5\n\x1b\x45nvironmentGetBudgetRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\"\xb9\x01\n\x1c\x45nvironmentGetBudgetResponse\x12!\n\x14\x63ycle_budget_dollars\x18\x01 \x01(\x01H\x00\x88\x01\x01\x12#\n\x1b\x65\x66\x66\x65\x63tive_cycle_spend_limit\x18\x02 \x01(\x01\x12\x1b\n\x13\x63urrent_cycle_usage\x18\x03 \x01(\x01\x12\x1b\n\x13spend_limit_reached\x18\x04 \x01(\x08\x42\x17\n\x15_cycle_budget_dollars\"6\n\x1c\x45nvironmentGetManagedRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\"\xf4\x03\n\x1d\x45nvironmentGetManagedResponse\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12U\n\x0fprincipal_roles\x18\x04 \x03(\x0b\x32<.modal.client.EnvironmentGetManagedResponse.PrincipalEnvRole\x12V\n\x10\x61\x64\x64itional_roles\x18\x05 \x03(\x0b\x32<.modal.client.EnvironmentGetManagedResponse.PrincipalEnvRole\x1a\xe9\x01\n\x10PrincipalEnvRole\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x17\n\x0fservice_user_id\x18\x02 \x01(\t\x12\r\n\x05\x65mail\x18\x03 \x01(\t\x12\x12\n\navatar_url\x18\x04 \x01(\t\x12\x19\n\x11service_user_name\x18\x05 \x01(\t\x12+\n\x04role\x18\x06 \x01(\x0e\x32\x1d.modal.client.EnvironmentRole\x12-\n\x0bmember_role\x18\x07 \x01(\x0e\x32\x18.modal.client.MemberRole\x12\x11\n\tuser_name\x18\x08 \x01(\t\"x\n\x1d\x45nvironmentGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12>\n\x14object_creation_type\x18\x02 \x01(\x0e\x32 .modal.client.ObjectCreationType\"m\n\x1e\x45nvironmentGetOrCreateResponse\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12\x33\n\x08metadata\x18\x02 \x01(\x0b\x32!.modal.client.EnvironmentMetadata\"4\n\x1a\x45nvironmentGetRolesRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\"\x9b\x05\n\x1b\x45nvironmentGetRolesResponse\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12L\n\x0fprincipal_roles\x18\x03 \x03(\x0b\x32\x33.modal.client.EnvironmentGetRolesResponse.Principal\x12?\n\x13\x64\x65\x66\x61ult_member_role\x18\x04 \x01(\x0e\x32\x1d.modal.client.EnvironmentRoleH\x00\x88\x01\x01\x1a\xb2\x03\n\tPrincipal\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x17\n\x0fservice_user_id\x18\x02 \x01(\t\x12\r\n\x05\x65mail\x18\x03 \x01(\t\x12\x12\n\navatar_url\x18\x04 \x01(\t\x12\x11\n\tuser_name\x18\x05 \x01(\t\x12\x19\n\x11service_user_name\x18\x06 \x01(\t\x12+\n\x04role\x18\x07 \x01(\x0e\x32\x1d.modal.client.EnvironmentRole\x12\x10\n\x08role_str\x18\x08 \x01(\t\x12\x36\n\x0f\x63hoosable_roles\x18\t \x03(\x0e\x32\x1d.modal.client.EnvironmentRole\x12-\n\x0bmember_role\x18\n \x01(\x0e\x32\x18.modal.client.MemberRole\x12)\n\x1cinherits_default_member_role\x18\x0b \x01(\x08H\x00\x88\x01\x01\x12 \n\x13has_role_assignment\x18\x0c \x01(\x08H\x01\x88\x01\x01\x42\x1f\n\x1d_inherits_default_member_roleB\x16\n\x14_has_role_assignmentB\x16\n\x14_default_member_role\"\xf2\x04\n\x13\x45nvironmentListItem\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x16\n\x0ewebhook_suffix\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12\x0f\n\x07\x64\x65\x66\x61ult\x18\x04 \x01(\x08\x12\x12\n\nis_managed\x18\x05 \x01(\x08\x12\x16\n\x0e\x65nvironment_id\x18\x06 \x01(\t\x12!\n\x14max_concurrent_tasks\x18\x07 \x01(\x05H\x00\x88\x01\x01\x12 \n\x13max_concurrent_gpus\x18\x08 \x01(\x05H\x01\x88\x01\x01\x12 \n\x18\x63urrent_concurrent_tasks\x18\t \x01(\x05\x12\x1f\n\x17\x63urrent_concurrent_gpus\x18\n \x01(\x05\x12!\n\x14\x63ycle_budget_dollars\x18\x0b \x01(\x01H\x02\x88\x01\x01\x12#\n\x1b\x65\x66\x66\x65\x63tive_cycle_spend_limit\x18\x0c \x01(\x01\x12\x1b\n\x13\x63urrent_cycle_usage\x18\r \x01(\x01\x12\x1b\n\x13spend_limit_reached\x18\x0e \x01(\x08\x12\x37\n\x10\x65nvironment_type\x18\x0f \x01(\x0e\x32\x1d.modal.client.EnvironmentType\x12?\n\x13\x64\x65\x66\x61ult_member_role\x18\x10 \x01(\x0e\x32\x1d.modal.client.EnvironmentRoleH\x03\x88\x01\x01\x42\x17\n\x15_max_concurrent_tasksB\x16\n\x14_max_concurrent_gpusB\x17\n\x15_cycle_budget_dollarsB\x16\n\x14_default_member_role\"K\n\x17\x45nvironmentListResponse\x12\x30\n\x05items\x18\x02 \x03(\x0b\x32!.modal.client.EnvironmentListItem\"\x91\x01\n\x13\x45nvironmentMetadata\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x33\n\x08settings\x18\x02 \x01(\x0b\x32!.modal.client.EnvironmentSettings\x12\x37\n\x10\x65nvironment_type\x18\x03 \x01(\x0e\x32\x1d.modal.client.EnvironmentType\"\x9c\x01\n\x19\x45nvironmentRoleSetRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x17\n\x0fservice_user_id\x18\x03 \x01(\t\x12+\n\x04role\x18\x04 \x01(\x0e\x32\x1d.modal.client.EnvironmentRole\x12\x10\n\x08role_str\x18\x05 \x01(\t\"\x87\x01\n\x1b\x45nvironmentSetBudgetRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12!\n\x14\x63ycle_budget_dollars\x18\x02 \x01(\x01H\x00\x88\x01\x01\x12\x14\n\x0c\x63lear_budget\x18\x03 \x01(\x08\x42\x17\n\x15_cycle_budget_dollars\"|\n&EnvironmentSetDefaultMemberRoleRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12:\n\x13\x64\x65\x66\x61ult_member_role\x18\x02 \x01(\x0e\x32\x1d.modal.client.EnvironmentRole\"\xa0\x01\n\x1c\x45nvironmentSetManagedRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12\x0f\n\x07managed\x18\x02 \x01(\x08\x12?\n\x13\x64\x65\x66\x61ult_member_role\x18\x03 \x01(\x0e\x32\x1d.modal.client.EnvironmentRoleH\x00\x88\x01\x01\x42\x16\n\x14_default_member_role\"\xc2\x01\n\x13\x45nvironmentSettings\x12\x1d\n\x15image_builder_version\x18\x01 \x01(\t\x12\x16\n\x0ewebhook_suffix\x18\x02 \x01(\t\x12 \n\x13max_concurrent_gpus\x18\x03 \x01(\x05H\x00\x88\x01\x01\x12!\n\x14max_concurrent_tasks\x18\x04 \x01(\x05H\x01\x88\x01\x01\x42\x16\n\x14_max_concurrent_gpusB\x17\n\x15_max_concurrent_tasks\"\x84\x02\n\x18\x45nvironmentUpdateRequest\x12\x14\n\x0c\x63urrent_name\x18\x01 \x01(\t\x12*\n\x04name\x18\x02 \x01(\x0b\x32\x1c.google.protobuf.StringValue\x12\x30\n\nweb_suffix\x18\x03 \x01(\x0b\x32\x1c.google.protobuf.StringValue\x12!\n\x14max_concurrent_tasks\x18\x04 \x01(\x05H\x00\x88\x01\x01\x12 \n\x13max_concurrent_gpus\x18\x05 \x01(\x05H\x01\x88\x01\x01\x42\x17\n\x15_max_concurrent_tasksB\x16\n\x14_max_concurrent_gpus\"\xbf\x01\n\tFileEntry\x12\x0c\n\x04path\x18\x01 \x01(\t\x12.\n\x04type\x18\x02 \x01(\x0e\x32 .modal.client.FileEntry.FileType\x12\r\n\x05mtime\x18\x03 \x01(\x04\x12\x0c\n\x04size\x18\x04 \x01(\x04\"W\n\x08\x46ileType\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x08\n\x04\x46ILE\x10\x01\x12\r\n\tDIRECTORY\x10\x02\x12\x0b\n\x07SYMLINK\x10\x03\x12\x08\n\x04\x46IFO\x10\x04\x12\n\n\x06SOCKET\x10\x05\"\x90\x01\n\x1c\x46ilesystemRuntimeOutputBatch\x12\x0e\n\x06output\x18\x01 \x03(\x0c\x12\x34\n\x05\x65rror\x18\x02 \x01(\x0b\x32 .modal.client.SystemErrorMessageH\x00\x88\x01\x01\x12\x13\n\x0b\x62\x61tch_index\x18\x03 \x01(\x04\x12\x0b\n\x03\x65of\x18\x04 \x01(\x08\x42\x08\n\x06_error\"7\n\x1f\x46lashContainerDeregisterRequest\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\"0\n\x19\x46lashContainerListRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\"\x9e\x01\n\x1a\x46lashContainerListResponse\x12\x46\n\ncontainers\x18\x01 \x03(\x0b\x32\x32.modal.client.FlashContainerListResponse.Container\x1a\x38\n\tContainer\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0c\n\x04host\x18\x02 \x01(\t\x12\x0c\n\x04port\x18\x03 \x01(\r\"s\n\x1d\x46lashContainerRegisterRequest\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\x12\x10\n\x08priority\x18\x02 \x01(\r\x12\x0e\n\x06weight\x18\x03 \x01(\r\x12\x0c\n\x04host\x18\x04 \x01(\t\x12\x0c\n\x04port\x18\x05 \x01(\r\"-\n\x1e\x46lashContainerRegisterResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\"I\n\x19\x46lashProxyUpstreamRequest\x12\x19\n\x11upstream_requests\x18\x01 \x01(\r\x12\x11\n\ttimestamp\x18\x02 \x01(\x01\"N\n!FlashSetTargetSlotsMetricsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x14\n\x0ctarget_slots\x18\x02 \x01(\r\"$\n\"FlashSetTargetSlotsMetricsResponse\"\xe1\x1b\n\x08\x46unction\x12\x13\n\x0bmodule_name\x18\x01 \x01(\t\x12\x15\n\rfunction_name\x18\x02 \x01(\t\x12\x11\n\tmount_ids\x18\x03 \x03(\t\x12\x10\n\x08image_id\x18\x04 \x01(\t\x12\x1b\n\x13\x66unction_serialized\x18\x06 \x01(\x0c\x12>\n\x0f\x64\x65\x66inition_type\x18\x07 \x01(\x0e\x32%.modal.client.Function.DefinitionType\x12:\n\rfunction_type\x18\x08 \x01(\x0e\x32#.modal.client.Function.FunctionType\x12*\n\tresources\x18\t \x01(\x0b\x32\x17.modal.client.Resources\x12\x12\n\nsecret_ids\x18\n \x03(\t\x12+\n\nrate_limit\x18\x0b \x01(\x0b\x32\x17.modal.client.RateLimit\x12\x33\n\x0ewebhook_config\x18\x0f \x01(\x0b\x32\x1b.modal.client.WebhookConfig\x12=\n\x14shared_volume_mounts\x18\x10 \x03(\x0b\x32\x1f.modal.client.SharedVolumeMount\x12\x15\n\x08proxy_id\x18\x11 \x01(\tH\x00\x88\x01\x01\x12\x37\n\x0cretry_policy\x18\x12 \x01(\x0b\x32!.modal.client.FunctionRetryPolicy\x12\x19\n\x11\x63oncurrency_limit\x18\x13 \x01(\r\x12\x14\n\x0ctimeout_secs\x18\x15 \x01(\r\x12\'\n\x08pty_info\x18\x16 \x01(\x0b\x32\x15.modal.client.PTYInfo\x12\x18\n\x10\x63lass_serialized\x18\x17 \x01(\x0c\x12\x1e\n\x16task_idle_timeout_secs\x18\x19 \x01(\r\x12\x38\n\x0e\x63loud_provider\x18\x1a \x01(\x0e\x32\x1b.modal.client.CloudProviderH\x01\x88\x01\x01\x12\x16\n\x0ewarm_pool_size\x18\x1b \x01(\r\x12\x0f\n\x07web_url\x18\x1c \x01(\t\x12.\n\x0cweb_url_info\x18\x1d \x01(\x0b\x32\x18.modal.client.WebUrlInfo\x12\x0f\n\x07runtime\x18\x1e \x01(\t\x12\x10\n\x08\x61pp_name\x18\x1f \x01(\t\x12\x30\n\rvolume_mounts\x18! \x03(\x0b\x32\x19.modal.client.VolumeMount\x12\x1d\n\x15max_concurrent_inputs\x18\" \x01(\r\x12:\n\x12\x63ustom_domain_info\x18# \x03(\x0b\x32\x1e.modal.client.CustomDomainInfo\x12\x11\n\tworker_id\x18$ \x01(\t\x12\x15\n\rruntime_debug\x18% \x01(\x08\x12\x1b\n\x13is_builder_function\x18  \x01(\x08\x12\x18\n\x10is_auto_snapshot\x18& \x01(\x08\x12\x11\n\tis_method\x18\' \x01(\x08\x12!\n\x19is_checkpointing_function\x18( \x01(\x08\x12\x1d\n\x15\x63heckpointing_enabled\x18) \x01(\x08\x12\x30\n\ncheckpoint\x18* \x01(\x0b\x32\x1c.modal.client.CheckpointInfo\x12;\n\x13object_dependencies\x18+ \x03(\x0b\x32\x1e.modal.client.ObjectDependency\x12\x15\n\rblock_network\x18, \x01(\x08\x12\x12\n\nmax_inputs\x18. \x01(\r\x12(\n\ts3_mounts\x18/ \x03(\x0b\x32\x15.modal.client.S3Mount\x12;\n\x13\x63loud_bucket_mounts\x18\x33 \x03(\x0b\x32\x1e.modal.client.CloudBucketMount\x12\x42\n\x13scheduler_placement\x18\x32 \x01(\x0b\x32 .modal.client.SchedulerPlacementH\x02\x88\x01\x01\x12\x10\n\x08is_class\x18\x35 \x01(\x08\x12\x17\n\x0fuse_function_id\x18\x36 \x01(\t\x12\x17\n\x0fuse_method_name\x18\x37 \x01(\t\x12>\n\x14\x63lass_parameter_info\x18\x38 \x01(\x0b\x32 .modal.client.ClassParameterInfo\x12\x16\n\x0e\x62\x61tch_max_size\x18< \x01(\r\x12\x17\n\x0f\x62\x61tch_linger_ms\x18= \x01(\x04\x12\x14\n\x0ci6pn_enabled\x18> \x01(\x08\x12.\n&_experimental_concurrent_cancellations\x18? \x01(\x08\x12 \n\x18target_concurrent_inputs\x18@ \x01(\r\x12,\n$_experimental_task_templates_enabled\x18\x41 \x01(\x08\x12@\n\x1c_experimental_task_templates\x18\x42 \x03(\x0b\x32\x1a.modal.client.TaskTemplate\x12 \n\x18_experimental_group_size\x18\x43 \x01(\r\x12!\n\x19_experimental_fabric_size\x18^ \x01(\r\x12\x11\n\tuntrusted\x18\x44 \x01(\x08\x12\'\n\x1f_experimental_buffer_containers\x18\x45 \x01(\r\x12\'\n\x16_experimental_proxy_ip\x18\x46 \x01(\tB\x02\x18\x01H\x03\x88\x01\x01\x12\x1b\n\x13runtime_perf_record\x18G \x01(\x08\x12(\n\x08schedule\x18H \x01(\x0b\x32\x16.modal.client.Schedule\x12\x16\n\x0esnapshot_debug\x18I \x01(\x08\x12I\n\x12method_definitions\x18J \x03(\x0b\x32-.modal.client.Function.MethodDefinitionsEntry\x12\x1e\n\x16method_definitions_set\x18K \x01(\x08\x12$\n\x1c_experimental_custom_scaling\x18L \x01(\x08\x12\x1a\n\x12\x63loud_provider_str\x18M \x01(\t\x12)\n!_experimental_enable_gpu_snapshot\x18N \x01(\x08\x12=\n\x13\x61utoscaler_settings\x18O \x01(\x0b\x32 .modal.client.AutoscalerSettings\x12\x35\n\x0f\x66unction_schema\x18P \x01(\x0b\x32\x1c.modal.client.FunctionSchema\x12M\n\x14\x65xperimental_options\x18Q \x03(\x0b\x32/.modal.client.Function.ExperimentalOptionsEntry\x12!\n\x19mount_client_dependencies\x18R \x01(\x08\x12\x1a\n\x12\x66lash_service_urls\x18S \x03(\t\x12\x1b\n\x13\x66lash_service_label\x18T \x01(\t\x12\x1b\n\x13\x65nable_gpu_snapshot\x18U \x01(\x08\x12\x1c\n\x14startup_timeout_secs\x18V \x01(\r\x12\x39\n\x17supported_input_formats\x18W \x03(\x0e\x32\x18.modal.client.DataFormat\x12:\n\x18supported_output_formats\x18X \x03(\x0e\x32\x18.modal.client.DataFormat\x12\x32\n\x0bhttp_config\x18Y \x01(\x0b\x32\x18.modal.client.HTTPConfigH\x04\x88\x01\x01\x12\x1b\n\x13implementation_name\x18Z \x01(\t\x12\x1d\n\x15single_use_containers\x18[ \x01(\x08\x12\x11\n\tis_server\x18\\ \x01(\x08\x12\x16\n\x0erouting_region\x18] \x01(\t\x12\x14\n\x0cis_sessioned\x18_ \x01(\x08\x1aX\n\x16MethodDefinitionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12-\n\x05value\x18\x02 \x01(\x0b\x32\x1e.modal.client.MethodDefinition:\x02\x38\x01\x1a:\n\x18\x45xperimentalOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"k\n\x0e\x44\x65\x66initionType\x12\x1f\n\x1b\x44\x45\x46INITION_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x44\x45\x46INITION_TYPE_SERIALIZED\x10\x01\x12\x18\n\x14\x44\x45\x46INITION_TYPE_FILE\x10\x02\"f\n\x0c\x46unctionType\x12\x1d\n\x19\x46UNCTION_TYPE_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x46UNCTION_TYPE_GENERATOR\x10\x01\x12\x1a\n\x16\x46UNCTION_TYPE_FUNCTION\x10\x02\x42\x0b\n\t_proxy_idB\x11\n\x0f_cloud_providerB\x16\n\x14_scheduler_placementB\x19\n\x17X_experimental_proxy_ipB\x0e\n\x0c_http_configJ\x04\x08\x14\x10\x15J\x04\x08\x30\x10\x31J\x04\x08\x31\x10\x32J\x04\x08\x34\x10\x35J\x04\x08\x39\x10:J\x04\x08:\x10;J\x04\x08;\x10<\"v\n\x1a\x46unctionAsyncInvokeRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12*\n\x05input\x18\x03 \x01(\x0b\x32\x1b.modal.client.FunctionInput\"W\n\x1b\x46unctionAsyncInvokeResponse\x12\x1e\n\x16retry_with_blob_upload\x18\x01 \x01(\x08\x12\x18\n\x10\x66unction_call_id\x18\x02 \x01(\t\"\xb3\x01\n\x19\x46unctionBindParamsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x19\n\x11serialized_params\x18\x02 \x01(\x0c\x12\x37\n\x10\x66unction_options\x18\x03 \x01(\x0b\x32\x1d.modal.client.FunctionOptions\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\x12\x13\n\x0b\x61uth_secret\x18\x05 \x01(\t\"v\n\x1a\x46unctionBindParamsResponse\x12\x19\n\x11\x62ound_function_id\x18\x01 \x01(\t\x12=\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\"z\n\x19\x46unctionCallCallGraphInfo\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12\x15\n\rfunction_name\x18\x03 \x01(\t\x12\x13\n\x0bmodule_name\x18\x04 \x01(\t\"}\n\x19\x46unctionCallCancelRequest\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x1c\n\x14terminate_containers\x18\x02 \x01(\x08\x12\x18\n\x0b\x66unction_id\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x0e\n\x0c_function_id\"5\n\x19\x46unctionCallFromIdRequest\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\"\x86\x01\n\x1a\x46unctionCallFromIdResponse\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x12\n\nnum_inputs\x18\x02 \x01(\x05\x12:\n\x08metadata\x18\x03 \x01(\x0b\x32(.modal.client.FunctionCallHandleMetadata\"x\n\x1a\x46unctionCallGetDataRequest\x12\x1a\n\x10\x66unction_call_id\x18\x01 \x01(\tH\x00\x12\x17\n\rattempt_token\x18\x03 \x01(\tH\x00\x12\x12\n\nlast_index\x18\x02 \x01(\x04\x42\x0b\n\tcall_infoJ\x04\x08\x04\x10\x05\"K\n\x1a\x46unctionCallGetInfoRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x02 \x01(\t\"K\n\x1b\x46unctionCallGetInfoResponse\x12,\n\x04info\x18\x01 \x01(\x0b\x32\x1e.modal.client.FunctionCallInfo\"A\n\x1a\x46unctionCallHandleMetadata\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x02 \x01(\t\"\xc3\x03\n\x10\x46unctionCallInfo\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x0b\n\x03idx\x18\x02 \x01(\x05\x12\x12\n\ncreated_at\x18\x06 \x01(\x01\x12\x14\n\x0cscheduled_at\x18\x07 \x01(\x01\x12\x37\n\x0epending_inputs\x18\x0c \x01(\x0b\x32\x1f.modal.client.InputCategoryInfo\x12\x36\n\rfailed_inputs\x18\r \x01(\x0b\x32\x1f.modal.client.InputCategoryInfo\x12\x39\n\x10succeeded_inputs\x18\x0e \x01(\x0b\x32\x1f.modal.client.InputCategoryInfo\x12\x37\n\x0etimeout_inputs\x18\x0f \x01(\x0b\x32\x1f.modal.client.InputCategoryInfo\x12\x39\n\x10\x63\x61ncelled_inputs\x18\x10 \x01(\x0b\x32\x1f.modal.client.InputCategoryInfo\x12\x14\n\x0ctotal_inputs\x18\x11 \x01(\x05J\x04\x08\x03\x10\x04J\x04\x08\x04\x10\x05J\x04\x08\x05\x10\x06J\x04\x08\x08\x10\tJ\x04\x08\t\x10\nJ\x04\x08\n\x10\x0bJ\x04\x08\x0b\x10\x0c\".\n\x17\x46unctionCallListRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\"R\n\x18\x46unctionCallListResponse\x12\x36\n\x0e\x66unction_calls\x18\x01 \x03(\x0b\x32\x1e.modal.client.FunctionCallInfo\"\x8c\x01\n\x1a\x46unctionCallPutDataRequest\x12\x1a\n\x10\x66unction_call_id\x18\x01 \x01(\tH\x00\x12\x17\n\rattempt_token\x18\x03 \x01(\tH\x00\x12,\n\x0b\x64\x61ta_chunks\x18\x02 \x03(\x0b\x32\x17.modal.client.DataChunkB\x0b\n\tcall_info\"\xd6\x01\n\x15\x46unctionCreateRequest\x12(\n\x08\x66unction\x18\x01 \x01(\x0b\x32\x16.modal.client.Function\x12\x0e\n\x06\x61pp_id\x18\x02 \x01(\t\x12,\n\x08schedule\x18\x06 \x01(\x0b\x32\x16.modal.client.ScheduleB\x02\x18\x01\x12\x1c\n\x14\x65xisting_function_id\x18\x07 \x01(\t\x12\x31\n\rfunction_data\x18\t \x01(\x0b\x32\x1a.modal.client.FunctionDataJ\x04\x08\x08\x10\t\"\x9b\x02\n\x16\x46unctionCreateResponse\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12 \n\x14__deprecated_web_url\x18\x02 \x01(\tB\x02\x18\x01\x12(\n\x08\x66unction\x18\x04 \x01(\x0b\x32\x16.modal.client.Function\x12=\n\x0fhandle_metadata\x18\x05 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\x12.\n\x0fserver_warnings\x18\x06 \x03(\x0b\x32\x15.modal.client.Warning\x12\x31\n\rfunction_data\x18\x07 \x01(\x0b\x32\x1a.modal.client.FunctionData\"\x83\x0f\n\x0c\x46unctionData\x12\x13\n\x0bmodule_name\x18\x01 \x01(\t\x12\x15\n\rfunction_name\x18\x02 \x01(\t\x12:\n\rfunction_type\x18\x03 \x01(\x0e\x32#.modal.client.Function.FunctionType\x12\x16\n\x0ewarm_pool_size\x18\x04 \x01(\r\x12\x19\n\x11\x63oncurrency_limit\x18\x05 \x01(\r\x12\x1e\n\x16task_idle_timeout_secs\x18\x06 \x01(\r\x12 \n\x18_experimental_group_size\x18\x13 \x01(\r\x12!\n\x19_experimental_fabric_size\x18+ \x01(\r\x12\'\n\x1f_experimental_buffer_containers\x18\x16 \x01(\r\x12$\n\x1c_experimental_custom_scaling\x18\x17 \x01(\x08\x12)\n!_experimental_enable_gpu_snapshot\x18\x1e \x01(\x08\x12\x11\n\tworker_id\x18\x07 \x01(\t\x12\x14\n\x0ctimeout_secs\x18\x08 \x01(\r\x12\x0f\n\x07web_url\x18\t \x01(\t\x12.\n\x0cweb_url_info\x18\n \x01(\x0b\x32\x18.modal.client.WebUrlInfo\x12\x33\n\x0ewebhook_config\x18\x0b \x01(\x0b\x32\x1b.modal.client.WebhookConfig\x12:\n\x12\x63ustom_domain_info\x18\x0c \x03(\x0b\x32\x1e.modal.client.CustomDomainInfo\x12\'\n\x16_experimental_proxy_ip\x18\x18 \x01(\tB\x02\x18\x01H\x00\x88\x01\x01\x12M\n\x12method_definitions\x18\x19 \x03(\x0b\x32\x31.modal.client.FunctionData.MethodDefinitionsEntry\x12\x1e\n\x16method_definitions_set\x18\x1a \x01(\x08\x12\x10\n\x08is_class\x18\r \x01(\x08\x12>\n\x14\x63lass_parameter_info\x18\x0e \x01(\x0b\x32 .modal.client.ClassParameterInfo\x12\x11\n\tis_method\x18\x0f \x01(\x08\x12\x17\n\x0fuse_function_id\x18\x10 \x01(\t\x12\x17\n\x0fuse_method_name\x18\x11 \x01(\t\x12\x43\n\x10ranked_functions\x18\x12 \x03(\x0b\x32).modal.client.FunctionData.RankedFunction\x12(\n\x08schedule\x18\x14 \x01(\x0b\x32\x16.modal.client.Schedule\x12\x11\n\tuntrusted\x18\x1b \x01(\x08\x12\x16\n\x0esnapshot_debug\x18\x1c \x01(\x08\x12\x1b\n\x13runtime_perf_record\x18\x1d \x01(\x08\x12=\n\x13\x61utoscaler_settings\x18\x1f \x01(\x0b\x32 .modal.client.AutoscalerSettings\x12\x35\n\x0f\x66unction_schema\x18  \x01(\x0b\x32\x1c.modal.client.FunctionSchema\x12Q\n\x14\x65xperimental_options\x18! \x03(\x0b\x32\x33.modal.client.FunctionData.ExperimentalOptionsEntry\x12\x1a\n\x12\x66lash_service_urls\x18\" \x03(\t\x12\x1b\n\x13\x66lash_service_label\x18# \x01(\t\x12\x1c\n\x14startup_timeout_secs\x18$ \x01(\r\x12\x39\n\x17supported_input_formats\x18% \x03(\x0e\x32\x18.modal.client.DataFormat\x12:\n\x18supported_output_formats\x18& \x03(\x0e\x32\x18.modal.client.DataFormat\x12\x32\n\x0bhttp_config\x18\' \x01(\x0b\x32\x18.modal.client.HTTPConfigH\x01\x88\x01\x01\x12\x1b\n\x13implementation_name\x18( \x01(\t\x12\x11\n\tis_server\x18) \x01(\x08\x12\x16\n\x0erouting_region\x18* \x01(\t\x12\x14\n\x0cis_sessioned\x18, \x01(\x08\x1aX\n\x16MethodDefinitionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12-\n\x05value\x18\x02 \x01(\x0b\x32\x1e.modal.client.MethodDefinition:\x02\x38\x01\x1aH\n\x0eRankedFunction\x12\x0c\n\x04rank\x18\x01 \x01(\r\x12(\n\x08\x66unction\x18\x02 \x01(\x0b\x32\x16.modal.client.Function\x1a:\n\x18\x45xperimentalOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x19\n\x17X_experimental_proxy_ipB\x0e\n\x0c_http_configJ\x04\x08\x15\x10\x16\"\xab\x01\n\x10\x46unctionExtended\x12\x17\n\x0ftype_identifier\x18\x01 \x01(\r\x12\x34\n\x12\x66unction_singleton\x18\x02 \x01(\x0b\x32\x16.modal.client.FunctionH\x00\x12\x33\n\rfunction_data\x18\x03 \x01(\x0b\x32\x1a.modal.client.FunctionDataH\x00\x42\x13\n\x11\x66unction_extended\"`\n\x1b\x46unctionFinishInputsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x02 \x01(\t\x12\x12\n\nnum_inputs\x18\x03 \x01(\r\"7\n\x1b\x46unctionGetCallGraphRequest\x12\x18\n\x10\x66unction_call_id\x18\x02 \x01(\t\"\x91\x01\n\x1c\x46unctionGetCallGraphResponse\x12\x30\n\x06inputs\x18\x01 \x03(\x0b\x32 .modal.client.InputCallGraphInfo\x12?\n\x0e\x66unction_calls\x18\x02 \x03(\x0b\x32\'.modal.client.FunctionCallCallGraphInfo\"5\n\x1e\x46unctionGetCurrentStatsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\"p\n$FunctionGetDynamicConcurrencyRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x1a\n\x12target_concurrency\x18\x02 \x01(\r\x12\x17\n\x0fmax_concurrency\x18\x03 \x01(\r\"<\n%FunctionGetDynamicConcurrencyResponse\x12\x13\n\x0b\x63oncurrency\x18\x01 \x01(\r\"\xd5\x02\n\x15\x46unctionGetInputsItem\x12\x10\n\x08input_id\x18\x01 \x01(\t\x12*\n\x05input\x18\x02 \x01(\x0b\x32\x1b.modal.client.FunctionInput\x12\x13\n\x0bkill_switch\x18\x03 \x01(\x08\x12\x18\n\x10\x66unction_call_id\x18\x05 \x01(\t\x12O\n\x1d\x66unction_call_invocation_type\x18\x06 \x01(\x0e\x32(.modal.client.FunctionCallInvocationType\x12\x13\n\x0bretry_count\x18\x07 \x01(\r\x12\x1d\n\x10\x66unction_map_idx\x18\x08 \x01(\x05H\x00\x88\x01\x01\x12\x15\n\rattempt_token\x18\t \x01(\t\x12\x18\n\x10\x66rom_input_plane\x18\n \x01(\x08\x42\x13\n\x11_function_map_idxJ\x04\x08\x04\x10\x05\"\x93\x01\n\x18\x46unctionGetInputsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x19\n\x11input_concurrency\x18\x06 \x01(\x05\x12\x16\n\x0e\x62\x61tch_max_size\x18\x0b \x01(\r\x12\x17\n\x0f\x62\x61tch_linger_ms\x18\x0c \x01(\x04J\x04\x08\x03\x10\x04J\x04\x08\x05\x10\x06J\x04\x08\t\x10\nJ\x04\x08\n\x10\x0b\"s\n\x19\x46unctionGetInputsResponse\x12\x33\n\x06inputs\x18\x03 \x03(\x0b\x32#.modal.client.FunctionGetInputsItem\x12!\n\x19rate_limit_sleep_duration\x18\x04 \x01(\x02\"\x84\x02\n\x16\x46unctionGetOutputsItem\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x0b\n\x03idx\x18\x02 \x01(\x05\x12\x10\n\x08input_id\x18\x03 \x01(\t\x12-\n\x0b\x64\x61ta_format\x18\x05 \x01(\x0e\x32\x18.modal.client.DataFormat\x12\x0f\n\x07task_id\x18\x06 \x01(\t\x12\x18\n\x10input_started_at\x18\x07 \x01(\x01\x12\x19\n\x11output_created_at\x18\x08 \x01(\x01\x12\x13\n\x0bretry_count\x18\t \x01(\r\x12\x14\n\x0c\x66\x63_trace_tag\x18\n \x01(\t\"\xfd\x01\n\x19\x46unctionGetOutputsRequest\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x12\n\nmax_values\x18\x02 \x01(\x05\x12\x0f\n\x07timeout\x18\x03 \x01(\x02\x12\x15\n\rlast_entry_id\x18\x06 \x01(\t\x12\x18\n\x10\x63lear_on_success\x18\x07 \x01(\x08\x12\x14\n\x0crequested_at\x18\x08 \x01(\x01\x12\x12\n\ninput_jwts\x18\t \x03(\t\x12\x16\n\tstart_idx\x18\n \x01(\x05H\x00\x88\x01\x01\x12\x14\n\x07\x65nd_idx\x18\x0b \x01(\x05H\x01\x88\x01\x01\x42\x0c\n\n_start_idxB\n\n\x08_end_idx\"\x97\x01\n\x1a\x46unctionGetOutputsResponse\x12\x0c\n\x04idxs\x18\x03 \x03(\x05\x12\x35\n\x07outputs\x18\x04 \x03(\x0b\x32$.modal.client.FunctionGetOutputsItem\x12\x15\n\rlast_entry_id\x18\x05 \x01(\t\x12\x1d\n\x15num_unfinished_inputs\x18\x06 \x01(\x05\"o\n\x12\x46unctionGetRequest\x12\x10\n\x08\x61pp_name\x18\x01 \x01(\t\x12\x12\n\nobject_tag\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\x12\x13\n\x0b\x61pp_version\x18\x05 \x01(\x05J\x04\x08\x03\x10\x04\"\xc7\x01\n\x13\x46unctionGetResponse\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12=\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\x12.\n\x0fserver_warnings\x18\x04 \x03(\x0b\x32\x15.modal.client.Warning\x12,\n\x08\x66unction\x18\x05 \x01(\x0b\x32\x1a.modal.client.FunctionData\"3\n\x1c\x46unctionGetSerializedRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\"V\n\x1d\x46unctionGetSerializedResponse\x12\x1b\n\x13\x66unction_serialized\x18\x01 \x01(\x0c\x12\x18\n\x10\x63lass_serialized\x18\x02 \x01(\x0c\"\x9d\x01\n FunctionGetTimeRangeStatsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12)\n\x05since\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x05until\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06rollup\x18\x04 \x01(\x08\"\xd5\x05\n!FunctionGetTimeRangeStatsResponse\x12)\n\x05since\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x05until\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x46\n\x16\x65xecution_time_seconds\x18\x03 \x01(\x0b\x32&.modal.client.FunctionStatsPercentiles\x12\x42\n\x12queue_time_seconds\x18\x04 \x01(\x0b\x32&.modal.client.FunctionStatsPercentiles\x12J\n\x1a\x65nd_to_end_latency_seconds\x18\x05 \x01(\x0b\x32&.modal.client.FunctionStatsPercentiles\x12N\n\x1e\x63ontainer_startup_time_seconds\x18\x06 \x01(\x0b\x32&.modal.client.FunctionStatsPercentiles\x12\x1b\n\x13input_success_count\x18\x07 \x01(\x04\x12\x1b\n\x13input_failure_count\x18\x08 \x01(\x04\x12\x1b\n\x13input_timeout_count\x18\t \x01(\x04\x12?\n\x0f\x63pu_utilization\x18\n \x01(\x0b\x32&.modal.client.FunctionStatsPercentiles\x12\x42\n\x12memory_utilization\x18\x0b \x01(\x0b\x32&.modal.client.FunctionStatsPercentiles\x12?\n\x0fgpu_utilization\x18\x0c \x01(\x0b\x32&.modal.client.FunctionStatsPercentiles\x12\x15\n\rvariant_count\x18\r \x01(\r\"\xad\x07\n\x16\x46unctionHandleMetadata\x12\x15\n\rfunction_name\x18\x02 \x01(\t\x12:\n\rfunction_type\x18\x08 \x01(\x0e\x32#.modal.client.Function.FunctionType\x12\x0f\n\x07web_url\x18\x1c \x01(\t\x12\x11\n\tis_method\x18\' \x01(\x08\x12\x17\n\x0fuse_function_id\x18( \x01(\t\x12\x17\n\x0fuse_method_name\x18) \x01(\t\x12\x15\n\rdefinition_id\x18* \x01(\t\x12>\n\x14\x63lass_parameter_info\x18+ \x01(\x0b\x32 .modal.client.ClassParameterInfo\x12^\n\x16method_handle_metadata\x18, \x03(\x0b\x32>.modal.client.FunctionHandleMetadata.MethodHandleMetadataEntry\x12\x35\n\x0f\x66unction_schema\x18- \x01(\x0b\x32\x1c.modal.client.FunctionSchema\x12\x1c\n\x0finput_plane_url\x18. \x01(\tH\x00\x88\x01\x01\x12\x1f\n\x12input_plane_region\x18/ \x01(\tH\x01\x88\x01\x01\x12\"\n\x15max_object_size_bytes\x18\x30 \x01(\x04H\x02\x88\x01\x01\x12(\n\x1bmax_async_object_size_bytes\x18\x35 \x01(\x04H\x03\x88\x01\x01\x12 \n\x18_experimental_flash_urls\x18\x31 \x03(\t\x12\x39\n\x17supported_input_formats\x18\x32 \x03(\x0e\x32\x18.modal.client.DataFormat\x12:\n\x18supported_output_formats\x18\x33 \x03(\x0e\x32\x18.modal.client.DataFormat\x12\x0e\n\x06\x61pp_id\x18\x34 \x01(\t\x1a\x61\n\x19MethodHandleMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x33\n\x05value\x18\x02 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata:\x02\x38\x01\x42\x12\n\x10_input_plane_urlB\x15\n\x13_input_plane_regionB\x18\n\x16_max_object_size_bytesB\x1e\n\x1c_max_async_object_size_bytes\"\xb3\x01\n\rFunctionInput\x12\x0e\n\x04\x61rgs\x18\x01 \x01(\x0cH\x00\x12\x16\n\x0c\x61rgs_blob_id\x18\x07 \x01(\tH\x00\x12\x13\n\x0b\x66inal_input\x18\t \x01(\x08\x12-\n\x0b\x64\x61ta_format\x18\n \x01(\x0e\x32\x18.modal.client.DataFormat\x12\x18\n\x0bmethod_name\x18\x0b \x01(\tH\x01\x88\x01\x01\x42\x0c\n\nargs_oneofB\x0e\n\x0c_method_name\"\xc1\x02\n\x12\x46unctionMapRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12\x19\n\x11return_exceptions\x18\x03 \x01(\x08\x12:\n\x12\x66unction_call_type\x18\x04 \x01(\x0e\x32\x1e.modal.client.FunctionCallType\x12=\n\x10pipelined_inputs\x18\x05 \x03(\x0b\x32#.modal.client.FunctionPutInputsItem\x12O\n\x1d\x66unction_call_invocation_type\x18\x06 \x01(\x0e\x32(.modal.client.FunctionCallInvocationType\x12\x16\n\x0e\x66rom_spawn_map\x18\x07 \x01(\x08\"\x8f\x02\n\x13\x46unctionMapResponse\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x45\n\x10pipelined_inputs\x18\x02 \x03(\x0b\x32+.modal.client.FunctionPutInputsResponseItem\x12\x37\n\x0cretry_policy\x18\x03 \x01(\x0b\x32!.modal.client.FunctionRetryPolicy\x12\x19\n\x11\x66unction_call_jwt\x18\x04 \x01(\t\x12#\n\x1bsync_client_retries_enabled\x18\x05 \x01(\x08\x12\x1e\n\x16max_inputs_outstanding\x18\x06 \x01(\r\"\xfd\x08\n\x0f\x46unctionOptions\x12\x12\n\nsecret_ids\x18\x01 \x03(\t\x12\x11\n\tmount_ids\x18\x02 \x03(\t\x12/\n\tresources\x18\x03 \x01(\x0b\x32\x17.modal.client.ResourcesH\x00\x88\x01\x01\x12<\n\x0cretry_policy\x18\x04 \x01(\x0b\x32!.modal.client.FunctionRetryPolicyH\x01\x88\x01\x01\x12\x1e\n\x11\x63oncurrency_limit\x18\x05 \x01(\rH\x02\x88\x01\x01\x12\x19\n\x0ctimeout_secs\x18\x06 \x01(\rH\x03\x88\x01\x01\x12#\n\x16task_idle_timeout_secs\x18\x07 \x01(\rH\x04\x88\x01\x01\x12\x1b\n\x0ewarm_pool_size\x18\x08 \x01(\rH\x05\x88\x01\x01\x12\x30\n\rvolume_mounts\x18\t \x03(\x0b\x32\x19.modal.client.VolumeMount\x12%\n\x18target_concurrent_inputs\x18\n \x01(\rH\x06\x88\x01\x01\x12\x1d\n\x15replace_volume_mounts\x18\x0b \x01(\x08\x12\x1a\n\x12replace_secret_ids\x18\x0c \x01(\x08\x12\x1e\n\x11\x62uffer_containers\x18\r \x01(\rH\x07\x88\x01\x01\x12\"\n\x15max_concurrent_inputs\x18\x0e \x01(\rH\x08\x88\x01\x01\x12\x1b\n\x0e\x62\x61tch_max_size\x18\x0f \x01(\rH\t\x88\x01\x01\x12\x1c\n\x0f\x62\x61tch_linger_ms\x18\x10 \x01(\x04H\n\x88\x01\x01\x12\x42\n\x13scheduler_placement\x18\x11 \x01(\x0b\x32 .modal.client.SchedulerPlacementH\x0b\x88\x01\x01\x12\x1f\n\x12\x63loud_provider_str\x18\x12 \x01(\tH\x0c\x88\x01\x01\x12#\n\x1breplace_cloud_bucket_mounts\x18\x13 \x01(\x08\x12;\n\x13\x63loud_bucket_mounts\x18\x14 \x03(\x0b\x32\x1e.modal.client.CloudBucketMount\x12\x1f\n\x12pinned_app_version\x18\x15 \x01(\x05H\r\x88\x01\x01\x12\x1b\n\x0erouting_region\x18\x16 \x01(\tH\x0e\x88\x01\x01\x42\x0c\n\n_resourcesB\x0f\n\r_retry_policyB\x14\n\x12_concurrency_limitB\x0f\n\r_timeout_secsB\x19\n\x17_task_idle_timeout_secsB\x11\n\x0f_warm_pool_sizeB\x1b\n\x19_target_concurrent_inputsB\x14\n\x12_buffer_containersB\x18\n\x16_max_concurrent_inputsB\x11\n\x0f_batch_max_sizeB\x12\n\x10_batch_linger_msB\x16\n\x14_scheduler_placementB\x15\n\x13_cloud_provider_strB\x15\n\x13_pinned_app_versionB\x11\n\x0f_routing_region\"\xe5\x04\n\x18\x46unctionPrecreateRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x15\n\rfunction_name\x18\x02 \x01(\t\x12\x1c\n\x14\x65xisting_function_id\x18\x03 \x01(\t\x12:\n\rfunction_type\x18\x04 \x01(\x0e\x32#.modal.client.Function.FunctionType\x12\x33\n\x0ewebhook_config\x18\x05 \x01(\x0b\x32\x1b.modal.client.WebhookConfig\x12\x17\n\x0fuse_function_id\x18\x06 \x01(\t\x12\x17\n\x0fuse_method_name\x18\x07 \x01(\t\x12Y\n\x12method_definitions\x18\x08 \x03(\x0b\x32=.modal.client.FunctionPrecreateRequest.MethodDefinitionsEntry\x12\x35\n\x0f\x66unction_schema\x18\t \x01(\x0b\x32\x1c.modal.client.FunctionSchema\x12\x39\n\x17supported_input_formats\x18\n \x03(\x0e\x32\x18.modal.client.DataFormat\x12:\n\x18supported_output_formats\x18\x0b \x03(\x0e\x32\x18.modal.client.DataFormat\x1aX\n\x16MethodDefinitionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12-\n\x05value\x18\x02 \x01(\x0b\x32\x1e.modal.client.MethodDefinition:\x02\x38\x01\"o\n\x19\x46unctionPrecreateResponse\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12=\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\"\x88\x01\n\x15\x46unctionPutInputsItem\x12\x0b\n\x03idx\x18\x01 \x01(\x05\x12*\n\x05input\x18\x02 \x01(\x0b\x32\x1b.modal.client.FunctionInput\x12\x11\n\tr2_failed\x18\x03 \x01(\x08\x12\x1d\n\x15r2_throughput_bytes_s\x18\x05 \x01(\x04J\x04\x08\x04\x10\x05\"~\n\x18\x46unctionPutInputsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x03 \x01(\t\x12\x33\n\x06inputs\x18\x04 \x03(\x0b\x32#.modal.client.FunctionPutInputsItem\"X\n\x19\x46unctionPutInputsResponse\x12;\n\x06inputs\x18\x01 \x03(\x0b\x32+.modal.client.FunctionPutInputsResponseItem\"Q\n\x1d\x46unctionPutInputsResponseItem\x12\x0b\n\x03idx\x18\x01 \x01(\x05\x12\x10\n\x08input_id\x18\x02 \x01(\t\x12\x11\n\tinput_jwt\x18\x03 \x01(\t\"\xb8\x02\n\x16\x46unctionPutOutputsItem\x12\x10\n\x08input_id\x18\x01 \x01(\t\x12+\n\x06result\x18\x02 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x18\n\x10input_started_at\x18\x03 \x01(\x01\x12\x19\n\x11output_created_at\x18\x04 \x01(\x01\x12-\n\x0b\x64\x61ta_format\x18\x07 \x01(\x0e\x32\x18.modal.client.DataFormat\x12\x13\n\x0bretry_count\x18\x08 \x01(\r\x12\x18\n\x10\x66unction_call_id\x18\t \x01(\t\x12\x1d\n\x10\x66unction_map_idx\x18\n \x01(\x05H\x00\x88\x01\x01\x12\x18\n\x10\x66rom_input_plane\x18\x0b \x01(\x08\x42\x13\n\x11_function_map_idx\"h\n\x19\x46unctionPutOutputsRequest\x12\x35\n\x07outputs\x18\x04 \x03(\x0b\x32$.modal.client.FunctionPutOutputsItem\x12\x14\n\x0crequested_at\x18\x05 \x01(\x01\"m\n\x17\x46unctionRetryInputsItem\x12\x11\n\tinput_jwt\x18\x01 \x01(\t\x12*\n\x05input\x18\x02 \x01(\x0b\x32\x1b.modal.client.FunctionInput\x12\x13\n\x0bretry_count\x18\x03 \x01(\r\"n\n\x1a\x46unctionRetryInputsRequest\x12\x19\n\x11\x66unction_call_jwt\x18\x01 \x01(\t\x12\x35\n\x06inputs\x18\x02 \x03(\x0b\x32%.modal.client.FunctionRetryInputsItem\"1\n\x1b\x46unctionRetryInputsResponse\x12\x12\n\ninput_jwts\x18\x01 \x03(\t\"s\n\x13\x46unctionRetryPolicy\x12\x1b\n\x13\x62\x61\x63koff_coefficient\x18\x01 \x01(\x02\x12\x18\n\x10initial_delay_ms\x18\x02 \x01(\r\x12\x14\n\x0cmax_delay_ms\x18\x03 \x01(\r\x12\x0f\n\x07retries\x18\x12 \x01(\r\"\x91\x02\n\x0e\x46unctionSchema\x12\x44\n\x0bschema_type\x18\x01 \x01(\x0e\x32/.modal.client.FunctionSchema.FunctionSchemaType\x12\x33\n\targuments\x18\x02 \x03(\x0b\x32 .modal.client.ClassParameterSpec\x12\x35\n\x0breturn_type\x18\x03 \x01(\x0b\x32 .modal.client.GenericPayloadType\"M\n\x12\x46unctionSchemaType\x12\x1f\n\x1b\x46UNCTION_SCHEMA_UNSPECIFIED\x10\x00\x12\x16\n\x12\x46UNCTION_SCHEMA_V1\x10\x01\"m\n\rFunctionStats\x12\x0f\n\x07\x62\x61\x63klog\x18\x01 \x01(\r\x12\x17\n\x0fnum_total_tasks\x18\x03 \x01(\r\x12\x1a\n\x12num_running_inputs\x18\x04 \x01(\r\x12\x16\n\x0einput_headroom\x18\x05 \x01(\r\"4\n\x18\x46unctionStatsPercentiles\x12\x0b\n\x03p50\x18\x01 \x01(\x01\x12\x0b\n\x03p90\x18\x02 \x01(\x01\"\x91\x01\n%FunctionUpdateSchedulingParamsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x1f\n\x17warm_pool_size_override\x18\x02 \x01(\r\x12\x32\n\x08settings\x18\x03 \x01(\x0b\x32 .modal.client.AutoscalerSettings\"d\n&FunctionUpdateSchedulingParamsResponse\x12:\n\x10\x63urrent_settings\x18\x01 \x01(\x0b\x32 .modal.client.AutoscalerSettings\"Q\n\tGPUConfig\x12#\n\x04type\x18\x01 \x01(\x0e\x32\x15.modal.client.GPUType\x12\r\n\x05\x63ount\x18\x02 \x01(\r\x12\x10\n\x08gpu_type\x18\x04 \x01(\t\"$\n\rGeneratorDone\x12\x13\n\x0bitems_total\x18\x01 \x01(\x04\"y\n\x12GenericPayloadType\x12.\n\tbase_type\x18\x01 \x01(\x0e\x32\x1b.modal.client.ParameterType\x12\x33\n\tsub_types\x18\x02 \x03(\x0b\x32 .modal.client.GenericPayloadType\"\xba\x04\n\rGenericResult\x12\x39\n\x06status\x18\x01 \x01(\x0e\x32).modal.client.GenericResult.GenericStatus\x12\x11\n\texception\x18\x02 \x01(\t\x12\x10\n\x08\x65xitcode\x18\x03 \x01(\x05\x12\x11\n\ttraceback\x18\x04 \x01(\t\x12\x15\n\rserialized_tb\x18\x0b \x01(\x0c\x12\x15\n\rtb_line_cache\x18\x0c \x01(\x0c\x12\x0e\n\x04\x64\x61ta\x18\x05 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\n \x01(\tH\x00\x12\x1a\n\x12propagation_reason\x18\r \x01(\t\"\xb5\x02\n\rGenericStatus\x12\x1e\n\x1aGENERIC_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n\x16GENERIC_STATUS_SUCCESS\x10\x01\x12\x1a\n\x16GENERIC_STATUS_FAILURE\x10\x02\x12\x1d\n\x19GENERIC_STATUS_TERMINATED\x10\x03\x12\x1a\n\x16GENERIC_STATUS_TIMEOUT\x10\x04\x12\x1f\n\x1bGENERIC_STATUS_INIT_FAILURE\x10\x05\x12#\n\x1fGENERIC_STATUS_INTERNAL_FAILURE\x10\x06\x12\x1f\n\x1bGENERIC_STATUS_IDLE_TIMEOUT\x10\x07\x12*\n&GENERIC_STATUS_MEMORY_MANAGER_EVICTION\x10\x08\x42\x0c\n\ndata_oneof\"\xae\x01\n\nHTTPConfig\x12\x0c\n\x04port\x18\x01 \x01(\r\x12\x15\n\rproxy_regions\x18\x02 \x03(\t\x12\x17\n\x0fstartup_timeout\x18\x03 \x01(\r\x12\x19\n\x11\x65xit_grace_period\x18\x04 \x01(\r\x12\x12\n\nh2_enabled\x18\x05 \x01(\x08\x12\x1a\n\x12target_concurrency\x18\x06 \x01(\r\x12\x17\n\x0funauthenticated\x18\x07 \x01(\x08\"\xec\x04\n\x05Image\x12,\n\x0b\x62\x61se_images\x18\x05 \x03(\x0b\x32\x17.modal.client.BaseImage\x12\x1b\n\x13\x64ockerfile_commands\x18\x06 \x03(\t\x12\x35\n\rcontext_files\x18\x07 \x03(\x0b\x32\x1e.modal.client.ImageContextFile\x12\x0f\n\x07version\x18\x0b \x01(\t\x12\x12\n\nsecret_ids\x18\x0c \x03(\t\x12\x18\n\x10\x63ontext_mount_id\x18\x0f \x01(\t\x12+\n\ngpu_config\x18\x10 \x01(\x0b\x32\x17.modal.client.GPUConfig\x12@\n\x15image_registry_config\x18\x11 \x01(\x0b\x32!.modal.client.ImageRegistryConfig\x12\x1a\n\x12\x62uild_function_def\x18\x0e \x01(\t\x12\x1e\n\x16\x62uild_function_globals\x18\x12 \x01(\x0c\x12\x0f\n\x07runtime\x18\x13 \x01(\t\x12\x15\n\rruntime_debug\x18\x14 \x01(\x08\x12\x33\n\x0e\x62uild_function\x18\x15 \x01(\x0b\x32\x1b.modal.client.BuildFunction\x12\x36\n\nbuild_args\x18\x16 \x03(\x0b\x32\".modal.client.Image.BuildArgsEntry\x12\x30\n\rvolume_mounts\x18\x17 \x03(\x0b\x32\x19.modal.client.VolumeMount\x1a\x30\n\x0e\x42uildArgsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"-\n\x19ImageBuildChainGetRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\"O\n\x1aImageBuildChainGetResponse\x12\x31\n\x0b\x62uild_steps\x18\x01 \x03(\x0b\x32\x1c.modal.client.ImageBuildStep\"\xb4\x01\n\x0eImageBuildStep\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12.\n\nstarted_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0b\x66inished_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x16\n\x0e\x62uilder_app_id\x18\x04 \x01(\t\x12\x17\n\x0f\x62uilder_task_id\x18\x05 \x01(\t\"2\n\x10ImageContextFile\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\"&\n\x12ImageDeleteRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\"&\n\x12ImageFromIdRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\"V\n\x13ImageFromIdResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12-\n\x08metadata\x18\x02 \x01(\x0b\x32\x1b.modal.client.ImageMetadata\"=\n\x14ImageGetByTagRequest\x12\x0b\n\x03tag\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\")\n\x15ImageGetByTagResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\"\x9e\x02\n\x17ImageGetOrCreateRequest\x12\"\n\x05image\x18\x02 \x01(\x0b\x32\x13.modal.client.Image\x12\x0e\n\x06\x61pp_id\x18\x04 \x01(\t\x12\x19\n\x11\x65xisting_image_id\x18\x05 \x01(\t\x12\x19\n\x11\x62uild_function_id\x18\x06 \x01(\t\x12\x13\n\x0b\x66orce_build\x18\x07 \x01(\x08\x12\x34\n\tnamespace\x18\x08 \x01(\x0e\x32!.modal.client.DeploymentNamespace\x12\x17\n\x0f\x62uilder_version\x18\t \x01(\t\x12\x1f\n\x17\x61llow_global_deployment\x18\n \x01(\x08\x12\x14\n\x0cignore_cache\x18\x0b \x01(\x08\"\x88\x01\n\x18ImageGetOrCreateResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12+\n\x06result\x18\x02 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12-\n\x08metadata\x18\x03 \x01(\x0b\x32\x1b.modal.client.ImageMetadata\"x\n\x19ImageJoinStreamingRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\x12\x15\n\rlast_entry_id\x18\x03 \x01(\t\x12!\n\x19include_logs_for_finished\x18\x04 \x01(\x08\"\xc2\x01\n\x1aImageJoinStreamingResponse\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12)\n\ttask_logs\x18\x02 \x03(\x0b\x32\x16.modal.client.TaskLogs\x12\x10\n\x08\x65ntry_id\x18\x03 \x01(\t\x12\x0b\n\x03\x65of\x18\x04 \x01(\x08\x12-\n\x08metadata\x18\x05 \x01(\x0b\x32\x1b.modal.client.ImageMetadata\"o\n\x11ImageListTagsItem\x12\x0b\n\x03tag\x18\x01 \x01(\t\x12\x10\n\x08image_id\x18\x02 \x01(\t\x12\x13\n\x0brevision_id\x18\x03 \x01(\t\x12\x12\n\ncreated_at\x18\x04 \x01(\x01\x12\x12\n\nupdated_at\x18\x05 \x01(\x01\"m\n\x14ImageListTagsRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x12\n\ntag_prefix\x18\x02 \x01(\t\x12\x13\n\x0bmax_objects\x18\x03 \x01(\r\x12\x12\n\npage_token\x18\x04 \x01(\t\"z\n\x15ImageListTagsResponse\x12.\n\x05items\x18\x01 \x03(\x0b\x32\x1f.modal.client.ImageListTagsItem\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\"\xe0\x02\n\rImageMetadata\x12 \n\x13python_version_info\x18\x01 \x01(\tH\x00\x88\x01\x01\x12H\n\x0fpython_packages\x18\x02 \x03(\x0b\x32/.modal.client.ImageMetadata.PythonPackagesEntry\x12\x14\n\x07workdir\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x1e\n\x11libc_version_info\x18\x04 \x01(\tH\x02\x88\x01\x01\x12\"\n\x15image_builder_version\x18\x05 \x01(\tH\x03\x88\x01\x01\x1a\x35\n\x13PythonPackagesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x16\n\x14_python_version_infoB\n\n\x08_workdirB\x14\n\x12_libc_version_infoB\x18\n\x16_image_builder_version\"d\n\x13ImagePublishRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x0b\n\x03tag\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12\x14\n\x0c\x61llow_public\x18\x04 \x01(\x08\"=\n\x14ImagePublishResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x13\n\x0brevision_id\x18\x02 \x01(\t\"d\n\x13ImageRegistryConfig\x12:\n\x12registry_auth_type\x18\x01 \x01(\x0e\x32\x1e.modal.client.RegistryAuthType\x12\x11\n\tsecret_id\x18\x02 \x01(\t\"h\n\x15ImageTagRevisionsItem\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x13\n\x0brevision_id\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12\x14\n\x0cpublished_by\x18\x04 \x01(\t\"j\n\x18ImageTagRevisionsRequest\x12\x0b\n\x03tag\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x12\x13\n\x0bmax_objects\x18\x03 \x01(\r\x12\x12\n\npage_token\x18\x04 \x01(\t\"\x8f\x01\n\x19ImageTagRevisionsResponse\x12\x32\n\x05items\x18\x01 \x03(\x0b\x32#.modal.client.ImageTagRevisionsItem\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x0b\n\x03tag\x18\x03 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\"\x8c\x01\n\x12InputCallGraphInfo\x12\x10\n\x08input_id\x18\x01 \x01(\t\x12\x39\n\x06status\x18\x02 \x01(\x0e\x32).modal.client.GenericResult.GenericStatus\x12\x18\n\x10\x66unction_call_id\x18\x03 \x01(\t\x12\x0f\n\x07task_id\x18\x04 \x01(\t\"K\n\x11InputCategoryInfo\x12\r\n\x05total\x18\x01 \x01(\x05\x12\'\n\x06latest\x18\x02 \x03(\x0b\x32\x17.modal.client.InputInfo\"\x99\x01\n\tInputInfo\x12\x10\n\x08input_id\x18\x01 \x01(\t\x12\x0b\n\x03idx\x18\x02 \x01(\x05\x12\x0f\n\x07task_id\x18\x03 \x01(\t\x12\x12\n\nstarted_at\x18\x04 \x01(\x01\x12\x13\n\x0b\x66inished_at\x18\x05 \x01(\x01\x12\x19\n\x11task_startup_time\x18\x06 \x01(\x01\x12\x18\n\x10task_first_input\x18\x07 \x01(\x08\"=\n\x0eListPagination\x12\x13\n\x0bmax_objects\x18\x01 \x01(\x05\x12\x16\n\x0e\x63reated_before\x18\x02 \x01(\x01\"\x8d\x01\n\x0fMapAwaitRequest\x12\x1a\n\x10\x66unction_call_id\x18\x01 \x01(\tH\x00\x12\x13\n\tmap_token\x18\x05 \x01(\tH\x00\x12\x15\n\rlast_entry_id\x18\x02 \x01(\t\x12\x14\n\x0crequested_at\x18\x03 \x01(\x01\x12\x0f\n\x07timeout\x18\x04 \x01(\x02\x42\x0b\n\tcall_info\"`\n\x10MapAwaitResponse\x12\x35\n\x07outputs\x18\x01 \x03(\x0b\x32$.modal.client.FunctionGetOutputsItem\x12\x15\n\rlast_entry_id\x18\x02 \x01(\t\"W\n\x15MapCheckInputsRequest\x12\x15\n\rlast_entry_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\x12\x16\n\x0e\x61ttempt_tokens\x18\x03 \x03(\t\"&\n\x16MapCheckInputsResponse\x12\x0c\n\x04lost\x18\x01 \x03(\x08\"z\n\x16MapStartOrContinueItem\x12\x32\n\x05input\x18\x01 \x01(\x0b\x32#.modal.client.FunctionPutInputsItem\x12\x1a\n\rattempt_token\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x10\n\x0e_attempt_token\"\xcd\x01\n\x19MapStartOrContinueRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12\x1a\n\x10\x66unction_call_id\x18\x03 \x01(\tH\x00\x12\x13\n\tmap_token\x18\x05 \x01(\tH\x00\x12\x33\n\x05items\x18\x04 \x03(\x0b\x32$.modal.client.MapStartOrContinueItem\x12\x0f\n\x07proxied\x18\x06 \x01(\x08\x42\x0b\n\tcall_info\"\xcf\x01\n\x1aMapStartOrContinueResponse\x12\x11\n\tmap_token\x18\x06 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x02 \x01(\t\x12\x1e\n\x16max_inputs_outstanding\x18\x03 \x01(\r\x12\x16\n\x0e\x61ttempt_tokens\x18\x04 \x03(\t\x12\x37\n\x0cretry_policy\x18\x05 \x01(\x0b\x32!.modal.client.FunctionRetryPolicy\"\xc5\x03\n\x10MethodDefinition\x12\x15\n\rfunction_name\x18\x01 \x01(\t\x12:\n\rfunction_type\x18\x02 \x01(\x0e\x32#.modal.client.Function.FunctionType\x12\x33\n\x0ewebhook_config\x18\x03 \x01(\x0b\x32\x1b.modal.client.WebhookConfig\x12\x0f\n\x07web_url\x18\x04 \x01(\t\x12.\n\x0cweb_url_info\x18\x05 \x01(\x0b\x32\x18.modal.client.WebUrlInfo\x12:\n\x12\x63ustom_domain_info\x18\x06 \x03(\x0b\x32\x1e.modal.client.CustomDomainInfo\x12\x35\n\x0f\x66unction_schema\x18\x07 \x01(\x0b\x32\x1c.modal.client.FunctionSchema\x12\x39\n\x17supported_input_formats\x18\x08 \x03(\x0e\x32\x18.modal.client.DataFormat\x12:\n\x18supported_output_formats\x18\t \x03(\x0e\x32\x18.modal.client.DataFormat\">\n!MountBatchedCheckExistenceRequest\x12\x19\n\x11sha256_hex_hashes\x18\x01 \x03(\t\"G\n\"MountBatchedCheckExistenceResponse\x12!\n\x19missing_sha256_hex_hashes\x18\x01 \x03(\t\"i\n\tMountFile\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x12\n\nsha256_hex\x18\x03 \x01(\t\x12\x11\n\x04size\x18\x04 \x01(\x04H\x00\x88\x01\x01\x12\x11\n\x04mode\x18\x05 \x01(\rH\x01\x88\x01\x01\x42\x07\n\x05_sizeB\x07\n\x05_mode\"\xfa\x01\n\x17MountGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x34\n\tnamespace\x18\x02 \x01(\x0e\x32!.modal.client.DeploymentNamespace\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationType\x12&\n\x05\x66iles\x18\x05 \x03(\x0b\x32\x17.modal.client.MountFile\x12\x0e\n\x06\x61pp_id\x18\x06 \x01(\t\"h\n\x18MountGetOrCreateResponse\x12\x10\n\x08mount_id\x18\x01 \x01(\t\x12:\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32!.modal.client.MountHandleMetadata\":\n\x13MountHandleMetadata\x12#\n\x1b\x63ontent_checksum_sha256_hex\x18\x01 \x01(\t\"_\n\x13MountPutFileRequest\x12\x12\n\nsha256_hex\x18\x02 \x01(\t\x12\x0e\n\x04\x64\x61ta\x18\x03 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\x05 \x01(\tH\x00\x42\x0c\n\ndata_oneof\"&\n\x14MountPutFileResponse\x12\x0e\n\x06\x65xists\x18\x02 \x01(\x08\"S\n\x0fMultiPartUpload\x12\x13\n\x0bpart_length\x18\x01 \x01(\x03\x12\x13\n\x0bupload_urls\x18\x02 \x03(\t\x12\x16\n\x0e\x63ompletion_url\x18\x03 \x01(\t\"C\n\x13MultiPartUploadList\x12,\n\x05items\x18\x01 \x03(\x0b\x32\x1d.modal.client.MultiPartUpload\"\xd7\x01\n\rNetworkAccess\x12J\n\x13network_access_type\x18\x01 \x01(\x0e\x32-.modal.client.NetworkAccess.NetworkAccessType\x12\x15\n\rallowed_cidrs\x18\x02 \x03(\t\x12\x17\n\x0f\x61llowed_domains\x18\x03 \x03(\t\"J\n\x11NetworkAccessType\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x08\n\x04OPEN\x10\x01\x12\x0b\n\x07\x42LOCKED\x10\x02\x12\r\n\tALLOWLIST\x10\x03\"\xa4\x03\n#NotebookKernelPublishResultsRequest\x12\x13\n\x0bnotebook_id\x18\x01 \x01(\t\x12M\n\x07results\x18\x02 \x03(\x0b\x32<.modal.client.NotebookKernelPublishResultsRequest.CellResult\x1aI\n\x0c\x45xecuteReply\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x17\n\x0f\x65xecution_count\x18\x02 \x01(\r\x12\x10\n\x08\x64uration\x18\x03 \x01(\x01\x1a\xcd\x01\n\nCellResult\x12\x0f\n\x07\x63\x65ll_id\x18\x01 \x01(\t\x12.\n\x06output\x18\x02 \x01(\x0b\x32\x1c.modal.client.NotebookOutputH\x00\x12\x16\n\x0c\x63lear_output\x18\x03 \x01(\x08H\x00\x12W\n\rexecute_reply\x18\x04 \x01(\x0b\x32>.modal.client.NotebookKernelPublishResultsRequest.ExecuteReplyH\x00\x42\r\n\x0bresult_type\"\x8e\x05\n\x0eNotebookOutput\x12\x44\n\x0e\x65xecute_result\x18\x01 \x01(\x0b\x32*.modal.client.NotebookOutput.ExecuteResultH\x00\x12@\n\x0c\x64isplay_data\x18\x02 \x01(\x0b\x32(.modal.client.NotebookOutput.DisplayDataH\x00\x12\x35\n\x06stream\x18\x03 \x01(\x0b\x32#.modal.client.NotebookOutput.StreamH\x00\x12\x33\n\x05\x65rror\x18\x04 \x01(\x0b\x32\".modal.client.NotebookOutput.ErrorH\x00\x1az\n\rExecuteResult\x12\x17\n\x0f\x65xecution_count\x18\x01 \x01(\r\x12%\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\x12)\n\x08metadata\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\x1a\x9b\x01\n\x0b\x44isplayData\x12%\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x17.google.protobuf.Struct\x12)\n\x08metadata\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\x12!\n\x14transient_display_id\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x17\n\x15_transient_display_id\x1a$\n\x06Stream\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04text\x18\x02 \x01(\t\x1a\x39\n\x05\x45rror\x12\r\n\x05\x65name\x18\x01 \x01(\t\x12\x0e\n\x06\x65value\x18\x02 \x01(\t\x12\x11\n\ttraceback\x18\x03 \x03(\tB\r\n\x0boutput_type\"\x87\x03\n\x06Object\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12H\n\x18\x66unction_handle_metadata\x18\x03 \x01(\x0b\x32$.modal.client.FunctionHandleMetadataH\x00\x12\x42\n\x15mount_handle_metadata\x18\x04 \x01(\x0b\x32!.modal.client.MountHandleMetadataH\x00\x12\x42\n\x15\x63lass_handle_metadata\x18\x05 \x01(\x0b\x32!.modal.client.ClassHandleMetadataH\x00\x12\x46\n\x17sandbox_handle_metadata\x18\x06 \x01(\x0b\x32#.modal.client.SandboxHandleMetadataH\x00\x12\x37\n\x0fvolume_metadata\x18\x07 \x01(\x0b\x32\x1c.modal.client.VolumeMetadataH\x00\x42\x17\n\x15handle_metadata_oneof\"%\n\x10ObjectDependency\x12\x11\n\tobject_id\x18\x01 \x01(\t\"\xaa\x02\n\x07PTYInfo\x12\x0f\n\x07\x65nabled\x18\x01 \x01(\x08\x12\x12\n\nwinsz_rows\x18\x02 \x01(\r\x12\x12\n\nwinsz_cols\x18\x03 \x01(\r\x12\x10\n\x08\x65nv_term\x18\x04 \x01(\t\x12\x15\n\renv_colorterm\x18\x05 \x01(\t\x12\x18\n\x10\x65nv_term_program\x18\x06 \x01(\t\x12/\n\x08pty_type\x18\x07 \x01(\x0e\x32\x1d.modal.client.PTYInfo.PTYType\x12\"\n\x1ano_terminate_on_idle_stdin\x18\x08 \x01(\x08\"N\n\x07PTYType\x12\x18\n\x14PTY_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11PTY_TYPE_FUNCTION\x10\x01\x12\x12\n\x0ePTY_TYPE_SHELL\x10\x02\"q\n\x08PortSpec\x12\x0c\n\x04port\x18\x01 \x01(\r\x12\x13\n\x0bunencrypted\x18\x02 \x01(\x08\x12\x32\n\x0btunnel_type\x18\x03 \x01(\x0e\x32\x18.modal.client.TunnelTypeH\x00\x88\x01\x01\x42\x0e\n\x0c_tunnel_type\"2\n\tPortSpecs\x12%\n\x05ports\x18\x01 \x03(\x0b\x32\x16.modal.client.PortSpec\"\xaa\x01\n\x05Probe\x12\x12\n\x08tcp_port\x18\x01 \x01(\rH\x00\x12\x37\n\x0c\x65xec_command\x18\x02 \x01(\x0b\x32\x1f.modal.client.Probe.ExecCommandH\x00\x12\x18\n\x0binterval_ms\x18\x03 \x01(\rH\x01\x88\x01\x01\x1a\x1b\n\x0b\x45xecCommand\x12\x0c\n\x04\x61rgv\x18\x01 \x03(\tB\r\n\x0bprobe_oneofB\x0e\n\x0c_interval_ms\"\x8f\x01\n\x05Proxy\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12(\n\tproxy_ips\x18\x04 \x03(\x0b\x32\x15.modal.client.ProxyIp\x12\x10\n\x08proxy_id\x18\x05 \x01(\t\x12\x0e\n\x06region\x18\x06 \x01(\t\"%\n\x11ProxyAddIpRequest\x12\x10\n\x08proxy_id\x18\x01 \x01(\t\"=\n\x12ProxyAddIpResponse\x12\'\n\x08proxy_ip\x18\x01 \x01(\x0b\x32\x15.modal.client.ProxyIp\"L\n\x12ProxyCreateRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x12\x0e\n\x06region\x18\x03 \x01(\t\"9\n\x13ProxyCreateResponse\x12\"\n\x05proxy\x18\x01 \x01(\x0b\x32\x13.modal.client.Proxy\"&\n\x12ProxyDeleteRequest\x12\x10\n\x08proxy_id\x18\x01 \x01(\t\"\x92\x01\n\x17ProxyGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationTypeJ\x04\x08\x02\x10\x03\",\n\x18ProxyGetOrCreateResponse\x12\x10\n\x08proxy_id\x18\x01 \x01(\t\"9\n\x0fProxyGetRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"6\n\x10ProxyGetResponse\x12\"\n\x05proxy\x18\x01 \x01(\x0b\x32\x13.modal.client.Proxy\"\xb2\x01\n\tProxyInfo\x12\x12\n\nelastic_ip\x18\x01 \x01(\t\x12\x11\n\tproxy_key\x18\x02 \x01(\t\x12\x13\n\x0bremote_addr\x18\x03 \x01(\t\x12\x13\n\x0bremote_port\x18\x04 \x01(\x05\x12+\n\nproxy_type\x18\x05 \x01(\x0e\x32\x17.modal.client.ProxyType\x12\x10\n\x08use_oidc\x18\x06 \x01(\x08\x12\x15\n\rvprox_node_id\x18\x07 \x01(\t\"v\n\x07ProxyIp\x12\x10\n\x08proxy_ip\x18\x01 \x01(\t\x12+\n\x06status\x18\x02 \x01(\x0e\x32\x1b.modal.client.ProxyIpStatus\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\"9\n\x11ProxyListResponse\x12$\n\x07proxies\x18\x01 \x03(\x0b\x32\x13.modal.client.Proxy\"(\n\x14ProxyRemoveIpRequest\x12\x10\n\x08proxy_ip\x18\x01 \x01(\t\"T\n\x11QueueClearRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x15\n\rpartition_key\x18\x02 \x01(\x0c\x12\x16\n\x0e\x61ll_partitions\x18\x03 \x01(\x08\"&\n\x12QueueDeleteRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\"\'\n\x13QueueGetByIdRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\"W\n\x14QueueGetByIdResponse\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12-\n\x08metadata\x18\x02 \x01(\x0b\x32\x1b.modal.client.QueueMetadata\"\x92\x01\n\x17QueueGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationTypeJ\x04\x08\x02\x10\x03\"[\n\x18QueueGetOrCreateResponse\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12-\n\x08metadata\x18\x02 \x01(\x0b\x32\x1b.modal.client.QueueMetadata\"]\n\x0fQueueGetRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x03 \x01(\x02\x12\x10\n\x08n_values\x18\x04 \x01(\x05\x12\x15\n\rpartition_key\x18\x05 \x01(\x0c\"\"\n\x10QueueGetResponse\x12\x0e\n\x06values\x18\x02 \x03(\x0c\")\n\x15QueueHeartbeatRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\",\n\tQueueItem\x12\r\n\x05value\x18\x01 \x01(\x0c\x12\x10\n\x08\x65ntry_id\x18\x02 \x01(\t\"I\n\x0fQueueLenRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x15\n\rpartition_key\x18\x02 \x01(\x0c\x12\r\n\x05total\x18\x03 \x01(\x08\"\x1f\n\x10QueueLenResponse\x12\x0b\n\x03len\x18\x01 \x01(\x05\"x\n\x10QueueListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x18\n\x10total_size_limit\x18\x02 \x01(\x05\x12\x30\n\npagination\x18\x03 \x01(\x0b\x32\x1c.modal.client.ListPagination\"\x85\x02\n\x11QueueListResponse\x12\x39\n\x06queues\x18\x01 \x03(\x0b\x32).modal.client.QueueListResponse.QueueInfo\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x1a\x9a\x01\n\tQueueInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x16\n\x0enum_partitions\x18\x03 \x01(\x05\x12\x12\n\ntotal_size\x18\x04 \x01(\x05\x12\x10\n\x08queue_id\x18\x05 \x01(\t\x12-\n\x08metadata\x18\x06 \x01(\x0b\x32\x1b.modal.client.QueueMetadata\"P\n\rQueueMetadata\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x31\n\rcreation_info\x18\x02 \x01(\x0b\x32\x1a.modal.client.CreationInfo\"r\n\x15QueueNextItemsRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x15\n\rpartition_key\x18\x02 \x01(\x0c\x12\x15\n\rlast_entry_id\x18\x03 \x01(\t\x12\x19\n\x11item_poll_timeout\x18\x04 \x01(\x02\"@\n\x16QueueNextItemsResponse\x12&\n\x05items\x18\x01 \x03(\x0b\x32\x17.modal.client.QueueItem\"i\n\x0fQueuePutRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x0e\n\x06values\x18\x04 \x03(\x0c\x12\x15\n\rpartition_key\x18\x05 \x01(\x0c\x12\x1d\n\x15partition_ttl_seconds\x18\x06 \x01(\x05\"*\n\x0eRPCRetryPolicy\x12\x18\n\x10retry_after_secs\x18\x01 \x01(\x02\"Q\n\tRPCStatus\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x0f\n\x07message\x18\x02 \x01(\t\x12%\n\x07\x64\x65tails\x18\x03 \x03(\x0b\x32\x14.google.protobuf.Any\"M\n\tRateLimit\x12\r\n\x05limit\x18\x01 \x01(\x05\x12\x31\n\x08interval\x18\x02 \x01(\x0e\x32\x1f.modal.client.RateLimitInterval\"\x97\x02\n\x0cResourceInfo\x12;\n\tmemory_mb\x18\x01 \x01(\x0b\x32(.modal.client.ResourceInfo.ResourceValue\x12;\n\tmilli_cpu\x18\x02 \x01(\x0b\x32(.modal.client.ResourceInfo.ResourceValue\x12\x10\n\x08gpu_type\x18\x03 \x01(\t\x12\x15\n\rmemory_mb_max\x18\x04 \x01(\r\x12\x19\n\x11\x65phemeral_disk_mb\x18\x05 \x01(\r\x12\x15\n\rmilli_cpu_max\x18\x06 \x01(\r\x1a\x32\n\rResourceValue\x12\r\n\x05value\x18\x01 \x01(\r\x12\x12\n\nis_default\x18\x02 \x01(\x08\"\xb5\x01\n\tResources\x12\x11\n\tmemory_mb\x18\x02 \x01(\r\x12\x11\n\tmilli_cpu\x18\x03 \x01(\r\x12+\n\ngpu_config\x18\x04 \x01(\x0b\x32\x17.modal.client.GPUConfig\x12\x15\n\rmemory_mb_max\x18\x05 \x01(\r\x12\x19\n\x11\x65phemeral_disk_mb\x18\x06 \x01(\r\x12\x15\n\rmilli_cpu_max\x18\x07 \x01(\r\x12\x0c\n\x04rdma\x18\x08 \x01(\x08\"J\n\x13RuntimeInputMessage\x12\x0f\n\x07message\x18\x01 \x01(\x0c\x12\x15\n\rmessage_index\x18\x02 \x01(\x04\x12\x0b\n\x03\x65of\x18\x03 \x01(\x08\"\x9c\x02\n\x12RuntimeOutputBatch\x12\x31\n\x05items\x18\x01 \x03(\x0b\x32\".modal.client.RuntimeOutputMessage\x12\x13\n\x0b\x62\x61tch_index\x18\x02 \x01(\x04\x12\x16\n\texit_code\x18\x03 \x01(\x05H\x00\x88\x01\x01\x12\x32\n\x06stdout\x18\x04 \x03(\x0b\x32\".modal.client.RuntimeOutputMessage\x12\x32\n\x06stderr\x18\x05 \x03(\x0b\x32\".modal.client.RuntimeOutputMessage\x12\x30\n\x04info\x18\x06 \x03(\x0b\x32\".modal.client.RuntimeOutputMessageB\x0c\n\n_exit_code\"u\n\x14RuntimeOutputMessage\x12\x35\n\x0f\x66ile_descriptor\x18\x01 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x15\n\rmessage_bytes\x18\x03 \x01(\x0c\"d\n\x07S3Mount\x12\x13\n\x0b\x62ucket_name\x18\x01 \x01(\t\x12\x12\n\nmount_path\x18\x02 \x01(\t\x12\x1d\n\x15\x63redentials_secret_id\x18\x03 \x01(\t\x12\x11\n\tread_only\x18\x04 \x01(\x08\"\xd8\r\n\x07Sandbox\x12\x17\n\x0f\x65ntrypoint_args\x18\x01 \x03(\t\x12\x11\n\tmount_ids\x18\x02 \x03(\t\x12\x10\n\x08image_id\x18\x03 \x01(\t\x12\x12\n\nsecret_ids\x18\x04 \x03(\t\x12*\n\tresources\x18\x05 \x01(\x0b\x32\x17.modal.client.Resources\x12\x33\n\x0e\x63loud_provider\x18\x06 \x01(\x0e\x32\x1b.modal.client.CloudProvider\x12\x14\n\x0ctimeout_secs\x18\x07 \x01(\r\x12\x14\n\x07workdir\x18\x08 \x01(\tH\x01\x88\x01\x01\x12\x33\n\nnfs_mounts\x18\t \x03(\x0b\x32\x1f.modal.client.SharedVolumeMount\x12\x15\n\rruntime_debug\x18\n \x01(\x08\x12\x15\n\rblock_network\x18\x0b \x01(\x08\x12(\n\ts3_mounts\x18\x0c \x03(\x0b\x32\x15.modal.client.S3Mount\x12;\n\x13\x63loud_bucket_mounts\x18\x0e \x03(\x0b\x32\x1e.modal.client.CloudBucketMount\x12\x30\n\rvolume_mounts\x18\r \x03(\x0b\x32\x19.modal.client.VolumeMount\x12\'\n\x08pty_info\x18\x0f \x01(\x0b\x32\x15.modal.client.PTYInfo\x12\x42\n\x13scheduler_placement\x18\x11 \x01(\x0b\x32 .modal.client.SchedulerPlacementH\x02\x88\x01\x01\x12\x11\n\tworker_id\x18\x13 \x01(\t\x12-\n\nopen_ports\x18\x14 \x01(\x0b\x32\x17.modal.client.PortSpecsH\x00\x12\x14\n\x0ci6pn_enabled\x18\x15 \x01(\x08\x12\x33\n\x0enetwork_access\x18\x16 \x01(\x0b\x32\x1b.modal.client.NetworkAccess\x12\x15\n\x08proxy_id\x18\x17 \x01(\tH\x03\x88\x01\x01\x12\x17\n\x0f\x65nable_snapshot\x18\x18 \x01(\x08\x12\x1d\n\x10snapshot_version\x18\x19 \x01(\rH\x04\x88\x01\x01\x12\x1a\n\x12\x63loud_provider_str\x18\x1a \x01(\t\x12\"\n\x15runsc_runtime_version\x18\x1b \x01(\tH\x05\x88\x01\x01\x12\x14\n\x07runtime\x18\x1c \x01(\tH\x06\x88\x01\x01\x12\x0f\n\x07verbose\x18\x1d \x01(\x08\x12\x11\n\x04name\x18\x1e \x01(\tH\x07\x88\x01\x01\x12P\n\x14\x65xperimental_options\x18\x1f \x03(\x0b\x32..modal.client.Sandbox.ExperimentalOptionsEntryB\x02\x18\x01\x12Q\n\x17\x65xperimental_options_v2\x18) \x03(\x0b\x32\x30.modal.client.Sandbox.ExperimentalOptionsV2Entry\x12\x1d\n\x15preload_path_prefixes\x18  \x03(\t\x12\x1e\n\x11idle_timeout_secs\x18! \x01(\rH\x08\x88\x01\x01\x12+\n\x1f\x64irect_sandbox_commands_enabled\x18\" \x01(\x08\x42\x02\x18\x01\x12\x1e\n\x16_restore_instance_type\x18# \x01(\t\x12\x15\n\rcustom_domain\x18$ \x01(\t\x12#\n\x1binclude_oidc_identity_token\x18% \x01(\x08\x12\x31\n\x0freadiness_probe\x18& \x01(\x0b\x32\x13.modal.client.ProbeH\t\x88\x01\x01\x12\x1e\n\x16inbound_cidr_allowlist\x18\' \x03(\t\x12\x36\n\x15\x65nvironment_variables\x18( \x01(\x0b\x32\x17.modal.client.StringMap\x1a:\n\x18\x45xperimentalOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x08:\x02\x38\x01\x1a<\n\x1a\x45xperimentalOptionsV2Entry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x12\n\x10open_ports_oneofB\n\n\x08_workdirB\x16\n\x14_scheduler_placementB\x0b\n\t_proxy_idB\x13\n\x11_snapshot_versionB\x18\n\x16_runsc_runtime_versionB\n\n\x08_runtimeB\x07\n\x05_nameB\x14\n\x12_idle_timeout_secsB\x12\n\x10_readiness_probeJ\x04\x08\x10\x10\x11J\x04\x08\x12\x10\x13\"i\n SandboxCreateConnectTokenRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x15\n\ruser_metadata\x18\x02 \x01(\t\x12\x11\n\x04port\x18\x03 \x01(\rH\x00\x88\x01\x01\x42\x07\n\x05_port\"?\n!SandboxCreateConnectTokenResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\"\x93\x01\n\x14SandboxCreateRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12)\n\ndefinition\x18\x02 \x01(\x0b\x32\x15.modal.client.Sandbox\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12&\n\x04tags\x18\x04 \x03(\x0b\x32\x18.modal.client.SandboxTag\"b\n\x15SandboxCreateResponse\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x35\n\x08metadata\x18\x02 \x01(\x0b\x32#.modal.client.SandboxHandleMetadata\"\xfb\x02\n\x16SandboxCreateV2Request\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12)\n\ndefinition\x18\x02 \x01(\x0b\x32\x15.modal.client.Sandbox\x12\x32\n\x11\x65phemeral_secrets\x18\x03 \x01(\x0b\x32\x17.modal.client.StringMap\x12&\n\x04tags\x18\x04 \x03(\x0b\x32\x18.modal.client.SandboxTag\x12m\n\x1e\x63loud_bucket_mount_credentials\x18\x05 \x03(\x0b\x32\x45.modal.client.SandboxCreateV2Request.CloudBucketMountCredentialsEntry\x1a[\n CloudBucketMountCredentialsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12&\n\x05value\x18\x02 \x01(\x0b\x32\x17.modal.client.StringMap:\x02\x38\x01\"\xe2\x01\n\x17SandboxCreateV2Response\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12)\n\x07tunnels\x18\x02 \x03(\x0b\x32\x18.modal.client.TunnelData\x12\x0f\n\x07task_id\x18\x03 \x01(\t\x12\x35\n\x08metadata\x18\x04 \x01(\x0b\x32#.modal.client.SandboxHandleMetadata\x12@\n\x15\x63ommand_router_access\x18\x05 \x01(\x0b\x32!.modal.client.CommandRouterAccess\"Y\n$SandboxGetCommandRouterAccessRequest\x12\x14\n\nsandbox_id\x18\x01 \x01(\tH\x00\x12\x11\n\x07task_id\x18\x02 \x01(\tH\x00\x42\x08\n\x06target\"^\n%SandboxGetCommandRouterAccessResponse\x12\x0b\n\x03jwt\x18\x01 \x01(\t\x12\x0b\n\x03url\x18\x02 \x01(\t\x12\x1b\n\x13worker_ipv4_address\x18\x03 \x01(\t\"D\n\x1dSandboxGetExitSnapshotRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"\xea\x03\n\x1eSandboxGetExitSnapshotResponse\x12G\n\x07success\x18\x01 \x01(\x0b\x32\x34.modal.client.SandboxGetExitSnapshotResponse.SuccessH\x00\x12G\n\x07pending\x18\x02 \x01(\x0b\x32\x34.modal.client.SandboxGetExitSnapshotResponse.PendingH\x00\x12\x43\n\x05\x65rror\x18\x03 \x01(\x0b\x32\x32.modal.client.SandboxGetExitSnapshotResponse.ErrorH\x00\x1a\x1b\n\x07Success\x12\x10\n\x08image_id\x18\x01 \x01(\t\x1a\t\n\x07Pending\x1a\x64\n\x05\x45rror\x12J\n\nerror_code\x18\x01 \x01(\x0e\x32\x36.modal.client.SandboxGetExitSnapshotResponse.ErrorCode\x12\x0f\n\x07message\x18\x02 \x01(\t\"X\n\tErrorCode\x12\x1a\n\x16\x45RROR_CODE_UNSPECIFIED\x10\x00\x12\x16\n\x12\x45RROR_CODE_TIMEOUT\x10\x01\x12\x17\n\x13\x45RROR_CODE_INTERNAL\x10\x02\x42\t\n\x07outcome\"]\n\x19SandboxGetFromNameRequest\x12\x14\n\x0csandbox_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x12\x10\n\x08\x61pp_name\x18\x03 \x01(\t\"g\n\x1aSandboxGetFromNameResponse\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x35\n\x08metadata\x18\x02 \x01(\x0b\x32#.modal.client.SandboxHandleMetadata\"\x8a\x01\n\x15SandboxGetLogsRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x35\n\x0f\x66ile_descriptor\x18\x02 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x0f\n\x07timeout\x18\x03 \x01(\x02\x12\x15\n\rlast_entry_id\x18\x04 \x01(\t\"4\n\x1eSandboxGetResourceUsageRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\"\x90\x01\n\x1fSandboxGetResourceUsageResponse\x12\x19\n\x11\x63pu_core_nanosecs\x18\x01 \x01(\x04\x12\x18\n\x10mem_gib_nanosecs\x18\x02 \x01(\x04\x12\x14\n\x0cgpu_nanosecs\x18\x03 \x01(\x04\x12\x15\n\x08gpu_type\x18\x04 \x01(\tH\x00\x88\x01\x01\x42\x0b\n\t_gpu_type\"i\n\x17SandboxGetTaskIdRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x14\n\x07timeout\x18\x02 \x01(\x02H\x00\x88\x01\x01\x12\x18\n\x10wait_until_ready\x18\x03 \x01(\x08\x42\n\n\x08_timeout\"\x83\x01\n\x18SandboxGetTaskIdResponse\x12\x14\n\x07task_id\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x35\n\x0btask_result\x18\x02 \x01(\x0b\x32\x1b.modal.client.GenericResultH\x01\x88\x01\x01\x42\n\n\x08_task_idB\x0e\n\x0c_task_result\"?\n\x18SandboxGetTunnelsRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"s\n\x19SandboxGetTunnelsResponse\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12)\n\x07tunnels\x18\x02 \x03(\x0b\x32\x18.modal.client.TunnelData\"T\n\x15SandboxHandleMetadata\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x0e\n\x06\x61pp_id\x18\x02 \x01(\t\"\x93\x04\n\x0bSandboxInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12)\n\ttask_info\x18\x04 \x01(\x0b\x32\x16.modal.client.TaskInfo\x12\x0e\n\x06\x61pp_id\x18\x05 \x01(\t\x12&\n\x04tags\x18\x06 \x03(\x0b\x32\x18.modal.client.SandboxTag\x12\x0c\n\x04name\x18\x07 \x01(\t\x12\x10\n\x08image_id\x18\x08 \x01(\t\x12\x31\n\rresource_info\x18\t \x01(\x0b\x32\x1a.modal.client.ResourceInfo\x12\x0f\n\x07regions\x18\n \x03(\t\x12\x14\n\x0ctimeout_secs\x18\x0b \x01(\r\x12\x1e\n\x11idle_timeout_secs\x18\x0c \x01(\rH\x00\x88\x01\x01\x12\x15\n\x08ready_at\x18\r \x01(\x01H\x01\x88\x01\x01\x12\x31\n\x0freadiness_probe\x18\x0e \x01(\x0b\x32\x13.modal.client.ProbeH\x02\x88\x01\x01\x12)\n\x07tunnels\x18\x0f \x03(\x0b\x32\x18.modal.client.TunnelData\x12\x35\n\x08metadata\x18\x10 \x01(\x0b\x32#.modal.client.SandboxHandleMetadataB\x14\n\x12_idle_timeout_secsB\x0b\n\t_ready_atB\x12\n\x10_readiness_probeJ\x04\x08\x02\x10\x03\"\x9a\x01\n\x12SandboxListRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x18\n\x10\x62\x65\x66ore_timestamp\x18\x02 \x01(\x01\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12\x18\n\x10include_finished\x18\x04 \x01(\x08\x12&\n\x04tags\x18\x05 \x03(\x0b\x32\x18.modal.client.SandboxTag\"C\n\x13SandboxListResponse\x12,\n\tsandboxes\x18\x01 \x03(\x0b\x32\x19.modal.client.SandboxInfo\"\xa4\x03\n\x15SandboxRestoreRequest\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\x12\x1d\n\x15sandbox_name_override\x18\x02 \x01(\t\x12_\n\x1asandbox_name_override_type\x18\x03 \x01(\x0e\x32;.modal.client.SandboxRestoreRequest.SandboxNameOverrideType\x12\x11\n\tworker_id\x18\x04 \x01(\t\x12\x1d\n\x15replace_volume_mounts\x18\x05 \x01(\x08\x12\x30\n\rvolume_mounts\x18\x06 \x03(\x0b\x32\x19.modal.client.VolumeMount\"\x91\x01\n\x17SandboxNameOverrideType\x12*\n&SANDBOX_NAME_OVERRIDE_TYPE_UNSPECIFIED\x10\x00\x12#\n\x1fSANDBOX_NAME_OVERRIDE_TYPE_NONE\x10\x01\x12%\n!SANDBOX_NAME_OVERRIDE_TYPE_STRING\x10\x02\",\n\x16SandboxRestoreResponse\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\"\xc1\x01\n\x17SandboxRestoreV2Request\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\x12\x1d\n\x15sandbox_name_override\x18\x02 \x01(\t\x12_\n\x1asandbox_name_override_type\x18\x03 \x01(\x0e\x32;.modal.client.SandboxRestoreRequest.SandboxNameOverrideType\x12\x11\n\tworker_id\x18\x04 \x01(\t\"\xe3\x01\n\x18SandboxRestoreV2Response\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12)\n\x07tunnels\x18\x02 \x03(\x0b\x32\x18.modal.client.TunnelData\x12\x0f\n\x07task_id\x18\x03 \x01(\t\x12\x35\n\x08metadata\x18\x04 \x01(\x0b\x32#.modal.client.SandboxHandleMetadata\x12@\n\x15\x63ommand_router_access\x18\x05 \x01(\x0b\x32!.modal.client.CommandRouterAccess\"9\n\x15SandboxSetNameRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\"\x18\n\x16SandboxSetNameResponse\"E\n SandboxSnapshotFsAsyncGetRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"3\n\x1dSandboxSnapshotFsAsyncRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\"2\n\x1eSandboxSnapshotFsAsyncResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\"?\n\x18SandboxSnapshotFsRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"\x8f\x01\n\x19SandboxSnapshotFsResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12+\n\x06result\x18\x02 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x33\n\x0eimage_metadata\x18\x03 \x01(\x0b\x32\x1b.modal.client.ImageMetadata\"0\n\x19SandboxSnapshotGetRequest\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\"w\n\x1aSandboxSnapshotGetResponse\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\x12\x44\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32+.modal.client.SandboxSnapshotHandleMetadata\".\n\x1dSandboxSnapshotHandleMetadata\x12\r\n\x05is_v2\x18\x01 \x01(\x08\",\n\x16SandboxSnapshotRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\".\n\x17SandboxSnapshotResponse\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\"B\n\x1aSandboxSnapshotWaitRequest\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"J\n\x1bSandboxSnapshotWaitResponse\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\"Y\n\x18SandboxStdinWriteRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\r\n\x05input\x18\x02 \x01(\x0c\x12\r\n\x05index\x18\x03 \x01(\r\x12\x0b\n\x03\x65of\x18\x04 \x01(\x08\"\x1b\n\x19SandboxStdinWriteResponse\"1\n\nSandboxTag\x12\x10\n\x08tag_name\x18\x01 \x01(\t\x12\x11\n\ttag_value\x18\x02 \x01(\t\"+\n\x15SandboxTagsGetRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\"@\n\x16SandboxTagsGetResponse\x12&\n\x04tags\x18\x01 \x03(\x0b\x32\x18.modal.client.SandboxTag\"m\n\x15SandboxTagsSetRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x12\n\nsandbox_id\x18\x02 \x01(\t\x12&\n\x04tags\x18\x03 \x03(\x0b\x32\x18.modal.client.SandboxTag\"-\n\x17SandboxTerminateRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\"P\n\x18SandboxTerminateResponse\x12\x34\n\x0f\x65xisting_result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\"9\n\x12SandboxWaitRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"y\n\x13SandboxWaitResponse\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x35\n\x08metadata\x18\x02 \x01(\x0b\x32#.modal.client.SandboxHandleMetadata\"C\n\x1cSandboxWaitUntilReadyRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"1\n\x1dSandboxWaitUntilReadyResponse\x12\x10\n\x08ready_at\x18\x01 \x01(\x01\"\xa0\x02\n\x08Schedule\x12+\n\x04\x63ron\x18\x01 \x01(\x0b\x32\x1b.modal.client.Schedule.CronH\x00\x12/\n\x06period\x18\x02 \x01(\x0b\x32\x1d.modal.client.Schedule.PeriodH\x00\x1a-\n\x04\x43ron\x12\x13\n\x0b\x63ron_string\x18\x01 \x01(\t\x12\x10\n\x08timezone\x18\x02 \x01(\t\x1au\n\x06Period\x12\r\n\x05years\x18\x01 \x01(\x05\x12\x0e\n\x06months\x18\x02 \x01(\x05\x12\r\n\x05weeks\x18\x03 \x01(\x05\x12\x0c\n\x04\x64\x61ys\x18\x04 \x01(\x05\x12\r\n\x05hours\x18\x05 \x01(\x05\x12\x0f\n\x07minutes\x18\x06 \x01(\x05\x12\x0f\n\x07seconds\x18\x07 \x01(\x02\x42\x10\n\x0eschedule_oneof\"\xae\x01\n\x12SchedulerPlacement\x12\x0f\n\x07regions\x18\x04 \x03(\t\x12\x16\n\x05_zone\x18\x02 \x01(\tB\x02\x18\x01H\x00\x88\x01\x01\x12\x1b\n\n_lifecycle\x18\x03 \x01(\tB\x02\x18\x01H\x01\x88\x01\x01\x12\x1b\n\x0f_instance_types\x18\x05 \x03(\tB\x02\x18\x01\x12\x16\n\x0enonpreemptible\x18\x06 \x01(\x08\x42\x08\n\x06X_zoneB\r\n\x0bX_lifecycleJ\x04\x08\x01\x10\x02\"\xca\x01\n\x13SecretCreateRequest\x12@\n\x08\x65nv_dict\x18\x01 \x03(\x0b\x32..modal.client.SecretCreateRequest.EnvDictEntry\x12\x0e\n\x06\x61pp_id\x18\x02 \x01(\t\x12\x15\n\rtemplate_type\x18\x03 \x01(\t\x12\x1a\n\x12\x65xisting_secret_id\x18\x04 \x01(\t\x1a.\n\x0c\x45nvDictEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\")\n\x14SecretCreateResponse\x12\x11\n\tsecret_id\x18\x01 \x01(\t\"(\n\x13SecretDeleteRequest\x12\x11\n\tsecret_id\x18\x01 \x01(\t\"\xb1\x02\n\x18SecretGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationType\x12\x45\n\x08\x65nv_dict\x18\x05 \x03(\x0b\x32\x33.modal.client.SecretGetOrCreateRequest.EnvDictEntry\x12\x0e\n\x06\x61pp_id\x18\x06 \x01(\t\x12\x15\n\rrequired_keys\x18\x07 \x03(\t\x1a.\n\x0c\x45nvDictEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01J\x04\x08\x02\x10\x03\"^\n\x19SecretGetOrCreateResponse\x12\x11\n\tsecret_id\x18\x01 \x01(\t\x12.\n\x08metadata\x18\x02 \x01(\x0b\x32\x1c.modal.client.SecretMetadata\"\xa6\x01\n\x0eSecretListItem\x12\r\n\x05label\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x14\n\x0clast_used_at\x18\x03 \x01(\x01\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\x12\x11\n\tsecret_id\x18\x05 \x01(\t\x12.\n\x08metadata\x18\x06 \x01(\x0b\x32\x1c.modal.client.SecretMetadata\"_\n\x11SecretListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x30\n\npagination\x18\x02 \x01(\x0b\x32\x1c.modal.client.ListPagination\"[\n\x12SecretListResponse\x12+\n\x05items\x18\x01 \x03(\x0b\x32\x1c.modal.client.SecretListItem\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"Q\n\x0eSecretMetadata\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x31\n\rcreation_info\x18\x02 \x01(\x0b\x32\x1a.modal.client.CreationInfo\"\x98\x01\n\x13SecretUpdateRequest\x12\x11\n\tsecret_id\x18\x01 \x01(\t\x12\x39\n\x07updates\x18\x02 \x03(\x0b\x32(.modal.client.SecretUpdateRequest.Update\x1a\x33\n\x06Update\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x12\n\x05value\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_value\"\xa3\x01\n\x0bServiceUser\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08token_id\x18\x02 \x01(\t\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x12\x12\n\ncreated_at\x18\x04 \x01(\x01\x12\x14\n\x0clast_used_at\x18\x05 \x01(\x01\x12\x1d\n\x15\x63reated_by_avatar_url\x18\x06 \x01(\t\x12\x17\n\x0fservice_user_id\x18\x07 \x01(\t\"y\n\x13ServiceUserIdentity\x12\x17\n\x0fservice_user_id\x18\x01 \x01(\t\x12\x19\n\x11service_user_name\x18\x02 \x01(\t\x12.\n\ncreated_by\x18\x03 \x01(\x0b\x32\x1a.modal.client.UserIdentity\"K\n\x17ServiceUserListResponse\x12\x30\n\rservice_users\x18\x01 \x03(\x0b\x32\x19.modal.client.ServiceUser\"5\n\x19SharedVolumeDeleteRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\"D\n\x1aSharedVolumeGetFileRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\"S\n\x1bSharedVolumeGetFileResponse\x12\x0e\n\x04\x64\x61ta\x18\x01 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\x02 \x01(\tH\x00\x42\x0c\n\ndata_oneof\"\xa9\x01\n\x1eSharedVolumeGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationType\x12\x0e\n\x06\x61pp_id\x18\x05 \x01(\tJ\x04\x08\x02\x10\x03\";\n\x1fSharedVolumeGetOrCreateResponse\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\"8\n\x1cSharedVolumeHeartbeatRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\"F\n\x1cSharedVolumeListFilesRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\"I\n\x1dSharedVolumeListFilesResponse\x12(\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x17.modal.client.FileEntry\"\x88\x01\n\x14SharedVolumeListItem\x12\r\n\x05label\x18\x01 \x01(\t\x12\x18\n\x10shared_volume_id\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12\x33\n\x0e\x63loud_provider\x18\x04 \x01(\x0e\x32\x1b.modal.client.CloudProvider\"3\n\x17SharedVolumeListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\"g\n\x18SharedVolumeListResponse\x12\x31\n\x05items\x18\x01 \x03(\x0b\x32\".modal.client.SharedVolumeListItem\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"|\n\x11SharedVolumeMount\x12\x12\n\nmount_path\x18\x01 \x01(\t\x12\x18\n\x10shared_volume_id\x18\x02 \x01(\t\x12\x33\n\x0e\x63loud_provider\x18\x03 \x01(\x0e\x32\x1b.modal.client.CloudProviderJ\x04\x08\x04\x10\x05\"\xa1\x01\n\x1aSharedVolumePutFileRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\nsha256_hex\x18\x03 \x01(\t\x12\x0e\n\x04\x64\x61ta\x18\x04 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\x05 \x01(\tH\x00\x12\x11\n\tresumable\x18\x06 \x01(\x08\x42\x0c\n\ndata_oneof\"-\n\x1bSharedVolumePutFileResponse\x12\x0e\n\x06\x65xists\x18\x01 \x01(\x08\"Z\n\x1dSharedVolumeRemoveFileRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x11\n\trecursive\x18\x03 \x01(\x08\"u\n\tStringMap\x12\x37\n\x08\x63ontents\x18\x01 \x03(\x0b\x32%.modal.client.StringMap.ContentsEntry\x1a/\n\rContentsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"^\n\x12SystemErrorMessage\x12\x31\n\nerror_code\x18\x01 \x01(\x0e\x32\x1d.modal.client.SystemErrorCode\x12\x15\n\rerror_message\x18\x02 \x01(\t\"V\n\x17TaskClusterHelloRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontainer_ip\x18\x02 \x01(\t\x12\x14\n\x0cimex_host_ip\x18\x03 \x01(\t\"\xa2\x01\n\x18TaskClusterHelloResponse\x12\x12\n\ncluster_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63luster_rank\x18\x02 \x01(\r\x12\x15\n\rcontainer_ips\x18\x03 \x03(\t\x12\x1a\n\x12\x63ontainer_ipv4_ips\x18\x04 \x03(\t\x12\x15\n\rimex_peer_ips\x18\x05 \x03(\t\x12\x12\n\nfabric_ids\x18\x06 \x03(\t\".\n\x19TaskCurrentInputsResponse\x12\x11\n\tinput_ids\x18\x01 \x03(\t\"4\n!TaskGetCommandRouterAccessRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\">\n\"TaskGetCommandRouterAccessResponse\x12\x0b\n\x03jwt\x18\x01 \x01(\t\x12\x0b\n\x03url\x18\x02 \x01(\t\"%\n\x12TaskGetInfoRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\"K\n\x13TaskGetInfoResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12$\n\x04info\x18\x02 \x01(\x0b\x32\x16.modal.client.TaskInfo\"\x93\x02\n\x08TaskInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\nstarted_at\x18\x02 \x01(\x01\x12\x13\n\x0b\x66inished_at\x18\x03 \x01(\x01\x12+\n\x06result\x18\x04 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x13\n\x0b\x65nqueued_at\x18\x05 \x01(\x01\x12\x10\n\x08gpu_type\x18\x06 \x01(\t\x12\x12\n\nsandbox_id\x18\x07 \x01(\t\x12=\n\x11snapshot_behavior\x18\x08 \x01(\x0e\x32\".modal.client.TaskSnapshotBehavior\x12+\n\ngpu_config\x18\t \x01(\x0b\x32\x17.modal.client.GPUConfig\";\n\x0fTaskListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x0e\n\x06\x61pp_id\x18\x02 \x01(\t\":\n\x10TaskListResponse\x12&\n\x05tasks\x18\x01 \x03(\x0b\x32\x17.modal.client.TaskStats\"\xb6\x02\n\x08TaskLogs\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\t\x12+\n\ntask_state\x18\x06 \x01(\x0e\x32\x17.modal.client.TaskState\x12\x11\n\ttimestamp\x18\x07 \x01(\x01\x12\x35\n\x0f\x66ile_descriptor\x18\x08 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x31\n\rtask_progress\x18\t \x01(\x0b\x32\x1a.modal.client.TaskProgress\x12\x18\n\x10\x66unction_call_id\x18\n \x01(\t\x12\x10\n\x08input_id\x18\x0b \x01(\t\x12\x18\n\x0ctimestamp_ns\x18\x0c \x01(\x04\x42\x02\x30\x01\x12\x14\n\x0c\x63ontainer_id\x18\r \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x0e \x01(\t\"\xf2\x01\n\rTaskLogsBatch\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12%\n\x05items\x18\x02 \x03(\x0b\x32\x16.modal.client.TaskLogs\x12\x10\n\x08\x65ntry_id\x18\x05 \x01(\t\x12\x10\n\x08\x61pp_done\x18\n \x01(\x08\x12\x13\n\x0b\x66unction_id\x18\x0b \x01(\t\x12\x10\n\x08input_id\x18\x0c \x01(\t\x12\x10\n\x08image_id\x18\r \x01(\t\x12\x0b\n\x03\x65of\x18\x0e \x01(\x08\x12\x13\n\x0bpty_exec_id\x18\x0f \x01(\t\x12\x18\n\x10root_function_id\x18\x10 \x01(\t\x12\x10\n\x08ttl_days\x18\x11 \x01(\r\"p\n\x0cTaskProgress\x12\x0b\n\x03len\x18\x01 \x01(\x04\x12\x0b\n\x03pos\x18\x02 \x01(\x04\x12\x31\n\rprogress_type\x18\x03 \x01(\x0e\x32\x1a.modal.client.ProgressType\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\"@\n\x11TaskResultRequest\x12+\n\x06result\x18\x02 \x01(\x0b\x32\x1b.modal.client.GenericResult\"n\n\tTaskStats\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06\x61pp_id\x18\x02 \x01(\t\x12\x17\n\x0f\x61pp_description\x18\x03 \x01(\t\x12\x12\n\nstarted_at\x18\x04 \x01(\x01\x12\x13\n\x0b\x65nqueued_at\x18\x05 \x01(\x01\"\x98\x01\n\x0cTaskTemplate\x12\x0c\n\x04rank\x18\x01 \x01(\r\x12*\n\tresources\x18\x02 \x01(\x0b\x32\x17.modal.client.Resources\x12 \n\x18target_concurrent_inputs\x18\x03 \x01(\r\x12\x1d\n\x15max_concurrent_inputs\x18\x04 \x01(\r\x12\r\n\x05index\x18\x05 \x01(\r\"\x15\n\x13TemplateListRequest\"\x97\x01\n\x14TemplateListResponse\x12\x42\n\x05items\x18\x01 \x03(\x0b\x32\x33.modal.client.TemplateListResponse.TemplateListItem\x1a;\n\x10TemplateListItem\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04repo\x18\x02 \x01(\t\x12\x0b\n\x03ref\x18\x03 \x01(\t\"=\n\x13TokenCreateResponse\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x14\n\x0ctoken_secret\x18\x02 \x01(\t\"&\n\x12TokenDeleteRequest\x12\x10\n\x08token_id\x18\x02 \x01(\t\"V\n\x16TokenFlowCreateRequest\x12\x12\n\nutm_source\x18\x03 \x01(\t\x12\x16\n\x0elocalhost_port\x18\x04 \x01(\x05\x12\x10\n\x08next_url\x18\x05 \x01(\t\"d\n\x17TokenFlowCreateResponse\x12\x15\n\rtoken_flow_id\x18\x01 \x01(\t\x12\x0f\n\x07web_url\x18\x02 \x01(\t\x12\x0c\n\x04\x63ode\x18\x03 \x01(\t\x12\x13\n\x0bwait_secret\x18\x04 \x01(\t\"S\n\x14TokenFlowWaitRequest\x12\x0f\n\x07timeout\x18\x01 \x01(\x02\x12\x15\n\rtoken_flow_id\x18\x02 \x01(\t\x12\x13\n\x0bwait_secret\x18\x03 \x01(\t\"l\n\x15TokenFlowWaitResponse\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x14\n\x0ctoken_secret\x18\x02 \x01(\t\x12\x0f\n\x07timeout\x18\x03 \x01(\x08\x12\x1a\n\x12workspace_username\x18\x04 \x01(\t\"\x15\n\x13TokenInfoGetRequest\"\xcf\x02\n\x14TokenInfoGetResponse\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x14\n\x0cworkspace_id\x18\x02 \x01(\t\x12\x16\n\x0eworkspace_name\x18\x03 \x01(\t\x12\x33\n\ruser_identity\x18\x04 \x01(\x0b\x32\x1a.modal.client.UserIdentityH\x00\x12\x42\n\x15service_user_identity\x18\x05 \x01(\x0b\x32!.modal.client.ServiceUserIdentityH\x00\x12.\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nexpires_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ntoken_name\x18\x08 \x01(\tB\n\n\x08identity\"\xa8\x01\n\nTunnelData\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\r\x12\x1d\n\x10unencrypted_host\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x1d\n\x10unencrypted_port\x18\x04 \x01(\rH\x01\x88\x01\x01\x12\x16\n\x0e\x63ontainer_port\x18\x05 \x01(\rB\x13\n\x11_unencrypted_hostB\x13\n\x11_unencrypted_port\"{\n\x12TunnelStartRequest\x12\x0c\n\x04port\x18\x01 \x01(\r\x12\x13\n\x0bunencrypted\x18\x02 \x01(\x08\x12\x32\n\x0btunnel_type\x18\x03 \x01(\x0e\x32\x18.modal.client.TunnelTypeH\x00\x88\x01\x01\x42\x0e\n\x0c_tunnel_type\"\x99\x01\n\x13TunnelStartResponse\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\r\x12\x1d\n\x10unencrypted_host\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x1d\n\x10unencrypted_port\x18\x04 \x01(\rH\x01\x88\x01\x01\x42\x13\n\x11_unencrypted_hostB\x13\n\x11_unencrypted_port\"!\n\x11TunnelStopRequest\x12\x0c\n\x04port\x18\x01 \x01(\r\"$\n\x12TunnelStopResponse\x12\x0e\n\x06\x65xists\x18\x01 \x01(\x08\"\x1e\n\rUploadUrlList\x12\r\n\x05items\x18\x01 \x03(\t\"c\n\x0eUserActionInfo\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x17\n\x0fservice_user_id\x18\x04 \x01(\t\x12\x11\n\ttimestamp\x18\x02 \x01(\x01\x12\x14\n\x0crequested_by\x18\x03 \x01(\t\"|\n\x1eUserGroupEnvironmentSetRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12\x15\n\ruser_group_id\x18\x02 \x01(\t\x12+\n\x04role\x18\x03 \x01(\x0e\x32\x1d.modal.client.EnvironmentRole\"1\n\x0cUserIdentity\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x10\n\x08username\x18\x02 \x01(\t\"T\n\x13VolumeCommitRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x19\n\x0c\x63ontainer_id\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x0f\n\r_container_id\"+\n\x14VolumeCommitResponse\x12\x13\n\x0bskip_reload\x18\x01 \x01(\x08\"d\n\x17VolumeCopyFiles2Request\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x11\n\tsrc_paths\x18\x02 \x03(\t\x12\x10\n\x08\x64st_path\x18\x03 \x01(\t\x12\x11\n\trecursive\x18\x04 \x01(\x08\"c\n\x16VolumeCopyFilesRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x11\n\tsrc_paths\x18\x02 \x03(\t\x12\x10\n\x08\x64st_path\x18\x03 \x01(\t\x12\x11\n\trecursive\x18\x04 \x01(\x08\"\xab\x01\n\x13VolumeCreateOptions\x12X\n\x14\x65xperimental_options\x18\x01 \x03(\x0b\x32:.modal.client.VolumeCreateOptions.ExperimentalOptionsEntry\x1a:\n\x18\x45xperimentalOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"F\n\x13VolumeDeleteRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x1c\n\x10\x65nvironment_name\x18\x02 \x01(\tB\x02\x18\x01\")\n\x14VolumeGetByIdRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\"Z\n\x15VolumeGetByIdResponse\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12.\n\x08metadata\x18\x02 \x01(\x0b\x32\x1c.modal.client.VolumeMetadata\"T\n\x15VolumeGetFile2Request\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\r\n\x05start\x18\x03 \x01(\x04\x12\x0b\n\x03len\x18\x04 \x01(\x04\"T\n\x16VolumeGetFile2Response\x12\x10\n\x08get_urls\x18\x01 \x03(\t\x12\x0c\n\x04size\x18\x02 \x01(\x04\x12\r\n\x05start\x18\x03 \x01(\x04\x12\x0b\n\x03len\x18\x04 \x01(\x04\"S\n\x14VolumeGetFileRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\r\n\x05start\x18\x03 \x01(\x04\x12\x0b\n\x03len\x18\x04 \x01(\x04\"w\n\x15VolumeGetFileResponse\x12\x0e\n\x04\x64\x61ta\x18\x01 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\x02 \x01(\tH\x00\x12\x0c\n\x04size\x18\x03 \x01(\x04\x12\r\n\x05start\x18\x04 \x01(\x04\x12\x0b\n\x03len\x18\x05 \x01(\x04\x42\x0c\n\ndata_oneof\"\xa6\x02\n\x18VolumeGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationType\x12\x0e\n\x06\x61pp_id\x18\x05 \x01(\t\x12.\n\x07version\x18\x06 \x01(\x0e\x32\x1d.modal.client.VolumeFsVersion\x12>\n\x0e\x63reate_options\x18\x07 \x01(\x0b\x32!.modal.client.VolumeCreateOptionsH\x00\x88\x01\x01\x42\x11\n\x0f_create_optionsJ\x04\x08\x02\x10\x03\"\x8e\x01\n\x19VolumeGetOrCreateResponse\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12.\n\x07version\x18\x02 \x01(\x0e\x32\x1d.modal.client.VolumeFsVersion\x12.\n\x08metadata\x18\x03 \x01(\x0b\x32\x1c.modal.client.VolumeMetadata\"+\n\x16VolumeHeartbeatRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\"w\n\x17VolumeListFiles2Request\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x11\n\trecursive\x18\x04 \x01(\x08\x12\x18\n\x0bmax_entries\x18\x03 \x01(\rH\x00\x88\x01\x01\x42\x0e\n\x0c_max_entries\"D\n\x18VolumeListFiles2Response\x12(\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x17.modal.client.FileEntry\"v\n\x16VolumeListFilesRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x11\n\trecursive\x18\x04 \x01(\x08\x12\x18\n\x0bmax_entries\x18\x03 \x01(\rH\x00\x88\x01\x01\x42\x0e\n\x0c_max_entries\"C\n\x17VolumeListFilesResponse\x12(\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x17.modal.client.FileEntry\"v\n\x0eVolumeListItem\x12\r\n\x05label\x18\x01 \x01(\t\x12\x11\n\tvolume_id\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12.\n\x08metadata\x18\x04 \x01(\x0b\x32\x1c.modal.client.VolumeMetadata\"_\n\x11VolumeListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x30\n\npagination\x18\x02 \x01(\x0b\x32\x1c.modal.client.ListPagination\"[\n\x12VolumeListResponse\x12+\n\x05items\x18\x01 \x03(\x0b\x32\x1c.modal.client.VolumeListItem\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"\x81\x01\n\x0eVolumeMetadata\x12.\n\x07version\x18\x01 \x01(\x0e\x32\x1d.modal.client.VolumeFsVersion\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x31\n\rcreation_info\x18\x03 \x01(\x0b\x32\x1a.modal.client.CreationInfo\"\x8d\x01\n\x0bVolumeMount\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x12\n\nmount_path\x18\x02 \x01(\t\x12 \n\x18\x61llow_background_commits\x18\x03 \x01(\x08\x12\x11\n\tread_only\x18\x04 \x01(\x08\x12\x15\n\x08sub_path\x18\x05 \x01(\tH\x00\x88\x01\x01\x42\x0b\n\t_sub_path\"\xda\x02\n\x16VolumePutFiles2Request\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x38\n\x05\x66iles\x18\x02 \x03(\x0b\x32).modal.client.VolumePutFiles2Request.File\x12)\n!disallow_overwrite_existing_files\x18\x03 \x01(\x08\x1az\n\x04\x46ile\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0c\n\x04size\x18\x02 \x01(\x04\x12:\n\x06\x62locks\x18\x03 \x03(\x0b\x32*.modal.client.VolumePutFiles2Request.Block\x12\x11\n\x04mode\x18\x04 \x01(\rH\x00\x88\x01\x01\x42\x07\n\x05_mode\x1aL\n\x05\x42lock\x12\x17\n\x0f\x63ontents_sha256\x18\x01 \x01(\x0c\x12\x19\n\x0cput_response\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x42\x0f\n\r_put_response\"\xaf\x01\n\x17VolumePutFiles2Response\x12J\n\x0emissing_blocks\x18\x01 \x03(\x0b\x32\x32.modal.client.VolumePutFiles2Response.MissingBlock\x1aH\n\x0cMissingBlock\x12\x12\n\nfile_index\x18\x01 \x01(\x04\x12\x13\n\x0b\x62lock_index\x18\x02 \x01(\x04\x12\x0f\n\x07put_url\x18\x03 \x01(\t\"}\n\x15VolumePutFilesRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12&\n\x05\x66iles\x18\x02 \x03(\x0b\x32\x17.modal.client.MountFile\x12)\n!disallow_overwrite_existing_files\x18\x03 \x01(\x08\"(\n\x13VolumeReloadRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\"N\n\x18VolumeRemoveFile2Request\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x11\n\trecursive\x18\x03 \x01(\x08\"M\n\x17VolumeRemoveFileRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x11\n\trecursive\x18\x03 \x01(\x08\"6\n\x13VolumeRenameRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\"\xe8\x01\n\x07Warning\x12/\n\x04type\x18\x01 \x01(\x0e\x32!.modal.client.Warning.WarningType\x12\x0f\n\x07message\x18\x02 \x01(\t\"\x9a\x01\n\x0bWarningType\x12\x1c\n\x18WARNING_TYPE_UNSPECIFIED\x10\x00\x12#\n\x1fWARNING_TYPE_CLIENT_DEPRECATION\x10\x01\x12\x1f\n\x1bWARNING_TYPE_RESOURCE_LIMIT\x10\x02\x12\'\n#WARNING_TYPE_FUNCTION_CONFIGURATION\x10\x03\"R\n\nWebUrlInfo\x12\x11\n\ttruncated\x18\x01 \x01(\x08\x12\x1b\n\x0fhas_unique_hash\x18\x02 \x01(\x08\x42\x02\x18\x01\x12\x14\n\x0clabel_stolen\x18\x03 \x01(\x08\"\xdf\x02\n\rWebhookConfig\x12\'\n\x04type\x18\x01 \x01(\x0e\x32\x19.modal.client.WebhookType\x12\x0e\n\x06method\x18\x02 \x01(\t\x12\x18\n\x10requested_suffix\x18\x04 \x01(\t\x12\x32\n\nasync_mode\x18\x05 \x01(\x0e\x32\x1e.modal.client.WebhookAsyncMode\x12\x38\n\x0e\x63ustom_domains\x18\x06 \x03(\x0b\x32 .modal.client.CustomDomainConfig\x12\x17\n\x0fweb_server_port\x18\x07 \x01(\r\x12\"\n\x1aweb_server_startup_timeout\x18\x08 \x01(\x02\x12\x19\n\x11web_endpoint_docs\x18\t \x01(\x08\x12\x1b\n\x13requires_proxy_auth\x18\n \x01(\x08\x12\x18\n\x10\x65phemeral_suffix\x18\x0b \x01(\t\"D\n\x0cWebhookToken\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x0e\n\x06scoped\x18\x03 \x01(\x08\"+\n\x19WebhookTokenCreateRequest\x12\x0e\n\x06scoped\x18\x01 \x01(\x08\"M\n!WebhookTokenEnvironmentAddRequest\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x16\n\x0e\x65nvironment_id\x18\x02 \x01(\t\"6\n\"WebhookTokenEnvironmentListRequest\x12\x10\n\x08token_id\x18\x01 \x01(\t\">\n#WebhookTokenEnvironmentListResponse\x12\x17\n\x0f\x65nvironment_ids\x18\x01 \x03(\t\"P\n$WebhookTokenEnvironmentRemoveRequest\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x16\n\x0e\x65nvironment_id\x18\x02 \x01(\t\"A\n%WebhookTokenListForEnvironmentRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\"F\n\x18WebhookTokenListResponse\x12*\n\x06tokens\x18\x01 \x03(\x0b\x32\x1a.modal.client.WebhookToken\"\x1e\n\x1cWorkspaceBillingRatesRequest\"\xe1\x03\n\x1dWorkspaceBillingRatesResponse\x12\x45\n\x05rates\x18\x01 \x03(\x0b\x32\x36.modal.client.WorkspaceBillingRatesResponse.RatesEntry\x12\x62\n\x14\x64\x65precation_warnings\x18\x02 \x03(\x0b\x32\x44.modal.client.WorkspaceBillingRatesResponse.DeprecationWarningsEntry\x12^\n\x12\x64\x65precation_errors\x18\x03 \x03(\x0b\x32\x42.modal.client.WorkspaceBillingRatesResponse.DeprecationErrorsEntry\x12\x11\n\tformatted\x18\x04 \x01(\t\x1a,\n\nRatesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a:\n\x18\x44\x65precationWarningsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x38\n\x16\x44\x65precationErrorsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x98\x03\n\x1aWorkspaceBillingReportItem\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12,\n\x08interval\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0c\n\x04\x63ost\x18\x05 \x01(\t\x12@\n\x04tags\x18\x06 \x03(\x0b\x32\x32.modal.client.WorkspaceBillingReportItem.TagsEntry\x12V\n\x10\x63ost_by_resource\x18\x08 \x03(\x0b\x32<.modal.client.WorkspaceBillingReportItem.CostByResourceEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x35\n\x13\x43ostByResourceEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xd8\x01\n\x1dWorkspaceBillingReportRequest\x12\x33\n\x0fstart_timestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rend_timestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\nresolution\x18\x03 \x01(\t\x12\x11\n\ttag_names\x18\x04 \x03(\t\x12\x17\n\x0f\x65nvironment_ids\x18\x05 \x03(\t\x12\x0f\n\x07\x61pp_ids\x18\x06 \x03(\t\"U\n\x1eWorkspaceBillingSummaryRequest\x12\x33\n\x0fstart_timestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xe3\x03\n\x1fWorkspaceBillingSummaryResponse\x12\x33\n\x0fstart_timestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rend_timestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x14\n\x0cmetered_cost\x18\x03 \x01(\t\x12\x13\n\x0b\x62illed_cost\x18\x04 \x01(\t\x12g\n\x16metered_cost_breakdown\x18\x05 \x03(\x0b\x32G.modal.client.WorkspaceBillingSummaryResponse.MeteredCostBreakdownEntry\x12S\n\x0b\x61\x64justments\x18\x06 \x03(\x0b\x32>.modal.client.WorkspaceBillingSummaryResponse.AdjustmentsEntry\x1a;\n\x19MeteredCostBreakdownEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x32\n\x10\x41\x64justmentsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"8\n\x1cWorkspaceDashboardUrlRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\",\n\x1dWorkspaceDashboardUrlResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\"\xce\x02\n\x18WorkspaceMembersListItem\x12\x11\n\tmember_id\x18\x01 \x01(\t\x12\x1a\n\x12member_displayname\x18\x02 \x01(\t\x12-\n\x0bmember_role\x18\x03 \x01(\x0e\x32\x18.modal.client.MemberRole\x12\x11\n\tjoined_at\x18\x04 \x01(\x01\x12\x16\n\x0elast_active_at\x18\x05 \x01(\x01\x12\x12\n\ndeleted_at\x18\x07 \x01(\x01\x12\x0f\n\x07user_id\x18\x08 \x01(\t\x12\x42\n\x16identity_provider_type\x18\t \x01(\x0e\x32\".modal.client.IdentityProviderType\x12\r\n\x05\x65mail\x18\n \x01(\t\x12\x12\n\navatar_url\x18\x0b \x01(\t\x12\x17\n\x0fidp_external_id\x18\x0c \x01(\tJ\x04\x08\x06\x10\x07\"W\n\x1cWorkspaceMembersListResponse\x12\x37\n\x07members\x18\x01 \x03(\x0b\x32&.modal.client.WorkspaceMembersListItem\"K\n\x1bWorkspaceNameLookupResponse\x12\x1a\n\x0eworkspace_name\x18\x01 \x01(\tB\x02\x18\x01\x12\x10\n\x08username\x18\x02 \x01(\t\"A\n%WorkspaceSetDefaultEnvironmentRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\"K\n&WorkspaceSetImageBuilderVersionRequest\x12!\n\x19new_image_builder_version\x18\x01 \x01(\t\"H\n\'WorkspaceSetImageBuilderVersionResponse\x12\x1d\n\x15image_builder_version\x18\x01 \x01(\t\"\\\n\x19WorkspaceSettingsResponse\x12 \n\x18\x64\x65\x66\x61ult_environment_name\x18\x01 \x01(\t\x12\x1d\n\x15image_builder_version\x18\x02 \x01(\t*\x83\x01\n\x13\x41ppDeployVisibility\x12%\n!APP_DEPLOY_VISIBILITY_UNSPECIFIED\x10\x00\x12#\n\x1f\x41PP_DEPLOY_VISIBILITY_WORKSPACE\x10\x01\x12 \n\x1c\x41PP_DEPLOY_VISIBILITY_PUBLIC\x10\x02*\xa1\x02\n\x13\x41ppDisconnectReason\x12%\n!APP_DISCONNECT_REASON_UNSPECIFIED\x10\x00\x12)\n%APP_DISCONNECT_REASON_LOCAL_EXCEPTION\x10\x01\x12,\n(APP_DISCONNECT_REASON_KEYBOARD_INTERRUPT\x10\x02\x12.\n*APP_DISCONNECT_REASON_ENTRYPOINT_COMPLETED\x10\x03\x12.\n*APP_DISCONNECT_REASON_DEPLOYMENT_EXCEPTION\x10\x04\x12*\n&APP_DISCONNECT_REASON_REMOTE_EXCEPTION\x10\x05*\x91\x02\n\x08\x41ppState\x12\x19\n\x15\x41PP_STATE_UNSPECIFIED\x10\x00\x12\x17\n\x13\x41PP_STATE_EPHEMERAL\x10\x01\x12\x16\n\x12\x41PP_STATE_DETACHED\x10\x02\x12\x16\n\x12\x41PP_STATE_DEPLOYED\x10\x03\x12\x16\n\x12\x41PP_STATE_STOPPING\x10\x04\x12\x15\n\x11\x41PP_STATE_STOPPED\x10\x05\x12\x1a\n\x16\x41PP_STATE_INITIALIZING\x10\x06\x12\x16\n\x12\x41PP_STATE_DISABLED\x10\x07\x12#\n\x1f\x41PP_STATE_DETACHED_DISCONNECTED\x10\x08\x12\x19\n\x11\x41PP_STATE_DERIVED\x10\t\x1a\x02\x08\x01*\x85\x01\n\rAppStopSource\x12\x1f\n\x1b\x41PP_STOP_SOURCE_UNSPECIFIED\x10\x00\x12\x17\n\x13\x41PP_STOP_SOURCE_CLI\x10\x01\x12!\n\x1d\x41PP_STOP_SOURCE_PYTHON_CLIENT\x10\x02\x12\x17\n\x13\x41PP_STOP_SOURCE_WEB\x10\x03*\x91\x01\n\x11\x43\x65rtificateStatus\x12\x1e\n\x1a\x43\x45RTIFICATE_STATUS_PENDING\x10\x00\x12\x1d\n\x19\x43\x45RTIFICATE_STATUS_ISSUED\x10\x01\x12\x1d\n\x19\x43\x45RTIFICATE_STATUS_FAILED\x10\x02\x12\x1e\n\x1a\x43\x45RTIFICATE_STATUS_REVOKED\x10\x03*\xb1\x01\n\x10\x43heckpointStatus\x12!\n\x1d\x43HECKPOINT_STATUS_UNSPECIFIED\x10\x00\x12\x1d\n\x19\x43HECKPOINT_STATUS_PENDING\x10\x01\x12 \n\x1c\x43HECKPOINT_STATUS_PROCESSING\x10\x02\x12\x1b\n\x17\x43HECKPOINT_STATUS_READY\x10\x03\x12\x1c\n\x18\x43HECKPOINT_STATUS_FAILED\x10\x04*\x85\x02\n\nClientType\x12\x1b\n\x17\x43LIENT_TYPE_UNSPECIFIED\x10\x00\x12\x16\n\x12\x43LIENT_TYPE_CLIENT\x10\x01\x12\x16\n\x12\x43LIENT_TYPE_WORKER\x10\x02\x12\x19\n\x15\x43LIENT_TYPE_CONTAINER\x10\x03\x12\x1a\n\x16\x43LIENT_TYPE_WEB_SERVER\x10\x05\x12\x1f\n\x1b\x43LIENT_TYPE_NOTEBOOK_KERNEL\x10\x06\x12\x18\n\x14\x43LIENT_TYPE_LIBMODAL\x10\x07\x12\x1b\n\x17\x43LIENT_TYPE_LIBMODAL_JS\x10\x08\x12\x1b\n\x17\x43LIENT_TYPE_LIBMODAL_GO\x10\t*\xa8\x01\n\rCloudProvider\x12\x1e\n\x1a\x43LOUD_PROVIDER_UNSPECIFIED\x10\x00\x12\x16\n\x12\x43LOUD_PROVIDER_AWS\x10\x01\x12\x16\n\x12\x43LOUD_PROVIDER_GCP\x10\x02\x12\x17\n\x13\x43LOUD_PROVIDER_AUTO\x10\x03\x12\x16\n\x12\x43LOUD_PROVIDER_OCI\x10\x04\"\x04\x08\x05\x10\x05\"\x04\x08\x06\x10\x06\"\x04\x08\x07\x10\x07\"\x04\x08\x08\x10\x08*Z\n\rDNSRecordType\x12\x15\n\x11\x44NS_RECORD_TYPE_A\x10\x00\x12\x17\n\x13\x44NS_RECORD_TYPE_TXT\x10\x01\x12\x19\n\x15\x44NS_RECORD_TYPE_CNAME\x10\x02*\x8d\x01\n\nDataFormat\x12\x1b\n\x17\x44\x41TA_FORMAT_UNSPECIFIED\x10\x00\x12\x16\n\x12\x44\x41TA_FORMAT_PICKLE\x10\x01\x12\x14\n\x10\x44\x41TA_FORMAT_ASGI\x10\x02\x12\x1e\n\x1a\x44\x41TA_FORMAT_GENERATOR_DONE\x10\x03\x12\x14\n\x10\x44\x41TA_FORMAT_CBOR\x10\x04*\x80\x01\n\x13\x44\x65ploymentNamespace\x12$\n DEPLOYMENT_NAMESPACE_UNSPECIFIED\x10\x00\x12\"\n\x1e\x44\x45PLOYMENT_NAMESPACE_WORKSPACE\x10\x01\x12\x1f\n\x1b\x44\x45PLOYMENT_NAMESPACE_GLOBAL\x10\x03*\xc6\x01\n\x0e\x44\x65ploymentType\x12\x1f\n\x1b\x44\x45PLOYMENT_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n\x18\x44\x45PLOYMENT_TYPE_STANDARD\x10\x01\x12\x1c\n\x18\x44\x45PLOYMENT_TYPE_ROLLBACK\x10\x02\x12\x1c\n\x18\x44\x45PLOYMENT_TYPE_ROLLOVER\x10\x03\x12\x1d\n\x19\x44\x45PLOYMENT_TYPE_PROMOTION\x10\x04\x12\x1a\n\x16\x44\x45PLOYMENT_TYPE_STAGED\x10\x05*\xc4\x01\n\x12\x45ndpointApiSurface\x12$\n ENDPOINT_API_SURFACE_UNSPECIFIED\x10\x00\x12\x30\n,ENDPOINT_API_SURFACE_OPENAI_CHAT_COMPLETIONS\x10\x01\x12)\n%ENDPOINT_API_SURFACE_OPENAI_RESPONSES\x10\x02\x12+\n\'ENDPOINT_API_SURFACE_ANTHROPIC_MESSAGES\x10\x03*\xa8\x01\n\x15\x45ndpointInputModality\x12\'\n#ENDPOINT_INPUT_MODALITY_UNSPECIFIED\x10\x00\x12 \n\x1c\x45NDPOINT_INPUT_MODALITY_TEXT\x10\x01\x12!\n\x1d\x45NDPOINT_INPUT_MODALITY_IMAGE\x10\x02\x12!\n\x1d\x45NDPOINT_INPUT_MODALITY_AUDIO\x10\x03*\x91\x01\n\x17\x45ndpointLifecycleStatus\x12)\n%ENDPOINT_LIFECYCLE_STATUS_UNSPECIFIED\x10\x00\x12$\n ENDPOINT_LIFECYCLE_STATUS_ACTIVE\x10\x01\x12%\n!ENDPOINT_LIFECYCLE_STATUS_STOPPED\x10\x02*\xcc\x02\n\x1a\x45ndpointProvisioningStatus\x12,\n(ENDPOINT_PROVISIONING_STATUS_UNSPECIFIED\x10\x00\x12(\n$ENDPOINT_PROVISIONING_STATUS_PENDING\x10\x01\x12(\n$ENDPOINT_PROVISIONING_STATUS_RUNNING\x10\x02\x12*\n&ENDPOINT_PROVISIONING_STATUS_SUCCEEDED\x10\x03\x12\'\n#ENDPOINT_PROVISIONING_STATUS_FAILED\x10\x04\x12+\n\'ENDPOINT_PROVISIONING_STATUS_CANCELLING\x10\x05\x12*\n&ENDPOINT_PROVISIONING_STATUS_CANCELLED\x10\x06*\x83\x01\n\x13\x45ndpointServingMode\x12%\n!ENDPOINT_SERVING_MODE_UNSPECIFIED\x10\x00\x12#\n\x1f\x45NDPOINT_SERVING_MODE_DEDICATED\x10\x01\x12 \n\x1c\x45NDPOINT_SERVING_MODE_SHARED\x10\x02*v\n\x12\x45ndpointStopSource\x12$\n ENDPOINT_STOP_SOURCE_UNSPECIFIED\x10\x00\x12\x1c\n\x18\x45NDPOINT_STOP_SOURCE_CLI\x10\x01\x12\x1c\n\x18\x45NDPOINT_STOP_SOURCE_WEB\x10\x02*{\n\x10\x45ndpointTaskType\x12\"\n\x1e\x45NDPOINT_TASK_TYPE_UNSPECIFIED\x10\x00\x12!\n\x1d\x45NDPOINT_TASK_TYPE_GENERATION\x10\x01\x12 \n\x1c\x45NDPOINT_TASK_TYPE_EMBEDDING\x10\x02*\x92\x01\n\x0f\x45nvironmentRole\x12 \n\x1c\x45NVIRONMENT_ROLE_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x45NVIRONMENT_ROLE_VIEWER\x10\x01\x12 \n\x1c\x45NVIRONMENT_ROLE_CONTRIBUTOR\x10\x02\x12\x1e\n\x1a\x45NVIRONMENT_ROLE_NO_ACCESS\x10\x03*P\n\x0f\x45nvironmentType\x12 \n\x1c\x45NVIRONMENT_TYPE_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x45NVIRONMENT_TYPE_PUBLIC\x10\x01*\x92\x01\n\x10\x45xecOutputOption\x12\"\n\x1e\x45XEC_OUTPUT_OPTION_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x45XEC_OUTPUT_OPTION_DEVNULL\x10\x01\x12\x1b\n\x17\x45XEC_OUTPUT_OPTION_PIPE\x10\x02\x12\x1d\n\x19\x45XEC_OUTPUT_OPTION_STDOUT\x10\x03*\x83\x01\n\x0e\x46ileDescriptor\x12\x1f\n\x1b\x46ILE_DESCRIPTOR_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x46ILE_DESCRIPTOR_STDOUT\x10\x01\x12\x1a\n\x16\x46ILE_DESCRIPTOR_STDERR\x10\x02\x12\x18\n\x14\x46ILE_DESCRIPTOR_INFO\x10\x03*\xfb\x01\n\x1a\x46unctionCallInvocationType\x12-\n)FUNCTION_CALL_INVOCATION_TYPE_UNSPECIFIED\x10\x00\x12-\n)FUNCTION_CALL_INVOCATION_TYPE_SYNC_LEGACY\x10\x01\x12.\n*FUNCTION_CALL_INVOCATION_TYPE_ASYNC_LEGACY\x10\x02\x12\'\n#FUNCTION_CALL_INVOCATION_TYPE_ASYNC\x10\x03\x12&\n\"FUNCTION_CALL_INVOCATION_TYPE_SYNC\x10\x04*p\n\x10\x46unctionCallType\x12\"\n\x1e\x46UNCTION_CALL_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n\x18\x46UNCTION_CALL_TYPE_UNARY\x10\x01\x12\x1a\n\x16\x46UNCTION_CALL_TYPE_MAP\x10\x02*\xce\x01\n\x07GPUType\x12\x18\n\x14GPU_TYPE_UNSPECIFIED\x10\x00\x12\x0f\n\x0bGPU_TYPE_T4\x10\x01\x12\x11\n\rGPU_TYPE_A100\x10\x02\x12\x11\n\rGPU_TYPE_A10G\x10\x03\x12\x10\n\x0cGPU_TYPE_ANY\x10\x04\x12\x16\n\x12GPU_TYPE_A100_80GB\x10\x08\x12\x0f\n\x0bGPU_TYPE_L4\x10\t\x12\x11\n\rGPU_TYPE_H100\x10\n\x12\x11\n\rGPU_TYPE_L40S\x10\x0b\x12\x11\n\rGPU_TYPE_H200\x10\x0c*\xab\x01\n\x14IdentityProviderType\x12&\n\"IDENTITY_PROVIDER_TYPE_UNSPECIFIED\x10\x00\x12!\n\x1dIDENTITY_PROVIDER_TYPE_GITHUB\x10\x01\x12\x1f\n\x1bIDENTITY_PROVIDER_TYPE_OKTA\x10\x02\x12\'\n#IDENTITY_PROVIDER_TYPE_GOOGLE_OAUTH\x10\x03*o\n\nMemberRole\x12\x1b\n\x17MEMBER_ROLE_UNSPECIFIED\x10\x00\x12\x14\n\x10MEMBER_ROLE_USER\x10\x01\x12\x17\n\x13MEMBER_ROLE_MANAGER\x10\x02\x12\x15\n\x11MEMBER_ROLE_OWNER\x10\x03*\xa0\x02\n\x12ObjectCreationType\x12$\n OBJECT_CREATION_TYPE_UNSPECIFIED\x10\x00\x12*\n&OBJECT_CREATION_TYPE_CREATE_IF_MISSING\x10\x01\x12.\n*OBJECT_CREATION_TYPE_CREATE_FAIL_IF_EXISTS\x10\x02\x12\x33\n/OBJECT_CREATION_TYPE_CREATE_OVERWRITE_IF_EXISTS\x10\x03\x12/\n+OBJECT_CREATION_TYPE_ANONYMOUS_OWNED_BY_APP\x10\x04\x12\"\n\x1eOBJECT_CREATION_TYPE_EPHEMERAL\x10\x05*\xef\x01\n\rParameterType\x12\x1a\n\x16PARAM_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11PARAM_TYPE_STRING\x10\x01\x12\x12\n\x0ePARAM_TYPE_INT\x10\x02\x12\x15\n\x11PARAM_TYPE_PICKLE\x10\x03\x12\x14\n\x10PARAM_TYPE_BYTES\x10\x04\x12\x16\n\x12PARAM_TYPE_UNKNOWN\x10\x05\x12\x13\n\x0fPARAM_TYPE_LIST\x10\x06\x12\x13\n\x0fPARAM_TYPE_DICT\x10\x07\x12\x13\n\x0fPARAM_TYPE_NONE\x10\x08\x12\x13\n\x0fPARAM_TYPE_BOOL\x10\t*>\n\x0cProgressType\x12\x19\n\x15IMAGE_SNAPSHOT_UPLOAD\x10\x00\x12\x13\n\x0f\x46UNCTION_QUEUED\x10\x01*\xa9\x01\n\rProxyIpStatus\x12\x1f\n\x1bPROXY_IP_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n\x18PROXY_IP_STATUS_CREATING\x10\x01\x12\x1a\n\x16PROXY_IP_STATUS_ONLINE\x10\x02\x12\x1e\n\x1aPROXY_IP_STATUS_TERMINATED\x10\x03\x12\x1d\n\x19PROXY_IP_STATUS_UNHEALTHY\x10\x04*T\n\tProxyType\x12\x1a\n\x16PROXY_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11PROXY_TYPE_LEGACY\x10\x01\x12\x14\n\x10PROXY_TYPE_VPROX\x10\x02*x\n\x11RateLimitInterval\x12#\n\x1fRATE_LIMIT_INTERVAL_UNSPECIFIED\x10\x00\x12\x1e\n\x1aRATE_LIMIT_INTERVAL_SECOND\x10\x01\x12\x1e\n\x1aRATE_LIMIT_INTERVAL_MINUTE\x10\x02*\xb2\x01\n\x10RegistryAuthType\x12\"\n\x1eREGISTRY_AUTH_TYPE_UNSPECIFIED\x10\x00\x12\x1a\n\x16REGISTRY_AUTH_TYPE_AWS\x10\x01\x12\x1a\n\x16REGISTRY_AUTH_TYPE_GCP\x10\x02\x12\x1d\n\x19REGISTRY_AUTH_TYPE_PUBLIC\x10\x03\x12#\n\x1fREGISTRY_AUTH_TYPE_STATIC_CREDS\x10\x04*6\n\nSeekWhence\x12\x0c\n\x08SEEK_SET\x10\x00\x12\x0c\n\x08SEEK_CUR\x10\x01\x12\x0c\n\x08SEEK_END\x10\x02*\xa8\x03\n\x0fSystemErrorCode\x12!\n\x1dSYSTEM_ERROR_CODE_UNSPECIFIED\x10\x00\x12\x1a\n\x16SYSTEM_ERROR_CODE_PERM\x10\x01\x12\x1b\n\x17SYSTEM_ERROR_CODE_NOENT\x10\x02\x12\x18\n\x14SYSTEM_ERROR_CODE_IO\x10\x05\x12\x1a\n\x16SYSTEM_ERROR_CODE_NXIO\x10\x06\x12\x1b\n\x17SYSTEM_ERROR_CODE_NOMEM\x10\x0c\x12\x1b\n\x17SYSTEM_ERROR_CODE_ACCES\x10\r\x12\x1b\n\x17SYSTEM_ERROR_CODE_EXIST\x10\x11\x12\x1c\n\x18SYSTEM_ERROR_CODE_NOTDIR\x10\x14\x12\x1b\n\x17SYSTEM_ERROR_CODE_ISDIR\x10\x15\x12\x1b\n\x17SYSTEM_ERROR_CODE_INVAL\x10\x16\x12\x1b\n\x17SYSTEM_ERROR_CODE_MFILE\x10\x18\x12\x1a\n\x16SYSTEM_ERROR_CODE_FBIG\x10\x1b\x12\x1b\n\x17SYSTEM_ERROR_CODE_NOSPC\x10\x1c*\xa8\x01\n\x14TaskSnapshotBehavior\x12&\n\"TASK_SNAPSHOT_BEHAVIOR_UNSPECIFIED\x10\x00\x12#\n\x1fTASK_SNAPSHOT_BEHAVIOR_SNAPSHOT\x10\x01\x12\"\n\x1eTASK_SNAPSHOT_BEHAVIOR_RESTORE\x10\x02\x12\x1f\n\x1bTASK_SNAPSHOT_BEHAVIOR_NONE\x10\x03*\xdc\x02\n\tTaskState\x12\x1a\n\x16TASK_STATE_UNSPECIFIED\x10\x00\x12\x16\n\x12TASK_STATE_CREATED\x10\x06\x12\x15\n\x11TASK_STATE_QUEUED\x10\x01\x12\x1e\n\x1aTASK_STATE_WORKER_ASSIGNED\x10\x02\x12\x1c\n\x18TASK_STATE_LOADING_IMAGE\x10\x03\x12\x15\n\x11TASK_STATE_ACTIVE\x10\x04\x12\x18\n\x14TASK_STATE_COMPLETED\x10\x05\x12!\n\x1dTASK_STATE_CREATING_CONTAINER\x10\x07\x12\x13\n\x0fTASK_STATE_IDLE\x10\x08\x12\x1a\n\x16TASK_STATE_PREEMPTIBLE\x10\t\x12\x18\n\x14TASK_STATE_PREEMPTED\x10\n\x12\'\n#TASK_STATE_LOADING_CHECKPOINT_IMAGE\x10\x0b*=\n\nTunnelType\x12\x1b\n\x17TUNNEL_TYPE_UNSPECIFIED\x10\x00\x12\x12\n\x0eTUNNEL_TYPE_H2\x10\x01*h\n\x0fVolumeFsVersion\x12!\n\x1dVOLUME_FS_VERSION_UNSPECIFIED\x10\x00\x12\x18\n\x14VOLUME_FS_VERSION_V1\x10\x01\x12\x18\n\x14VOLUME_FS_VERSION_V2\x10\x02*\x9a\x01\n\x10WebhookAsyncMode\x12\"\n\x1eWEBHOOK_ASYNC_MODE_UNSPECIFIED\x10\x00\x12\x1f\n\x1bWEBHOOK_ASYNC_MODE_DISABLED\x10\x02\x12\x1e\n\x1aWEBHOOK_ASYNC_MODE_TRIGGER\x10\x03\x12\x1b\n\x17WEBHOOK_ASYNC_MODE_AUTO\x10\x04\"\x04\x08\x01\x10\x01*\x99\x01\n\x0bWebhookType\x12\x1c\n\x18WEBHOOK_TYPE_UNSPECIFIED\x10\x00\x12\x19\n\x15WEBHOOK_TYPE_ASGI_APP\x10\x01\x12\x19\n\x15WEBHOOK_TYPE_FUNCTION\x10\x02\x12\x19\n\x15WEBHOOK_TYPE_WSGI_APP\x10\x03\x12\x1b\n\x17WEBHOOK_TYPE_WEB_SERVER\x10\x04\x32\xcc\xb1\x01\n\x0bModalClient\x12W\n\x13\x41ppClientDisconnect\x12(.modal.client.AppClientDisconnectRequest\x1a\x16.google.protobuf.Empty\x12U\n\x0c\x41ppCountLogs\x12!.modal.client.AppCountLogsRequest\x1a\".modal.client.AppCountLogsResponse\x12L\n\tAppCreate\x12\x1e.modal.client.AppCreateRequest\x1a\x1f.modal.client.AppCreateResponse\x12L\n\tAppDeploy\x12\x1e.modal.client.AppDeployRequest\x1a\x1f.modal.client.AppDeployResponse\x12m\n\x14\x41ppDeploymentHistory\x12).modal.client.AppDeploymentHistoryRequest\x1a*.modal.client.AppDeploymentHistoryResponse\x12U\n\x0c\x41ppFetchLogs\x12!.modal.client.AppFetchLogsRequest\x1a\".modal.client.AppFetchLogsResponse\x12s\n\x16\x41ppGetByDeploymentName\x12+.modal.client.AppGetByDeploymentNameRequest\x1a,.modal.client.AppGetByDeploymentNameResponse\x12U\n\x0c\x41ppGetLayout\x12!.modal.client.AppGetLayoutRequest\x1a\".modal.client.AppGetLayoutResponse\x12^\n\x0f\x41ppGetLifecycle\x12$.modal.client.AppGetLifecycleRequest\x1a%.modal.client.AppGetLifecycleResponse\x12L\n\nAppGetLogs\x12\x1f.modal.client.AppGetLogsRequest\x1a\x1b.modal.client.TaskLogsBatch0\x01\x12X\n\rAppGetObjects\x12\".modal.client.AppGetObjectsRequest\x1a#.modal.client.AppGetObjectsResponse\x12[\n\x0e\x41ppGetOrCreate\x12#.modal.client.AppGetOrCreateRequest\x1a$.modal.client.AppGetOrCreateResponse\x12O\n\nAppGetTags\x12\x1f.modal.client.AppGetTagsRequest\x1a .modal.client.AppGetTagsResponse\x12I\n\x0c\x41ppHeartbeat\x12!.modal.client.AppHeartbeatRequest\x1a\x16.google.protobuf.Empty\x12\x46\n\x07\x41ppList\x12\x1c.modal.client.AppListRequest\x1a\x1d.modal.client.AppListResponse\x12L\n\tAppLookup\x12\x1e.modal.client.AppLookupRequest\x1a\x1f.modal.client.AppLookupResponse\x12O\n\nAppPromote\x12\x1f.modal.client.AppPromoteRequest\x1a .modal.client.AppPromoteResponse\x12O\n\nAppPublish\x12\x1f.modal.client.AppPublishRequest\x1a .modal.client.AppPublishResponse\x12R\n\x0b\x41ppRollback\x12 .modal.client.AppRollbackRequest\x1a!.modal.client.AppRollbackResponse\x12R\n\x0b\x41ppRollover\x12 .modal.client.AppRolloverRequest\x1a!.modal.client.AppRolloverResponse\x12K\n\rAppSetObjects\x12\".modal.client.AppSetObjectsRequest\x1a\x16.google.protobuf.Empty\x12\x45\n\nAppSetTags\x12\x1f.modal.client.AppSetTagsRequest\x1a\x16.google.protobuf.Empty\x12?\n\x07\x41ppStop\x12\x1c.modal.client.AppStopRequest\x1a\x16.google.protobuf.Empty\x12U\n\x0c\x41ttemptAwait\x12!.modal.client.AttemptAwaitRequest\x1a\".modal.client.AttemptAwaitResponse\x12U\n\x0c\x41ttemptRetry\x12!.modal.client.AttemptRetryRequest\x1a\".modal.client.AttemptRetryResponse\x12U\n\x0c\x41ttemptStart\x12!.modal.client.AttemptStartRequest\x1a\".modal.client.AttemptStartResponse\x12U\n\x0c\x41uthTokenGet\x12!.modal.client.AuthTokenGetRequest\x1a\".modal.client.AuthTokenGetResponse\x12O\n\nBlobCreate\x12\x1f.modal.client.BlobCreateRequest\x1a .modal.client.BlobCreateResponse\x12\x46\n\x07\x42lobGet\x12\x1c.modal.client.BlobGetRequest\x1a\x1d.modal.client.BlobGetResponse\x12R\n\x0b\x43lassCreate\x12 .modal.client.ClassCreateRequest\x1a!.modal.client.ClassCreateResponse\x12I\n\x08\x43lassGet\x12\x1d.modal.client.ClassGetRequest\x1a\x1e.modal.client.ClassGetResponse\x12H\n\x0b\x43lientHello\x12\x16.google.protobuf.Empty\x1a!.modal.client.ClientHelloResponse\x12O\n\nClusterGet\x12\x1f.modal.client.ClusterGetRequest\x1a .modal.client.ClusterGetResponse\x12R\n\x0b\x43lusterList\x12 .modal.client.ClusterListRequest\x1a!.modal.client.ClusterListResponse\x12W\n\x13\x43ontainerCheckpoint\x12(.modal.client.ContainerCheckpointRequest\x1a\x16.google.protobuf.Empty\x12X\n\rContainerExec\x12\".modal.client.ContainerExecRequest\x1a#.modal.client.ContainerExecResponse\x12i\n\x16\x43ontainerExecGetOutput\x12+.modal.client.ContainerExecGetOutputRequest\x1a .modal.client.RuntimeOutputBatch0\x01\x12[\n\x15\x43ontainerExecPutInput\x12*.modal.client.ContainerExecPutInputRequest\x1a\x16.google.protobuf.Empty\x12\x64\n\x11\x43ontainerExecWait\x12&.modal.client.ContainerExecWaitRequest\x1a\'.modal.client.ContainerExecWaitResponse\x12v\n\x17\x43ontainerFilesystemExec\x12,.modal.client.ContainerFilesystemExecRequest\x1a-.modal.client.ContainerFilesystemExecResponse\x12\x87\x01\n ContainerFilesystemExecGetOutput\x12\x35.modal.client.ContainerFilesystemExecGetOutputRequest\x1a*.modal.client.FilesystemRuntimeOutputBatch0\x01\x12g\n\x12\x43ontainerHeartbeat\x12\'.modal.client.ContainerHeartbeatRequest\x1a(.modal.client.ContainerHeartbeatResponse\x12@\n\x0e\x43ontainerHello\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12I\n\x0c\x43ontainerLog\x12!.modal.client.ContainerLogRequest\x1a\x16.google.protobuf.Empty\x12s\n\x16\x43ontainerReloadVolumes\x12+.modal.client.ContainerReloadVolumesRequest\x1a,.modal.client.ContainerReloadVolumesResponse\x12k\n\x1d\x43ontainerServerLifecycleReady\x12\x32.modal.client.ContainerServerLifecycleReadyRequest\x1a\x16.google.protobuf.Empty\x12X\n\rContainerStop\x12\".modal.client.ContainerStopRequest\x1a#.modal.client.ContainerStopResponse\x12[\n\x10\x43urlGetAuthToken\x12\".modal.client.CurlAuthTokenRequest\x1a#.modal.client.CurlAuthTokenResponse\x12\x43\n\tDictClear\x12\x1e.modal.client.DictClearRequest\x1a\x16.google.protobuf.Empty\x12U\n\x0c\x44ictContains\x12!.modal.client.DictContainsRequest\x1a\".modal.client.DictContainsResponse\x12L\n\x0c\x44ictContents\x12!.modal.client.DictContentsRequest\x1a\x17.modal.client.DictEntry0\x01\x12\x45\n\nDictDelete\x12\x1f.modal.client.DictDeleteRequest\x1a\x16.google.protobuf.Empty\x12\x46\n\x07\x44ictGet\x12\x1c.modal.client.DictGetRequest\x1a\x1d.modal.client.DictGetResponse\x12R\n\x0b\x44ictGetById\x12 .modal.client.DictGetByIdRequest\x1a!.modal.client.DictGetByIdResponse\x12^\n\x0f\x44ictGetOrCreate\x12$.modal.client.DictGetOrCreateRequest\x1a%.modal.client.DictGetOrCreateResponse\x12K\n\rDictHeartbeat\x12\".modal.client.DictHeartbeatRequest\x1a\x16.google.protobuf.Empty\x12\x46\n\x07\x44ictLen\x12\x1c.modal.client.DictLenRequest\x1a\x1d.modal.client.DictLenResponse\x12I\n\x08\x44ictList\x12\x1d.modal.client.DictListRequest\x1a\x1e.modal.client.DictListResponse\x12\x46\n\x07\x44ictPop\x12\x1c.modal.client.DictPopRequest\x1a\x1d.modal.client.DictPopResponse\x12O\n\nDictUpdate\x12\x1f.modal.client.DictUpdateRequest\x1a .modal.client.DictUpdateResponse\x12v\n\x17\x44omainCertificateVerify\x12,.modal.client.DomainCertificateVerifyRequest\x1a-.modal.client.DomainCertificateVerifyResponse\x12U\n\x0c\x44omainCreate\x12!.modal.client.DomainCreateRequest\x1a\".modal.client.DomainCreateResponse\x12O\n\nDomainList\x12\x1f.modal.client.DomainListRequest\x1a .modal.client.DomainListResponse\x12[\n\x0e\x45ndpointCreate\x12#.modal.client.EndpointCreateRequest\x1a$.modal.client.EndpointCreateResponse\x12\x64\n\x11\x45ndpointGetByName\x12&.modal.client.EndpointGetByNameRequest\x1a\'.modal.client.EndpointGetByNameResponse\x12m\n\x14\x45ndpointGetLifecycle\x12).modal.client.EndpointGetLifecycleRequest\x1a*.modal.client.EndpointGetLifecycleResponse\x12U\n\x0c\x45ndpointList\x12!.modal.client.EndpointListRequest\x1a\".modal.client.EndpointListResponse\x12U\n\x0c\x45ndpointStop\x12!.modal.client.EndpointStopRequest\x1a\".modal.client.EndpointStopResponse\x12|\n\x19\x45nvironmentBillingSummary\x12..modal.client.EnvironmentBillingSummaryRequest\x1a/.modal.client.EnvironmentBillingSummaryResponse\x12S\n\x11\x45nvironmentCreate\x12&.modal.client.EnvironmentCreateRequest\x1a\x16.google.protobuf.Empty\x12S\n\x11\x45nvironmentDelete\x12&.modal.client.EnvironmentDeleteRequest\x1a\x16.google.protobuf.Empty\x12m\n\x14\x45nvironmentGetBudget\x12).modal.client.EnvironmentGetBudgetRequest\x1a*.modal.client.EnvironmentGetBudgetResponse\x12p\n\x15\x45nvironmentGetManaged\x12*.modal.client.EnvironmentGetManagedRequest\x1a+.modal.client.EnvironmentGetManagedResponse\x12s\n\x16\x45nvironmentGetOrCreate\x12+.modal.client.EnvironmentGetOrCreateRequest\x1a,.modal.client.EnvironmentGetOrCreateResponse\x12j\n\x13\x45nvironmentGetRoles\x12(.modal.client.EnvironmentGetRolesRequest\x1a).modal.client.EnvironmentGetRolesResponse\x12P\n\x0f\x45nvironmentList\x12\x16.google.protobuf.Empty\x1a%.modal.client.EnvironmentListResponse\x12U\n\x12\x45nvironmentRoleSet\x12\'.modal.client.EnvironmentRoleSetRequest\x1a\x16.google.protobuf.Empty\x12Y\n\x14\x45nvironmentSetBudget\x12).modal.client.EnvironmentSetBudgetRequest\x1a\x16.google.protobuf.Empty\x12o\n\x1f\x45nvironmentSetDefaultMemberRole\x12\x34.modal.client.EnvironmentSetDefaultMemberRoleRequest\x1a\x16.google.protobuf.Empty\x12[\n\x15\x45nvironmentSetManaged\x12*.modal.client.EnvironmentSetManagedRequest\x1a\x16.google.protobuf.Empty\x12^\n\x11\x45nvironmentUpdate\x12&.modal.client.EnvironmentUpdateRequest\x1a!.modal.client.EnvironmentListItem\x12\x61\n\x18\x46lashContainerDeregister\x12-.modal.client.FlashContainerDeregisterRequest\x1a\x16.google.protobuf.Empty\x12g\n\x12\x46lashContainerList\x12\'.modal.client.FlashContainerListRequest\x1a(.modal.client.FlashContainerListResponse\x12s\n\x16\x46lashContainerRegister\x12+.modal.client.FlashContainerRegisterRequest\x1a,.modal.client.FlashContainerRegisterResponse\x12\x7f\n\x1a\x46lashSetTargetSlotsMetrics\x12/.modal.client.FlashSetTargetSlotsMetricsRequest\x1a\x30.modal.client.FlashSetTargetSlotsMetricsResponse\x12j\n\x13\x46unctionAsyncInvoke\x12(.modal.client.FunctionAsyncInvokeRequest\x1a).modal.client.FunctionAsyncInvokeResponse\x12g\n\x12\x46unctionBindParams\x12\'.modal.client.FunctionBindParamsRequest\x1a(.modal.client.FunctionBindParamsResponse\x12U\n\x12\x46unctionCallCancel\x12\'.modal.client.FunctionCallCancelRequest\x1a\x16.google.protobuf.Empty\x12g\n\x12\x46unctionCallFromId\x12\'.modal.client.FunctionCallFromIdRequest\x1a(.modal.client.FunctionCallFromIdResponse\x12\\\n\x15\x46unctionCallGetDataIn\x12(.modal.client.FunctionCallGetDataRequest\x1a\x17.modal.client.DataChunk0\x01\x12]\n\x16\x46unctionCallGetDataOut\x12(.modal.client.FunctionCallGetDataRequest\x1a\x17.modal.client.DataChunk0\x01\x12j\n\x13\x46unctionCallGetInfo\x12(.modal.client.FunctionCallGetInfoRequest\x1a).modal.client.FunctionCallGetInfoResponse\x12\x61\n\x10\x46unctionCallList\x12%.modal.client.FunctionCallListRequest\x1a&.modal.client.FunctionCallListResponse\x12Z\n\x16\x46unctionCallPutDataOut\x12(.modal.client.FunctionCallPutDataRequest\x1a\x16.google.protobuf.Empty\x12[\n\x0e\x46unctionCreate\x12#.modal.client.FunctionCreateRequest\x1a$.modal.client.FunctionCreateResponse\x12Y\n\x14\x46unctionFinishInputs\x12).modal.client.FunctionFinishInputsRequest\x1a\x16.google.protobuf.Empty\x12R\n\x0b\x46unctionGet\x12 .modal.client.FunctionGetRequest\x1a!.modal.client.FunctionGetResponse\x12m\n\x14\x46unctionGetCallGraph\x12).modal.client.FunctionGetCallGraphRequest\x1a*.modal.client.FunctionGetCallGraphResponse\x12\x64\n\x17\x46unctionGetCurrentStats\x12,.modal.client.FunctionGetCurrentStatsRequest\x1a\x1b.modal.client.FunctionStats\x12\x88\x01\n\x1d\x46unctionGetDynamicConcurrency\x12\x32.modal.client.FunctionGetDynamicConcurrencyRequest\x1a\x33.modal.client.FunctionGetDynamicConcurrencyResponse\x12\x64\n\x11\x46unctionGetInputs\x12&.modal.client.FunctionGetInputsRequest\x1a\'.modal.client.FunctionGetInputsResponse\x12g\n\x12\x46unctionGetOutputs\x12\'.modal.client.FunctionGetOutputsRequest\x1a(.modal.client.FunctionGetOutputsResponse\x12p\n\x15\x46unctionGetSerialized\x12*.modal.client.FunctionGetSerializedRequest\x1a+.modal.client.FunctionGetSerializedResponse\x12|\n\x19\x46unctionGetTimeRangeStats\x12..modal.client.FunctionGetTimeRangeStatsRequest\x1a/.modal.client.FunctionGetTimeRangeStatsResponse\x12R\n\x0b\x46unctionMap\x12 .modal.client.FunctionMapRequest\x1a!.modal.client.FunctionMapResponse\x12\x64\n\x11\x46unctionPrecreate\x12&.modal.client.FunctionPrecreateRequest\x1a\'.modal.client.FunctionPrecreateResponse\x12\x64\n\x11\x46unctionPutInputs\x12&.modal.client.FunctionPutInputsRequest\x1a\'.modal.client.FunctionPutInputsResponse\x12U\n\x12\x46unctionPutOutputs\x12\'.modal.client.FunctionPutOutputsRequest\x1a\x16.google.protobuf.Empty\x12j\n\x13\x46unctionRetryInputs\x12(.modal.client.FunctionRetryInputsRequest\x1a).modal.client.FunctionRetryInputsResponse\x12G\n\x15\x46unctionStartPtyShell\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12\x8b\x01\n\x1e\x46unctionUpdateSchedulingParams\x12\x33.modal.client.FunctionUpdateSchedulingParamsRequest\x1a\x34.modal.client.FunctionUpdateSchedulingParamsResponse\x12g\n\x12ImageBuildChainGet\x12\'.modal.client.ImageBuildChainGetRequest\x1a(.modal.client.ImageBuildChainGetResponse\x12G\n\x0bImageDelete\x12 .modal.client.ImageDeleteRequest\x1a\x16.google.protobuf.Empty\x12R\n\x0bImageFromId\x12 .modal.client.ImageFromIdRequest\x1a!.modal.client.ImageFromIdResponse\x12X\n\rImageGetByTag\x12\".modal.client.ImageGetByTagRequest\x1a#.modal.client.ImageGetByTagResponse\x12\x61\n\x10ImageGetOrCreate\x12%.modal.client.ImageGetOrCreateRequest\x1a&.modal.client.ImageGetOrCreateResponse\x12i\n\x12ImageJoinStreaming\x12\'.modal.client.ImageJoinStreamingRequest\x1a(.modal.client.ImageJoinStreamingResponse0\x01\x12X\n\rImageListTags\x12\".modal.client.ImageListTagsRequest\x1a#.modal.client.ImageListTagsResponse\x12U\n\x0cImagePublish\x12!.modal.client.ImagePublishRequest\x1a\".modal.client.ImagePublishResponse\x12\x64\n\x11ImageTagRevisions\x12&.modal.client.ImageTagRevisionsRequest\x1a\'.modal.client.ImageTagRevisionsResponse\x12I\n\x08MapAwait\x12\x1d.modal.client.MapAwaitRequest\x1a\x1e.modal.client.MapAwaitResponse\x12[\n\x0eMapCheckInputs\x12#.modal.client.MapCheckInputsRequest\x1a$.modal.client.MapCheckInputsResponse\x12g\n\x12MapStartOrContinue\x12\'.modal.client.MapStartOrContinueRequest\x1a(.modal.client.MapStartOrContinueResponse\x12\x7f\n\x1aMountBatchedCheckExistence\x12/.modal.client.MountBatchedCheckExistenceRequest\x1a\x30.modal.client.MountBatchedCheckExistenceResponse\x12\x61\n\x10MountGetOrCreate\x12%.modal.client.MountGetOrCreateRequest\x1a&.modal.client.MountGetOrCreateResponse\x12U\n\x0cMountPutFile\x12!.modal.client.MountPutFileRequest\x1a\".modal.client.MountPutFileResponse\x12i\n\x1cNotebookKernelPublishResults\x12\x31.modal.client.NotebookKernelPublishResultsRequest\x1a\x16.google.protobuf.Empty\x12O\n\nProxyAddIp\x12\x1f.modal.client.ProxyAddIpRequest\x1a .modal.client.ProxyAddIpResponse\x12R\n\x0bProxyCreate\x12 .modal.client.ProxyCreateRequest\x1a!.modal.client.ProxyCreateResponse\x12G\n\x0bProxyDelete\x12 .modal.client.ProxyDeleteRequest\x1a\x16.google.protobuf.Empty\x12I\n\x08ProxyGet\x12\x1d.modal.client.ProxyGetRequest\x1a\x1e.modal.client.ProxyGetResponse\x12\x61\n\x10ProxyGetOrCreate\x12%.modal.client.ProxyGetOrCreateRequest\x1a&.modal.client.ProxyGetOrCreateResponse\x12\x44\n\tProxyList\x12\x16.google.protobuf.Empty\x1a\x1f.modal.client.ProxyListResponse\x12K\n\rProxyRemoveIp\x12\".modal.client.ProxyRemoveIpRequest\x1a\x16.google.protobuf.Empty\x12\x45\n\nQueueClear\x12\x1f.modal.client.QueueClearRequest\x1a\x16.google.protobuf.Empty\x12G\n\x0bQueueDelete\x12 .modal.client.QueueDeleteRequest\x1a\x16.google.protobuf.Empty\x12I\n\x08QueueGet\x12\x1d.modal.client.QueueGetRequest\x1a\x1e.modal.client.QueueGetResponse\x12U\n\x0cQueueGetById\x12!.modal.client.QueueGetByIdRequest\x1a\".modal.client.QueueGetByIdResponse\x12\x61\n\x10QueueGetOrCreate\x12%.modal.client.QueueGetOrCreateRequest\x1a&.modal.client.QueueGetOrCreateResponse\x12M\n\x0eQueueHeartbeat\x12#.modal.client.QueueHeartbeatRequest\x1a\x16.google.protobuf.Empty\x12I\n\x08QueueLen\x12\x1d.modal.client.QueueLenRequest\x1a\x1e.modal.client.QueueLenResponse\x12L\n\tQueueList\x12\x1e.modal.client.QueueListRequest\x1a\x1f.modal.client.QueueListResponse\x12[\n\x0eQueueNextItems\x12#.modal.client.QueueNextItemsRequest\x1a$.modal.client.QueueNextItemsResponse\x12\x41\n\x08QueuePut\x12\x1d.modal.client.QueuePutRequest\x1a\x16.google.protobuf.Empty\x12X\n\rSandboxCreate\x12\".modal.client.SandboxCreateRequest\x1a#.modal.client.SandboxCreateResponse\x12|\n\x19SandboxCreateConnectToken\x12..modal.client.SandboxCreateConnectTokenRequest\x1a/.modal.client.SandboxCreateConnectTokenResponse\x12~\n\x1bSandboxCreateConnectTokenV2\x12..modal.client.SandboxCreateConnectTokenRequest\x1a/.modal.client.SandboxCreateConnectTokenResponse\x12^\n\x0fSandboxCreateV2\x12$.modal.client.SandboxCreateV2Request\x1a%.modal.client.SandboxCreateV2Response\x12\x88\x01\n\x1dSandboxGetCommandRouterAccess\x12\x32.modal.client.SandboxGetCommandRouterAccessRequest\x1a\x33.modal.client.SandboxGetCommandRouterAccessResponse\x12s\n\x16SandboxGetExitSnapshot\x12+.modal.client.SandboxGetExitSnapshotRequest\x1a,.modal.client.SandboxGetExitSnapshotResponse\x12u\n\x18SandboxGetExitSnapshotV2\x12+.modal.client.SandboxGetExitSnapshotRequest\x1a,.modal.client.SandboxGetExitSnapshotResponse\x12g\n\x12SandboxGetFromName\x12\'.modal.client.SandboxGetFromNameRequest\x1a(.modal.client.SandboxGetFromNameResponse\x12i\n\x14SandboxGetFromNameV2\x12\'.modal.client.SandboxGetFromNameRequest\x1a(.modal.client.SandboxGetFromNameResponse\x12T\n\x0eSandboxGetLogs\x12#.modal.client.SandboxGetLogsRequest\x1a\x1b.modal.client.TaskLogsBatch0\x01\x12v\n\x17SandboxGetResourceUsage\x12,.modal.client.SandboxGetResourceUsageRequest\x1a-.modal.client.SandboxGetResourceUsageResponse\x12\x61\n\x10SandboxGetTaskId\x12%.modal.client.SandboxGetTaskIdRequest\x1a&.modal.client.SandboxGetTaskIdResponse\x12\x63\n\x12SandboxGetTaskIdV2\x12%.modal.client.SandboxGetTaskIdRequest\x1a&.modal.client.SandboxGetTaskIdResponse\x12\x64\n\x11SandboxGetTunnels\x12&.modal.client.SandboxGetTunnelsRequest\x1a\'.modal.client.SandboxGetTunnelsResponse\x12\x66\n\x13SandboxGetTunnelsV2\x12&.modal.client.SandboxGetTunnelsRequest\x1a\'.modal.client.SandboxGetTunnelsResponse\x12R\n\x0bSandboxList\x12 .modal.client.SandboxListRequest\x1a!.modal.client.SandboxListResponse\x12T\n\rSandboxListV2\x12 .modal.client.SandboxListRequest\x1a!.modal.client.SandboxListResponse\x12[\n\x0eSandboxRestore\x12#.modal.client.SandboxRestoreRequest\x1a$.modal.client.SandboxRestoreResponse\x12\x61\n\x10SandboxRestoreV2\x12%.modal.client.SandboxRestoreV2Request\x1a&.modal.client.SandboxRestoreV2Response\x12[\n\x0eSandboxSetName\x12#.modal.client.SandboxSetNameRequest\x1a$.modal.client.SandboxSetNameResponse\x12^\n\x0fSandboxSnapshot\x12$.modal.client.SandboxSnapshotRequest\x1a%.modal.client.SandboxSnapshotResponse\x12\x64\n\x11SandboxSnapshotFs\x12&.modal.client.SandboxSnapshotFsRequest\x1a\'.modal.client.SandboxSnapshotFsResponse\x12s\n\x16SandboxSnapshotFsAsync\x12+.modal.client.SandboxSnapshotFsAsyncRequest\x1a,.modal.client.SandboxSnapshotFsAsyncResponse\x12t\n\x19SandboxSnapshotFsAsyncGet\x12..modal.client.SandboxSnapshotFsAsyncGetRequest\x1a\'.modal.client.SandboxSnapshotFsResponse\x12g\n\x12SandboxSnapshotGet\x12\'.modal.client.SandboxSnapshotGetRequest\x1a(.modal.client.SandboxSnapshotGetResponse\x12j\n\x13SandboxSnapshotWait\x12(.modal.client.SandboxSnapshotWaitRequest\x1a).modal.client.SandboxSnapshotWaitResponse\x12\x64\n\x11SandboxStdinWrite\x12&.modal.client.SandboxStdinWriteRequest\x1a\'.modal.client.SandboxStdinWriteResponse\x12[\n\x0eSandboxTagsGet\x12#.modal.client.SandboxTagsGetRequest\x1a$.modal.client.SandboxTagsGetResponse\x12]\n\x10SandboxTagsGetV2\x12#.modal.client.SandboxTagsGetRequest\x1a$.modal.client.SandboxTagsGetResponse\x12M\n\x0eSandboxTagsSet\x12#.modal.client.SandboxTagsSetRequest\x1a\x16.google.protobuf.Empty\x12O\n\x10SandboxTagsSetV2\x12#.modal.client.SandboxTagsSetRequest\x1a\x16.google.protobuf.Empty\x12\x61\n\x10SandboxTerminate\x12%.modal.client.SandboxTerminateRequest\x1a&.modal.client.SandboxTerminateResponse\x12\x63\n\x12SandboxTerminateV2\x12%.modal.client.SandboxTerminateRequest\x1a&.modal.client.SandboxTerminateResponse\x12R\n\x0bSandboxWait\x12 .modal.client.SandboxWaitRequest\x1a!.modal.client.SandboxWaitResponse\x12p\n\x15SandboxWaitUntilReady\x12*.modal.client.SandboxWaitUntilReadyRequest\x1a+.modal.client.SandboxWaitUntilReadyResponse\x12T\n\rSandboxWaitV2\x12 .modal.client.SandboxWaitRequest\x1a!.modal.client.SandboxWaitResponse\x12I\n\x0cSecretDelete\x12!.modal.client.SecretDeleteRequest\x1a\x16.google.protobuf.Empty\x12\x64\n\x11SecretGetOrCreate\x12&.modal.client.SecretGetOrCreateRequest\x1a\'.modal.client.SecretGetOrCreateResponse\x12O\n\nSecretList\x12\x1f.modal.client.SecretListRequest\x1a .modal.client.SecretListResponse\x12I\n\x0cSecretUpdate\x12!.modal.client.SecretUpdateRequest\x1a\x16.google.protobuf.Empty\x12P\n\x0fServiceUserList\x12\x16.google.protobuf.Empty\x1a%.modal.client.ServiceUserListResponse\x12U\n\x12SharedVolumeDelete\x12\'.modal.client.SharedVolumeDeleteRequest\x1a\x16.google.protobuf.Empty\x12j\n\x13SharedVolumeGetFile\x12(.modal.client.SharedVolumeGetFileRequest\x1a).modal.client.SharedVolumeGetFileResponse\x12v\n\x17SharedVolumeGetOrCreate\x12,.modal.client.SharedVolumeGetOrCreateRequest\x1a-.modal.client.SharedVolumeGetOrCreateResponse\x12[\n\x15SharedVolumeHeartbeat\x12*.modal.client.SharedVolumeHeartbeatRequest\x1a\x16.google.protobuf.Empty\x12\x61\n\x10SharedVolumeList\x12%.modal.client.SharedVolumeListRequest\x1a&.modal.client.SharedVolumeListResponse\x12p\n\x15SharedVolumeListFiles\x12*.modal.client.SharedVolumeListFilesRequest\x1a+.modal.client.SharedVolumeListFilesResponse\x12x\n\x1bSharedVolumeListFilesStream\x12*.modal.client.SharedVolumeListFilesRequest\x1a+.modal.client.SharedVolumeListFilesResponse0\x01\x12j\n\x13SharedVolumePutFile\x12(.modal.client.SharedVolumePutFileRequest\x1a).modal.client.SharedVolumePutFileResponse\x12]\n\x16SharedVolumeRemoveFile\x12+.modal.client.SharedVolumeRemoveFileRequest\x1a\x16.google.protobuf.Empty\x12\x61\n\x10TaskClusterHello\x12%.modal.client.TaskClusterHelloRequest\x1a&.modal.client.TaskClusterHelloResponse\x12T\n\x11TaskCurrentInputs\x12\x16.google.protobuf.Empty\x1a\'.modal.client.TaskCurrentInputsResponse\x12\x7f\n\x1aTaskGetCommandRouterAccess\x12/.modal.client.TaskGetCommandRouterAccessRequest\x1a\x30.modal.client.TaskGetCommandRouterAccessResponse\x12R\n\x0bTaskGetInfo\x12 .modal.client.TaskGetInfoRequest\x1a!.modal.client.TaskGetInfoResponse\x12I\n\x08TaskList\x12\x1d.modal.client.TaskListRequest\x1a\x1e.modal.client.TaskListResponse\x12\x45\n\nTaskResult\x12\x1f.modal.client.TaskResultRequest\x1a\x16.google.protobuf.Empty\x12U\n\x0cTemplateList\x12!.modal.client.TemplateListRequest\x1a\".modal.client.TemplateListResponse\x12^\n\x0fTokenFlowCreate\x12$.modal.client.TokenFlowCreateRequest\x1a%.modal.client.TokenFlowCreateResponse\x12X\n\rTokenFlowWait\x12\".modal.client.TokenFlowWaitRequest\x1a#.modal.client.TokenFlowWaitResponse\x12U\n\x0cTokenInfoGet\x12!.modal.client.TokenInfoGetRequest\x1a\".modal.client.TokenInfoGetResponse\x12R\n\x0bTunnelStart\x12 .modal.client.TunnelStartRequest\x1a!.modal.client.TunnelStartResponse\x12O\n\nTunnelStop\x12\x1f.modal.client.TunnelStopRequest\x1a .modal.client.TunnelStopResponse\x12_\n\x17UserGroupEnvironmentSet\x12,.modal.client.UserGroupEnvironmentSetRequest\x1a\x16.google.protobuf.Empty\x12U\n\x0cVolumeCommit\x12!.modal.client.VolumeCommitRequest\x1a\".modal.client.VolumeCommitResponse\x12O\n\x0fVolumeCopyFiles\x12$.modal.client.VolumeCopyFilesRequest\x1a\x16.google.protobuf.Empty\x12Q\n\x10VolumeCopyFiles2\x12%.modal.client.VolumeCopyFiles2Request\x1a\x16.google.protobuf.Empty\x12I\n\x0cVolumeDelete\x12!.modal.client.VolumeDeleteRequest\x1a\x16.google.protobuf.Empty\x12X\n\rVolumeGetById\x12\".modal.client.VolumeGetByIdRequest\x1a#.modal.client.VolumeGetByIdResponse\x12X\n\rVolumeGetFile\x12\".modal.client.VolumeGetFileRequest\x1a#.modal.client.VolumeGetFileResponse\x12[\n\x0eVolumeGetFile2\x12#.modal.client.VolumeGetFile2Request\x1a$.modal.client.VolumeGetFile2Response\x12\x64\n\x11VolumeGetOrCreate\x12&.modal.client.VolumeGetOrCreateRequest\x1a\'.modal.client.VolumeGetOrCreateResponse\x12O\n\x0fVolumeHeartbeat\x12$.modal.client.VolumeHeartbeatRequest\x1a\x16.google.protobuf.Empty\x12O\n\nVolumeList\x12\x1f.modal.client.VolumeListRequest\x1a .modal.client.VolumeListResponse\x12`\n\x0fVolumeListFiles\x12$.modal.client.VolumeListFilesRequest\x1a%.modal.client.VolumeListFilesResponse0\x01\x12\x63\n\x10VolumeListFiles2\x12%.modal.client.VolumeListFiles2Request\x1a&.modal.client.VolumeListFiles2Response0\x01\x12M\n\x0eVolumePutFiles\x12#.modal.client.VolumePutFilesRequest\x1a\x16.google.protobuf.Empty\x12^\n\x0fVolumePutFiles2\x12$.modal.client.VolumePutFiles2Request\x1a%.modal.client.VolumePutFiles2Response\x12I\n\x0cVolumeReload\x12!.modal.client.VolumeReloadRequest\x1a\x16.google.protobuf.Empty\x12Q\n\x10VolumeRemoveFile\x12%.modal.client.VolumeRemoveFileRequest\x1a\x16.google.protobuf.Empty\x12S\n\x11VolumeRemoveFile2\x12&.modal.client.VolumeRemoveFile2Request\x1a\x16.google.protobuf.Empty\x12I\n\x0cVolumeRename\x12!.modal.client.VolumeRenameRequest\x1a\x16.google.protobuf.Empty\x12`\n\x12WebhookTokenCreate\x12\'.modal.client.WebhookTokenCreateRequest\x1a!.modal.client.TokenCreateResponse\x12N\n\x12WebhookTokenDelete\x12 .modal.client.TokenDeleteRequest\x1a\x16.google.protobuf.Empty\x12\x65\n\x1aWebhookTokenEnvironmentAdd\x12/.modal.client.WebhookTokenEnvironmentAddRequest\x1a\x16.google.protobuf.Empty\x12\x82\x01\n\x1bWebhookTokenEnvironmentList\x12\x30.modal.client.WebhookTokenEnvironmentListRequest\x1a\x31.modal.client.WebhookTokenEnvironmentListResponse\x12k\n\x1dWebhookTokenEnvironmentRemove\x12\x32.modal.client.WebhookTokenEnvironmentRemoveRequest\x1a\x16.google.protobuf.Empty\x12R\n\x10WebhookTokenList\x12\x16.google.protobuf.Empty\x1a&.modal.client.WebhookTokenListResponse\x12}\n\x1eWebhookTokenListForEnvironment\x12\x33.modal.client.WebhookTokenListForEnvironmentRequest\x1a&.modal.client.WebhookTokenListResponse\x12p\n\x15WorkspaceBillingRates\x12*.modal.client.WorkspaceBillingRatesRequest\x1a+.modal.client.WorkspaceBillingRatesResponse\x12q\n\x16WorkspaceBillingReport\x12+.modal.client.WorkspaceBillingReportRequest\x1a(.modal.client.WorkspaceBillingReportItem0\x01\x12v\n\x17WorkspaceBillingSummary\x12,.modal.client.WorkspaceBillingSummaryRequest\x1a-.modal.client.WorkspaceBillingSummaryResponse\x12s\n\x18WorkspaceDashboardUrlGet\x12*.modal.client.WorkspaceDashboardUrlRequest\x1a+.modal.client.WorkspaceDashboardUrlResponse\x12Z\n\x14WorkspaceMembersList\x12\x16.google.protobuf.Empty\x1a*.modal.client.WorkspaceMembersListResponse\x12X\n\x13WorkspaceNameLookup\x12\x16.google.protobuf.Empty\x1a).modal.client.WorkspaceNameLookupResponse\x12m\n\x1eWorkspaceSetDefaultEnvironment\x12\x33.modal.client.WorkspaceSetDefaultEnvironmentRequest\x1a\x16.google.protobuf.Empty\x12\x8e\x01\n\x1fWorkspaceSetImageBuilderVersion\x12\x34.modal.client.WorkspaceSetImageBuilderVersionRequest\x1a\x35.modal.client.WorkspaceSetImageBuilderVersionResponse\x12T\n\x11WorkspaceSettings\x12\x16.google.protobuf.Empty\x1a\'.modal.client.WorkspaceSettingsResponseB&Z$github.com/modal-labs/modal/go/protob\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15modal_proto/api.proto\x12\x0cmodal.client\x1a\x19google/protobuf/any.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/wrappers.proto\"r\n\x1a\x41ppClientDisconnectRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x31\n\x06reason\x18\x02 \x01(\x0e\x32!.modal.client.AppDisconnectReason\x12\x11\n\texception\x18\x03 \x01(\t\"\xc9\x02\n\x13\x41ppCountLogsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0f\n\x07task_id\x18\x02 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x03 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x04 \x01(\t\x12\x12\n\nsandbox_id\x18\x05 \x01(\t\x12\x13\n\x0bsearch_text\x18\x06 \x01(\t\x12)\n\x05since\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x05until\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x62ucket_secs\x18\t \x01(\r\x12,\n\x06source\x18\n \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12 \n\x18parametrized_function_id\x18\x0b \x01(\t\"\xe6\x01\n\x14\x41ppCountLogsResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12=\n\x07\x62uckets\x18\x02 \x03(\x0b\x32,.modal.client.AppCountLogsResponse.LogBucket\x1a\x7f\n\tLogBucket\x12\x33\n\x0f\x62ucket_start_at\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0bstdout_logs\x18\x02 \x01(\x04\x12\x13\n\x0bstderr_logs\x18\x03 \x01(\x04\x12\x13\n\x0bsystem_logs\x18\x04 \x01(\x04\"\xe4\x01\n\x10\x41ppCreateRequest\x12\x11\n\tclient_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x05 \x01(\t\x12)\n\tapp_state\x18\x06 \x01(\x0e\x32\x16.modal.client.AppState\x12\x36\n\x04tags\x18\x07 \x03(\x0b\x32(.modal.client.AppCreateRequest.TagsEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"O\n\x11\x41ppCreateResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x14\n\x0c\x61pp_page_url\x18\x02 \x01(\t\x12\x14\n\x0c\x61pp_logs_url\x18\x03 \x01(\t\"\x91\x01\n\x10\x41ppDeployRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x15\n\robject_entity\x18\x04 \x01(\t\x12\x35\n\nvisibility\x18\x05 \x01(\x0e\x32!.modal.client.AppDeployVisibility\x12\x0b\n\x03tag\x18\x06 \x01(\tJ\x04\x08\x02\x10\x03\" \n\x11\x41ppDeployResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\"\xd5\x02\n\x14\x41ppDeploymentHistory\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\r\x12\x16\n\x0e\x63lient_version\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65ployed_at\x18\x04 \x01(\x01\x12\x13\n\x0b\x64\x65ployed_by\x18\x05 \x01(\t\x12\x1e\n\x16\x64\x65ployed_by_avatar_url\x18\t \x01(\t\x12\x0b\n\x03tag\x18\x06 \x01(\t\x12\x18\n\x10rollback_version\x18\x07 \x01(\r\x12\x18\n\x10rollback_allowed\x18\x08 \x01(\x08\x12\x32\n\x0b\x63ommit_info\x18\n \x01(\x0b\x32\x18.modal.client.CommitInfoH\x00\x88\x01\x01\x12\x35\n\x0f\x64\x65ployment_type\x18\x0b \x01(\x0e\x32\x1c.modal.client.DeploymentTypeB\x0e\n\x0c_commit_info\"-\n\x1b\x41ppDeploymentHistoryRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"\x84\x01\n\x1c\x41ppDeploymentHistoryResponse\x12\x44\n\x18\x61pp_deployment_histories\x18\x01 \x03(\x0b\x32\".modal.client.AppDeploymentHistory\x12\x1e\n\x16production_app_version\x18\x02 \x01(\r\"\xc3\x02\n\x13\x41ppFetchLogsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12)\n\x05since\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x05until\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05limit\x18\x04 \x01(\r\x12,\n\x06source\x18\x05 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x13\n\x0b\x66unction_id\x18\x06 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x07 \x01(\t\x12\x0f\n\x07task_id\x18\x08 \x01(\t\x12\x12\n\nsandbox_id\x18\t \x01(\t\x12\x13\n\x0bsearch_text\x18\n \x01(\t\x12 \n\x18parametrized_function_id\x18\x0b \x01(\t\"D\n\x14\x41ppFetchLogsResponse\x12,\n\x07\x62\x61tches\x18\x01 \x03(\x0b\x32\x1b.modal.client.TaskLogsBatch\"M\n\x1d\x41ppGetByDeploymentNameRequest\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\tJ\x04\x08\x01\x10\x02\"\x92\x01\n\x1e\x41ppGetByDeploymentNameResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x17\n\x0fprevious_app_id\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12-\n\tlifecycle\x18\x04 \x01(\x0b\x32\x1a.modal.client.AppLifecycle\"#\n\x11\x41ppGetInfoRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"\xea\x03\n\x12\x41ppGetInfoResponse\x12-\n\x04info\x18\x01 \x01(\x0b\x32\x1f.modal.client.AppHandleMetadata\x12\\\n\x17\x66unction_info_summaries\x18\x02 \x03(\x0b\x32;.modal.client.AppGetInfoResponse.FunctionInfoSummariesEntry\x1a\xd2\x01\n\x13\x46unctionInfoSummary\x12+\n\ngpu_config\x18\x01 \x03(\x0b\x32\x17.modal.client.GPUConfig\x12(\n\x08schedule\x18\x02 \x01(\x0b\x32\x16.modal.client.Schedule\x12\x14\n\x0cweb_function\x18\x03 \x01(\x08\x12 \n\x13requires_proxy_auth\x18\x04 \x01(\x08H\x00\x88\x01\x01\x12\x14\n\x0cis_sessioned\x18\x05 \x01(\x08\x42\x16\n\x14_requires_proxy_auth\x1ar\n\x1a\x46unctionInfoSummariesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x43\n\x05value\x18\x02 \x01(\x0b\x32\x34.modal.client.AppGetInfoResponse.FunctionInfoSummary:\x02\x38\x01\"%\n\x13\x41ppGetLayoutRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"C\n\x14\x41ppGetLayoutResponse\x12+\n\napp_layout\x18\x01 \x01(\x0b\x32\x17.modal.client.AppLayout\"(\n\x16\x41ppGetLifecycleRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"H\n\x17\x41ppGetLifecycleResponse\x12-\n\tlifecycle\x18\x01 \x01(\x0b\x32\x1a.modal.client.AppLifecycle\"\x9f\x02\n\x11\x41ppGetLogsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\x12\x15\n\rlast_entry_id\x18\x04 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x05 \x01(\t\x12 \n\x18parametrized_function_id\x18\x0b \x01(\t\x12\x10\n\x08input_id\x18\x06 \x01(\t\x12\x0f\n\x07task_id\x18\x07 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\t \x01(\t\x12\x35\n\x0f\x66ile_descriptor\x18\x08 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x12\n\nsandbox_id\x18\n \x01(\t\x12\x13\n\x0bsearch_text\x18\x0c \x01(\t\"F\n\x11\x41ppGetObjectsItem\x12\x0b\n\x03tag\x18\x01 \x01(\t\x12$\n\x06object\x18\x06 \x01(\x0b\x32\x14.modal.client.Object\"^\n\x14\x41ppGetObjectsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x19\n\x11include_unindexed\x18\x02 \x01(\x08\x12\x1b\n\x13only_class_function\x18\x03 \x01(\x08\"G\n\x15\x41ppGetObjectsResponse\x12.\n\x05items\x18\x02 \x03(\x0b\x32\x1f.modal.client.AppGetObjectsItem\"\x83\x01\n\x15\x41ppGetOrCreateRequest\x12\x10\n\x08\x61pp_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x12>\n\x14object_creation_type\x18\x03 \x01(\x0e\x32 .modal.client.ObjectCreationType\"b\n\x16\x41ppGetOrCreateResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x38\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32\x1f.modal.client.AppHandleMetadata\"#\n\x11\x41ppGetTagsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"{\n\x12\x41ppGetTagsResponse\x12\x38\n\x04tags\x18\x01 \x03(\x0b\x32*.modal.client.AppGetTagsResponse.TagsEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xe5\x02\n\x11\x41ppHandleMetadata\x12\x13\n\x0b\x64\x65scription\x18\x01 \x01(\t\x12\x0e\n\x06\x61pp_id\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12-\n\tlifecycle\x18\x04 \x01(\x0b\x32\x1a.modal.client.AppLifecycle\x12\x41\n\tfunctions\x18\x05 \x03(\x0b\x32..modal.client.AppHandleMetadata.FunctionsEntry\x12=\n\x07servers\x18\x06 \x03(\x0b\x32,.modal.client.AppHandleMetadata.ServersEntry\x1a\x30\n\x0e\x46unctionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a.\n\x0cServersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"%\n\x13\x41ppHeartbeatRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"\x91\x02\n\tAppLayout\x12%\n\x07objects\x18\x01 \x03(\x0b\x32\x14.modal.client.Object\x12>\n\x0c\x66unction_ids\x18\x02 \x03(\x0b\x32(.modal.client.AppLayout.FunctionIdsEntry\x12\x38\n\tclass_ids\x18\x03 \x03(\x0b\x32%.modal.client.AppLayout.ClassIdsEntry\x1a\x32\n\x10\x46unctionIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\rClassIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xc4\x01\n\x0c\x41ppLifecycle\x12)\n\tapp_state\x18\x01 \x01(\x0e\x32\x16.modal.client.AppState\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65ployed_at\x18\x04 \x01(\x01\x12\x13\n\x0b\x64\x65ployed_by\x18\x05 \x01(\t\x12\x0f\n\x07version\x18\x06 \x01(\x05\x12\x12\n\nstopped_at\x18\x07 \x01(\x01\x12\x12\n\nstopped_by\x18\x08 \x01(\t\"*\n\x0e\x41ppListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\"\xf5\x01\n\x0f\x41ppListResponse\x12\x37\n\x04\x61pps\x18\x01 \x03(\x0b\x32).modal.client.AppListResponse.AppListItem\x1a\xa8\x01\n\x0b\x41ppListItem\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12%\n\x05state\x18\x04 \x01(\x0e\x32\x16.modal.client.AppState\x12\x12\n\ncreated_at\x18\x05 \x01(\x01\x12\x12\n\nstopped_at\x18\x06 \x01(\x01\x12\x17\n\x0fn_running_tasks\x18\x08 \x01(\x05\x12\x0c\n\x04name\x18\n \x01(\t\">\n\x10\x41ppLookupRequest\x12\x10\n\x08\x61pp_name\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\"#\n\x11\x41ppLookupResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"4\n\x11\x41ppPromoteRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\x05\"f\n\x12\x41ppPromoteResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\x12.\n\x0fserver_warnings\x18\x02 \x03(\x0b\x32\x15.modal.client.Warning\x12\x13\n\x0b\x64\x65ployed_at\x18\x03 \x01(\x01\"\xf3\x05\n\x11\x41ppPublishRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x16\n\x0e\x64\x65ployment_tag\x18\x03 \x01(\t\x12)\n\tapp_state\x18\x04 \x01(\x0e\x32\x16.modal.client.AppState\x12\x46\n\x0c\x66unction_ids\x18\x05 \x03(\x0b\x32\x30.modal.client.AppPublishRequest.FunctionIdsEntry\x12@\n\tclass_ids\x18\x06 \x03(\x0b\x32-.modal.client.AppPublishRequest.ClassIdsEntry\x12J\n\x0e\x64\x65\x66inition_ids\x18\x07 \x03(\x0b\x32\x32.modal.client.AppPublishRequest.DefinitionIdsEntry\x12\x18\n\x10rollback_version\x18\x08 \x01(\r\x12\x16\n\x0e\x63lient_version\x18\t \x01(\t\x12-\n\x0b\x63ommit_info\x18\n \x01(\x0b\x32\x18.modal.client.CommitInfo\x12\x37\n\x04tags\x18\x0b \x03(\x0b\x32).modal.client.AppPublishRequest.TagsEntry\x12\x0e\n\x06staged\x18\x0c \x01(\x08\x12\x35\n\x0f\x64\x65ployment_type\x18\r \x01(\x0e\x32\x1c.modal.client.DeploymentType\x1a\x32\n\x10\x46unctionIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\rClassIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x34\n\x12\x44\x65\x66initionIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"f\n\x12\x41ppPublishResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\x12.\n\x0fserver_warnings\x18\x03 \x03(\x0b\x32\x15.modal.client.Warning\x12\x13\n\x0b\x64\x65ployed_at\x18\x04 \x01(\x01\"5\n\x12\x41ppRollbackRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\x05\"g\n\x13\x41ppRollbackResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\x12.\n\x0fserver_warnings\x18\x03 \x03(\x0b\x32\x15.modal.client.Warning\x12\x13\n\x0b\x64\x65ployed_at\x18\x04 \x01(\x01\"$\n\x12\x41ppRolloverRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\"g\n\x13\x41ppRolloverResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\x12.\n\x0fserver_warnings\x18\x03 \x03(\x0b\x32\x15.modal.client.Warning\x12\x13\n\x0b\x64\x65ployed_at\x18\x04 \x01(\x01\"\x9b\x02\n\x14\x41ppSetObjectsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12T\n\x12indexed_object_ids\x18\x02 \x03(\x0b\x32\x38.modal.client.AppSetObjectsRequest.IndexedObjectIdsEntry\x12\x11\n\tclient_id\x18\x03 \x01(\t\x12\x1c\n\x14unindexed_object_ids\x18\x04 \x03(\t\x12-\n\rnew_app_state\x18\x05 \x01(\x0e\x32\x16.modal.client.AppState\x1a\x37\n\x15IndexedObjectIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01J\x04\x08\x06\x10\x07\"\x89\x01\n\x11\x41ppSetTagsRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x37\n\x04tags\x18\x02 \x03(\x0b\x32).modal.client.AppSetTagsRequest.TagsEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"M\n\x0e\x41ppStopRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12+\n\x06source\x18\x02 \x01(\x0e\x32\x1b.modal.client.AppStopSource\"\xa3\x0e\n\x04\x41sgi\x12\'\n\x04http\x18\x01 \x01(\x0b\x32\x17.modal.client.Asgi.HttpH\x00\x12\x36\n\x0chttp_request\x18\x02 \x01(\x0b\x32\x1e.modal.client.Asgi.HttpRequestH\x00\x12\x43\n\x13http_response_start\x18\x03 \x01(\x0b\x32$.modal.client.Asgi.HttpResponseStartH\x00\x12\x41\n\x12http_response_body\x18\x04 \x01(\x0b\x32#.modal.client.Asgi.HttpResponseBodyH\x00\x12I\n\x16http_response_trailers\x18\x05 \x01(\x0b\x32\'.modal.client.Asgi.HttpResponseTrailersH\x00\x12<\n\x0fhttp_disconnect\x18\x06 \x01(\x0b\x32!.modal.client.Asgi.HttpDisconnectH\x00\x12\x31\n\twebsocket\x18\x07 \x01(\x0b\x32\x1c.modal.client.Asgi.WebsocketH\x00\x12@\n\x11websocket_connect\x18\x08 \x01(\x0b\x32#.modal.client.Asgi.WebsocketConnectH\x00\x12>\n\x10websocket_accept\x18\t \x01(\x0b\x32\".modal.client.Asgi.WebsocketAcceptH\x00\x12@\n\x11websocket_receive\x18\n \x01(\x0b\x32#.modal.client.Asgi.WebsocketReceiveH\x00\x12:\n\x0ewebsocket_send\x18\x0b \x01(\x0b\x32 .modal.client.Asgi.WebsocketSendH\x00\x12\x46\n\x14websocket_disconnect\x18\x0c \x01(\x0b\x32&.modal.client.Asgi.WebsocketDisconnectH\x00\x12<\n\x0fwebsocket_close\x18\r \x01(\x0b\x32!.modal.client.Asgi.WebsocketCloseH\x00\x1a\xc5\x01\n\x04Http\x12\x14\n\x0chttp_version\x18\x01 \x01(\t\x12\x0e\n\x06method\x18\x02 \x01(\t\x12\x0e\n\x06scheme\x18\x03 \x01(\t\x12\x0c\n\x04path\x18\x04 \x01(\t\x12\x14\n\x0cquery_string\x18\x05 \x01(\x0c\x12\x0f\n\x07headers\x18\x06 \x03(\x0c\x12\x18\n\x0b\x63lient_host\x18\x07 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0b\x63lient_port\x18\x08 \x01(\rH\x01\x88\x01\x01\x42\x0e\n\x0c_client_hostB\x0e\n\x0c_client_port\x1a.\n\x0bHttpRequest\x12\x0c\n\x04\x62ody\x18\x01 \x01(\x0c\x12\x11\n\tmore_body\x18\x02 \x01(\x08\x1a\x46\n\x11HttpResponseStart\x12\x0e\n\x06status\x18\x01 \x01(\r\x12\x0f\n\x07headers\x18\x02 \x03(\x0c\x12\x10\n\x08trailers\x18\x03 \x01(\x08\x1a\x33\n\x10HttpResponseBody\x12\x0c\n\x04\x62ody\x18\x01 \x01(\x0c\x12\x11\n\tmore_body\x18\x02 \x01(\x08\x1a>\n\x14HttpResponseTrailers\x12\x0f\n\x07headers\x18\x01 \x03(\x0c\x12\x15\n\rmore_trailers\x18\x02 \x01(\x08\x1a\x10\n\x0eHttpDisconnect\x1a\xd0\x01\n\tWebsocket\x12\x14\n\x0chttp_version\x18\x01 \x01(\t\x12\x0e\n\x06scheme\x18\x02 \x01(\t\x12\x0c\n\x04path\x18\x03 \x01(\t\x12\x14\n\x0cquery_string\x18\x04 \x01(\x0c\x12\x0f\n\x07headers\x18\x05 \x03(\x0c\x12\x18\n\x0b\x63lient_host\x18\x06 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0b\x63lient_port\x18\x07 \x01(\rH\x01\x88\x01\x01\x12\x14\n\x0csubprotocols\x18\x08 \x03(\tB\x0e\n\x0c_client_hostB\x0e\n\x0c_client_port\x1a\x12\n\x10WebsocketConnect\x1aL\n\x0fWebsocketAccept\x12\x18\n\x0bsubprotocol\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x0f\n\x07headers\x18\x02 \x03(\x0c\x42\x0e\n\x0c_subprotocol\x1a>\n\x10WebsocketReceive\x12\x0f\n\x05\x62ytes\x18\x01 \x01(\x0cH\x00\x12\x0e\n\x04text\x18\x02 \x01(\tH\x00\x42\t\n\x07\x63ontent\x1a;\n\rWebsocketSend\x12\x0f\n\x05\x62ytes\x18\x01 \x01(\x0cH\x00\x12\x0e\n\x04text\x18\x02 \x01(\tH\x00\x42\t\n\x07\x63ontent\x1a\x31\n\x13WebsocketDisconnect\x12\x11\n\x04\x63ode\x18\x01 \x01(\rH\x00\x88\x01\x01\x42\x07\n\x05_code\x1a<\n\x0eWebsocketClose\x12\x11\n\x04\x63ode\x18\x01 \x01(\rH\x00\x88\x01\x01\x12\x0e\n\x06reason\x18\x02 \x01(\tB\x07\n\x05_codeB\x06\n\x04type\"X\n\x13\x41ttemptAwaitRequest\x12\x15\n\rattempt_token\x18\x01 \x01(\t\x12\x14\n\x0crequested_at\x18\x02 \x01(\x01\x12\x14\n\x0ctimeout_secs\x18\x03 \x01(\x02\"\\\n\x14\x41ttemptAwaitResponse\x12\x39\n\x06output\x18\x01 \x01(\x0b\x32$.modal.client.FunctionGetOutputsItemH\x00\x88\x01\x01\x42\t\n\x07_output\"\x8e\x01\n\x13\x41ttemptRetryRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12\x32\n\x05input\x18\x03 \x01(\x0b\x32#.modal.client.FunctionPutInputsItem\x12\x15\n\rattempt_token\x18\x04 \x01(\t\"-\n\x14\x41ttemptRetryResponse\x12\x15\n\rattempt_token\x18\x01 \x01(\t\"\x88\x01\n\x13\x41ttemptStartRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12\x32\n\x05input\x18\x03 \x01(\x0b\x32#.modal.client.FunctionPutInputsItem\x12\x0f\n\x07proxied\x18\x04 \x01(\x08\"f\n\x14\x41ttemptStartResponse\x12\x15\n\rattempt_token\x18\x01 \x01(\t\x12\x37\n\x0cretry_policy\x18\x02 \x01(\x0b\x32!.modal.client.FunctionRetryPolicy\"\x15\n\x13\x41uthTokenGetRequest\"%\n\x14\x41uthTokenGetResponse\x12\r\n\x05token\x18\x01 \x01(\t\"\xaa\x03\n\x17\x41utoscalerConfiguration\x12\x32\n\x08settings\x18\x01 \x01(\x0b\x32 .modal.client.AutoscalerSettings\x12R\n\x0foverride_events\x18\x02 \x03(\x0b\x32\x39.modal.client.AutoscalerConfiguration.OverrideEventsEntry\x12:\n\x10\x64\x65\x66\x61ult_settings\x18\x03 \x01(\x0b\x32 .modal.client.AutoscalerSettings\x12\x39\n\x0fstatic_settings\x18\x04 \x01(\x0b\x32 .modal.client.AutoscalerSettings\x12;\n\x11override_settings\x18\x05 \x01(\x0b\x32 .modal.client.AutoscalerSettings\x1aS\n\x13OverrideEventsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12+\n\x05value\x18\x02 \x01(\x0b\x32\x1c.modal.client.UserActionInfo:\x02\x38\x01\"\xcc\x03\n\x12\x41utoscalerSettings\x12\x1b\n\x0emin_containers\x18\x01 \x01(\rH\x00\x88\x01\x01\x12\x1b\n\x0emax_containers\x18\x02 \x01(\rH\x01\x88\x01\x01\x12\x1e\n\x11\x62uffer_containers\x18\x03 \x01(\rH\x02\x88\x01\x01\x12\x1b\n\x0escaleup_window\x18\x04 \x01(\rH\x03\x88\x01\x01\x12\x1d\n\x10scaledown_window\x18\x05 \x01(\rH\x04\x88\x01\x01\x12\x1f\n\x12target_concurrency\x18\x07 \x01(\rH\x05\x88\x01\x01\x12!\n\x14scaledown_rate_limit\x18\x08 \x01(\rH\x06\x88\x01\x01\x12%\n\x18target_concurrency_float\x18\t \x01(\x01H\x07\x88\x01\x01\x42\x11\n\x0f_min_containersB\x11\n\x0f_max_containersB\x14\n\x12_buffer_containersB\x11\n\x0f_scaleup_windowB\x13\n\x11_scaledown_windowB\x15\n\x13_target_concurrencyB\x17\n\x15_scaledown_rate_limitB\x1b\n\x19_target_concurrency_floatJ\x04\x08\x06\x10\x07\"}\n\x12\x41utoscalingMetrics\x12\x19\n\x11\x63pu_usage_percent\x18\x01 \x01(\x01\x12\x1c\n\x14memory_usage_percent\x18\x02 \x01(\x01\x12\x1b\n\x13\x63oncurrent_requests\x18\x03 \x01(\r\x12\x11\n\ttimestamp\x18\x04 \x01(\x01\"7\n\tBaseImage\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x12\n\ndocker_tag\x18\x02 \x01(\tJ\x04\x08\x04\x10\x05\"_\n\x11\x42lobCreateRequest\x12\x13\n\x0b\x63ontent_md5\x18\x01 \x01(\t\x12\x1d\n\x15\x63ontent_sha256_base64\x18\x02 \x01(\t\x12\x16\n\x0e\x63ontent_length\x18\x03 \x01(\x03\"\x99\x02\n\x12\x42lobCreateResponse\x12\x0f\n\x07\x62lob_id\x18\x02 \x01(\t\x12\x14\n\nupload_url\x18\x01 \x01(\tH\x00\x12\x32\n\tmultipart\x18\x03 \x01(\x0b\x32\x1d.modal.client.MultiPartUploadH\x00\x12\x10\n\x08\x62lob_ids\x18\x04 \x03(\t\x12\x32\n\x0bupload_urls\x18\x05 \x01(\x0b\x32\x1b.modal.client.UploadUrlListH\x01\x12\x37\n\nmultiparts\x18\x06 \x01(\x0b\x32!.modal.client.MultiPartUploadListH\x01\x42\x13\n\x11upload_type_oneofB\x14\n\x12upload_types_oneof\"!\n\x0e\x42lobGetRequest\x12\x0f\n\x07\x62lob_id\x18\x01 \x01(\t\"\'\n\x0f\x42lobGetResponse\x12\x14\n\x0c\x64ownload_url\x18\x01 \x01(\t\"\xc6\x01\n\x10\x42lobUploadResult\x12\x0f\n\x07\x62lob_id\x18\x01 \x01(\t\x12\x37\n\x07outcome\x18\x02 \x01(\x0e\x32&.modal.client.BlobUploadResult.Outcome\x12\x1a\n\x12throughput_bytes_s\x18\x03 \x01(\x04\"L\n\x07Outcome\x12\x17\n\x13OUTCOME_UNSPECIFIED\x10\x00\x12\x13\n\x0fOUTCOME_SUCCESS\x10\x01\x12\x13\n\x0fOUTCOME_FAILURE\x10\x02\"`\n\rBuildFunction\x12\x12\n\ndefinition\x18\x01 \x01(\t\x12\x0f\n\x07globals\x18\x02 \x01(\x0c\x12*\n\x05input\x18\x03 \x01(\x0b\x32\x1b.modal.client.FunctionInput\"`\n\x10\x43\x61ncelInputEvent\x12\x11\n\tinput_ids\x18\x01 \x03(\t\x12\x1c\n\x14terminate_containers\x18\x02 \x01(\x08\x12\x1b\n\x13\x63\x61ncellation_reason\x18\x03 \x01(\t\"\xf3\x01\n\x0e\x43heckpointInfo\x12\x10\n\x08\x63hecksum\x18\x01 \x01(\t\x12.\n\x06status\x18\x02 \x01(\x0e\x32\x1e.modal.client.CheckpointStatus\x12\x15\n\rcheckpoint_id\x18\x03 \x01(\t\x12\x1b\n\x13runtime_fingerprint\x18\x04 \x01(\t\x12\x0c\n\x04size\x18\x05 \x01(\x03\x12\x1e\n\x16\x63hecksum_is_file_index\x18\x06 \x01(\x08\x12\x18\n\x10original_task_id\x18\x07 \x01(\t\x12\x1d\n\x15runsc_runtime_version\x18\t \x01(\tJ\x04\x08\x08\x10\t\"\x8e\x01\n\x12\x43lassCreateRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x19\n\x11\x65xisting_class_id\x18\x02 \x01(\t\x12*\n\x07methods\x18\x03 \x03(\x0b\x32\x19.modal.client.ClassMethod\x12\x1b\n\x13only_class_function\x18\x05 \x01(\x08J\x04\x08\x04\x10\x05\"c\n\x13\x43lassCreateResponse\x12\x10\n\x08\x63lass_id\x18\x01 \x01(\t\x12:\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32!.modal.client.ClassHandleMetadata\"\x95\x01\n\x0f\x43lassGetRequest\x12\x10\n\x08\x61pp_name\x18\x01 \x01(\t\x12\x12\n\nobject_tag\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\x12\x1b\n\x13only_class_function\x18\n \x01(\x08\x12\x13\n\x0b\x61pp_version\x18\x0b \x01(\x05J\x04\x08\x03\x10\x04J\x04\x08\x08\x10\tJ\x04\x08\t\x10\n\"\x90\x01\n\x10\x43lassGetResponse\x12\x10\n\x08\x63lass_id\x18\x01 \x01(\t\x12:\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32!.modal.client.ClassHandleMetadata\x12.\n\x0fserver_warnings\x18\x03 \x03(\x0b\x32\x15.modal.client.Warning\"\xa3\x01\n\x13\x43lassHandleMetadata\x12*\n\x07methods\x18\x01 \x03(\x0b\x32\x19.modal.client.ClassMethod\x12\x19\n\x11\x63lass_function_id\x18\x02 \x01(\t\x12\x45\n\x17\x63lass_function_metadata\x18\x03 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\"\x81\x01\n\x0b\x43lassMethod\x12\x15\n\rfunction_name\x18\x01 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x02 \x01(\t\x12\x46\n\x18\x66unction_handle_metadata\x18\x03 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\"\xaf\x02\n\x12\x43lassParameterInfo\x12M\n\x06\x66ormat\x18\x01 \x01(\x0e\x32=.modal.client.ClassParameterInfo.ParameterSerializationFormat\x12\x30\n\x06schema\x18\x02 \x03(\x0b\x32 .modal.client.ClassParameterSpec\"\x97\x01\n\x1cParameterSerializationFormat\x12*\n&PARAM_SERIALIZATION_FORMAT_UNSPECIFIED\x10\x00\x12%\n!PARAM_SERIALIZATION_FORMAT_PICKLE\x10\x01\x12$\n PARAM_SERIALIZATION_FORMAT_PROTO\x10\x02\"J\n\x11\x43lassParameterSet\x12\x35\n\nparameters\x18\x01 \x03(\x0b\x32!.modal.client.ClassParameterValue\"\xa4\x02\n\x12\x43lassParameterSpec\x12\x0c\n\x04name\x18\x01 \x01(\t\x12)\n\x04type\x18\x02 \x01(\x0e\x32\x1b.modal.client.ParameterType\x12\x13\n\x0bhas_default\x18\x03 \x01(\x08\x12\x18\n\x0estring_default\x18\x04 \x01(\tH\x00\x12\x15\n\x0bint_default\x18\x05 \x01(\x03H\x00\x12\x18\n\x0epickle_default\x18\x06 \x01(\x0cH\x00\x12\x17\n\rbytes_default\x18\x07 \x01(\x0cH\x00\x12\x16\n\x0c\x62ool_default\x18\t \x01(\x08H\x00\x12\x33\n\tfull_type\x18\x08 \x01(\x0b\x32 .modal.client.GenericPayloadTypeB\x0f\n\rdefault_oneof\"\xcf\x01\n\x13\x43lassParameterValue\x12\x0c\n\x04name\x18\x01 \x01(\t\x12)\n\x04type\x18\x02 \x01(\x0e\x32\x1b.modal.client.ParameterType\x12\x16\n\x0cstring_value\x18\x03 \x01(\tH\x00\x12\x13\n\tint_value\x18\x04 \x01(\x03H\x00\x12\x16\n\x0cpickle_value\x18\x05 \x01(\x0cH\x00\x12\x15\n\x0b\x62ytes_value\x18\x06 \x01(\x0cH\x00\x12\x14\n\nbool_value\x18\x07 \x01(\x08H\x00\x42\r\n\x0bvalue_oneof\"u\n\x13\x43lientHelloResponse\x12\x0f\n\x07warning\x18\x01 \x01(\t\x12\x1d\n\x15image_builder_version\x18\x02 \x01(\t\x12.\n\x0fserver_warnings\x18\x04 \x03(\x0b\x32\x15.modal.client.Warning\"\xab\x05\n\x10\x43loudBucketMount\x12\x13\n\x0b\x62ucket_name\x18\x01 \x01(\t\x12\x12\n\nmount_path\x18\x02 \x01(\t\x12\x1d\n\x15\x63redentials_secret_id\x18\x03 \x01(\t\x12\x11\n\tread_only\x18\x04 \x01(\x08\x12>\n\x0b\x62ucket_type\x18\x05 \x01(\x0e\x32).modal.client.CloudBucketMount.BucketType\x12\x16\n\x0erequester_pays\x18\x06 \x01(\x08\x12 \n\x13\x62ucket_endpoint_url\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x17\n\nkey_prefix\x18\x08 \x01(\tH\x02\x88\x01\x01\x12\x1f\n\x12oidc_auth_role_arn\x18\t \x01(\tH\x03\x88\x01\x01\x12\x18\n\x10\x66orce_path_style\x18\n \x01(\x08\x12K\n\x11metadata_ttl_type\x18\x0b \x01(\x0e\x32..modal.client.CloudBucketMount.MetadataTTLTypeH\x00\x12\x1e\n\x14metadata_ttl_seconds\x18\x0c \x01(\x04H\x00\"6\n\nBucketType\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x06\n\x02S3\x10\x01\x12\x06\n\x02R2\x10\x02\x12\x07\n\x03GCP\x10\x03\"u\n\x0fMetadataTTLType\x12!\n\x1dMETADATA_TTL_TYPE_UNSPECIFIED\x10\x00\x12\x1d\n\x19METADATA_TTL_TYPE_MINIMAL\x10\x01\x12 \n\x1cMETADATA_TTL_TYPE_INDEFINITE\x10\x02\x42\x14\n\x12metadata_ttl_oneofB\x16\n\x14_bucket_endpoint_urlB\r\n\x0b_key_prefixB\x15\n\x13_oidc_auth_role_arn\"\'\n\x11\x43lusterGetRequest\x12\x12\n\ncluster_id\x18\x01 \x01(\t\"A\n\x12\x43lusterGetResponse\x12+\n\x07\x63luster\x18\x01 \x01(\x0b\x32\x1a.modal.client.ClusterStats\".\n\x12\x43lusterListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\"C\n\x13\x43lusterListResponse\x12,\n\x08\x63lusters\x18\x01 \x03(\x0b\x32\x1a.modal.client.ClusterStats\"X\n\x0c\x43lusterStats\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x10\n\x08task_ids\x18\x02 \x03(\t\x12\x12\n\ncluster_id\x18\x03 \x01(\t\x12\x12\n\nstarted_at\x18\x04 \x01(\x01\"/\n\x13\x43ommandRouterAccess\x12\x0b\n\x03jwt\x18\x01 \x01(\t\x12\x0b\n\x03url\x18\x02 \x01(\t\"\xa4\x01\n\nCommitInfo\x12\x0b\n\x03vcs\x18\x01 \x01(\t\x12\x0e\n\x06\x62ranch\x18\x02 \x01(\t\x12\x13\n\x0b\x63ommit_hash\x18\x03 \x01(\t\x12\x18\n\x10\x63ommit_timestamp\x18\x04 \x01(\x03\x12\r\n\x05\x64irty\x18\x05 \x01(\x08\x12\x13\n\x0b\x61uthor_name\x18\x06 \x01(\t\x12\x14\n\x0c\x61uthor_email\x18\x07 \x01(\t\x12\x10\n\x08repo_url\x18\x08 \x01(\t\"\xf0\x03\n\x12\x43ontainerArguments\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x02 \x01(\t\x12\x0e\n\x06\x61pp_id\x18\x04 \x01(\t\x12,\n\x0c\x66unction_def\x18\x07 \x01(\x0b\x32\x16.modal.client.Function\x12/\n\nproxy_info\x18\x08 \x01(\x0b\x32\x17.modal.client.ProxyInfoB\x02\x18\x01\x12M\n\x0ftracing_context\x18\t \x03(\x0b\x32\x34.modal.client.ContainerArguments.TracingContextEntry\x12\x19\n\x11serialized_params\x18\n \x01(\x0c\x12\x0f\n\x07runtime\x18\x0b \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\r \x01(\t\x12\x1a\n\rcheckpoint_id\x18\x0e \x01(\tH\x00\x88\x01\x01\x12+\n\napp_layout\x18\x0f \x01(\x0b\x32\x17.modal.client.AppLayout\x12\x1e\n\x16input_plane_server_url\x18\x10 \x01(\t\x1a\x35\n\x13TracingContextEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x10\n\x0e_checkpoint_id\"3\n\x1a\x43ontainerCheckpointRequest\x12\x15\n\rcheckpoint_id\x18\x01 \x01(\t\"\xa9\x01\n\x1d\x43ontainerExecGetOutputRequest\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\x12\x18\n\x10last_batch_index\x18\x03 \x01(\x04\x12\x35\n\x0f\x66ile_descriptor\x18\x04 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x15\n\rget_raw_bytes\x18\x05 \x01(\x08\"a\n\x1c\x43ontainerExecPutInputRequest\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\x12\x30\n\x05input\x18\x02 \x01(\x0b\x32!.modal.client.RuntimeInputMessage\"\xed\x02\n\x14\x43ontainerExecRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63ommand\x18\x02 \x03(\t\x12,\n\x08pty_info\x18\x03 \x01(\x0b\x32\x15.modal.client.PTYInfoH\x00\x88\x01\x01\x12\'\n\x1bterminate_container_on_exit\x18\x04 \x01(\x08\x42\x02\x18\x01\x12\x15\n\rruntime_debug\x18\x05 \x01(\x08\x12\x35\n\rstdout_output\x18\x06 \x01(\x0e\x32\x1e.modal.client.ExecOutputOption\x12\x35\n\rstderr_output\x18\x07 \x01(\x0e\x32\x1e.modal.client.ExecOutputOption\x12\x14\n\x0ctimeout_secs\x18\x08 \x01(\r\x12\x14\n\x07workdir\x18\t \x01(\tH\x01\x88\x01\x01\x12\x12\n\nsecret_ids\x18\n \x03(\tB\x0b\n\t_pty_infoB\n\n\x08_workdir\"(\n\x15\x43ontainerExecResponse\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\"<\n\x18\x43ontainerExecWaitRequest\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"T\n\x19\x43ontainerExecWaitResponse\x12\x16\n\texit_code\x18\x01 \x01(\x05H\x00\x88\x01\x01\x12\x11\n\tcompleted\x18\x02 \x01(\x08\x42\x0c\n\n_exit_code\"4\n\x19\x43ontainerFileCloseRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\"\x9a\x01\n\x1f\x43ontainerFileDeleteBytesRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\x12\x1c\n\x0fstart_inclusive\x18\x02 \x01(\rH\x00\x88\x01\x01\x12\x1a\n\rend_exclusive\x18\x03 \x01(\rH\x01\x88\x01\x01\x42\x12\n\x10_start_inclusiveB\x10\n\x0e_end_exclusive\"4\n\x19\x43ontainerFileFlushRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\"&\n\x16\x43ontainerFileLsRequest\x12\x0c\n\x04path\x18\x01 \x01(\t\"?\n\x19\x43ontainerFileMkdirRequest\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x14\n\x0cmake_parents\x18\x02 \x01(\x08\"h\n\x18\x43ontainerFileOpenRequest\x12\x1c\n\x0f\x66ile_descriptor\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x0c\n\x04mode\x18\x03 \x01(\tB\x12\n\x10_file_descriptor\"7\n\x1c\x43ontainerFileReadLineRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\"I\n\x18\x43ontainerFileReadRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\x12\x0e\n\x01n\x18\x02 \x01(\rH\x00\x88\x01\x01\x42\x04\n\x02_n\"9\n\x16\x43ontainerFileRmRequest\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x11\n\trecursive\x18\x02 \x01(\x08\"m\n\x18\x43ontainerFileSeekRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\x12\x0e\n\x06offset\x18\x02 \x01(\x05\x12(\n\x06whence\x18\x03 \x01(\x0e\x32\x18.modal.client.SeekWhence\"h\n\x19\x43ontainerFileWatchRequest\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x11\n\trecursive\x18\x02 \x01(\x08\x12\x19\n\x0ctimeout_secs\x18\x03 \x01(\x04H\x00\x88\x01\x01\x42\x0f\n\r_timeout_secs\"\xae\x01\n%ContainerFileWriteReplaceBytesRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12\x1c\n\x0fstart_inclusive\x18\x03 \x01(\rH\x00\x88\x01\x01\x12\x1a\n\rend_exclusive\x18\x04 \x01(\rH\x01\x88\x01\x01\x42\x12\n\x10_start_inclusiveB\x10\n\x0e_end_exclusive\"B\n\x19\x43ontainerFileWriteRequest\x12\x17\n\x0f\x66ile_descriptor\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\"K\n\'ContainerFilesystemExecGetOutputRequest\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"\x83\x08\n\x1e\x43ontainerFilesystemExecRequest\x12\x43\n\x11\x66ile_open_request\x18\x01 \x01(\x0b\x32&.modal.client.ContainerFileOpenRequestH\x00\x12\x45\n\x12\x66ile_write_request\x18\x02 \x01(\x0b\x32\'.modal.client.ContainerFileWriteRequestH\x00\x12\x43\n\x11\x66ile_read_request\x18\x03 \x01(\x0b\x32&.modal.client.ContainerFileReadRequestH\x00\x12\x45\n\x12\x66ile_flush_request\x18\x04 \x01(\x0b\x32\'.modal.client.ContainerFileFlushRequestH\x00\x12L\n\x16\x66ile_read_line_request\x18\x05 \x01(\x0b\x32*.modal.client.ContainerFileReadLineRequestH\x00\x12\x43\n\x11\x66ile_seek_request\x18\x06 \x01(\x0b\x32&.modal.client.ContainerFileSeekRequestH\x00\x12R\n\x19\x66ile_delete_bytes_request\x18\x07 \x01(\x0b\x32-.modal.client.ContainerFileDeleteBytesRequestH\x00\x12_\n file_write_replace_bytes_request\x18\x08 \x01(\x0b\x32\x33.modal.client.ContainerFileWriteReplaceBytesRequestH\x00\x12\x45\n\x12\x66ile_close_request\x18\t \x01(\x0b\x32\'.modal.client.ContainerFileCloseRequestH\x00\x12?\n\x0f\x66ile_ls_request\x18\x0b \x01(\x0b\x32$.modal.client.ContainerFileLsRequestH\x00\x12\x45\n\x12\x66ile_mkdir_request\x18\x0c \x01(\x0b\x32\'.modal.client.ContainerFileMkdirRequestH\x00\x12?\n\x0f\x66ile_rm_request\x18\r \x01(\x0b\x32$.modal.client.ContainerFileRmRequestH\x00\x12\x45\n\x12\x66ile_watch_request\x18\x0e \x01(\x0b\x32\'.modal.client.ContainerFileWatchRequestH\x00\x12\x0f\n\x07task_id\x18\n \x01(\tB\x19\n\x17\x66ile_exec_request_oneof\"d\n\x1f\x43ontainerFilesystemExecResponse\x12\x0f\n\x07\x65xec_id\x18\x01 \x01(\t\x12\x1c\n\x0f\x66ile_descriptor\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x12\n\x10_file_descriptor\"\x80\x01\n\x19\x43ontainerHeartbeatRequest\x12&\n\x1e\x63\x61nceled_inputs_return_outputs\x18\x04 \x01(\x08\x12)\n!canceled_inputs_return_outputs_v2\x18\x05 \x01(\x08J\x04\x08\x01\x10\x02J\x04\x08\x02\x10\x03J\x04\x08\x03\x10\x04\"t\n\x1a\x43ontainerHeartbeatResponse\x12?\n\x12\x63\x61ncel_input_event\x18\x01 \x01(\x0b\x32\x1e.modal.client.CancelInputEventH\x00\x88\x01\x01\x42\x15\n\x13_cancel_input_event\";\n\x13\x43ontainerLogRequest\x12$\n\x04logs\x18\x03 \x03(\x0b\x32\x16.modal.client.TaskLogs\"0\n\x1d\x43ontainerReloadVolumesRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\" \n\x1e\x43ontainerReloadVolumesResponse\"&\n$ContainerServerLifecycleReadyRequest\"9\n\x14\x43ontainerStopRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x10\n\x08graceful\x18\x02 \x01(\x08\"\x17\n\x15\x43ontainerStopResponse\"6\n\x0c\x43reationInfo\x12\x12\n\ncreated_at\x18\x01 \x01(\x01\x12\x12\n\ncreated_by\x18\x02 \x01(\t\"#\n\x14\x43urlAuthTokenRequest\x12\x0b\n\x03url\x18\x01 \x01(\t\"&\n\x15\x43urlAuthTokenResponse\x12\r\n\x05token\x18\x01 \x01(\t\"\"\n\x12\x43ustomDomainConfig\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x1f\n\x10\x43ustomDomainInfo\x12\x0b\n\x03url\x18\x01 \x01(\t\"S\n\tDNSRecord\x12)\n\x04type\x18\x01 \x01(\x0e\x32\x1b.modal.client.DNSRecordType\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\"\x7f\n\tDataChunk\x12-\n\x0b\x64\x61ta_format\x18\x01 \x01(\x0e\x32\x18.modal.client.DataFormat\x12\x0e\n\x04\x64\x61ta\x18\x02 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\x03 \x01(\tH\x00\x12\r\n\x05index\x18\x04 \x01(\x04\x42\x0c\n\ndata_oneof\"#\n\x10\x44ictClearRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\"3\n\x13\x44ictContainsRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x0c\"%\n\x14\x44ictContainsResponse\x12\r\n\x05\x66ound\x18\x01 \x01(\x08\"D\n\x13\x44ictContentsRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12\x0c\n\x04keys\x18\x02 \x01(\x08\x12\x0e\n\x06values\x18\x03 \x01(\x08\"$\n\x11\x44ictDeleteRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\"\'\n\tDictEntry\x12\x0b\n\x03key\x18\x01 \x01(\x0c\x12\r\n\x05value\x18\x02 \x01(\x0c\"%\n\x12\x44ictGetByIdRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\"T\n\x13\x44ictGetByIdResponse\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12,\n\x08metadata\x18\x02 \x01(\x0b\x32\x1a.modal.client.DictMetadata\"\xb8\x01\n\x16\x44ictGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationType\x12%\n\x04\x64\x61ta\x18\x05 \x03(\x0b\x32\x17.modal.client.DictEntryJ\x04\x08\x02\x10\x03\"X\n\x17\x44ictGetOrCreateResponse\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12,\n\x08metadata\x18\x02 \x01(\x0b\x32\x1a.modal.client.DictMetadata\".\n\x0e\x44ictGetRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x0c\">\n\x0f\x44ictGetResponse\x12\r\n\x05\x66ound\x18\x01 \x01(\x08\x12\x12\n\x05value\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x42\x08\n\x06_value\"\'\n\x14\x44ictHeartbeatRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\"!\n\x0e\x44ictLenRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\"\x1e\n\x0f\x44ictLenResponse\x12\x0b\n\x03len\x18\x01 \x01(\x05\"]\n\x0f\x44ictListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x30\n\npagination\x18\x02 \x01(\x0b\x32\x1c.modal.client.ListPagination\"\xd1\x01\n\x10\x44ictListResponse\x12\x36\n\x05\x64icts\x18\x01 \x03(\x0b\x32\'.modal.client.DictListResponse.DictInfo\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x1ak\n\x08\x44ictInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x0f\n\x07\x64ict_id\x18\x03 \x01(\t\x12,\n\x08metadata\x18\x04 \x01(\x0b\x32\x1a.modal.client.DictMetadata\"O\n\x0c\x44ictMetadata\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x31\n\rcreation_info\x18\x02 \x01(\x0b\x32\x1a.modal.client.CreationInfo\".\n\x0e\x44ictPopRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\x0c\">\n\x0f\x44ictPopResponse\x12\r\n\x05\x66ound\x18\x01 \x01(\x08\x12\x12\n\x05value\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x42\x08\n\x06_value\"e\n\x11\x44ictUpdateRequest\x12\x0f\n\x07\x64ict_id\x18\x01 \x01(\t\x12(\n\x07updates\x18\x02 \x03(\x0b\x32\x17.modal.client.DictEntry\x12\x15\n\rif_not_exists\x18\x03 \x01(\x08\"%\n\x12\x44ictUpdateResponse\x12\x0f\n\x07\x63reated\x18\x01 \x01(\x08\"\xaf\x01\n\x06\x44omain\x12\x11\n\tdomain_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64omain_name\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12;\n\x12\x63\x65rtificate_status\x18\x04 \x01(\x0e\x32\x1f.modal.client.CertificateStatus\x12,\n\x0b\x64ns_records\x18\x05 \x03(\x0b\x32\x17.modal.client.DNSRecord\"3\n\x1e\x44omainCertificateVerifyRequest\x12\x11\n\tdomain_id\x18\x01 \x01(\t\"G\n\x1f\x44omainCertificateVerifyResponse\x12$\n\x06\x64omain\x18\x01 \x01(\x0b\x32\x14.modal.client.Domain\"*\n\x13\x44omainCreateRequest\x12\x13\n\x0b\x64omain_name\x18\x01 \x01(\t\"W\n\x14\x44omainCreateResponse\x12\x11\n\tdomain_id\x18\x01 \x01(\t\x12,\n\x0b\x64ns_records\x18\x02 \x03(\x0b\x32\x17.modal.client.DNSRecord\"\x13\n\x11\x44omainListRequest\";\n\x12\x44omainListResponse\x12%\n\x07\x64omains\x18\x01 \x03(\x0b\x32\x14.modal.client.Domain\"\xee\x01\n\x19\x45ndpointComputeRegionSpec\x12&\n\x04\x61uto\x18\x01 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12+\n\tcolocated\x18\x02 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12K\n\x08\x65xplicit\x18\x03 \x01(\x0b\x32\x37.modal.client.EndpointComputeRegionSpec.ExplicitRegionsH\x00\x1a\"\n\x0f\x45xplicitRegions\x12\x0f\n\x07regions\x18\x01 \x03(\tB\x0b\n\tplacement\"\xd4\x03\n\x15\x45ndpointCreateRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x15\n\rproxy_regions\x18\x03 \x03(\t\x12?\n\x0e\x63ompute_region\x18\x04 \x01(\x0b\x32\'.modal.client.EndpointComputeRegionSpec\x12\x30\n\x05model\x18\x05 \x01(\x0b\x32!.modal.client.EndpointModelSource\x12\x36\n\x0c\x61pi_surfaces\x18\x06 \x03(\x0e\x32 .modal.client.EndpointApiSurface\x12=\n\x10input_modalities\x18\x07 \x03(\x0e\x32#.modal.client.EndpointInputModality\x12\x18\n\x10\x65nvironment_name\x18\x08 \x01(\t\x12\x17\n\x0funauthenticated\x18\t \x01(\x08\x12\x37\n\x0cserving_mode\x18\n \x01(\x0e\x32!.modal.client.EndpointServingMode\x12+\n#shared_endpoint_notice_acknowledged\x18\x0b \x01(\x08\"V\n\x16\x45ndpointCreateResponse\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x19\n\x11\x65ndpoint_page_url\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\"\xce\x01\n\x19\x45ndpointCustomModelSource\x12\x1a\n\x12\x62\x61se_model_repo_id\x18\x01 \x01(\t\x12\x43\n\x0bhuggingface\x18\x02 \x01(\x0b\x32,.modal.client.EndpointHuggingFaceModelSourceH\x00\x12\x44\n\x0cmodal_volume\x18\x03 \x01(\x0b\x32,.modal.client.EndpointModalVolumeModelSourceH\x00\x42\n\n\x08location\"B\n\x18\x45ndpointGetByNameRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"J\n\x19\x45ndpointGetByNameResponse\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"-\n\x16\x45ndpointGetInfoRequest\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\"\xd8\x06\n\x17\x45ndpointGetInfoResponse\x12G\n\x04info\x18\x01 \x01(\x0b\x32\x39.modal.client.EndpointGetInfoResponse.EndpointInfoSummary\x12S\n\x08metadata\x18\x02 \x01(\x0b\x32<.modal.client.EndpointGetInfoResponse.EndpointHandleMetadataH\x00\x88\x01\x01\x1a\xd2\x02\n\x13\x45ndpointInfoSummary\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07repo_id\x18\x02 \x01(\t\x12\x10\n\x08revision\x18\x03 \x01(\t\x12\x13\n\x0bservice_url\x18\x04 \x01(\t\x12\x1b\n\x13requires_proxy_auth\x18\x05 \x01(\x08\x12\x37\n\x0cserving_mode\x18\x06 \x01(\x0e\x32!.modal.client.EndpointServingMode\x12\x44\n\x06status\x18\x07 \x01(\x0e\x32\x34.modal.client.EndpointGetInfoResponse.EndpointStatus\x12\x32\n\tlifecycle\x18\x08 \x01(\x0b\x32\x1f.modal.client.EndpointLifecycle\x12\x11\n\tvolume_id\x18\x0b \x01(\t\x12\x12\n\nmodel_path\x18\x0c \x01(\t\x1aU\n\x16\x45ndpointHandleMetadata\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x11\n\tserver_id\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\"\xe5\x01\n\x0e\x45ndpointStatus\x12\x1f\n\x1b\x45NDPOINT_STATUS_UNSPECIFIED\x10\x00\x12 \n\x1c\x45NDPOINT_STATUS_PROVISIONING\x10\x01\x12\x18\n\x14\x45NDPOINT_STATUS_LIVE\x10\x02\x12\x1a\n\x16\x45NDPOINT_STATUS_FAILED\x10\x03\x12\x1e\n\x1a\x45NDPOINT_STATUS_CANCELLING\x10\x04\x12\x1d\n\x19\x45NDPOINT_STATUS_CANCELLED\x10\x05\x12\x1b\n\x17\x45NDPOINT_STATUS_STOPPED\x10\x06\x42\x0b\n\t_metadata\"2\n\x1b\x45ndpointGetLifecycleRequest\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\"R\n\x1c\x45ndpointGetLifecycleResponse\x12\x32\n\tlifecycle\x18\x01 \x01(\x0b\x32\x1f.modal.client.EndpointLifecycle\"^\n\x1e\x45ndpointHuggingFaceModelSource\x12\x0f\n\x07repo_id\x18\x01 \x01(\t\x12\x10\n\x08revision\x18\x02 \x01(\t\x12\x19\n\x11huggingface_token\x18\x03 \x01(\t\"\xb4\x01\n\x11\x45ndpointLifecycle\x12\x35\n\x06status\x18\x01 \x01(\x0e\x32%.modal.client.EndpointLifecycleStatus\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x12\x12\n\nstopped_at\x18\x04 \x01(\x01\x12\x12\n\nstopped_by\x18\x05 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x06 \x01(\t\"\xb6\x03\n\x10\x45ndpointListItem\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x1c\n\x14\x61\x63tive_deployment_id\x18\x04 \x01(\t\x12\x12\n\nupdated_at\x18\x05 \x01(\x01\x12\x30\n\x08metadata\x18\x06 \x01(\x0b\x32\x1e.modal.client.EndpointMetadata\x12)\n\tapp_state\x18\x07 \x01(\x0e\x32\x16.modal.client.AppState\x12\x13\n\x0b\x66unction_id\x18\x08 \x01(\t\x12\x1d\n\x15\x63reated_by_avatar_url\x18\t \x01(\t\x12\x45\n\x13provisioning_status\x18\n \x01(\x0e\x32(.modal.client.EndpointProvisioningStatus\x12\x0e\n\x06status\x18\x0b \x01(\t\x12\x37\n\x0cserving_mode\x18\x0c \x01(\x0e\x32!.modal.client.EndpointServingMode\x12\x17\n\x0funauthenticated\x18\r \x01(\x08\"a\n\x13\x45ndpointListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x30\n\npagination\x18\x02 \x01(\x0b\x32\x1c.modal.client.ListPagination\"_\n\x14\x45ndpointListResponse\x12-\n\x05items\x18\x01 \x03(\x0b\x32\x1e.modal.client.EndpointListItem\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"S\n\x10\x45ndpointMetadata\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x31\n\rcreation_info\x18\x02 \x01(\x0b\x32\x1a.modal.client.CreationInfo\"G\n\x1e\x45ndpointModalVolumeModelSource\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x12\n\nmodel_path\x18\x02 \x01(\t\"x\n\x13\x45ndpointModelSource\x12\x1c\n\x12\x62\x61se_model_repo_id\x18\x01 \x01(\tH\x00\x12\x39\n\x06\x63ustom\x18\x02 \x01(\x0b\x32\'.modal.client.EndpointCustomModelSourceH\x00\x42\x08\n\x06source\"\\\n\x13\x45ndpointStopRequest\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x30\n\x06source\x18\x02 \x01(\x0e\x32 .modal.client.EndpointStopSource\"\x16\n\x14\x45ndpointStopResponse\"o\n EnvironmentBillingSummaryRequest\x12\x33\n\x0fstart_timestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x16\n\x0e\x65nvironment_id\x18\x03 \x01(\t\"\xc9\x02\n!EnvironmentBillingSummaryResponse\x12\x33\n\x0fstart_timestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rend_timestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x14\n\x0cmetered_cost\x18\x03 \x01(\t\x12i\n\x16metered_cost_breakdown\x18\x04 \x03(\x0b\x32I.modal.client.EnvironmentBillingSummaryResponse.MeteredCostBreakdownEntry\x1a;\n\x19MeteredCostBreakdownEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa4\x02\n\x18\x45nvironmentCreateRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\nis_managed\x18\x02 \x01(\x08\x12\x33\n\x08settings\x18\x03 \x01(\x0b\x32!.modal.client.EnvironmentSettings\x12\x37\n\x10\x65nvironment_type\x18\x04 \x01(\x0e\x32\x1d.modal.client.EnvironmentType\x12?\n\x13\x64\x65\x66\x61ult_member_role\x18\x05 \x01(\x0e\x32\x1d.modal.client.EnvironmentRoleH\x00\x88\x01\x01\x12\x1f\n\x17\x64\x65\x66\x61ult_member_role_str\x18\x06 \x01(\tB\x16\n\x14_default_member_role\"(\n\x18\x45nvironmentDeleteRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"5\n\x1b\x45nvironmentGetBudgetRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\"\xb9\x01\n\x1c\x45nvironmentGetBudgetResponse\x12!\n\x14\x63ycle_budget_dollars\x18\x01 \x01(\x01H\x00\x88\x01\x01\x12#\n\x1b\x65\x66\x66\x65\x63tive_cycle_spend_limit\x18\x02 \x01(\x01\x12\x1b\n\x13\x63urrent_cycle_usage\x18\x03 \x01(\x01\x12\x1b\n\x13spend_limit_reached\x18\x04 \x01(\x08\x42\x17\n\x15_cycle_budget_dollars\"6\n\x1c\x45nvironmentGetManagedRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\"\xf4\x03\n\x1d\x45nvironmentGetManagedResponse\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12U\n\x0fprincipal_roles\x18\x04 \x03(\x0b\x32<.modal.client.EnvironmentGetManagedResponse.PrincipalEnvRole\x12V\n\x10\x61\x64\x64itional_roles\x18\x05 \x03(\x0b\x32<.modal.client.EnvironmentGetManagedResponse.PrincipalEnvRole\x1a\xe9\x01\n\x10PrincipalEnvRole\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x17\n\x0fservice_user_id\x18\x02 \x01(\t\x12\r\n\x05\x65mail\x18\x03 \x01(\t\x12\x12\n\navatar_url\x18\x04 \x01(\t\x12\x19\n\x11service_user_name\x18\x05 \x01(\t\x12+\n\x04role\x18\x06 \x01(\x0e\x32\x1d.modal.client.EnvironmentRole\x12-\n\x0bmember_role\x18\x07 \x01(\x0e\x32\x18.modal.client.MemberRole\x12\x11\n\tuser_name\x18\x08 \x01(\t\"x\n\x1d\x45nvironmentGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12>\n\x14object_creation_type\x18\x02 \x01(\x0e\x32 .modal.client.ObjectCreationType\"m\n\x1e\x45nvironmentGetOrCreateResponse\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12\x33\n\x08metadata\x18\x02 \x01(\x0b\x32!.modal.client.EnvironmentMetadata\"4\n\x1a\x45nvironmentGetRolesRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\"\x9b\x05\n\x1b\x45nvironmentGetRolesResponse\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12L\n\x0fprincipal_roles\x18\x03 \x03(\x0b\x32\x33.modal.client.EnvironmentGetRolesResponse.Principal\x12?\n\x13\x64\x65\x66\x61ult_member_role\x18\x04 \x01(\x0e\x32\x1d.modal.client.EnvironmentRoleH\x00\x88\x01\x01\x1a\xb2\x03\n\tPrincipal\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x17\n\x0fservice_user_id\x18\x02 \x01(\t\x12\r\n\x05\x65mail\x18\x03 \x01(\t\x12\x12\n\navatar_url\x18\x04 \x01(\t\x12\x11\n\tuser_name\x18\x05 \x01(\t\x12\x19\n\x11service_user_name\x18\x06 \x01(\t\x12+\n\x04role\x18\x07 \x01(\x0e\x32\x1d.modal.client.EnvironmentRole\x12\x10\n\x08role_str\x18\x08 \x01(\t\x12\x36\n\x0f\x63hoosable_roles\x18\t \x03(\x0e\x32\x1d.modal.client.EnvironmentRole\x12-\n\x0bmember_role\x18\n \x01(\x0e\x32\x18.modal.client.MemberRole\x12)\n\x1cinherits_default_member_role\x18\x0b \x01(\x08H\x00\x88\x01\x01\x12 \n\x13has_role_assignment\x18\x0c \x01(\x08H\x01\x88\x01\x01\x42\x1f\n\x1d_inherits_default_member_roleB\x16\n\x14_has_role_assignmentB\x16\n\x14_default_member_role\"\xc4\x05\n\x13\x45nvironmentListItem\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x16\n\x0ewebhook_suffix\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12\x0f\n\x07\x64\x65\x66\x61ult\x18\x04 \x01(\x08\x12\x12\n\nis_managed\x18\x05 \x01(\x08\x12\x16\n\x0e\x65nvironment_id\x18\x06 \x01(\t\x12!\n\x14max_concurrent_tasks\x18\x07 \x01(\x05H\x00\x88\x01\x01\x12 \n\x13max_concurrent_gpus\x18\x08 \x01(\x05H\x01\x88\x01\x01\x12 \n\x18\x63urrent_concurrent_tasks\x18\t \x01(\x05\x12\x1f\n\x17\x63urrent_concurrent_gpus\x18\n \x01(\x05\x12!\n\x14\x63ycle_budget_dollars\x18\x0b \x01(\x01H\x02\x88\x01\x01\x12#\n\x1b\x65\x66\x66\x65\x63tive_cycle_spend_limit\x18\x0c \x01(\x01\x12\x1b\n\x13\x63urrent_cycle_usage\x18\r \x01(\x01\x12\x1b\n\x13spend_limit_reached\x18\x0e \x01(\x08\x12\x37\n\x10\x65nvironment_type\x18\x0f \x01(\x0e\x32\x1d.modal.client.EnvironmentType\x12?\n\x13\x64\x65\x66\x61ult_member_role\x18\x10 \x01(\x0e\x32\x1d.modal.client.EnvironmentRoleH\x03\x88\x01\x01\x12,\n\x1f\x62lock_unauthenticated_resources\x18\x11 \x01(\x08H\x04\x88\x01\x01\x42\x17\n\x15_max_concurrent_tasksB\x16\n\x14_max_concurrent_gpusB\x17\n\x15_cycle_budget_dollarsB\x16\n\x14_default_member_roleB\"\n _block_unauthenticated_resources\"K\n\x17\x45nvironmentListResponse\x12\x30\n\x05items\x18\x02 \x03(\x0b\x32!.modal.client.EnvironmentListItem\"\x91\x01\n\x13\x45nvironmentMetadata\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x33\n\x08settings\x18\x02 \x01(\x0b\x32!.modal.client.EnvironmentSettings\x12\x37\n\x10\x65nvironment_type\x18\x03 \x01(\x0e\x32\x1d.modal.client.EnvironmentType\"\x9c\x01\n\x19\x45nvironmentRoleSetRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x17\n\x0fservice_user_id\x18\x03 \x01(\t\x12+\n\x04role\x18\x04 \x01(\x0e\x32\x1d.modal.client.EnvironmentRole\x12\x10\n\x08role_str\x18\x05 \x01(\t\"\x87\x01\n\x1b\x45nvironmentSetBudgetRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12!\n\x14\x63ycle_budget_dollars\x18\x02 \x01(\x01H\x00\x88\x01\x01\x12\x14\n\x0c\x63lear_budget\x18\x03 \x01(\x08\x42\x17\n\x15_cycle_budget_dollars\"|\n&EnvironmentSetDefaultMemberRoleRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12:\n\x13\x64\x65\x66\x61ult_member_role\x18\x02 \x01(\x0e\x32\x1d.modal.client.EnvironmentRole\"\xa0\x01\n\x1c\x45nvironmentSetManagedRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12\x0f\n\x07managed\x18\x02 \x01(\x08\x12?\n\x13\x64\x65\x66\x61ult_member_role\x18\x03 \x01(\x0e\x32\x1d.modal.client.EnvironmentRoleH\x00\x88\x01\x01\x42\x16\n\x14_default_member_role\"\x94\x02\n\x13\x45nvironmentSettings\x12\x1d\n\x15image_builder_version\x18\x01 \x01(\t\x12\x16\n\x0ewebhook_suffix\x18\x02 \x01(\t\x12 \n\x13max_concurrent_gpus\x18\x03 \x01(\x05H\x00\x88\x01\x01\x12!\n\x14max_concurrent_tasks\x18\x04 \x01(\x05H\x01\x88\x01\x01\x12,\n\x1f\x62lock_unauthenticated_resources\x18\x05 \x01(\x08H\x02\x88\x01\x01\x42\x16\n\x14_max_concurrent_gpusB\x17\n\x15_max_concurrent_tasksB\"\n _block_unauthenticated_resources\"\x8e\x03\n\x18\x45nvironmentUpdateRequest\x12\x14\n\x0c\x63urrent_name\x18\x01 \x01(\t\x12*\n\x04name\x18\x02 \x01(\x0b\x32\x1c.google.protobuf.StringValue\x12\x30\n\nweb_suffix\x18\x03 \x01(\x0b\x32\x1c.google.protobuf.StringValue\x12!\n\x14max_concurrent_tasks\x18\x04 \x01(\x05H\x00\x88\x01\x01\x12 \n\x13max_concurrent_gpus\x18\x05 \x01(\x05H\x01\x88\x01\x01\x12\x64\n\x1f\x62lock_unauthenticated_resources\x18\x06 \x01(\x0e\x32\x36.modal.client.EnvironmentBlockUnauthenticatedResourcesH\x02\x88\x01\x01\x42\x17\n\x15_max_concurrent_tasksB\x16\n\x14_max_concurrent_gpusB\"\n _block_unauthenticated_resources\"\xbf\x01\n\tFileEntry\x12\x0c\n\x04path\x18\x01 \x01(\t\x12.\n\x04type\x18\x02 \x01(\x0e\x32 .modal.client.FileEntry.FileType\x12\r\n\x05mtime\x18\x03 \x01(\x04\x12\x0c\n\x04size\x18\x04 \x01(\x04\"W\n\x08\x46ileType\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x08\n\x04\x46ILE\x10\x01\x12\r\n\tDIRECTORY\x10\x02\x12\x0b\n\x07SYMLINK\x10\x03\x12\x08\n\x04\x46IFO\x10\x04\x12\n\n\x06SOCKET\x10\x05\"\x90\x01\n\x1c\x46ilesystemRuntimeOutputBatch\x12\x0e\n\x06output\x18\x01 \x03(\x0c\x12\x34\n\x05\x65rror\x18\x02 \x01(\x0b\x32 .modal.client.SystemErrorMessageH\x00\x88\x01\x01\x12\x13\n\x0b\x62\x61tch_index\x18\x03 \x01(\x04\x12\x0b\n\x03\x65of\x18\x04 \x01(\x08\x42\x08\n\x06_error\"7\n\x1f\x46lashContainerDeregisterRequest\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\"0\n\x19\x46lashContainerListRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\"\x9e\x01\n\x1a\x46lashContainerListResponse\x12\x46\n\ncontainers\x18\x01 \x03(\x0b\x32\x32.modal.client.FlashContainerListResponse.Container\x1a\x38\n\tContainer\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0c\n\x04host\x18\x02 \x01(\t\x12\x0c\n\x04port\x18\x03 \x01(\r\"s\n\x1d\x46lashContainerRegisterRequest\x12\x14\n\x0cservice_name\x18\x01 \x01(\t\x12\x10\n\x08priority\x18\x02 \x01(\r\x12\x0e\n\x06weight\x18\x03 \x01(\r\x12\x0c\n\x04host\x18\x04 \x01(\t\x12\x0c\n\x04port\x18\x05 \x01(\r\"-\n\x1e\x46lashContainerRegisterResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\"I\n\x19\x46lashProxyUpstreamRequest\x12\x19\n\x11upstream_requests\x18\x01 \x01(\r\x12\x11\n\ttimestamp\x18\x02 \x01(\x01\"N\n!FlashSetTargetSlotsMetricsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x14\n\x0ctarget_slots\x18\x02 \x01(\r\"$\n\"FlashSetTargetSlotsMetricsResponse\"\xf7\x1a\n\x08\x46unction\x12\x13\n\x0bmodule_name\x18\x01 \x01(\t\x12\x15\n\rfunction_name\x18\x02 \x01(\t\x12\x11\n\tmount_ids\x18\x03 \x03(\t\x12\x10\n\x08image_id\x18\x04 \x01(\t\x12\x1b\n\x13\x66unction_serialized\x18\x06 \x01(\x0c\x12>\n\x0f\x64\x65\x66inition_type\x18\x07 \x01(\x0e\x32%.modal.client.Function.DefinitionType\x12:\n\rfunction_type\x18\x08 \x01(\x0e\x32#.modal.client.Function.FunctionType\x12*\n\tresources\x18\t \x01(\x0b\x32\x17.modal.client.Resources\x12\x12\n\nsecret_ids\x18\n \x03(\t\x12+\n\nrate_limit\x18\x0b \x01(\x0b\x32\x17.modal.client.RateLimit\x12\x33\n\x0ewebhook_config\x18\x0f \x01(\x0b\x32\x1b.modal.client.WebhookConfig\x12=\n\x14shared_volume_mounts\x18\x10 \x03(\x0b\x32\x1f.modal.client.SharedVolumeMount\x12\x15\n\x08proxy_id\x18\x11 \x01(\tH\x00\x88\x01\x01\x12\x37\n\x0cretry_policy\x18\x12 \x01(\x0b\x32!.modal.client.FunctionRetryPolicy\x12\x19\n\x11\x63oncurrency_limit\x18\x13 \x01(\r\x12\x14\n\x0ctimeout_secs\x18\x15 \x01(\r\x12\'\n\x08pty_info\x18\x16 \x01(\x0b\x32\x15.modal.client.PTYInfo\x12\x18\n\x10\x63lass_serialized\x18\x17 \x01(\x0c\x12\x1e\n\x16task_idle_timeout_secs\x18\x19 \x01(\r\x12\x38\n\x0e\x63loud_provider\x18\x1a \x01(\x0e\x32\x1b.modal.client.CloudProviderH\x01\x88\x01\x01\x12\x16\n\x0ewarm_pool_size\x18\x1b \x01(\r\x12\x0f\n\x07web_url\x18\x1c \x01(\t\x12.\n\x0cweb_url_info\x18\x1d \x01(\x0b\x32\x18.modal.client.WebUrlInfo\x12\x0f\n\x07runtime\x18\x1e \x01(\t\x12\x10\n\x08\x61pp_name\x18\x1f \x01(\t\x12\x30\n\rvolume_mounts\x18! \x03(\x0b\x32\x19.modal.client.VolumeMount\x12\x1d\n\x15max_concurrent_inputs\x18\" \x01(\r\x12:\n\x12\x63ustom_domain_info\x18# \x03(\x0b\x32\x1e.modal.client.CustomDomainInfo\x12\x11\n\tworker_id\x18$ \x01(\t\x12\x15\n\rruntime_debug\x18% \x01(\x08\x12\x1b\n\x13is_builder_function\x18  \x01(\x08\x12\x18\n\x10is_auto_snapshot\x18& \x01(\x08\x12\x11\n\tis_method\x18\' \x01(\x08\x12!\n\x19is_checkpointing_function\x18( \x01(\x08\x12\x1d\n\x15\x63heckpointing_enabled\x18) \x01(\x08\x12\x30\n\ncheckpoint\x18* \x01(\x0b\x32\x1c.modal.client.CheckpointInfo\x12;\n\x13object_dependencies\x18+ \x03(\x0b\x32\x1e.modal.client.ObjectDependency\x12\x15\n\rblock_network\x18, \x01(\x08\x12\x12\n\nmax_inputs\x18. \x01(\r\x12(\n\ts3_mounts\x18/ \x03(\x0b\x32\x15.modal.client.S3Mount\x12;\n\x13\x63loud_bucket_mounts\x18\x33 \x03(\x0b\x32\x1e.modal.client.CloudBucketMount\x12\x42\n\x13scheduler_placement\x18\x32 \x01(\x0b\x32 .modal.client.SchedulerPlacementH\x02\x88\x01\x01\x12\x10\n\x08is_class\x18\x35 \x01(\x08\x12>\n\x14\x63lass_parameter_info\x18\x38 \x01(\x0b\x32 .modal.client.ClassParameterInfo\x12\x16\n\x0e\x62\x61tch_max_size\x18< \x01(\r\x12\x17\n\x0f\x62\x61tch_linger_ms\x18= \x01(\x04\x12\x14\n\x0ci6pn_enabled\x18> \x01(\x08\x12.\n&_experimental_concurrent_cancellations\x18? \x01(\x08\x12 \n\x18target_concurrent_inputs\x18@ \x01(\r\x12,\n$_experimental_task_templates_enabled\x18\x41 \x01(\x08\x12@\n\x1c_experimental_task_templates\x18\x42 \x03(\x0b\x32\x1a.modal.client.TaskTemplate\x12 \n\x18_experimental_group_size\x18\x43 \x01(\r\x12!\n\x19_experimental_fabric_size\x18^ \x01(\r\x12\x11\n\tuntrusted\x18\x44 \x01(\x08\x12\'\n\x1f_experimental_buffer_containers\x18\x45 \x01(\r\x12\x1b\n\x13runtime_perf_record\x18G \x01(\x08\x12(\n\x08schedule\x18H \x01(\x0b\x32\x16.modal.client.Schedule\x12\x16\n\x0esnapshot_debug\x18I \x01(\x08\x12I\n\x12method_definitions\x18J \x03(\x0b\x32-.modal.client.Function.MethodDefinitionsEntry\x12\x1e\n\x16method_definitions_set\x18K \x01(\x08\x12$\n\x1c_experimental_custom_scaling\x18L \x01(\x08\x12\x1a\n\x12\x63loud_provider_str\x18M \x01(\t\x12)\n!_experimental_enable_gpu_snapshot\x18N \x01(\x08\x12=\n\x13\x61utoscaler_settings\x18O \x01(\x0b\x32 .modal.client.AutoscalerSettings\x12\x35\n\x0f\x66unction_schema\x18P \x01(\x0b\x32\x1c.modal.client.FunctionSchema\x12M\n\x14\x65xperimental_options\x18Q \x03(\x0b\x32/.modal.client.Function.ExperimentalOptionsEntry\x12!\n\x19mount_client_dependencies\x18R \x01(\x08\x12\x1a\n\x12\x66lash_service_urls\x18S \x03(\t\x12\x1b\n\x13\x66lash_service_label\x18T \x01(\t\x12\x1b\n\x13\x65nable_gpu_snapshot\x18U \x01(\x08\x12\x1c\n\x14startup_timeout_secs\x18V \x01(\r\x12\x39\n\x17supported_input_formats\x18W \x03(\x0e\x32\x18.modal.client.DataFormat\x12:\n\x18supported_output_formats\x18X \x03(\x0e\x32\x18.modal.client.DataFormat\x12\x32\n\x0bhttp_config\x18Y \x01(\x0b\x32\x18.modal.client.HTTPConfigH\x03\x88\x01\x01\x12\x1b\n\x13implementation_name\x18Z \x01(\t\x12\x1d\n\x15single_use_containers\x18[ \x01(\x08\x12\x11\n\tis_server\x18\\ \x01(\x08\x12\x16\n\x0erouting_region\x18] \x01(\t\x12\x14\n\x0cis_sessioned\x18_ \x01(\x08\x1aX\n\x16MethodDefinitionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12-\n\x05value\x18\x02 \x01(\x0b\x32\x1e.modal.client.MethodDefinition:\x02\x38\x01\x1a:\n\x18\x45xperimentalOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"k\n\x0e\x44\x65\x66initionType\x12\x1f\n\x1b\x44\x45\x46INITION_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x44\x45\x46INITION_TYPE_SERIALIZED\x10\x01\x12\x18\n\x14\x44\x45\x46INITION_TYPE_FILE\x10\x02\"f\n\x0c\x46unctionType\x12\x1d\n\x19\x46UNCTION_TYPE_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x46UNCTION_TYPE_GENERATOR\x10\x01\x12\x1a\n\x16\x46UNCTION_TYPE_FUNCTION\x10\x02\x42\x0b\n\t_proxy_idB\x11\n\x0f_cloud_providerB\x16\n\x14_scheduler_placementB\x0e\n\x0c_http_configJ\x04\x08\x14\x10\x15J\x04\x08\x30\x10\x31J\x04\x08\x31\x10\x32J\x04\x08\x34\x10\x35J\x04\x08\x36\x10\x37J\x04\x08\x37\x10\x38J\x04\x08\x39\x10:J\x04\x08:\x10;J\x04\x08;\x10<\"v\n\x1a\x46unctionAsyncInvokeRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12*\n\x05input\x18\x03 \x01(\x0b\x32\x1b.modal.client.FunctionInput\"W\n\x1b\x46unctionAsyncInvokeResponse\x12\x1e\n\x16retry_with_blob_upload\x18\x01 \x01(\x08\x12\x18\n\x10\x66unction_call_id\x18\x02 \x01(\t\"\xb3\x01\n\x19\x46unctionBindParamsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x19\n\x11serialized_params\x18\x02 \x01(\x0c\x12\x37\n\x10\x66unction_options\x18\x03 \x01(\x0b\x32\x1d.modal.client.FunctionOptions\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\x12\x13\n\x0b\x61uth_secret\x18\x05 \x01(\t\"v\n\x1a\x46unctionBindParamsResponse\x12\x19\n\x11\x62ound_function_id\x18\x01 \x01(\t\x12=\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\"z\n\x19\x46unctionCallCallGraphInfo\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12\x15\n\rfunction_name\x18\x03 \x01(\t\x12\x13\n\x0bmodule_name\x18\x04 \x01(\t\"}\n\x19\x46unctionCallCancelRequest\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x1c\n\x14terminate_containers\x18\x02 \x01(\x08\x12\x18\n\x0b\x66unction_id\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x0e\n\x0c_function_id\"\xa8\x01\n\x18\x46unctionCallFetchRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12;\n\x04tail\x18\x03 \x01(\x0b\x32+.modal.client.FunctionCallFetchRequest.TailH\x00\x12\x14\n\x0c\x61ll_variants\x18\x04 \x01(\x08\x1a\x15\n\x04Tail\x12\r\n\x05\x63ount\x18\x01 \x01(\rB\r\n\x0bquery_oneof\"^\n\x19\x46unctionCallFetchResponse\x12\x41\n\x14\x66unction_call_inputs\x18\x01 \x03(\x0b\x32#.modal.client.FunctionCallInputInfo\"5\n\x19\x46unctionCallFromIdRequest\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\"\x86\x01\n\x1a\x46unctionCallFromIdResponse\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x12\n\nnum_inputs\x18\x02 \x01(\x05\x12:\n\x08metadata\x18\x03 \x01(\x0b\x32(.modal.client.FunctionCallHandleMetadata\"x\n\x1a\x46unctionCallGetDataRequest\x12\x1a\n\x10\x66unction_call_id\x18\x01 \x01(\tH\x00\x12\x17\n\rattempt_token\x18\x03 \x01(\tH\x00\x12\x12\n\nlast_index\x18\x02 \x01(\x04\x42\x0b\n\tcall_infoJ\x04\x08\x04\x10\x05\"K\n\x1a\x46unctionCallGetInfoRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x02 \x01(\t\"K\n\x1b\x46unctionCallGetInfoResponse\x12,\n\x04info\x18\x01 \x01(\x0b\x32\x1e.modal.client.FunctionCallInfo\"A\n\x1a\x46unctionCallHandleMetadata\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x02 \x01(\t\"\xc3\x03\n\x10\x46unctionCallInfo\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x0b\n\x03idx\x18\x02 \x01(\x05\x12\x12\n\ncreated_at\x18\x06 \x01(\x01\x12\x14\n\x0cscheduled_at\x18\x07 \x01(\x01\x12\x37\n\x0epending_inputs\x18\x0c \x01(\x0b\x32\x1f.modal.client.InputCategoryInfo\x12\x36\n\rfailed_inputs\x18\r \x01(\x0b\x32\x1f.modal.client.InputCategoryInfo\x12\x39\n\x10succeeded_inputs\x18\x0e \x01(\x0b\x32\x1f.modal.client.InputCategoryInfo\x12\x37\n\x0etimeout_inputs\x18\x0f \x01(\x0b\x32\x1f.modal.client.InputCategoryInfo\x12\x39\n\x10\x63\x61ncelled_inputs\x18\x10 \x01(\x0b\x32\x1f.modal.client.InputCategoryInfo\x12\x14\n\x0ctotal_inputs\x18\x11 \x01(\x05J\x04\x08\x03\x10\x04J\x04\x08\x04\x10\x05J\x04\x08\x05\x10\x06J\x04\x08\x08\x10\tJ\x04\x08\t\x10\nJ\x04\x08\n\x10\x0bJ\x04\x08\x0b\x10\x0c\"\xbf\x03\n\x15\x46unctionCallInputInfo\x12/\n\x0b\x65nqueued_at\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x33\n\nstarted_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x88\x01\x01\x12\x19\n\x0c\x63ontainer_id\x18\x03 \x01(\tH\x01\x88\x01\x01\x12!\n\x14startup_time_seconds\x18\x04 \x01(\x01H\x02\x88\x01\x01\x12#\n\x16\x65xecution_time_seconds\x18\x05 \x01(\x01H\x03\x88\x01\x01\x12\x35\n\x06status\x18\x06 \x01(\x0e\x32%.modal.client.FunctionCallInputStatus\x12\x18\n\x10\x66unction_call_id\x18\x07 \x01(\t\x12 \n\x13service_method_name\x18\x08 \x01(\tH\x04\x88\x01\x01\x42\r\n\x0b_started_atB\x0f\n\r_container_idB\x17\n\x15_startup_time_secondsB\x19\n\x17_execution_time_secondsB\x16\n\x14_service_method_name\".\n\x17\x46unctionCallListRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\"R\n\x18\x46unctionCallListResponse\x12\x36\n\x0e\x66unction_calls\x18\x01 \x03(\x0b\x32\x1e.modal.client.FunctionCallInfo\"\x8c\x01\n\x1a\x46unctionCallPutDataRequest\x12\x1a\n\x10\x66unction_call_id\x18\x01 \x01(\tH\x00\x12\x17\n\rattempt_token\x18\x03 \x01(\tH\x00\x12,\n\x0b\x64\x61ta_chunks\x18\x02 \x03(\x0b\x32\x17.modal.client.DataChunkB\x0b\n\tcall_info\"\xd6\x01\n\x15\x46unctionCreateRequest\x12(\n\x08\x66unction\x18\x01 \x01(\x0b\x32\x16.modal.client.Function\x12\x0e\n\x06\x61pp_id\x18\x02 \x01(\t\x12,\n\x08schedule\x18\x06 \x01(\x0b\x32\x16.modal.client.ScheduleB\x02\x18\x01\x12\x1c\n\x14\x65xisting_function_id\x18\x07 \x01(\t\x12\x31\n\rfunction_data\x18\t \x01(\x0b\x32\x1a.modal.client.FunctionDataJ\x04\x08\x08\x10\t\"\x9b\x02\n\x16\x46unctionCreateResponse\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12 \n\x14__deprecated_web_url\x18\x02 \x01(\tB\x02\x18\x01\x12(\n\x08\x66unction\x18\x04 \x01(\x0b\x32\x16.modal.client.Function\x12=\n\x0fhandle_metadata\x18\x05 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\x12.\n\x0fserver_warnings\x18\x06 \x03(\x0b\x32\x15.modal.client.Warning\x12\x31\n\rfunction_data\x18\x07 \x01(\x0b\x32\x1a.modal.client.FunctionData\"\x99\x0e\n\x0c\x46unctionData\x12\x13\n\x0bmodule_name\x18\x01 \x01(\t\x12\x15\n\rfunction_name\x18\x02 \x01(\t\x12:\n\rfunction_type\x18\x03 \x01(\x0e\x32#.modal.client.Function.FunctionType\x12\x16\n\x0ewarm_pool_size\x18\x04 \x01(\r\x12\x19\n\x11\x63oncurrency_limit\x18\x05 \x01(\r\x12\x1e\n\x16task_idle_timeout_secs\x18\x06 \x01(\r\x12 \n\x18_experimental_group_size\x18\x13 \x01(\r\x12!\n\x19_experimental_fabric_size\x18+ \x01(\r\x12\'\n\x1f_experimental_buffer_containers\x18\x16 \x01(\r\x12$\n\x1c_experimental_custom_scaling\x18\x17 \x01(\x08\x12)\n!_experimental_enable_gpu_snapshot\x18\x1e \x01(\x08\x12\x11\n\tworker_id\x18\x07 \x01(\t\x12\x14\n\x0ctimeout_secs\x18\x08 \x01(\r\x12\x0f\n\x07web_url\x18\t \x01(\t\x12.\n\x0cweb_url_info\x18\n \x01(\x0b\x32\x18.modal.client.WebUrlInfo\x12\x33\n\x0ewebhook_config\x18\x0b \x01(\x0b\x32\x1b.modal.client.WebhookConfig\x12:\n\x12\x63ustom_domain_info\x18\x0c \x03(\x0b\x32\x1e.modal.client.CustomDomainInfo\x12M\n\x12method_definitions\x18\x19 \x03(\x0b\x32\x31.modal.client.FunctionData.MethodDefinitionsEntry\x12\x1e\n\x16method_definitions_set\x18\x1a \x01(\x08\x12\x10\n\x08is_class\x18\r \x01(\x08\x12>\n\x14\x63lass_parameter_info\x18\x0e \x01(\x0b\x32 .modal.client.ClassParameterInfo\x12\x11\n\tis_method\x18\x0f \x01(\x08\x12\x43\n\x10ranked_functions\x18\x12 \x03(\x0b\x32).modal.client.FunctionData.RankedFunction\x12(\n\x08schedule\x18\x14 \x01(\x0b\x32\x16.modal.client.Schedule\x12\x11\n\tuntrusted\x18\x1b \x01(\x08\x12\x16\n\x0esnapshot_debug\x18\x1c \x01(\x08\x12\x1b\n\x13runtime_perf_record\x18\x1d \x01(\x08\x12=\n\x13\x61utoscaler_settings\x18\x1f \x01(\x0b\x32 .modal.client.AutoscalerSettings\x12\x35\n\x0f\x66unction_schema\x18  \x01(\x0b\x32\x1c.modal.client.FunctionSchema\x12Q\n\x14\x65xperimental_options\x18! \x03(\x0b\x32\x33.modal.client.FunctionData.ExperimentalOptionsEntry\x12\x1a\n\x12\x66lash_service_urls\x18\" \x03(\t\x12\x1b\n\x13\x66lash_service_label\x18# \x01(\t\x12\x1c\n\x14startup_timeout_secs\x18$ \x01(\r\x12\x39\n\x17supported_input_formats\x18% \x03(\x0e\x32\x18.modal.client.DataFormat\x12:\n\x18supported_output_formats\x18& \x03(\x0e\x32\x18.modal.client.DataFormat\x12\x32\n\x0bhttp_config\x18\' \x01(\x0b\x32\x18.modal.client.HTTPConfigH\x00\x88\x01\x01\x12\x1b\n\x13implementation_name\x18( \x01(\t\x12\x11\n\tis_server\x18) \x01(\x08\x12\x16\n\x0erouting_region\x18* \x01(\t\x12\x14\n\x0cis_sessioned\x18, \x01(\x08\x1aX\n\x16MethodDefinitionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12-\n\x05value\x18\x02 \x01(\x0b\x32\x1e.modal.client.MethodDefinition:\x02\x38\x01\x1aH\n\x0eRankedFunction\x12\x0c\n\x04rank\x18\x01 \x01(\r\x12(\n\x08\x66unction\x18\x02 \x01(\x0b\x32\x16.modal.client.Function\x1a:\n\x18\x45xperimentalOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x0e\n\x0c_http_configJ\x04\x08\x10\x10\x11J\x04\x08\x11\x10\x12J\x04\x08\x15\x10\x16\"\xab\x01\n\x10\x46unctionExtended\x12\x17\n\x0ftype_identifier\x18\x01 \x01(\r\x12\x34\n\x12\x66unction_singleton\x18\x02 \x01(\x0b\x32\x16.modal.client.FunctionH\x00\x12\x33\n\rfunction_data\x18\x03 \x01(\x0b\x32\x1a.modal.client.FunctionDataH\x00\x42\x13\n\x11\x66unction_extended\"`\n\x1b\x46unctionFinishInputsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x02 \x01(\t\x12\x12\n\nnum_inputs\x18\x03 \x01(\r\"-\n\x16\x46unctionGetByIdRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\"\x86\x01\n\x17\x46unctionGetByIdResponse\x12,\n\x08\x66unction\x18\x01 \x01(\x0b\x32\x1a.modal.client.FunctionData\x12=\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\"7\n\x1b\x46unctionGetCallGraphRequest\x12\x18\n\x10\x66unction_call_id\x18\x02 \x01(\t\"\xa4\x01\n\x1c\x46unctionGetCallGraphResponse\x12\x30\n\x06inputs\x18\x01 \x03(\x0b\x32 .modal.client.InputCallGraphInfo\x12?\n\x0e\x66unction_calls\x18\x02 \x03(\x0b\x32\'.modal.client.FunctionCallCallGraphInfo\x12\x11\n\ttruncated\x18\x03 \x01(\x08\"5\n\x1e\x46unctionGetCurrentStatsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\"p\n$FunctionGetDynamicConcurrencyRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x1a\n\x12target_concurrency\x18\x02 \x01(\r\x12\x17\n\x0fmax_concurrency\x18\x03 \x01(\r\"<\n%FunctionGetDynamicConcurrencyResponse\x12\x13\n\x0b\x63oncurrency\x18\x01 \x01(\r\"7\n FunctionGetFlashAuthTokenRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\"2\n!FunctionGetFlashAuthTokenResponse\x12\r\n\x05token\x18\x01 \x01(\t\"\xd5\x02\n\x15\x46unctionGetInputsItem\x12\x10\n\x08input_id\x18\x01 \x01(\t\x12*\n\x05input\x18\x02 \x01(\x0b\x32\x1b.modal.client.FunctionInput\x12\x13\n\x0bkill_switch\x18\x03 \x01(\x08\x12\x18\n\x10\x66unction_call_id\x18\x05 \x01(\t\x12O\n\x1d\x66unction_call_invocation_type\x18\x06 \x01(\x0e\x32(.modal.client.FunctionCallInvocationType\x12\x13\n\x0bretry_count\x18\x07 \x01(\r\x12\x1d\n\x10\x66unction_map_idx\x18\x08 \x01(\x05H\x00\x88\x01\x01\x12\x15\n\rattempt_token\x18\t \x01(\t\x12\x18\n\x10\x66rom_input_plane\x18\n \x01(\x08\x42\x13\n\x11_function_map_idxJ\x04\x08\x04\x10\x05\"\x93\x01\n\x18\x46unctionGetInputsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x19\n\x11input_concurrency\x18\x06 \x01(\x05\x12\x16\n\x0e\x62\x61tch_max_size\x18\x0b \x01(\r\x12\x17\n\x0f\x62\x61tch_linger_ms\x18\x0c \x01(\x04J\x04\x08\x03\x10\x04J\x04\x08\x05\x10\x06J\x04\x08\t\x10\nJ\x04\x08\n\x10\x0b\"s\n\x19\x46unctionGetInputsResponse\x12\x33\n\x06inputs\x18\x03 \x03(\x0b\x32#.modal.client.FunctionGetInputsItem\x12!\n\x19rate_limit_sleep_duration\x18\x04 \x01(\x02\"\x84\x02\n\x16\x46unctionGetOutputsItem\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x0b\n\x03idx\x18\x02 \x01(\x05\x12\x10\n\x08input_id\x18\x03 \x01(\t\x12-\n\x0b\x64\x61ta_format\x18\x05 \x01(\x0e\x32\x18.modal.client.DataFormat\x12\x0f\n\x07task_id\x18\x06 \x01(\t\x12\x18\n\x10input_started_at\x18\x07 \x01(\x01\x12\x19\n\x11output_created_at\x18\x08 \x01(\x01\x12\x13\n\x0bretry_count\x18\t \x01(\r\x12\x14\n\x0c\x66\x63_trace_tag\x18\n \x01(\t\"\xfd\x01\n\x19\x46unctionGetOutputsRequest\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x12\n\nmax_values\x18\x02 \x01(\x05\x12\x0f\n\x07timeout\x18\x03 \x01(\x02\x12\x15\n\rlast_entry_id\x18\x06 \x01(\t\x12\x18\n\x10\x63lear_on_success\x18\x07 \x01(\x08\x12\x14\n\x0crequested_at\x18\x08 \x01(\x01\x12\x12\n\ninput_jwts\x18\t \x03(\t\x12\x16\n\tstart_idx\x18\n \x01(\x05H\x00\x88\x01\x01\x12\x14\n\x07\x65nd_idx\x18\x0b \x01(\x05H\x01\x88\x01\x01\x42\x0c\n\n_start_idxB\n\n\x08_end_idx\"\x97\x01\n\x1a\x46unctionGetOutputsResponse\x12\x0c\n\x04idxs\x18\x03 \x03(\x05\x12\x35\n\x07outputs\x18\x04 \x03(\x0b\x32$.modal.client.FunctionGetOutputsItem\x12\x15\n\rlast_entry_id\x18\x05 \x01(\t\x12\x1d\n\x15num_unfinished_inputs\x18\x06 \x01(\x05\"o\n\x12\x46unctionGetRequest\x12\x10\n\x08\x61pp_name\x18\x01 \x01(\t\x12\x12\n\nobject_tag\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\x12\x13\n\x0b\x61pp_version\x18\x05 \x01(\x05J\x04\x08\x03\x10\x04\"\xc7\x01\n\x13\x46unctionGetResponse\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12=\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\x12.\n\x0fserver_warnings\x18\x04 \x03(\x0b\x32\x15.modal.client.Warning\x12,\n\x08\x66unction\x18\x05 \x01(\x0b\x32\x1a.modal.client.FunctionData\"9\n\"FunctionGetSchedulingParamsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\"n\n#FunctionGetSchedulingParamsResponse\x12G\n\x18\x61utoscaler_configuration\x18\x01 \x01(\x0b\x32%.modal.client.AutoscalerConfiguration\"3\n\x1c\x46unctionGetSerializedRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\"V\n\x1d\x46unctionGetSerializedResponse\x12\x1b\n\x13\x66unction_serialized\x18\x01 \x01(\x0c\x12\x18\n\x10\x63lass_serialized\x18\x02 \x01(\x0c\"\xc9\x01\n FunctionGetTimeRangeStatsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12)\n\x05since\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x05until\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06rollup\x18\x04 \x01(\x08\x12\x19\n\x0c\x63ontainer_id\x18\x05 \x01(\tH\x00\x88\x01\x01\x42\x0f\n\r_container_id\"\xa6\x06\n!FunctionGetTimeRangeStatsResponse\x12)\n\x05since\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x05until\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x1b\n\x13input_success_count\x18\x03 \x01(\x04\x12\x1b\n\x13input_failure_count\x18\x04 \x01(\x04\x12\x1b\n\x13input_timeout_count\x18\x05 \x01(\x04\x12\"\n\x1ainput_running_at_end_count\x18\x06 \x01(\x04\x12i\n\x16input_percentile_stats\x18\x07 \x03(\x0b\x32I.modal.client.FunctionGetTimeRangeStatsResponse.InputPercentileStatsEntry\x12\x1f\n\x17\x63ontainer_started_count\x18\x08 \x01(\x04\x12\x1d\n\x15\x63ontainer_error_count\x18\t \x01(\x04\x12\'\n\x1f\x63ontainer_creating_at_end_count\x18\n \x01(\x04\x12q\n\x1a\x63ontainer_percentile_stats\x18\x0b \x03(\x0b\x32M.modal.client.FunctionGetTimeRangeStatsResponse.ContainerPercentileStatsEntry\x12\x15\n\rvariant_count\x18\x0c \x01(\r\x1a\x66\n\x19InputPercentileStatsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32).modal.client.StatsPercentileDistribution:\x02\x38\x01\x1aj\n\x1d\x43ontainerPercentileStatsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32).modal.client.StatsPercentileDistribution:\x02\x38\x01\"\xb4\x07\n\x16\x46unctionHandleMetadata\x12\x15\n\rfunction_name\x18\x02 \x01(\t\x12:\n\rfunction_type\x18\x08 \x01(\x0e\x32#.modal.client.Function.FunctionType\x12\x0f\n\x07web_url\x18\x1c \x01(\t\x12\x11\n\tis_method\x18\' \x01(\x08\x12\x17\n\x0fuse_method_name\x18) \x01(\t\x12\x15\n\rdefinition_id\x18* \x01(\t\x12>\n\x14\x63lass_parameter_info\x18+ \x01(\x0b\x32 .modal.client.ClassParameterInfo\x12^\n\x16method_handle_metadata\x18, \x03(\x0b\x32>.modal.client.FunctionHandleMetadata.MethodHandleMetadataEntry\x12\x35\n\x0f\x66unction_schema\x18- \x01(\x0b\x32\x1c.modal.client.FunctionSchema\x12\x1c\n\x0finput_plane_url\x18. \x01(\tH\x00\x88\x01\x01\x12\x1f\n\x12input_plane_region\x18/ \x01(\tH\x01\x88\x01\x01\x12\"\n\x15max_object_size_bytes\x18\x30 \x01(\x04H\x02\x88\x01\x01\x12(\n\x1bmax_async_object_size_bytes\x18\x35 \x01(\x04H\x03\x88\x01\x01\x12 \n\x18_experimental_flash_urls\x18\x31 \x03(\t\x12\x39\n\x17supported_input_formats\x18\x32 \x03(\x0e\x32\x18.modal.client.DataFormat\x12:\n\x18supported_output_formats\x18\x33 \x03(\x0e\x32\x18.modal.client.DataFormat\x12\x0e\n\x06\x61pp_id\x18\x34 \x01(\t\x12\x18\n\x10\x62\x61se_function_id\x18\x36 \x01(\t\x1a\x61\n\x19MethodHandleMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x33\n\x05value\x18\x02 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata:\x02\x38\x01\x42\x12\n\x10_input_plane_urlB\x15\n\x13_input_plane_regionB\x18\n\x16_max_object_size_bytesB\x1e\n\x1c_max_async_object_size_bytesJ\x04\x08(\x10)\"\xb3\x01\n\rFunctionInput\x12\x0e\n\x04\x61rgs\x18\x01 \x01(\x0cH\x00\x12\x16\n\x0c\x61rgs_blob_id\x18\x07 \x01(\tH\x00\x12\x13\n\x0b\x66inal_input\x18\t \x01(\x08\x12-\n\x0b\x64\x61ta_format\x18\n \x01(\x0e\x32\x18.modal.client.DataFormat\x12\x18\n\x0bmethod_name\x18\x0b \x01(\tH\x01\x88\x01\x01\x42\x0c\n\nargs_oneofB\x0e\n\x0c_method_name\"v\n\x1b\x46unctionListVariantsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x33\n\x06\x63ursor\x18\x02 \x01(\x0b\x32#.modal.client.FunctionVariantCursor\x12\r\n\x05limit\x18\x03 \x01(\r\"\xa9\x01\n\x1c\x46unctionListVariantsResponse\x12\x30\n\x05infos\x18\x01 \x03(\x0b\x32!.modal.client.FunctionVariantInfo\x12\x38\n\x0bnext_cursor\x18\x02 \x01(\x0b\x32#.modal.client.FunctionVariantCursor\x12\x1d\n\x15ordered_by_task_count\x18\x03 \x01(\x08\"\x8d\x01\n\x13\x46unctionLookupError\x12\x38\n\x06reason\x18\x01 \x01(\x0e\x32(.modal.client.FunctionLookupError.Reason\"<\n\x06Reason\x12\x16\n\x12REASON_UNSPECIFIED\x10\x00\x12\x1a\n\x16REASON_CLASS_NAME_USED\x10\x01\"\xc1\x02\n\x12\x46unctionMapRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12\x19\n\x11return_exceptions\x18\x03 \x01(\x08\x12:\n\x12\x66unction_call_type\x18\x04 \x01(\x0e\x32\x1e.modal.client.FunctionCallType\x12=\n\x10pipelined_inputs\x18\x05 \x03(\x0b\x32#.modal.client.FunctionPutInputsItem\x12O\n\x1d\x66unction_call_invocation_type\x18\x06 \x01(\x0e\x32(.modal.client.FunctionCallInvocationType\x12\x16\n\x0e\x66rom_spawn_map\x18\x07 \x01(\x08\"\x8f\x02\n\x13\x46unctionMapResponse\x12\x18\n\x10\x66unction_call_id\x18\x01 \x01(\t\x12\x45\n\x10pipelined_inputs\x18\x02 \x03(\x0b\x32+.modal.client.FunctionPutInputsResponseItem\x12\x37\n\x0cretry_policy\x18\x03 \x01(\x0b\x32!.modal.client.FunctionRetryPolicy\x12\x19\n\x11\x66unction_call_jwt\x18\x04 \x01(\t\x12#\n\x1bsync_client_retries_enabled\x18\x05 \x01(\x08\x12\x1e\n\x16max_inputs_outstanding\x18\x06 \x01(\r\"\xfd\x08\n\x0f\x46unctionOptions\x12\x12\n\nsecret_ids\x18\x01 \x03(\t\x12\x11\n\tmount_ids\x18\x02 \x03(\t\x12/\n\tresources\x18\x03 \x01(\x0b\x32\x17.modal.client.ResourcesH\x00\x88\x01\x01\x12<\n\x0cretry_policy\x18\x04 \x01(\x0b\x32!.modal.client.FunctionRetryPolicyH\x01\x88\x01\x01\x12\x1e\n\x11\x63oncurrency_limit\x18\x05 \x01(\rH\x02\x88\x01\x01\x12\x19\n\x0ctimeout_secs\x18\x06 \x01(\rH\x03\x88\x01\x01\x12#\n\x16task_idle_timeout_secs\x18\x07 \x01(\rH\x04\x88\x01\x01\x12\x1b\n\x0ewarm_pool_size\x18\x08 \x01(\rH\x05\x88\x01\x01\x12\x30\n\rvolume_mounts\x18\t \x03(\x0b\x32\x19.modal.client.VolumeMount\x12%\n\x18target_concurrent_inputs\x18\n \x01(\rH\x06\x88\x01\x01\x12\x1d\n\x15replace_volume_mounts\x18\x0b \x01(\x08\x12\x1a\n\x12replace_secret_ids\x18\x0c \x01(\x08\x12\x1e\n\x11\x62uffer_containers\x18\r \x01(\rH\x07\x88\x01\x01\x12\"\n\x15max_concurrent_inputs\x18\x0e \x01(\rH\x08\x88\x01\x01\x12\x1b\n\x0e\x62\x61tch_max_size\x18\x0f \x01(\rH\t\x88\x01\x01\x12\x1c\n\x0f\x62\x61tch_linger_ms\x18\x10 \x01(\x04H\n\x88\x01\x01\x12\x42\n\x13scheduler_placement\x18\x11 \x01(\x0b\x32 .modal.client.SchedulerPlacementH\x0b\x88\x01\x01\x12\x1f\n\x12\x63loud_provider_str\x18\x12 \x01(\tH\x0c\x88\x01\x01\x12#\n\x1breplace_cloud_bucket_mounts\x18\x13 \x01(\x08\x12;\n\x13\x63loud_bucket_mounts\x18\x14 \x03(\x0b\x32\x1e.modal.client.CloudBucketMount\x12\x1f\n\x12pinned_app_version\x18\x15 \x01(\x05H\r\x88\x01\x01\x12\x1b\n\x0erouting_region\x18\x16 \x01(\tH\x0e\x88\x01\x01\x42\x0c\n\n_resourcesB\x0f\n\r_retry_policyB\x14\n\x12_concurrency_limitB\x0f\n\r_timeout_secsB\x19\n\x17_task_idle_timeout_secsB\x11\n\x0f_warm_pool_sizeB\x1b\n\x19_target_concurrent_inputsB\x14\n\x12_buffer_containersB\x18\n\x16_max_concurrent_inputsB\x11\n\x0f_batch_max_sizeB\x12\n\x10_batch_linger_msB\x16\n\x14_scheduler_placementB\x15\n\x13_cloud_provider_strB\x15\n\x13_pinned_app_versionB\x11\n\x0f_routing_region\"\xbf\x04\n\x18\x46unctionPrecreateRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x15\n\rfunction_name\x18\x02 \x01(\t\x12\x1c\n\x14\x65xisting_function_id\x18\x03 \x01(\t\x12:\n\rfunction_type\x18\x04 \x01(\x0e\x32#.modal.client.Function.FunctionType\x12\x33\n\x0ewebhook_config\x18\x05 \x01(\x0b\x32\x1b.modal.client.WebhookConfig\x12Y\n\x12method_definitions\x18\x08 \x03(\x0b\x32=.modal.client.FunctionPrecreateRequest.MethodDefinitionsEntry\x12\x35\n\x0f\x66unction_schema\x18\t \x01(\x0b\x32\x1c.modal.client.FunctionSchema\x12\x39\n\x17supported_input_formats\x18\n \x03(\x0e\x32\x18.modal.client.DataFormat\x12:\n\x18supported_output_formats\x18\x0b \x03(\x0e\x32\x18.modal.client.DataFormat\x1aX\n\x16MethodDefinitionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12-\n\x05value\x18\x02 \x01(\x0b\x32\x1e.modal.client.MethodDefinition:\x02\x38\x01J\x04\x08\x06\x10\x07J\x04\x08\x07\x10\x08\"o\n\x19\x46unctionPrecreateResponse\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12=\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32$.modal.client.FunctionHandleMetadata\"\xc5\x01\n\x15\x46unctionPutInputsItem\x12\x0b\n\x03idx\x18\x01 \x01(\x05\x12*\n\x05input\x18\x02 \x01(\x0b\x32\x1b.modal.client.FunctionInput\x12\x11\n\tr2_failed\x18\x03 \x01(\x08\x12\x1d\n\x15r2_throughput_bytes_s\x18\x05 \x01(\x04\x12;\n\x13\x62lob_upload_results\x18\x06 \x03(\x0b\x32\x1e.modal.client.BlobUploadResultJ\x04\x08\x04\x10\x05\"~\n\x18\x46unctionPutInputsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x03 \x01(\t\x12\x33\n\x06inputs\x18\x04 \x03(\x0b\x32#.modal.client.FunctionPutInputsItem\"X\n\x19\x46unctionPutInputsResponse\x12;\n\x06inputs\x18\x01 \x03(\x0b\x32+.modal.client.FunctionPutInputsResponseItem\"Q\n\x1d\x46unctionPutInputsResponseItem\x12\x0b\n\x03idx\x18\x01 \x01(\x05\x12\x10\n\x08input_id\x18\x02 \x01(\t\x12\x11\n\tinput_jwt\x18\x03 \x01(\t\"\xb8\x02\n\x16\x46unctionPutOutputsItem\x12\x10\n\x08input_id\x18\x01 \x01(\t\x12+\n\x06result\x18\x02 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x18\n\x10input_started_at\x18\x03 \x01(\x01\x12\x19\n\x11output_created_at\x18\x04 \x01(\x01\x12-\n\x0b\x64\x61ta_format\x18\x07 \x01(\x0e\x32\x18.modal.client.DataFormat\x12\x13\n\x0bretry_count\x18\x08 \x01(\r\x12\x18\n\x10\x66unction_call_id\x18\t \x01(\t\x12\x1d\n\x10\x66unction_map_idx\x18\n \x01(\x05H\x00\x88\x01\x01\x12\x18\n\x10\x66rom_input_plane\x18\x0b \x01(\x08\x42\x13\n\x11_function_map_idx\"h\n\x19\x46unctionPutOutputsRequest\x12\x35\n\x07outputs\x18\x04 \x03(\x0b\x32$.modal.client.FunctionPutOutputsItem\x12\x14\n\x0crequested_at\x18\x05 \x01(\x01\"m\n\x17\x46unctionRetryInputsItem\x12\x11\n\tinput_jwt\x18\x01 \x01(\t\x12*\n\x05input\x18\x02 \x01(\x0b\x32\x1b.modal.client.FunctionInput\x12\x13\n\x0bretry_count\x18\x03 \x01(\r\"n\n\x1a\x46unctionRetryInputsRequest\x12\x19\n\x11\x66unction_call_jwt\x18\x01 \x01(\t\x12\x35\n\x06inputs\x18\x02 \x03(\x0b\x32%.modal.client.FunctionRetryInputsItem\"1\n\x1b\x46unctionRetryInputsResponse\x12\x12\n\ninput_jwts\x18\x01 \x03(\t\"s\n\x13\x46unctionRetryPolicy\x12\x1b\n\x13\x62\x61\x63koff_coefficient\x18\x01 \x01(\x02\x12\x18\n\x10initial_delay_ms\x18\x02 \x01(\r\x12\x14\n\x0cmax_delay_ms\x18\x03 \x01(\r\x12\x0f\n\x07retries\x18\x12 \x01(\r\"\x91\x02\n\x0e\x46unctionSchema\x12\x44\n\x0bschema_type\x18\x01 \x01(\x0e\x32/.modal.client.FunctionSchema.FunctionSchemaType\x12\x33\n\targuments\x18\x02 \x03(\x0b\x32 .modal.client.ClassParameterSpec\x12\x35\n\x0breturn_type\x18\x03 \x01(\x0b\x32 .modal.client.GenericPayloadType\"M\n\x12\x46unctionSchemaType\x12\x1f\n\x1b\x46UNCTION_SCHEMA_UNSPECIFIED\x10\x00\x12\x16\n\x12\x46UNCTION_SCHEMA_V1\x10\x01\"m\n\rFunctionStats\x12\x0f\n\x07\x62\x61\x63klog\x18\x01 \x01(\r\x12\x17\n\x0fnum_total_tasks\x18\x03 \x01(\r\x12\x1a\n\x12num_running_inputs\x18\x04 \x01(\r\x12\x16\n\x0einput_headroom\x18\x05 \x01(\r\"\x91\x01\n%FunctionUpdateSchedulingParamsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x1f\n\x17warm_pool_size_override\x18\x02 \x01(\r\x12\x32\n\x08settings\x18\x03 \x01(\x0b\x32 .modal.client.AutoscalerSettings\"d\n&FunctionUpdateSchedulingParamsResponse\x12:\n\x10\x63urrent_settings\x18\x01 \x01(\x0b\x32 .modal.client.AutoscalerSettings\"D\n\x15\x46unctionVariantCursor\x12\x16\n\x0e\x63reated_before\x18\x01 \x01(\x01\x12\x13\n\x0b\x66unction_id\x18\x02 \x01(\t\"~\n\x13\x46unctionVariantInfo\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x19\n\x11serialized_params\x18\x02 \x01(\x0c\x12\x37\n\x10\x66unction_options\x18\x03 \x01(\x0b\x32\x1d.modal.client.FunctionOptions\"Q\n\tGPUConfig\x12#\n\x04type\x18\x01 \x01(\x0e\x32\x15.modal.client.GPUType\x12\r\n\x05\x63ount\x18\x02 \x01(\r\x12\x10\n\x08gpu_type\x18\x04 \x01(\t\"$\n\rGeneratorDone\x12\x13\n\x0bitems_total\x18\x01 \x01(\x04\"y\n\x12GenericPayloadType\x12.\n\tbase_type\x18\x01 \x01(\x0e\x32\x1b.modal.client.ParameterType\x12\x33\n\tsub_types\x18\x02 \x03(\x0b\x32 .modal.client.GenericPayloadType\"\xba\x04\n\rGenericResult\x12\x39\n\x06status\x18\x01 \x01(\x0e\x32).modal.client.GenericResult.GenericStatus\x12\x11\n\texception\x18\x02 \x01(\t\x12\x10\n\x08\x65xitcode\x18\x03 \x01(\x05\x12\x11\n\ttraceback\x18\x04 \x01(\t\x12\x15\n\rserialized_tb\x18\x0b \x01(\x0c\x12\x15\n\rtb_line_cache\x18\x0c \x01(\x0c\x12\x0e\n\x04\x64\x61ta\x18\x05 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\n \x01(\tH\x00\x12\x1a\n\x12propagation_reason\x18\r \x01(\t\"\xb5\x02\n\rGenericStatus\x12\x1e\n\x1aGENERIC_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n\x16GENERIC_STATUS_SUCCESS\x10\x01\x12\x1a\n\x16GENERIC_STATUS_FAILURE\x10\x02\x12\x1d\n\x19GENERIC_STATUS_TERMINATED\x10\x03\x12\x1a\n\x16GENERIC_STATUS_TIMEOUT\x10\x04\x12\x1f\n\x1bGENERIC_STATUS_INIT_FAILURE\x10\x05\x12#\n\x1fGENERIC_STATUS_INTERNAL_FAILURE\x10\x06\x12\x1f\n\x1bGENERIC_STATUS_IDLE_TIMEOUT\x10\x07\x12*\n&GENERIC_STATUS_MEMORY_MANAGER_EVICTION\x10\x08\x42\x0c\n\ndata_oneof\"\x8e\x02\n\nHTTPConfig\x12\x0c\n\x04port\x18\x01 \x01(\r\x12\x15\n\rproxy_regions\x18\x02 \x03(\t\x12\x17\n\x0fstartup_timeout\x18\x03 \x01(\r\x12\x19\n\x11\x65xit_grace_period\x18\x04 \x01(\r\x12\x12\n\nh2_enabled\x18\x05 \x01(\x08\x12\x1a\n\x12target_concurrency\x18\x06 \x01(\r\x12\x17\n\x0funauthenticated\x18\x07 \x01(\x08\x12\x44\n\x15lift_and_shift_config\x18\x08 \x01(\x0b\x32 .modal.client.LiftAndShiftConfigH\x00\x88\x01\x01\x42\x18\n\x16_lift_and_shift_config\"\x8e\x05\n\x05Image\x12,\n\x0b\x62\x61se_images\x18\x05 \x03(\x0b\x32\x17.modal.client.BaseImage\x12\x1b\n\x13\x64ockerfile_commands\x18\x06 \x03(\t\x12\x35\n\rcontext_files\x18\x07 \x03(\x0b\x32\x1e.modal.client.ImageContextFile\x12\x0f\n\x07version\x18\x0b \x01(\t\x12\x12\n\nsecret_ids\x18\x0c \x03(\t\x12\x18\n\x10\x63ontext_mount_id\x18\x0f \x01(\t\x12+\n\ngpu_config\x18\x10 \x01(\x0b\x32\x17.modal.client.GPUConfig\x12@\n\x15image_registry_config\x18\x11 \x01(\x0b\x32!.modal.client.ImageRegistryConfig\x12\x1a\n\x12\x62uild_function_def\x18\x0e \x01(\t\x12\x1e\n\x16\x62uild_function_globals\x18\x12 \x01(\x0c\x12\x0f\n\x07runtime\x18\x13 \x01(\t\x12\x15\n\rruntime_debug\x18\x14 \x01(\x08\x12\x33\n\x0e\x62uild_function\x18\x15 \x01(\x0b\x32\x1b.modal.client.BuildFunction\x12\x36\n\nbuild_args\x18\x16 \x03(\x0b\x32\".modal.client.Image.BuildArgsEntry\x12\x30\n\rvolume_mounts\x18\x17 \x03(\x0b\x32\x19.modal.client.VolumeMount\x12 \n\x04\x61rch\x18\x18 \x01(\x0e\x32\x12.modal.client.Arch\x1a\x30\n\x0e\x42uildArgsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"-\n\x19ImageBuildChainGetRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\"O\n\x1aImageBuildChainGetResponse\x12\x31\n\x0b\x62uild_steps\x18\x01 \x03(\x0b\x32\x1c.modal.client.ImageBuildStep\"\xb4\x01\n\x0eImageBuildStep\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12.\n\nstarted_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0b\x66inished_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x16\n\x0e\x62uilder_app_id\x18\x04 \x01(\t\x12\x17\n\x0f\x62uilder_task_id\x18\x05 \x01(\t\"2\n\x10ImageContextFile\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\"&\n\x12ImageDeleteRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\"&\n\x12ImageFromIdRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\"V\n\x13ImageFromIdResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12-\n\x08metadata\x18\x02 \x01(\x0b\x32\x1b.modal.client.ImageMetadata\"=\n\x14ImageGetByTagRequest\x12\x0b\n\x03tag\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\")\n\x15ImageGetByTagResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\"\x9e\x02\n\x17ImageGetOrCreateRequest\x12\"\n\x05image\x18\x02 \x01(\x0b\x32\x13.modal.client.Image\x12\x0e\n\x06\x61pp_id\x18\x04 \x01(\t\x12\x19\n\x11\x65xisting_image_id\x18\x05 \x01(\t\x12\x19\n\x11\x62uild_function_id\x18\x06 \x01(\t\x12\x13\n\x0b\x66orce_build\x18\x07 \x01(\x08\x12\x34\n\tnamespace\x18\x08 \x01(\x0e\x32!.modal.client.DeploymentNamespace\x12\x17\n\x0f\x62uilder_version\x18\t \x01(\t\x12\x1f\n\x17\x61llow_global_deployment\x18\n \x01(\x08\x12\x14\n\x0cignore_cache\x18\x0b \x01(\x08\"\x88\x01\n\x18ImageGetOrCreateResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12+\n\x06result\x18\x02 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12-\n\x08metadata\x18\x03 \x01(\x0b\x32\x1b.modal.client.ImageMetadata\"x\n\x19ImageJoinStreamingRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\x12\x15\n\rlast_entry_id\x18\x03 \x01(\t\x12!\n\x19include_logs_for_finished\x18\x04 \x01(\x08\"\xc2\x01\n\x1aImageJoinStreamingResponse\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12)\n\ttask_logs\x18\x02 \x03(\x0b\x32\x16.modal.client.TaskLogs\x12\x10\n\x08\x65ntry_id\x18\x03 \x01(\t\x12\x0b\n\x03\x65of\x18\x04 \x01(\x08\x12-\n\x08metadata\x18\x05 \x01(\x0b\x32\x1b.modal.client.ImageMetadata\"o\n\x11ImageListTagsItem\x12\x0b\n\x03tag\x18\x01 \x01(\t\x12\x10\n\x08image_id\x18\x02 \x01(\t\x12\x13\n\x0brevision_id\x18\x03 \x01(\t\x12\x12\n\ncreated_at\x18\x04 \x01(\x01\x12\x12\n\nupdated_at\x18\x05 \x01(\x01\"m\n\x14ImageListTagsRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x12\n\ntag_prefix\x18\x02 \x01(\t\x12\x13\n\x0bmax_objects\x18\x03 \x01(\r\x12\x12\n\npage_token\x18\x04 \x01(\t\"z\n\x15ImageListTagsResponse\x12.\n\x05items\x18\x01 \x03(\x0b\x32\x1f.modal.client.ImageListTagsItem\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\"\xe0\x02\n\rImageMetadata\x12 \n\x13python_version_info\x18\x01 \x01(\tH\x00\x88\x01\x01\x12H\n\x0fpython_packages\x18\x02 \x03(\x0b\x32/.modal.client.ImageMetadata.PythonPackagesEntry\x12\x14\n\x07workdir\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x1e\n\x11libc_version_info\x18\x04 \x01(\tH\x02\x88\x01\x01\x12\"\n\x15image_builder_version\x18\x05 \x01(\tH\x03\x88\x01\x01\x1a\x35\n\x13PythonPackagesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x16\n\x14_python_version_infoB\n\n\x08_workdirB\x14\n\x12_libc_version_infoB\x18\n\x16_image_builder_version\"d\n\x13ImagePublishRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x0b\n\x03tag\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12\x14\n\x0c\x61llow_public\x18\x04 \x01(\x08\"=\n\x14ImagePublishResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x13\n\x0brevision_id\x18\x02 \x01(\t\"d\n\x13ImageRegistryConfig\x12:\n\x12registry_auth_type\x18\x01 \x01(\x0e\x32\x1e.modal.client.RegistryAuthType\x12\x11\n\tsecret_id\x18\x02 \x01(\t\"h\n\x15ImageTagRevisionsItem\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x13\n\x0brevision_id\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12\x14\n\x0cpublished_by\x18\x04 \x01(\t\"j\n\x18ImageTagRevisionsRequest\x12\x0b\n\x03tag\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x12\x13\n\x0bmax_objects\x18\x03 \x01(\r\x12\x12\n\npage_token\x18\x04 \x01(\t\"\x8f\x01\n\x19ImageTagRevisionsResponse\x12\x32\n\x05items\x18\x01 \x03(\x0b\x32#.modal.client.ImageTagRevisionsItem\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x0b\n\x03tag\x18\x03 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\"\x8c\x01\n\x12InputCallGraphInfo\x12\x10\n\x08input_id\x18\x01 \x01(\t\x12\x39\n\x06status\x18\x02 \x01(\x0e\x32).modal.client.GenericResult.GenericStatus\x12\x18\n\x10\x66unction_call_id\x18\x03 \x01(\t\x12\x0f\n\x07task_id\x18\x04 \x01(\t\"K\n\x11InputCategoryInfo\x12\r\n\x05total\x18\x01 \x01(\x05\x12\'\n\x06latest\x18\x02 \x03(\x0b\x32\x17.modal.client.InputInfo\"\x99\x01\n\tInputInfo\x12\x10\n\x08input_id\x18\x01 \x01(\t\x12\x0b\n\x03idx\x18\x02 \x01(\x05\x12\x0f\n\x07task_id\x18\x03 \x01(\t\x12\x12\n\nstarted_at\x18\x04 \x01(\x01\x12\x13\n\x0b\x66inished_at\x18\x05 \x01(\x01\x12\x19\n\x11task_startup_time\x18\x06 \x01(\x01\x12\x18\n\x10task_first_input\x18\x07 \x01(\x08\"\x14\n\x12LiftAndShiftConfig\"=\n\x0eListPagination\x12\x13\n\x0bmax_objects\x18\x01 \x01(\x05\x12\x16\n\x0e\x63reated_before\x18\x02 \x01(\x01\"\x8d\x01\n\x0fMapAwaitRequest\x12\x1a\n\x10\x66unction_call_id\x18\x01 \x01(\tH\x00\x12\x13\n\tmap_token\x18\x05 \x01(\tH\x00\x12\x15\n\rlast_entry_id\x18\x02 \x01(\t\x12\x14\n\x0crequested_at\x18\x03 \x01(\x01\x12\x0f\n\x07timeout\x18\x04 \x01(\x02\x42\x0b\n\tcall_info\"`\n\x10MapAwaitResponse\x12\x35\n\x07outputs\x18\x01 \x03(\x0b\x32$.modal.client.FunctionGetOutputsItem\x12\x15\n\rlast_entry_id\x18\x02 \x01(\t\"W\n\x15MapCheckInputsRequest\x12\x15\n\rlast_entry_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\x12\x16\n\x0e\x61ttempt_tokens\x18\x03 \x03(\t\"&\n\x16MapCheckInputsResponse\x12\x0c\n\x04lost\x18\x01 \x03(\x08\"z\n\x16MapStartOrContinueItem\x12\x32\n\x05input\x18\x01 \x01(\x0b\x32#.modal.client.FunctionPutInputsItem\x12\x1a\n\rattempt_token\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x10\n\x0e_attempt_token\"\xcd\x01\n\x19MapStartOrContinueRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x17\n\x0fparent_input_id\x18\x02 \x01(\t\x12\x1a\n\x10\x66unction_call_id\x18\x03 \x01(\tH\x00\x12\x13\n\tmap_token\x18\x05 \x01(\tH\x00\x12\x33\n\x05items\x18\x04 \x03(\x0b\x32$.modal.client.MapStartOrContinueItem\x12\x0f\n\x07proxied\x18\x06 \x01(\x08\x42\x0b\n\tcall_info\"\xcf\x01\n\x1aMapStartOrContinueResponse\x12\x11\n\tmap_token\x18\x06 \x01(\t\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12\x18\n\x10\x66unction_call_id\x18\x02 \x01(\t\x12\x1e\n\x16max_inputs_outstanding\x18\x03 \x01(\r\x12\x16\n\x0e\x61ttempt_tokens\x18\x04 \x03(\t\x12\x37\n\x0cretry_policy\x18\x05 \x01(\x0b\x32!.modal.client.FunctionRetryPolicy\"\xc5\x03\n\x10MethodDefinition\x12\x15\n\rfunction_name\x18\x01 \x01(\t\x12:\n\rfunction_type\x18\x02 \x01(\x0e\x32#.modal.client.Function.FunctionType\x12\x33\n\x0ewebhook_config\x18\x03 \x01(\x0b\x32\x1b.modal.client.WebhookConfig\x12\x0f\n\x07web_url\x18\x04 \x01(\t\x12.\n\x0cweb_url_info\x18\x05 \x01(\x0b\x32\x18.modal.client.WebUrlInfo\x12:\n\x12\x63ustom_domain_info\x18\x06 \x03(\x0b\x32\x1e.modal.client.CustomDomainInfo\x12\x35\n\x0f\x66unction_schema\x18\x07 \x01(\x0b\x32\x1c.modal.client.FunctionSchema\x12\x39\n\x17supported_input_formats\x18\x08 \x03(\x0e\x32\x18.modal.client.DataFormat\x12:\n\x18supported_output_formats\x18\t \x03(\x0e\x32\x18.modal.client.DataFormat\">\n!MountBatchedCheckExistenceRequest\x12\x19\n\x11sha256_hex_hashes\x18\x01 \x03(\t\"G\n\"MountBatchedCheckExistenceResponse\x12!\n\x19missing_sha256_hex_hashes\x18\x01 \x03(\t\"i\n\tMountFile\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x12\n\nsha256_hex\x18\x03 \x01(\t\x12\x11\n\x04size\x18\x04 \x01(\x04H\x00\x88\x01\x01\x12\x11\n\x04mode\x18\x05 \x01(\rH\x01\x88\x01\x01\x42\x07\n\x05_sizeB\x07\n\x05_mode\"\xfa\x01\n\x17MountGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x34\n\tnamespace\x18\x02 \x01(\x0e\x32!.modal.client.DeploymentNamespace\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationType\x12&\n\x05\x66iles\x18\x05 \x03(\x0b\x32\x17.modal.client.MountFile\x12\x0e\n\x06\x61pp_id\x18\x06 \x01(\t\"h\n\x18MountGetOrCreateResponse\x12\x10\n\x08mount_id\x18\x01 \x01(\t\x12:\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32!.modal.client.MountHandleMetadata\":\n\x13MountHandleMetadata\x12#\n\x1b\x63ontent_checksum_sha256_hex\x18\x01 \x01(\t\"_\n\x13MountPutFileRequest\x12\x12\n\nsha256_hex\x18\x02 \x01(\t\x12\x0e\n\x04\x64\x61ta\x18\x03 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\x05 \x01(\tH\x00\x42\x0c\n\ndata_oneof\"&\n\x14MountPutFileResponse\x12\x0e\n\x06\x65xists\x18\x02 \x01(\x08\"S\n\x0fMultiPartUpload\x12\x13\n\x0bpart_length\x18\x01 \x01(\x03\x12\x13\n\x0bupload_urls\x18\x02 \x03(\t\x12\x16\n\x0e\x63ompletion_url\x18\x03 \x01(\t\"C\n\x13MultiPartUploadList\x12,\n\x05items\x18\x01 \x03(\x0b\x32\x1d.modal.client.MultiPartUpload\"\xd7\x01\n\rNetworkAccess\x12J\n\x13network_access_type\x18\x01 \x01(\x0e\x32-.modal.client.NetworkAccess.NetworkAccessType\x12\x15\n\rallowed_cidrs\x18\x02 \x03(\t\x12\x17\n\x0f\x61llowed_domains\x18\x03 \x03(\t\"J\n\x11NetworkAccessType\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x08\n\x04OPEN\x10\x01\x12\x0b\n\x07\x42LOCKED\x10\x02\x12\r\n\tALLOWLIST\x10\x03\"\xa4\x03\n#NotebookKernelPublishResultsRequest\x12\x13\n\x0bnotebook_id\x18\x01 \x01(\t\x12M\n\x07results\x18\x02 \x03(\x0b\x32<.modal.client.NotebookKernelPublishResultsRequest.CellResult\x1aI\n\x0c\x45xecuteReply\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x17\n\x0f\x65xecution_count\x18\x02 \x01(\r\x12\x10\n\x08\x64uration\x18\x03 \x01(\x01\x1a\xcd\x01\n\nCellResult\x12\x0f\n\x07\x63\x65ll_id\x18\x01 \x01(\t\x12.\n\x06output\x18\x02 \x01(\x0b\x32\x1c.modal.client.NotebookOutputH\x00\x12\x16\n\x0c\x63lear_output\x18\x03 \x01(\x08H\x00\x12W\n\rexecute_reply\x18\x04 \x01(\x0b\x32>.modal.client.NotebookKernelPublishResultsRequest.ExecuteReplyH\x00\x42\r\n\x0bresult_type\"\x8e\x05\n\x0eNotebookOutput\x12\x44\n\x0e\x65xecute_result\x18\x01 \x01(\x0b\x32*.modal.client.NotebookOutput.ExecuteResultH\x00\x12@\n\x0c\x64isplay_data\x18\x02 \x01(\x0b\x32(.modal.client.NotebookOutput.DisplayDataH\x00\x12\x35\n\x06stream\x18\x03 \x01(\x0b\x32#.modal.client.NotebookOutput.StreamH\x00\x12\x33\n\x05\x65rror\x18\x04 \x01(\x0b\x32\".modal.client.NotebookOutput.ErrorH\x00\x1az\n\rExecuteResult\x12\x17\n\x0f\x65xecution_count\x18\x01 \x01(\r\x12%\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\x12)\n\x08metadata\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\x1a\x9b\x01\n\x0b\x44isplayData\x12%\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x17.google.protobuf.Struct\x12)\n\x08metadata\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\x12!\n\x14transient_display_id\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x17\n\x15_transient_display_id\x1a$\n\x06Stream\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04text\x18\x02 \x01(\t\x1a\x39\n\x05\x45rror\x12\r\n\x05\x65name\x18\x01 \x01(\t\x12\x0e\n\x06\x65value\x18\x02 \x01(\t\x12\x11\n\ttraceback\x18\x03 \x03(\tB\r\n\x0boutput_type\"\x87\x03\n\x06Object\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12H\n\x18\x66unction_handle_metadata\x18\x03 \x01(\x0b\x32$.modal.client.FunctionHandleMetadataH\x00\x12\x42\n\x15mount_handle_metadata\x18\x04 \x01(\x0b\x32!.modal.client.MountHandleMetadataH\x00\x12\x42\n\x15\x63lass_handle_metadata\x18\x05 \x01(\x0b\x32!.modal.client.ClassHandleMetadataH\x00\x12\x46\n\x17sandbox_handle_metadata\x18\x06 \x01(\x0b\x32#.modal.client.SandboxHandleMetadataH\x00\x12\x37\n\x0fvolume_metadata\x18\x07 \x01(\x0b\x32\x1c.modal.client.VolumeMetadataH\x00\x42\x17\n\x15handle_metadata_oneof\"%\n\x10ObjectDependency\x12\x11\n\tobject_id\x18\x01 \x01(\t\"\xbb\x02\n\x0eOutboundPolicy\x12K\n\x13header_replacements\x18\x01 \x03(\x0b\x32..modal.client.OutboundPolicy.HeaderReplacement\x1a\xdb\x01\n\x11HeaderReplacement\x12\x0e\n\x06\x64omain\x18\x01 \x01(\t\x12\x11\n\tsecret_id\x18\x04 \x01(\t\x12L\n\x07headers\x18\x05 \x03(\x0b\x32;.modal.client.OutboundPolicy.HeaderReplacement.HeadersEntry\x1a.\n\x0cHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01J\x04\x08\x02\x10\x03J\x04\x08\x03\x10\x04R\x0bheader_nameR\x0cheader_value\"\xaa\x02\n\x07PTYInfo\x12\x0f\n\x07\x65nabled\x18\x01 \x01(\x08\x12\x12\n\nwinsz_rows\x18\x02 \x01(\r\x12\x12\n\nwinsz_cols\x18\x03 \x01(\r\x12\x10\n\x08\x65nv_term\x18\x04 \x01(\t\x12\x15\n\renv_colorterm\x18\x05 \x01(\t\x12\x18\n\x10\x65nv_term_program\x18\x06 \x01(\t\x12/\n\x08pty_type\x18\x07 \x01(\x0e\x32\x1d.modal.client.PTYInfo.PTYType\x12\"\n\x1ano_terminate_on_idle_stdin\x18\x08 \x01(\x08\"N\n\x07PTYType\x12\x18\n\x14PTY_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11PTY_TYPE_FUNCTION\x10\x01\x12\x12\n\x0ePTY_TYPE_SHELL\x10\x02\"q\n\x08PortSpec\x12\x0c\n\x04port\x18\x01 \x01(\r\x12\x13\n\x0bunencrypted\x18\x02 \x01(\x08\x12\x32\n\x0btunnel_type\x18\x03 \x01(\x0e\x32\x18.modal.client.TunnelTypeH\x00\x88\x01\x01\x42\x0e\n\x0c_tunnel_type\"2\n\tPortSpecs\x12%\n\x05ports\x18\x01 \x03(\x0b\x32\x16.modal.client.PortSpec\"\xaa\x01\n\x05Probe\x12\x12\n\x08tcp_port\x18\x01 \x01(\rH\x00\x12\x37\n\x0c\x65xec_command\x18\x02 \x01(\x0b\x32\x1f.modal.client.Probe.ExecCommandH\x00\x12\x18\n\x0binterval_ms\x18\x03 \x01(\rH\x01\x88\x01\x01\x1a\x1b\n\x0b\x45xecCommand\x12\x0c\n\x04\x61rgv\x18\x01 \x03(\tB\r\n\x0bprobe_oneofB\x0e\n\x0c_interval_ms\"\x8f\x01\n\x05Proxy\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12(\n\tproxy_ips\x18\x04 \x03(\x0b\x32\x15.modal.client.ProxyIp\x12\x10\n\x08proxy_id\x18\x05 \x01(\t\x12\x0e\n\x06region\x18\x06 \x01(\t\"%\n\x11ProxyAddIpRequest\x12\x10\n\x08proxy_id\x18\x01 \x01(\t\"=\n\x12ProxyAddIpResponse\x12\'\n\x08proxy_ip\x18\x01 \x01(\x0b\x32\x15.modal.client.ProxyIp\"L\n\x12ProxyCreateRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x12\x0e\n\x06region\x18\x03 \x01(\t\"9\n\x13ProxyCreateResponse\x12\"\n\x05proxy\x18\x01 \x01(\x0b\x32\x13.modal.client.Proxy\"&\n\x12ProxyDeleteRequest\x12\x10\n\x08proxy_id\x18\x01 \x01(\t\"\x92\x01\n\x17ProxyGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationTypeJ\x04\x08\x02\x10\x03\",\n\x18ProxyGetOrCreateResponse\x12\x10\n\x08proxy_id\x18\x01 \x01(\t\"9\n\x0fProxyGetRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"6\n\x10ProxyGetResponse\x12\"\n\x05proxy\x18\x01 \x01(\x0b\x32\x13.modal.client.Proxy\"\x88\x01\n\tProxyInfo\x12\x12\n\nelastic_ip\x18\x01 \x01(\t\x12\x11\n\tproxy_key\x18\x02 \x01(\t\x12+\n\nproxy_type\x18\x05 \x01(\x0e\x32\x17.modal.client.ProxyType\x12\x10\n\x08use_oidc\x18\x06 \x01(\x08\x12\x15\n\rvprox_node_id\x18\x07 \x01(\t\"v\n\x07ProxyIp\x12\x10\n\x08proxy_ip\x18\x01 \x01(\t\x12+\n\x06status\x18\x02 \x01(\x0e\x32\x1b.modal.client.ProxyIpStatus\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\"9\n\x11ProxyListResponse\x12$\n\x07proxies\x18\x01 \x03(\x0b\x32\x13.modal.client.Proxy\"(\n\x14ProxyRemoveIpRequest\x12\x10\n\x08proxy_ip\x18\x01 \x01(\t\"T\n\x11QueueClearRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x15\n\rpartition_key\x18\x02 \x01(\x0c\x12\x16\n\x0e\x61ll_partitions\x18\x03 \x01(\x08\"&\n\x12QueueDeleteRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\"\'\n\x13QueueGetByIdRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\"W\n\x14QueueGetByIdResponse\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12-\n\x08metadata\x18\x02 \x01(\x0b\x32\x1b.modal.client.QueueMetadata\"\x92\x01\n\x17QueueGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationTypeJ\x04\x08\x02\x10\x03\"[\n\x18QueueGetOrCreateResponse\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12-\n\x08metadata\x18\x02 \x01(\x0b\x32\x1b.modal.client.QueueMetadata\"]\n\x0fQueueGetRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x03 \x01(\x02\x12\x10\n\x08n_values\x18\x04 \x01(\x05\x12\x15\n\rpartition_key\x18\x05 \x01(\x0c\"\"\n\x10QueueGetResponse\x12\x0e\n\x06values\x18\x02 \x03(\x0c\")\n\x15QueueHeartbeatRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\",\n\tQueueItem\x12\r\n\x05value\x18\x01 \x01(\x0c\x12\x10\n\x08\x65ntry_id\x18\x02 \x01(\t\"I\n\x0fQueueLenRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x15\n\rpartition_key\x18\x02 \x01(\x0c\x12\r\n\x05total\x18\x03 \x01(\x08\"\x1f\n\x10QueueLenResponse\x12\x0b\n\x03len\x18\x01 \x01(\x05\"x\n\x10QueueListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x18\n\x10total_size_limit\x18\x02 \x01(\x05\x12\x30\n\npagination\x18\x03 \x01(\x0b\x32\x1c.modal.client.ListPagination\"\x85\x02\n\x11QueueListResponse\x12\x39\n\x06queues\x18\x01 \x03(\x0b\x32).modal.client.QueueListResponse.QueueInfo\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x1a\x9a\x01\n\tQueueInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x16\n\x0enum_partitions\x18\x03 \x01(\x05\x12\x12\n\ntotal_size\x18\x04 \x01(\x05\x12\x10\n\x08queue_id\x18\x05 \x01(\t\x12-\n\x08metadata\x18\x06 \x01(\x0b\x32\x1b.modal.client.QueueMetadata\"P\n\rQueueMetadata\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x31\n\rcreation_info\x18\x02 \x01(\x0b\x32\x1a.modal.client.CreationInfo\"r\n\x15QueueNextItemsRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x15\n\rpartition_key\x18\x02 \x01(\x0c\x12\x15\n\rlast_entry_id\x18\x03 \x01(\t\x12\x19\n\x11item_poll_timeout\x18\x04 \x01(\x02\"@\n\x16QueueNextItemsResponse\x12&\n\x05items\x18\x01 \x03(\x0b\x32\x17.modal.client.QueueItem\"i\n\x0fQueuePutRequest\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x0e\n\x06values\x18\x04 \x03(\x0c\x12\x15\n\rpartition_key\x18\x05 \x01(\x0c\x12\x1d\n\x15partition_ttl_seconds\x18\x06 \x01(\x05\"*\n\x0eRPCRetryPolicy\x12\x18\n\x10retry_after_secs\x18\x01 \x01(\x02\"Q\n\tRPCStatus\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x0f\n\x07message\x18\x02 \x01(\t\x12%\n\x07\x64\x65tails\x18\x03 \x03(\x0b\x32\x14.google.protobuf.Any\"M\n\tRateLimit\x12\r\n\x05limit\x18\x01 \x01(\x05\x12\x31\n\x08interval\x18\x02 \x01(\x0e\x32\x1f.modal.client.RateLimitInterval\"\x97\x02\n\x0cResourceInfo\x12;\n\tmemory_mb\x18\x01 \x01(\x0b\x32(.modal.client.ResourceInfo.ResourceValue\x12;\n\tmilli_cpu\x18\x02 \x01(\x0b\x32(.modal.client.ResourceInfo.ResourceValue\x12\x10\n\x08gpu_type\x18\x03 \x01(\t\x12\x15\n\rmemory_mb_max\x18\x04 \x01(\r\x12\x19\n\x11\x65phemeral_disk_mb\x18\x05 \x01(\r\x12\x15\n\rmilli_cpu_max\x18\x06 \x01(\r\x1a\x32\n\rResourceValue\x12\r\n\x05value\x18\x01 \x01(\r\x12\x12\n\nis_default\x18\x02 \x01(\x08\"\xb5\x01\n\tResources\x12\x11\n\tmemory_mb\x18\x02 \x01(\r\x12\x11\n\tmilli_cpu\x18\x03 \x01(\r\x12+\n\ngpu_config\x18\x04 \x01(\x0b\x32\x17.modal.client.GPUConfig\x12\x15\n\rmemory_mb_max\x18\x05 \x01(\r\x12\x19\n\x11\x65phemeral_disk_mb\x18\x06 \x01(\r\x12\x15\n\rmilli_cpu_max\x18\x07 \x01(\r\x12\x0c\n\x04rdma\x18\x08 \x01(\x08\"J\n\x13RuntimeInputMessage\x12\x0f\n\x07message\x18\x01 \x01(\x0c\x12\x15\n\rmessage_index\x18\x02 \x01(\x04\x12\x0b\n\x03\x65of\x18\x03 \x01(\x08\"\x9c\x02\n\x12RuntimeOutputBatch\x12\x31\n\x05items\x18\x01 \x03(\x0b\x32\".modal.client.RuntimeOutputMessage\x12\x13\n\x0b\x62\x61tch_index\x18\x02 \x01(\x04\x12\x16\n\texit_code\x18\x03 \x01(\x05H\x00\x88\x01\x01\x12\x32\n\x06stdout\x18\x04 \x03(\x0b\x32\".modal.client.RuntimeOutputMessage\x12\x32\n\x06stderr\x18\x05 \x03(\x0b\x32\".modal.client.RuntimeOutputMessage\x12\x30\n\x04info\x18\x06 \x03(\x0b\x32\".modal.client.RuntimeOutputMessageB\x0c\n\n_exit_code\"u\n\x14RuntimeOutputMessage\x12\x35\n\x0f\x66ile_descriptor\x18\x01 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x15\n\rmessage_bytes\x18\x03 \x01(\x0c\"d\n\x07S3Mount\x12\x13\n\x0b\x62ucket_name\x18\x01 \x01(\t\x12\x12\n\nmount_path\x18\x02 \x01(\t\x12\x1d\n\x15\x63redentials_secret_id\x18\x03 \x01(\t\x12\x11\n\tread_only\x18\x04 \x01(\x08\"\xc3\x0e\n\x07Sandbox\x12\x17\n\x0f\x65ntrypoint_args\x18\x01 \x03(\t\x12\x11\n\tmount_ids\x18\x02 \x03(\t\x12\x10\n\x08image_id\x18\x03 \x01(\t\x12\x12\n\nsecret_ids\x18\x04 \x03(\t\x12*\n\tresources\x18\x05 \x01(\x0b\x32\x17.modal.client.Resources\x12\x33\n\x0e\x63loud_provider\x18\x06 \x01(\x0e\x32\x1b.modal.client.CloudProvider\x12\x14\n\x0ctimeout_secs\x18\x07 \x01(\r\x12\x14\n\x07workdir\x18\x08 \x01(\tH\x01\x88\x01\x01\x12\x33\n\nnfs_mounts\x18\t \x03(\x0b\x32\x1f.modal.client.SharedVolumeMount\x12\x15\n\rruntime_debug\x18\n \x01(\x08\x12\x15\n\rblock_network\x18\x0b \x01(\x08\x12(\n\ts3_mounts\x18\x0c \x03(\x0b\x32\x15.modal.client.S3Mount\x12;\n\x13\x63loud_bucket_mounts\x18\x0e \x03(\x0b\x32\x1e.modal.client.CloudBucketMount\x12\x30\n\rvolume_mounts\x18\r \x03(\x0b\x32\x19.modal.client.VolumeMount\x12\'\n\x08pty_info\x18\x0f \x01(\x0b\x32\x15.modal.client.PTYInfo\x12\x42\n\x13scheduler_placement\x18\x11 \x01(\x0b\x32 .modal.client.SchedulerPlacementH\x02\x88\x01\x01\x12\x11\n\tworker_id\x18\x13 \x01(\t\x12-\n\nopen_ports\x18\x14 \x01(\x0b\x32\x17.modal.client.PortSpecsH\x00\x12\x14\n\x0ci6pn_enabled\x18\x15 \x01(\x08\x12\x33\n\x0enetwork_access\x18\x16 \x01(\x0b\x32\x1b.modal.client.NetworkAccess\x12\x15\n\x08proxy_id\x18\x17 \x01(\tH\x03\x88\x01\x01\x12\x17\n\x0f\x65nable_snapshot\x18\x18 \x01(\x08\x12\x1d\n\x10snapshot_version\x18\x19 \x01(\rH\x04\x88\x01\x01\x12\x1a\n\x12\x63loud_provider_str\x18\x1a \x01(\t\x12\"\n\x15runsc_runtime_version\x18\x1b \x01(\tH\x05\x88\x01\x01\x12\x14\n\x07runtime\x18\x1c \x01(\tH\x06\x88\x01\x01\x12\x0f\n\x07verbose\x18\x1d \x01(\x08\x12\x11\n\x04name\x18\x1e \x01(\tH\x07\x88\x01\x01\x12P\n\x14\x65xperimental_options\x18\x1f \x03(\x0b\x32..modal.client.Sandbox.ExperimentalOptionsEntryB\x02\x18\x01\x12Q\n\x17\x65xperimental_options_v2\x18) \x03(\x0b\x32\x30.modal.client.Sandbox.ExperimentalOptionsV2Entry\x12\x1d\n\x15preload_path_prefixes\x18  \x03(\t\x12\x1e\n\x11idle_timeout_secs\x18! \x01(\rH\x08\x88\x01\x01\x12+\n\x1f\x64irect_sandbox_commands_enabled\x18\" \x01(\x08\x42\x02\x18\x01\x12\x1e\n\x16_restore_instance_type\x18# \x01(\t\x12\x15\n\rcustom_domain\x18$ \x01(\t\x12#\n\x1binclude_oidc_identity_token\x18% \x01(\x08\x12\x31\n\x0freadiness_probe\x18& \x01(\x0b\x32\x13.modal.client.ProbeH\t\x88\x01\x01\x12\x1e\n\x16inbound_cidr_allowlist\x18\' \x03(\t\x12\x36\n\x15\x65nvironment_variables\x18( \x01(\x0b\x32\x17.modal.client.StringMap\x12:\n\x0foutbound_policy\x18* \x01(\x0b\x32\x1c.modal.client.OutboundPolicyH\n\x88\x01\x01\x12\x19\n\x11include_x509_svid\x18+ \x01(\x08\x1a:\n\x18\x45xperimentalOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x08:\x02\x38\x01\x1a<\n\x1a\x45xperimentalOptionsV2Entry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x12\n\x10open_ports_oneofB\n\n\x08_workdirB\x16\n\x14_scheduler_placementB\x0b\n\t_proxy_idB\x13\n\x11_snapshot_versionB\x18\n\x16_runsc_runtime_versionB\n\n\x08_runtimeB\x07\n\x05_nameB\x14\n\x12_idle_timeout_secsB\x12\n\x10_readiness_probeB\x12\n\x10_outbound_policyJ\x04\x08\x10\x10\x11J\x04\x08\x12\x10\x13\"\x81\x03\n\x1fSandboxContainerCreateV2Request\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x02 \x01(\t\x12)\n\ndefinition\x18\x03 \x01(\x0b\x32\x15.modal.client.Sandbox\x12\x32\n\x11\x65phemeral_secrets\x18\x04 \x01(\x0b\x32\x17.modal.client.StringMap\x12v\n\x1e\x63loud_bucket_mount_credentials\x18\x05 \x03(\x0b\x32N.modal.client.SandboxContainerCreateV2Request.CloudBucketMountCredentialsEntry\x1a[\n CloudBucketMountCredentialsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12&\n\x05value\x18\x02 \x01(\x0b\x32\x17.modal.client.StringMap:\x02\x38\x01\"P\n SandboxContainerCreateV2Response\x12\x14\n\x0c\x63ontainer_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x02 \x01(\t\"i\n SandboxCreateConnectTokenRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x15\n\ruser_metadata\x18\x02 \x01(\t\x12\x11\n\x04port\x18\x03 \x01(\rH\x00\x88\x01\x01\x42\x07\n\x05_port\"?\n!SandboxCreateConnectTokenResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\"\x93\x01\n\x14SandboxCreateRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12)\n\ndefinition\x18\x02 \x01(\x0b\x32\x15.modal.client.Sandbox\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12&\n\x04tags\x18\x04 \x03(\x0b\x32\x18.modal.client.SandboxTag\"b\n\x15SandboxCreateResponse\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x35\n\x08metadata\x18\x02 \x01(\x0b\x32#.modal.client.SandboxHandleMetadata\"\xfb\x02\n\x16SandboxCreateV2Request\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12)\n\ndefinition\x18\x02 \x01(\x0b\x32\x15.modal.client.Sandbox\x12\x32\n\x11\x65phemeral_secrets\x18\x03 \x01(\x0b\x32\x17.modal.client.StringMap\x12&\n\x04tags\x18\x04 \x03(\x0b\x32\x18.modal.client.SandboxTag\x12m\n\x1e\x63loud_bucket_mount_credentials\x18\x05 \x03(\x0b\x32\x45.modal.client.SandboxCreateV2Request.CloudBucketMountCredentialsEntry\x1a[\n CloudBucketMountCredentialsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12&\n\x05value\x18\x02 \x01(\x0b\x32\x17.modal.client.StringMap:\x02\x38\x01\"\xe2\x01\n\x17SandboxCreateV2Response\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12)\n\x07tunnels\x18\x02 \x03(\x0b\x32\x18.modal.client.TunnelData\x12\x0f\n\x07task_id\x18\x03 \x01(\t\x12\x35\n\x08metadata\x18\x04 \x01(\x0b\x32#.modal.client.SandboxHandleMetadata\x12@\n\x15\x63ommand_router_access\x18\x05 \x01(\x0b\x32!.modal.client.CommandRouterAccess\"Y\n$SandboxGetCommandRouterAccessRequest\x12\x14\n\nsandbox_id\x18\x01 \x01(\tH\x00\x12\x11\n\x07task_id\x18\x02 \x01(\tH\x00\x42\x08\n\x06target\"^\n%SandboxGetCommandRouterAccessResponse\x12\x0b\n\x03jwt\x18\x01 \x01(\t\x12\x0b\n\x03url\x18\x02 \x01(\t\x12\x1b\n\x13worker_ipv4_address\x18\x03 \x01(\t\"D\n\x1dSandboxGetExitSnapshotRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"\x93\x04\n\x1eSandboxGetExitSnapshotResponse\x12G\n\x07success\x18\x01 \x01(\x0b\x32\x34.modal.client.SandboxGetExitSnapshotResponse.SuccessH\x00\x12G\n\x07pending\x18\x02 \x01(\x0b\x32\x34.modal.client.SandboxGetExitSnapshotResponse.PendingH\x00\x12\x43\n\x05\x65rror\x18\x03 \x01(\x0b\x32\x32.modal.client.SandboxGetExitSnapshotResponse.ErrorH\x00\x1a\x1b\n\x07Success\x12\x10\n\x08image_id\x18\x01 \x01(\t\x1a\t\n\x07Pending\x1a\x64\n\x05\x45rror\x12J\n\nerror_code\x18\x01 \x01(\x0e\x32\x36.modal.client.SandboxGetExitSnapshotResponse.ErrorCode\x12\x0f\n\x07message\x18\x02 \x01(\t\"\x80\x01\n\tErrorCode\x12\x1a\n\x16\x45RROR_CODE_UNSPECIFIED\x10\x00\x12\x16\n\x12\x45RROR_CODE_TIMEOUT\x10\x01\x12\x17\n\x13\x45RROR_CODE_INTERNAL\x10\x02\x12&\n\"ERROR_CODE_FILESYSTEM_INCONSISTENT\x10\x03\x42\t\n\x07outcome\"]\n\x19SandboxGetFromNameRequest\x12\x14\n\x0csandbox_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\x12\x10\n\x08\x61pp_name\x18\x03 \x01(\t\"g\n\x1aSandboxGetFromNameResponse\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x35\n\x08metadata\x18\x02 \x01(\x0b\x32#.modal.client.SandboxHandleMetadata\"\x8a\x01\n\x15SandboxGetLogsRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x35\n\x0f\x66ile_descriptor\x18\x02 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x0f\n\x07timeout\x18\x03 \x01(\x02\x12\x15\n\rlast_entry_id\x18\x04 \x01(\t\"4\n\x1eSandboxGetResourceUsageRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\"\x90\x01\n\x1fSandboxGetResourceUsageResponse\x12\x19\n\x11\x63pu_core_nanosecs\x18\x01 \x01(\x04\x12\x18\n\x10mem_gib_nanosecs\x18\x02 \x01(\x04\x12\x14\n\x0cgpu_nanosecs\x18\x03 \x01(\x04\x12\x15\n\x08gpu_type\x18\x04 \x01(\tH\x00\x88\x01\x01\x42\x0b\n\t_gpu_type\"i\n\x17SandboxGetTaskIdRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x14\n\x07timeout\x18\x02 \x01(\x02H\x00\x88\x01\x01\x12\x18\n\x10wait_until_ready\x18\x03 \x01(\x08\x42\n\n\x08_timeout\"\x83\x01\n\x18SandboxGetTaskIdResponse\x12\x14\n\x07task_id\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x35\n\x0btask_result\x18\x02 \x01(\x0b\x32\x1b.modal.client.GenericResultH\x01\x88\x01\x01\x42\n\n\x08_task_idB\x0e\n\x0c_task_result\"?\n\x18SandboxGetTunnelsRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"s\n\x19SandboxGetTunnelsResponse\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12)\n\x07tunnels\x18\x02 \x03(\x0b\x32\x18.modal.client.TunnelData\"T\n\x15SandboxHandleMetadata\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x0e\n\x06\x61pp_id\x18\x02 \x01(\t\"\x93\x04\n\x0bSandboxInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12)\n\ttask_info\x18\x04 \x01(\x0b\x32\x16.modal.client.TaskInfo\x12\x0e\n\x06\x61pp_id\x18\x05 \x01(\t\x12&\n\x04tags\x18\x06 \x03(\x0b\x32\x18.modal.client.SandboxTag\x12\x0c\n\x04name\x18\x07 \x01(\t\x12\x10\n\x08image_id\x18\x08 \x01(\t\x12\x31\n\rresource_info\x18\t \x01(\x0b\x32\x1a.modal.client.ResourceInfo\x12\x0f\n\x07regions\x18\n \x03(\t\x12\x14\n\x0ctimeout_secs\x18\x0b \x01(\r\x12\x1e\n\x11idle_timeout_secs\x18\x0c \x01(\rH\x00\x88\x01\x01\x12\x15\n\x08ready_at\x18\r \x01(\x01H\x01\x88\x01\x01\x12\x31\n\x0freadiness_probe\x18\x0e \x01(\x0b\x32\x13.modal.client.ProbeH\x02\x88\x01\x01\x12)\n\x07tunnels\x18\x0f \x03(\x0b\x32\x18.modal.client.TunnelData\x12\x35\n\x08metadata\x18\x10 \x01(\x0b\x32#.modal.client.SandboxHandleMetadataB\x14\n\x12_idle_timeout_secsB\x0b\n\t_ready_atB\x12\n\x10_readiness_probeJ\x04\x08\x02\x10\x03\"\x9a\x01\n\x12SandboxListRequest\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12\x18\n\x10\x62\x65\x66ore_timestamp\x18\x02 \x01(\x01\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12\x18\n\x10include_finished\x18\x04 \x01(\x08\x12&\n\x04tags\x18\x05 \x03(\x0b\x32\x18.modal.client.SandboxTag\"C\n\x13SandboxListResponse\x12,\n\tsandboxes\x18\x01 \x03(\x0b\x32\x19.modal.client.SandboxInfo\"\xa4\x03\n\x15SandboxRestoreRequest\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\x12\x1d\n\x15sandbox_name_override\x18\x02 \x01(\t\x12_\n\x1asandbox_name_override_type\x18\x03 \x01(\x0e\x32;.modal.client.SandboxRestoreRequest.SandboxNameOverrideType\x12\x11\n\tworker_id\x18\x04 \x01(\t\x12\x1d\n\x15replace_volume_mounts\x18\x05 \x01(\x08\x12\x30\n\rvolume_mounts\x18\x06 \x03(\x0b\x32\x19.modal.client.VolumeMount\"\x91\x01\n\x17SandboxNameOverrideType\x12*\n&SANDBOX_NAME_OVERRIDE_TYPE_UNSPECIFIED\x10\x00\x12#\n\x1fSANDBOX_NAME_OVERRIDE_TYPE_NONE\x10\x01\x12%\n!SANDBOX_NAME_OVERRIDE_TYPE_STRING\x10\x02\",\n\x16SandboxRestoreResponse\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\"\xc1\x01\n\x17SandboxRestoreV2Request\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\x12\x1d\n\x15sandbox_name_override\x18\x02 \x01(\t\x12_\n\x1asandbox_name_override_type\x18\x03 \x01(\x0e\x32;.modal.client.SandboxRestoreRequest.SandboxNameOverrideType\x12\x11\n\tworker_id\x18\x04 \x01(\t\"\xe3\x01\n\x18SandboxRestoreV2Response\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12)\n\x07tunnels\x18\x02 \x03(\x0b\x32\x18.modal.client.TunnelData\x12\x0f\n\x07task_id\x18\x03 \x01(\t\x12\x35\n\x08metadata\x18\x04 \x01(\x0b\x32#.modal.client.SandboxHandleMetadata\x12@\n\x15\x63ommand_router_access\x18\x05 \x01(\x0b\x32!.modal.client.CommandRouterAccess\"9\n\x15SandboxSetNameRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\"\x18\n\x16SandboxSetNameResponse\"E\n SandboxSnapshotFsAsyncGetRequest\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"3\n\x1dSandboxSnapshotFsAsyncRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\"2\n\x1eSandboxSnapshotFsAsyncResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\"?\n\x18SandboxSnapshotFsRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"\x8f\x01\n\x19SandboxSnapshotFsResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\x12+\n\x06result\x18\x02 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x33\n\x0eimage_metadata\x18\x03 \x01(\x0b\x32\x1b.modal.client.ImageMetadata\"0\n\x19SandboxSnapshotGetRequest\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\"w\n\x1aSandboxSnapshotGetResponse\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\x12\x44\n\x0fhandle_metadata\x18\x02 \x01(\x0b\x32+.modal.client.SandboxSnapshotHandleMetadata\".\n\x1dSandboxSnapshotHandleMetadata\x12\r\n\x05is_v2\x18\x01 \x01(\x08\",\n\x16SandboxSnapshotRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\".\n\x17SandboxSnapshotResponse\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\"B\n\x1aSandboxSnapshotWaitRequest\x12\x13\n\x0bsnapshot_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"J\n\x1bSandboxSnapshotWaitResponse\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\"Y\n\x18SandboxStdinWriteRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\r\n\x05input\x18\x02 \x01(\x0c\x12\r\n\x05index\x18\x03 \x01(\r\x12\x0b\n\x03\x65of\x18\x04 \x01(\x08\"\x1b\n\x19SandboxStdinWriteResponse\"1\n\nSandboxTag\x12\x10\n\x08tag_name\x18\x01 \x01(\t\x12\x11\n\ttag_value\x18\x02 \x01(\t\"+\n\x15SandboxTagsGetRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\"@\n\x16SandboxTagsGetResponse\x12&\n\x04tags\x18\x01 \x03(\x0b\x32\x18.modal.client.SandboxTag\"m\n\x15SandboxTagsSetRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x12\n\nsandbox_id\x18\x02 \x01(\t\x12&\n\x04tags\x18\x03 \x03(\x0b\x32\x18.modal.client.SandboxTag\"-\n\x17SandboxTerminateRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\"P\n\x18SandboxTerminateResponse\x12\x34\n\x0f\x65xisting_result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\"9\n\x12SandboxWaitRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"y\n\x13SandboxWaitResponse\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x35\n\x08metadata\x18\x02 \x01(\x0b\x32#.modal.client.SandboxHandleMetadata\"C\n\x1cSandboxWaitUntilReadyRequest\x12\x12\n\nsandbox_id\x18\x01 \x01(\t\x12\x0f\n\x07timeout\x18\x02 \x01(\x02\"1\n\x1dSandboxWaitUntilReadyResponse\x12\x10\n\x08ready_at\x18\x01 \x01(\x01\"\xa0\x02\n\x08Schedule\x12+\n\x04\x63ron\x18\x01 \x01(\x0b\x32\x1b.modal.client.Schedule.CronH\x00\x12/\n\x06period\x18\x02 \x01(\x0b\x32\x1d.modal.client.Schedule.PeriodH\x00\x1a-\n\x04\x43ron\x12\x13\n\x0b\x63ron_string\x18\x01 \x01(\t\x12\x10\n\x08timezone\x18\x02 \x01(\t\x1au\n\x06Period\x12\r\n\x05years\x18\x01 \x01(\x05\x12\x0e\n\x06months\x18\x02 \x01(\x05\x12\r\n\x05weeks\x18\x03 \x01(\x05\x12\x0c\n\x04\x64\x61ys\x18\x04 \x01(\x05\x12\r\n\x05hours\x18\x05 \x01(\x05\x12\x0f\n\x07minutes\x18\x06 \x01(\x05\x12\x0f\n\x07seconds\x18\x07 \x01(\x02\x42\x10\n\x0eschedule_oneof\"\xae\x01\n\x12SchedulerPlacement\x12\x0f\n\x07regions\x18\x04 \x03(\t\x12\x16\n\x05_zone\x18\x02 \x01(\tB\x02\x18\x01H\x00\x88\x01\x01\x12\x1b\n\n_lifecycle\x18\x03 \x01(\tB\x02\x18\x01H\x01\x88\x01\x01\x12\x1b\n\x0f_instance_types\x18\x05 \x03(\tB\x02\x18\x01\x12\x16\n\x0enonpreemptible\x18\x06 \x01(\x08\x42\x08\n\x06X_zoneB\r\n\x0bX_lifecycleJ\x04\x08\x01\x10\x02\"\xca\x01\n\x13SecretCreateRequest\x12@\n\x08\x65nv_dict\x18\x01 \x03(\x0b\x32..modal.client.SecretCreateRequest.EnvDictEntry\x12\x0e\n\x06\x61pp_id\x18\x02 \x01(\t\x12\x15\n\rtemplate_type\x18\x03 \x01(\t\x12\x1a\n\x12\x65xisting_secret_id\x18\x04 \x01(\t\x1a.\n\x0c\x45nvDictEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\")\n\x14SecretCreateResponse\x12\x11\n\tsecret_id\x18\x01 \x01(\t\"(\n\x13SecretDeleteRequest\x12\x11\n\tsecret_id\x18\x01 \x01(\t\")\n\x14SecretGetInfoRequest\x12\x11\n\tsecret_id\x18\x01 \x01(\t\"G\n\x15SecretGetInfoResponse\x12.\n\x08metadata\x18\x01 \x01(\x0b\x32\x1c.modal.client.SecretMetadata\"\xb1\x02\n\x18SecretGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationType\x12\x45\n\x08\x65nv_dict\x18\x05 \x03(\x0b\x32\x33.modal.client.SecretGetOrCreateRequest.EnvDictEntry\x12\x0e\n\x06\x61pp_id\x18\x06 \x01(\t\x12\x15\n\rrequired_keys\x18\x07 \x03(\t\x1a.\n\x0c\x45nvDictEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01J\x04\x08\x02\x10\x03\"^\n\x19SecretGetOrCreateResponse\x12\x11\n\tsecret_id\x18\x01 \x01(\t\x12.\n\x08metadata\x18\x02 \x01(\x0b\x32\x1c.modal.client.SecretMetadata\"\xa6\x01\n\x0eSecretListItem\x12\r\n\x05label\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x14\n\x0clast_used_at\x18\x03 \x01(\x01\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\x12\x11\n\tsecret_id\x18\x05 \x01(\t\x12.\n\x08metadata\x18\x06 \x01(\x0b\x32\x1c.modal.client.SecretMetadata\"_\n\x11SecretListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x30\n\npagination\x18\x02 \x01(\x0b\x32\x1c.modal.client.ListPagination\"[\n\x12SecretListResponse\x12+\n\x05items\x18\x01 \x03(\x0b\x32\x1c.modal.client.SecretListItem\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"y\n\x0eSecretMetadata\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x31\n\rcreation_info\x18\x02 \x01(\x0b\x32\x1a.modal.client.CreationInfo\x12\x0c\n\x04keys\x18\x03 \x03(\t\x12\x18\n\x10\x65nvironment_name\x18\x04 \x01(\t\"\x98\x01\n\x13SecretUpdateRequest\x12\x11\n\tsecret_id\x18\x01 \x01(\t\x12\x39\n\x07updates\x18\x02 \x03(\x0b\x32(.modal.client.SecretUpdateRequest.Update\x1a\x33\n\x06Update\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x12\n\x05value\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_value\"\xb7\x01\n\x1eServerGetTimeRangeStatsRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12)\n\x05since\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x05until\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x19\n\x0c\x63ontainer_id\x18\x04 \x01(\tH\x00\x88\x01\x01\x42\x0f\n\r_container_id\"\xbc\x0b\n\x1fServerGetTimeRangeStatsResponse\x12)\n\x05since\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12)\n\x05until\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x15\n\rrequest_count\x18\x03 \x01(\x04\x12i\n\x1crequest_count_by_status_code\x18\x04 \x03(\x0b\x32\x43.modal.client.ServerGetTimeRangeStatsResponse.ServerStatusCodeCount\x12\x1f\n\x17request_rate_per_second\x18\x05 \x01(\x01\x12k\n\x18request_percentile_stats\x18\x06 \x03(\x0b\x32I.modal.client.ServerGetTimeRangeStatsResponse.RequestPercentileStatsEntry\x12o\n\x1a\x63ontainer_percentile_stats\x18\x07 \x03(\x0b\x32K.modal.client.ServerGetTimeRangeStatsResponse.ContainerPercentileStatsEntry\x12U\n\tinference\x18\x08 \x01(\x0b\x32\x42.modal.client.ServerGetTimeRangeStatsResponse.ServerInferenceStats\x12\x1f\n\x17\x63ontainer_started_count\x18\t \x01(\x04\x12\x1d\n\x15\x63ontainer_error_count\x18\n \x01(\x04\x12\'\n\x1f\x63ontainer_creating_at_end_count\x18\x0b \x01(\x04\x1a\xee\x03\n\x14ServerInferenceStats\x12\'\n\x06\x65ngine\x18\x01 \x01(\x0e\x32\x17.modal.client.LLMEngine\x12\x38\n\x06status\x18\x02 \x01(\x0e\x32(.modal.client.ServerInferenceStatsStatus\x12q\n\x10percentile_stats\x18\x03 \x03(\x0b\x32W.modal.client.ServerGetTimeRangeStatsResponse.ServerInferenceStats.PercentileStatsEntry\x12i\n\x0cscalar_stats\x18\x04 \x03(\x0b\x32S.modal.client.ServerGetTimeRangeStatsResponse.ServerInferenceStats.ScalarStatsEntry\x1a\x61\n\x14PercentileStatsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32).modal.client.StatsPercentileDistribution:\x02\x38\x01\x1a\x32\n\x10ScalarStatsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a;\n\x15ServerStatusCodeCount\x12\x13\n\x0bstatus_code\x18\x01 \x01(\r\x12\r\n\x05\x63ount\x18\x02 \x01(\x04\x1ah\n\x1bRequestPercentileStatsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32).modal.client.StatsPercentileDistribution:\x02\x38\x01\x1aj\n\x1d\x43ontainerPercentileStatsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32).modal.client.StatsPercentileDistribution:\x02\x38\x01\"\x94\x01\n\x19ServerRequestFetchRequest\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\t\x12<\n\x04tail\x18\x03 \x01(\x0b\x32,.modal.client.ServerRequestFetchRequest.TailH\x00\x1a\x15\n\x04Tail\x12\r\n\x05\x63ount\x18\x01 \x01(\rB\r\n\x0bquery_oneof\"O\n\x1aServerRequestFetchResponse\x12\x31\n\x08requests\x18\x01 \x03(\x0b\x32\x1f.modal.client.ServerRequestInfo\"\x91\x01\n\x11ServerRequestInfo\x12\r\n\x05route\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x14\n\x0c\x63ontainer_id\x18\x03 \x01(\t\x12\x18\n\x10\x64uration_seconds\x18\x04 \x01(\x01\x12\x0e\n\x06status\x18\x05 \x01(\x05\"\xa3\x01\n\x0bServiceUser\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08token_id\x18\x02 \x01(\t\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x12\x12\n\ncreated_at\x18\x04 \x01(\x01\x12\x14\n\x0clast_used_at\x18\x05 \x01(\x01\x12\x1d\n\x15\x63reated_by_avatar_url\x18\x06 \x01(\t\x12\x17\n\x0fservice_user_id\x18\x07 \x01(\t\"y\n\x13ServiceUserIdentity\x12\x17\n\x0fservice_user_id\x18\x01 \x01(\t\x12\x19\n\x11service_user_name\x18\x02 \x01(\t\x12.\n\ncreated_by\x18\x03 \x01(\x0b\x32\x1a.modal.client.UserIdentity\"K\n\x17ServiceUserListResponse\x12\x30\n\rservice_users\x18\x01 \x03(\x0b\x32\x19.modal.client.ServiceUser\"5\n\x19SharedVolumeDeleteRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\"D\n\x1aSharedVolumeGetFileRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\"S\n\x1bSharedVolumeGetFileResponse\x12\x0e\n\x04\x64\x61ta\x18\x01 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\x02 \x01(\tH\x00\x42\x0c\n\ndata_oneof\"\xa9\x01\n\x1eSharedVolumeGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationType\x12\x0e\n\x06\x61pp_id\x18\x05 \x01(\tJ\x04\x08\x02\x10\x03\";\n\x1fSharedVolumeGetOrCreateResponse\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\"8\n\x1cSharedVolumeHeartbeatRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\"F\n\x1cSharedVolumeListFilesRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\"I\n\x1dSharedVolumeListFilesResponse\x12(\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x17.modal.client.FileEntry\"\x88\x01\n\x14SharedVolumeListItem\x12\r\n\x05label\x18\x01 \x01(\t\x12\x18\n\x10shared_volume_id\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12\x33\n\x0e\x63loud_provider\x18\x04 \x01(\x0e\x32\x1b.modal.client.CloudProvider\"3\n\x17SharedVolumeListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\"g\n\x18SharedVolumeListResponse\x12\x31\n\x05items\x18\x01 \x03(\x0b\x32\".modal.client.SharedVolumeListItem\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"|\n\x11SharedVolumeMount\x12\x12\n\nmount_path\x18\x01 \x01(\t\x12\x18\n\x10shared_volume_id\x18\x02 \x01(\t\x12\x33\n\x0e\x63loud_provider\x18\x03 \x01(\x0e\x32\x1b.modal.client.CloudProviderJ\x04\x08\x04\x10\x05\"\xa1\x01\n\x1aSharedVolumePutFileRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\nsha256_hex\x18\x03 \x01(\t\x12\x0e\n\x04\x64\x61ta\x18\x04 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\x05 \x01(\tH\x00\x12\x11\n\tresumable\x18\x06 \x01(\x08\x42\x0c\n\ndata_oneof\"-\n\x1bSharedVolumePutFileResponse\x12\x0e\n\x06\x65xists\x18\x01 \x01(\x08\"Z\n\x1dSharedVolumeRemoveFileRequest\x12\x18\n\x10shared_volume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x11\n\trecursive\x18\x03 \x01(\x08\"A\n\x0fStatsPercentile\x12\x1f\n\x17percentile_basis_points\x18\x01 \x01(\r\x12\r\n\x05value\x18\x02 \x01(\x01\"_\n\x1bStatsPercentileDistribution\x12\x0c\n\x04unit\x18\x01 \x01(\t\x12\x32\n\x0bpercentiles\x18\x02 \x03(\x0b\x32\x1d.modal.client.StatsPercentile\"u\n\tStringMap\x12\x37\n\x08\x63ontents\x18\x01 \x03(\x0b\x32%.modal.client.StringMap.ContentsEntry\x1a/\n\rContentsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"^\n\x12SystemErrorMessage\x12\x31\n\nerror_code\x18\x01 \x01(\x0e\x32\x1d.modal.client.SystemErrorCode\x12\x15\n\rerror_message\x18\x02 \x01(\t\"V\n\x17TaskClusterHelloRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontainer_ip\x18\x02 \x01(\t\x12\x14\n\x0cimex_host_ip\x18\x03 \x01(\t\"\xa2\x01\n\x18TaskClusterHelloResponse\x12\x12\n\ncluster_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63luster_rank\x18\x02 \x01(\r\x12\x15\n\rcontainer_ips\x18\x03 \x03(\t\x12\x1a\n\x12\x63ontainer_ipv4_ips\x18\x04 \x03(\t\x12\x15\n\rimex_peer_ips\x18\x05 \x03(\t\x12\x12\n\nfabric_ids\x18\x06 \x03(\t\".\n\x19TaskCurrentInputsResponse\x12\x11\n\tinput_ids\x18\x01 \x03(\t\"4\n!TaskGetCommandRouterAccessRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\">\n\"TaskGetCommandRouterAccessResponse\x12\x0b\n\x03jwt\x18\x01 \x01(\t\x12\x0b\n\x03url\x18\x02 \x01(\t\"%\n\x12TaskGetInfoRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\"K\n\x13TaskGetInfoResponse\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\t\x12$\n\x04info\x18\x02 \x01(\x0b\x32\x16.modal.client.TaskInfo\"\x93\x02\n\x08TaskInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\nstarted_at\x18\x02 \x01(\x01\x12\x13\n\x0b\x66inished_at\x18\x03 \x01(\x01\x12+\n\x06result\x18\x04 \x01(\x0b\x32\x1b.modal.client.GenericResult\x12\x13\n\x0b\x65nqueued_at\x18\x05 \x01(\x01\x12\x10\n\x08gpu_type\x18\x06 \x01(\t\x12\x12\n\nsandbox_id\x18\x07 \x01(\t\x12=\n\x11snapshot_behavior\x18\x08 \x01(\x0e\x32\".modal.client.TaskSnapshotBehavior\x12+\n\ngpu_config\x18\t \x01(\x0b\x32\x17.modal.client.GPUConfig\";\n\x0fTaskListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x0e\n\x06\x61pp_id\x18\x02 \x01(\t\":\n\x10TaskListResponse\x12&\n\x05tasks\x18\x01 \x03(\x0b\x32\x17.modal.client.TaskStats\"\xb6\x02\n\x08TaskLogs\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\t\x12+\n\ntask_state\x18\x06 \x01(\x0e\x32\x17.modal.client.TaskState\x12\x11\n\ttimestamp\x18\x07 \x01(\x01\x12\x35\n\x0f\x66ile_descriptor\x18\x08 \x01(\x0e\x32\x1c.modal.client.FileDescriptor\x12\x31\n\rtask_progress\x18\t \x01(\x0b\x32\x1a.modal.client.TaskProgress\x12\x18\n\x10\x66unction_call_id\x18\n \x01(\t\x12\x10\n\x08input_id\x18\x0b \x01(\t\x12\x18\n\x0ctimestamp_ns\x18\x0c \x01(\x04\x42\x02\x30\x01\x12\x14\n\x0c\x63ontainer_id\x18\r \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x0e \x01(\t\"\x86\x02\n\rTaskLogsBatch\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12%\n\x05items\x18\x02 \x03(\x0b\x32\x16.modal.client.TaskLogs\x12\x10\n\x08\x65ntry_id\x18\x05 \x01(\t\x12\x10\n\x08\x61pp_done\x18\n \x01(\x08\x12\x13\n\x0b\x66unction_id\x18\x0b \x01(\t\x12\x10\n\x08input_id\x18\x0c \x01(\t\x12\x10\n\x08image_id\x18\r \x01(\t\x12\x0b\n\x03\x65of\x18\x0e \x01(\x08\x12\x13\n\x0bpty_exec_id\x18\x0f \x01(\t\x12\x18\n\x10root_function_id\x18\x10 \x01(\t\x12\x10\n\x08ttl_days\x18\x11 \x01(\r\x12\x12\n\nsandbox_id\x18\x12 \x01(\t\"p\n\x0cTaskProgress\x12\x0b\n\x03len\x18\x01 \x01(\x04\x12\x0b\n\x03pos\x18\x02 \x01(\x04\x12\x31\n\rprogress_type\x18\x03 \x01(\x0e\x32\x1a.modal.client.ProgressType\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\"@\n\x11TaskResultRequest\x12+\n\x06result\x18\x02 \x01(\x0b\x32\x1b.modal.client.GenericResult\"n\n\tTaskStats\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06\x61pp_id\x18\x02 \x01(\t\x12\x17\n\x0f\x61pp_description\x18\x03 \x01(\t\x12\x12\n\nstarted_at\x18\x04 \x01(\x01\x12\x13\n\x0b\x65nqueued_at\x18\x05 \x01(\x01\"\x98\x01\n\x0cTaskTemplate\x12\x0c\n\x04rank\x18\x01 \x01(\r\x12*\n\tresources\x18\x02 \x01(\x0b\x32\x17.modal.client.Resources\x12 \n\x18target_concurrent_inputs\x18\x03 \x01(\r\x12\x1d\n\x15max_concurrent_inputs\x18\x04 \x01(\r\x12\r\n\x05index\x18\x05 \x01(\r\"\x15\n\x13TemplateListRequest\"\x97\x01\n\x14TemplateListResponse\x12\x42\n\x05items\x18\x01 \x03(\x0b\x32\x33.modal.client.TemplateListResponse.TemplateListItem\x1a;\n\x10TemplateListItem\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04repo\x18\x02 \x01(\t\x12\x0b\n\x03ref\x18\x03 \x01(\t\"=\n\x13TokenCreateResponse\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x14\n\x0ctoken_secret\x18\x02 \x01(\t\"&\n\x12TokenDeleteRequest\x12\x10\n\x08token_id\x18\x02 \x01(\t\"r\n\x16TokenFlowCreateRequest\x12\x12\n\nutm_source\x18\x03 \x01(\t\x12\x16\n\x0elocalhost_port\x18\x04 \x01(\x05\x12\x10\n\x08next_url\x18\x05 \x01(\t\x12\x1a\n\x12\x65xpires_in_seconds\x18\x06 \x01(\r\"d\n\x17TokenFlowCreateResponse\x12\x15\n\rtoken_flow_id\x18\x01 \x01(\t\x12\x0f\n\x07web_url\x18\x02 \x01(\t\x12\x0c\n\x04\x63ode\x18\x03 \x01(\t\x12\x13\n\x0bwait_secret\x18\x04 \x01(\t\"S\n\x14TokenFlowWaitRequest\x12\x0f\n\x07timeout\x18\x01 \x01(\x02\x12\x15\n\rtoken_flow_id\x18\x02 \x01(\t\x12\x13\n\x0bwait_secret\x18\x03 \x01(\t\"l\n\x15TokenFlowWaitResponse\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x14\n\x0ctoken_secret\x18\x02 \x01(\t\x12\x0f\n\x07timeout\x18\x03 \x01(\x08\x12\x1a\n\x12workspace_username\x18\x04 \x01(\t\"\x15\n\x13TokenInfoGetRequest\"\xcf\x02\n\x14TokenInfoGetResponse\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x14\n\x0cworkspace_id\x18\x02 \x01(\t\x12\x16\n\x0eworkspace_name\x18\x03 \x01(\t\x12\x33\n\ruser_identity\x18\x04 \x01(\x0b\x32\x1a.modal.client.UserIdentityH\x00\x12\x42\n\x15service_user_identity\x18\x05 \x01(\x0b\x32!.modal.client.ServiceUserIdentityH\x00\x12.\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nexpires_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ntoken_name\x18\x08 \x01(\tB\n\n\x08identity\"\xa8\x01\n\nTunnelData\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\r\x12\x1d\n\x10unencrypted_host\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x1d\n\x10unencrypted_port\x18\x04 \x01(\rH\x01\x88\x01\x01\x12\x16\n\x0e\x63ontainer_port\x18\x05 \x01(\rB\x13\n\x11_unencrypted_hostB\x13\n\x11_unencrypted_port\"{\n\x12TunnelStartRequest\x12\x0c\n\x04port\x18\x01 \x01(\r\x12\x13\n\x0bunencrypted\x18\x02 \x01(\x08\x12\x32\n\x0btunnel_type\x18\x03 \x01(\x0e\x32\x18.modal.client.TunnelTypeH\x00\x88\x01\x01\x42\x0e\n\x0c_tunnel_type\"\x99\x01\n\x13TunnelStartResponse\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\r\x12\x1d\n\x10unencrypted_host\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x1d\n\x10unencrypted_port\x18\x04 \x01(\rH\x01\x88\x01\x01\x42\x13\n\x11_unencrypted_hostB\x13\n\x11_unencrypted_port\"!\n\x11TunnelStopRequest\x12\x0c\n\x04port\x18\x01 \x01(\r\"$\n\x12TunnelStopResponse\x12\x0e\n\x06\x65xists\x18\x01 \x01(\x08\"\x1e\n\rUploadUrlList\x12\r\n\x05items\x18\x01 \x03(\t\"c\n\x0eUserActionInfo\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x17\n\x0fservice_user_id\x18\x04 \x01(\t\x12\x11\n\ttimestamp\x18\x02 \x01(\x01\x12\x14\n\x0crequested_by\x18\x03 \x01(\t\"|\n\x1eUserGroupEnvironmentSetRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12\x15\n\ruser_group_id\x18\x02 \x01(\t\x12+\n\x04role\x18\x03 \x01(\x0e\x32\x1d.modal.client.EnvironmentRole\"1\n\x0cUserIdentity\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x10\n\x08username\x18\x02 \x01(\t\"T\n\x13VolumeCommitRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x19\n\x0c\x63ontainer_id\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x0f\n\r_container_id\"+\n\x14VolumeCommitResponse\x12\x13\n\x0bskip_reload\x18\x01 \x01(\x08\"d\n\x17VolumeCopyFiles2Request\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x11\n\tsrc_paths\x18\x02 \x03(\t\x12\x10\n\x08\x64st_path\x18\x03 \x01(\t\x12\x11\n\trecursive\x18\x04 \x01(\x08\"c\n\x16VolumeCopyFilesRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x11\n\tsrc_paths\x18\x02 \x03(\t\x12\x10\n\x08\x64st_path\x18\x03 \x01(\t\x12\x11\n\trecursive\x18\x04 \x01(\x08\"\xab\x01\n\x13VolumeCreateOptions\x12X\n\x14\x65xperimental_options\x18\x01 \x03(\x0b\x32:.modal.client.VolumeCreateOptions.ExperimentalOptionsEntry\x1a:\n\x18\x45xperimentalOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"F\n\x13VolumeDeleteRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x1c\n\x10\x65nvironment_name\x18\x02 \x01(\tB\x02\x18\x01\")\n\x14VolumeGetByIdRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\"Z\n\x15VolumeGetByIdResponse\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12.\n\x08metadata\x18\x02 \x01(\x0b\x32\x1c.modal.client.VolumeMetadata\"p\n\x15VolumeGetFile2Request\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\r\n\x05start\x18\x03 \x01(\x04\x12\x0b\n\x03len\x18\x04 \x01(\x04\x12\x1a\n\x12\x63lient_pads_blocks\x18\x05 \x01(\x08\"T\n\x16VolumeGetFile2Response\x12\x10\n\x08get_urls\x18\x01 \x03(\t\x12\x0c\n\x04size\x18\x02 \x01(\x04\x12\r\n\x05start\x18\x03 \x01(\x04\x12\x0b\n\x03len\x18\x04 \x01(\x04\"S\n\x14VolumeGetFileRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\r\n\x05start\x18\x03 \x01(\x04\x12\x0b\n\x03len\x18\x04 \x01(\x04\"w\n\x15VolumeGetFileResponse\x12\x0e\n\x04\x64\x61ta\x18\x01 \x01(\x0cH\x00\x12\x16\n\x0c\x64\x61ta_blob_id\x18\x02 \x01(\tH\x00\x12\x0c\n\x04size\x18\x03 \x01(\x04\x12\r\n\x05start\x18\x04 \x01(\x04\x12\x0b\n\x03len\x18\x05 \x01(\x04\x42\x0c\n\ndata_oneof\"\xa6\x02\n\x18VolumeGetOrCreateRequest\x12\x17\n\x0f\x64\x65ployment_name\x18\x01 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12>\n\x14object_creation_type\x18\x04 \x01(\x0e\x32 .modal.client.ObjectCreationType\x12\x0e\n\x06\x61pp_id\x18\x05 \x01(\t\x12.\n\x07version\x18\x06 \x01(\x0e\x32\x1d.modal.client.VolumeFsVersion\x12>\n\x0e\x63reate_options\x18\x07 \x01(\x0b\x32!.modal.client.VolumeCreateOptionsH\x00\x88\x01\x01\x42\x11\n\x0f_create_optionsJ\x04\x08\x02\x10\x03\"\x8e\x01\n\x19VolumeGetOrCreateResponse\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12.\n\x07version\x18\x02 \x01(\x0e\x32\x1d.modal.client.VolumeFsVersion\x12.\n\x08metadata\x18\x03 \x01(\x0b\x32\x1c.modal.client.VolumeMetadata\"+\n\x16VolumeHeartbeatRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\"w\n\x17VolumeListFiles2Request\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x11\n\trecursive\x18\x04 \x01(\x08\x12\x18\n\x0bmax_entries\x18\x03 \x01(\rH\x00\x88\x01\x01\x42\x0e\n\x0c_max_entries\"D\n\x18VolumeListFiles2Response\x12(\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x17.modal.client.FileEntry\"v\n\x16VolumeListFilesRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x11\n\trecursive\x18\x04 \x01(\x08\x12\x18\n\x0bmax_entries\x18\x03 \x01(\rH\x00\x88\x01\x01\x42\x0e\n\x0c_max_entries\"C\n\x17VolumeListFilesResponse\x12(\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x17.modal.client.FileEntry\"v\n\x0eVolumeListItem\x12\r\n\x05label\x18\x01 \x01(\t\x12\x11\n\tvolume_id\x18\x02 \x01(\t\x12\x12\n\ncreated_at\x18\x03 \x01(\x01\x12.\n\x08metadata\x18\x04 \x01(\x0b\x32\x1c.modal.client.VolumeMetadata\"_\n\x11VolumeListRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\x12\x30\n\npagination\x18\x02 \x01(\x0b\x32\x1c.modal.client.ListPagination\"[\n\x12VolumeListResponse\x12+\n\x05items\x18\x01 \x03(\x0b\x32\x1c.modal.client.VolumeListItem\x12\x18\n\x10\x65nvironment_name\x18\x02 \x01(\t\"\x81\x01\n\x0eVolumeMetadata\x12.\n\x07version\x18\x01 \x01(\x0e\x32\x1d.modal.client.VolumeFsVersion\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x31\n\rcreation_info\x18\x03 \x01(\x0b\x32\x1a.modal.client.CreationInfo\"\x8d\x01\n\x0bVolumeMount\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x12\n\nmount_path\x18\x02 \x01(\t\x12 \n\x18\x61llow_background_commits\x18\x03 \x01(\x08\x12\x11\n\tread_only\x18\x04 \x01(\x08\x12\x15\n\x08sub_path\x18\x05 \x01(\tH\x00\x88\x01\x01\x42\x0b\n\t_sub_path\"\xda\x02\n\x16VolumePutFiles2Request\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x38\n\x05\x66iles\x18\x02 \x03(\x0b\x32).modal.client.VolumePutFiles2Request.File\x12)\n!disallow_overwrite_existing_files\x18\x03 \x01(\x08\x1az\n\x04\x46ile\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0c\n\x04size\x18\x02 \x01(\x04\x12:\n\x06\x62locks\x18\x03 \x03(\x0b\x32*.modal.client.VolumePutFiles2Request.Block\x12\x11\n\x04mode\x18\x04 \x01(\rH\x00\x88\x01\x01\x42\x07\n\x05_mode\x1aL\n\x05\x42lock\x12\x17\n\x0f\x63ontents_sha256\x18\x01 \x01(\x0c\x12\x19\n\x0cput_response\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x42\x0f\n\r_put_response\"\xaf\x01\n\x17VolumePutFiles2Response\x12J\n\x0emissing_blocks\x18\x01 \x03(\x0b\x32\x32.modal.client.VolumePutFiles2Response.MissingBlock\x1aH\n\x0cMissingBlock\x12\x12\n\nfile_index\x18\x01 \x01(\x04\x12\x13\n\x0b\x62lock_index\x18\x02 \x01(\x04\x12\x0f\n\x07put_url\x18\x03 \x01(\t\"}\n\x15VolumePutFilesRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12&\n\x05\x66iles\x18\x02 \x03(\x0b\x32\x17.modal.client.MountFile\x12)\n!disallow_overwrite_existing_files\x18\x03 \x01(\x08\"(\n\x13VolumeReloadRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\"N\n\x18VolumeRemoveFile2Request\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x11\n\trecursive\x18\x03 \x01(\x08\"M\n\x17VolumeRemoveFileRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x11\n\trecursive\x18\x03 \x01(\x08\"6\n\x13VolumeRenameRequest\x12\x11\n\tvolume_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\"\xe8\x01\n\x07Warning\x12/\n\x04type\x18\x01 \x01(\x0e\x32!.modal.client.Warning.WarningType\x12\x0f\n\x07message\x18\x02 \x01(\t\"\x9a\x01\n\x0bWarningType\x12\x1c\n\x18WARNING_TYPE_UNSPECIFIED\x10\x00\x12#\n\x1fWARNING_TYPE_CLIENT_DEPRECATION\x10\x01\x12\x1f\n\x1bWARNING_TYPE_RESOURCE_LIMIT\x10\x02\x12\'\n#WARNING_TYPE_FUNCTION_CONFIGURATION\x10\x03\"R\n\nWebUrlInfo\x12\x11\n\ttruncated\x18\x01 \x01(\x08\x12\x1b\n\x0fhas_unique_hash\x18\x02 \x01(\x08\x42\x02\x18\x01\x12\x14\n\x0clabel_stolen\x18\x03 \x01(\x08\"\xdf\x02\n\rWebhookConfig\x12\'\n\x04type\x18\x01 \x01(\x0e\x32\x19.modal.client.WebhookType\x12\x0e\n\x06method\x18\x02 \x01(\t\x12\x18\n\x10requested_suffix\x18\x04 \x01(\t\x12\x32\n\nasync_mode\x18\x05 \x01(\x0e\x32\x1e.modal.client.WebhookAsyncMode\x12\x38\n\x0e\x63ustom_domains\x18\x06 \x03(\x0b\x32 .modal.client.CustomDomainConfig\x12\x17\n\x0fweb_server_port\x18\x07 \x01(\r\x12\"\n\x1aweb_server_startup_timeout\x18\x08 \x01(\x02\x12\x19\n\x11web_endpoint_docs\x18\t \x01(\x08\x12\x1b\n\x13requires_proxy_auth\x18\n \x01(\x08\x12\x18\n\x10\x65phemeral_suffix\x18\x0b \x01(\t\"\x82\x01\n\x0cWebhookToken\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x12\n\ncreated_at\x18\x02 \x01(\x01\x12\x0e\n\x06scoped\x18\x03 \x01(\x08\x12\x0c\n\x04name\x18\x04 \x01(\t\x12.\n\ncreated_by\x18\x05 \x01(\x0b\x32\x1a.modal.client.UserIdentity\"9\n\x19WebhookTokenCreateRequest\x12\x0e\n\x06scoped\x18\x01 \x01(\x08\x12\x0c\n\x04name\x18\x02 \x01(\t\"M\n!WebhookTokenEnvironmentAddRequest\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x16\n\x0e\x65nvironment_id\x18\x02 \x01(\t\"6\n\"WebhookTokenEnvironmentListRequest\x12\x10\n\x08token_id\x18\x01 \x01(\t\">\n#WebhookTokenEnvironmentListResponse\x12\x17\n\x0f\x65nvironment_ids\x18\x01 \x03(\t\"P\n$WebhookTokenEnvironmentRemoveRequest\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x16\n\x0e\x65nvironment_id\x18\x02 \x01(\t\"A\n%WebhookTokenListForEnvironmentRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\"F\n\x18WebhookTokenListResponse\x12*\n\x06tokens\x18\x01 \x03(\x0b\x32\x1a.modal.client.WebhookToken\"I\n\x19WebhookTokenUpdateRequest\x12\x10\n\x08token_id\x18\x01 \x01(\t\x12\x11\n\x04name\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x07\n\x05_name\"\x1e\n\x1cWorkspaceBillingRatesRequest\"\xe1\x03\n\x1dWorkspaceBillingRatesResponse\x12\x45\n\x05rates\x18\x01 \x03(\x0b\x32\x36.modal.client.WorkspaceBillingRatesResponse.RatesEntry\x12\x62\n\x14\x64\x65precation_warnings\x18\x02 \x03(\x0b\x32\x44.modal.client.WorkspaceBillingRatesResponse.DeprecationWarningsEntry\x12^\n\x12\x64\x65precation_errors\x18\x03 \x03(\x0b\x32\x42.modal.client.WorkspaceBillingRatesResponse.DeprecationErrorsEntry\x12\x11\n\tformatted\x18\x04 \x01(\t\x1a,\n\nRatesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a:\n\x18\x44\x65precationWarningsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x38\n\x16\x44\x65precationErrorsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x98\x03\n\x1aWorkspaceBillingReportItem\x12\x11\n\tobject_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x18\n\x10\x65nvironment_name\x18\x03 \x01(\t\x12,\n\x08interval\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0c\n\x04\x63ost\x18\x05 \x01(\t\x12@\n\x04tags\x18\x06 \x03(\x0b\x32\x32.modal.client.WorkspaceBillingReportItem.TagsEntry\x12V\n\x10\x63ost_by_resource\x18\x08 \x03(\x0b\x32<.modal.client.WorkspaceBillingReportItem.CostByResourceEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x35\n\x13\x43ostByResourceEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xd8\x01\n\x1dWorkspaceBillingReportRequest\x12\x33\n\x0fstart_timestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rend_timestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\nresolution\x18\x03 \x01(\t\x12\x11\n\ttag_names\x18\x04 \x03(\t\x12\x17\n\x0f\x65nvironment_ids\x18\x05 \x03(\t\x12\x0f\n\x07\x61pp_ids\x18\x06 \x03(\t\"U\n\x1eWorkspaceBillingSummaryRequest\x12\x33\n\x0fstart_timestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xe3\x03\n\x1fWorkspaceBillingSummaryResponse\x12\x33\n\x0fstart_timestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rend_timestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x14\n\x0cmetered_cost\x18\x03 \x01(\t\x12\x13\n\x0b\x62illed_cost\x18\x04 \x01(\t\x12g\n\x16metered_cost_breakdown\x18\x05 \x03(\x0b\x32G.modal.client.WorkspaceBillingSummaryResponse.MeteredCostBreakdownEntry\x12S\n\x0b\x61\x64justments\x18\x06 \x03(\x0b\x32>.modal.client.WorkspaceBillingSummaryResponse.AdjustmentsEntry\x1a;\n\x19MeteredCostBreakdownEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x32\n\x10\x41\x64justmentsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"8\n\x1cWorkspaceDashboardUrlRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\",\n\x1dWorkspaceDashboardUrlResponse\x12\x0b\n\x03url\x18\x01 \x01(\t\"\xce\x02\n\x18WorkspaceMembersListItem\x12\x11\n\tmember_id\x18\x01 \x01(\t\x12\x1a\n\x12member_displayname\x18\x02 \x01(\t\x12-\n\x0bmember_role\x18\x03 \x01(\x0e\x32\x18.modal.client.MemberRole\x12\x11\n\tjoined_at\x18\x04 \x01(\x01\x12\x16\n\x0elast_active_at\x18\x05 \x01(\x01\x12\x12\n\ndeleted_at\x18\x07 \x01(\x01\x12\x0f\n\x07user_id\x18\x08 \x01(\t\x12\x42\n\x16identity_provider_type\x18\t \x01(\x0e\x32\".modal.client.IdentityProviderType\x12\r\n\x05\x65mail\x18\n \x01(\t\x12\x12\n\navatar_url\x18\x0b \x01(\t\x12\x17\n\x0fidp_external_id\x18\x0c \x01(\tJ\x04\x08\x06\x10\x07\"W\n\x1cWorkspaceMembersListResponse\x12\x37\n\x07members\x18\x01 \x03(\x0b\x32&.modal.client.WorkspaceMembersListItem\"K\n\x1bWorkspaceNameLookupResponse\x12\x1a\n\x0eworkspace_name\x18\x01 \x01(\tB\x02\x18\x01\x12\x10\n\x08username\x18\x02 \x01(\t\"A\n%WorkspaceSetDefaultEnvironmentRequest\x12\x18\n\x10\x65nvironment_name\x18\x01 \x01(\t\"\xb9\x01\n-WorkspaceSetDefaultEnvironmentSettingsRequest\x12\x64\n\x1f\x62lock_unauthenticated_resources\x18\x01 \x01(\x0e\x32\x36.modal.client.EnvironmentBlockUnauthenticatedResourcesH\x00\x88\x01\x01\x42\"\n _block_unauthenticated_resources\"y\n.WorkspaceSetDefaultEnvironmentSettingsResponse\x12G\n\x1c\x64\x65\x66\x61ult_environment_settings\x18\x01 \x01(\x0b\x32!.modal.client.EnvironmentSettings\"K\n&WorkspaceSetImageBuilderVersionRequest\x12!\n\x19new_image_builder_version\x18\x01 \x01(\t\"H\n\'WorkspaceSetImageBuilderVersionResponse\x12\x1d\n\x15image_builder_version\x18\x01 \x01(\t\"\\\n\x19WorkspaceSettingsResponse\x12 \n\x18\x64\x65\x66\x61ult_environment_name\x18\x01 \x01(\t\x12\x1d\n\x15image_builder_version\x18\x02 \x01(\t*\x83\x01\n\x13\x41ppDeployVisibility\x12%\n!APP_DEPLOY_VISIBILITY_UNSPECIFIED\x10\x00\x12#\n\x1f\x41PP_DEPLOY_VISIBILITY_WORKSPACE\x10\x01\x12 \n\x1c\x41PP_DEPLOY_VISIBILITY_PUBLIC\x10\x02*\xa1\x02\n\x13\x41ppDisconnectReason\x12%\n!APP_DISCONNECT_REASON_UNSPECIFIED\x10\x00\x12)\n%APP_DISCONNECT_REASON_LOCAL_EXCEPTION\x10\x01\x12,\n(APP_DISCONNECT_REASON_KEYBOARD_INTERRUPT\x10\x02\x12.\n*APP_DISCONNECT_REASON_ENTRYPOINT_COMPLETED\x10\x03\x12.\n*APP_DISCONNECT_REASON_DEPLOYMENT_EXCEPTION\x10\x04\x12*\n&APP_DISCONNECT_REASON_REMOTE_EXCEPTION\x10\x05*\x91\x02\n\x08\x41ppState\x12\x19\n\x15\x41PP_STATE_UNSPECIFIED\x10\x00\x12\x17\n\x13\x41PP_STATE_EPHEMERAL\x10\x01\x12\x16\n\x12\x41PP_STATE_DETACHED\x10\x02\x12\x16\n\x12\x41PP_STATE_DEPLOYED\x10\x03\x12\x16\n\x12\x41PP_STATE_STOPPING\x10\x04\x12\x15\n\x11\x41PP_STATE_STOPPED\x10\x05\x12\x1a\n\x16\x41PP_STATE_INITIALIZING\x10\x06\x12\x16\n\x12\x41PP_STATE_DISABLED\x10\x07\x12#\n\x1f\x41PP_STATE_DETACHED_DISCONNECTED\x10\x08\x12\x19\n\x11\x41PP_STATE_DERIVED\x10\t\x1a\x02\x08\x01*\x85\x01\n\rAppStopSource\x12\x1f\n\x1b\x41PP_STOP_SOURCE_UNSPECIFIED\x10\x00\x12\x17\n\x13\x41PP_STOP_SOURCE_CLI\x10\x01\x12!\n\x1d\x41PP_STOP_SOURCE_PYTHON_CLIENT\x10\x02\x12\x17\n\x13\x41PP_STOP_SOURCE_WEB\x10\x03*?\n\x04\x41rch\x12\x14\n\x10\x41RCH_UNSPECIFIED\x10\x00\x12\x0f\n\x0b\x41RCH_X86_64\x10\x01\x12\x10\n\x0c\x41RCH_AARCH64\x10\x02*\x91\x01\n\x11\x43\x65rtificateStatus\x12\x1e\n\x1a\x43\x45RTIFICATE_STATUS_PENDING\x10\x00\x12\x1d\n\x19\x43\x45RTIFICATE_STATUS_ISSUED\x10\x01\x12\x1d\n\x19\x43\x45RTIFICATE_STATUS_FAILED\x10\x02\x12\x1e\n\x1a\x43\x45RTIFICATE_STATUS_REVOKED\x10\x03*\xb1\x01\n\x10\x43heckpointStatus\x12!\n\x1d\x43HECKPOINT_STATUS_UNSPECIFIED\x10\x00\x12\x1d\n\x19\x43HECKPOINT_STATUS_PENDING\x10\x01\x12 \n\x1c\x43HECKPOINT_STATUS_PROCESSING\x10\x02\x12\x1b\n\x17\x43HECKPOINT_STATUS_READY\x10\x03\x12\x1c\n\x18\x43HECKPOINT_STATUS_FAILED\x10\x04*\x85\x02\n\nClientType\x12\x1b\n\x17\x43LIENT_TYPE_UNSPECIFIED\x10\x00\x12\x16\n\x12\x43LIENT_TYPE_CLIENT\x10\x01\x12\x16\n\x12\x43LIENT_TYPE_WORKER\x10\x02\x12\x19\n\x15\x43LIENT_TYPE_CONTAINER\x10\x03\x12\x1a\n\x16\x43LIENT_TYPE_WEB_SERVER\x10\x05\x12\x1f\n\x1b\x43LIENT_TYPE_NOTEBOOK_KERNEL\x10\x06\x12\x18\n\x14\x43LIENT_TYPE_LIBMODAL\x10\x07\x12\x1b\n\x17\x43LIENT_TYPE_LIBMODAL_JS\x10\x08\x12\x1b\n\x17\x43LIENT_TYPE_LIBMODAL_GO\x10\t*\xa8\x01\n\rCloudProvider\x12\x1e\n\x1a\x43LOUD_PROVIDER_UNSPECIFIED\x10\x00\x12\x16\n\x12\x43LOUD_PROVIDER_AWS\x10\x01\x12\x16\n\x12\x43LOUD_PROVIDER_GCP\x10\x02\x12\x17\n\x13\x43LOUD_PROVIDER_AUTO\x10\x03\x12\x16\n\x12\x43LOUD_PROVIDER_OCI\x10\x04\"\x04\x08\x05\x10\x05\"\x04\x08\x06\x10\x06\"\x04\x08\x07\x10\x07\"\x04\x08\x08\x10\x08*Z\n\rDNSRecordType\x12\x15\n\x11\x44NS_RECORD_TYPE_A\x10\x00\x12\x17\n\x13\x44NS_RECORD_TYPE_TXT\x10\x01\x12\x19\n\x15\x44NS_RECORD_TYPE_CNAME\x10\x02*\x8d\x01\n\nDataFormat\x12\x1b\n\x17\x44\x41TA_FORMAT_UNSPECIFIED\x10\x00\x12\x16\n\x12\x44\x41TA_FORMAT_PICKLE\x10\x01\x12\x14\n\x10\x44\x41TA_FORMAT_ASGI\x10\x02\x12\x1e\n\x1a\x44\x41TA_FORMAT_GENERATOR_DONE\x10\x03\x12\x14\n\x10\x44\x41TA_FORMAT_CBOR\x10\x04*\x80\x01\n\x13\x44\x65ploymentNamespace\x12$\n DEPLOYMENT_NAMESPACE_UNSPECIFIED\x10\x00\x12\"\n\x1e\x44\x45PLOYMENT_NAMESPACE_WORKSPACE\x10\x01\x12\x1f\n\x1b\x44\x45PLOYMENT_NAMESPACE_GLOBAL\x10\x03*\xc6\x01\n\x0e\x44\x65ploymentType\x12\x1f\n\x1b\x44\x45PLOYMENT_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n\x18\x44\x45PLOYMENT_TYPE_STANDARD\x10\x01\x12\x1c\n\x18\x44\x45PLOYMENT_TYPE_ROLLBACK\x10\x02\x12\x1c\n\x18\x44\x45PLOYMENT_TYPE_ROLLOVER\x10\x03\x12\x1d\n\x19\x44\x45PLOYMENT_TYPE_PROMOTION\x10\x04\x12\x1a\n\x16\x44\x45PLOYMENT_TYPE_STAGED\x10\x05*\xc4\x01\n\x12\x45ndpointApiSurface\x12$\n ENDPOINT_API_SURFACE_UNSPECIFIED\x10\x00\x12\x30\n,ENDPOINT_API_SURFACE_OPENAI_CHAT_COMPLETIONS\x10\x01\x12)\n%ENDPOINT_API_SURFACE_OPENAI_RESPONSES\x10\x02\x12+\n\'ENDPOINT_API_SURFACE_ANTHROPIC_MESSAGES\x10\x03*\xa8\x01\n\x15\x45ndpointInputModality\x12\'\n#ENDPOINT_INPUT_MODALITY_UNSPECIFIED\x10\x00\x12 \n\x1c\x45NDPOINT_INPUT_MODALITY_TEXT\x10\x01\x12!\n\x1d\x45NDPOINT_INPUT_MODALITY_IMAGE\x10\x02\x12!\n\x1d\x45NDPOINT_INPUT_MODALITY_AUDIO\x10\x03*\x91\x01\n\x17\x45ndpointLifecycleStatus\x12)\n%ENDPOINT_LIFECYCLE_STATUS_UNSPECIFIED\x10\x00\x12$\n ENDPOINT_LIFECYCLE_STATUS_ACTIVE\x10\x01\x12%\n!ENDPOINT_LIFECYCLE_STATUS_STOPPED\x10\x02*\xcc\x02\n\x1a\x45ndpointProvisioningStatus\x12,\n(ENDPOINT_PROVISIONING_STATUS_UNSPECIFIED\x10\x00\x12(\n$ENDPOINT_PROVISIONING_STATUS_PENDING\x10\x01\x12(\n$ENDPOINT_PROVISIONING_STATUS_RUNNING\x10\x02\x12*\n&ENDPOINT_PROVISIONING_STATUS_SUCCEEDED\x10\x03\x12\'\n#ENDPOINT_PROVISIONING_STATUS_FAILED\x10\x04\x12+\n\'ENDPOINT_PROVISIONING_STATUS_CANCELLING\x10\x05\x12*\n&ENDPOINT_PROVISIONING_STATUS_CANCELLED\x10\x06*\x83\x01\n\x13\x45ndpointServingMode\x12%\n!ENDPOINT_SERVING_MODE_UNSPECIFIED\x10\x00\x12#\n\x1f\x45NDPOINT_SERVING_MODE_DEDICATED\x10\x01\x12 \n\x1c\x45NDPOINT_SERVING_MODE_SHARED\x10\x02*v\n\x12\x45ndpointStopSource\x12$\n ENDPOINT_STOP_SOURCE_UNSPECIFIED\x10\x00\x12\x1c\n\x18\x45NDPOINT_STOP_SOURCE_CLI\x10\x01\x12\x1c\n\x18\x45NDPOINT_STOP_SOURCE_WEB\x10\x02*{\n\x10\x45ndpointTaskType\x12\"\n\x1e\x45NDPOINT_TASK_TYPE_UNSPECIFIED\x10\x00\x12!\n\x1d\x45NDPOINT_TASK_TYPE_GENERATION\x10\x01\x12 \n\x1c\x45NDPOINT_TASK_TYPE_EMBEDDING\x10\x02*\x8e\x02\n(EnvironmentBlockUnauthenticatedResources\x12;\n7ENVIRONMENT_BLOCK_UNAUTHENTICATED_RESOURCES_UNSPECIFIED\x10\x00\x12\x37\n3ENVIRONMENT_BLOCK_UNAUTHENTICATED_RESOURCES_INHERIT\x10\x01\x12\x35\n1ENVIRONMENT_BLOCK_UNAUTHENTICATED_RESOURCES_BLOCK\x10\x02\x12\x35\n1ENVIRONMENT_BLOCK_UNAUTHENTICATED_RESOURCES_ALLOW\x10\x03*\x92\x01\n\x0f\x45nvironmentRole\x12 \n\x1c\x45NVIRONMENT_ROLE_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x45NVIRONMENT_ROLE_VIEWER\x10\x01\x12 \n\x1c\x45NVIRONMENT_ROLE_CONTRIBUTOR\x10\x02\x12\x1e\n\x1a\x45NVIRONMENT_ROLE_NO_ACCESS\x10\x03*P\n\x0f\x45nvironmentType\x12 \n\x1c\x45NVIRONMENT_TYPE_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x45NVIRONMENT_TYPE_PUBLIC\x10\x01*\x92\x01\n\x10\x45xecOutputOption\x12\"\n\x1e\x45XEC_OUTPUT_OPTION_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x45XEC_OUTPUT_OPTION_DEVNULL\x10\x01\x12\x1b\n\x17\x45XEC_OUTPUT_OPTION_PIPE\x10\x02\x12\x1d\n\x19\x45XEC_OUTPUT_OPTION_STDOUT\x10\x03*\x83\x01\n\x0e\x46ileDescriptor\x12\x1f\n\x1b\x46ILE_DESCRIPTOR_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x46ILE_DESCRIPTOR_STDOUT\x10\x01\x12\x1a\n\x16\x46ILE_DESCRIPTOR_STDERR\x10\x02\x12\x18\n\x14\x46ILE_DESCRIPTOR_INFO\x10\x03*\xfb\x03\n\x17\x46unctionCallInputStatus\x12*\n&FUNCTION_CALL_INPUT_STATUS_UNSPECIFIED\x10\x00\x12&\n\"FUNCTION_CALL_INPUT_STATUS_PENDING\x10\x01\x12&\n\"FUNCTION_CALL_INPUT_STATUS_RUNNING\x10\x02\x12&\n\"FUNCTION_CALL_INPUT_STATUS_SUCCESS\x10\x03\x12&\n\"FUNCTION_CALL_INPUT_STATUS_FAILURE\x10\x04\x12&\n\"FUNCTION_CALL_INPUT_STATUS_TIMEOUT\x10\x05\x12)\n%FUNCTION_CALL_INPUT_STATUS_TERMINATED\x10\x06\x12+\n\'FUNCTION_CALL_INPUT_STATUS_INIT_FAILURE\x10\x07\x12/\n+FUNCTION_CALL_INPUT_STATUS_INTERNAL_FAILURE\x10\x08\x12+\n\'FUNCTION_CALL_INPUT_STATUS_IDLE_TIMEOUT\x10\t\x12\x36\n2FUNCTION_CALL_INPUT_STATUS_MEMORY_MANAGER_EVICTION\x10\n*\xfb\x01\n\x1a\x46unctionCallInvocationType\x12-\n)FUNCTION_CALL_INVOCATION_TYPE_UNSPECIFIED\x10\x00\x12-\n)FUNCTION_CALL_INVOCATION_TYPE_SYNC_LEGACY\x10\x01\x12.\n*FUNCTION_CALL_INVOCATION_TYPE_ASYNC_LEGACY\x10\x02\x12\'\n#FUNCTION_CALL_INVOCATION_TYPE_ASYNC\x10\x03\x12&\n\"FUNCTION_CALL_INVOCATION_TYPE_SYNC\x10\x04*p\n\x10\x46unctionCallType\x12\"\n\x1e\x46UNCTION_CALL_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n\x18\x46UNCTION_CALL_TYPE_UNARY\x10\x01\x12\x1a\n\x16\x46UNCTION_CALL_TYPE_MAP\x10\x02*\xce\x01\n\x07GPUType\x12\x18\n\x14GPU_TYPE_UNSPECIFIED\x10\x00\x12\x0f\n\x0bGPU_TYPE_T4\x10\x01\x12\x11\n\rGPU_TYPE_A100\x10\x02\x12\x11\n\rGPU_TYPE_A10G\x10\x03\x12\x10\n\x0cGPU_TYPE_ANY\x10\x04\x12\x16\n\x12GPU_TYPE_A100_80GB\x10\x08\x12\x0f\n\x0bGPU_TYPE_L4\x10\t\x12\x11\n\rGPU_TYPE_H100\x10\n\x12\x11\n\rGPU_TYPE_L40S\x10\x0b\x12\x11\n\rGPU_TYPE_H200\x10\x0c*\xab\x01\n\x14IdentityProviderType\x12&\n\"IDENTITY_PROVIDER_TYPE_UNSPECIFIED\x10\x00\x12!\n\x1dIDENTITY_PROVIDER_TYPE_GITHUB\x10\x01\x12\x1f\n\x1bIDENTITY_PROVIDER_TYPE_SAML\x10\x02\x12\'\n#IDENTITY_PROVIDER_TYPE_GOOGLE_OAUTH\x10\x03*S\n\tLLMEngine\x12\x1a\n\x16LLM_ENGINE_UNSPECIFIED\x10\x00\x12\x15\n\x11LLM_ENGINE_SGLANG\x10\x01\x12\x13\n\x0fLLM_ENGINE_VLLM\x10\x02*o\n\nMemberRole\x12\x1b\n\x17MEMBER_ROLE_UNSPECIFIED\x10\x00\x12\x14\n\x10MEMBER_ROLE_USER\x10\x01\x12\x17\n\x13MEMBER_ROLE_MANAGER\x10\x02\x12\x15\n\x11MEMBER_ROLE_OWNER\x10\x03*\xa0\x02\n\x12ObjectCreationType\x12$\n OBJECT_CREATION_TYPE_UNSPECIFIED\x10\x00\x12*\n&OBJECT_CREATION_TYPE_CREATE_IF_MISSING\x10\x01\x12.\n*OBJECT_CREATION_TYPE_CREATE_FAIL_IF_EXISTS\x10\x02\x12\x33\n/OBJECT_CREATION_TYPE_CREATE_OVERWRITE_IF_EXISTS\x10\x03\x12/\n+OBJECT_CREATION_TYPE_ANONYMOUS_OWNED_BY_APP\x10\x04\x12\"\n\x1eOBJECT_CREATION_TYPE_EPHEMERAL\x10\x05*\xef\x01\n\rParameterType\x12\x1a\n\x16PARAM_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11PARAM_TYPE_STRING\x10\x01\x12\x12\n\x0ePARAM_TYPE_INT\x10\x02\x12\x15\n\x11PARAM_TYPE_PICKLE\x10\x03\x12\x14\n\x10PARAM_TYPE_BYTES\x10\x04\x12\x16\n\x12PARAM_TYPE_UNKNOWN\x10\x05\x12\x13\n\x0fPARAM_TYPE_LIST\x10\x06\x12\x13\n\x0fPARAM_TYPE_DICT\x10\x07\x12\x13\n\x0fPARAM_TYPE_NONE\x10\x08\x12\x13\n\x0fPARAM_TYPE_BOOL\x10\t*>\n\x0cProgressType\x12\x19\n\x15IMAGE_SNAPSHOT_UPLOAD\x10\x00\x12\x13\n\x0f\x46UNCTION_QUEUED\x10\x01*\xa9\x01\n\rProxyIpStatus\x12\x1f\n\x1bPROXY_IP_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n\x18PROXY_IP_STATUS_CREATING\x10\x01\x12\x1a\n\x16PROXY_IP_STATUS_ONLINE\x10\x02\x12\x1e\n\x1aPROXY_IP_STATUS_TERMINATED\x10\x03\x12\x1d\n\x19PROXY_IP_STATUS_UNHEALTHY\x10\x04*T\n\tProxyType\x12\x1a\n\x16PROXY_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11PROXY_TYPE_LEGACY\x10\x01\x12\x14\n\x10PROXY_TYPE_VPROX\x10\x02*x\n\x11RateLimitInterval\x12#\n\x1fRATE_LIMIT_INTERVAL_UNSPECIFIED\x10\x00\x12\x1e\n\x1aRATE_LIMIT_INTERVAL_SECOND\x10\x01\x12\x1e\n\x1aRATE_LIMIT_INTERVAL_MINUTE\x10\x02*\xb2\x01\n\x10RegistryAuthType\x12\"\n\x1eREGISTRY_AUTH_TYPE_UNSPECIFIED\x10\x00\x12\x1a\n\x16REGISTRY_AUTH_TYPE_AWS\x10\x01\x12\x1a\n\x16REGISTRY_AUTH_TYPE_GCP\x10\x02\x12\x1d\n\x19REGISTRY_AUTH_TYPE_PUBLIC\x10\x03\x12#\n\x1fREGISTRY_AUTH_TYPE_STATIC_CREDS\x10\x04*6\n\nSeekWhence\x12\x0c\n\x08SEEK_SET\x10\x00\x12\x0c\n\x08SEEK_CUR\x10\x01\x12\x0c\n\x08SEEK_END\x10\x02*\xd2\x01\n\x1aServerInferenceStatsStatus\x12-\n)SERVER_INFERENCE_STATS_STATUS_UNSPECIFIED\x10\x00\x12+\n\'SERVER_INFERENCE_STATS_STATUS_AVAILABLE\x10\x01\x12)\n%SERVER_INFERENCE_STATS_STATUS_NO_DATA\x10\x02\x12-\n)SERVER_INFERENCE_STATS_STATUS_UNAVAILABLE\x10\x03*\xa8\x03\n\x0fSystemErrorCode\x12!\n\x1dSYSTEM_ERROR_CODE_UNSPECIFIED\x10\x00\x12\x1a\n\x16SYSTEM_ERROR_CODE_PERM\x10\x01\x12\x1b\n\x17SYSTEM_ERROR_CODE_NOENT\x10\x02\x12\x18\n\x14SYSTEM_ERROR_CODE_IO\x10\x05\x12\x1a\n\x16SYSTEM_ERROR_CODE_NXIO\x10\x06\x12\x1b\n\x17SYSTEM_ERROR_CODE_NOMEM\x10\x0c\x12\x1b\n\x17SYSTEM_ERROR_CODE_ACCES\x10\r\x12\x1b\n\x17SYSTEM_ERROR_CODE_EXIST\x10\x11\x12\x1c\n\x18SYSTEM_ERROR_CODE_NOTDIR\x10\x14\x12\x1b\n\x17SYSTEM_ERROR_CODE_ISDIR\x10\x15\x12\x1b\n\x17SYSTEM_ERROR_CODE_INVAL\x10\x16\x12\x1b\n\x17SYSTEM_ERROR_CODE_MFILE\x10\x18\x12\x1a\n\x16SYSTEM_ERROR_CODE_FBIG\x10\x1b\x12\x1b\n\x17SYSTEM_ERROR_CODE_NOSPC\x10\x1c*\xa8\x01\n\x14TaskSnapshotBehavior\x12&\n\"TASK_SNAPSHOT_BEHAVIOR_UNSPECIFIED\x10\x00\x12#\n\x1fTASK_SNAPSHOT_BEHAVIOR_SNAPSHOT\x10\x01\x12\"\n\x1eTASK_SNAPSHOT_BEHAVIOR_RESTORE\x10\x02\x12\x1f\n\x1bTASK_SNAPSHOT_BEHAVIOR_NONE\x10\x03*\xdc\x02\n\tTaskState\x12\x1a\n\x16TASK_STATE_UNSPECIFIED\x10\x00\x12\x16\n\x12TASK_STATE_CREATED\x10\x06\x12\x15\n\x11TASK_STATE_QUEUED\x10\x01\x12\x1e\n\x1aTASK_STATE_WORKER_ASSIGNED\x10\x02\x12\x1c\n\x18TASK_STATE_LOADING_IMAGE\x10\x03\x12\x15\n\x11TASK_STATE_ACTIVE\x10\x04\x12\x18\n\x14TASK_STATE_COMPLETED\x10\x05\x12!\n\x1dTASK_STATE_CREATING_CONTAINER\x10\x07\x12\x13\n\x0fTASK_STATE_IDLE\x10\x08\x12\x1a\n\x16TASK_STATE_PREEMPTIBLE\x10\t\x12\x18\n\x14TASK_STATE_PREEMPTED\x10\n\x12\'\n#TASK_STATE_LOADING_CHECKPOINT_IMAGE\x10\x0b*=\n\nTunnelType\x12\x1b\n\x17TUNNEL_TYPE_UNSPECIFIED\x10\x00\x12\x12\n\x0eTUNNEL_TYPE_H2\x10\x01*h\n\x0fVolumeFsVersion\x12!\n\x1dVOLUME_FS_VERSION_UNSPECIFIED\x10\x00\x12\x18\n\x14VOLUME_FS_VERSION_V1\x10\x01\x12\x18\n\x14VOLUME_FS_VERSION_V2\x10\x02*\x9a\x01\n\x10WebhookAsyncMode\x12\"\n\x1eWEBHOOK_ASYNC_MODE_UNSPECIFIED\x10\x00\x12\x1f\n\x1bWEBHOOK_ASYNC_MODE_DISABLED\x10\x02\x12\x1e\n\x1aWEBHOOK_ASYNC_MODE_TRIGGER\x10\x03\x12\x1b\n\x17WEBHOOK_ASYNC_MODE_AUTO\x10\x04\"\x04\x08\x01\x10\x01*\x99\x01\n\x0bWebhookType\x12\x1c\n\x18WEBHOOK_TYPE_UNSPECIFIED\x10\x00\x12\x19\n\x15WEBHOOK_TYPE_ASGI_APP\x10\x01\x12\x19\n\x15WEBHOOK_TYPE_FUNCTION\x10\x02\x12\x19\n\x15WEBHOOK_TYPE_WSGI_APP\x10\x03\x12\x1b\n\x17WEBHOOK_TYPE_WEB_SERVER\x10\x04\x32\xec\xbc\x01\n\x0bModalClient\x12W\n\x13\x41ppClientDisconnect\x12(.modal.client.AppClientDisconnectRequest\x1a\x16.google.protobuf.Empty\x12U\n\x0c\x41ppCountLogs\x12!.modal.client.AppCountLogsRequest\x1a\".modal.client.AppCountLogsResponse\x12L\n\tAppCreate\x12\x1e.modal.client.AppCreateRequest\x1a\x1f.modal.client.AppCreateResponse\x12L\n\tAppDeploy\x12\x1e.modal.client.AppDeployRequest\x1a\x1f.modal.client.AppDeployResponse\x12m\n\x14\x41ppDeploymentHistory\x12).modal.client.AppDeploymentHistoryRequest\x1a*.modal.client.AppDeploymentHistoryResponse\x12U\n\x0c\x41ppFetchLogs\x12!.modal.client.AppFetchLogsRequest\x1a\".modal.client.AppFetchLogsResponse\x12s\n\x16\x41ppGetByDeploymentName\x12+.modal.client.AppGetByDeploymentNameRequest\x1a,.modal.client.AppGetByDeploymentNameResponse\x12O\n\nAppGetInfo\x12\x1f.modal.client.AppGetInfoRequest\x1a .modal.client.AppGetInfoResponse\x12U\n\x0c\x41ppGetLayout\x12!.modal.client.AppGetLayoutRequest\x1a\".modal.client.AppGetLayoutResponse\x12^\n\x0f\x41ppGetLifecycle\x12$.modal.client.AppGetLifecycleRequest\x1a%.modal.client.AppGetLifecycleResponse\x12L\n\nAppGetLogs\x12\x1f.modal.client.AppGetLogsRequest\x1a\x1b.modal.client.TaskLogsBatch0\x01\x12X\n\rAppGetObjects\x12\".modal.client.AppGetObjectsRequest\x1a#.modal.client.AppGetObjectsResponse\x12[\n\x0e\x41ppGetOrCreate\x12#.modal.client.AppGetOrCreateRequest\x1a$.modal.client.AppGetOrCreateResponse\x12O\n\nAppGetTags\x12\x1f.modal.client.AppGetTagsRequest\x1a .modal.client.AppGetTagsResponse\x12I\n\x0c\x41ppHeartbeat\x12!.modal.client.AppHeartbeatRequest\x1a\x16.google.protobuf.Empty\x12\x46\n\x07\x41ppList\x12\x1c.modal.client.AppListRequest\x1a\x1d.modal.client.AppListResponse\x12L\n\tAppLookup\x12\x1e.modal.client.AppLookupRequest\x1a\x1f.modal.client.AppLookupResponse\x12O\n\nAppPromote\x12\x1f.modal.client.AppPromoteRequest\x1a .modal.client.AppPromoteResponse\x12O\n\nAppPublish\x12\x1f.modal.client.AppPublishRequest\x1a .modal.client.AppPublishResponse\x12R\n\x0b\x41ppRollback\x12 .modal.client.AppRollbackRequest\x1a!.modal.client.AppRollbackResponse\x12R\n\x0b\x41ppRollover\x12 .modal.client.AppRolloverRequest\x1a!.modal.client.AppRolloverResponse\x12K\n\rAppSetObjects\x12\".modal.client.AppSetObjectsRequest\x1a\x16.google.protobuf.Empty\x12\x45\n\nAppSetTags\x12\x1f.modal.client.AppSetTagsRequest\x1a\x16.google.protobuf.Empty\x12?\n\x07\x41ppStop\x12\x1c.modal.client.AppStopRequest\x1a\x16.google.protobuf.Empty\x12U\n\x0c\x41ttemptAwait\x12!.modal.client.AttemptAwaitRequest\x1a\".modal.client.AttemptAwaitResponse\x12U\n\x0c\x41ttemptRetry\x12!.modal.client.AttemptRetryRequest\x1a\".modal.client.AttemptRetryResponse\x12U\n\x0c\x41ttemptStart\x12!.modal.client.AttemptStartRequest\x1a\".modal.client.AttemptStartResponse\x12U\n\x0c\x41uthTokenGet\x12!.modal.client.AuthTokenGetRequest\x1a\".modal.client.AuthTokenGetResponse\x12O\n\nBlobCreate\x12\x1f.modal.client.BlobCreateRequest\x1a .modal.client.BlobCreateResponse\x12\x46\n\x07\x42lobGet\x12\x1c.modal.client.BlobGetRequest\x1a\x1d.modal.client.BlobGetResponse\x12R\n\x0b\x43lassCreate\x12 .modal.client.ClassCreateRequest\x1a!.modal.client.ClassCreateResponse\x12I\n\x08\x43lassGet\x12\x1d.modal.client.ClassGetRequest\x1a\x1e.modal.client.ClassGetResponse\x12H\n\x0b\x43lientHello\x12\x16.google.protobuf.Empty\x1a!.modal.client.ClientHelloResponse\x12O\n\nClusterGet\x12\x1f.modal.client.ClusterGetRequest\x1a .modal.client.ClusterGetResponse\x12R\n\x0b\x43lusterList\x12 .modal.client.ClusterListRequest\x1a!.modal.client.ClusterListResponse\x12W\n\x13\x43ontainerCheckpoint\x12(.modal.client.ContainerCheckpointRequest\x1a\x16.google.protobuf.Empty\x12X\n\rContainerExec\x12\".modal.client.ContainerExecRequest\x1a#.modal.client.ContainerExecResponse\x12i\n\x16\x43ontainerExecGetOutput\x12+.modal.client.ContainerExecGetOutputRequest\x1a .modal.client.RuntimeOutputBatch0\x01\x12[\n\x15\x43ontainerExecPutInput\x12*.modal.client.ContainerExecPutInputRequest\x1a\x16.google.protobuf.Empty\x12\x64\n\x11\x43ontainerExecWait\x12&.modal.client.ContainerExecWaitRequest\x1a\'.modal.client.ContainerExecWaitResponse\x12v\n\x17\x43ontainerFilesystemExec\x12,.modal.client.ContainerFilesystemExecRequest\x1a-.modal.client.ContainerFilesystemExecResponse\x12\x87\x01\n ContainerFilesystemExecGetOutput\x12\x35.modal.client.ContainerFilesystemExecGetOutputRequest\x1a*.modal.client.FilesystemRuntimeOutputBatch0\x01\x12g\n\x12\x43ontainerHeartbeat\x12\'.modal.client.ContainerHeartbeatRequest\x1a(.modal.client.ContainerHeartbeatResponse\x12@\n\x0e\x43ontainerHello\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12I\n\x0c\x43ontainerLog\x12!.modal.client.ContainerLogRequest\x1a\x16.google.protobuf.Empty\x12s\n\x16\x43ontainerReloadVolumes\x12+.modal.client.ContainerReloadVolumesRequest\x1a,.modal.client.ContainerReloadVolumesResponse\x12k\n\x1d\x43ontainerServerLifecycleReady\x12\x32.modal.client.ContainerServerLifecycleReadyRequest\x1a\x16.google.protobuf.Empty\x12X\n\rContainerStop\x12\".modal.client.ContainerStopRequest\x1a#.modal.client.ContainerStopResponse\x12[\n\x10\x43urlGetAuthToken\x12\".modal.client.CurlAuthTokenRequest\x1a#.modal.client.CurlAuthTokenResponse\x12\x43\n\tDictClear\x12\x1e.modal.client.DictClearRequest\x1a\x16.google.protobuf.Empty\x12U\n\x0c\x44ictContains\x12!.modal.client.DictContainsRequest\x1a\".modal.client.DictContainsResponse\x12L\n\x0c\x44ictContents\x12!.modal.client.DictContentsRequest\x1a\x17.modal.client.DictEntry0\x01\x12\x45\n\nDictDelete\x12\x1f.modal.client.DictDeleteRequest\x1a\x16.google.protobuf.Empty\x12\x46\n\x07\x44ictGet\x12\x1c.modal.client.DictGetRequest\x1a\x1d.modal.client.DictGetResponse\x12R\n\x0b\x44ictGetById\x12 .modal.client.DictGetByIdRequest\x1a!.modal.client.DictGetByIdResponse\x12^\n\x0f\x44ictGetOrCreate\x12$.modal.client.DictGetOrCreateRequest\x1a%.modal.client.DictGetOrCreateResponse\x12K\n\rDictHeartbeat\x12\".modal.client.DictHeartbeatRequest\x1a\x16.google.protobuf.Empty\x12\x46\n\x07\x44ictLen\x12\x1c.modal.client.DictLenRequest\x1a\x1d.modal.client.DictLenResponse\x12I\n\x08\x44ictList\x12\x1d.modal.client.DictListRequest\x1a\x1e.modal.client.DictListResponse\x12\x46\n\x07\x44ictPop\x12\x1c.modal.client.DictPopRequest\x1a\x1d.modal.client.DictPopResponse\x12O\n\nDictUpdate\x12\x1f.modal.client.DictUpdateRequest\x1a .modal.client.DictUpdateResponse\x12v\n\x17\x44omainCertificateVerify\x12,.modal.client.DomainCertificateVerifyRequest\x1a-.modal.client.DomainCertificateVerifyResponse\x12U\n\x0c\x44omainCreate\x12!.modal.client.DomainCreateRequest\x1a\".modal.client.DomainCreateResponse\x12O\n\nDomainList\x12\x1f.modal.client.DomainListRequest\x1a .modal.client.DomainListResponse\x12[\n\x0e\x45ndpointCreate\x12#.modal.client.EndpointCreateRequest\x1a$.modal.client.EndpointCreateResponse\x12\x64\n\x11\x45ndpointGetByName\x12&.modal.client.EndpointGetByNameRequest\x1a\'.modal.client.EndpointGetByNameResponse\x12^\n\x0f\x45ndpointGetInfo\x12$.modal.client.EndpointGetInfoRequest\x1a%.modal.client.EndpointGetInfoResponse\x12m\n\x14\x45ndpointGetLifecycle\x12).modal.client.EndpointGetLifecycleRequest\x1a*.modal.client.EndpointGetLifecycleResponse\x12U\n\x0c\x45ndpointList\x12!.modal.client.EndpointListRequest\x1a\".modal.client.EndpointListResponse\x12U\n\x0c\x45ndpointStop\x12!.modal.client.EndpointStopRequest\x1a\".modal.client.EndpointStopResponse\x12|\n\x19\x45nvironmentBillingSummary\x12..modal.client.EnvironmentBillingSummaryRequest\x1a/.modal.client.EnvironmentBillingSummaryResponse\x12S\n\x11\x45nvironmentCreate\x12&.modal.client.EnvironmentCreateRequest\x1a\x16.google.protobuf.Empty\x12S\n\x11\x45nvironmentDelete\x12&.modal.client.EnvironmentDeleteRequest\x1a\x16.google.protobuf.Empty\x12m\n\x14\x45nvironmentGetBudget\x12).modal.client.EnvironmentGetBudgetRequest\x1a*.modal.client.EnvironmentGetBudgetResponse\x12p\n\x15\x45nvironmentGetManaged\x12*.modal.client.EnvironmentGetManagedRequest\x1a+.modal.client.EnvironmentGetManagedResponse\x12s\n\x16\x45nvironmentGetOrCreate\x12+.modal.client.EnvironmentGetOrCreateRequest\x1a,.modal.client.EnvironmentGetOrCreateResponse\x12j\n\x13\x45nvironmentGetRoles\x12(.modal.client.EnvironmentGetRolesRequest\x1a).modal.client.EnvironmentGetRolesResponse\x12P\n\x0f\x45nvironmentList\x12\x16.google.protobuf.Empty\x1a%.modal.client.EnvironmentListResponse\x12U\n\x12\x45nvironmentRoleSet\x12\'.modal.client.EnvironmentRoleSetRequest\x1a\x16.google.protobuf.Empty\x12Y\n\x14\x45nvironmentSetBudget\x12).modal.client.EnvironmentSetBudgetRequest\x1a\x16.google.protobuf.Empty\x12o\n\x1f\x45nvironmentSetDefaultMemberRole\x12\x34.modal.client.EnvironmentSetDefaultMemberRoleRequest\x1a\x16.google.protobuf.Empty\x12[\n\x15\x45nvironmentSetManaged\x12*.modal.client.EnvironmentSetManagedRequest\x1a\x16.google.protobuf.Empty\x12^\n\x11\x45nvironmentUpdate\x12&.modal.client.EnvironmentUpdateRequest\x1a!.modal.client.EnvironmentListItem\x12\x61\n\x18\x46lashContainerDeregister\x12-.modal.client.FlashContainerDeregisterRequest\x1a\x16.google.protobuf.Empty\x12g\n\x12\x46lashContainerList\x12\'.modal.client.FlashContainerListRequest\x1a(.modal.client.FlashContainerListResponse\x12s\n\x16\x46lashContainerRegister\x12+.modal.client.FlashContainerRegisterRequest\x1a,.modal.client.FlashContainerRegisterResponse\x12\x7f\n\x1a\x46lashSetTargetSlotsMetrics\x12/.modal.client.FlashSetTargetSlotsMetricsRequest\x1a\x30.modal.client.FlashSetTargetSlotsMetricsResponse\x12j\n\x13\x46unctionAsyncInvoke\x12(.modal.client.FunctionAsyncInvokeRequest\x1a).modal.client.FunctionAsyncInvokeResponse\x12g\n\x12\x46unctionBindParams\x12\'.modal.client.FunctionBindParamsRequest\x1a(.modal.client.FunctionBindParamsResponse\x12U\n\x12\x46unctionCallCancel\x12\'.modal.client.FunctionCallCancelRequest\x1a\x16.google.protobuf.Empty\x12\x64\n\x11\x46unctionCallFetch\x12&.modal.client.FunctionCallFetchRequest\x1a\'.modal.client.FunctionCallFetchResponse\x12g\n\x12\x46unctionCallFromId\x12\'.modal.client.FunctionCallFromIdRequest\x1a(.modal.client.FunctionCallFromIdResponse\x12\\\n\x15\x46unctionCallGetDataIn\x12(.modal.client.FunctionCallGetDataRequest\x1a\x17.modal.client.DataChunk0\x01\x12]\n\x16\x46unctionCallGetDataOut\x12(.modal.client.FunctionCallGetDataRequest\x1a\x17.modal.client.DataChunk0\x01\x12j\n\x13\x46unctionCallGetInfo\x12(.modal.client.FunctionCallGetInfoRequest\x1a).modal.client.FunctionCallGetInfoResponse\x12\x61\n\x10\x46unctionCallList\x12%.modal.client.FunctionCallListRequest\x1a&.modal.client.FunctionCallListResponse\x12Z\n\x16\x46unctionCallPutDataOut\x12(.modal.client.FunctionCallPutDataRequest\x1a\x16.google.protobuf.Empty\x12[\n\x0e\x46unctionCreate\x12#.modal.client.FunctionCreateRequest\x1a$.modal.client.FunctionCreateResponse\x12Y\n\x14\x46unctionFinishInputs\x12).modal.client.FunctionFinishInputsRequest\x1a\x16.google.protobuf.Empty\x12R\n\x0b\x46unctionGet\x12 .modal.client.FunctionGetRequest\x1a!.modal.client.FunctionGetResponse\x12^\n\x0f\x46unctionGetById\x12$.modal.client.FunctionGetByIdRequest\x1a%.modal.client.FunctionGetByIdResponse\x12m\n\x14\x46unctionGetCallGraph\x12).modal.client.FunctionGetCallGraphRequest\x1a*.modal.client.FunctionGetCallGraphResponse\x12\x64\n\x17\x46unctionGetCurrentStats\x12,.modal.client.FunctionGetCurrentStatsRequest\x1a\x1b.modal.client.FunctionStats\x12\x88\x01\n\x1d\x46unctionGetDynamicConcurrency\x12\x32.modal.client.FunctionGetDynamicConcurrencyRequest\x1a\x33.modal.client.FunctionGetDynamicConcurrencyResponse\x12|\n\x19\x46unctionGetFlashAuthToken\x12..modal.client.FunctionGetFlashAuthTokenRequest\x1a/.modal.client.FunctionGetFlashAuthTokenResponse\x12\x64\n\x11\x46unctionGetInputs\x12&.modal.client.FunctionGetInputsRequest\x1a\'.modal.client.FunctionGetInputsResponse\x12g\n\x12\x46unctionGetOutputs\x12\'.modal.client.FunctionGetOutputsRequest\x1a(.modal.client.FunctionGetOutputsResponse\x12\x82\x01\n\x1b\x46unctionGetSchedulingParams\x12\x30.modal.client.FunctionGetSchedulingParamsRequest\x1a\x31.modal.client.FunctionGetSchedulingParamsResponse\x12p\n\x15\x46unctionGetSerialized\x12*.modal.client.FunctionGetSerializedRequest\x1a+.modal.client.FunctionGetSerializedResponse\x12|\n\x19\x46unctionGetTimeRangeStats\x12..modal.client.FunctionGetTimeRangeStatsRequest\x1a/.modal.client.FunctionGetTimeRangeStatsResponse\x12m\n\x14\x46unctionListVariants\x12).modal.client.FunctionListVariantsRequest\x1a*.modal.client.FunctionListVariantsResponse\x12R\n\x0b\x46unctionMap\x12 .modal.client.FunctionMapRequest\x1a!.modal.client.FunctionMapResponse\x12\x64\n\x11\x46unctionPrecreate\x12&.modal.client.FunctionPrecreateRequest\x1a\'.modal.client.FunctionPrecreateResponse\x12\x64\n\x11\x46unctionPutInputs\x12&.modal.client.FunctionPutInputsRequest\x1a\'.modal.client.FunctionPutInputsResponse\x12U\n\x12\x46unctionPutOutputs\x12\'.modal.client.FunctionPutOutputsRequest\x1a\x16.google.protobuf.Empty\x12j\n\x13\x46unctionRetryInputs\x12(.modal.client.FunctionRetryInputsRequest\x1a).modal.client.FunctionRetryInputsResponse\x12G\n\x15\x46unctionStartPtyShell\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\x12\x8b\x01\n\x1e\x46unctionUpdateSchedulingParams\x12\x33.modal.client.FunctionUpdateSchedulingParamsRequest\x1a\x34.modal.client.FunctionUpdateSchedulingParamsResponse\x12g\n\x12ImageBuildChainGet\x12\'.modal.client.ImageBuildChainGetRequest\x1a(.modal.client.ImageBuildChainGetResponse\x12G\n\x0bImageDelete\x12 .modal.client.ImageDeleteRequest\x1a\x16.google.protobuf.Empty\x12R\n\x0bImageFromId\x12 .modal.client.ImageFromIdRequest\x1a!.modal.client.ImageFromIdResponse\x12X\n\rImageGetByTag\x12\".modal.client.ImageGetByTagRequest\x1a#.modal.client.ImageGetByTagResponse\x12\x61\n\x10ImageGetOrCreate\x12%.modal.client.ImageGetOrCreateRequest\x1a&.modal.client.ImageGetOrCreateResponse\x12i\n\x12ImageJoinStreaming\x12\'.modal.client.ImageJoinStreamingRequest\x1a(.modal.client.ImageJoinStreamingResponse0\x01\x12X\n\rImageListTags\x12\".modal.client.ImageListTagsRequest\x1a#.modal.client.ImageListTagsResponse\x12U\n\x0cImagePublish\x12!.modal.client.ImagePublishRequest\x1a\".modal.client.ImagePublishResponse\x12\x64\n\x11ImageTagRevisions\x12&.modal.client.ImageTagRevisionsRequest\x1a\'.modal.client.ImageTagRevisionsResponse\x12I\n\x08MapAwait\x12\x1d.modal.client.MapAwaitRequest\x1a\x1e.modal.client.MapAwaitResponse\x12[\n\x0eMapCheckInputs\x12#.modal.client.MapCheckInputsRequest\x1a$.modal.client.MapCheckInputsResponse\x12g\n\x12MapStartOrContinue\x12\'.modal.client.MapStartOrContinueRequest\x1a(.modal.client.MapStartOrContinueResponse\x12\x7f\n\x1aMountBatchedCheckExistence\x12/.modal.client.MountBatchedCheckExistenceRequest\x1a\x30.modal.client.MountBatchedCheckExistenceResponse\x12\x61\n\x10MountGetOrCreate\x12%.modal.client.MountGetOrCreateRequest\x1a&.modal.client.MountGetOrCreateResponse\x12U\n\x0cMountPutFile\x12!.modal.client.MountPutFileRequest\x1a\".modal.client.MountPutFileResponse\x12i\n\x1cNotebookKernelPublishResults\x12\x31.modal.client.NotebookKernelPublishResultsRequest\x1a\x16.google.protobuf.Empty\x12O\n\nProxyAddIp\x12\x1f.modal.client.ProxyAddIpRequest\x1a .modal.client.ProxyAddIpResponse\x12R\n\x0bProxyCreate\x12 .modal.client.ProxyCreateRequest\x1a!.modal.client.ProxyCreateResponse\x12G\n\x0bProxyDelete\x12 .modal.client.ProxyDeleteRequest\x1a\x16.google.protobuf.Empty\x12I\n\x08ProxyGet\x12\x1d.modal.client.ProxyGetRequest\x1a\x1e.modal.client.ProxyGetResponse\x12\x61\n\x10ProxyGetOrCreate\x12%.modal.client.ProxyGetOrCreateRequest\x1a&.modal.client.ProxyGetOrCreateResponse\x12\x44\n\tProxyList\x12\x16.google.protobuf.Empty\x1a\x1f.modal.client.ProxyListResponse\x12K\n\rProxyRemoveIp\x12\".modal.client.ProxyRemoveIpRequest\x1a\x16.google.protobuf.Empty\x12\x45\n\nQueueClear\x12\x1f.modal.client.QueueClearRequest\x1a\x16.google.protobuf.Empty\x12G\n\x0bQueueDelete\x12 .modal.client.QueueDeleteRequest\x1a\x16.google.protobuf.Empty\x12I\n\x08QueueGet\x12\x1d.modal.client.QueueGetRequest\x1a\x1e.modal.client.QueueGetResponse\x12U\n\x0cQueueGetById\x12!.modal.client.QueueGetByIdRequest\x1a\".modal.client.QueueGetByIdResponse\x12\x61\n\x10QueueGetOrCreate\x12%.modal.client.QueueGetOrCreateRequest\x1a&.modal.client.QueueGetOrCreateResponse\x12M\n\x0eQueueHeartbeat\x12#.modal.client.QueueHeartbeatRequest\x1a\x16.google.protobuf.Empty\x12I\n\x08QueueLen\x12\x1d.modal.client.QueueLenRequest\x1a\x1e.modal.client.QueueLenResponse\x12L\n\tQueueList\x12\x1e.modal.client.QueueListRequest\x1a\x1f.modal.client.QueueListResponse\x12[\n\x0eQueueNextItems\x12#.modal.client.QueueNextItemsRequest\x1a$.modal.client.QueueNextItemsResponse\x12\x41\n\x08QueuePut\x12\x1d.modal.client.QueuePutRequest\x1a\x16.google.protobuf.Empty\x12y\n\x18SandboxContainerCreateV2\x12-.modal.client.SandboxContainerCreateV2Request\x1a..modal.client.SandboxContainerCreateV2Response\x12X\n\rSandboxCreate\x12\".modal.client.SandboxCreateRequest\x1a#.modal.client.SandboxCreateResponse\x12|\n\x19SandboxCreateConnectToken\x12..modal.client.SandboxCreateConnectTokenRequest\x1a/.modal.client.SandboxCreateConnectTokenResponse\x12~\n\x1bSandboxCreateConnectTokenV2\x12..modal.client.SandboxCreateConnectTokenRequest\x1a/.modal.client.SandboxCreateConnectTokenResponse\x12^\n\x0fSandboxCreateV2\x12$.modal.client.SandboxCreateV2Request\x1a%.modal.client.SandboxCreateV2Response\x12\x88\x01\n\x1dSandboxGetCommandRouterAccess\x12\x32.modal.client.SandboxGetCommandRouterAccessRequest\x1a\x33.modal.client.SandboxGetCommandRouterAccessResponse\x12s\n\x16SandboxGetExitSnapshot\x12+.modal.client.SandboxGetExitSnapshotRequest\x1a,.modal.client.SandboxGetExitSnapshotResponse\x12u\n\x18SandboxGetExitSnapshotV2\x12+.modal.client.SandboxGetExitSnapshotRequest\x1a,.modal.client.SandboxGetExitSnapshotResponse\x12g\n\x12SandboxGetFromName\x12\'.modal.client.SandboxGetFromNameRequest\x1a(.modal.client.SandboxGetFromNameResponse\x12i\n\x14SandboxGetFromNameV2\x12\'.modal.client.SandboxGetFromNameRequest\x1a(.modal.client.SandboxGetFromNameResponse\x12T\n\x0eSandboxGetLogs\x12#.modal.client.SandboxGetLogsRequest\x1a\x1b.modal.client.TaskLogsBatch0\x01\x12v\n\x17SandboxGetResourceUsage\x12,.modal.client.SandboxGetResourceUsageRequest\x1a-.modal.client.SandboxGetResourceUsageResponse\x12\x61\n\x10SandboxGetTaskId\x12%.modal.client.SandboxGetTaskIdRequest\x1a&.modal.client.SandboxGetTaskIdResponse\x12\x63\n\x12SandboxGetTaskIdV2\x12%.modal.client.SandboxGetTaskIdRequest\x1a&.modal.client.SandboxGetTaskIdResponse\x12\x64\n\x11SandboxGetTunnels\x12&.modal.client.SandboxGetTunnelsRequest\x1a\'.modal.client.SandboxGetTunnelsResponse\x12\x66\n\x13SandboxGetTunnelsV2\x12&.modal.client.SandboxGetTunnelsRequest\x1a\'.modal.client.SandboxGetTunnelsResponse\x12R\n\x0bSandboxList\x12 .modal.client.SandboxListRequest\x1a!.modal.client.SandboxListResponse\x12T\n\rSandboxListV2\x12 .modal.client.SandboxListRequest\x1a!.modal.client.SandboxListResponse\x12[\n\x0eSandboxRestore\x12#.modal.client.SandboxRestoreRequest\x1a$.modal.client.SandboxRestoreResponse\x12\x61\n\x10SandboxRestoreV2\x12%.modal.client.SandboxRestoreV2Request\x1a&.modal.client.SandboxRestoreV2Response\x12[\n\x0eSandboxSetName\x12#.modal.client.SandboxSetNameRequest\x1a$.modal.client.SandboxSetNameResponse\x12^\n\x0fSandboxSnapshot\x12$.modal.client.SandboxSnapshotRequest\x1a%.modal.client.SandboxSnapshotResponse\x12\x64\n\x11SandboxSnapshotFs\x12&.modal.client.SandboxSnapshotFsRequest\x1a\'.modal.client.SandboxSnapshotFsResponse\x12s\n\x16SandboxSnapshotFsAsync\x12+.modal.client.SandboxSnapshotFsAsyncRequest\x1a,.modal.client.SandboxSnapshotFsAsyncResponse\x12t\n\x19SandboxSnapshotFsAsyncGet\x12..modal.client.SandboxSnapshotFsAsyncGetRequest\x1a\'.modal.client.SandboxSnapshotFsResponse\x12g\n\x12SandboxSnapshotGet\x12\'.modal.client.SandboxSnapshotGetRequest\x1a(.modal.client.SandboxSnapshotGetResponse\x12j\n\x13SandboxSnapshotWait\x12(.modal.client.SandboxSnapshotWaitRequest\x1a).modal.client.SandboxSnapshotWaitResponse\x12\x64\n\x11SandboxStdinWrite\x12&.modal.client.SandboxStdinWriteRequest\x1a\'.modal.client.SandboxStdinWriteResponse\x12[\n\x0eSandboxTagsGet\x12#.modal.client.SandboxTagsGetRequest\x1a$.modal.client.SandboxTagsGetResponse\x12]\n\x10SandboxTagsGetV2\x12#.modal.client.SandboxTagsGetRequest\x1a$.modal.client.SandboxTagsGetResponse\x12M\n\x0eSandboxTagsSet\x12#.modal.client.SandboxTagsSetRequest\x1a\x16.google.protobuf.Empty\x12O\n\x10SandboxTagsSetV2\x12#.modal.client.SandboxTagsSetRequest\x1a\x16.google.protobuf.Empty\x12\x61\n\x10SandboxTerminate\x12%.modal.client.SandboxTerminateRequest\x1a&.modal.client.SandboxTerminateResponse\x12\x63\n\x12SandboxTerminateV2\x12%.modal.client.SandboxTerminateRequest\x1a&.modal.client.SandboxTerminateResponse\x12R\n\x0bSandboxWait\x12 .modal.client.SandboxWaitRequest\x1a!.modal.client.SandboxWaitResponse\x12p\n\x15SandboxWaitUntilReady\x12*.modal.client.SandboxWaitUntilReadyRequest\x1a+.modal.client.SandboxWaitUntilReadyResponse\x12T\n\rSandboxWaitV2\x12 .modal.client.SandboxWaitRequest\x1a!.modal.client.SandboxWaitResponse\x12I\n\x0cSecretDelete\x12!.modal.client.SecretDeleteRequest\x1a\x16.google.protobuf.Empty\x12X\n\rSecretGetInfo\x12\".modal.client.SecretGetInfoRequest\x1a#.modal.client.SecretGetInfoResponse\x12\x64\n\x11SecretGetOrCreate\x12&.modal.client.SecretGetOrCreateRequest\x1a\'.modal.client.SecretGetOrCreateResponse\x12O\n\nSecretList\x12\x1f.modal.client.SecretListRequest\x1a .modal.client.SecretListResponse\x12I\n\x0cSecretUpdate\x12!.modal.client.SecretUpdateRequest\x1a\x16.google.protobuf.Empty\x12v\n\x17ServerGetTimeRangeStats\x12,.modal.client.ServerGetTimeRangeStatsRequest\x1a-.modal.client.ServerGetTimeRangeStatsResponse\x12g\n\x12ServerRequestFetch\x12\'.modal.client.ServerRequestFetchRequest\x1a(.modal.client.ServerRequestFetchResponse\x12P\n\x0fServiceUserList\x12\x16.google.protobuf.Empty\x1a%.modal.client.ServiceUserListResponse\x12U\n\x12SharedVolumeDelete\x12\'.modal.client.SharedVolumeDeleteRequest\x1a\x16.google.protobuf.Empty\x12j\n\x13SharedVolumeGetFile\x12(.modal.client.SharedVolumeGetFileRequest\x1a).modal.client.SharedVolumeGetFileResponse\x12v\n\x17SharedVolumeGetOrCreate\x12,.modal.client.SharedVolumeGetOrCreateRequest\x1a-.modal.client.SharedVolumeGetOrCreateResponse\x12[\n\x15SharedVolumeHeartbeat\x12*.modal.client.SharedVolumeHeartbeatRequest\x1a\x16.google.protobuf.Empty\x12\x61\n\x10SharedVolumeList\x12%.modal.client.SharedVolumeListRequest\x1a&.modal.client.SharedVolumeListResponse\x12p\n\x15SharedVolumeListFiles\x12*.modal.client.SharedVolumeListFilesRequest\x1a+.modal.client.SharedVolumeListFilesResponse\x12x\n\x1bSharedVolumeListFilesStream\x12*.modal.client.SharedVolumeListFilesRequest\x1a+.modal.client.SharedVolumeListFilesResponse0\x01\x12j\n\x13SharedVolumePutFile\x12(.modal.client.SharedVolumePutFileRequest\x1a).modal.client.SharedVolumePutFileResponse\x12]\n\x16SharedVolumeRemoveFile\x12+.modal.client.SharedVolumeRemoveFileRequest\x1a\x16.google.protobuf.Empty\x12\x61\n\x10TaskClusterHello\x12%.modal.client.TaskClusterHelloRequest\x1a&.modal.client.TaskClusterHelloResponse\x12T\n\x11TaskCurrentInputs\x12\x16.google.protobuf.Empty\x1a\'.modal.client.TaskCurrentInputsResponse\x12\x7f\n\x1aTaskGetCommandRouterAccess\x12/.modal.client.TaskGetCommandRouterAccessRequest\x1a\x30.modal.client.TaskGetCommandRouterAccessResponse\x12R\n\x0bTaskGetInfo\x12 .modal.client.TaskGetInfoRequest\x1a!.modal.client.TaskGetInfoResponse\x12I\n\x08TaskList\x12\x1d.modal.client.TaskListRequest\x1a\x1e.modal.client.TaskListResponse\x12\x45\n\nTaskResult\x12\x1f.modal.client.TaskResultRequest\x1a\x16.google.protobuf.Empty\x12U\n\x0cTemplateList\x12!.modal.client.TemplateListRequest\x1a\".modal.client.TemplateListResponse\x12^\n\x0fTokenFlowCreate\x12$.modal.client.TokenFlowCreateRequest\x1a%.modal.client.TokenFlowCreateResponse\x12X\n\rTokenFlowWait\x12\".modal.client.TokenFlowWaitRequest\x1a#.modal.client.TokenFlowWaitResponse\x12U\n\x0cTokenInfoGet\x12!.modal.client.TokenInfoGetRequest\x1a\".modal.client.TokenInfoGetResponse\x12R\n\x0bTunnelStart\x12 .modal.client.TunnelStartRequest\x1a!.modal.client.TunnelStartResponse\x12O\n\nTunnelStop\x12\x1f.modal.client.TunnelStopRequest\x1a .modal.client.TunnelStopResponse\x12_\n\x17UserGroupEnvironmentSet\x12,.modal.client.UserGroupEnvironmentSetRequest\x1a\x16.google.protobuf.Empty\x12U\n\x0cVolumeCommit\x12!.modal.client.VolumeCommitRequest\x1a\".modal.client.VolumeCommitResponse\x12O\n\x0fVolumeCopyFiles\x12$.modal.client.VolumeCopyFilesRequest\x1a\x16.google.protobuf.Empty\x12Q\n\x10VolumeCopyFiles2\x12%.modal.client.VolumeCopyFiles2Request\x1a\x16.google.protobuf.Empty\x12I\n\x0cVolumeDelete\x12!.modal.client.VolumeDeleteRequest\x1a\x16.google.protobuf.Empty\x12X\n\rVolumeGetById\x12\".modal.client.VolumeGetByIdRequest\x1a#.modal.client.VolumeGetByIdResponse\x12X\n\rVolumeGetFile\x12\".modal.client.VolumeGetFileRequest\x1a#.modal.client.VolumeGetFileResponse\x12[\n\x0eVolumeGetFile2\x12#.modal.client.VolumeGetFile2Request\x1a$.modal.client.VolumeGetFile2Response\x12\x64\n\x11VolumeGetOrCreate\x12&.modal.client.VolumeGetOrCreateRequest\x1a\'.modal.client.VolumeGetOrCreateResponse\x12O\n\x0fVolumeHeartbeat\x12$.modal.client.VolumeHeartbeatRequest\x1a\x16.google.protobuf.Empty\x12O\n\nVolumeList\x12\x1f.modal.client.VolumeListRequest\x1a .modal.client.VolumeListResponse\x12`\n\x0fVolumeListFiles\x12$.modal.client.VolumeListFilesRequest\x1a%.modal.client.VolumeListFilesResponse0\x01\x12\x63\n\x10VolumeListFiles2\x12%.modal.client.VolumeListFiles2Request\x1a&.modal.client.VolumeListFiles2Response0\x01\x12M\n\x0eVolumePutFiles\x12#.modal.client.VolumePutFilesRequest\x1a\x16.google.protobuf.Empty\x12^\n\x0fVolumePutFiles2\x12$.modal.client.VolumePutFiles2Request\x1a%.modal.client.VolumePutFiles2Response\x12I\n\x0cVolumeReload\x12!.modal.client.VolumeReloadRequest\x1a\x16.google.protobuf.Empty\x12Q\n\x10VolumeRemoveFile\x12%.modal.client.VolumeRemoveFileRequest\x1a\x16.google.protobuf.Empty\x12S\n\x11VolumeRemoveFile2\x12&.modal.client.VolumeRemoveFile2Request\x1a\x16.google.protobuf.Empty\x12I\n\x0cVolumeRename\x12!.modal.client.VolumeRenameRequest\x1a\x16.google.protobuf.Empty\x12`\n\x12WebhookTokenCreate\x12\'.modal.client.WebhookTokenCreateRequest\x1a!.modal.client.TokenCreateResponse\x12N\n\x12WebhookTokenDelete\x12 .modal.client.TokenDeleteRequest\x1a\x16.google.protobuf.Empty\x12\x65\n\x1aWebhookTokenEnvironmentAdd\x12/.modal.client.WebhookTokenEnvironmentAddRequest\x1a\x16.google.protobuf.Empty\x12\x82\x01\n\x1bWebhookTokenEnvironmentList\x12\x30.modal.client.WebhookTokenEnvironmentListRequest\x1a\x31.modal.client.WebhookTokenEnvironmentListResponse\x12k\n\x1dWebhookTokenEnvironmentRemove\x12\x32.modal.client.WebhookTokenEnvironmentRemoveRequest\x1a\x16.google.protobuf.Empty\x12R\n\x10WebhookTokenList\x12\x16.google.protobuf.Empty\x1a&.modal.client.WebhookTokenListResponse\x12}\n\x1eWebhookTokenListForEnvironment\x12\x33.modal.client.WebhookTokenListForEnvironmentRequest\x1a&.modal.client.WebhookTokenListResponse\x12Y\n\x12WebhookTokenUpdate\x12\'.modal.client.WebhookTokenUpdateRequest\x1a\x1a.modal.client.WebhookToken\x12p\n\x15WorkspaceBillingRates\x12*.modal.client.WorkspaceBillingRatesRequest\x1a+.modal.client.WorkspaceBillingRatesResponse\x12q\n\x16WorkspaceBillingReport\x12+.modal.client.WorkspaceBillingReportRequest\x1a(.modal.client.WorkspaceBillingReportItem0\x01\x12v\n\x17WorkspaceBillingSummary\x12,.modal.client.WorkspaceBillingSummaryRequest\x1a-.modal.client.WorkspaceBillingSummaryResponse\x12s\n\x18WorkspaceDashboardUrlGet\x12*.modal.client.WorkspaceDashboardUrlRequest\x1a+.modal.client.WorkspaceDashboardUrlResponse\x12Z\n\x14WorkspaceMembersList\x12\x16.google.protobuf.Empty\x1a*.modal.client.WorkspaceMembersListResponse\x12X\n\x13WorkspaceNameLookup\x12\x16.google.protobuf.Empty\x1a).modal.client.WorkspaceNameLookupResponse\x12m\n\x1eWorkspaceSetDefaultEnvironment\x12\x33.modal.client.WorkspaceSetDefaultEnvironmentRequest\x1a\x16.google.protobuf.Empty\x12\xa3\x01\n&WorkspaceSetDefaultEnvironmentSettings\x12;.modal.client.WorkspaceSetDefaultEnvironmentSettingsRequest\x1a<.modal.client.WorkspaceSetDefaultEnvironmentSettingsResponse\x12\x8e\x01\n\x1fWorkspaceSetImageBuilderVersion\x12\x34.modal.client.WorkspaceSetImageBuilderVersionRequest\x1a\x35.modal.client.WorkspaceSetImageBuilderVersionResponse\x12T\n\x11WorkspaceSettings\x12\x16.google.protobuf.Empty\x1a\'.modal.client.WorkspaceSettingsResponseB&Z$github.com/modal-labs/modal/go/protob\x06proto3')
 
 _APPDEPLOYVISIBILITY = DESCRIPTOR.enum_types_by_name['AppDeployVisibility']
 AppDeployVisibility = enum_type_wrapper.EnumTypeWrapper(_APPDEPLOYVISIBILITY)
@@ -30,6 +30,8 @@ _APPSTATE = DESCRIPTOR.enum_types_by_name['AppState']
 AppState = enum_type_wrapper.EnumTypeWrapper(_APPSTATE)
 _APPSTOPSOURCE = DESCRIPTOR.enum_types_by_name['AppStopSource']
 AppStopSource = enum_type_wrapper.EnumTypeWrapper(_APPSTOPSOURCE)
+_ARCH = DESCRIPTOR.enum_types_by_name['Arch']
+Arch = enum_type_wrapper.EnumTypeWrapper(_ARCH)
 _CERTIFICATESTATUS = DESCRIPTOR.enum_types_by_name['CertificateStatus']
 CertificateStatus = enum_type_wrapper.EnumTypeWrapper(_CERTIFICATESTATUS)
 _CHECKPOINTSTATUS = DESCRIPTOR.enum_types_by_name['CheckpointStatus']
@@ -60,6 +62,8 @@ _ENDPOINTSTOPSOURCE = DESCRIPTOR.enum_types_by_name['EndpointStopSource']
 EndpointStopSource = enum_type_wrapper.EnumTypeWrapper(_ENDPOINTSTOPSOURCE)
 _ENDPOINTTASKTYPE = DESCRIPTOR.enum_types_by_name['EndpointTaskType']
 EndpointTaskType = enum_type_wrapper.EnumTypeWrapper(_ENDPOINTTASKTYPE)
+_ENVIRONMENTBLOCKUNAUTHENTICATEDRESOURCES = DESCRIPTOR.enum_types_by_name['EnvironmentBlockUnauthenticatedResources']
+EnvironmentBlockUnauthenticatedResources = enum_type_wrapper.EnumTypeWrapper(_ENVIRONMENTBLOCKUNAUTHENTICATEDRESOURCES)
 _ENVIRONMENTROLE = DESCRIPTOR.enum_types_by_name['EnvironmentRole']
 EnvironmentRole = enum_type_wrapper.EnumTypeWrapper(_ENVIRONMENTROLE)
 _ENVIRONMENTTYPE = DESCRIPTOR.enum_types_by_name['EnvironmentType']
@@ -68,6 +72,8 @@ _EXECOUTPUTOPTION = DESCRIPTOR.enum_types_by_name['ExecOutputOption']
 ExecOutputOption = enum_type_wrapper.EnumTypeWrapper(_EXECOUTPUTOPTION)
 _FILEDESCRIPTOR = DESCRIPTOR.enum_types_by_name['FileDescriptor']
 FileDescriptor = enum_type_wrapper.EnumTypeWrapper(_FILEDESCRIPTOR)
+_FUNCTIONCALLINPUTSTATUS = DESCRIPTOR.enum_types_by_name['FunctionCallInputStatus']
+FunctionCallInputStatus = enum_type_wrapper.EnumTypeWrapper(_FUNCTIONCALLINPUTSTATUS)
 _FUNCTIONCALLINVOCATIONTYPE = DESCRIPTOR.enum_types_by_name['FunctionCallInvocationType']
 FunctionCallInvocationType = enum_type_wrapper.EnumTypeWrapper(_FUNCTIONCALLINVOCATIONTYPE)
 _FUNCTIONCALLTYPE = DESCRIPTOR.enum_types_by_name['FunctionCallType']
@@ -76,6 +82,8 @@ _GPUTYPE = DESCRIPTOR.enum_types_by_name['GPUType']
 GPUType = enum_type_wrapper.EnumTypeWrapper(_GPUTYPE)
 _IDENTITYPROVIDERTYPE = DESCRIPTOR.enum_types_by_name['IdentityProviderType']
 IdentityProviderType = enum_type_wrapper.EnumTypeWrapper(_IDENTITYPROVIDERTYPE)
+_LLMENGINE = DESCRIPTOR.enum_types_by_name['LLMEngine']
+LLMEngine = enum_type_wrapper.EnumTypeWrapper(_LLMENGINE)
 _MEMBERROLE = DESCRIPTOR.enum_types_by_name['MemberRole']
 MemberRole = enum_type_wrapper.EnumTypeWrapper(_MEMBERROLE)
 _OBJECTCREATIONTYPE = DESCRIPTOR.enum_types_by_name['ObjectCreationType']
@@ -94,6 +102,8 @@ _REGISTRYAUTHTYPE = DESCRIPTOR.enum_types_by_name['RegistryAuthType']
 RegistryAuthType = enum_type_wrapper.EnumTypeWrapper(_REGISTRYAUTHTYPE)
 _SEEKWHENCE = DESCRIPTOR.enum_types_by_name['SeekWhence']
 SeekWhence = enum_type_wrapper.EnumTypeWrapper(_SEEKWHENCE)
+_SERVERINFERENCESTATSSTATUS = DESCRIPTOR.enum_types_by_name['ServerInferenceStatsStatus']
+ServerInferenceStatsStatus = enum_type_wrapper.EnumTypeWrapper(_SERVERINFERENCESTATSSTATUS)
 _SYSTEMERRORCODE = DESCRIPTOR.enum_types_by_name['SystemErrorCode']
 SystemErrorCode = enum_type_wrapper.EnumTypeWrapper(_SYSTEMERRORCODE)
 _TASKSNAPSHOTBEHAVIOR = DESCRIPTOR.enum_types_by_name['TaskSnapshotBehavior']
@@ -131,6 +141,9 @@ APP_STOP_SOURCE_UNSPECIFIED = 0
 APP_STOP_SOURCE_CLI = 1
 APP_STOP_SOURCE_PYTHON_CLIENT = 2
 APP_STOP_SOURCE_WEB = 3
+ARCH_UNSPECIFIED = 0
+ARCH_X86_64 = 1
+ARCH_AARCH64 = 2
 CERTIFICATE_STATUS_PENDING = 0
 CERTIFICATE_STATUS_ISSUED = 1
 CERTIFICATE_STATUS_FAILED = 2
@@ -198,6 +211,10 @@ ENDPOINT_STOP_SOURCE_WEB = 2
 ENDPOINT_TASK_TYPE_UNSPECIFIED = 0
 ENDPOINT_TASK_TYPE_GENERATION = 1
 ENDPOINT_TASK_TYPE_EMBEDDING = 2
+ENVIRONMENT_BLOCK_UNAUTHENTICATED_RESOURCES_UNSPECIFIED = 0
+ENVIRONMENT_BLOCK_UNAUTHENTICATED_RESOURCES_INHERIT = 1
+ENVIRONMENT_BLOCK_UNAUTHENTICATED_RESOURCES_BLOCK = 2
+ENVIRONMENT_BLOCK_UNAUTHENTICATED_RESOURCES_ALLOW = 3
 ENVIRONMENT_ROLE_UNSPECIFIED = 0
 ENVIRONMENT_ROLE_VIEWER = 1
 ENVIRONMENT_ROLE_CONTRIBUTOR = 2
@@ -212,6 +229,17 @@ FILE_DESCRIPTOR_UNSPECIFIED = 0
 FILE_DESCRIPTOR_STDOUT = 1
 FILE_DESCRIPTOR_STDERR = 2
 FILE_DESCRIPTOR_INFO = 3
+FUNCTION_CALL_INPUT_STATUS_UNSPECIFIED = 0
+FUNCTION_CALL_INPUT_STATUS_PENDING = 1
+FUNCTION_CALL_INPUT_STATUS_RUNNING = 2
+FUNCTION_CALL_INPUT_STATUS_SUCCESS = 3
+FUNCTION_CALL_INPUT_STATUS_FAILURE = 4
+FUNCTION_CALL_INPUT_STATUS_TIMEOUT = 5
+FUNCTION_CALL_INPUT_STATUS_TERMINATED = 6
+FUNCTION_CALL_INPUT_STATUS_INIT_FAILURE = 7
+FUNCTION_CALL_INPUT_STATUS_INTERNAL_FAILURE = 8
+FUNCTION_CALL_INPUT_STATUS_IDLE_TIMEOUT = 9
+FUNCTION_CALL_INPUT_STATUS_MEMORY_MANAGER_EVICTION = 10
 FUNCTION_CALL_INVOCATION_TYPE_UNSPECIFIED = 0
 FUNCTION_CALL_INVOCATION_TYPE_SYNC_LEGACY = 1
 FUNCTION_CALL_INVOCATION_TYPE_ASYNC_LEGACY = 2
@@ -232,8 +260,11 @@ GPU_TYPE_L40S = 11
 GPU_TYPE_H200 = 12
 IDENTITY_PROVIDER_TYPE_UNSPECIFIED = 0
 IDENTITY_PROVIDER_TYPE_GITHUB = 1
-IDENTITY_PROVIDER_TYPE_OKTA = 2
+IDENTITY_PROVIDER_TYPE_SAML = 2
 IDENTITY_PROVIDER_TYPE_GOOGLE_OAUTH = 3
+LLM_ENGINE_UNSPECIFIED = 0
+LLM_ENGINE_SGLANG = 1
+LLM_ENGINE_VLLM = 2
 MEMBER_ROLE_UNSPECIFIED = 0
 MEMBER_ROLE_USER = 1
 MEMBER_ROLE_MANAGER = 2
@@ -275,6 +306,10 @@ REGISTRY_AUTH_TYPE_STATIC_CREDS = 4
 SEEK_SET = 0
 SEEK_CUR = 1
 SEEK_END = 2
+SERVER_INFERENCE_STATS_STATUS_UNSPECIFIED = 0
+SERVER_INFERENCE_STATS_STATUS_AVAILABLE = 1
+SERVER_INFERENCE_STATS_STATUS_NO_DATA = 2
+SERVER_INFERENCE_STATS_STATUS_UNAVAILABLE = 3
 SYSTEM_ERROR_CODE_UNSPECIFIED = 0
 SYSTEM_ERROR_CODE_PERM = 1
 SYSTEM_ERROR_CODE_NOENT = 2
@@ -337,6 +372,10 @@ _APPFETCHLOGSREQUEST = DESCRIPTOR.message_types_by_name['AppFetchLogsRequest']
 _APPFETCHLOGSRESPONSE = DESCRIPTOR.message_types_by_name['AppFetchLogsResponse']
 _APPGETBYDEPLOYMENTNAMEREQUEST = DESCRIPTOR.message_types_by_name['AppGetByDeploymentNameRequest']
 _APPGETBYDEPLOYMENTNAMERESPONSE = DESCRIPTOR.message_types_by_name['AppGetByDeploymentNameResponse']
+_APPGETINFOREQUEST = DESCRIPTOR.message_types_by_name['AppGetInfoRequest']
+_APPGETINFORESPONSE = DESCRIPTOR.message_types_by_name['AppGetInfoResponse']
+_APPGETINFORESPONSE_FUNCTIONINFOSUMMARY = _APPGETINFORESPONSE.nested_types_by_name['FunctionInfoSummary']
+_APPGETINFORESPONSE_FUNCTIONINFOSUMMARIESENTRY = _APPGETINFORESPONSE.nested_types_by_name['FunctionInfoSummariesEntry']
 _APPGETLAYOUTREQUEST = DESCRIPTOR.message_types_by_name['AppGetLayoutRequest']
 _APPGETLAYOUTRESPONSE = DESCRIPTOR.message_types_by_name['AppGetLayoutResponse']
 _APPGETLIFECYCLEREQUEST = DESCRIPTOR.message_types_by_name['AppGetLifecycleRequest']
@@ -350,6 +389,9 @@ _APPGETORCREATERESPONSE = DESCRIPTOR.message_types_by_name['AppGetOrCreateRespon
 _APPGETTAGSREQUEST = DESCRIPTOR.message_types_by_name['AppGetTagsRequest']
 _APPGETTAGSRESPONSE = DESCRIPTOR.message_types_by_name['AppGetTagsResponse']
 _APPGETTAGSRESPONSE_TAGSENTRY = _APPGETTAGSRESPONSE.nested_types_by_name['TagsEntry']
+_APPHANDLEMETADATA = DESCRIPTOR.message_types_by_name['AppHandleMetadata']
+_APPHANDLEMETADATA_FUNCTIONSENTRY = _APPHANDLEMETADATA.nested_types_by_name['FunctionsEntry']
+_APPHANDLEMETADATA_SERVERSENTRY = _APPHANDLEMETADATA.nested_types_by_name['ServersEntry']
 _APPHEARTBEATREQUEST = DESCRIPTOR.message_types_by_name['AppHeartbeatRequest']
 _APPLAYOUT = DESCRIPTOR.message_types_by_name['AppLayout']
 _APPLAYOUT_FUNCTIONIDSENTRY = _APPLAYOUT.nested_types_by_name['FunctionIdsEntry']
@@ -408,6 +450,7 @@ _BLOBCREATEREQUEST = DESCRIPTOR.message_types_by_name['BlobCreateRequest']
 _BLOBCREATERESPONSE = DESCRIPTOR.message_types_by_name['BlobCreateResponse']
 _BLOBGETREQUEST = DESCRIPTOR.message_types_by_name['BlobGetRequest']
 _BLOBGETRESPONSE = DESCRIPTOR.message_types_by_name['BlobGetResponse']
+_BLOBUPLOADRESULT = DESCRIPTOR.message_types_by_name['BlobUploadResult']
 _BUILDFUNCTION = DESCRIPTOR.message_types_by_name['BuildFunction']
 _CANCELINPUTEVENT = DESCRIPTOR.message_types_by_name['CancelInputEvent']
 _CHECKPOINTINFO = DESCRIPTOR.message_types_by_name['CheckpointInfo']
@@ -507,6 +550,10 @@ _ENDPOINTCREATERESPONSE = DESCRIPTOR.message_types_by_name['EndpointCreateRespon
 _ENDPOINTCUSTOMMODELSOURCE = DESCRIPTOR.message_types_by_name['EndpointCustomModelSource']
 _ENDPOINTGETBYNAMEREQUEST = DESCRIPTOR.message_types_by_name['EndpointGetByNameRequest']
 _ENDPOINTGETBYNAMERESPONSE = DESCRIPTOR.message_types_by_name['EndpointGetByNameResponse']
+_ENDPOINTGETINFOREQUEST = DESCRIPTOR.message_types_by_name['EndpointGetInfoRequest']
+_ENDPOINTGETINFORESPONSE = DESCRIPTOR.message_types_by_name['EndpointGetInfoResponse']
+_ENDPOINTGETINFORESPONSE_ENDPOINTINFOSUMMARY = _ENDPOINTGETINFORESPONSE.nested_types_by_name['EndpointInfoSummary']
+_ENDPOINTGETINFORESPONSE_ENDPOINTHANDLEMETADATA = _ENDPOINTGETINFORESPONSE.nested_types_by_name['EndpointHandleMetadata']
 _ENDPOINTGETLIFECYCLEREQUEST = DESCRIPTOR.message_types_by_name['EndpointGetLifecycleRequest']
 _ENDPOINTGETLIFECYCLERESPONSE = DESCRIPTOR.message_types_by_name['EndpointGetLifecycleResponse']
 _ENDPOINTHUGGINGFACEMODELSOURCE = DESCRIPTOR.message_types_by_name['EndpointHuggingFaceModelSource']
@@ -563,6 +610,9 @@ _FUNCTIONBINDPARAMSREQUEST = DESCRIPTOR.message_types_by_name['FunctionBindParam
 _FUNCTIONBINDPARAMSRESPONSE = DESCRIPTOR.message_types_by_name['FunctionBindParamsResponse']
 _FUNCTIONCALLCALLGRAPHINFO = DESCRIPTOR.message_types_by_name['FunctionCallCallGraphInfo']
 _FUNCTIONCALLCANCELREQUEST = DESCRIPTOR.message_types_by_name['FunctionCallCancelRequest']
+_FUNCTIONCALLFETCHREQUEST = DESCRIPTOR.message_types_by_name['FunctionCallFetchRequest']
+_FUNCTIONCALLFETCHREQUEST_TAIL = _FUNCTIONCALLFETCHREQUEST.nested_types_by_name['Tail']
+_FUNCTIONCALLFETCHRESPONSE = DESCRIPTOR.message_types_by_name['FunctionCallFetchResponse']
 _FUNCTIONCALLFROMIDREQUEST = DESCRIPTOR.message_types_by_name['FunctionCallFromIdRequest']
 _FUNCTIONCALLFROMIDRESPONSE = DESCRIPTOR.message_types_by_name['FunctionCallFromIdResponse']
 _FUNCTIONCALLGETDATAREQUEST = DESCRIPTOR.message_types_by_name['FunctionCallGetDataRequest']
@@ -570,6 +620,7 @@ _FUNCTIONCALLGETINFOREQUEST = DESCRIPTOR.message_types_by_name['FunctionCallGetI
 _FUNCTIONCALLGETINFORESPONSE = DESCRIPTOR.message_types_by_name['FunctionCallGetInfoResponse']
 _FUNCTIONCALLHANDLEMETADATA = DESCRIPTOR.message_types_by_name['FunctionCallHandleMetadata']
 _FUNCTIONCALLINFO = DESCRIPTOR.message_types_by_name['FunctionCallInfo']
+_FUNCTIONCALLINPUTINFO = DESCRIPTOR.message_types_by_name['FunctionCallInputInfo']
 _FUNCTIONCALLLISTREQUEST = DESCRIPTOR.message_types_by_name['FunctionCallListRequest']
 _FUNCTIONCALLLISTRESPONSE = DESCRIPTOR.message_types_by_name['FunctionCallListResponse']
 _FUNCTIONCALLPUTDATAREQUEST = DESCRIPTOR.message_types_by_name['FunctionCallPutDataRequest']
@@ -581,11 +632,15 @@ _FUNCTIONDATA_RANKEDFUNCTION = _FUNCTIONDATA.nested_types_by_name['RankedFunctio
 _FUNCTIONDATA_EXPERIMENTALOPTIONSENTRY = _FUNCTIONDATA.nested_types_by_name['ExperimentalOptionsEntry']
 _FUNCTIONEXTENDED = DESCRIPTOR.message_types_by_name['FunctionExtended']
 _FUNCTIONFINISHINPUTSREQUEST = DESCRIPTOR.message_types_by_name['FunctionFinishInputsRequest']
+_FUNCTIONGETBYIDREQUEST = DESCRIPTOR.message_types_by_name['FunctionGetByIdRequest']
+_FUNCTIONGETBYIDRESPONSE = DESCRIPTOR.message_types_by_name['FunctionGetByIdResponse']
 _FUNCTIONGETCALLGRAPHREQUEST = DESCRIPTOR.message_types_by_name['FunctionGetCallGraphRequest']
 _FUNCTIONGETCALLGRAPHRESPONSE = DESCRIPTOR.message_types_by_name['FunctionGetCallGraphResponse']
 _FUNCTIONGETCURRENTSTATSREQUEST = DESCRIPTOR.message_types_by_name['FunctionGetCurrentStatsRequest']
 _FUNCTIONGETDYNAMICCONCURRENCYREQUEST = DESCRIPTOR.message_types_by_name['FunctionGetDynamicConcurrencyRequest']
 _FUNCTIONGETDYNAMICCONCURRENCYRESPONSE = DESCRIPTOR.message_types_by_name['FunctionGetDynamicConcurrencyResponse']
+_FUNCTIONGETFLASHAUTHTOKENREQUEST = DESCRIPTOR.message_types_by_name['FunctionGetFlashAuthTokenRequest']
+_FUNCTIONGETFLASHAUTHTOKENRESPONSE = DESCRIPTOR.message_types_by_name['FunctionGetFlashAuthTokenResponse']
 _FUNCTIONGETINPUTSITEM = DESCRIPTOR.message_types_by_name['FunctionGetInputsItem']
 _FUNCTIONGETINPUTSREQUEST = DESCRIPTOR.message_types_by_name['FunctionGetInputsRequest']
 _FUNCTIONGETINPUTSRESPONSE = DESCRIPTOR.message_types_by_name['FunctionGetInputsResponse']
@@ -594,13 +649,20 @@ _FUNCTIONGETOUTPUTSREQUEST = DESCRIPTOR.message_types_by_name['FunctionGetOutput
 _FUNCTIONGETOUTPUTSRESPONSE = DESCRIPTOR.message_types_by_name['FunctionGetOutputsResponse']
 _FUNCTIONGETREQUEST = DESCRIPTOR.message_types_by_name['FunctionGetRequest']
 _FUNCTIONGETRESPONSE = DESCRIPTOR.message_types_by_name['FunctionGetResponse']
+_FUNCTIONGETSCHEDULINGPARAMSREQUEST = DESCRIPTOR.message_types_by_name['FunctionGetSchedulingParamsRequest']
+_FUNCTIONGETSCHEDULINGPARAMSRESPONSE = DESCRIPTOR.message_types_by_name['FunctionGetSchedulingParamsResponse']
 _FUNCTIONGETSERIALIZEDREQUEST = DESCRIPTOR.message_types_by_name['FunctionGetSerializedRequest']
 _FUNCTIONGETSERIALIZEDRESPONSE = DESCRIPTOR.message_types_by_name['FunctionGetSerializedResponse']
 _FUNCTIONGETTIMERANGESTATSREQUEST = DESCRIPTOR.message_types_by_name['FunctionGetTimeRangeStatsRequest']
 _FUNCTIONGETTIMERANGESTATSRESPONSE = DESCRIPTOR.message_types_by_name['FunctionGetTimeRangeStatsResponse']
+_FUNCTIONGETTIMERANGESTATSRESPONSE_INPUTPERCENTILESTATSENTRY = _FUNCTIONGETTIMERANGESTATSRESPONSE.nested_types_by_name['InputPercentileStatsEntry']
+_FUNCTIONGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY = _FUNCTIONGETTIMERANGESTATSRESPONSE.nested_types_by_name['ContainerPercentileStatsEntry']
 _FUNCTIONHANDLEMETADATA = DESCRIPTOR.message_types_by_name['FunctionHandleMetadata']
 _FUNCTIONHANDLEMETADATA_METHODHANDLEMETADATAENTRY = _FUNCTIONHANDLEMETADATA.nested_types_by_name['MethodHandleMetadataEntry']
 _FUNCTIONINPUT = DESCRIPTOR.message_types_by_name['FunctionInput']
+_FUNCTIONLISTVARIANTSREQUEST = DESCRIPTOR.message_types_by_name['FunctionListVariantsRequest']
+_FUNCTIONLISTVARIANTSRESPONSE = DESCRIPTOR.message_types_by_name['FunctionListVariantsResponse']
+_FUNCTIONLOOKUPERROR = DESCRIPTOR.message_types_by_name['FunctionLookupError']
 _FUNCTIONMAPREQUEST = DESCRIPTOR.message_types_by_name['FunctionMapRequest']
 _FUNCTIONMAPRESPONSE = DESCRIPTOR.message_types_by_name['FunctionMapResponse']
 _FUNCTIONOPTIONS = DESCRIPTOR.message_types_by_name['FunctionOptions']
@@ -619,9 +681,10 @@ _FUNCTIONRETRYINPUTSRESPONSE = DESCRIPTOR.message_types_by_name['FunctionRetryIn
 _FUNCTIONRETRYPOLICY = DESCRIPTOR.message_types_by_name['FunctionRetryPolicy']
 _FUNCTIONSCHEMA = DESCRIPTOR.message_types_by_name['FunctionSchema']
 _FUNCTIONSTATS = DESCRIPTOR.message_types_by_name['FunctionStats']
-_FUNCTIONSTATSPERCENTILES = DESCRIPTOR.message_types_by_name['FunctionStatsPercentiles']
 _FUNCTIONUPDATESCHEDULINGPARAMSREQUEST = DESCRIPTOR.message_types_by_name['FunctionUpdateSchedulingParamsRequest']
 _FUNCTIONUPDATESCHEDULINGPARAMSRESPONSE = DESCRIPTOR.message_types_by_name['FunctionUpdateSchedulingParamsResponse']
+_FUNCTIONVARIANTCURSOR = DESCRIPTOR.message_types_by_name['FunctionVariantCursor']
+_FUNCTIONVARIANTINFO = DESCRIPTOR.message_types_by_name['FunctionVariantInfo']
 _GPUCONFIG = DESCRIPTOR.message_types_by_name['GPUConfig']
 _GENERATORDONE = DESCRIPTOR.message_types_by_name['GeneratorDone']
 _GENERICPAYLOADTYPE = DESCRIPTOR.message_types_by_name['GenericPayloadType']
@@ -656,6 +719,7 @@ _IMAGETAGREVISIONSRESPONSE = DESCRIPTOR.message_types_by_name['ImageTagRevisions
 _INPUTCALLGRAPHINFO = DESCRIPTOR.message_types_by_name['InputCallGraphInfo']
 _INPUTCATEGORYINFO = DESCRIPTOR.message_types_by_name['InputCategoryInfo']
 _INPUTINFO = DESCRIPTOR.message_types_by_name['InputInfo']
+_LIFTANDSHIFTCONFIG = DESCRIPTOR.message_types_by_name['LiftAndShiftConfig']
 _LISTPAGINATION = DESCRIPTOR.message_types_by_name['ListPagination']
 _MAPAWAITREQUEST = DESCRIPTOR.message_types_by_name['MapAwaitRequest']
 _MAPAWAITRESPONSE = DESCRIPTOR.message_types_by_name['MapAwaitResponse']
@@ -686,6 +750,9 @@ _NOTEBOOKOUTPUT_STREAM = _NOTEBOOKOUTPUT.nested_types_by_name['Stream']
 _NOTEBOOKOUTPUT_ERROR = _NOTEBOOKOUTPUT.nested_types_by_name['Error']
 _OBJECT = DESCRIPTOR.message_types_by_name['Object']
 _OBJECTDEPENDENCY = DESCRIPTOR.message_types_by_name['ObjectDependency']
+_OUTBOUNDPOLICY = DESCRIPTOR.message_types_by_name['OutboundPolicy']
+_OUTBOUNDPOLICY_HEADERREPLACEMENT = _OUTBOUNDPOLICY.nested_types_by_name['HeaderReplacement']
+_OUTBOUNDPOLICY_HEADERREPLACEMENT_HEADERSENTRY = _OUTBOUNDPOLICY_HEADERREPLACEMENT.nested_types_by_name['HeadersEntry']
 _PTYINFO = DESCRIPTOR.message_types_by_name['PTYInfo']
 _PORTSPEC = DESCRIPTOR.message_types_by_name['PortSpec']
 _PORTSPECS = DESCRIPTOR.message_types_by_name['PortSpecs']
@@ -737,6 +804,9 @@ _S3MOUNT = DESCRIPTOR.message_types_by_name['S3Mount']
 _SANDBOX = DESCRIPTOR.message_types_by_name['Sandbox']
 _SANDBOX_EXPERIMENTALOPTIONSENTRY = _SANDBOX.nested_types_by_name['ExperimentalOptionsEntry']
 _SANDBOX_EXPERIMENTALOPTIONSV2ENTRY = _SANDBOX.nested_types_by_name['ExperimentalOptionsV2Entry']
+_SANDBOXCONTAINERCREATEV2REQUEST = DESCRIPTOR.message_types_by_name['SandboxContainerCreateV2Request']
+_SANDBOXCONTAINERCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY = _SANDBOXCONTAINERCREATEV2REQUEST.nested_types_by_name['CloudBucketMountCredentialsEntry']
+_SANDBOXCONTAINERCREATEV2RESPONSE = DESCRIPTOR.message_types_by_name['SandboxContainerCreateV2Response']
 _SANDBOXCREATECONNECTTOKENREQUEST = DESCRIPTOR.message_types_by_name['SandboxCreateConnectTokenRequest']
 _SANDBOXCREATECONNECTTOKENRESPONSE = DESCRIPTOR.message_types_by_name['SandboxCreateConnectTokenResponse']
 _SANDBOXCREATEREQUEST = DESCRIPTOR.message_types_by_name['SandboxCreateRequest']
@@ -802,6 +872,8 @@ _SECRETCREATEREQUEST = DESCRIPTOR.message_types_by_name['SecretCreateRequest']
 _SECRETCREATEREQUEST_ENVDICTENTRY = _SECRETCREATEREQUEST.nested_types_by_name['EnvDictEntry']
 _SECRETCREATERESPONSE = DESCRIPTOR.message_types_by_name['SecretCreateResponse']
 _SECRETDELETEREQUEST = DESCRIPTOR.message_types_by_name['SecretDeleteRequest']
+_SECRETGETINFOREQUEST = DESCRIPTOR.message_types_by_name['SecretGetInfoRequest']
+_SECRETGETINFORESPONSE = DESCRIPTOR.message_types_by_name['SecretGetInfoResponse']
 _SECRETGETORCREATEREQUEST = DESCRIPTOR.message_types_by_name['SecretGetOrCreateRequest']
 _SECRETGETORCREATEREQUEST_ENVDICTENTRY = _SECRETGETORCREATEREQUEST.nested_types_by_name['EnvDictEntry']
 _SECRETGETORCREATERESPONSE = DESCRIPTOR.message_types_by_name['SecretGetOrCreateResponse']
@@ -811,6 +883,18 @@ _SECRETLISTRESPONSE = DESCRIPTOR.message_types_by_name['SecretListResponse']
 _SECRETMETADATA = DESCRIPTOR.message_types_by_name['SecretMetadata']
 _SECRETUPDATEREQUEST = DESCRIPTOR.message_types_by_name['SecretUpdateRequest']
 _SECRETUPDATEREQUEST_UPDATE = _SECRETUPDATEREQUEST.nested_types_by_name['Update']
+_SERVERGETTIMERANGESTATSREQUEST = DESCRIPTOR.message_types_by_name['ServerGetTimeRangeStatsRequest']
+_SERVERGETTIMERANGESTATSRESPONSE = DESCRIPTOR.message_types_by_name['ServerGetTimeRangeStatsResponse']
+_SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS = _SERVERGETTIMERANGESTATSRESPONSE.nested_types_by_name['ServerInferenceStats']
+_SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_PERCENTILESTATSENTRY = _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS.nested_types_by_name['PercentileStatsEntry']
+_SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_SCALARSTATSENTRY = _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS.nested_types_by_name['ScalarStatsEntry']
+_SERVERGETTIMERANGESTATSRESPONSE_SERVERSTATUSCODECOUNT = _SERVERGETTIMERANGESTATSRESPONSE.nested_types_by_name['ServerStatusCodeCount']
+_SERVERGETTIMERANGESTATSRESPONSE_REQUESTPERCENTILESTATSENTRY = _SERVERGETTIMERANGESTATSRESPONSE.nested_types_by_name['RequestPercentileStatsEntry']
+_SERVERGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY = _SERVERGETTIMERANGESTATSRESPONSE.nested_types_by_name['ContainerPercentileStatsEntry']
+_SERVERREQUESTFETCHREQUEST = DESCRIPTOR.message_types_by_name['ServerRequestFetchRequest']
+_SERVERREQUESTFETCHREQUEST_TAIL = _SERVERREQUESTFETCHREQUEST.nested_types_by_name['Tail']
+_SERVERREQUESTFETCHRESPONSE = DESCRIPTOR.message_types_by_name['ServerRequestFetchResponse']
+_SERVERREQUESTINFO = DESCRIPTOR.message_types_by_name['ServerRequestInfo']
 _SERVICEUSER = DESCRIPTOR.message_types_by_name['ServiceUser']
 _SERVICEUSERIDENTITY = DESCRIPTOR.message_types_by_name['ServiceUserIdentity']
 _SERVICEUSERLISTRESPONSE = DESCRIPTOR.message_types_by_name['ServiceUserListResponse']
@@ -829,6 +913,8 @@ _SHAREDVOLUMEMOUNT = DESCRIPTOR.message_types_by_name['SharedVolumeMount']
 _SHAREDVOLUMEPUTFILEREQUEST = DESCRIPTOR.message_types_by_name['SharedVolumePutFileRequest']
 _SHAREDVOLUMEPUTFILERESPONSE = DESCRIPTOR.message_types_by_name['SharedVolumePutFileResponse']
 _SHAREDVOLUMEREMOVEFILEREQUEST = DESCRIPTOR.message_types_by_name['SharedVolumeRemoveFileRequest']
+_STATSPERCENTILE = DESCRIPTOR.message_types_by_name['StatsPercentile']
+_STATSPERCENTILEDISTRIBUTION = DESCRIPTOR.message_types_by_name['StatsPercentileDistribution']
 _STRINGMAP = DESCRIPTOR.message_types_by_name['StringMap']
 _STRINGMAP_CONTENTSENTRY = _STRINGMAP.nested_types_by_name['ContentsEntry']
 _SYSTEMERRORMESSAGE = DESCRIPTOR.message_types_by_name['SystemErrorMessage']
@@ -914,6 +1000,7 @@ _WEBHOOKTOKENENVIRONMENTLISTRESPONSE = DESCRIPTOR.message_types_by_name['Webhook
 _WEBHOOKTOKENENVIRONMENTREMOVEREQUEST = DESCRIPTOR.message_types_by_name['WebhookTokenEnvironmentRemoveRequest']
 _WEBHOOKTOKENLISTFORENVIRONMENTREQUEST = DESCRIPTOR.message_types_by_name['WebhookTokenListForEnvironmentRequest']
 _WEBHOOKTOKENLISTRESPONSE = DESCRIPTOR.message_types_by_name['WebhookTokenListResponse']
+_WEBHOOKTOKENUPDATEREQUEST = DESCRIPTOR.message_types_by_name['WebhookTokenUpdateRequest']
 _WORKSPACEBILLINGRATESREQUEST = DESCRIPTOR.message_types_by_name['WorkspaceBillingRatesRequest']
 _WORKSPACEBILLINGRATESRESPONSE = DESCRIPTOR.message_types_by_name['WorkspaceBillingRatesResponse']
 _WORKSPACEBILLINGRATESRESPONSE_RATESENTRY = _WORKSPACEBILLINGRATESRESPONSE.nested_types_by_name['RatesEntry']
@@ -933,15 +1020,20 @@ _WORKSPACEMEMBERSLISTITEM = DESCRIPTOR.message_types_by_name['WorkspaceMembersLi
 _WORKSPACEMEMBERSLISTRESPONSE = DESCRIPTOR.message_types_by_name['WorkspaceMembersListResponse']
 _WORKSPACENAMELOOKUPRESPONSE = DESCRIPTOR.message_types_by_name['WorkspaceNameLookupResponse']
 _WORKSPACESETDEFAULTENVIRONMENTREQUEST = DESCRIPTOR.message_types_by_name['WorkspaceSetDefaultEnvironmentRequest']
+_WORKSPACESETDEFAULTENVIRONMENTSETTINGSREQUEST = DESCRIPTOR.message_types_by_name['WorkspaceSetDefaultEnvironmentSettingsRequest']
+_WORKSPACESETDEFAULTENVIRONMENTSETTINGSRESPONSE = DESCRIPTOR.message_types_by_name['WorkspaceSetDefaultEnvironmentSettingsResponse']
 _WORKSPACESETIMAGEBUILDERVERSIONREQUEST = DESCRIPTOR.message_types_by_name['WorkspaceSetImageBuilderVersionRequest']
 _WORKSPACESETIMAGEBUILDERVERSIONRESPONSE = DESCRIPTOR.message_types_by_name['WorkspaceSetImageBuilderVersionResponse']
 _WORKSPACESETTINGSRESPONSE = DESCRIPTOR.message_types_by_name['WorkspaceSettingsResponse']
+_BLOBUPLOADRESULT_OUTCOME = _BLOBUPLOADRESULT.enum_types_by_name['Outcome']
 _CLASSPARAMETERINFO_PARAMETERSERIALIZATIONFORMAT = _CLASSPARAMETERINFO.enum_types_by_name['ParameterSerializationFormat']
 _CLOUDBUCKETMOUNT_BUCKETTYPE = _CLOUDBUCKETMOUNT.enum_types_by_name['BucketType']
 _CLOUDBUCKETMOUNT_METADATATTLTYPE = _CLOUDBUCKETMOUNT.enum_types_by_name['MetadataTTLType']
+_ENDPOINTGETINFORESPONSE_ENDPOINTSTATUS = _ENDPOINTGETINFORESPONSE.enum_types_by_name['EndpointStatus']
 _FILEENTRY_FILETYPE = _FILEENTRY.enum_types_by_name['FileType']
 _FUNCTION_DEFINITIONTYPE = _FUNCTION.enum_types_by_name['DefinitionType']
 _FUNCTION_FUNCTIONTYPE = _FUNCTION.enum_types_by_name['FunctionType']
+_FUNCTIONLOOKUPERROR_REASON = _FUNCTIONLOOKUPERROR.enum_types_by_name['Reason']
 _FUNCTIONSCHEMA_FUNCTIONSCHEMATYPE = _FUNCTIONSCHEMA.enum_types_by_name['FunctionSchemaType']
 _GENERICRESULT_GENERICSTATUS = _GENERICRESULT.enum_types_by_name['GenericStatus']
 _NETWORKACCESS_NETWORKACCESSTYPE = _NETWORKACCESS.enum_types_by_name['NetworkAccessType']
@@ -1063,6 +1155,36 @@ AppGetByDeploymentNameResponse = _reflection.GeneratedProtocolMessageType('AppGe
   })
 _sym_db.RegisterMessage(AppGetByDeploymentNameResponse)
 
+AppGetInfoRequest = _reflection.GeneratedProtocolMessageType('AppGetInfoRequest', (_message.Message,), {
+  'DESCRIPTOR' : _APPGETINFOREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.AppGetInfoRequest)
+  })
+_sym_db.RegisterMessage(AppGetInfoRequest)
+
+AppGetInfoResponse = _reflection.GeneratedProtocolMessageType('AppGetInfoResponse', (_message.Message,), {
+
+  'FunctionInfoSummary' : _reflection.GeneratedProtocolMessageType('FunctionInfoSummary', (_message.Message,), {
+    'DESCRIPTOR' : _APPGETINFORESPONSE_FUNCTIONINFOSUMMARY,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.AppGetInfoResponse.FunctionInfoSummary)
+    })
+  ,
+
+  'FunctionInfoSummariesEntry' : _reflection.GeneratedProtocolMessageType('FunctionInfoSummariesEntry', (_message.Message,), {
+    'DESCRIPTOR' : _APPGETINFORESPONSE_FUNCTIONINFOSUMMARIESENTRY,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.AppGetInfoResponse.FunctionInfoSummariesEntry)
+    })
+  ,
+  'DESCRIPTOR' : _APPGETINFORESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.AppGetInfoResponse)
+  })
+_sym_db.RegisterMessage(AppGetInfoResponse)
+_sym_db.RegisterMessage(AppGetInfoResponse.FunctionInfoSummary)
+_sym_db.RegisterMessage(AppGetInfoResponse.FunctionInfoSummariesEntry)
+
 AppGetLayoutRequest = _reflection.GeneratedProtocolMessageType('AppGetLayoutRequest', (_message.Message,), {
   'DESCRIPTOR' : _APPGETLAYOUTREQUEST,
   '__module__' : 'modal_proto.api_pb2'
@@ -1154,6 +1276,29 @@ AppGetTagsResponse = _reflection.GeneratedProtocolMessageType('AppGetTagsRespons
   })
 _sym_db.RegisterMessage(AppGetTagsResponse)
 _sym_db.RegisterMessage(AppGetTagsResponse.TagsEntry)
+
+AppHandleMetadata = _reflection.GeneratedProtocolMessageType('AppHandleMetadata', (_message.Message,), {
+
+  'FunctionsEntry' : _reflection.GeneratedProtocolMessageType('FunctionsEntry', (_message.Message,), {
+    'DESCRIPTOR' : _APPHANDLEMETADATA_FUNCTIONSENTRY,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.AppHandleMetadata.FunctionsEntry)
+    })
+  ,
+
+  'ServersEntry' : _reflection.GeneratedProtocolMessageType('ServersEntry', (_message.Message,), {
+    'DESCRIPTOR' : _APPHANDLEMETADATA_SERVERSENTRY,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.AppHandleMetadata.ServersEntry)
+    })
+  ,
+  'DESCRIPTOR' : _APPHANDLEMETADATA,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.AppHandleMetadata)
+  })
+_sym_db.RegisterMessage(AppHandleMetadata)
+_sym_db.RegisterMessage(AppHandleMetadata.FunctionsEntry)
+_sym_db.RegisterMessage(AppHandleMetadata.ServersEntry)
 
 AppHeartbeatRequest = _reflection.GeneratedProtocolMessageType('AppHeartbeatRequest', (_message.Message,), {
   'DESCRIPTOR' : _APPHEARTBEATREQUEST,
@@ -1583,6 +1728,13 @@ BlobGetResponse = _reflection.GeneratedProtocolMessageType('BlobGetResponse', (_
   # @@protoc_insertion_point(class_scope:modal.client.BlobGetResponse)
   })
 _sym_db.RegisterMessage(BlobGetResponse)
+
+BlobUploadResult = _reflection.GeneratedProtocolMessageType('BlobUploadResult', (_message.Message,), {
+  'DESCRIPTOR' : _BLOBUPLOADRESULT,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.BlobUploadResult)
+  })
+_sym_db.RegisterMessage(BlobUploadResult)
 
 BuildFunction = _reflection.GeneratedProtocolMessageType('BuildFunction', (_message.Message,), {
   'DESCRIPTOR' : _BUILDFUNCTION,
@@ -2280,6 +2432,36 @@ EndpointGetByNameResponse = _reflection.GeneratedProtocolMessageType('EndpointGe
   })
 _sym_db.RegisterMessage(EndpointGetByNameResponse)
 
+EndpointGetInfoRequest = _reflection.GeneratedProtocolMessageType('EndpointGetInfoRequest', (_message.Message,), {
+  'DESCRIPTOR' : _ENDPOINTGETINFOREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.EndpointGetInfoRequest)
+  })
+_sym_db.RegisterMessage(EndpointGetInfoRequest)
+
+EndpointGetInfoResponse = _reflection.GeneratedProtocolMessageType('EndpointGetInfoResponse', (_message.Message,), {
+
+  'EndpointInfoSummary' : _reflection.GeneratedProtocolMessageType('EndpointInfoSummary', (_message.Message,), {
+    'DESCRIPTOR' : _ENDPOINTGETINFORESPONSE_ENDPOINTINFOSUMMARY,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.EndpointGetInfoResponse.EndpointInfoSummary)
+    })
+  ,
+
+  'EndpointHandleMetadata' : _reflection.GeneratedProtocolMessageType('EndpointHandleMetadata', (_message.Message,), {
+    'DESCRIPTOR' : _ENDPOINTGETINFORESPONSE_ENDPOINTHANDLEMETADATA,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.EndpointGetInfoResponse.EndpointHandleMetadata)
+    })
+  ,
+  'DESCRIPTOR' : _ENDPOINTGETINFORESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.EndpointGetInfoResponse)
+  })
+_sym_db.RegisterMessage(EndpointGetInfoResponse)
+_sym_db.RegisterMessage(EndpointGetInfoResponse.EndpointInfoSummary)
+_sym_db.RegisterMessage(EndpointGetInfoResponse.EndpointHandleMetadata)
+
 EndpointGetLifecycleRequest = _reflection.GeneratedProtocolMessageType('EndpointGetLifecycleRequest', (_message.Message,), {
   'DESCRIPTOR' : _ENDPOINTGETLIFECYCLEREQUEST,
   '__module__' : 'modal_proto.api_pb2'
@@ -2678,6 +2860,28 @@ FunctionCallCancelRequest = _reflection.GeneratedProtocolMessageType('FunctionCa
   })
 _sym_db.RegisterMessage(FunctionCallCancelRequest)
 
+FunctionCallFetchRequest = _reflection.GeneratedProtocolMessageType('FunctionCallFetchRequest', (_message.Message,), {
+
+  'Tail' : _reflection.GeneratedProtocolMessageType('Tail', (_message.Message,), {
+    'DESCRIPTOR' : _FUNCTIONCALLFETCHREQUEST_TAIL,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.FunctionCallFetchRequest.Tail)
+    })
+  ,
+  'DESCRIPTOR' : _FUNCTIONCALLFETCHREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionCallFetchRequest)
+  })
+_sym_db.RegisterMessage(FunctionCallFetchRequest)
+_sym_db.RegisterMessage(FunctionCallFetchRequest.Tail)
+
+FunctionCallFetchResponse = _reflection.GeneratedProtocolMessageType('FunctionCallFetchResponse', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONCALLFETCHRESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionCallFetchResponse)
+  })
+_sym_db.RegisterMessage(FunctionCallFetchResponse)
+
 FunctionCallFromIdRequest = _reflection.GeneratedProtocolMessageType('FunctionCallFromIdRequest', (_message.Message,), {
   'DESCRIPTOR' : _FUNCTIONCALLFROMIDREQUEST,
   '__module__' : 'modal_proto.api_pb2'
@@ -2726,6 +2930,13 @@ FunctionCallInfo = _reflection.GeneratedProtocolMessageType('FunctionCallInfo', 
   # @@protoc_insertion_point(class_scope:modal.client.FunctionCallInfo)
   })
 _sym_db.RegisterMessage(FunctionCallInfo)
+
+FunctionCallInputInfo = _reflection.GeneratedProtocolMessageType('FunctionCallInputInfo', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONCALLINPUTINFO,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionCallInputInfo)
+  })
+_sym_db.RegisterMessage(FunctionCallInputInfo)
 
 FunctionCallListRequest = _reflection.GeneratedProtocolMessageType('FunctionCallListRequest', (_message.Message,), {
   'DESCRIPTOR' : _FUNCTIONCALLLISTREQUEST,
@@ -2807,6 +3018,20 @@ FunctionFinishInputsRequest = _reflection.GeneratedProtocolMessageType('Function
   })
 _sym_db.RegisterMessage(FunctionFinishInputsRequest)
 
+FunctionGetByIdRequest = _reflection.GeneratedProtocolMessageType('FunctionGetByIdRequest', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONGETBYIDREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionGetByIdRequest)
+  })
+_sym_db.RegisterMessage(FunctionGetByIdRequest)
+
+FunctionGetByIdResponse = _reflection.GeneratedProtocolMessageType('FunctionGetByIdResponse', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONGETBYIDRESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionGetByIdResponse)
+  })
+_sym_db.RegisterMessage(FunctionGetByIdResponse)
+
 FunctionGetCallGraphRequest = _reflection.GeneratedProtocolMessageType('FunctionGetCallGraphRequest', (_message.Message,), {
   'DESCRIPTOR' : _FUNCTIONGETCALLGRAPHREQUEST,
   '__module__' : 'modal_proto.api_pb2'
@@ -2841,6 +3066,20 @@ FunctionGetDynamicConcurrencyResponse = _reflection.GeneratedProtocolMessageType
   # @@protoc_insertion_point(class_scope:modal.client.FunctionGetDynamicConcurrencyResponse)
   })
 _sym_db.RegisterMessage(FunctionGetDynamicConcurrencyResponse)
+
+FunctionGetFlashAuthTokenRequest = _reflection.GeneratedProtocolMessageType('FunctionGetFlashAuthTokenRequest', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONGETFLASHAUTHTOKENREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionGetFlashAuthTokenRequest)
+  })
+_sym_db.RegisterMessage(FunctionGetFlashAuthTokenRequest)
+
+FunctionGetFlashAuthTokenResponse = _reflection.GeneratedProtocolMessageType('FunctionGetFlashAuthTokenResponse', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONGETFLASHAUTHTOKENRESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionGetFlashAuthTokenResponse)
+  })
+_sym_db.RegisterMessage(FunctionGetFlashAuthTokenResponse)
 
 FunctionGetInputsItem = _reflection.GeneratedProtocolMessageType('FunctionGetInputsItem', (_message.Message,), {
   'DESCRIPTOR' : _FUNCTIONGETINPUTSITEM,
@@ -2898,6 +3137,20 @@ FunctionGetResponse = _reflection.GeneratedProtocolMessageType('FunctionGetRespo
   })
 _sym_db.RegisterMessage(FunctionGetResponse)
 
+FunctionGetSchedulingParamsRequest = _reflection.GeneratedProtocolMessageType('FunctionGetSchedulingParamsRequest', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONGETSCHEDULINGPARAMSREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionGetSchedulingParamsRequest)
+  })
+_sym_db.RegisterMessage(FunctionGetSchedulingParamsRequest)
+
+FunctionGetSchedulingParamsResponse = _reflection.GeneratedProtocolMessageType('FunctionGetSchedulingParamsResponse', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONGETSCHEDULINGPARAMSRESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionGetSchedulingParamsResponse)
+  })
+_sym_db.RegisterMessage(FunctionGetSchedulingParamsResponse)
+
 FunctionGetSerializedRequest = _reflection.GeneratedProtocolMessageType('FunctionGetSerializedRequest', (_message.Message,), {
   'DESCRIPTOR' : _FUNCTIONGETSERIALIZEDREQUEST,
   '__module__' : 'modal_proto.api_pb2'
@@ -2920,11 +3173,27 @@ FunctionGetTimeRangeStatsRequest = _reflection.GeneratedProtocolMessageType('Fun
 _sym_db.RegisterMessage(FunctionGetTimeRangeStatsRequest)
 
 FunctionGetTimeRangeStatsResponse = _reflection.GeneratedProtocolMessageType('FunctionGetTimeRangeStatsResponse', (_message.Message,), {
+
+  'InputPercentileStatsEntry' : _reflection.GeneratedProtocolMessageType('InputPercentileStatsEntry', (_message.Message,), {
+    'DESCRIPTOR' : _FUNCTIONGETTIMERANGESTATSRESPONSE_INPUTPERCENTILESTATSENTRY,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.FunctionGetTimeRangeStatsResponse.InputPercentileStatsEntry)
+    })
+  ,
+
+  'ContainerPercentileStatsEntry' : _reflection.GeneratedProtocolMessageType('ContainerPercentileStatsEntry', (_message.Message,), {
+    'DESCRIPTOR' : _FUNCTIONGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.FunctionGetTimeRangeStatsResponse.ContainerPercentileStatsEntry)
+    })
+  ,
   'DESCRIPTOR' : _FUNCTIONGETTIMERANGESTATSRESPONSE,
   '__module__' : 'modal_proto.api_pb2'
   # @@protoc_insertion_point(class_scope:modal.client.FunctionGetTimeRangeStatsResponse)
   })
 _sym_db.RegisterMessage(FunctionGetTimeRangeStatsResponse)
+_sym_db.RegisterMessage(FunctionGetTimeRangeStatsResponse.InputPercentileStatsEntry)
+_sym_db.RegisterMessage(FunctionGetTimeRangeStatsResponse.ContainerPercentileStatsEntry)
 
 FunctionHandleMetadata = _reflection.GeneratedProtocolMessageType('FunctionHandleMetadata', (_message.Message,), {
 
@@ -2947,6 +3216,27 @@ FunctionInput = _reflection.GeneratedProtocolMessageType('FunctionInput', (_mess
   # @@protoc_insertion_point(class_scope:modal.client.FunctionInput)
   })
 _sym_db.RegisterMessage(FunctionInput)
+
+FunctionListVariantsRequest = _reflection.GeneratedProtocolMessageType('FunctionListVariantsRequest', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONLISTVARIANTSREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionListVariantsRequest)
+  })
+_sym_db.RegisterMessage(FunctionListVariantsRequest)
+
+FunctionListVariantsResponse = _reflection.GeneratedProtocolMessageType('FunctionListVariantsResponse', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONLISTVARIANTSRESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionListVariantsResponse)
+  })
+_sym_db.RegisterMessage(FunctionListVariantsResponse)
+
+FunctionLookupError = _reflection.GeneratedProtocolMessageType('FunctionLookupError', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONLOOKUPERROR,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionLookupError)
+  })
+_sym_db.RegisterMessage(FunctionLookupError)
 
 FunctionMapRequest = _reflection.GeneratedProtocolMessageType('FunctionMapRequest', (_message.Message,), {
   'DESCRIPTOR' : _FUNCTIONMAPREQUEST,
@@ -3075,13 +3365,6 @@ FunctionStats = _reflection.GeneratedProtocolMessageType('FunctionStats', (_mess
   })
 _sym_db.RegisterMessage(FunctionStats)
 
-FunctionStatsPercentiles = _reflection.GeneratedProtocolMessageType('FunctionStatsPercentiles', (_message.Message,), {
-  'DESCRIPTOR' : _FUNCTIONSTATSPERCENTILES,
-  '__module__' : 'modal_proto.api_pb2'
-  # @@protoc_insertion_point(class_scope:modal.client.FunctionStatsPercentiles)
-  })
-_sym_db.RegisterMessage(FunctionStatsPercentiles)
-
 FunctionUpdateSchedulingParamsRequest = _reflection.GeneratedProtocolMessageType('FunctionUpdateSchedulingParamsRequest', (_message.Message,), {
   'DESCRIPTOR' : _FUNCTIONUPDATESCHEDULINGPARAMSREQUEST,
   '__module__' : 'modal_proto.api_pb2'
@@ -3095,6 +3378,20 @@ FunctionUpdateSchedulingParamsResponse = _reflection.GeneratedProtocolMessageTyp
   # @@protoc_insertion_point(class_scope:modal.client.FunctionUpdateSchedulingParamsResponse)
   })
 _sym_db.RegisterMessage(FunctionUpdateSchedulingParamsResponse)
+
+FunctionVariantCursor = _reflection.GeneratedProtocolMessageType('FunctionVariantCursor', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONVARIANTCURSOR,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionVariantCursor)
+  })
+_sym_db.RegisterMessage(FunctionVariantCursor)
+
+FunctionVariantInfo = _reflection.GeneratedProtocolMessageType('FunctionVariantInfo', (_message.Message,), {
+  'DESCRIPTOR' : _FUNCTIONVARIANTINFO,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.FunctionVariantInfo)
+  })
+_sym_db.RegisterMessage(FunctionVariantInfo)
 
 GPUConfig = _reflection.GeneratedProtocolMessageType('GPUConfig', (_message.Message,), {
   'DESCRIPTOR' : _GPUCONFIG,
@@ -3336,6 +3633,13 @@ InputInfo = _reflection.GeneratedProtocolMessageType('InputInfo', (_message.Mess
   })
 _sym_db.RegisterMessage(InputInfo)
 
+LiftAndShiftConfig = _reflection.GeneratedProtocolMessageType('LiftAndShiftConfig', (_message.Message,), {
+  'DESCRIPTOR' : _LIFTANDSHIFTCONFIG,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.LiftAndShiftConfig)
+  })
+_sym_db.RegisterMessage(LiftAndShiftConfig)
+
 ListPagination = _reflection.GeneratedProtocolMessageType('ListPagination', (_message.Message,), {
   'DESCRIPTOR' : _LISTPAGINATION,
   '__module__' : 'modal_proto.api_pb2'
@@ -3551,6 +3855,29 @@ ObjectDependency = _reflection.GeneratedProtocolMessageType('ObjectDependency', 
   # @@protoc_insertion_point(class_scope:modal.client.ObjectDependency)
   })
 _sym_db.RegisterMessage(ObjectDependency)
+
+OutboundPolicy = _reflection.GeneratedProtocolMessageType('OutboundPolicy', (_message.Message,), {
+
+  'HeaderReplacement' : _reflection.GeneratedProtocolMessageType('HeaderReplacement', (_message.Message,), {
+
+    'HeadersEntry' : _reflection.GeneratedProtocolMessageType('HeadersEntry', (_message.Message,), {
+      'DESCRIPTOR' : _OUTBOUNDPOLICY_HEADERREPLACEMENT_HEADERSENTRY,
+      '__module__' : 'modal_proto.api_pb2'
+      # @@protoc_insertion_point(class_scope:modal.client.OutboundPolicy.HeaderReplacement.HeadersEntry)
+      })
+    ,
+    'DESCRIPTOR' : _OUTBOUNDPOLICY_HEADERREPLACEMENT,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.OutboundPolicy.HeaderReplacement)
+    })
+  ,
+  'DESCRIPTOR' : _OUTBOUNDPOLICY,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.OutboundPolicy)
+  })
+_sym_db.RegisterMessage(OutboundPolicy)
+_sym_db.RegisterMessage(OutboundPolicy.HeaderReplacement)
+_sym_db.RegisterMessage(OutboundPolicy.HeaderReplacement.HeadersEntry)
 
 PTYInfo = _reflection.GeneratedProtocolMessageType('PTYInfo', (_message.Message,), {
   'DESCRIPTOR' : _PTYINFO,
@@ -3913,6 +4240,28 @@ Sandbox = _reflection.GeneratedProtocolMessageType('Sandbox', (_message.Message,
 _sym_db.RegisterMessage(Sandbox)
 _sym_db.RegisterMessage(Sandbox.ExperimentalOptionsEntry)
 _sym_db.RegisterMessage(Sandbox.ExperimentalOptionsV2Entry)
+
+SandboxContainerCreateV2Request = _reflection.GeneratedProtocolMessageType('SandboxContainerCreateV2Request', (_message.Message,), {
+
+  'CloudBucketMountCredentialsEntry' : _reflection.GeneratedProtocolMessageType('CloudBucketMountCredentialsEntry', (_message.Message,), {
+    'DESCRIPTOR' : _SANDBOXCONTAINERCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.SandboxContainerCreateV2Request.CloudBucketMountCredentialsEntry)
+    })
+  ,
+  'DESCRIPTOR' : _SANDBOXCONTAINERCREATEV2REQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.SandboxContainerCreateV2Request)
+  })
+_sym_db.RegisterMessage(SandboxContainerCreateV2Request)
+_sym_db.RegisterMessage(SandboxContainerCreateV2Request.CloudBucketMountCredentialsEntry)
+
+SandboxContainerCreateV2Response = _reflection.GeneratedProtocolMessageType('SandboxContainerCreateV2Response', (_message.Message,), {
+  'DESCRIPTOR' : _SANDBOXCONTAINERCREATEV2RESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.SandboxContainerCreateV2Response)
+  })
+_sym_db.RegisterMessage(SandboxContainerCreateV2Response)
 
 SandboxCreateConnectTokenRequest = _reflection.GeneratedProtocolMessageType('SandboxCreateConnectTokenRequest', (_message.Message,), {
   'DESCRIPTOR' : _SANDBOXCREATECONNECTTOKENREQUEST,
@@ -4376,6 +4725,20 @@ SecretDeleteRequest = _reflection.GeneratedProtocolMessageType('SecretDeleteRequ
   })
 _sym_db.RegisterMessage(SecretDeleteRequest)
 
+SecretGetInfoRequest = _reflection.GeneratedProtocolMessageType('SecretGetInfoRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SECRETGETINFOREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.SecretGetInfoRequest)
+  })
+_sym_db.RegisterMessage(SecretGetInfoRequest)
+
+SecretGetInfoResponse = _reflection.GeneratedProtocolMessageType('SecretGetInfoResponse', (_message.Message,), {
+  'DESCRIPTOR' : _SECRETGETINFORESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.SecretGetInfoResponse)
+  })
+_sym_db.RegisterMessage(SecretGetInfoResponse)
+
 SecretGetOrCreateRequest = _reflection.GeneratedProtocolMessageType('SecretGetOrCreateRequest', (_message.Message,), {
 
   'EnvDictEntry' : _reflection.GeneratedProtocolMessageType('EnvDictEntry', (_message.Message,), {
@@ -4440,6 +4803,97 @@ SecretUpdateRequest = _reflection.GeneratedProtocolMessageType('SecretUpdateRequ
   })
 _sym_db.RegisterMessage(SecretUpdateRequest)
 _sym_db.RegisterMessage(SecretUpdateRequest.Update)
+
+ServerGetTimeRangeStatsRequest = _reflection.GeneratedProtocolMessageType('ServerGetTimeRangeStatsRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SERVERGETTIMERANGESTATSREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.ServerGetTimeRangeStatsRequest)
+  })
+_sym_db.RegisterMessage(ServerGetTimeRangeStatsRequest)
+
+ServerGetTimeRangeStatsResponse = _reflection.GeneratedProtocolMessageType('ServerGetTimeRangeStatsResponse', (_message.Message,), {
+
+  'ServerInferenceStats' : _reflection.GeneratedProtocolMessageType('ServerInferenceStats', (_message.Message,), {
+
+    'PercentileStatsEntry' : _reflection.GeneratedProtocolMessageType('PercentileStatsEntry', (_message.Message,), {
+      'DESCRIPTOR' : _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_PERCENTILESTATSENTRY,
+      '__module__' : 'modal_proto.api_pb2'
+      # @@protoc_insertion_point(class_scope:modal.client.ServerGetTimeRangeStatsResponse.ServerInferenceStats.PercentileStatsEntry)
+      })
+    ,
+
+    'ScalarStatsEntry' : _reflection.GeneratedProtocolMessageType('ScalarStatsEntry', (_message.Message,), {
+      'DESCRIPTOR' : _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_SCALARSTATSENTRY,
+      '__module__' : 'modal_proto.api_pb2'
+      # @@protoc_insertion_point(class_scope:modal.client.ServerGetTimeRangeStatsResponse.ServerInferenceStats.ScalarStatsEntry)
+      })
+    ,
+    'DESCRIPTOR' : _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.ServerGetTimeRangeStatsResponse.ServerInferenceStats)
+    })
+  ,
+
+  'ServerStatusCodeCount' : _reflection.GeneratedProtocolMessageType('ServerStatusCodeCount', (_message.Message,), {
+    'DESCRIPTOR' : _SERVERGETTIMERANGESTATSRESPONSE_SERVERSTATUSCODECOUNT,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.ServerGetTimeRangeStatsResponse.ServerStatusCodeCount)
+    })
+  ,
+
+  'RequestPercentileStatsEntry' : _reflection.GeneratedProtocolMessageType('RequestPercentileStatsEntry', (_message.Message,), {
+    'DESCRIPTOR' : _SERVERGETTIMERANGESTATSRESPONSE_REQUESTPERCENTILESTATSENTRY,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.ServerGetTimeRangeStatsResponse.RequestPercentileStatsEntry)
+    })
+  ,
+
+  'ContainerPercentileStatsEntry' : _reflection.GeneratedProtocolMessageType('ContainerPercentileStatsEntry', (_message.Message,), {
+    'DESCRIPTOR' : _SERVERGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.ServerGetTimeRangeStatsResponse.ContainerPercentileStatsEntry)
+    })
+  ,
+  'DESCRIPTOR' : _SERVERGETTIMERANGESTATSRESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.ServerGetTimeRangeStatsResponse)
+  })
+_sym_db.RegisterMessage(ServerGetTimeRangeStatsResponse)
+_sym_db.RegisterMessage(ServerGetTimeRangeStatsResponse.ServerInferenceStats)
+_sym_db.RegisterMessage(ServerGetTimeRangeStatsResponse.ServerInferenceStats.PercentileStatsEntry)
+_sym_db.RegisterMessage(ServerGetTimeRangeStatsResponse.ServerInferenceStats.ScalarStatsEntry)
+_sym_db.RegisterMessage(ServerGetTimeRangeStatsResponse.ServerStatusCodeCount)
+_sym_db.RegisterMessage(ServerGetTimeRangeStatsResponse.RequestPercentileStatsEntry)
+_sym_db.RegisterMessage(ServerGetTimeRangeStatsResponse.ContainerPercentileStatsEntry)
+
+ServerRequestFetchRequest = _reflection.GeneratedProtocolMessageType('ServerRequestFetchRequest', (_message.Message,), {
+
+  'Tail' : _reflection.GeneratedProtocolMessageType('Tail', (_message.Message,), {
+    'DESCRIPTOR' : _SERVERREQUESTFETCHREQUEST_TAIL,
+    '__module__' : 'modal_proto.api_pb2'
+    # @@protoc_insertion_point(class_scope:modal.client.ServerRequestFetchRequest.Tail)
+    })
+  ,
+  'DESCRIPTOR' : _SERVERREQUESTFETCHREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.ServerRequestFetchRequest)
+  })
+_sym_db.RegisterMessage(ServerRequestFetchRequest)
+_sym_db.RegisterMessage(ServerRequestFetchRequest.Tail)
+
+ServerRequestFetchResponse = _reflection.GeneratedProtocolMessageType('ServerRequestFetchResponse', (_message.Message,), {
+  'DESCRIPTOR' : _SERVERREQUESTFETCHRESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.ServerRequestFetchResponse)
+  })
+_sym_db.RegisterMessage(ServerRequestFetchResponse)
+
+ServerRequestInfo = _reflection.GeneratedProtocolMessageType('ServerRequestInfo', (_message.Message,), {
+  'DESCRIPTOR' : _SERVERREQUESTINFO,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.ServerRequestInfo)
+  })
+_sym_db.RegisterMessage(ServerRequestInfo)
 
 ServiceUser = _reflection.GeneratedProtocolMessageType('ServiceUser', (_message.Message,), {
   'DESCRIPTOR' : _SERVICEUSER,
@@ -4566,6 +5020,20 @@ SharedVolumeRemoveFileRequest = _reflection.GeneratedProtocolMessageType('Shared
   # @@protoc_insertion_point(class_scope:modal.client.SharedVolumeRemoveFileRequest)
   })
 _sym_db.RegisterMessage(SharedVolumeRemoveFileRequest)
+
+StatsPercentile = _reflection.GeneratedProtocolMessageType('StatsPercentile', (_message.Message,), {
+  'DESCRIPTOR' : _STATSPERCENTILE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.StatsPercentile)
+  })
+_sym_db.RegisterMessage(StatsPercentile)
+
+StatsPercentileDistribution = _reflection.GeneratedProtocolMessageType('StatsPercentileDistribution', (_message.Message,), {
+  'DESCRIPTOR' : _STATSPERCENTILEDISTRIBUTION,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.StatsPercentileDistribution)
+  })
+_sym_db.RegisterMessage(StatsPercentileDistribution)
 
 StringMap = _reflection.GeneratedProtocolMessageType('StringMap', (_message.Message,), {
 
@@ -5168,6 +5636,13 @@ WebhookTokenListResponse = _reflection.GeneratedProtocolMessageType('WebhookToke
   })
 _sym_db.RegisterMessage(WebhookTokenListResponse)
 
+WebhookTokenUpdateRequest = _reflection.GeneratedProtocolMessageType('WebhookTokenUpdateRequest', (_message.Message,), {
+  'DESCRIPTOR' : _WEBHOOKTOKENUPDATEREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.WebhookTokenUpdateRequest)
+  })
+_sym_db.RegisterMessage(WebhookTokenUpdateRequest)
+
 WorkspaceBillingRatesRequest = _reflection.GeneratedProtocolMessageType('WorkspaceBillingRatesRequest', (_message.Message,), {
   'DESCRIPTOR' : _WORKSPACEBILLINGRATESREQUEST,
   '__module__' : 'modal_proto.api_pb2'
@@ -5308,6 +5783,20 @@ WorkspaceSetDefaultEnvironmentRequest = _reflection.GeneratedProtocolMessageType
   })
 _sym_db.RegisterMessage(WorkspaceSetDefaultEnvironmentRequest)
 
+WorkspaceSetDefaultEnvironmentSettingsRequest = _reflection.GeneratedProtocolMessageType('WorkspaceSetDefaultEnvironmentSettingsRequest', (_message.Message,), {
+  'DESCRIPTOR' : _WORKSPACESETDEFAULTENVIRONMENTSETTINGSREQUEST,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.WorkspaceSetDefaultEnvironmentSettingsRequest)
+  })
+_sym_db.RegisterMessage(WorkspaceSetDefaultEnvironmentSettingsRequest)
+
+WorkspaceSetDefaultEnvironmentSettingsResponse = _reflection.GeneratedProtocolMessageType('WorkspaceSetDefaultEnvironmentSettingsResponse', (_message.Message,), {
+  'DESCRIPTOR' : _WORKSPACESETDEFAULTENVIRONMENTSETTINGSRESPONSE,
+  '__module__' : 'modal_proto.api_pb2'
+  # @@protoc_insertion_point(class_scope:modal.client.WorkspaceSetDefaultEnvironmentSettingsResponse)
+  })
+_sym_db.RegisterMessage(WorkspaceSetDefaultEnvironmentSettingsResponse)
+
 WorkspaceSetImageBuilderVersionRequest = _reflection.GeneratedProtocolMessageType('WorkspaceSetImageBuilderVersionRequest', (_message.Message,), {
   'DESCRIPTOR' : _WORKSPACESETIMAGEBUILDERVERSIONREQUEST,
   '__module__' : 'modal_proto.api_pb2'
@@ -5338,8 +5827,14 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _APPSTATE.values_by_name["APP_STATE_DERIVED"]._serialized_options = b'\010\001'
   _APPCREATEREQUEST_TAGSENTRY._options = None
   _APPCREATEREQUEST_TAGSENTRY._serialized_options = b'8\001'
+  _APPGETINFORESPONSE_FUNCTIONINFOSUMMARIESENTRY._options = None
+  _APPGETINFORESPONSE_FUNCTIONINFOSUMMARIESENTRY._serialized_options = b'8\001'
   _APPGETTAGSRESPONSE_TAGSENTRY._options = None
   _APPGETTAGSRESPONSE_TAGSENTRY._serialized_options = b'8\001'
+  _APPHANDLEMETADATA_FUNCTIONSENTRY._options = None
+  _APPHANDLEMETADATA_FUNCTIONSENTRY._serialized_options = b'8\001'
+  _APPHANDLEMETADATA_SERVERSENTRY._options = None
+  _APPHANDLEMETADATA_SERVERSENTRY._serialized_options = b'8\001'
   _APPLAYOUT_FUNCTIONIDSENTRY._options = None
   _APPLAYOUT_FUNCTIONIDSENTRY._serialized_options = b'8\001'
   _APPLAYOUT_CLASSIDSENTRY._options = None
@@ -5360,6 +5855,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _AUTOSCALERCONFIGURATION_OVERRIDEEVENTSENTRY._serialized_options = b'8\001'
   _CONTAINERARGUMENTS_TRACINGCONTEXTENTRY._options = None
   _CONTAINERARGUMENTS_TRACINGCONTEXTENTRY._serialized_options = b'8\001'
+  _CONTAINERARGUMENTS.fields_by_name['proxy_info']._options = None
+  _CONTAINERARGUMENTS.fields_by_name['proxy_info']._serialized_options = b'\030\001'
   _CONTAINEREXECREQUEST.fields_by_name['terminate_container_on_exit']._options = None
   _CONTAINEREXECREQUEST.fields_by_name['terminate_container_on_exit']._serialized_options = b'\030\001'
   _ENVIRONMENTBILLINGSUMMARYRESPONSE_METEREDCOSTBREAKDOWNENTRY._options = None
@@ -5368,8 +5865,6 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _FUNCTION_METHODDEFINITIONSENTRY._serialized_options = b'8\001'
   _FUNCTION_EXPERIMENTALOPTIONSENTRY._options = None
   _FUNCTION_EXPERIMENTALOPTIONSENTRY._serialized_options = b'8\001'
-  _FUNCTION.fields_by_name['_experimental_proxy_ip']._options = None
-  _FUNCTION.fields_by_name['_experimental_proxy_ip']._serialized_options = b'\030\001'
   _FUNCTIONCREATEREQUEST.fields_by_name['schedule']._options = None
   _FUNCTIONCREATEREQUEST.fields_by_name['schedule']._serialized_options = b'\030\001'
   _FUNCTIONCREATERESPONSE.fields_by_name['__deprecated_web_url']._options = None
@@ -5378,8 +5873,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _FUNCTIONDATA_METHODDEFINITIONSENTRY._serialized_options = b'8\001'
   _FUNCTIONDATA_EXPERIMENTALOPTIONSENTRY._options = None
   _FUNCTIONDATA_EXPERIMENTALOPTIONSENTRY._serialized_options = b'8\001'
-  _FUNCTIONDATA.fields_by_name['_experimental_proxy_ip']._options = None
-  _FUNCTIONDATA.fields_by_name['_experimental_proxy_ip']._serialized_options = b'\030\001'
+  _FUNCTIONGETTIMERANGESTATSRESPONSE_INPUTPERCENTILESTATSENTRY._options = None
+  _FUNCTIONGETTIMERANGESTATSRESPONSE_INPUTPERCENTILESTATSENTRY._serialized_options = b'8\001'
+  _FUNCTIONGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY._options = None
+  _FUNCTIONGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY._serialized_options = b'8\001'
   _FUNCTIONHANDLEMETADATA_METHODHANDLEMETADATAENTRY._options = None
   _FUNCTIONHANDLEMETADATA_METHODHANDLEMETADATAENTRY._serialized_options = b'8\001'
   _FUNCTIONPRECREATEREQUEST_METHODDEFINITIONSENTRY._options = None
@@ -5388,6 +5885,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _IMAGE_BUILDARGSENTRY._serialized_options = b'8\001'
   _IMAGEMETADATA_PYTHONPACKAGESENTRY._options = None
   _IMAGEMETADATA_PYTHONPACKAGESENTRY._serialized_options = b'8\001'
+  _OUTBOUNDPOLICY_HEADERREPLACEMENT_HEADERSENTRY._options = None
+  _OUTBOUNDPOLICY_HEADERREPLACEMENT_HEADERSENTRY._serialized_options = b'8\001'
   _SANDBOX_EXPERIMENTALOPTIONSENTRY._options = None
   _SANDBOX_EXPERIMENTALOPTIONSENTRY._serialized_options = b'8\001'
   _SANDBOX_EXPERIMENTALOPTIONSV2ENTRY._options = None
@@ -5396,6 +5895,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _SANDBOX.fields_by_name['experimental_options']._serialized_options = b'\030\001'
   _SANDBOX.fields_by_name['direct_sandbox_commands_enabled']._options = None
   _SANDBOX.fields_by_name['direct_sandbox_commands_enabled']._serialized_options = b'\030\001'
+  _SANDBOXCONTAINERCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY._options = None
+  _SANDBOXCONTAINERCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY._serialized_options = b'8\001'
   _SANDBOXCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY._options = None
   _SANDBOXCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY._serialized_options = b'8\001'
   _SCHEDULERPLACEMENT.fields_by_name['_zone']._options = None
@@ -5408,6 +5909,14 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _SECRETCREATEREQUEST_ENVDICTENTRY._serialized_options = b'8\001'
   _SECRETGETORCREATEREQUEST_ENVDICTENTRY._options = None
   _SECRETGETORCREATEREQUEST_ENVDICTENTRY._serialized_options = b'8\001'
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_PERCENTILESTATSENTRY._options = None
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_PERCENTILESTATSENTRY._serialized_options = b'8\001'
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_SCALARSTATSENTRY._options = None
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_SCALARSTATSENTRY._serialized_options = b'8\001'
+  _SERVERGETTIMERANGESTATSRESPONSE_REQUESTPERCENTILESTATSENTRY._options = None
+  _SERVERGETTIMERANGESTATSRESPONSE_REQUESTPERCENTILESTATSENTRY._serialized_options = b'8\001'
+  _SERVERGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY._options = None
+  _SERVERGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY._serialized_options = b'8\001'
   _STRINGMAP_CONTENTSENTRY._options = None
   _STRINGMAP_CONTENTSENTRY._serialized_options = b'8\001'
   _TASKLOGS.fields_by_name['timestamp_ns']._options = None
@@ -5434,1348 +5943,1472 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _WORKSPACEBILLINGSUMMARYRESPONSE_ADJUSTMENTSENTRY._serialized_options = b'8\001'
   _WORKSPACENAMELOOKUPRESPONSE.fields_by_name['workspace_name']._options = None
   _WORKSPACENAMELOOKUPRESPONSE.fields_by_name['workspace_name']._serialized_options = b'\030\001'
-  _APPDEPLOYVISIBILITY._serialized_start=81628
-  _APPDEPLOYVISIBILITY._serialized_end=81759
-  _APPDISCONNECTREASON._serialized_start=81762
-  _APPDISCONNECTREASON._serialized_end=82051
-  _APPSTATE._serialized_start=82054
-  _APPSTATE._serialized_end=82327
-  _APPSTOPSOURCE._serialized_start=82330
-  _APPSTOPSOURCE._serialized_end=82463
-  _CERTIFICATESTATUS._serialized_start=82466
-  _CERTIFICATESTATUS._serialized_end=82611
-  _CHECKPOINTSTATUS._serialized_start=82614
-  _CHECKPOINTSTATUS._serialized_end=82791
-  _CLIENTTYPE._serialized_start=82794
-  _CLIENTTYPE._serialized_end=83055
-  _CLOUDPROVIDER._serialized_start=83058
-  _CLOUDPROVIDER._serialized_end=83226
-  _DNSRECORDTYPE._serialized_start=83228
-  _DNSRECORDTYPE._serialized_end=83318
-  _DATAFORMAT._serialized_start=83321
-  _DATAFORMAT._serialized_end=83462
-  _DEPLOYMENTNAMESPACE._serialized_start=83465
-  _DEPLOYMENTNAMESPACE._serialized_end=83593
-  _DEPLOYMENTTYPE._serialized_start=83596
-  _DEPLOYMENTTYPE._serialized_end=83794
-  _ENDPOINTAPISURFACE._serialized_start=83797
-  _ENDPOINTAPISURFACE._serialized_end=83993
-  _ENDPOINTINPUTMODALITY._serialized_start=83996
-  _ENDPOINTINPUTMODALITY._serialized_end=84164
-  _ENDPOINTLIFECYCLESTATUS._serialized_start=84167
-  _ENDPOINTLIFECYCLESTATUS._serialized_end=84312
-  _ENDPOINTPROVISIONINGSTATUS._serialized_start=84315
-  _ENDPOINTPROVISIONINGSTATUS._serialized_end=84647
-  _ENDPOINTSERVINGMODE._serialized_start=84650
-  _ENDPOINTSERVINGMODE._serialized_end=84781
-  _ENDPOINTSTOPSOURCE._serialized_start=84783
-  _ENDPOINTSTOPSOURCE._serialized_end=84901
-  _ENDPOINTTASKTYPE._serialized_start=84903
-  _ENDPOINTTASKTYPE._serialized_end=85026
-  _ENVIRONMENTROLE._serialized_start=85029
-  _ENVIRONMENTROLE._serialized_end=85175
-  _ENVIRONMENTTYPE._serialized_start=85177
-  _ENVIRONMENTTYPE._serialized_end=85257
-  _EXECOUTPUTOPTION._serialized_start=85260
-  _EXECOUTPUTOPTION._serialized_end=85406
-  _FILEDESCRIPTOR._serialized_start=85409
-  _FILEDESCRIPTOR._serialized_end=85540
-  _FUNCTIONCALLINVOCATIONTYPE._serialized_start=85543
-  _FUNCTIONCALLINVOCATIONTYPE._serialized_end=85794
-  _FUNCTIONCALLTYPE._serialized_start=85796
-  _FUNCTIONCALLTYPE._serialized_end=85908
-  _GPUTYPE._serialized_start=85911
-  _GPUTYPE._serialized_end=86117
-  _IDENTITYPROVIDERTYPE._serialized_start=86120
-  _IDENTITYPROVIDERTYPE._serialized_end=86291
-  _MEMBERROLE._serialized_start=86293
-  _MEMBERROLE._serialized_end=86404
-  _OBJECTCREATIONTYPE._serialized_start=86407
-  _OBJECTCREATIONTYPE._serialized_end=86695
-  _PARAMETERTYPE._serialized_start=86698
-  _PARAMETERTYPE._serialized_end=86937
-  _PROGRESSTYPE._serialized_start=86939
-  _PROGRESSTYPE._serialized_end=87001
-  _PROXYIPSTATUS._serialized_start=87004
-  _PROXYIPSTATUS._serialized_end=87173
-  _PROXYTYPE._serialized_start=87175
-  _PROXYTYPE._serialized_end=87259
-  _RATELIMITINTERVAL._serialized_start=87261
-  _RATELIMITINTERVAL._serialized_end=87381
-  _REGISTRYAUTHTYPE._serialized_start=87384
-  _REGISTRYAUTHTYPE._serialized_end=87562
-  _SEEKWHENCE._serialized_start=87564
-  _SEEKWHENCE._serialized_end=87618
-  _SYSTEMERRORCODE._serialized_start=87621
-  _SYSTEMERRORCODE._serialized_end=88045
-  _TASKSNAPSHOTBEHAVIOR._serialized_start=88048
-  _TASKSNAPSHOTBEHAVIOR._serialized_end=88216
-  _TASKSTATE._serialized_start=88219
-  _TASKSTATE._serialized_end=88567
-  _TUNNELTYPE._serialized_start=88569
-  _TUNNELTYPE._serialized_end=88630
-  _VOLUMEFSVERSION._serialized_start=88632
-  _VOLUMEFSVERSION._serialized_end=88736
-  _WEBHOOKASYNCMODE._serialized_start=88739
-  _WEBHOOKASYNCMODE._serialized_end=88893
-  _WEBHOOKTYPE._serialized_start=88896
-  _WEBHOOKTYPE._serialized_end=89049
+  _APPDEPLOYVISIBILITY._serialized_start=89792
+  _APPDEPLOYVISIBILITY._serialized_end=89923
+  _APPDISCONNECTREASON._serialized_start=89926
+  _APPDISCONNECTREASON._serialized_end=90215
+  _APPSTATE._serialized_start=90218
+  _APPSTATE._serialized_end=90491
+  _APPSTOPSOURCE._serialized_start=90494
+  _APPSTOPSOURCE._serialized_end=90627
+  _ARCH._serialized_start=90629
+  _ARCH._serialized_end=90692
+  _CERTIFICATESTATUS._serialized_start=90695
+  _CERTIFICATESTATUS._serialized_end=90840
+  _CHECKPOINTSTATUS._serialized_start=90843
+  _CHECKPOINTSTATUS._serialized_end=91020
+  _CLIENTTYPE._serialized_start=91023
+  _CLIENTTYPE._serialized_end=91284
+  _CLOUDPROVIDER._serialized_start=91287
+  _CLOUDPROVIDER._serialized_end=91455
+  _DNSRECORDTYPE._serialized_start=91457
+  _DNSRECORDTYPE._serialized_end=91547
+  _DATAFORMAT._serialized_start=91550
+  _DATAFORMAT._serialized_end=91691
+  _DEPLOYMENTNAMESPACE._serialized_start=91694
+  _DEPLOYMENTNAMESPACE._serialized_end=91822
+  _DEPLOYMENTTYPE._serialized_start=91825
+  _DEPLOYMENTTYPE._serialized_end=92023
+  _ENDPOINTAPISURFACE._serialized_start=92026
+  _ENDPOINTAPISURFACE._serialized_end=92222
+  _ENDPOINTINPUTMODALITY._serialized_start=92225
+  _ENDPOINTINPUTMODALITY._serialized_end=92393
+  _ENDPOINTLIFECYCLESTATUS._serialized_start=92396
+  _ENDPOINTLIFECYCLESTATUS._serialized_end=92541
+  _ENDPOINTPROVISIONINGSTATUS._serialized_start=92544
+  _ENDPOINTPROVISIONINGSTATUS._serialized_end=92876
+  _ENDPOINTSERVINGMODE._serialized_start=92879
+  _ENDPOINTSERVINGMODE._serialized_end=93010
+  _ENDPOINTSTOPSOURCE._serialized_start=93012
+  _ENDPOINTSTOPSOURCE._serialized_end=93130
+  _ENDPOINTTASKTYPE._serialized_start=93132
+  _ENDPOINTTASKTYPE._serialized_end=93255
+  _ENVIRONMENTBLOCKUNAUTHENTICATEDRESOURCES._serialized_start=93258
+  _ENVIRONMENTBLOCKUNAUTHENTICATEDRESOURCES._serialized_end=93528
+  _ENVIRONMENTROLE._serialized_start=93531
+  _ENVIRONMENTROLE._serialized_end=93677
+  _ENVIRONMENTTYPE._serialized_start=93679
+  _ENVIRONMENTTYPE._serialized_end=93759
+  _EXECOUTPUTOPTION._serialized_start=93762
+  _EXECOUTPUTOPTION._serialized_end=93908
+  _FILEDESCRIPTOR._serialized_start=93911
+  _FILEDESCRIPTOR._serialized_end=94042
+  _FUNCTIONCALLINPUTSTATUS._serialized_start=94045
+  _FUNCTIONCALLINPUTSTATUS._serialized_end=94552
+  _FUNCTIONCALLINVOCATIONTYPE._serialized_start=94555
+  _FUNCTIONCALLINVOCATIONTYPE._serialized_end=94806
+  _FUNCTIONCALLTYPE._serialized_start=94808
+  _FUNCTIONCALLTYPE._serialized_end=94920
+  _GPUTYPE._serialized_start=94923
+  _GPUTYPE._serialized_end=95129
+  _IDENTITYPROVIDERTYPE._serialized_start=95132
+  _IDENTITYPROVIDERTYPE._serialized_end=95303
+  _LLMENGINE._serialized_start=95305
+  _LLMENGINE._serialized_end=95388
+  _MEMBERROLE._serialized_start=95390
+  _MEMBERROLE._serialized_end=95501
+  _OBJECTCREATIONTYPE._serialized_start=95504
+  _OBJECTCREATIONTYPE._serialized_end=95792
+  _PARAMETERTYPE._serialized_start=95795
+  _PARAMETERTYPE._serialized_end=96034
+  _PROGRESSTYPE._serialized_start=96036
+  _PROGRESSTYPE._serialized_end=96098
+  _PROXYIPSTATUS._serialized_start=96101
+  _PROXYIPSTATUS._serialized_end=96270
+  _PROXYTYPE._serialized_start=96272
+  _PROXYTYPE._serialized_end=96356
+  _RATELIMITINTERVAL._serialized_start=96358
+  _RATELIMITINTERVAL._serialized_end=96478
+  _REGISTRYAUTHTYPE._serialized_start=96481
+  _REGISTRYAUTHTYPE._serialized_end=96659
+  _SEEKWHENCE._serialized_start=96661
+  _SEEKWHENCE._serialized_end=96715
+  _SERVERINFERENCESTATSSTATUS._serialized_start=96718
+  _SERVERINFERENCESTATSSTATUS._serialized_end=96928
+  _SYSTEMERRORCODE._serialized_start=96931
+  _SYSTEMERRORCODE._serialized_end=97355
+  _TASKSNAPSHOTBEHAVIOR._serialized_start=97358
+  _TASKSNAPSHOTBEHAVIOR._serialized_end=97526
+  _TASKSTATE._serialized_start=97529
+  _TASKSTATE._serialized_end=97877
+  _TUNNELTYPE._serialized_start=97879
+  _TUNNELTYPE._serialized_end=97940
+  _VOLUMEFSVERSION._serialized_start=97942
+  _VOLUMEFSVERSION._serialized_end=98046
+  _WEBHOOKASYNCMODE._serialized_start=98049
+  _WEBHOOKASYNCMODE._serialized_end=98203
+  _WEBHOOKTYPE._serialized_start=98206
+  _WEBHOOKTYPE._serialized_end=98359
   _APPCLIENTDISCONNECTREQUEST._serialized_start=190
   _APPCLIENTDISCONNECTREQUEST._serialized_end=304
   _APPCOUNTLOGSREQUEST._serialized_start=307
-  _APPCOUNTLOGSREQUEST._serialized_end=602
-  _APPCOUNTLOGSRESPONSE._serialized_start=605
-  _APPCOUNTLOGSRESPONSE._serialized_end=835
-  _APPCOUNTLOGSRESPONSE_LOGBUCKET._serialized_start=708
-  _APPCOUNTLOGSRESPONSE_LOGBUCKET._serialized_end=835
-  _APPCREATEREQUEST._serialized_start=838
-  _APPCREATEREQUEST._serialized_end=1066
-  _APPCREATEREQUEST_TAGSENTRY._serialized_start=1023
-  _APPCREATEREQUEST_TAGSENTRY._serialized_end=1066
-  _APPCREATERESPONSE._serialized_start=1068
-  _APPCREATERESPONSE._serialized_end=1147
-  _APPDEPLOYREQUEST._serialized_start=1150
-  _APPDEPLOYREQUEST._serialized_end=1295
-  _APPDEPLOYRESPONSE._serialized_start=1297
-  _APPDEPLOYRESPONSE._serialized_end=1329
-  _APPDEPLOYMENTHISTORY._serialized_start=1332
-  _APPDEPLOYMENTHISTORY._serialized_end=1673
-  _APPDEPLOYMENTHISTORYREQUEST._serialized_start=1675
-  _APPDEPLOYMENTHISTORYREQUEST._serialized_end=1720
-  _APPDEPLOYMENTHISTORYRESPONSE._serialized_start=1723
-  _APPDEPLOYMENTHISTORYRESPONSE._serialized_end=1855
-  _APPFETCHLOGSREQUEST._serialized_start=1858
-  _APPFETCHLOGSREQUEST._serialized_end=2147
-  _APPFETCHLOGSRESPONSE._serialized_start=2149
-  _APPFETCHLOGSRESPONSE._serialized_end=2217
-  _APPGETBYDEPLOYMENTNAMEREQUEST._serialized_start=2219
-  _APPGETBYDEPLOYMENTNAMEREQUEST._serialized_end=2296
-  _APPGETBYDEPLOYMENTNAMERESPONSE._serialized_start=2299
-  _APPGETBYDEPLOYMENTNAMERESPONSE._serialized_end=2445
-  _APPGETLAYOUTREQUEST._serialized_start=2447
-  _APPGETLAYOUTREQUEST._serialized_end=2484
-  _APPGETLAYOUTRESPONSE._serialized_start=2486
-  _APPGETLAYOUTRESPONSE._serialized_end=2553
-  _APPGETLIFECYCLEREQUEST._serialized_start=2555
-  _APPGETLIFECYCLEREQUEST._serialized_end=2595
-  _APPGETLIFECYCLERESPONSE._serialized_start=2597
-  _APPGETLIFECYCLERESPONSE._serialized_end=2669
-  _APPGETLOGSREQUEST._serialized_start=2672
-  _APPGETLOGSREQUEST._serialized_end=2959
-  _APPGETOBJECTSITEM._serialized_start=2961
-  _APPGETOBJECTSITEM._serialized_end=3031
-  _APPGETOBJECTSREQUEST._serialized_start=3033
-  _APPGETOBJECTSREQUEST._serialized_end=3127
-  _APPGETOBJECTSRESPONSE._serialized_start=3129
-  _APPGETOBJECTSRESPONSE._serialized_end=3200
-  _APPGETORCREATEREQUEST._serialized_start=3203
-  _APPGETORCREATEREQUEST._serialized_end=3334
-  _APPGETORCREATERESPONSE._serialized_start=3336
-  _APPGETORCREATERESPONSE._serialized_end=3376
-  _APPGETTAGSREQUEST._serialized_start=3378
-  _APPGETTAGSREQUEST._serialized_end=3413
-  _APPGETTAGSRESPONSE._serialized_start=3415
-  _APPGETTAGSRESPONSE._serialized_end=3538
-  _APPGETTAGSRESPONSE_TAGSENTRY._serialized_start=1023
-  _APPGETTAGSRESPONSE_TAGSENTRY._serialized_end=1066
-  _APPHEARTBEATREQUEST._serialized_start=3540
-  _APPHEARTBEATREQUEST._serialized_end=3577
-  _APPLAYOUT._serialized_start=3580
-  _APPLAYOUT._serialized_end=3853
-  _APPLAYOUT_FUNCTIONIDSENTRY._serialized_start=3754
-  _APPLAYOUT_FUNCTIONIDSENTRY._serialized_end=3804
-  _APPLAYOUT_CLASSIDSENTRY._serialized_start=3806
-  _APPLAYOUT_CLASSIDSENTRY._serialized_end=3853
-  _APPLIFECYCLE._serialized_start=3856
-  _APPLIFECYCLE._serialized_end=4052
-  _APPLISTREQUEST._serialized_start=4054
-  _APPLISTREQUEST._serialized_end=4096
-  _APPLISTRESPONSE._serialized_start=4099
-  _APPLISTRESPONSE._serialized_end=4344
-  _APPLISTRESPONSE_APPLISTITEM._serialized_start=4176
-  _APPLISTRESPONSE_APPLISTITEM._serialized_end=4344
-  _APPLOOKUPREQUEST._serialized_start=4346
-  _APPLOOKUPREQUEST._serialized_end=4408
-  _APPLOOKUPRESPONSE._serialized_start=4410
-  _APPLOOKUPRESPONSE._serialized_end=4445
-  _APPPROMOTEREQUEST._serialized_start=4447
-  _APPPROMOTEREQUEST._serialized_end=4499
-  _APPPROMOTERESPONSE._serialized_start=4501
-  _APPPROMOTERESPONSE._serialized_end=4603
-  _APPPUBLISHREQUEST._serialized_start=4606
-  _APPPUBLISHREQUEST._serialized_end=5361
-  _APPPUBLISHREQUEST_FUNCTIONIDSENTRY._serialized_start=3754
-  _APPPUBLISHREQUEST_FUNCTIONIDSENTRY._serialized_end=3804
-  _APPPUBLISHREQUEST_CLASSIDSENTRY._serialized_start=3806
-  _APPPUBLISHREQUEST_CLASSIDSENTRY._serialized_end=3853
-  _APPPUBLISHREQUEST_DEFINITIONIDSENTRY._serialized_start=5264
-  _APPPUBLISHREQUEST_DEFINITIONIDSENTRY._serialized_end=5316
-  _APPPUBLISHREQUEST_TAGSENTRY._serialized_start=1023
-  _APPPUBLISHREQUEST_TAGSENTRY._serialized_end=1066
-  _APPPUBLISHRESPONSE._serialized_start=5363
-  _APPPUBLISHRESPONSE._serialized_end=5465
-  _APPROLLBACKREQUEST._serialized_start=5467
-  _APPROLLBACKREQUEST._serialized_end=5520
-  _APPROLLBACKRESPONSE._serialized_start=5522
-  _APPROLLBACKRESPONSE._serialized_end=5625
-  _APPROLLOVERREQUEST._serialized_start=5627
-  _APPROLLOVERREQUEST._serialized_end=5663
-  _APPROLLOVERRESPONSE._serialized_start=5665
-  _APPROLLOVERRESPONSE._serialized_end=5768
-  _APPSETOBJECTSREQUEST._serialized_start=5771
-  _APPSETOBJECTSREQUEST._serialized_end=6054
-  _APPSETOBJECTSREQUEST_INDEXEDOBJECTIDSENTRY._serialized_start=5993
-  _APPSETOBJECTSREQUEST_INDEXEDOBJECTIDSENTRY._serialized_end=6048
-  _APPSETTAGSREQUEST._serialized_start=6057
-  _APPSETTAGSREQUEST._serialized_end=6194
-  _APPSETTAGSREQUEST_TAGSENTRY._serialized_start=1023
-  _APPSETTAGSREQUEST_TAGSENTRY._serialized_end=1066
-  _APPSTOPREQUEST._serialized_start=6196
-  _APPSTOPREQUEST._serialized_end=6273
-  _ASGI._serialized_start=6276
-  _ASGI._serialized_end=8103
-  _ASGI_HTTP._serialized_start=7096
-  _ASGI_HTTP._serialized_end=7293
-  _ASGI_HTTPREQUEST._serialized_start=7295
-  _ASGI_HTTPREQUEST._serialized_end=7341
-  _ASGI_HTTPRESPONSESTART._serialized_start=7343
-  _ASGI_HTTPRESPONSESTART._serialized_end=7413
-  _ASGI_HTTPRESPONSEBODY._serialized_start=7415
-  _ASGI_HTTPRESPONSEBODY._serialized_end=7466
-  _ASGI_HTTPRESPONSETRAILERS._serialized_start=7468
-  _ASGI_HTTPRESPONSETRAILERS._serialized_end=7530
-  _ASGI_HTTPDISCONNECT._serialized_start=7532
-  _ASGI_HTTPDISCONNECT._serialized_end=7548
-  _ASGI_WEBSOCKET._serialized_start=7551
-  _ASGI_WEBSOCKET._serialized_end=7759
-  _ASGI_WEBSOCKETCONNECT._serialized_start=7761
-  _ASGI_WEBSOCKETCONNECT._serialized_end=7779
-  _ASGI_WEBSOCKETACCEPT._serialized_start=7781
-  _ASGI_WEBSOCKETACCEPT._serialized_end=7857
-  _ASGI_WEBSOCKETRECEIVE._serialized_start=7859
-  _ASGI_WEBSOCKETRECEIVE._serialized_end=7921
-  _ASGI_WEBSOCKETSEND._serialized_start=7923
-  _ASGI_WEBSOCKETSEND._serialized_end=7982
-  _ASGI_WEBSOCKETDISCONNECT._serialized_start=7984
-  _ASGI_WEBSOCKETDISCONNECT._serialized_end=8033
-  _ASGI_WEBSOCKETCLOSE._serialized_start=8035
-  _ASGI_WEBSOCKETCLOSE._serialized_end=8095
-  _ATTEMPTAWAITREQUEST._serialized_start=8105
-  _ATTEMPTAWAITREQUEST._serialized_end=8193
-  _ATTEMPTAWAITRESPONSE._serialized_start=8195
-  _ATTEMPTAWAITRESPONSE._serialized_end=8287
-  _ATTEMPTRETRYREQUEST._serialized_start=8290
-  _ATTEMPTRETRYREQUEST._serialized_end=8432
-  _ATTEMPTRETRYRESPONSE._serialized_start=8434
-  _ATTEMPTRETRYRESPONSE._serialized_end=8479
-  _ATTEMPTSTARTREQUEST._serialized_start=8482
-  _ATTEMPTSTARTREQUEST._serialized_end=8618
-  _ATTEMPTSTARTRESPONSE._serialized_start=8620
-  _ATTEMPTSTARTRESPONSE._serialized_end=8722
-  _AUTHTOKENGETREQUEST._serialized_start=8724
-  _AUTHTOKENGETREQUEST._serialized_end=8745
-  _AUTHTOKENGETRESPONSE._serialized_start=8747
-  _AUTHTOKENGETRESPONSE._serialized_end=8784
-  _AUTOSCALERCONFIGURATION._serialized_start=8787
-  _AUTOSCALERCONFIGURATION._serialized_end=9213
-  _AUTOSCALERCONFIGURATION_OVERRIDEEVENTSENTRY._serialized_start=9130
-  _AUTOSCALERCONFIGURATION_OVERRIDEEVENTSENTRY._serialized_end=9213
-  _AUTOSCALERSETTINGS._serialized_start=9216
-  _AUTOSCALERSETTINGS._serialized_end=9676
-  _AUTOSCALINGMETRICS._serialized_start=9678
-  _AUTOSCALINGMETRICS._serialized_end=9803
-  _BASEIMAGE._serialized_start=9805
-  _BASEIMAGE._serialized_end=9860
-  _BLOBCREATEREQUEST._serialized_start=9862
-  _BLOBCREATEREQUEST._serialized_end=9957
-  _BLOBCREATERESPONSE._serialized_start=9960
-  _BLOBCREATERESPONSE._serialized_end=10241
-  _BLOBGETREQUEST._serialized_start=10243
-  _BLOBGETREQUEST._serialized_end=10276
-  _BLOBGETRESPONSE._serialized_start=10278
-  _BLOBGETRESPONSE._serialized_end=10317
-  _BUILDFUNCTION._serialized_start=10319
-  _BUILDFUNCTION._serialized_end=10415
-  _CANCELINPUTEVENT._serialized_start=10417
-  _CANCELINPUTEVENT._serialized_end=10513
-  _CHECKPOINTINFO._serialized_start=10516
-  _CHECKPOINTINFO._serialized_end=10759
-  _CLASSCREATEREQUEST._serialized_start=10762
-  _CLASSCREATEREQUEST._serialized_end=10904
-  _CLASSCREATERESPONSE._serialized_start=10906
-  _CLASSCREATERESPONSE._serialized_end=11005
-  _CLASSGETREQUEST._serialized_start=11008
-  _CLASSGETREQUEST._serialized_end=11157
-  _CLASSGETRESPONSE._serialized_start=11160
-  _CLASSGETRESPONSE._serialized_end=11304
-  _CLASSHANDLEMETADATA._serialized_start=11307
-  _CLASSHANDLEMETADATA._serialized_end=11470
-  _CLASSMETHOD._serialized_start=11473
-  _CLASSMETHOD._serialized_end=11602
-  _CLASSPARAMETERINFO._serialized_start=11605
-  _CLASSPARAMETERINFO._serialized_end=11908
-  _CLASSPARAMETERINFO_PARAMETERSERIALIZATIONFORMAT._serialized_start=11757
-  _CLASSPARAMETERINFO_PARAMETERSERIALIZATIONFORMAT._serialized_end=11908
-  _CLASSPARAMETERSET._serialized_start=11910
-  _CLASSPARAMETERSET._serialized_end=11984
-  _CLASSPARAMETERSPEC._serialized_start=11987
-  _CLASSPARAMETERSPEC._serialized_end=12279
-  _CLASSPARAMETERVALUE._serialized_start=12282
-  _CLASSPARAMETERVALUE._serialized_end=12489
-  _CLIENTHELLORESPONSE._serialized_start=12491
-  _CLIENTHELLORESPONSE._serialized_end=12608
-  _CLOUDBUCKETMOUNT._serialized_start=12611
-  _CLOUDBUCKETMOUNT._serialized_end=13294
-  _CLOUDBUCKETMOUNT_BUCKETTYPE._serialized_start=13037
-  _CLOUDBUCKETMOUNT_BUCKETTYPE._serialized_end=13091
-  _CLOUDBUCKETMOUNT_METADATATTLTYPE._serialized_start=13093
-  _CLOUDBUCKETMOUNT_METADATATTLTYPE._serialized_end=13210
-  _CLUSTERGETREQUEST._serialized_start=13296
-  _CLUSTERGETREQUEST._serialized_end=13335
-  _CLUSTERGETRESPONSE._serialized_start=13337
-  _CLUSTERGETRESPONSE._serialized_end=13402
-  _CLUSTERLISTREQUEST._serialized_start=13404
-  _CLUSTERLISTREQUEST._serialized_end=13450
-  _CLUSTERLISTRESPONSE._serialized_start=13452
-  _CLUSTERLISTRESPONSE._serialized_end=13519
-  _CLUSTERSTATS._serialized_start=13521
-  _CLUSTERSTATS._serialized_end=13609
-  _COMMANDROUTERACCESS._serialized_start=13611
-  _COMMANDROUTERACCESS._serialized_end=13658
-  _COMMITINFO._serialized_start=13661
-  _COMMITINFO._serialized_end=13825
-  _CONTAINERARGUMENTS._serialized_start=13828
-  _CONTAINERARGUMENTS._serialized_end=14320
-  _CONTAINERARGUMENTS_TRACINGCONTEXTENTRY._serialized_start=14249
-  _CONTAINERARGUMENTS_TRACINGCONTEXTENTRY._serialized_end=14302
-  _CONTAINERCHECKPOINTREQUEST._serialized_start=14322
-  _CONTAINERCHECKPOINTREQUEST._serialized_end=14373
-  _CONTAINEREXECGETOUTPUTREQUEST._serialized_start=14376
-  _CONTAINEREXECGETOUTPUTREQUEST._serialized_end=14545
-  _CONTAINEREXECPUTINPUTREQUEST._serialized_start=14547
-  _CONTAINEREXECPUTINPUTREQUEST._serialized_end=14644
-  _CONTAINEREXECREQUEST._serialized_start=14647
-  _CONTAINEREXECREQUEST._serialized_end=15012
-  _CONTAINEREXECRESPONSE._serialized_start=15014
-  _CONTAINEREXECRESPONSE._serialized_end=15054
-  _CONTAINEREXECWAITREQUEST._serialized_start=15056
-  _CONTAINEREXECWAITREQUEST._serialized_end=15116
-  _CONTAINEREXECWAITRESPONSE._serialized_start=15118
-  _CONTAINEREXECWAITRESPONSE._serialized_end=15202
-  _CONTAINERFILECLOSEREQUEST._serialized_start=15204
-  _CONTAINERFILECLOSEREQUEST._serialized_end=15256
-  _CONTAINERFILEDELETEBYTESREQUEST._serialized_start=15259
-  _CONTAINERFILEDELETEBYTESREQUEST._serialized_end=15413
-  _CONTAINERFILEFLUSHREQUEST._serialized_start=15415
-  _CONTAINERFILEFLUSHREQUEST._serialized_end=15467
-  _CONTAINERFILELSREQUEST._serialized_start=15469
-  _CONTAINERFILELSREQUEST._serialized_end=15507
-  _CONTAINERFILEMKDIRREQUEST._serialized_start=15509
-  _CONTAINERFILEMKDIRREQUEST._serialized_end=15572
-  _CONTAINERFILEOPENREQUEST._serialized_start=15574
-  _CONTAINERFILEOPENREQUEST._serialized_end=15678
-  _CONTAINERFILEREADLINEREQUEST._serialized_start=15680
-  _CONTAINERFILEREADLINEREQUEST._serialized_end=15735
-  _CONTAINERFILEREADREQUEST._serialized_start=15737
-  _CONTAINERFILEREADREQUEST._serialized_end=15810
-  _CONTAINERFILERMREQUEST._serialized_start=15812
-  _CONTAINERFILERMREQUEST._serialized_end=15869
-  _CONTAINERFILESEEKREQUEST._serialized_start=15871
-  _CONTAINERFILESEEKREQUEST._serialized_end=15980
-  _CONTAINERFILEWATCHREQUEST._serialized_start=15982
-  _CONTAINERFILEWATCHREQUEST._serialized_end=16086
-  _CONTAINERFILEWRITEREPLACEBYTESREQUEST._serialized_start=16089
-  _CONTAINERFILEWRITEREPLACEBYTESREQUEST._serialized_end=16263
-  _CONTAINERFILEWRITEREQUEST._serialized_start=16265
-  _CONTAINERFILEWRITEREQUEST._serialized_end=16331
-  _CONTAINERFILESYSTEMEXECGETOUTPUTREQUEST._serialized_start=16333
-  _CONTAINERFILESYSTEMEXECGETOUTPUTREQUEST._serialized_end=16408
-  _CONTAINERFILESYSTEMEXECREQUEST._serialized_start=16411
-  _CONTAINERFILESYSTEMEXECREQUEST._serialized_end=17438
-  _CONTAINERFILESYSTEMEXECRESPONSE._serialized_start=17440
-  _CONTAINERFILESYSTEMEXECRESPONSE._serialized_end=17540
-  _CONTAINERHEARTBEATREQUEST._serialized_start=17543
-  _CONTAINERHEARTBEATREQUEST._serialized_end=17671
-  _CONTAINERHEARTBEATRESPONSE._serialized_start=17673
-  _CONTAINERHEARTBEATRESPONSE._serialized_end=17789
-  _CONTAINERLOGREQUEST._serialized_start=17791
-  _CONTAINERLOGREQUEST._serialized_end=17850
-  _CONTAINERRELOADVOLUMESREQUEST._serialized_start=17852
-  _CONTAINERRELOADVOLUMESREQUEST._serialized_end=17900
-  _CONTAINERRELOADVOLUMESRESPONSE._serialized_start=17902
-  _CONTAINERRELOADVOLUMESRESPONSE._serialized_end=17934
-  _CONTAINERSERVERLIFECYCLEREADYREQUEST._serialized_start=17936
-  _CONTAINERSERVERLIFECYCLEREADYREQUEST._serialized_end=17974
-  _CONTAINERSTOPREQUEST._serialized_start=17976
-  _CONTAINERSTOPREQUEST._serialized_end=18033
-  _CONTAINERSTOPRESPONSE._serialized_start=18035
-  _CONTAINERSTOPRESPONSE._serialized_end=18058
-  _CREATIONINFO._serialized_start=18060
-  _CREATIONINFO._serialized_end=18114
-  _CURLAUTHTOKENREQUEST._serialized_start=18116
-  _CURLAUTHTOKENREQUEST._serialized_end=18151
-  _CURLAUTHTOKENRESPONSE._serialized_start=18153
-  _CURLAUTHTOKENRESPONSE._serialized_end=18191
-  _CUSTOMDOMAINCONFIG._serialized_start=18193
-  _CUSTOMDOMAINCONFIG._serialized_end=18227
-  _CUSTOMDOMAININFO._serialized_start=18229
-  _CUSTOMDOMAININFO._serialized_end=18260
-  _DNSRECORD._serialized_start=18262
-  _DNSRECORD._serialized_end=18345
-  _DATACHUNK._serialized_start=18347
-  _DATACHUNK._serialized_end=18474
-  _DICTCLEARREQUEST._serialized_start=18476
-  _DICTCLEARREQUEST._serialized_end=18511
-  _DICTCONTAINSREQUEST._serialized_start=18513
-  _DICTCONTAINSREQUEST._serialized_end=18564
-  _DICTCONTAINSRESPONSE._serialized_start=18566
-  _DICTCONTAINSRESPONSE._serialized_end=18603
-  _DICTCONTENTSREQUEST._serialized_start=18605
-  _DICTCONTENTSREQUEST._serialized_end=18673
-  _DICTDELETEREQUEST._serialized_start=18675
-  _DICTDELETEREQUEST._serialized_end=18711
-  _DICTENTRY._serialized_start=18713
-  _DICTENTRY._serialized_end=18752
-  _DICTGETBYIDREQUEST._serialized_start=18754
-  _DICTGETBYIDREQUEST._serialized_end=18791
-  _DICTGETBYIDRESPONSE._serialized_start=18793
-  _DICTGETBYIDRESPONSE._serialized_end=18877
-  _DICTGETORCREATEREQUEST._serialized_start=18880
-  _DICTGETORCREATEREQUEST._serialized_end=19064
-  _DICTGETORCREATERESPONSE._serialized_start=19066
-  _DICTGETORCREATERESPONSE._serialized_end=19154
-  _DICTGETREQUEST._serialized_start=19156
-  _DICTGETREQUEST._serialized_end=19202
-  _DICTGETRESPONSE._serialized_start=19204
-  _DICTGETRESPONSE._serialized_end=19266
-  _DICTHEARTBEATREQUEST._serialized_start=19268
-  _DICTHEARTBEATREQUEST._serialized_end=19307
-  _DICTLENREQUEST._serialized_start=19309
-  _DICTLENREQUEST._serialized_end=19342
-  _DICTLENRESPONSE._serialized_start=19344
-  _DICTLENRESPONSE._serialized_end=19374
-  _DICTLISTREQUEST._serialized_start=19376
-  _DICTLISTREQUEST._serialized_end=19469
-  _DICTLISTRESPONSE._serialized_start=19472
-  _DICTLISTRESPONSE._serialized_end=19681
-  _DICTLISTRESPONSE_DICTINFO._serialized_start=19574
-  _DICTLISTRESPONSE_DICTINFO._serialized_end=19681
-  _DICTMETADATA._serialized_start=19683
-  _DICTMETADATA._serialized_end=19762
-  _DICTPOPREQUEST._serialized_start=19764
-  _DICTPOPREQUEST._serialized_end=19810
-  _DICTPOPRESPONSE._serialized_start=19812
-  _DICTPOPRESPONSE._serialized_end=19874
-  _DICTUPDATEREQUEST._serialized_start=19876
-  _DICTUPDATEREQUEST._serialized_end=19977
-  _DICTUPDATERESPONSE._serialized_start=19979
-  _DICTUPDATERESPONSE._serialized_end=20016
-  _DOMAIN._serialized_start=20019
-  _DOMAIN._serialized_end=20194
-  _DOMAINCERTIFICATEVERIFYREQUEST._serialized_start=20196
-  _DOMAINCERTIFICATEVERIFYREQUEST._serialized_end=20247
-  _DOMAINCERTIFICATEVERIFYRESPONSE._serialized_start=20249
-  _DOMAINCERTIFICATEVERIFYRESPONSE._serialized_end=20320
-  _DOMAINCREATEREQUEST._serialized_start=20322
-  _DOMAINCREATEREQUEST._serialized_end=20364
-  _DOMAINCREATERESPONSE._serialized_start=20366
-  _DOMAINCREATERESPONSE._serialized_end=20453
-  _DOMAINLISTREQUEST._serialized_start=20455
-  _DOMAINLISTREQUEST._serialized_end=20474
-  _DOMAINLISTRESPONSE._serialized_start=20476
-  _DOMAINLISTRESPONSE._serialized_end=20535
-  _ENDPOINTCOMPUTEREGIONSPEC._serialized_start=20538
-  _ENDPOINTCOMPUTEREGIONSPEC._serialized_end=20776
-  _ENDPOINTCOMPUTEREGIONSPEC_EXPLICITREGIONS._serialized_start=20729
-  _ENDPOINTCOMPUTEREGIONSPEC_EXPLICITREGIONS._serialized_end=20763
-  _ENDPOINTCREATEREQUEST._serialized_start=20779
-  _ENDPOINTCREATEREQUEST._serialized_end=21202
-  _ENDPOINTCREATERESPONSE._serialized_start=21204
-  _ENDPOINTCREATERESPONSE._serialized_end=21290
-  _ENDPOINTCUSTOMMODELSOURCE._serialized_start=21293
-  _ENDPOINTCUSTOMMODELSOURCE._serialized_end=21499
-  _ENDPOINTGETBYNAMEREQUEST._serialized_start=21501
-  _ENDPOINTGETBYNAMEREQUEST._serialized_end=21567
-  _ENDPOINTGETBYNAMERESPONSE._serialized_start=21569
-  _ENDPOINTGETBYNAMERESPONSE._serialized_end=21643
-  _ENDPOINTGETLIFECYCLEREQUEST._serialized_start=21645
-  _ENDPOINTGETLIFECYCLEREQUEST._serialized_end=21695
-  _ENDPOINTGETLIFECYCLERESPONSE._serialized_start=21697
-  _ENDPOINTGETLIFECYCLERESPONSE._serialized_end=21779
-  _ENDPOINTHUGGINGFACEMODELSOURCE._serialized_start=21781
-  _ENDPOINTHUGGINGFACEMODELSOURCE._serialized_end=21875
-  _ENDPOINTLIFECYCLE._serialized_start=21878
-  _ENDPOINTLIFECYCLE._serialized_end=22058
-  _ENDPOINTLISTITEM._serialized_start=22061
-  _ENDPOINTLISTITEM._serialized_end=22474
-  _ENDPOINTLISTREQUEST._serialized_start=22476
-  _ENDPOINTLISTREQUEST._serialized_end=22573
-  _ENDPOINTLISTRESPONSE._serialized_start=22575
-  _ENDPOINTLISTRESPONSE._serialized_end=22670
-  _ENDPOINTMETADATA._serialized_start=22672
-  _ENDPOINTMETADATA._serialized_end=22755
-  _ENDPOINTMODALVOLUMEMODELSOURCE._serialized_start=22757
-  _ENDPOINTMODALVOLUMEMODELSOURCE._serialized_end=22828
-  _ENDPOINTMODELSOURCE._serialized_start=22830
-  _ENDPOINTMODELSOURCE._serialized_end=22950
-  _ENDPOINTSTOPREQUEST._serialized_start=22952
-  _ENDPOINTSTOPREQUEST._serialized_end=23044
-  _ENDPOINTSTOPRESPONSE._serialized_start=23046
-  _ENDPOINTSTOPRESPONSE._serialized_end=23068
-  _ENVIRONMENTBILLINGSUMMARYREQUEST._serialized_start=23070
-  _ENVIRONMENTBILLINGSUMMARYREQUEST._serialized_end=23181
-  _ENVIRONMENTBILLINGSUMMARYRESPONSE._serialized_start=23184
-  _ENVIRONMENTBILLINGSUMMARYRESPONSE._serialized_end=23513
-  _ENVIRONMENTBILLINGSUMMARYRESPONSE_METEREDCOSTBREAKDOWNENTRY._serialized_start=23454
-  _ENVIRONMENTBILLINGSUMMARYRESPONSE_METEREDCOSTBREAKDOWNENTRY._serialized_end=23513
-  _ENVIRONMENTCREATEREQUEST._serialized_start=23516
-  _ENVIRONMENTCREATEREQUEST._serialized_end=23808
-  _ENVIRONMENTDELETEREQUEST._serialized_start=23810
-  _ENVIRONMENTDELETEREQUEST._serialized_end=23850
-  _ENVIRONMENTGETBUDGETREQUEST._serialized_start=23852
-  _ENVIRONMENTGETBUDGETREQUEST._serialized_end=23905
-  _ENVIRONMENTGETBUDGETRESPONSE._serialized_start=23908
-  _ENVIRONMENTGETBUDGETRESPONSE._serialized_end=24093
-  _ENVIRONMENTGETMANAGEDREQUEST._serialized_start=24095
-  _ENVIRONMENTGETMANAGEDREQUEST._serialized_end=24149
-  _ENVIRONMENTGETMANAGEDRESPONSE._serialized_start=24152
-  _ENVIRONMENTGETMANAGEDRESPONSE._serialized_end=24652
-  _ENVIRONMENTGETMANAGEDRESPONSE_PRINCIPALENVROLE._serialized_start=24419
-  _ENVIRONMENTGETMANAGEDRESPONSE_PRINCIPALENVROLE._serialized_end=24652
-  _ENVIRONMENTGETORCREATEREQUEST._serialized_start=24654
-  _ENVIRONMENTGETORCREATEREQUEST._serialized_end=24774
-  _ENVIRONMENTGETORCREATERESPONSE._serialized_start=24776
-  _ENVIRONMENTGETORCREATERESPONSE._serialized_end=24885
-  _ENVIRONMENTGETROLESREQUEST._serialized_start=24887
-  _ENVIRONMENTGETROLESREQUEST._serialized_end=24939
-  _ENVIRONMENTGETROLESRESPONSE._serialized_start=24942
-  _ENVIRONMENTGETROLESRESPONSE._serialized_end=25609
-  _ENVIRONMENTGETROLESRESPONSE_PRINCIPAL._serialized_start=25151
-  _ENVIRONMENTGETROLESRESPONSE_PRINCIPAL._serialized_end=25585
-  _ENVIRONMENTLISTITEM._serialized_start=25612
-  _ENVIRONMENTLISTITEM._serialized_end=26238
-  _ENVIRONMENTLISTRESPONSE._serialized_start=26240
-  _ENVIRONMENTLISTRESPONSE._serialized_end=26315
-  _ENVIRONMENTMETADATA._serialized_start=26318
-  _ENVIRONMENTMETADATA._serialized_end=26463
-  _ENVIRONMENTROLESETREQUEST._serialized_start=26466
-  _ENVIRONMENTROLESETREQUEST._serialized_end=26622
-  _ENVIRONMENTSETBUDGETREQUEST._serialized_start=26625
-  _ENVIRONMENTSETBUDGETREQUEST._serialized_end=26760
-  _ENVIRONMENTSETDEFAULTMEMBERROLEREQUEST._serialized_start=26762
-  _ENVIRONMENTSETDEFAULTMEMBERROLEREQUEST._serialized_end=26886
-  _ENVIRONMENTSETMANAGEDREQUEST._serialized_start=26889
-  _ENVIRONMENTSETMANAGEDREQUEST._serialized_end=27049
-  _ENVIRONMENTSETTINGS._serialized_start=27052
-  _ENVIRONMENTSETTINGS._serialized_end=27246
-  _ENVIRONMENTUPDATEREQUEST._serialized_start=27249
-  _ENVIRONMENTUPDATEREQUEST._serialized_end=27509
-  _FILEENTRY._serialized_start=27512
-  _FILEENTRY._serialized_end=27703
-  _FILEENTRY_FILETYPE._serialized_start=27616
-  _FILEENTRY_FILETYPE._serialized_end=27703
-  _FILESYSTEMRUNTIMEOUTPUTBATCH._serialized_start=27706
-  _FILESYSTEMRUNTIMEOUTPUTBATCH._serialized_end=27850
-  _FLASHCONTAINERDEREGISTERREQUEST._serialized_start=27852
-  _FLASHCONTAINERDEREGISTERREQUEST._serialized_end=27907
-  _FLASHCONTAINERLISTREQUEST._serialized_start=27909
-  _FLASHCONTAINERLISTREQUEST._serialized_end=27957
-  _FLASHCONTAINERLISTRESPONSE._serialized_start=27960
-  _FLASHCONTAINERLISTRESPONSE._serialized_end=28118
-  _FLASHCONTAINERLISTRESPONSE_CONTAINER._serialized_start=28062
-  _FLASHCONTAINERLISTRESPONSE_CONTAINER._serialized_end=28118
-  _FLASHCONTAINERREGISTERREQUEST._serialized_start=28120
-  _FLASHCONTAINERREGISTERREQUEST._serialized_end=28235
-  _FLASHCONTAINERREGISTERRESPONSE._serialized_start=28237
-  _FLASHCONTAINERREGISTERRESPONSE._serialized_end=28282
-  _FLASHPROXYUPSTREAMREQUEST._serialized_start=28284
-  _FLASHPROXYUPSTREAMREQUEST._serialized_end=28357
-  _FLASHSETTARGETSLOTSMETRICSREQUEST._serialized_start=28359
-  _FLASHSETTARGETSLOTSMETRICSREQUEST._serialized_end=28437
-  _FLASHSETTARGETSLOTSMETRICSRESPONSE._serialized_start=28439
-  _FLASHSETTARGETSLOTSMETRICSRESPONSE._serialized_end=28475
-  _FUNCTION._serialized_start=28478
-  _FUNCTION._serialized_end=32031
-  _FUNCTION_METHODDEFINITIONSENTRY._serialized_start=31529
-  _FUNCTION_METHODDEFINITIONSENTRY._serialized_end=31617
-  _FUNCTION_EXPERIMENTALOPTIONSENTRY._serialized_start=31619
-  _FUNCTION_EXPERIMENTALOPTIONSENTRY._serialized_end=31677
-  _FUNCTION_DEFINITIONTYPE._serialized_start=31679
-  _FUNCTION_DEFINITIONTYPE._serialized_end=31786
-  _FUNCTION_FUNCTIONTYPE._serialized_start=31788
-  _FUNCTION_FUNCTIONTYPE._serialized_end=31890
-  _FUNCTIONASYNCINVOKEREQUEST._serialized_start=32033
-  _FUNCTIONASYNCINVOKEREQUEST._serialized_end=32151
-  _FUNCTIONASYNCINVOKERESPONSE._serialized_start=32153
-  _FUNCTIONASYNCINVOKERESPONSE._serialized_end=32240
-  _FUNCTIONBINDPARAMSREQUEST._serialized_start=32243
-  _FUNCTIONBINDPARAMSREQUEST._serialized_end=32422
-  _FUNCTIONBINDPARAMSRESPONSE._serialized_start=32424
-  _FUNCTIONBINDPARAMSRESPONSE._serialized_end=32542
-  _FUNCTIONCALLCALLGRAPHINFO._serialized_start=32544
-  _FUNCTIONCALLCALLGRAPHINFO._serialized_end=32666
-  _FUNCTIONCALLCANCELREQUEST._serialized_start=32668
-  _FUNCTIONCALLCANCELREQUEST._serialized_end=32793
-  _FUNCTIONCALLFROMIDREQUEST._serialized_start=32795
-  _FUNCTIONCALLFROMIDREQUEST._serialized_end=32848
-  _FUNCTIONCALLFROMIDRESPONSE._serialized_start=32851
-  _FUNCTIONCALLFROMIDRESPONSE._serialized_end=32985
-  _FUNCTIONCALLGETDATAREQUEST._serialized_start=32987
-  _FUNCTIONCALLGETDATAREQUEST._serialized_end=33107
-  _FUNCTIONCALLGETINFOREQUEST._serialized_start=33109
-  _FUNCTIONCALLGETINFOREQUEST._serialized_end=33184
-  _FUNCTIONCALLGETINFORESPONSE._serialized_start=33186
-  _FUNCTIONCALLGETINFORESPONSE._serialized_end=33261
-  _FUNCTIONCALLHANDLEMETADATA._serialized_start=33263
-  _FUNCTIONCALLHANDLEMETADATA._serialized_end=33328
-  _FUNCTIONCALLINFO._serialized_start=33331
-  _FUNCTIONCALLINFO._serialized_end=33782
-  _FUNCTIONCALLLISTREQUEST._serialized_start=33784
-  _FUNCTIONCALLLISTREQUEST._serialized_end=33830
-  _FUNCTIONCALLLISTRESPONSE._serialized_start=33832
-  _FUNCTIONCALLLISTRESPONSE._serialized_end=33914
-  _FUNCTIONCALLPUTDATAREQUEST._serialized_start=33917
-  _FUNCTIONCALLPUTDATAREQUEST._serialized_end=34057
-  _FUNCTIONCREATEREQUEST._serialized_start=34060
-  _FUNCTIONCREATEREQUEST._serialized_end=34274
-  _FUNCTIONCREATERESPONSE._serialized_start=34277
-  _FUNCTIONCREATERESPONSE._serialized_end=34560
-  _FUNCTIONDATA._serialized_start=34563
-  _FUNCTIONDATA._serialized_end=36486
-  _FUNCTIONDATA_METHODDEFINITIONSENTRY._serialized_start=31529
-  _FUNCTIONDATA_METHODDEFINITIONSENTRY._serialized_end=31617
-  _FUNCTIONDATA_RANKEDFUNCTION._serialized_start=36305
-  _FUNCTIONDATA_RANKEDFUNCTION._serialized_end=36377
-  _FUNCTIONDATA_EXPERIMENTALOPTIONSENTRY._serialized_start=31619
-  _FUNCTIONDATA_EXPERIMENTALOPTIONSENTRY._serialized_end=31677
-  _FUNCTIONEXTENDED._serialized_start=36489
-  _FUNCTIONEXTENDED._serialized_end=36660
-  _FUNCTIONFINISHINPUTSREQUEST._serialized_start=36662
-  _FUNCTIONFINISHINPUTSREQUEST._serialized_end=36758
-  _FUNCTIONGETCALLGRAPHREQUEST._serialized_start=36760
-  _FUNCTIONGETCALLGRAPHREQUEST._serialized_end=36815
-  _FUNCTIONGETCALLGRAPHRESPONSE._serialized_start=36818
-  _FUNCTIONGETCALLGRAPHRESPONSE._serialized_end=36963
-  _FUNCTIONGETCURRENTSTATSREQUEST._serialized_start=36965
-  _FUNCTIONGETCURRENTSTATSREQUEST._serialized_end=37018
-  _FUNCTIONGETDYNAMICCONCURRENCYREQUEST._serialized_start=37020
-  _FUNCTIONGETDYNAMICCONCURRENCYREQUEST._serialized_end=37132
-  _FUNCTIONGETDYNAMICCONCURRENCYRESPONSE._serialized_start=37134
-  _FUNCTIONGETDYNAMICCONCURRENCYRESPONSE._serialized_end=37194
-  _FUNCTIONGETINPUTSITEM._serialized_start=37197
-  _FUNCTIONGETINPUTSITEM._serialized_end=37538
-  _FUNCTIONGETINPUTSREQUEST._serialized_start=37541
-  _FUNCTIONGETINPUTSREQUEST._serialized_end=37688
-  _FUNCTIONGETINPUTSRESPONSE._serialized_start=37690
-  _FUNCTIONGETINPUTSRESPONSE._serialized_end=37805
-  _FUNCTIONGETOUTPUTSITEM._serialized_start=37808
-  _FUNCTIONGETOUTPUTSITEM._serialized_end=38068
-  _FUNCTIONGETOUTPUTSREQUEST._serialized_start=38071
-  _FUNCTIONGETOUTPUTSREQUEST._serialized_end=38324
-  _FUNCTIONGETOUTPUTSRESPONSE._serialized_start=38327
-  _FUNCTIONGETOUTPUTSRESPONSE._serialized_end=38478
-  _FUNCTIONGETREQUEST._serialized_start=38480
-  _FUNCTIONGETREQUEST._serialized_end=38591
-  _FUNCTIONGETRESPONSE._serialized_start=38594
-  _FUNCTIONGETRESPONSE._serialized_end=38793
-  _FUNCTIONGETSERIALIZEDREQUEST._serialized_start=38795
-  _FUNCTIONGETSERIALIZEDREQUEST._serialized_end=38846
-  _FUNCTIONGETSERIALIZEDRESPONSE._serialized_start=38848
-  _FUNCTIONGETSERIALIZEDRESPONSE._serialized_end=38934
-  _FUNCTIONGETTIMERANGESTATSREQUEST._serialized_start=38937
-  _FUNCTIONGETTIMERANGESTATSREQUEST._serialized_end=39094
-  _FUNCTIONGETTIMERANGESTATSRESPONSE._serialized_start=39097
-  _FUNCTIONGETTIMERANGESTATSRESPONSE._serialized_end=39822
-  _FUNCTIONHANDLEMETADATA._serialized_start=39825
-  _FUNCTIONHANDLEMETADATA._serialized_end=40766
-  _FUNCTIONHANDLEMETADATA_METHODHANDLEMETADATAENTRY._serialized_start=40568
-  _FUNCTIONHANDLEMETADATA_METHODHANDLEMETADATAENTRY._serialized_end=40665
-  _FUNCTIONINPUT._serialized_start=40769
-  _FUNCTIONINPUT._serialized_end=40948
-  _FUNCTIONMAPREQUEST._serialized_start=40951
-  _FUNCTIONMAPREQUEST._serialized_end=41272
-  _FUNCTIONMAPRESPONSE._serialized_start=41275
-  _FUNCTIONMAPRESPONSE._serialized_end=41546
-  _FUNCTIONOPTIONS._serialized_start=41549
-  _FUNCTIONOPTIONS._serialized_end=42698
-  _FUNCTIONPRECREATEREQUEST._serialized_start=42701
-  _FUNCTIONPRECREATEREQUEST._serialized_end=43314
-  _FUNCTIONPRECREATEREQUEST_METHODDEFINITIONSENTRY._serialized_start=31529
-  _FUNCTIONPRECREATEREQUEST_METHODDEFINITIONSENTRY._serialized_end=31617
-  _FUNCTIONPRECREATERESPONSE._serialized_start=43316
-  _FUNCTIONPRECREATERESPONSE._serialized_end=43427
-  _FUNCTIONPUTINPUTSITEM._serialized_start=43430
-  _FUNCTIONPUTINPUTSITEM._serialized_end=43566
-  _FUNCTIONPUTINPUTSREQUEST._serialized_start=43568
-  _FUNCTIONPUTINPUTSREQUEST._serialized_end=43694
-  _FUNCTIONPUTINPUTSRESPONSE._serialized_start=43696
-  _FUNCTIONPUTINPUTSRESPONSE._serialized_end=43784
-  _FUNCTIONPUTINPUTSRESPONSEITEM._serialized_start=43786
-  _FUNCTIONPUTINPUTSRESPONSEITEM._serialized_end=43867
-  _FUNCTIONPUTOUTPUTSITEM._serialized_start=43870
-  _FUNCTIONPUTOUTPUTSITEM._serialized_end=44182
-  _FUNCTIONPUTOUTPUTSREQUEST._serialized_start=44184
-  _FUNCTIONPUTOUTPUTSREQUEST._serialized_end=44288
-  _FUNCTIONRETRYINPUTSITEM._serialized_start=44290
-  _FUNCTIONRETRYINPUTSITEM._serialized_end=44399
-  _FUNCTIONRETRYINPUTSREQUEST._serialized_start=44401
-  _FUNCTIONRETRYINPUTSREQUEST._serialized_end=44511
-  _FUNCTIONRETRYINPUTSRESPONSE._serialized_start=44513
-  _FUNCTIONRETRYINPUTSRESPONSE._serialized_end=44562
-  _FUNCTIONRETRYPOLICY._serialized_start=44564
-  _FUNCTIONRETRYPOLICY._serialized_end=44679
-  _FUNCTIONSCHEMA._serialized_start=44682
-  _FUNCTIONSCHEMA._serialized_end=44955
-  _FUNCTIONSCHEMA_FUNCTIONSCHEMATYPE._serialized_start=44878
-  _FUNCTIONSCHEMA_FUNCTIONSCHEMATYPE._serialized_end=44955
-  _FUNCTIONSTATS._serialized_start=44957
-  _FUNCTIONSTATS._serialized_end=45066
-  _FUNCTIONSTATSPERCENTILES._serialized_start=45068
-  _FUNCTIONSTATSPERCENTILES._serialized_end=45120
-  _FUNCTIONUPDATESCHEDULINGPARAMSREQUEST._serialized_start=45123
-  _FUNCTIONUPDATESCHEDULINGPARAMSREQUEST._serialized_end=45268
-  _FUNCTIONUPDATESCHEDULINGPARAMSRESPONSE._serialized_start=45270
-  _FUNCTIONUPDATESCHEDULINGPARAMSRESPONSE._serialized_end=45370
-  _GPUCONFIG._serialized_start=45372
-  _GPUCONFIG._serialized_end=45453
-  _GENERATORDONE._serialized_start=45455
-  _GENERATORDONE._serialized_end=45491
-  _GENERICPAYLOADTYPE._serialized_start=45493
-  _GENERICPAYLOADTYPE._serialized_end=45614
-  _GENERICRESULT._serialized_start=45617
-  _GENERICRESULT._serialized_end=46187
-  _GENERICRESULT_GENERICSTATUS._serialized_start=45864
-  _GENERICRESULT_GENERICSTATUS._serialized_end=46173
-  _HTTPCONFIG._serialized_start=46190
-  _HTTPCONFIG._serialized_end=46364
-  _IMAGE._serialized_start=46367
-  _IMAGE._serialized_end=46987
-  _IMAGE_BUILDARGSENTRY._serialized_start=46939
-  _IMAGE_BUILDARGSENTRY._serialized_end=46987
-  _IMAGEBUILDCHAINGETREQUEST._serialized_start=46989
-  _IMAGEBUILDCHAINGETREQUEST._serialized_end=47034
-  _IMAGEBUILDCHAINGETRESPONSE._serialized_start=47036
-  _IMAGEBUILDCHAINGETRESPONSE._serialized_end=47115
-  _IMAGEBUILDSTEP._serialized_start=47118
-  _IMAGEBUILDSTEP._serialized_end=47298
-  _IMAGECONTEXTFILE._serialized_start=47300
-  _IMAGECONTEXTFILE._serialized_end=47350
-  _IMAGEDELETEREQUEST._serialized_start=47352
-  _IMAGEDELETEREQUEST._serialized_end=47390
-  _IMAGEFROMIDREQUEST._serialized_start=47392
-  _IMAGEFROMIDREQUEST._serialized_end=47430
-  _IMAGEFROMIDRESPONSE._serialized_start=47432
-  _IMAGEFROMIDRESPONSE._serialized_end=47518
-  _IMAGEGETBYTAGREQUEST._serialized_start=47520
-  _IMAGEGETBYTAGREQUEST._serialized_end=47581
-  _IMAGEGETBYTAGRESPONSE._serialized_start=47583
-  _IMAGEGETBYTAGRESPONSE._serialized_end=47624
-  _IMAGEGETORCREATEREQUEST._serialized_start=47627
-  _IMAGEGETORCREATEREQUEST._serialized_end=47913
-  _IMAGEGETORCREATERESPONSE._serialized_start=47916
-  _IMAGEGETORCREATERESPONSE._serialized_end=48052
-  _IMAGEJOINSTREAMINGREQUEST._serialized_start=48054
-  _IMAGEJOINSTREAMINGREQUEST._serialized_end=48174
-  _IMAGEJOINSTREAMINGRESPONSE._serialized_start=48177
-  _IMAGEJOINSTREAMINGRESPONSE._serialized_end=48371
-  _IMAGELISTTAGSITEM._serialized_start=48373
-  _IMAGELISTTAGSITEM._serialized_end=48484
-  _IMAGELISTTAGSREQUEST._serialized_start=48486
-  _IMAGELISTTAGSREQUEST._serialized_end=48595
-  _IMAGELISTTAGSRESPONSE._serialized_start=48597
-  _IMAGELISTTAGSRESPONSE._serialized_end=48719
-  _IMAGEMETADATA._serialized_start=48722
-  _IMAGEMETADATA._serialized_end=49074
-  _IMAGEMETADATA_PYTHONPACKAGESENTRY._serialized_start=48937
-  _IMAGEMETADATA_PYTHONPACKAGESENTRY._serialized_end=48990
-  _IMAGEPUBLISHREQUEST._serialized_start=49076
-  _IMAGEPUBLISHREQUEST._serialized_end=49176
-  _IMAGEPUBLISHRESPONSE._serialized_start=49178
-  _IMAGEPUBLISHRESPONSE._serialized_end=49239
-  _IMAGEREGISTRYCONFIG._serialized_start=49241
-  _IMAGEREGISTRYCONFIG._serialized_end=49341
-  _IMAGETAGREVISIONSITEM._serialized_start=49343
-  _IMAGETAGREVISIONSITEM._serialized_end=49447
-  _IMAGETAGREVISIONSREQUEST._serialized_start=49449
-  _IMAGETAGREVISIONSREQUEST._serialized_end=49555
-  _IMAGETAGREVISIONSRESPONSE._serialized_start=49558
-  _IMAGETAGREVISIONSRESPONSE._serialized_end=49701
-  _INPUTCALLGRAPHINFO._serialized_start=49704
-  _INPUTCALLGRAPHINFO._serialized_end=49844
-  _INPUTCATEGORYINFO._serialized_start=49846
-  _INPUTCATEGORYINFO._serialized_end=49921
-  _INPUTINFO._serialized_start=49924
-  _INPUTINFO._serialized_end=50077
-  _LISTPAGINATION._serialized_start=50079
-  _LISTPAGINATION._serialized_end=50140
-  _MAPAWAITREQUEST._serialized_start=50143
-  _MAPAWAITREQUEST._serialized_end=50284
-  _MAPAWAITRESPONSE._serialized_start=50286
-  _MAPAWAITRESPONSE._serialized_end=50382
-  _MAPCHECKINPUTSREQUEST._serialized_start=50384
-  _MAPCHECKINPUTSREQUEST._serialized_end=50471
-  _MAPCHECKINPUTSRESPONSE._serialized_start=50473
-  _MAPCHECKINPUTSRESPONSE._serialized_end=50511
-  _MAPSTARTORCONTINUEITEM._serialized_start=50513
-  _MAPSTARTORCONTINUEITEM._serialized_end=50635
-  _MAPSTARTORCONTINUEREQUEST._serialized_start=50638
-  _MAPSTARTORCONTINUEREQUEST._serialized_end=50843
-  _MAPSTARTORCONTINUERESPONSE._serialized_start=50846
-  _MAPSTARTORCONTINUERESPONSE._serialized_end=51053
-  _METHODDEFINITION._serialized_start=51056
-  _METHODDEFINITION._serialized_end=51509
-  _MOUNTBATCHEDCHECKEXISTENCEREQUEST._serialized_start=51511
-  _MOUNTBATCHEDCHECKEXISTENCEREQUEST._serialized_end=51573
-  _MOUNTBATCHEDCHECKEXISTENCERESPONSE._serialized_start=51575
-  _MOUNTBATCHEDCHECKEXISTENCERESPONSE._serialized_end=51646
-  _MOUNTFILE._serialized_start=51648
-  _MOUNTFILE._serialized_end=51753
-  _MOUNTGETORCREATEREQUEST._serialized_start=51756
-  _MOUNTGETORCREATEREQUEST._serialized_end=52006
-  _MOUNTGETORCREATERESPONSE._serialized_start=52008
-  _MOUNTGETORCREATERESPONSE._serialized_end=52112
-  _MOUNTHANDLEMETADATA._serialized_start=52114
-  _MOUNTHANDLEMETADATA._serialized_end=52172
-  _MOUNTPUTFILEREQUEST._serialized_start=52174
-  _MOUNTPUTFILEREQUEST._serialized_end=52269
-  _MOUNTPUTFILERESPONSE._serialized_start=52271
-  _MOUNTPUTFILERESPONSE._serialized_end=52309
-  _MULTIPARTUPLOAD._serialized_start=52311
-  _MULTIPARTUPLOAD._serialized_end=52394
-  _MULTIPARTUPLOADLIST._serialized_start=52396
-  _MULTIPARTUPLOADLIST._serialized_end=52463
-  _NETWORKACCESS._serialized_start=52466
-  _NETWORKACCESS._serialized_end=52681
-  _NETWORKACCESS_NETWORKACCESSTYPE._serialized_start=52607
-  _NETWORKACCESS_NETWORKACCESSTYPE._serialized_end=52681
-  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST._serialized_start=52684
-  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST._serialized_end=53104
-  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST_EXECUTEREPLY._serialized_start=52823
-  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST_EXECUTEREPLY._serialized_end=52896
-  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST_CELLRESULT._serialized_start=52899
-  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST_CELLRESULT._serialized_end=53104
-  _NOTEBOOKOUTPUT._serialized_start=53107
-  _NOTEBOOKOUTPUT._serialized_end=53761
-  _NOTEBOOKOUTPUT_EXECUTERESULT._serialized_start=53369
-  _NOTEBOOKOUTPUT_EXECUTERESULT._serialized_end=53491
-  _NOTEBOOKOUTPUT_DISPLAYDATA._serialized_start=53494
-  _NOTEBOOKOUTPUT_DISPLAYDATA._serialized_end=53649
-  _NOTEBOOKOUTPUT_STREAM._serialized_start=53651
-  _NOTEBOOKOUTPUT_STREAM._serialized_end=53687
-  _NOTEBOOKOUTPUT_ERROR._serialized_start=53689
-  _NOTEBOOKOUTPUT_ERROR._serialized_end=53746
-  _OBJECT._serialized_start=53764
-  _OBJECT._serialized_end=54155
-  _OBJECTDEPENDENCY._serialized_start=54157
-  _OBJECTDEPENDENCY._serialized_end=54194
-  _PTYINFO._serialized_start=54197
-  _PTYINFO._serialized_end=54495
-  _PTYINFO_PTYTYPE._serialized_start=54417
-  _PTYINFO_PTYTYPE._serialized_end=54495
-  _PORTSPEC._serialized_start=54497
-  _PORTSPEC._serialized_end=54610
-  _PORTSPECS._serialized_start=54612
-  _PORTSPECS._serialized_end=54662
-  _PROBE._serialized_start=54665
-  _PROBE._serialized_end=54835
-  _PROBE_EXECCOMMAND._serialized_start=54777
-  _PROBE_EXECCOMMAND._serialized_end=54804
-  _PROXY._serialized_start=54838
-  _PROXY._serialized_end=54981
-  _PROXYADDIPREQUEST._serialized_start=54983
-  _PROXYADDIPREQUEST._serialized_end=55020
-  _PROXYADDIPRESPONSE._serialized_start=55022
-  _PROXYADDIPRESPONSE._serialized_end=55083
-  _PROXYCREATEREQUEST._serialized_start=55085
-  _PROXYCREATEREQUEST._serialized_end=55161
-  _PROXYCREATERESPONSE._serialized_start=55163
-  _PROXYCREATERESPONSE._serialized_end=55220
-  _PROXYDELETEREQUEST._serialized_start=55222
-  _PROXYDELETEREQUEST._serialized_end=55260
-  _PROXYGETORCREATEREQUEST._serialized_start=55263
-  _PROXYGETORCREATEREQUEST._serialized_end=55409
-  _PROXYGETORCREATERESPONSE._serialized_start=55411
-  _PROXYGETORCREATERESPONSE._serialized_end=55455
-  _PROXYGETREQUEST._serialized_start=55457
-  _PROXYGETREQUEST._serialized_end=55514
-  _PROXYGETRESPONSE._serialized_start=55516
-  _PROXYGETRESPONSE._serialized_end=55570
-  _PROXYINFO._serialized_start=55573
-  _PROXYINFO._serialized_end=55751
-  _PROXYIP._serialized_start=55753
-  _PROXYIP._serialized_end=55871
-  _PROXYLISTRESPONSE._serialized_start=55873
-  _PROXYLISTRESPONSE._serialized_end=55930
-  _PROXYREMOVEIPREQUEST._serialized_start=55932
-  _PROXYREMOVEIPREQUEST._serialized_end=55972
-  _QUEUECLEARREQUEST._serialized_start=55974
-  _QUEUECLEARREQUEST._serialized_end=56058
-  _QUEUEDELETEREQUEST._serialized_start=56060
-  _QUEUEDELETEREQUEST._serialized_end=56098
-  _QUEUEGETBYIDREQUEST._serialized_start=56100
-  _QUEUEGETBYIDREQUEST._serialized_end=56139
-  _QUEUEGETBYIDRESPONSE._serialized_start=56141
-  _QUEUEGETBYIDRESPONSE._serialized_end=56228
-  _QUEUEGETORCREATEREQUEST._serialized_start=56231
-  _QUEUEGETORCREATEREQUEST._serialized_end=56377
-  _QUEUEGETORCREATERESPONSE._serialized_start=56379
-  _QUEUEGETORCREATERESPONSE._serialized_end=56470
-  _QUEUEGETREQUEST._serialized_start=56472
-  _QUEUEGETREQUEST._serialized_end=56565
-  _QUEUEGETRESPONSE._serialized_start=56567
-  _QUEUEGETRESPONSE._serialized_end=56601
-  _QUEUEHEARTBEATREQUEST._serialized_start=56603
-  _QUEUEHEARTBEATREQUEST._serialized_end=56644
-  _QUEUEITEM._serialized_start=56646
-  _QUEUEITEM._serialized_end=56690
-  _QUEUELENREQUEST._serialized_start=56692
-  _QUEUELENREQUEST._serialized_end=56765
-  _QUEUELENRESPONSE._serialized_start=56767
-  _QUEUELENRESPONSE._serialized_end=56798
-  _QUEUELISTREQUEST._serialized_start=56800
-  _QUEUELISTREQUEST._serialized_end=56920
-  _QUEUELISTRESPONSE._serialized_start=56923
-  _QUEUELISTRESPONSE._serialized_end=57184
-  _QUEUELISTRESPONSE_QUEUEINFO._serialized_start=57030
-  _QUEUELISTRESPONSE_QUEUEINFO._serialized_end=57184
-  _QUEUEMETADATA._serialized_start=57186
-  _QUEUEMETADATA._serialized_end=57266
-  _QUEUENEXTITEMSREQUEST._serialized_start=57268
-  _QUEUENEXTITEMSREQUEST._serialized_end=57382
-  _QUEUENEXTITEMSRESPONSE._serialized_start=57384
-  _QUEUENEXTITEMSRESPONSE._serialized_end=57448
-  _QUEUEPUTREQUEST._serialized_start=57450
-  _QUEUEPUTREQUEST._serialized_end=57555
-  _RPCRETRYPOLICY._serialized_start=57557
-  _RPCRETRYPOLICY._serialized_end=57599
-  _RPCSTATUS._serialized_start=57601
-  _RPCSTATUS._serialized_end=57682
-  _RATELIMIT._serialized_start=57684
-  _RATELIMIT._serialized_end=57761
-  _RESOURCEINFO._serialized_start=57764
-  _RESOURCEINFO._serialized_end=58043
-  _RESOURCEINFO_RESOURCEVALUE._serialized_start=57993
-  _RESOURCEINFO_RESOURCEVALUE._serialized_end=58043
-  _RESOURCES._serialized_start=58046
-  _RESOURCES._serialized_end=58227
-  _RUNTIMEINPUTMESSAGE._serialized_start=58229
-  _RUNTIMEINPUTMESSAGE._serialized_end=58303
-  _RUNTIMEOUTPUTBATCH._serialized_start=58306
-  _RUNTIMEOUTPUTBATCH._serialized_end=58590
-  _RUNTIMEOUTPUTMESSAGE._serialized_start=58592
-  _RUNTIMEOUTPUTMESSAGE._serialized_end=58709
-  _S3MOUNT._serialized_start=58711
-  _S3MOUNT._serialized_end=58811
-  _SANDBOX._serialized_start=58814
-  _SANDBOX._serialized_end=60566
-  _SANDBOX_EXPERIMENTALOPTIONSENTRY._serialized_start=60255
-  _SANDBOX_EXPERIMENTALOPTIONSENTRY._serialized_end=60313
-  _SANDBOX_EXPERIMENTALOPTIONSV2ENTRY._serialized_start=60315
-  _SANDBOX_EXPERIMENTALOPTIONSV2ENTRY._serialized_end=60375
-  _SANDBOXCREATECONNECTTOKENREQUEST._serialized_start=60568
-  _SANDBOXCREATECONNECTTOKENREQUEST._serialized_end=60673
-  _SANDBOXCREATECONNECTTOKENRESPONSE._serialized_start=60675
-  _SANDBOXCREATECONNECTTOKENRESPONSE._serialized_end=60738
-  _SANDBOXCREATEREQUEST._serialized_start=60741
-  _SANDBOXCREATEREQUEST._serialized_end=60888
-  _SANDBOXCREATERESPONSE._serialized_start=60890
-  _SANDBOXCREATERESPONSE._serialized_end=60988
-  _SANDBOXCREATEV2REQUEST._serialized_start=60991
-  _SANDBOXCREATEV2REQUEST._serialized_end=61370
-  _SANDBOXCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY._serialized_start=61279
-  _SANDBOXCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY._serialized_end=61370
-  _SANDBOXCREATEV2RESPONSE._serialized_start=61373
-  _SANDBOXCREATEV2RESPONSE._serialized_end=61599
-  _SANDBOXGETCOMMANDROUTERACCESSREQUEST._serialized_start=61601
-  _SANDBOXGETCOMMANDROUTERACCESSREQUEST._serialized_end=61690
-  _SANDBOXGETCOMMANDROUTERACCESSRESPONSE._serialized_start=61692
-  _SANDBOXGETCOMMANDROUTERACCESSRESPONSE._serialized_end=61786
-  _SANDBOXGETEXITSNAPSHOTREQUEST._serialized_start=61788
-  _SANDBOXGETEXITSNAPSHOTREQUEST._serialized_end=61856
-  _SANDBOXGETEXITSNAPSHOTRESPONSE._serialized_start=61859
-  _SANDBOXGETEXITSNAPSHOTRESPONSE._serialized_end=62349
-  _SANDBOXGETEXITSNAPSHOTRESPONSE_SUCCESS._serialized_start=62108
-  _SANDBOXGETEXITSNAPSHOTRESPONSE_SUCCESS._serialized_end=62135
-  _SANDBOXGETEXITSNAPSHOTRESPONSE_PENDING._serialized_start=62137
-  _SANDBOXGETEXITSNAPSHOTRESPONSE_PENDING._serialized_end=62146
-  _SANDBOXGETEXITSNAPSHOTRESPONSE_ERROR._serialized_start=62148
-  _SANDBOXGETEXITSNAPSHOTRESPONSE_ERROR._serialized_end=62248
-  _SANDBOXGETEXITSNAPSHOTRESPONSE_ERRORCODE._serialized_start=62250
-  _SANDBOXGETEXITSNAPSHOTRESPONSE_ERRORCODE._serialized_end=62338
-  _SANDBOXGETFROMNAMEREQUEST._serialized_start=62351
-  _SANDBOXGETFROMNAMEREQUEST._serialized_end=62444
-  _SANDBOXGETFROMNAMERESPONSE._serialized_start=62446
-  _SANDBOXGETFROMNAMERESPONSE._serialized_end=62549
-  _SANDBOXGETLOGSREQUEST._serialized_start=62552
-  _SANDBOXGETLOGSREQUEST._serialized_end=62690
-  _SANDBOXGETRESOURCEUSAGEREQUEST._serialized_start=62692
-  _SANDBOXGETRESOURCEUSAGEREQUEST._serialized_end=62744
-  _SANDBOXGETRESOURCEUSAGERESPONSE._serialized_start=62747
-  _SANDBOXGETRESOURCEUSAGERESPONSE._serialized_end=62891
-  _SANDBOXGETTASKIDREQUEST._serialized_start=62893
-  _SANDBOXGETTASKIDREQUEST._serialized_end=62998
-  _SANDBOXGETTASKIDRESPONSE._serialized_start=63001
-  _SANDBOXGETTASKIDRESPONSE._serialized_end=63132
-  _SANDBOXGETTUNNELSREQUEST._serialized_start=63134
-  _SANDBOXGETTUNNELSREQUEST._serialized_end=63197
-  _SANDBOXGETTUNNELSRESPONSE._serialized_start=63199
-  _SANDBOXGETTUNNELSRESPONSE._serialized_end=63314
-  _SANDBOXHANDLEMETADATA._serialized_start=63316
-  _SANDBOXHANDLEMETADATA._serialized_end=63400
-  _SANDBOXINFO._serialized_start=63403
-  _SANDBOXINFO._serialized_end=63934
-  _SANDBOXLISTREQUEST._serialized_start=63937
-  _SANDBOXLISTREQUEST._serialized_end=64091
-  _SANDBOXLISTRESPONSE._serialized_start=64093
-  _SANDBOXLISTRESPONSE._serialized_end=64160
-  _SANDBOXRESTOREREQUEST._serialized_start=64163
-  _SANDBOXRESTOREREQUEST._serialized_end=64583
-  _SANDBOXRESTOREREQUEST_SANDBOXNAMEOVERRIDETYPE._serialized_start=64438
-  _SANDBOXRESTOREREQUEST_SANDBOXNAMEOVERRIDETYPE._serialized_end=64583
-  _SANDBOXRESTORERESPONSE._serialized_start=64585
-  _SANDBOXRESTORERESPONSE._serialized_end=64629
-  _SANDBOXRESTOREV2REQUEST._serialized_start=64632
-  _SANDBOXRESTOREV2REQUEST._serialized_end=64825
-  _SANDBOXRESTOREV2RESPONSE._serialized_start=64828
-  _SANDBOXRESTOREV2RESPONSE._serialized_end=65055
-  _SANDBOXSETNAMEREQUEST._serialized_start=65057
-  _SANDBOXSETNAMEREQUEST._serialized_end=65114
-  _SANDBOXSETNAMERESPONSE._serialized_start=65116
-  _SANDBOXSETNAMERESPONSE._serialized_end=65140
-  _SANDBOXSNAPSHOTFSASYNCGETREQUEST._serialized_start=65142
-  _SANDBOXSNAPSHOTFSASYNCGETREQUEST._serialized_end=65211
-  _SANDBOXSNAPSHOTFSASYNCREQUEST._serialized_start=65213
-  _SANDBOXSNAPSHOTFSASYNCREQUEST._serialized_end=65264
-  _SANDBOXSNAPSHOTFSASYNCRESPONSE._serialized_start=65266
-  _SANDBOXSNAPSHOTFSASYNCRESPONSE._serialized_end=65316
-  _SANDBOXSNAPSHOTFSREQUEST._serialized_start=65318
-  _SANDBOXSNAPSHOTFSREQUEST._serialized_end=65381
-  _SANDBOXSNAPSHOTFSRESPONSE._serialized_start=65384
-  _SANDBOXSNAPSHOTFSRESPONSE._serialized_end=65527
-  _SANDBOXSNAPSHOTGETREQUEST._serialized_start=65529
-  _SANDBOXSNAPSHOTGETREQUEST._serialized_end=65577
-  _SANDBOXSNAPSHOTGETRESPONSE._serialized_start=65579
-  _SANDBOXSNAPSHOTGETRESPONSE._serialized_end=65698
-  _SANDBOXSNAPSHOTHANDLEMETADATA._serialized_start=65700
-  _SANDBOXSNAPSHOTHANDLEMETADATA._serialized_end=65746
-  _SANDBOXSNAPSHOTREQUEST._serialized_start=65748
-  _SANDBOXSNAPSHOTREQUEST._serialized_end=65792
-  _SANDBOXSNAPSHOTRESPONSE._serialized_start=65794
-  _SANDBOXSNAPSHOTRESPONSE._serialized_end=65840
-  _SANDBOXSNAPSHOTWAITREQUEST._serialized_start=65842
-  _SANDBOXSNAPSHOTWAITREQUEST._serialized_end=65908
-  _SANDBOXSNAPSHOTWAITRESPONSE._serialized_start=65910
-  _SANDBOXSNAPSHOTWAITRESPONSE._serialized_end=65984
-  _SANDBOXSTDINWRITEREQUEST._serialized_start=65986
-  _SANDBOXSTDINWRITEREQUEST._serialized_end=66075
-  _SANDBOXSTDINWRITERESPONSE._serialized_start=66077
-  _SANDBOXSTDINWRITERESPONSE._serialized_end=66104
-  _SANDBOXTAG._serialized_start=66106
-  _SANDBOXTAG._serialized_end=66155
-  _SANDBOXTAGSGETREQUEST._serialized_start=66157
-  _SANDBOXTAGSGETREQUEST._serialized_end=66200
-  _SANDBOXTAGSGETRESPONSE._serialized_start=66202
-  _SANDBOXTAGSGETRESPONSE._serialized_end=66266
-  _SANDBOXTAGSSETREQUEST._serialized_start=66268
-  _SANDBOXTAGSSETREQUEST._serialized_end=66377
-  _SANDBOXTERMINATEREQUEST._serialized_start=66379
-  _SANDBOXTERMINATEREQUEST._serialized_end=66424
-  _SANDBOXTERMINATERESPONSE._serialized_start=66426
-  _SANDBOXTERMINATERESPONSE._serialized_end=66506
-  _SANDBOXWAITREQUEST._serialized_start=66508
-  _SANDBOXWAITREQUEST._serialized_end=66565
-  _SANDBOXWAITRESPONSE._serialized_start=66567
-  _SANDBOXWAITRESPONSE._serialized_end=66688
-  _SANDBOXWAITUNTILREADYREQUEST._serialized_start=66690
-  _SANDBOXWAITUNTILREADYREQUEST._serialized_end=66757
-  _SANDBOXWAITUNTILREADYRESPONSE._serialized_start=66759
-  _SANDBOXWAITUNTILREADYRESPONSE._serialized_end=66808
-  _SCHEDULE._serialized_start=66811
-  _SCHEDULE._serialized_end=67099
-  _SCHEDULE_CRON._serialized_start=66917
-  _SCHEDULE_CRON._serialized_end=66962
-  _SCHEDULE_PERIOD._serialized_start=66964
-  _SCHEDULE_PERIOD._serialized_end=67081
-  _SCHEDULERPLACEMENT._serialized_start=67102
-  _SCHEDULERPLACEMENT._serialized_end=67276
-  _SECRETCREATEREQUEST._serialized_start=67279
-  _SECRETCREATEREQUEST._serialized_end=67481
-  _SECRETCREATEREQUEST_ENVDICTENTRY._serialized_start=67435
-  _SECRETCREATEREQUEST_ENVDICTENTRY._serialized_end=67481
-  _SECRETCREATERESPONSE._serialized_start=67483
-  _SECRETCREATERESPONSE._serialized_end=67524
-  _SECRETDELETEREQUEST._serialized_start=67526
-  _SECRETDELETEREQUEST._serialized_end=67566
-  _SECRETGETORCREATEREQUEST._serialized_start=67569
-  _SECRETGETORCREATEREQUEST._serialized_end=67874
-  _SECRETGETORCREATEREQUEST_ENVDICTENTRY._serialized_start=67435
-  _SECRETGETORCREATEREQUEST_ENVDICTENTRY._serialized_end=67481
-  _SECRETGETORCREATERESPONSE._serialized_start=67876
-  _SECRETGETORCREATERESPONSE._serialized_end=67970
-  _SECRETLISTITEM._serialized_start=67973
-  _SECRETLISTITEM._serialized_end=68139
-  _SECRETLISTREQUEST._serialized_start=68141
-  _SECRETLISTREQUEST._serialized_end=68236
-  _SECRETLISTRESPONSE._serialized_start=68238
-  _SECRETLISTRESPONSE._serialized_end=68329
-  _SECRETMETADATA._serialized_start=68331
-  _SECRETMETADATA._serialized_end=68412
-  _SECRETUPDATEREQUEST._serialized_start=68415
-  _SECRETUPDATEREQUEST._serialized_end=68567
-  _SECRETUPDATEREQUEST_UPDATE._serialized_start=68516
-  _SECRETUPDATEREQUEST_UPDATE._serialized_end=68567
-  _SERVICEUSER._serialized_start=68570
-  _SERVICEUSER._serialized_end=68733
-  _SERVICEUSERIDENTITY._serialized_start=68735
-  _SERVICEUSERIDENTITY._serialized_end=68856
-  _SERVICEUSERLISTRESPONSE._serialized_start=68858
-  _SERVICEUSERLISTRESPONSE._serialized_end=68933
-  _SHAREDVOLUMEDELETEREQUEST._serialized_start=68935
-  _SHAREDVOLUMEDELETEREQUEST._serialized_end=68988
-  _SHAREDVOLUMEGETFILEREQUEST._serialized_start=68990
-  _SHAREDVOLUMEGETFILEREQUEST._serialized_end=69058
-  _SHAREDVOLUMEGETFILERESPONSE._serialized_start=69060
-  _SHAREDVOLUMEGETFILERESPONSE._serialized_end=69143
-  _SHAREDVOLUMEGETORCREATEREQUEST._serialized_start=69146
-  _SHAREDVOLUMEGETORCREATEREQUEST._serialized_end=69315
-  _SHAREDVOLUMEGETORCREATERESPONSE._serialized_start=69317
-  _SHAREDVOLUMEGETORCREATERESPONSE._serialized_end=69376
-  _SHAREDVOLUMEHEARTBEATREQUEST._serialized_start=69378
-  _SHAREDVOLUMEHEARTBEATREQUEST._serialized_end=69434
-  _SHAREDVOLUMELISTFILESREQUEST._serialized_start=69436
-  _SHAREDVOLUMELISTFILESREQUEST._serialized_end=69506
-  _SHAREDVOLUMELISTFILESRESPONSE._serialized_start=69508
-  _SHAREDVOLUMELISTFILESRESPONSE._serialized_end=69581
-  _SHAREDVOLUMELISTITEM._serialized_start=69584
-  _SHAREDVOLUMELISTITEM._serialized_end=69720
-  _SHAREDVOLUMELISTREQUEST._serialized_start=69722
-  _SHAREDVOLUMELISTREQUEST._serialized_end=69773
-  _SHAREDVOLUMELISTRESPONSE._serialized_start=69775
-  _SHAREDVOLUMELISTRESPONSE._serialized_end=69878
-  _SHAREDVOLUMEMOUNT._serialized_start=69880
-  _SHAREDVOLUMEMOUNT._serialized_end=70004
-  _SHAREDVOLUMEPUTFILEREQUEST._serialized_start=70007
-  _SHAREDVOLUMEPUTFILEREQUEST._serialized_end=70168
-  _SHAREDVOLUMEPUTFILERESPONSE._serialized_start=70170
-  _SHAREDVOLUMEPUTFILERESPONSE._serialized_end=70215
-  _SHAREDVOLUMEREMOVEFILEREQUEST._serialized_start=70217
-  _SHAREDVOLUMEREMOVEFILEREQUEST._serialized_end=70307
-  _STRINGMAP._serialized_start=70309
-  _STRINGMAP._serialized_end=70426
-  _STRINGMAP_CONTENTSENTRY._serialized_start=70379
-  _STRINGMAP_CONTENTSENTRY._serialized_end=70426
-  _SYSTEMERRORMESSAGE._serialized_start=70428
-  _SYSTEMERRORMESSAGE._serialized_end=70522
-  _TASKCLUSTERHELLOREQUEST._serialized_start=70524
-  _TASKCLUSTERHELLOREQUEST._serialized_end=70610
-  _TASKCLUSTERHELLORESPONSE._serialized_start=70613
-  _TASKCLUSTERHELLORESPONSE._serialized_end=70775
-  _TASKCURRENTINPUTSRESPONSE._serialized_start=70777
-  _TASKCURRENTINPUTSRESPONSE._serialized_end=70823
-  _TASKGETCOMMANDROUTERACCESSREQUEST._serialized_start=70825
-  _TASKGETCOMMANDROUTERACCESSREQUEST._serialized_end=70877
-  _TASKGETCOMMANDROUTERACCESSRESPONSE._serialized_start=70879
-  _TASKGETCOMMANDROUTERACCESSRESPONSE._serialized_end=70941
-  _TASKGETINFOREQUEST._serialized_start=70943
-  _TASKGETINFOREQUEST._serialized_end=70980
-  _TASKGETINFORESPONSE._serialized_start=70982
-  _TASKGETINFORESPONSE._serialized_end=71057
-  _TASKINFO._serialized_start=71060
-  _TASKINFO._serialized_end=71335
-  _TASKLISTREQUEST._serialized_start=71337
-  _TASKLISTREQUEST._serialized_end=71396
-  _TASKLISTRESPONSE._serialized_start=71398
-  _TASKLISTRESPONSE._serialized_end=71456
-  _TASKLOGS._serialized_start=71459
-  _TASKLOGS._serialized_end=71769
-  _TASKLOGSBATCH._serialized_start=71772
-  _TASKLOGSBATCH._serialized_end=72014
-  _TASKPROGRESS._serialized_start=72016
-  _TASKPROGRESS._serialized_end=72128
-  _TASKRESULTREQUEST._serialized_start=72130
-  _TASKRESULTREQUEST._serialized_end=72194
-  _TASKSTATS._serialized_start=72196
-  _TASKSTATS._serialized_end=72306
-  _TASKTEMPLATE._serialized_start=72309
-  _TASKTEMPLATE._serialized_end=72461
-  _TEMPLATELISTREQUEST._serialized_start=72463
-  _TEMPLATELISTREQUEST._serialized_end=72484
-  _TEMPLATELISTRESPONSE._serialized_start=72487
-  _TEMPLATELISTRESPONSE._serialized_end=72638
-  _TEMPLATELISTRESPONSE_TEMPLATELISTITEM._serialized_start=72579
-  _TEMPLATELISTRESPONSE_TEMPLATELISTITEM._serialized_end=72638
-  _TOKENCREATERESPONSE._serialized_start=72640
-  _TOKENCREATERESPONSE._serialized_end=72701
-  _TOKENDELETEREQUEST._serialized_start=72703
-  _TOKENDELETEREQUEST._serialized_end=72741
-  _TOKENFLOWCREATEREQUEST._serialized_start=72743
-  _TOKENFLOWCREATEREQUEST._serialized_end=72829
-  _TOKENFLOWCREATERESPONSE._serialized_start=72831
-  _TOKENFLOWCREATERESPONSE._serialized_end=72931
-  _TOKENFLOWWAITREQUEST._serialized_start=72933
-  _TOKENFLOWWAITREQUEST._serialized_end=73016
-  _TOKENFLOWWAITRESPONSE._serialized_start=73018
-  _TOKENFLOWWAITRESPONSE._serialized_end=73126
-  _TOKENINFOGETREQUEST._serialized_start=73128
-  _TOKENINFOGETREQUEST._serialized_end=73149
-  _TOKENINFOGETRESPONSE._serialized_start=73152
-  _TOKENINFOGETRESPONSE._serialized_end=73487
-  _TUNNELDATA._serialized_start=73490
-  _TUNNELDATA._serialized_end=73658
-  _TUNNELSTARTREQUEST._serialized_start=73660
-  _TUNNELSTARTREQUEST._serialized_end=73783
-  _TUNNELSTARTRESPONSE._serialized_start=73786
-  _TUNNELSTARTRESPONSE._serialized_end=73939
-  _TUNNELSTOPREQUEST._serialized_start=73941
-  _TUNNELSTOPREQUEST._serialized_end=73974
-  _TUNNELSTOPRESPONSE._serialized_start=73976
-  _TUNNELSTOPRESPONSE._serialized_end=74012
-  _UPLOADURLLIST._serialized_start=74014
-  _UPLOADURLLIST._serialized_end=74044
-  _USERACTIONINFO._serialized_start=74046
-  _USERACTIONINFO._serialized_end=74145
-  _USERGROUPENVIRONMENTSETREQUEST._serialized_start=74147
-  _USERGROUPENVIRONMENTSETREQUEST._serialized_end=74271
-  _USERIDENTITY._serialized_start=74273
-  _USERIDENTITY._serialized_end=74322
-  _VOLUMECOMMITREQUEST._serialized_start=74324
-  _VOLUMECOMMITREQUEST._serialized_end=74408
-  _VOLUMECOMMITRESPONSE._serialized_start=74410
-  _VOLUMECOMMITRESPONSE._serialized_end=74453
-  _VOLUMECOPYFILES2REQUEST._serialized_start=74455
-  _VOLUMECOPYFILES2REQUEST._serialized_end=74555
-  _VOLUMECOPYFILESREQUEST._serialized_start=74557
-  _VOLUMECOPYFILESREQUEST._serialized_end=74656
-  _VOLUMECREATEOPTIONS._serialized_start=74659
-  _VOLUMECREATEOPTIONS._serialized_end=74830
-  _VOLUMECREATEOPTIONS_EXPERIMENTALOPTIONSENTRY._serialized_start=31619
-  _VOLUMECREATEOPTIONS_EXPERIMENTALOPTIONSENTRY._serialized_end=31677
-  _VOLUMEDELETEREQUEST._serialized_start=74832
-  _VOLUMEDELETEREQUEST._serialized_end=74902
-  _VOLUMEGETBYIDREQUEST._serialized_start=74904
-  _VOLUMEGETBYIDREQUEST._serialized_end=74945
-  _VOLUMEGETBYIDRESPONSE._serialized_start=74947
-  _VOLUMEGETBYIDRESPONSE._serialized_end=75037
-  _VOLUMEGETFILE2REQUEST._serialized_start=75039
-  _VOLUMEGETFILE2REQUEST._serialized_end=75123
-  _VOLUMEGETFILE2RESPONSE._serialized_start=75125
-  _VOLUMEGETFILE2RESPONSE._serialized_end=75209
-  _VOLUMEGETFILEREQUEST._serialized_start=75211
-  _VOLUMEGETFILEREQUEST._serialized_end=75294
-  _VOLUMEGETFILERESPONSE._serialized_start=75296
-  _VOLUMEGETFILERESPONSE._serialized_end=75415
-  _VOLUMEGETORCREATEREQUEST._serialized_start=75418
-  _VOLUMEGETORCREATEREQUEST._serialized_end=75712
-  _VOLUMEGETORCREATERESPONSE._serialized_start=75715
-  _VOLUMEGETORCREATERESPONSE._serialized_end=75857
-  _VOLUMEHEARTBEATREQUEST._serialized_start=75859
-  _VOLUMEHEARTBEATREQUEST._serialized_end=75902
-  _VOLUMELISTFILES2REQUEST._serialized_start=75904
-  _VOLUMELISTFILES2REQUEST._serialized_end=76023
-  _VOLUMELISTFILES2RESPONSE._serialized_start=76025
-  _VOLUMELISTFILES2RESPONSE._serialized_end=76093
-  _VOLUMELISTFILESREQUEST._serialized_start=76095
-  _VOLUMELISTFILESREQUEST._serialized_end=76213
-  _VOLUMELISTFILESRESPONSE._serialized_start=76215
-  _VOLUMELISTFILESRESPONSE._serialized_end=76282
-  _VOLUMELISTITEM._serialized_start=76284
-  _VOLUMELISTITEM._serialized_end=76402
-  _VOLUMELISTREQUEST._serialized_start=76404
-  _VOLUMELISTREQUEST._serialized_end=76499
-  _VOLUMELISTRESPONSE._serialized_start=76501
-  _VOLUMELISTRESPONSE._serialized_end=76592
-  _VOLUMEMETADATA._serialized_start=76595
-  _VOLUMEMETADATA._serialized_end=76724
-  _VOLUMEMOUNT._serialized_start=76727
-  _VOLUMEMOUNT._serialized_end=76868
-  _VOLUMEPUTFILES2REQUEST._serialized_start=76871
-  _VOLUMEPUTFILES2REQUEST._serialized_end=77217
-  _VOLUMEPUTFILES2REQUEST_FILE._serialized_start=77017
-  _VOLUMEPUTFILES2REQUEST_FILE._serialized_end=77139
-  _VOLUMEPUTFILES2REQUEST_BLOCK._serialized_start=77141
-  _VOLUMEPUTFILES2REQUEST_BLOCK._serialized_end=77217
-  _VOLUMEPUTFILES2RESPONSE._serialized_start=77220
-  _VOLUMEPUTFILES2RESPONSE._serialized_end=77395
-  _VOLUMEPUTFILES2RESPONSE_MISSINGBLOCK._serialized_start=77323
-  _VOLUMEPUTFILES2RESPONSE_MISSINGBLOCK._serialized_end=77395
-  _VOLUMEPUTFILESREQUEST._serialized_start=77397
-  _VOLUMEPUTFILESREQUEST._serialized_end=77522
-  _VOLUMERELOADREQUEST._serialized_start=77524
-  _VOLUMERELOADREQUEST._serialized_end=77564
-  _VOLUMEREMOVEFILE2REQUEST._serialized_start=77566
-  _VOLUMEREMOVEFILE2REQUEST._serialized_end=77644
-  _VOLUMEREMOVEFILEREQUEST._serialized_start=77646
-  _VOLUMEREMOVEFILEREQUEST._serialized_end=77723
-  _VOLUMERENAMEREQUEST._serialized_start=77725
-  _VOLUMERENAMEREQUEST._serialized_end=77779
-  _WARNING._serialized_start=77782
-  _WARNING._serialized_end=78014
-  _WARNING_WARNINGTYPE._serialized_start=77860
-  _WARNING_WARNINGTYPE._serialized_end=78014
-  _WEBURLINFO._serialized_start=78016
-  _WEBURLINFO._serialized_end=78098
-  _WEBHOOKCONFIG._serialized_start=78101
-  _WEBHOOKCONFIG._serialized_end=78452
-  _WEBHOOKTOKEN._serialized_start=78454
-  _WEBHOOKTOKEN._serialized_end=78522
-  _WEBHOOKTOKENCREATEREQUEST._serialized_start=78524
-  _WEBHOOKTOKENCREATEREQUEST._serialized_end=78567
-  _WEBHOOKTOKENENVIRONMENTADDREQUEST._serialized_start=78569
-  _WEBHOOKTOKENENVIRONMENTADDREQUEST._serialized_end=78646
-  _WEBHOOKTOKENENVIRONMENTLISTREQUEST._serialized_start=78648
-  _WEBHOOKTOKENENVIRONMENTLISTREQUEST._serialized_end=78702
-  _WEBHOOKTOKENENVIRONMENTLISTRESPONSE._serialized_start=78704
-  _WEBHOOKTOKENENVIRONMENTLISTRESPONSE._serialized_end=78766
-  _WEBHOOKTOKENENVIRONMENTREMOVEREQUEST._serialized_start=78768
-  _WEBHOOKTOKENENVIRONMENTREMOVEREQUEST._serialized_end=78848
-  _WEBHOOKTOKENLISTFORENVIRONMENTREQUEST._serialized_start=78850
-  _WEBHOOKTOKENLISTFORENVIRONMENTREQUEST._serialized_end=78915
-  _WEBHOOKTOKENLISTRESPONSE._serialized_start=78917
-  _WEBHOOKTOKENLISTRESPONSE._serialized_end=78987
-  _WORKSPACEBILLINGRATESREQUEST._serialized_start=78989
-  _WORKSPACEBILLINGRATESREQUEST._serialized_end=79019
-  _WORKSPACEBILLINGRATESRESPONSE._serialized_start=79022
-  _WORKSPACEBILLINGRATESRESPONSE._serialized_end=79503
-  _WORKSPACEBILLINGRATESRESPONSE_RATESENTRY._serialized_start=79341
-  _WORKSPACEBILLINGRATESRESPONSE_RATESENTRY._serialized_end=79385
-  _WORKSPACEBILLINGRATESRESPONSE_DEPRECATIONWARNINGSENTRY._serialized_start=79387
-  _WORKSPACEBILLINGRATESRESPONSE_DEPRECATIONWARNINGSENTRY._serialized_end=79445
-  _WORKSPACEBILLINGRATESRESPONSE_DEPRECATIONERRORSENTRY._serialized_start=79447
-  _WORKSPACEBILLINGRATESRESPONSE_DEPRECATIONERRORSENTRY._serialized_end=79503
-  _WORKSPACEBILLINGREPORTITEM._serialized_start=79506
-  _WORKSPACEBILLINGREPORTITEM._serialized_end=79914
-  _WORKSPACEBILLINGREPORTITEM_TAGSENTRY._serialized_start=1023
-  _WORKSPACEBILLINGREPORTITEM_TAGSENTRY._serialized_end=1066
-  _WORKSPACEBILLINGREPORTITEM_COSTBYRESOURCEENTRY._serialized_start=79861
-  _WORKSPACEBILLINGREPORTITEM_COSTBYRESOURCEENTRY._serialized_end=79914
-  _WORKSPACEBILLINGREPORTREQUEST._serialized_start=79917
-  _WORKSPACEBILLINGREPORTREQUEST._serialized_end=80133
-  _WORKSPACEBILLINGSUMMARYREQUEST._serialized_start=80135
-  _WORKSPACEBILLINGSUMMARYREQUEST._serialized_end=80220
-  _WORKSPACEBILLINGSUMMARYRESPONSE._serialized_start=80223
-  _WORKSPACEBILLINGSUMMARYRESPONSE._serialized_end=80706
-  _WORKSPACEBILLINGSUMMARYRESPONSE_METEREDCOSTBREAKDOWNENTRY._serialized_start=23454
-  _WORKSPACEBILLINGSUMMARYRESPONSE_METEREDCOSTBREAKDOWNENTRY._serialized_end=23513
-  _WORKSPACEBILLINGSUMMARYRESPONSE_ADJUSTMENTSENTRY._serialized_start=80656
-  _WORKSPACEBILLINGSUMMARYRESPONSE_ADJUSTMENTSENTRY._serialized_end=80706
-  _WORKSPACEDASHBOARDURLREQUEST._serialized_start=80708
-  _WORKSPACEDASHBOARDURLREQUEST._serialized_end=80764
-  _WORKSPACEDASHBOARDURLRESPONSE._serialized_start=80766
-  _WORKSPACEDASHBOARDURLRESPONSE._serialized_end=80810
-  _WORKSPACEMEMBERSLISTITEM._serialized_start=80813
-  _WORKSPACEMEMBERSLISTITEM._serialized_end=81147
-  _WORKSPACEMEMBERSLISTRESPONSE._serialized_start=81149
-  _WORKSPACEMEMBERSLISTRESPONSE._serialized_end=81236
-  _WORKSPACENAMELOOKUPRESPONSE._serialized_start=81238
-  _WORKSPACENAMELOOKUPRESPONSE._serialized_end=81313
-  _WORKSPACESETDEFAULTENVIRONMENTREQUEST._serialized_start=81315
-  _WORKSPACESETDEFAULTENVIRONMENTREQUEST._serialized_end=81380
-  _WORKSPACESETIMAGEBUILDERVERSIONREQUEST._serialized_start=81382
-  _WORKSPACESETIMAGEBUILDERVERSIONREQUEST._serialized_end=81457
-  _WORKSPACESETIMAGEBUILDERVERSIONRESPONSE._serialized_start=81459
-  _WORKSPACESETIMAGEBUILDERVERSIONRESPONSE._serialized_end=81531
-  _WORKSPACESETTINGSRESPONSE._serialized_start=81533
-  _WORKSPACESETTINGSRESPONSE._serialized_end=81625
-  _MODALCLIENT._serialized_start=89053
-  _MODALCLIENT._serialized_end=111785
+  _APPCOUNTLOGSREQUEST._serialized_end=636
+  _APPCOUNTLOGSRESPONSE._serialized_start=639
+  _APPCOUNTLOGSRESPONSE._serialized_end=869
+  _APPCOUNTLOGSRESPONSE_LOGBUCKET._serialized_start=742
+  _APPCOUNTLOGSRESPONSE_LOGBUCKET._serialized_end=869
+  _APPCREATEREQUEST._serialized_start=872
+  _APPCREATEREQUEST._serialized_end=1100
+  _APPCREATEREQUEST_TAGSENTRY._serialized_start=1057
+  _APPCREATEREQUEST_TAGSENTRY._serialized_end=1100
+  _APPCREATERESPONSE._serialized_start=1102
+  _APPCREATERESPONSE._serialized_end=1181
+  _APPDEPLOYREQUEST._serialized_start=1184
+  _APPDEPLOYREQUEST._serialized_end=1329
+  _APPDEPLOYRESPONSE._serialized_start=1331
+  _APPDEPLOYRESPONSE._serialized_end=1363
+  _APPDEPLOYMENTHISTORY._serialized_start=1366
+  _APPDEPLOYMENTHISTORY._serialized_end=1707
+  _APPDEPLOYMENTHISTORYREQUEST._serialized_start=1709
+  _APPDEPLOYMENTHISTORYREQUEST._serialized_end=1754
+  _APPDEPLOYMENTHISTORYRESPONSE._serialized_start=1757
+  _APPDEPLOYMENTHISTORYRESPONSE._serialized_end=1889
+  _APPFETCHLOGSREQUEST._serialized_start=1892
+  _APPFETCHLOGSREQUEST._serialized_end=2215
+  _APPFETCHLOGSRESPONSE._serialized_start=2217
+  _APPFETCHLOGSRESPONSE._serialized_end=2285
+  _APPGETBYDEPLOYMENTNAMEREQUEST._serialized_start=2287
+  _APPGETBYDEPLOYMENTNAMEREQUEST._serialized_end=2364
+  _APPGETBYDEPLOYMENTNAMERESPONSE._serialized_start=2367
+  _APPGETBYDEPLOYMENTNAMERESPONSE._serialized_end=2513
+  _APPGETINFOREQUEST._serialized_start=2515
+  _APPGETINFOREQUEST._serialized_end=2550
+  _APPGETINFORESPONSE._serialized_start=2553
+  _APPGETINFORESPONSE._serialized_end=3043
+  _APPGETINFORESPONSE_FUNCTIONINFOSUMMARY._serialized_start=2717
+  _APPGETINFORESPONSE_FUNCTIONINFOSUMMARY._serialized_end=2927
+  _APPGETINFORESPONSE_FUNCTIONINFOSUMMARIESENTRY._serialized_start=2929
+  _APPGETINFORESPONSE_FUNCTIONINFOSUMMARIESENTRY._serialized_end=3043
+  _APPGETLAYOUTREQUEST._serialized_start=3045
+  _APPGETLAYOUTREQUEST._serialized_end=3082
+  _APPGETLAYOUTRESPONSE._serialized_start=3084
+  _APPGETLAYOUTRESPONSE._serialized_end=3151
+  _APPGETLIFECYCLEREQUEST._serialized_start=3153
+  _APPGETLIFECYCLEREQUEST._serialized_end=3193
+  _APPGETLIFECYCLERESPONSE._serialized_start=3195
+  _APPGETLIFECYCLERESPONSE._serialized_end=3267
+  _APPGETLOGSREQUEST._serialized_start=3270
+  _APPGETLOGSREQUEST._serialized_end=3557
+  _APPGETOBJECTSITEM._serialized_start=3559
+  _APPGETOBJECTSITEM._serialized_end=3629
+  _APPGETOBJECTSREQUEST._serialized_start=3631
+  _APPGETOBJECTSREQUEST._serialized_end=3725
+  _APPGETOBJECTSRESPONSE._serialized_start=3727
+  _APPGETOBJECTSRESPONSE._serialized_end=3798
+  _APPGETORCREATEREQUEST._serialized_start=3801
+  _APPGETORCREATEREQUEST._serialized_end=3932
+  _APPGETORCREATERESPONSE._serialized_start=3934
+  _APPGETORCREATERESPONSE._serialized_end=4032
+  _APPGETTAGSREQUEST._serialized_start=4034
+  _APPGETTAGSREQUEST._serialized_end=4069
+  _APPGETTAGSRESPONSE._serialized_start=4071
+  _APPGETTAGSRESPONSE._serialized_end=4194
+  _APPGETTAGSRESPONSE_TAGSENTRY._serialized_start=1057
+  _APPGETTAGSRESPONSE_TAGSENTRY._serialized_end=1100
+  _APPHANDLEMETADATA._serialized_start=4197
+  _APPHANDLEMETADATA._serialized_end=4554
+  _APPHANDLEMETADATA_FUNCTIONSENTRY._serialized_start=4458
+  _APPHANDLEMETADATA_FUNCTIONSENTRY._serialized_end=4506
+  _APPHANDLEMETADATA_SERVERSENTRY._serialized_start=4508
+  _APPHANDLEMETADATA_SERVERSENTRY._serialized_end=4554
+  _APPHEARTBEATREQUEST._serialized_start=4556
+  _APPHEARTBEATREQUEST._serialized_end=4593
+  _APPLAYOUT._serialized_start=4596
+  _APPLAYOUT._serialized_end=4869
+  _APPLAYOUT_FUNCTIONIDSENTRY._serialized_start=4770
+  _APPLAYOUT_FUNCTIONIDSENTRY._serialized_end=4820
+  _APPLAYOUT_CLASSIDSENTRY._serialized_start=4822
+  _APPLAYOUT_CLASSIDSENTRY._serialized_end=4869
+  _APPLIFECYCLE._serialized_start=4872
+  _APPLIFECYCLE._serialized_end=5068
+  _APPLISTREQUEST._serialized_start=5070
+  _APPLISTREQUEST._serialized_end=5112
+  _APPLISTRESPONSE._serialized_start=5115
+  _APPLISTRESPONSE._serialized_end=5360
+  _APPLISTRESPONSE_APPLISTITEM._serialized_start=5192
+  _APPLISTRESPONSE_APPLISTITEM._serialized_end=5360
+  _APPLOOKUPREQUEST._serialized_start=5362
+  _APPLOOKUPREQUEST._serialized_end=5424
+  _APPLOOKUPRESPONSE._serialized_start=5426
+  _APPLOOKUPRESPONSE._serialized_end=5461
+  _APPPROMOTEREQUEST._serialized_start=5463
+  _APPPROMOTEREQUEST._serialized_end=5515
+  _APPPROMOTERESPONSE._serialized_start=5517
+  _APPPROMOTERESPONSE._serialized_end=5619
+  _APPPUBLISHREQUEST._serialized_start=5622
+  _APPPUBLISHREQUEST._serialized_end=6377
+  _APPPUBLISHREQUEST_FUNCTIONIDSENTRY._serialized_start=4770
+  _APPPUBLISHREQUEST_FUNCTIONIDSENTRY._serialized_end=4820
+  _APPPUBLISHREQUEST_CLASSIDSENTRY._serialized_start=4822
+  _APPPUBLISHREQUEST_CLASSIDSENTRY._serialized_end=4869
+  _APPPUBLISHREQUEST_DEFINITIONIDSENTRY._serialized_start=6280
+  _APPPUBLISHREQUEST_DEFINITIONIDSENTRY._serialized_end=6332
+  _APPPUBLISHREQUEST_TAGSENTRY._serialized_start=1057
+  _APPPUBLISHREQUEST_TAGSENTRY._serialized_end=1100
+  _APPPUBLISHRESPONSE._serialized_start=6379
+  _APPPUBLISHRESPONSE._serialized_end=6481
+  _APPROLLBACKREQUEST._serialized_start=6483
+  _APPROLLBACKREQUEST._serialized_end=6536
+  _APPROLLBACKRESPONSE._serialized_start=6538
+  _APPROLLBACKRESPONSE._serialized_end=6641
+  _APPROLLOVERREQUEST._serialized_start=6643
+  _APPROLLOVERREQUEST._serialized_end=6679
+  _APPROLLOVERRESPONSE._serialized_start=6681
+  _APPROLLOVERRESPONSE._serialized_end=6784
+  _APPSETOBJECTSREQUEST._serialized_start=6787
+  _APPSETOBJECTSREQUEST._serialized_end=7070
+  _APPSETOBJECTSREQUEST_INDEXEDOBJECTIDSENTRY._serialized_start=7009
+  _APPSETOBJECTSREQUEST_INDEXEDOBJECTIDSENTRY._serialized_end=7064
+  _APPSETTAGSREQUEST._serialized_start=7073
+  _APPSETTAGSREQUEST._serialized_end=7210
+  _APPSETTAGSREQUEST_TAGSENTRY._serialized_start=1057
+  _APPSETTAGSREQUEST_TAGSENTRY._serialized_end=1100
+  _APPSTOPREQUEST._serialized_start=7212
+  _APPSTOPREQUEST._serialized_end=7289
+  _ASGI._serialized_start=7292
+  _ASGI._serialized_end=9119
+  _ASGI_HTTP._serialized_start=8112
+  _ASGI_HTTP._serialized_end=8309
+  _ASGI_HTTPREQUEST._serialized_start=8311
+  _ASGI_HTTPREQUEST._serialized_end=8357
+  _ASGI_HTTPRESPONSESTART._serialized_start=8359
+  _ASGI_HTTPRESPONSESTART._serialized_end=8429
+  _ASGI_HTTPRESPONSEBODY._serialized_start=8431
+  _ASGI_HTTPRESPONSEBODY._serialized_end=8482
+  _ASGI_HTTPRESPONSETRAILERS._serialized_start=8484
+  _ASGI_HTTPRESPONSETRAILERS._serialized_end=8546
+  _ASGI_HTTPDISCONNECT._serialized_start=8548
+  _ASGI_HTTPDISCONNECT._serialized_end=8564
+  _ASGI_WEBSOCKET._serialized_start=8567
+  _ASGI_WEBSOCKET._serialized_end=8775
+  _ASGI_WEBSOCKETCONNECT._serialized_start=8777
+  _ASGI_WEBSOCKETCONNECT._serialized_end=8795
+  _ASGI_WEBSOCKETACCEPT._serialized_start=8797
+  _ASGI_WEBSOCKETACCEPT._serialized_end=8873
+  _ASGI_WEBSOCKETRECEIVE._serialized_start=8875
+  _ASGI_WEBSOCKETRECEIVE._serialized_end=8937
+  _ASGI_WEBSOCKETSEND._serialized_start=8939
+  _ASGI_WEBSOCKETSEND._serialized_end=8998
+  _ASGI_WEBSOCKETDISCONNECT._serialized_start=9000
+  _ASGI_WEBSOCKETDISCONNECT._serialized_end=9049
+  _ASGI_WEBSOCKETCLOSE._serialized_start=9051
+  _ASGI_WEBSOCKETCLOSE._serialized_end=9111
+  _ATTEMPTAWAITREQUEST._serialized_start=9121
+  _ATTEMPTAWAITREQUEST._serialized_end=9209
+  _ATTEMPTAWAITRESPONSE._serialized_start=9211
+  _ATTEMPTAWAITRESPONSE._serialized_end=9303
+  _ATTEMPTRETRYREQUEST._serialized_start=9306
+  _ATTEMPTRETRYREQUEST._serialized_end=9448
+  _ATTEMPTRETRYRESPONSE._serialized_start=9450
+  _ATTEMPTRETRYRESPONSE._serialized_end=9495
+  _ATTEMPTSTARTREQUEST._serialized_start=9498
+  _ATTEMPTSTARTREQUEST._serialized_end=9634
+  _ATTEMPTSTARTRESPONSE._serialized_start=9636
+  _ATTEMPTSTARTRESPONSE._serialized_end=9738
+  _AUTHTOKENGETREQUEST._serialized_start=9740
+  _AUTHTOKENGETREQUEST._serialized_end=9761
+  _AUTHTOKENGETRESPONSE._serialized_start=9763
+  _AUTHTOKENGETRESPONSE._serialized_end=9800
+  _AUTOSCALERCONFIGURATION._serialized_start=9803
+  _AUTOSCALERCONFIGURATION._serialized_end=10229
+  _AUTOSCALERCONFIGURATION_OVERRIDEEVENTSENTRY._serialized_start=10146
+  _AUTOSCALERCONFIGURATION_OVERRIDEEVENTSENTRY._serialized_end=10229
+  _AUTOSCALERSETTINGS._serialized_start=10232
+  _AUTOSCALERSETTINGS._serialized_end=10692
+  _AUTOSCALINGMETRICS._serialized_start=10694
+  _AUTOSCALINGMETRICS._serialized_end=10819
+  _BASEIMAGE._serialized_start=10821
+  _BASEIMAGE._serialized_end=10876
+  _BLOBCREATEREQUEST._serialized_start=10878
+  _BLOBCREATEREQUEST._serialized_end=10973
+  _BLOBCREATERESPONSE._serialized_start=10976
+  _BLOBCREATERESPONSE._serialized_end=11257
+  _BLOBGETREQUEST._serialized_start=11259
+  _BLOBGETREQUEST._serialized_end=11292
+  _BLOBGETRESPONSE._serialized_start=11294
+  _BLOBGETRESPONSE._serialized_end=11333
+  _BLOBUPLOADRESULT._serialized_start=11336
+  _BLOBUPLOADRESULT._serialized_end=11534
+  _BLOBUPLOADRESULT_OUTCOME._serialized_start=11458
+  _BLOBUPLOADRESULT_OUTCOME._serialized_end=11534
+  _BUILDFUNCTION._serialized_start=11536
+  _BUILDFUNCTION._serialized_end=11632
+  _CANCELINPUTEVENT._serialized_start=11634
+  _CANCELINPUTEVENT._serialized_end=11730
+  _CHECKPOINTINFO._serialized_start=11733
+  _CHECKPOINTINFO._serialized_end=11976
+  _CLASSCREATEREQUEST._serialized_start=11979
+  _CLASSCREATEREQUEST._serialized_end=12121
+  _CLASSCREATERESPONSE._serialized_start=12123
+  _CLASSCREATERESPONSE._serialized_end=12222
+  _CLASSGETREQUEST._serialized_start=12225
+  _CLASSGETREQUEST._serialized_end=12374
+  _CLASSGETRESPONSE._serialized_start=12377
+  _CLASSGETRESPONSE._serialized_end=12521
+  _CLASSHANDLEMETADATA._serialized_start=12524
+  _CLASSHANDLEMETADATA._serialized_end=12687
+  _CLASSMETHOD._serialized_start=12690
+  _CLASSMETHOD._serialized_end=12819
+  _CLASSPARAMETERINFO._serialized_start=12822
+  _CLASSPARAMETERINFO._serialized_end=13125
+  _CLASSPARAMETERINFO_PARAMETERSERIALIZATIONFORMAT._serialized_start=12974
+  _CLASSPARAMETERINFO_PARAMETERSERIALIZATIONFORMAT._serialized_end=13125
+  _CLASSPARAMETERSET._serialized_start=13127
+  _CLASSPARAMETERSET._serialized_end=13201
+  _CLASSPARAMETERSPEC._serialized_start=13204
+  _CLASSPARAMETERSPEC._serialized_end=13496
+  _CLASSPARAMETERVALUE._serialized_start=13499
+  _CLASSPARAMETERVALUE._serialized_end=13706
+  _CLIENTHELLORESPONSE._serialized_start=13708
+  _CLIENTHELLORESPONSE._serialized_end=13825
+  _CLOUDBUCKETMOUNT._serialized_start=13828
+  _CLOUDBUCKETMOUNT._serialized_end=14511
+  _CLOUDBUCKETMOUNT_BUCKETTYPE._serialized_start=14254
+  _CLOUDBUCKETMOUNT_BUCKETTYPE._serialized_end=14308
+  _CLOUDBUCKETMOUNT_METADATATTLTYPE._serialized_start=14310
+  _CLOUDBUCKETMOUNT_METADATATTLTYPE._serialized_end=14427
+  _CLUSTERGETREQUEST._serialized_start=14513
+  _CLUSTERGETREQUEST._serialized_end=14552
+  _CLUSTERGETRESPONSE._serialized_start=14554
+  _CLUSTERGETRESPONSE._serialized_end=14619
+  _CLUSTERLISTREQUEST._serialized_start=14621
+  _CLUSTERLISTREQUEST._serialized_end=14667
+  _CLUSTERLISTRESPONSE._serialized_start=14669
+  _CLUSTERLISTRESPONSE._serialized_end=14736
+  _CLUSTERSTATS._serialized_start=14738
+  _CLUSTERSTATS._serialized_end=14826
+  _COMMANDROUTERACCESS._serialized_start=14828
+  _COMMANDROUTERACCESS._serialized_end=14875
+  _COMMITINFO._serialized_start=14878
+  _COMMITINFO._serialized_end=15042
+  _CONTAINERARGUMENTS._serialized_start=15045
+  _CONTAINERARGUMENTS._serialized_end=15541
+  _CONTAINERARGUMENTS_TRACINGCONTEXTENTRY._serialized_start=15470
+  _CONTAINERARGUMENTS_TRACINGCONTEXTENTRY._serialized_end=15523
+  _CONTAINERCHECKPOINTREQUEST._serialized_start=15543
+  _CONTAINERCHECKPOINTREQUEST._serialized_end=15594
+  _CONTAINEREXECGETOUTPUTREQUEST._serialized_start=15597
+  _CONTAINEREXECGETOUTPUTREQUEST._serialized_end=15766
+  _CONTAINEREXECPUTINPUTREQUEST._serialized_start=15768
+  _CONTAINEREXECPUTINPUTREQUEST._serialized_end=15865
+  _CONTAINEREXECREQUEST._serialized_start=15868
+  _CONTAINEREXECREQUEST._serialized_end=16233
+  _CONTAINEREXECRESPONSE._serialized_start=16235
+  _CONTAINEREXECRESPONSE._serialized_end=16275
+  _CONTAINEREXECWAITREQUEST._serialized_start=16277
+  _CONTAINEREXECWAITREQUEST._serialized_end=16337
+  _CONTAINEREXECWAITRESPONSE._serialized_start=16339
+  _CONTAINEREXECWAITRESPONSE._serialized_end=16423
+  _CONTAINERFILECLOSEREQUEST._serialized_start=16425
+  _CONTAINERFILECLOSEREQUEST._serialized_end=16477
+  _CONTAINERFILEDELETEBYTESREQUEST._serialized_start=16480
+  _CONTAINERFILEDELETEBYTESREQUEST._serialized_end=16634
+  _CONTAINERFILEFLUSHREQUEST._serialized_start=16636
+  _CONTAINERFILEFLUSHREQUEST._serialized_end=16688
+  _CONTAINERFILELSREQUEST._serialized_start=16690
+  _CONTAINERFILELSREQUEST._serialized_end=16728
+  _CONTAINERFILEMKDIRREQUEST._serialized_start=16730
+  _CONTAINERFILEMKDIRREQUEST._serialized_end=16793
+  _CONTAINERFILEOPENREQUEST._serialized_start=16795
+  _CONTAINERFILEOPENREQUEST._serialized_end=16899
+  _CONTAINERFILEREADLINEREQUEST._serialized_start=16901
+  _CONTAINERFILEREADLINEREQUEST._serialized_end=16956
+  _CONTAINERFILEREADREQUEST._serialized_start=16958
+  _CONTAINERFILEREADREQUEST._serialized_end=17031
+  _CONTAINERFILERMREQUEST._serialized_start=17033
+  _CONTAINERFILERMREQUEST._serialized_end=17090
+  _CONTAINERFILESEEKREQUEST._serialized_start=17092
+  _CONTAINERFILESEEKREQUEST._serialized_end=17201
+  _CONTAINERFILEWATCHREQUEST._serialized_start=17203
+  _CONTAINERFILEWATCHREQUEST._serialized_end=17307
+  _CONTAINERFILEWRITEREPLACEBYTESREQUEST._serialized_start=17310
+  _CONTAINERFILEWRITEREPLACEBYTESREQUEST._serialized_end=17484
+  _CONTAINERFILEWRITEREQUEST._serialized_start=17486
+  _CONTAINERFILEWRITEREQUEST._serialized_end=17552
+  _CONTAINERFILESYSTEMEXECGETOUTPUTREQUEST._serialized_start=17554
+  _CONTAINERFILESYSTEMEXECGETOUTPUTREQUEST._serialized_end=17629
+  _CONTAINERFILESYSTEMEXECREQUEST._serialized_start=17632
+  _CONTAINERFILESYSTEMEXECREQUEST._serialized_end=18659
+  _CONTAINERFILESYSTEMEXECRESPONSE._serialized_start=18661
+  _CONTAINERFILESYSTEMEXECRESPONSE._serialized_end=18761
+  _CONTAINERHEARTBEATREQUEST._serialized_start=18764
+  _CONTAINERHEARTBEATREQUEST._serialized_end=18892
+  _CONTAINERHEARTBEATRESPONSE._serialized_start=18894
+  _CONTAINERHEARTBEATRESPONSE._serialized_end=19010
+  _CONTAINERLOGREQUEST._serialized_start=19012
+  _CONTAINERLOGREQUEST._serialized_end=19071
+  _CONTAINERRELOADVOLUMESREQUEST._serialized_start=19073
+  _CONTAINERRELOADVOLUMESREQUEST._serialized_end=19121
+  _CONTAINERRELOADVOLUMESRESPONSE._serialized_start=19123
+  _CONTAINERRELOADVOLUMESRESPONSE._serialized_end=19155
+  _CONTAINERSERVERLIFECYCLEREADYREQUEST._serialized_start=19157
+  _CONTAINERSERVERLIFECYCLEREADYREQUEST._serialized_end=19195
+  _CONTAINERSTOPREQUEST._serialized_start=19197
+  _CONTAINERSTOPREQUEST._serialized_end=19254
+  _CONTAINERSTOPRESPONSE._serialized_start=19256
+  _CONTAINERSTOPRESPONSE._serialized_end=19279
+  _CREATIONINFO._serialized_start=19281
+  _CREATIONINFO._serialized_end=19335
+  _CURLAUTHTOKENREQUEST._serialized_start=19337
+  _CURLAUTHTOKENREQUEST._serialized_end=19372
+  _CURLAUTHTOKENRESPONSE._serialized_start=19374
+  _CURLAUTHTOKENRESPONSE._serialized_end=19412
+  _CUSTOMDOMAINCONFIG._serialized_start=19414
+  _CUSTOMDOMAINCONFIG._serialized_end=19448
+  _CUSTOMDOMAININFO._serialized_start=19450
+  _CUSTOMDOMAININFO._serialized_end=19481
+  _DNSRECORD._serialized_start=19483
+  _DNSRECORD._serialized_end=19566
+  _DATACHUNK._serialized_start=19568
+  _DATACHUNK._serialized_end=19695
+  _DICTCLEARREQUEST._serialized_start=19697
+  _DICTCLEARREQUEST._serialized_end=19732
+  _DICTCONTAINSREQUEST._serialized_start=19734
+  _DICTCONTAINSREQUEST._serialized_end=19785
+  _DICTCONTAINSRESPONSE._serialized_start=19787
+  _DICTCONTAINSRESPONSE._serialized_end=19824
+  _DICTCONTENTSREQUEST._serialized_start=19826
+  _DICTCONTENTSREQUEST._serialized_end=19894
+  _DICTDELETEREQUEST._serialized_start=19896
+  _DICTDELETEREQUEST._serialized_end=19932
+  _DICTENTRY._serialized_start=19934
+  _DICTENTRY._serialized_end=19973
+  _DICTGETBYIDREQUEST._serialized_start=19975
+  _DICTGETBYIDREQUEST._serialized_end=20012
+  _DICTGETBYIDRESPONSE._serialized_start=20014
+  _DICTGETBYIDRESPONSE._serialized_end=20098
+  _DICTGETORCREATEREQUEST._serialized_start=20101
+  _DICTGETORCREATEREQUEST._serialized_end=20285
+  _DICTGETORCREATERESPONSE._serialized_start=20287
+  _DICTGETORCREATERESPONSE._serialized_end=20375
+  _DICTGETREQUEST._serialized_start=20377
+  _DICTGETREQUEST._serialized_end=20423
+  _DICTGETRESPONSE._serialized_start=20425
+  _DICTGETRESPONSE._serialized_end=20487
+  _DICTHEARTBEATREQUEST._serialized_start=20489
+  _DICTHEARTBEATREQUEST._serialized_end=20528
+  _DICTLENREQUEST._serialized_start=20530
+  _DICTLENREQUEST._serialized_end=20563
+  _DICTLENRESPONSE._serialized_start=20565
+  _DICTLENRESPONSE._serialized_end=20595
+  _DICTLISTREQUEST._serialized_start=20597
+  _DICTLISTREQUEST._serialized_end=20690
+  _DICTLISTRESPONSE._serialized_start=20693
+  _DICTLISTRESPONSE._serialized_end=20902
+  _DICTLISTRESPONSE_DICTINFO._serialized_start=20795
+  _DICTLISTRESPONSE_DICTINFO._serialized_end=20902
+  _DICTMETADATA._serialized_start=20904
+  _DICTMETADATA._serialized_end=20983
+  _DICTPOPREQUEST._serialized_start=20985
+  _DICTPOPREQUEST._serialized_end=21031
+  _DICTPOPRESPONSE._serialized_start=21033
+  _DICTPOPRESPONSE._serialized_end=21095
+  _DICTUPDATEREQUEST._serialized_start=21097
+  _DICTUPDATEREQUEST._serialized_end=21198
+  _DICTUPDATERESPONSE._serialized_start=21200
+  _DICTUPDATERESPONSE._serialized_end=21237
+  _DOMAIN._serialized_start=21240
+  _DOMAIN._serialized_end=21415
+  _DOMAINCERTIFICATEVERIFYREQUEST._serialized_start=21417
+  _DOMAINCERTIFICATEVERIFYREQUEST._serialized_end=21468
+  _DOMAINCERTIFICATEVERIFYRESPONSE._serialized_start=21470
+  _DOMAINCERTIFICATEVERIFYRESPONSE._serialized_end=21541
+  _DOMAINCREATEREQUEST._serialized_start=21543
+  _DOMAINCREATEREQUEST._serialized_end=21585
+  _DOMAINCREATERESPONSE._serialized_start=21587
+  _DOMAINCREATERESPONSE._serialized_end=21674
+  _DOMAINLISTREQUEST._serialized_start=21676
+  _DOMAINLISTREQUEST._serialized_end=21695
+  _DOMAINLISTRESPONSE._serialized_start=21697
+  _DOMAINLISTRESPONSE._serialized_end=21756
+  _ENDPOINTCOMPUTEREGIONSPEC._serialized_start=21759
+  _ENDPOINTCOMPUTEREGIONSPEC._serialized_end=21997
+  _ENDPOINTCOMPUTEREGIONSPEC_EXPLICITREGIONS._serialized_start=21950
+  _ENDPOINTCOMPUTEREGIONSPEC_EXPLICITREGIONS._serialized_end=21984
+  _ENDPOINTCREATEREQUEST._serialized_start=22000
+  _ENDPOINTCREATEREQUEST._serialized_end=22468
+  _ENDPOINTCREATERESPONSE._serialized_start=22470
+  _ENDPOINTCREATERESPONSE._serialized_end=22556
+  _ENDPOINTCUSTOMMODELSOURCE._serialized_start=22559
+  _ENDPOINTCUSTOMMODELSOURCE._serialized_end=22765
+  _ENDPOINTGETBYNAMEREQUEST._serialized_start=22767
+  _ENDPOINTGETBYNAMEREQUEST._serialized_end=22833
+  _ENDPOINTGETBYNAMERESPONSE._serialized_start=22835
+  _ENDPOINTGETBYNAMERESPONSE._serialized_end=22909
+  _ENDPOINTGETINFOREQUEST._serialized_start=22911
+  _ENDPOINTGETINFOREQUEST._serialized_end=22956
+  _ENDPOINTGETINFORESPONSE._serialized_start=22959
+  _ENDPOINTGETINFORESPONSE._serialized_end=23815
+  _ENDPOINTGETINFORESPONSE_ENDPOINTINFOSUMMARY._serialized_start=23145
+  _ENDPOINTGETINFORESPONSE_ENDPOINTINFOSUMMARY._serialized_end=23483
+  _ENDPOINTGETINFORESPONSE_ENDPOINTHANDLEMETADATA._serialized_start=23485
+  _ENDPOINTGETINFORESPONSE_ENDPOINTHANDLEMETADATA._serialized_end=23570
+  _ENDPOINTGETINFORESPONSE_ENDPOINTSTATUS._serialized_start=23573
+  _ENDPOINTGETINFORESPONSE_ENDPOINTSTATUS._serialized_end=23802
+  _ENDPOINTGETLIFECYCLEREQUEST._serialized_start=23817
+  _ENDPOINTGETLIFECYCLEREQUEST._serialized_end=23867
+  _ENDPOINTGETLIFECYCLERESPONSE._serialized_start=23869
+  _ENDPOINTGETLIFECYCLERESPONSE._serialized_end=23951
+  _ENDPOINTHUGGINGFACEMODELSOURCE._serialized_start=23953
+  _ENDPOINTHUGGINGFACEMODELSOURCE._serialized_end=24047
+  _ENDPOINTLIFECYCLE._serialized_start=24050
+  _ENDPOINTLIFECYCLE._serialized_end=24230
+  _ENDPOINTLISTITEM._serialized_start=24233
+  _ENDPOINTLISTITEM._serialized_end=24671
+  _ENDPOINTLISTREQUEST._serialized_start=24673
+  _ENDPOINTLISTREQUEST._serialized_end=24770
+  _ENDPOINTLISTRESPONSE._serialized_start=24772
+  _ENDPOINTLISTRESPONSE._serialized_end=24867
+  _ENDPOINTMETADATA._serialized_start=24869
+  _ENDPOINTMETADATA._serialized_end=24952
+  _ENDPOINTMODALVOLUMEMODELSOURCE._serialized_start=24954
+  _ENDPOINTMODALVOLUMEMODELSOURCE._serialized_end=25025
+  _ENDPOINTMODELSOURCE._serialized_start=25027
+  _ENDPOINTMODELSOURCE._serialized_end=25147
+  _ENDPOINTSTOPREQUEST._serialized_start=25149
+  _ENDPOINTSTOPREQUEST._serialized_end=25241
+  _ENDPOINTSTOPRESPONSE._serialized_start=25243
+  _ENDPOINTSTOPRESPONSE._serialized_end=25265
+  _ENVIRONMENTBILLINGSUMMARYREQUEST._serialized_start=25267
+  _ENVIRONMENTBILLINGSUMMARYREQUEST._serialized_end=25378
+  _ENVIRONMENTBILLINGSUMMARYRESPONSE._serialized_start=25381
+  _ENVIRONMENTBILLINGSUMMARYRESPONSE._serialized_end=25710
+  _ENVIRONMENTBILLINGSUMMARYRESPONSE_METEREDCOSTBREAKDOWNENTRY._serialized_start=25651
+  _ENVIRONMENTBILLINGSUMMARYRESPONSE_METEREDCOSTBREAKDOWNENTRY._serialized_end=25710
+  _ENVIRONMENTCREATEREQUEST._serialized_start=25713
+  _ENVIRONMENTCREATEREQUEST._serialized_end=26005
+  _ENVIRONMENTDELETEREQUEST._serialized_start=26007
+  _ENVIRONMENTDELETEREQUEST._serialized_end=26047
+  _ENVIRONMENTGETBUDGETREQUEST._serialized_start=26049
+  _ENVIRONMENTGETBUDGETREQUEST._serialized_end=26102
+  _ENVIRONMENTGETBUDGETRESPONSE._serialized_start=26105
+  _ENVIRONMENTGETBUDGETRESPONSE._serialized_end=26290
+  _ENVIRONMENTGETMANAGEDREQUEST._serialized_start=26292
+  _ENVIRONMENTGETMANAGEDREQUEST._serialized_end=26346
+  _ENVIRONMENTGETMANAGEDRESPONSE._serialized_start=26349
+  _ENVIRONMENTGETMANAGEDRESPONSE._serialized_end=26849
+  _ENVIRONMENTGETMANAGEDRESPONSE_PRINCIPALENVROLE._serialized_start=26616
+  _ENVIRONMENTGETMANAGEDRESPONSE_PRINCIPALENVROLE._serialized_end=26849
+  _ENVIRONMENTGETORCREATEREQUEST._serialized_start=26851
+  _ENVIRONMENTGETORCREATEREQUEST._serialized_end=26971
+  _ENVIRONMENTGETORCREATERESPONSE._serialized_start=26973
+  _ENVIRONMENTGETORCREATERESPONSE._serialized_end=27082
+  _ENVIRONMENTGETROLESREQUEST._serialized_start=27084
+  _ENVIRONMENTGETROLESREQUEST._serialized_end=27136
+  _ENVIRONMENTGETROLESRESPONSE._serialized_start=27139
+  _ENVIRONMENTGETROLESRESPONSE._serialized_end=27806
+  _ENVIRONMENTGETROLESRESPONSE_PRINCIPAL._serialized_start=27348
+  _ENVIRONMENTGETROLESRESPONSE_PRINCIPAL._serialized_end=27782
+  _ENVIRONMENTLISTITEM._serialized_start=27809
+  _ENVIRONMENTLISTITEM._serialized_end=28517
+  _ENVIRONMENTLISTRESPONSE._serialized_start=28519
+  _ENVIRONMENTLISTRESPONSE._serialized_end=28594
+  _ENVIRONMENTMETADATA._serialized_start=28597
+  _ENVIRONMENTMETADATA._serialized_end=28742
+  _ENVIRONMENTROLESETREQUEST._serialized_start=28745
+  _ENVIRONMENTROLESETREQUEST._serialized_end=28901
+  _ENVIRONMENTSETBUDGETREQUEST._serialized_start=28904
+  _ENVIRONMENTSETBUDGETREQUEST._serialized_end=29039
+  _ENVIRONMENTSETDEFAULTMEMBERROLEREQUEST._serialized_start=29041
+  _ENVIRONMENTSETDEFAULTMEMBERROLEREQUEST._serialized_end=29165
+  _ENVIRONMENTSETMANAGEDREQUEST._serialized_start=29168
+  _ENVIRONMENTSETMANAGEDREQUEST._serialized_end=29328
+  _ENVIRONMENTSETTINGS._serialized_start=29331
+  _ENVIRONMENTSETTINGS._serialized_end=29607
+  _ENVIRONMENTUPDATEREQUEST._serialized_start=29610
+  _ENVIRONMENTUPDATEREQUEST._serialized_end=30008
+  _FILEENTRY._serialized_start=30011
+  _FILEENTRY._serialized_end=30202
+  _FILEENTRY_FILETYPE._serialized_start=30115
+  _FILEENTRY_FILETYPE._serialized_end=30202
+  _FILESYSTEMRUNTIMEOUTPUTBATCH._serialized_start=30205
+  _FILESYSTEMRUNTIMEOUTPUTBATCH._serialized_end=30349
+  _FLASHCONTAINERDEREGISTERREQUEST._serialized_start=30351
+  _FLASHCONTAINERDEREGISTERREQUEST._serialized_end=30406
+  _FLASHCONTAINERLISTREQUEST._serialized_start=30408
+  _FLASHCONTAINERLISTREQUEST._serialized_end=30456
+  _FLASHCONTAINERLISTRESPONSE._serialized_start=30459
+  _FLASHCONTAINERLISTRESPONSE._serialized_end=30617
+  _FLASHCONTAINERLISTRESPONSE_CONTAINER._serialized_start=30561
+  _FLASHCONTAINERLISTRESPONSE_CONTAINER._serialized_end=30617
+  _FLASHCONTAINERREGISTERREQUEST._serialized_start=30619
+  _FLASHCONTAINERREGISTERREQUEST._serialized_end=30734
+  _FLASHCONTAINERREGISTERRESPONSE._serialized_start=30736
+  _FLASHCONTAINERREGISTERRESPONSE._serialized_end=30781
+  _FLASHPROXYUPSTREAMREQUEST._serialized_start=30783
+  _FLASHPROXYUPSTREAMREQUEST._serialized_end=30856
+  _FLASHSETTARGETSLOTSMETRICSREQUEST._serialized_start=30858
+  _FLASHSETTARGETSLOTSMETRICSREQUEST._serialized_end=30936
+  _FLASHSETTARGETSLOTSMETRICSRESPONSE._serialized_start=30938
+  _FLASHSETTARGETSLOTSMETRICSRESPONSE._serialized_end=30974
+  _FUNCTION._serialized_start=30977
+  _FUNCTION._serialized_end=34424
+  _FUNCTION_METHODDEFINITIONSENTRY._serialized_start=33937
+  _FUNCTION_METHODDEFINITIONSENTRY._serialized_end=34025
+  _FUNCTION_EXPERIMENTALOPTIONSENTRY._serialized_start=34027
+  _FUNCTION_EXPERIMENTALOPTIONSENTRY._serialized_end=34085
+  _FUNCTION_DEFINITIONTYPE._serialized_start=34087
+  _FUNCTION_DEFINITIONTYPE._serialized_end=34194
+  _FUNCTION_FUNCTIONTYPE._serialized_start=34196
+  _FUNCTION_FUNCTIONTYPE._serialized_end=34298
+  _FUNCTIONASYNCINVOKEREQUEST._serialized_start=34426
+  _FUNCTIONASYNCINVOKEREQUEST._serialized_end=34544
+  _FUNCTIONASYNCINVOKERESPONSE._serialized_start=34546
+  _FUNCTIONASYNCINVOKERESPONSE._serialized_end=34633
+  _FUNCTIONBINDPARAMSREQUEST._serialized_start=34636
+  _FUNCTIONBINDPARAMSREQUEST._serialized_end=34815
+  _FUNCTIONBINDPARAMSRESPONSE._serialized_start=34817
+  _FUNCTIONBINDPARAMSRESPONSE._serialized_end=34935
+  _FUNCTIONCALLCALLGRAPHINFO._serialized_start=34937
+  _FUNCTIONCALLCALLGRAPHINFO._serialized_end=35059
+  _FUNCTIONCALLCANCELREQUEST._serialized_start=35061
+  _FUNCTIONCALLCANCELREQUEST._serialized_end=35186
+  _FUNCTIONCALLFETCHREQUEST._serialized_start=35189
+  _FUNCTIONCALLFETCHREQUEST._serialized_end=35357
+  _FUNCTIONCALLFETCHREQUEST_TAIL._serialized_start=35321
+  _FUNCTIONCALLFETCHREQUEST_TAIL._serialized_end=35342
+  _FUNCTIONCALLFETCHRESPONSE._serialized_start=35359
+  _FUNCTIONCALLFETCHRESPONSE._serialized_end=35453
+  _FUNCTIONCALLFROMIDREQUEST._serialized_start=35455
+  _FUNCTIONCALLFROMIDREQUEST._serialized_end=35508
+  _FUNCTIONCALLFROMIDRESPONSE._serialized_start=35511
+  _FUNCTIONCALLFROMIDRESPONSE._serialized_end=35645
+  _FUNCTIONCALLGETDATAREQUEST._serialized_start=35647
+  _FUNCTIONCALLGETDATAREQUEST._serialized_end=35767
+  _FUNCTIONCALLGETINFOREQUEST._serialized_start=35769
+  _FUNCTIONCALLGETINFOREQUEST._serialized_end=35844
+  _FUNCTIONCALLGETINFORESPONSE._serialized_start=35846
+  _FUNCTIONCALLGETINFORESPONSE._serialized_end=35921
+  _FUNCTIONCALLHANDLEMETADATA._serialized_start=35923
+  _FUNCTIONCALLHANDLEMETADATA._serialized_end=35988
+  _FUNCTIONCALLINFO._serialized_start=35991
+  _FUNCTIONCALLINFO._serialized_end=36442
+  _FUNCTIONCALLINPUTINFO._serialized_start=36445
+  _FUNCTIONCALLINPUTINFO._serialized_end=36892
+  _FUNCTIONCALLLISTREQUEST._serialized_start=36894
+  _FUNCTIONCALLLISTREQUEST._serialized_end=36940
+  _FUNCTIONCALLLISTRESPONSE._serialized_start=36942
+  _FUNCTIONCALLLISTRESPONSE._serialized_end=37024
+  _FUNCTIONCALLPUTDATAREQUEST._serialized_start=37027
+  _FUNCTIONCALLPUTDATAREQUEST._serialized_end=37167
+  _FUNCTIONCREATEREQUEST._serialized_start=37170
+  _FUNCTIONCREATEREQUEST._serialized_end=37384
+  _FUNCTIONCREATERESPONSE._serialized_start=37387
+  _FUNCTIONCREATERESPONSE._serialized_end=37670
+  _FUNCTIONDATA._serialized_start=37673
+  _FUNCTIONDATA._serialized_end=39490
+  _FUNCTIONDATA_METHODDEFINITIONSENTRY._serialized_start=33937
+  _FUNCTIONDATA_METHODDEFINITIONSENTRY._serialized_end=34025
+  _FUNCTIONDATA_RANKEDFUNCTION._serialized_start=39324
+  _FUNCTIONDATA_RANKEDFUNCTION._serialized_end=39396
+  _FUNCTIONDATA_EXPERIMENTALOPTIONSENTRY._serialized_start=34027
+  _FUNCTIONDATA_EXPERIMENTALOPTIONSENTRY._serialized_end=34085
+  _FUNCTIONEXTENDED._serialized_start=39493
+  _FUNCTIONEXTENDED._serialized_end=39664
+  _FUNCTIONFINISHINPUTSREQUEST._serialized_start=39666
+  _FUNCTIONFINISHINPUTSREQUEST._serialized_end=39762
+  _FUNCTIONGETBYIDREQUEST._serialized_start=39764
+  _FUNCTIONGETBYIDREQUEST._serialized_end=39809
+  _FUNCTIONGETBYIDRESPONSE._serialized_start=39812
+  _FUNCTIONGETBYIDRESPONSE._serialized_end=39946
+  _FUNCTIONGETCALLGRAPHREQUEST._serialized_start=39948
+  _FUNCTIONGETCALLGRAPHREQUEST._serialized_end=40003
+  _FUNCTIONGETCALLGRAPHRESPONSE._serialized_start=40006
+  _FUNCTIONGETCALLGRAPHRESPONSE._serialized_end=40170
+  _FUNCTIONGETCURRENTSTATSREQUEST._serialized_start=40172
+  _FUNCTIONGETCURRENTSTATSREQUEST._serialized_end=40225
+  _FUNCTIONGETDYNAMICCONCURRENCYREQUEST._serialized_start=40227
+  _FUNCTIONGETDYNAMICCONCURRENCYREQUEST._serialized_end=40339
+  _FUNCTIONGETDYNAMICCONCURRENCYRESPONSE._serialized_start=40341
+  _FUNCTIONGETDYNAMICCONCURRENCYRESPONSE._serialized_end=40401
+  _FUNCTIONGETFLASHAUTHTOKENREQUEST._serialized_start=40403
+  _FUNCTIONGETFLASHAUTHTOKENREQUEST._serialized_end=40458
+  _FUNCTIONGETFLASHAUTHTOKENRESPONSE._serialized_start=40460
+  _FUNCTIONGETFLASHAUTHTOKENRESPONSE._serialized_end=40510
+  _FUNCTIONGETINPUTSITEM._serialized_start=40513
+  _FUNCTIONGETINPUTSITEM._serialized_end=40854
+  _FUNCTIONGETINPUTSREQUEST._serialized_start=40857
+  _FUNCTIONGETINPUTSREQUEST._serialized_end=41004
+  _FUNCTIONGETINPUTSRESPONSE._serialized_start=41006
+  _FUNCTIONGETINPUTSRESPONSE._serialized_end=41121
+  _FUNCTIONGETOUTPUTSITEM._serialized_start=41124
+  _FUNCTIONGETOUTPUTSITEM._serialized_end=41384
+  _FUNCTIONGETOUTPUTSREQUEST._serialized_start=41387
+  _FUNCTIONGETOUTPUTSREQUEST._serialized_end=41640
+  _FUNCTIONGETOUTPUTSRESPONSE._serialized_start=41643
+  _FUNCTIONGETOUTPUTSRESPONSE._serialized_end=41794
+  _FUNCTIONGETREQUEST._serialized_start=41796
+  _FUNCTIONGETREQUEST._serialized_end=41907
+  _FUNCTIONGETRESPONSE._serialized_start=41910
+  _FUNCTIONGETRESPONSE._serialized_end=42109
+  _FUNCTIONGETSCHEDULINGPARAMSREQUEST._serialized_start=42111
+  _FUNCTIONGETSCHEDULINGPARAMSREQUEST._serialized_end=42168
+  _FUNCTIONGETSCHEDULINGPARAMSRESPONSE._serialized_start=42170
+  _FUNCTIONGETSCHEDULINGPARAMSRESPONSE._serialized_end=42280
+  _FUNCTIONGETSERIALIZEDREQUEST._serialized_start=42282
+  _FUNCTIONGETSERIALIZEDREQUEST._serialized_end=42333
+  _FUNCTIONGETSERIALIZEDRESPONSE._serialized_start=42335
+  _FUNCTIONGETSERIALIZEDRESPONSE._serialized_end=42421
+  _FUNCTIONGETTIMERANGESTATSREQUEST._serialized_start=42424
+  _FUNCTIONGETTIMERANGESTATSREQUEST._serialized_end=42625
+  _FUNCTIONGETTIMERANGESTATSRESPONSE._serialized_start=42628
+  _FUNCTIONGETTIMERANGESTATSRESPONSE._serialized_end=43434
+  _FUNCTIONGETTIMERANGESTATSRESPONSE_INPUTPERCENTILESTATSENTRY._serialized_start=43224
+  _FUNCTIONGETTIMERANGESTATSRESPONSE_INPUTPERCENTILESTATSENTRY._serialized_end=43326
+  _FUNCTIONGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY._serialized_start=43328
+  _FUNCTIONGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY._serialized_end=43434
+  _FUNCTIONHANDLEMETADATA._serialized_start=43437
+  _FUNCTIONHANDLEMETADATA._serialized_end=44385
+  _FUNCTIONHANDLEMETADATA_METHODHANDLEMETADATAENTRY._serialized_start=44181
+  _FUNCTIONHANDLEMETADATA_METHODHANDLEMETADATAENTRY._serialized_end=44278
+  _FUNCTIONINPUT._serialized_start=44388
+  _FUNCTIONINPUT._serialized_end=44567
+  _FUNCTIONLISTVARIANTSREQUEST._serialized_start=44569
+  _FUNCTIONLISTVARIANTSREQUEST._serialized_end=44687
+  _FUNCTIONLISTVARIANTSRESPONSE._serialized_start=44690
+  _FUNCTIONLISTVARIANTSRESPONSE._serialized_end=44859
+  _FUNCTIONLOOKUPERROR._serialized_start=44862
+  _FUNCTIONLOOKUPERROR._serialized_end=45003
+  _FUNCTIONLOOKUPERROR_REASON._serialized_start=44943
+  _FUNCTIONLOOKUPERROR_REASON._serialized_end=45003
+  _FUNCTIONMAPREQUEST._serialized_start=45006
+  _FUNCTIONMAPREQUEST._serialized_end=45327
+  _FUNCTIONMAPRESPONSE._serialized_start=45330
+  _FUNCTIONMAPRESPONSE._serialized_end=45601
+  _FUNCTIONOPTIONS._serialized_start=45604
+  _FUNCTIONOPTIONS._serialized_end=46753
+  _FUNCTIONPRECREATEREQUEST._serialized_start=46756
+  _FUNCTIONPRECREATEREQUEST._serialized_end=47331
+  _FUNCTIONPRECREATEREQUEST_METHODDEFINITIONSENTRY._serialized_start=33937
+  _FUNCTIONPRECREATEREQUEST_METHODDEFINITIONSENTRY._serialized_end=34025
+  _FUNCTIONPRECREATERESPONSE._serialized_start=47333
+  _FUNCTIONPRECREATERESPONSE._serialized_end=47444
+  _FUNCTIONPUTINPUTSITEM._serialized_start=47447
+  _FUNCTIONPUTINPUTSITEM._serialized_end=47644
+  _FUNCTIONPUTINPUTSREQUEST._serialized_start=47646
+  _FUNCTIONPUTINPUTSREQUEST._serialized_end=47772
+  _FUNCTIONPUTINPUTSRESPONSE._serialized_start=47774
+  _FUNCTIONPUTINPUTSRESPONSE._serialized_end=47862
+  _FUNCTIONPUTINPUTSRESPONSEITEM._serialized_start=47864
+  _FUNCTIONPUTINPUTSRESPONSEITEM._serialized_end=47945
+  _FUNCTIONPUTOUTPUTSITEM._serialized_start=47948
+  _FUNCTIONPUTOUTPUTSITEM._serialized_end=48260
+  _FUNCTIONPUTOUTPUTSREQUEST._serialized_start=48262
+  _FUNCTIONPUTOUTPUTSREQUEST._serialized_end=48366
+  _FUNCTIONRETRYINPUTSITEM._serialized_start=48368
+  _FUNCTIONRETRYINPUTSITEM._serialized_end=48477
+  _FUNCTIONRETRYINPUTSREQUEST._serialized_start=48479
+  _FUNCTIONRETRYINPUTSREQUEST._serialized_end=48589
+  _FUNCTIONRETRYINPUTSRESPONSE._serialized_start=48591
+  _FUNCTIONRETRYINPUTSRESPONSE._serialized_end=48640
+  _FUNCTIONRETRYPOLICY._serialized_start=48642
+  _FUNCTIONRETRYPOLICY._serialized_end=48757
+  _FUNCTIONSCHEMA._serialized_start=48760
+  _FUNCTIONSCHEMA._serialized_end=49033
+  _FUNCTIONSCHEMA_FUNCTIONSCHEMATYPE._serialized_start=48956
+  _FUNCTIONSCHEMA_FUNCTIONSCHEMATYPE._serialized_end=49033
+  _FUNCTIONSTATS._serialized_start=49035
+  _FUNCTIONSTATS._serialized_end=49144
+  _FUNCTIONUPDATESCHEDULINGPARAMSREQUEST._serialized_start=49147
+  _FUNCTIONUPDATESCHEDULINGPARAMSREQUEST._serialized_end=49292
+  _FUNCTIONUPDATESCHEDULINGPARAMSRESPONSE._serialized_start=49294
+  _FUNCTIONUPDATESCHEDULINGPARAMSRESPONSE._serialized_end=49394
+  _FUNCTIONVARIANTCURSOR._serialized_start=49396
+  _FUNCTIONVARIANTCURSOR._serialized_end=49464
+  _FUNCTIONVARIANTINFO._serialized_start=49466
+  _FUNCTIONVARIANTINFO._serialized_end=49592
+  _GPUCONFIG._serialized_start=49594
+  _GPUCONFIG._serialized_end=49675
+  _GENERATORDONE._serialized_start=49677
+  _GENERATORDONE._serialized_end=49713
+  _GENERICPAYLOADTYPE._serialized_start=49715
+  _GENERICPAYLOADTYPE._serialized_end=49836
+  _GENERICRESULT._serialized_start=49839
+  _GENERICRESULT._serialized_end=50409
+  _GENERICRESULT_GENERICSTATUS._serialized_start=50086
+  _GENERICRESULT_GENERICSTATUS._serialized_end=50395
+  _HTTPCONFIG._serialized_start=50412
+  _HTTPCONFIG._serialized_end=50682
+  _IMAGE._serialized_start=50685
+  _IMAGE._serialized_end=51339
+  _IMAGE_BUILDARGSENTRY._serialized_start=51291
+  _IMAGE_BUILDARGSENTRY._serialized_end=51339
+  _IMAGEBUILDCHAINGETREQUEST._serialized_start=51341
+  _IMAGEBUILDCHAINGETREQUEST._serialized_end=51386
+  _IMAGEBUILDCHAINGETRESPONSE._serialized_start=51388
+  _IMAGEBUILDCHAINGETRESPONSE._serialized_end=51467
+  _IMAGEBUILDSTEP._serialized_start=51470
+  _IMAGEBUILDSTEP._serialized_end=51650
+  _IMAGECONTEXTFILE._serialized_start=51652
+  _IMAGECONTEXTFILE._serialized_end=51702
+  _IMAGEDELETEREQUEST._serialized_start=51704
+  _IMAGEDELETEREQUEST._serialized_end=51742
+  _IMAGEFROMIDREQUEST._serialized_start=51744
+  _IMAGEFROMIDREQUEST._serialized_end=51782
+  _IMAGEFROMIDRESPONSE._serialized_start=51784
+  _IMAGEFROMIDRESPONSE._serialized_end=51870
+  _IMAGEGETBYTAGREQUEST._serialized_start=51872
+  _IMAGEGETBYTAGREQUEST._serialized_end=51933
+  _IMAGEGETBYTAGRESPONSE._serialized_start=51935
+  _IMAGEGETBYTAGRESPONSE._serialized_end=51976
+  _IMAGEGETORCREATEREQUEST._serialized_start=51979
+  _IMAGEGETORCREATEREQUEST._serialized_end=52265
+  _IMAGEGETORCREATERESPONSE._serialized_start=52268
+  _IMAGEGETORCREATERESPONSE._serialized_end=52404
+  _IMAGEJOINSTREAMINGREQUEST._serialized_start=52406
+  _IMAGEJOINSTREAMINGREQUEST._serialized_end=52526
+  _IMAGEJOINSTREAMINGRESPONSE._serialized_start=52529
+  _IMAGEJOINSTREAMINGRESPONSE._serialized_end=52723
+  _IMAGELISTTAGSITEM._serialized_start=52725
+  _IMAGELISTTAGSITEM._serialized_end=52836
+  _IMAGELISTTAGSREQUEST._serialized_start=52838
+  _IMAGELISTTAGSREQUEST._serialized_end=52947
+  _IMAGELISTTAGSRESPONSE._serialized_start=52949
+  _IMAGELISTTAGSRESPONSE._serialized_end=53071
+  _IMAGEMETADATA._serialized_start=53074
+  _IMAGEMETADATA._serialized_end=53426
+  _IMAGEMETADATA_PYTHONPACKAGESENTRY._serialized_start=53289
+  _IMAGEMETADATA_PYTHONPACKAGESENTRY._serialized_end=53342
+  _IMAGEPUBLISHREQUEST._serialized_start=53428
+  _IMAGEPUBLISHREQUEST._serialized_end=53528
+  _IMAGEPUBLISHRESPONSE._serialized_start=53530
+  _IMAGEPUBLISHRESPONSE._serialized_end=53591
+  _IMAGEREGISTRYCONFIG._serialized_start=53593
+  _IMAGEREGISTRYCONFIG._serialized_end=53693
+  _IMAGETAGREVISIONSITEM._serialized_start=53695
+  _IMAGETAGREVISIONSITEM._serialized_end=53799
+  _IMAGETAGREVISIONSREQUEST._serialized_start=53801
+  _IMAGETAGREVISIONSREQUEST._serialized_end=53907
+  _IMAGETAGREVISIONSRESPONSE._serialized_start=53910
+  _IMAGETAGREVISIONSRESPONSE._serialized_end=54053
+  _INPUTCALLGRAPHINFO._serialized_start=54056
+  _INPUTCALLGRAPHINFO._serialized_end=54196
+  _INPUTCATEGORYINFO._serialized_start=54198
+  _INPUTCATEGORYINFO._serialized_end=54273
+  _INPUTINFO._serialized_start=54276
+  _INPUTINFO._serialized_end=54429
+  _LIFTANDSHIFTCONFIG._serialized_start=54431
+  _LIFTANDSHIFTCONFIG._serialized_end=54451
+  _LISTPAGINATION._serialized_start=54453
+  _LISTPAGINATION._serialized_end=54514
+  _MAPAWAITREQUEST._serialized_start=54517
+  _MAPAWAITREQUEST._serialized_end=54658
+  _MAPAWAITRESPONSE._serialized_start=54660
+  _MAPAWAITRESPONSE._serialized_end=54756
+  _MAPCHECKINPUTSREQUEST._serialized_start=54758
+  _MAPCHECKINPUTSREQUEST._serialized_end=54845
+  _MAPCHECKINPUTSRESPONSE._serialized_start=54847
+  _MAPCHECKINPUTSRESPONSE._serialized_end=54885
+  _MAPSTARTORCONTINUEITEM._serialized_start=54887
+  _MAPSTARTORCONTINUEITEM._serialized_end=55009
+  _MAPSTARTORCONTINUEREQUEST._serialized_start=55012
+  _MAPSTARTORCONTINUEREQUEST._serialized_end=55217
+  _MAPSTARTORCONTINUERESPONSE._serialized_start=55220
+  _MAPSTARTORCONTINUERESPONSE._serialized_end=55427
+  _METHODDEFINITION._serialized_start=55430
+  _METHODDEFINITION._serialized_end=55883
+  _MOUNTBATCHEDCHECKEXISTENCEREQUEST._serialized_start=55885
+  _MOUNTBATCHEDCHECKEXISTENCEREQUEST._serialized_end=55947
+  _MOUNTBATCHEDCHECKEXISTENCERESPONSE._serialized_start=55949
+  _MOUNTBATCHEDCHECKEXISTENCERESPONSE._serialized_end=56020
+  _MOUNTFILE._serialized_start=56022
+  _MOUNTFILE._serialized_end=56127
+  _MOUNTGETORCREATEREQUEST._serialized_start=56130
+  _MOUNTGETORCREATEREQUEST._serialized_end=56380
+  _MOUNTGETORCREATERESPONSE._serialized_start=56382
+  _MOUNTGETORCREATERESPONSE._serialized_end=56486
+  _MOUNTHANDLEMETADATA._serialized_start=56488
+  _MOUNTHANDLEMETADATA._serialized_end=56546
+  _MOUNTPUTFILEREQUEST._serialized_start=56548
+  _MOUNTPUTFILEREQUEST._serialized_end=56643
+  _MOUNTPUTFILERESPONSE._serialized_start=56645
+  _MOUNTPUTFILERESPONSE._serialized_end=56683
+  _MULTIPARTUPLOAD._serialized_start=56685
+  _MULTIPARTUPLOAD._serialized_end=56768
+  _MULTIPARTUPLOADLIST._serialized_start=56770
+  _MULTIPARTUPLOADLIST._serialized_end=56837
+  _NETWORKACCESS._serialized_start=56840
+  _NETWORKACCESS._serialized_end=57055
+  _NETWORKACCESS_NETWORKACCESSTYPE._serialized_start=56981
+  _NETWORKACCESS_NETWORKACCESSTYPE._serialized_end=57055
+  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST._serialized_start=57058
+  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST._serialized_end=57478
+  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST_EXECUTEREPLY._serialized_start=57197
+  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST_EXECUTEREPLY._serialized_end=57270
+  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST_CELLRESULT._serialized_start=57273
+  _NOTEBOOKKERNELPUBLISHRESULTSREQUEST_CELLRESULT._serialized_end=57478
+  _NOTEBOOKOUTPUT._serialized_start=57481
+  _NOTEBOOKOUTPUT._serialized_end=58135
+  _NOTEBOOKOUTPUT_EXECUTERESULT._serialized_start=57743
+  _NOTEBOOKOUTPUT_EXECUTERESULT._serialized_end=57865
+  _NOTEBOOKOUTPUT_DISPLAYDATA._serialized_start=57868
+  _NOTEBOOKOUTPUT_DISPLAYDATA._serialized_end=58023
+  _NOTEBOOKOUTPUT_STREAM._serialized_start=58025
+  _NOTEBOOKOUTPUT_STREAM._serialized_end=58061
+  _NOTEBOOKOUTPUT_ERROR._serialized_start=58063
+  _NOTEBOOKOUTPUT_ERROR._serialized_end=58120
+  _OBJECT._serialized_start=58138
+  _OBJECT._serialized_end=58529
+  _OBJECTDEPENDENCY._serialized_start=58531
+  _OBJECTDEPENDENCY._serialized_end=58568
+  _OUTBOUNDPOLICY._serialized_start=58571
+  _OUTBOUNDPOLICY._serialized_end=58886
+  _OUTBOUNDPOLICY_HEADERREPLACEMENT._serialized_start=58667
+  _OUTBOUNDPOLICY_HEADERREPLACEMENT._serialized_end=58886
+  _OUTBOUNDPOLICY_HEADERREPLACEMENT_HEADERSENTRY._serialized_start=58801
+  _OUTBOUNDPOLICY_HEADERREPLACEMENT_HEADERSENTRY._serialized_end=58847
+  _PTYINFO._serialized_start=58889
+  _PTYINFO._serialized_end=59187
+  _PTYINFO_PTYTYPE._serialized_start=59109
+  _PTYINFO_PTYTYPE._serialized_end=59187
+  _PORTSPEC._serialized_start=59189
+  _PORTSPEC._serialized_end=59302
+  _PORTSPECS._serialized_start=59304
+  _PORTSPECS._serialized_end=59354
+  _PROBE._serialized_start=59357
+  _PROBE._serialized_end=59527
+  _PROBE_EXECCOMMAND._serialized_start=59469
+  _PROBE_EXECCOMMAND._serialized_end=59496
+  _PROXY._serialized_start=59530
+  _PROXY._serialized_end=59673
+  _PROXYADDIPREQUEST._serialized_start=59675
+  _PROXYADDIPREQUEST._serialized_end=59712
+  _PROXYADDIPRESPONSE._serialized_start=59714
+  _PROXYADDIPRESPONSE._serialized_end=59775
+  _PROXYCREATEREQUEST._serialized_start=59777
+  _PROXYCREATEREQUEST._serialized_end=59853
+  _PROXYCREATERESPONSE._serialized_start=59855
+  _PROXYCREATERESPONSE._serialized_end=59912
+  _PROXYDELETEREQUEST._serialized_start=59914
+  _PROXYDELETEREQUEST._serialized_end=59952
+  _PROXYGETORCREATEREQUEST._serialized_start=59955
+  _PROXYGETORCREATEREQUEST._serialized_end=60101
+  _PROXYGETORCREATERESPONSE._serialized_start=60103
+  _PROXYGETORCREATERESPONSE._serialized_end=60147
+  _PROXYGETREQUEST._serialized_start=60149
+  _PROXYGETREQUEST._serialized_end=60206
+  _PROXYGETRESPONSE._serialized_start=60208
+  _PROXYGETRESPONSE._serialized_end=60262
+  _PROXYINFO._serialized_start=60265
+  _PROXYINFO._serialized_end=60401
+  _PROXYIP._serialized_start=60403
+  _PROXYIP._serialized_end=60521
+  _PROXYLISTRESPONSE._serialized_start=60523
+  _PROXYLISTRESPONSE._serialized_end=60580
+  _PROXYREMOVEIPREQUEST._serialized_start=60582
+  _PROXYREMOVEIPREQUEST._serialized_end=60622
+  _QUEUECLEARREQUEST._serialized_start=60624
+  _QUEUECLEARREQUEST._serialized_end=60708
+  _QUEUEDELETEREQUEST._serialized_start=60710
+  _QUEUEDELETEREQUEST._serialized_end=60748
+  _QUEUEGETBYIDREQUEST._serialized_start=60750
+  _QUEUEGETBYIDREQUEST._serialized_end=60789
+  _QUEUEGETBYIDRESPONSE._serialized_start=60791
+  _QUEUEGETBYIDRESPONSE._serialized_end=60878
+  _QUEUEGETORCREATEREQUEST._serialized_start=60881
+  _QUEUEGETORCREATEREQUEST._serialized_end=61027
+  _QUEUEGETORCREATERESPONSE._serialized_start=61029
+  _QUEUEGETORCREATERESPONSE._serialized_end=61120
+  _QUEUEGETREQUEST._serialized_start=61122
+  _QUEUEGETREQUEST._serialized_end=61215
+  _QUEUEGETRESPONSE._serialized_start=61217
+  _QUEUEGETRESPONSE._serialized_end=61251
+  _QUEUEHEARTBEATREQUEST._serialized_start=61253
+  _QUEUEHEARTBEATREQUEST._serialized_end=61294
+  _QUEUEITEM._serialized_start=61296
+  _QUEUEITEM._serialized_end=61340
+  _QUEUELENREQUEST._serialized_start=61342
+  _QUEUELENREQUEST._serialized_end=61415
+  _QUEUELENRESPONSE._serialized_start=61417
+  _QUEUELENRESPONSE._serialized_end=61448
+  _QUEUELISTREQUEST._serialized_start=61450
+  _QUEUELISTREQUEST._serialized_end=61570
+  _QUEUELISTRESPONSE._serialized_start=61573
+  _QUEUELISTRESPONSE._serialized_end=61834
+  _QUEUELISTRESPONSE_QUEUEINFO._serialized_start=61680
+  _QUEUELISTRESPONSE_QUEUEINFO._serialized_end=61834
+  _QUEUEMETADATA._serialized_start=61836
+  _QUEUEMETADATA._serialized_end=61916
+  _QUEUENEXTITEMSREQUEST._serialized_start=61918
+  _QUEUENEXTITEMSREQUEST._serialized_end=62032
+  _QUEUENEXTITEMSRESPONSE._serialized_start=62034
+  _QUEUENEXTITEMSRESPONSE._serialized_end=62098
+  _QUEUEPUTREQUEST._serialized_start=62100
+  _QUEUEPUTREQUEST._serialized_end=62205
+  _RPCRETRYPOLICY._serialized_start=62207
+  _RPCRETRYPOLICY._serialized_end=62249
+  _RPCSTATUS._serialized_start=62251
+  _RPCSTATUS._serialized_end=62332
+  _RATELIMIT._serialized_start=62334
+  _RATELIMIT._serialized_end=62411
+  _RESOURCEINFO._serialized_start=62414
+  _RESOURCEINFO._serialized_end=62693
+  _RESOURCEINFO_RESOURCEVALUE._serialized_start=62643
+  _RESOURCEINFO_RESOURCEVALUE._serialized_end=62693
+  _RESOURCES._serialized_start=62696
+  _RESOURCES._serialized_end=62877
+  _RUNTIMEINPUTMESSAGE._serialized_start=62879
+  _RUNTIMEINPUTMESSAGE._serialized_end=62953
+  _RUNTIMEOUTPUTBATCH._serialized_start=62956
+  _RUNTIMEOUTPUTBATCH._serialized_end=63240
+  _RUNTIMEOUTPUTMESSAGE._serialized_start=63242
+  _RUNTIMEOUTPUTMESSAGE._serialized_end=63359
+  _S3MOUNT._serialized_start=63361
+  _S3MOUNT._serialized_end=63461
+  _SANDBOX._serialized_start=63464
+  _SANDBOX._serialized_end=65323
+  _SANDBOX_EXPERIMENTALOPTIONSENTRY._serialized_start=64992
+  _SANDBOX_EXPERIMENTALOPTIONSENTRY._serialized_end=65050
+  _SANDBOX_EXPERIMENTALOPTIONSV2ENTRY._serialized_start=65052
+  _SANDBOX_EXPERIMENTALOPTIONSV2ENTRY._serialized_end=65112
+  _SANDBOXCONTAINERCREATEV2REQUEST._serialized_start=65326
+  _SANDBOXCONTAINERCREATEV2REQUEST._serialized_end=65711
+  _SANDBOXCONTAINERCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY._serialized_start=65620
+  _SANDBOXCONTAINERCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY._serialized_end=65711
+  _SANDBOXCONTAINERCREATEV2RESPONSE._serialized_start=65713
+  _SANDBOXCONTAINERCREATEV2RESPONSE._serialized_end=65793
+  _SANDBOXCREATECONNECTTOKENREQUEST._serialized_start=65795
+  _SANDBOXCREATECONNECTTOKENREQUEST._serialized_end=65900
+  _SANDBOXCREATECONNECTTOKENRESPONSE._serialized_start=65902
+  _SANDBOXCREATECONNECTTOKENRESPONSE._serialized_end=65965
+  _SANDBOXCREATEREQUEST._serialized_start=65968
+  _SANDBOXCREATEREQUEST._serialized_end=66115
+  _SANDBOXCREATERESPONSE._serialized_start=66117
+  _SANDBOXCREATERESPONSE._serialized_end=66215
+  _SANDBOXCREATEV2REQUEST._serialized_start=66218
+  _SANDBOXCREATEV2REQUEST._serialized_end=66597
+  _SANDBOXCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY._serialized_start=65620
+  _SANDBOXCREATEV2REQUEST_CLOUDBUCKETMOUNTCREDENTIALSENTRY._serialized_end=65711
+  _SANDBOXCREATEV2RESPONSE._serialized_start=66600
+  _SANDBOXCREATEV2RESPONSE._serialized_end=66826
+  _SANDBOXGETCOMMANDROUTERACCESSREQUEST._serialized_start=66828
+  _SANDBOXGETCOMMANDROUTERACCESSREQUEST._serialized_end=66917
+  _SANDBOXGETCOMMANDROUTERACCESSRESPONSE._serialized_start=66919
+  _SANDBOXGETCOMMANDROUTERACCESSRESPONSE._serialized_end=67013
+  _SANDBOXGETEXITSNAPSHOTREQUEST._serialized_start=67015
+  _SANDBOXGETEXITSNAPSHOTREQUEST._serialized_end=67083
+  _SANDBOXGETEXITSNAPSHOTRESPONSE._serialized_start=67086
+  _SANDBOXGETEXITSNAPSHOTRESPONSE._serialized_end=67617
+  _SANDBOXGETEXITSNAPSHOTRESPONSE_SUCCESS._serialized_start=67335
+  _SANDBOXGETEXITSNAPSHOTRESPONSE_SUCCESS._serialized_end=67362
+  _SANDBOXGETEXITSNAPSHOTRESPONSE_PENDING._serialized_start=67364
+  _SANDBOXGETEXITSNAPSHOTRESPONSE_PENDING._serialized_end=67373
+  _SANDBOXGETEXITSNAPSHOTRESPONSE_ERROR._serialized_start=67375
+  _SANDBOXGETEXITSNAPSHOTRESPONSE_ERROR._serialized_end=67475
+  _SANDBOXGETEXITSNAPSHOTRESPONSE_ERRORCODE._serialized_start=67478
+  _SANDBOXGETEXITSNAPSHOTRESPONSE_ERRORCODE._serialized_end=67606
+  _SANDBOXGETFROMNAMEREQUEST._serialized_start=67619
+  _SANDBOXGETFROMNAMEREQUEST._serialized_end=67712
+  _SANDBOXGETFROMNAMERESPONSE._serialized_start=67714
+  _SANDBOXGETFROMNAMERESPONSE._serialized_end=67817
+  _SANDBOXGETLOGSREQUEST._serialized_start=67820
+  _SANDBOXGETLOGSREQUEST._serialized_end=67958
+  _SANDBOXGETRESOURCEUSAGEREQUEST._serialized_start=67960
+  _SANDBOXGETRESOURCEUSAGEREQUEST._serialized_end=68012
+  _SANDBOXGETRESOURCEUSAGERESPONSE._serialized_start=68015
+  _SANDBOXGETRESOURCEUSAGERESPONSE._serialized_end=68159
+  _SANDBOXGETTASKIDREQUEST._serialized_start=68161
+  _SANDBOXGETTASKIDREQUEST._serialized_end=68266
+  _SANDBOXGETTASKIDRESPONSE._serialized_start=68269
+  _SANDBOXGETTASKIDRESPONSE._serialized_end=68400
+  _SANDBOXGETTUNNELSREQUEST._serialized_start=68402
+  _SANDBOXGETTUNNELSREQUEST._serialized_end=68465
+  _SANDBOXGETTUNNELSRESPONSE._serialized_start=68467
+  _SANDBOXGETTUNNELSRESPONSE._serialized_end=68582
+  _SANDBOXHANDLEMETADATA._serialized_start=68584
+  _SANDBOXHANDLEMETADATA._serialized_end=68668
+  _SANDBOXINFO._serialized_start=68671
+  _SANDBOXINFO._serialized_end=69202
+  _SANDBOXLISTREQUEST._serialized_start=69205
+  _SANDBOXLISTREQUEST._serialized_end=69359
+  _SANDBOXLISTRESPONSE._serialized_start=69361
+  _SANDBOXLISTRESPONSE._serialized_end=69428
+  _SANDBOXRESTOREREQUEST._serialized_start=69431
+  _SANDBOXRESTOREREQUEST._serialized_end=69851
+  _SANDBOXRESTOREREQUEST_SANDBOXNAMEOVERRIDETYPE._serialized_start=69706
+  _SANDBOXRESTOREREQUEST_SANDBOXNAMEOVERRIDETYPE._serialized_end=69851
+  _SANDBOXRESTORERESPONSE._serialized_start=69853
+  _SANDBOXRESTORERESPONSE._serialized_end=69897
+  _SANDBOXRESTOREV2REQUEST._serialized_start=69900
+  _SANDBOXRESTOREV2REQUEST._serialized_end=70093
+  _SANDBOXRESTOREV2RESPONSE._serialized_start=70096
+  _SANDBOXRESTOREV2RESPONSE._serialized_end=70323
+  _SANDBOXSETNAMEREQUEST._serialized_start=70325
+  _SANDBOXSETNAMEREQUEST._serialized_end=70382
+  _SANDBOXSETNAMERESPONSE._serialized_start=70384
+  _SANDBOXSETNAMERESPONSE._serialized_end=70408
+  _SANDBOXSNAPSHOTFSASYNCGETREQUEST._serialized_start=70410
+  _SANDBOXSNAPSHOTFSASYNCGETREQUEST._serialized_end=70479
+  _SANDBOXSNAPSHOTFSASYNCREQUEST._serialized_start=70481
+  _SANDBOXSNAPSHOTFSASYNCREQUEST._serialized_end=70532
+  _SANDBOXSNAPSHOTFSASYNCRESPONSE._serialized_start=70534
+  _SANDBOXSNAPSHOTFSASYNCRESPONSE._serialized_end=70584
+  _SANDBOXSNAPSHOTFSREQUEST._serialized_start=70586
+  _SANDBOXSNAPSHOTFSREQUEST._serialized_end=70649
+  _SANDBOXSNAPSHOTFSRESPONSE._serialized_start=70652
+  _SANDBOXSNAPSHOTFSRESPONSE._serialized_end=70795
+  _SANDBOXSNAPSHOTGETREQUEST._serialized_start=70797
+  _SANDBOXSNAPSHOTGETREQUEST._serialized_end=70845
+  _SANDBOXSNAPSHOTGETRESPONSE._serialized_start=70847
+  _SANDBOXSNAPSHOTGETRESPONSE._serialized_end=70966
+  _SANDBOXSNAPSHOTHANDLEMETADATA._serialized_start=70968
+  _SANDBOXSNAPSHOTHANDLEMETADATA._serialized_end=71014
+  _SANDBOXSNAPSHOTREQUEST._serialized_start=71016
+  _SANDBOXSNAPSHOTREQUEST._serialized_end=71060
+  _SANDBOXSNAPSHOTRESPONSE._serialized_start=71062
+  _SANDBOXSNAPSHOTRESPONSE._serialized_end=71108
+  _SANDBOXSNAPSHOTWAITREQUEST._serialized_start=71110
+  _SANDBOXSNAPSHOTWAITREQUEST._serialized_end=71176
+  _SANDBOXSNAPSHOTWAITRESPONSE._serialized_start=71178
+  _SANDBOXSNAPSHOTWAITRESPONSE._serialized_end=71252
+  _SANDBOXSTDINWRITEREQUEST._serialized_start=71254
+  _SANDBOXSTDINWRITEREQUEST._serialized_end=71343
+  _SANDBOXSTDINWRITERESPONSE._serialized_start=71345
+  _SANDBOXSTDINWRITERESPONSE._serialized_end=71372
+  _SANDBOXTAG._serialized_start=71374
+  _SANDBOXTAG._serialized_end=71423
+  _SANDBOXTAGSGETREQUEST._serialized_start=71425
+  _SANDBOXTAGSGETREQUEST._serialized_end=71468
+  _SANDBOXTAGSGETRESPONSE._serialized_start=71470
+  _SANDBOXTAGSGETRESPONSE._serialized_end=71534
+  _SANDBOXTAGSSETREQUEST._serialized_start=71536
+  _SANDBOXTAGSSETREQUEST._serialized_end=71645
+  _SANDBOXTERMINATEREQUEST._serialized_start=71647
+  _SANDBOXTERMINATEREQUEST._serialized_end=71692
+  _SANDBOXTERMINATERESPONSE._serialized_start=71694
+  _SANDBOXTERMINATERESPONSE._serialized_end=71774
+  _SANDBOXWAITREQUEST._serialized_start=71776
+  _SANDBOXWAITREQUEST._serialized_end=71833
+  _SANDBOXWAITRESPONSE._serialized_start=71835
+  _SANDBOXWAITRESPONSE._serialized_end=71956
+  _SANDBOXWAITUNTILREADYREQUEST._serialized_start=71958
+  _SANDBOXWAITUNTILREADYREQUEST._serialized_end=72025
+  _SANDBOXWAITUNTILREADYRESPONSE._serialized_start=72027
+  _SANDBOXWAITUNTILREADYRESPONSE._serialized_end=72076
+  _SCHEDULE._serialized_start=72079
+  _SCHEDULE._serialized_end=72367
+  _SCHEDULE_CRON._serialized_start=72185
+  _SCHEDULE_CRON._serialized_end=72230
+  _SCHEDULE_PERIOD._serialized_start=72232
+  _SCHEDULE_PERIOD._serialized_end=72349
+  _SCHEDULERPLACEMENT._serialized_start=72370
+  _SCHEDULERPLACEMENT._serialized_end=72544
+  _SECRETCREATEREQUEST._serialized_start=72547
+  _SECRETCREATEREQUEST._serialized_end=72749
+  _SECRETCREATEREQUEST_ENVDICTENTRY._serialized_start=72703
+  _SECRETCREATEREQUEST_ENVDICTENTRY._serialized_end=72749
+  _SECRETCREATERESPONSE._serialized_start=72751
+  _SECRETCREATERESPONSE._serialized_end=72792
+  _SECRETDELETEREQUEST._serialized_start=72794
+  _SECRETDELETEREQUEST._serialized_end=72834
+  _SECRETGETINFOREQUEST._serialized_start=72836
+  _SECRETGETINFOREQUEST._serialized_end=72877
+  _SECRETGETINFORESPONSE._serialized_start=72879
+  _SECRETGETINFORESPONSE._serialized_end=72950
+  _SECRETGETORCREATEREQUEST._serialized_start=72953
+  _SECRETGETORCREATEREQUEST._serialized_end=73258
+  _SECRETGETORCREATEREQUEST_ENVDICTENTRY._serialized_start=72703
+  _SECRETGETORCREATEREQUEST_ENVDICTENTRY._serialized_end=72749
+  _SECRETGETORCREATERESPONSE._serialized_start=73260
+  _SECRETGETORCREATERESPONSE._serialized_end=73354
+  _SECRETLISTITEM._serialized_start=73357
+  _SECRETLISTITEM._serialized_end=73523
+  _SECRETLISTREQUEST._serialized_start=73525
+  _SECRETLISTREQUEST._serialized_end=73620
+  _SECRETLISTRESPONSE._serialized_start=73622
+  _SECRETLISTRESPONSE._serialized_end=73713
+  _SECRETMETADATA._serialized_start=73715
+  _SECRETMETADATA._serialized_end=73836
+  _SECRETUPDATEREQUEST._serialized_start=73839
+  _SECRETUPDATEREQUEST._serialized_end=73991
+  _SECRETUPDATEREQUEST_UPDATE._serialized_start=73940
+  _SECRETUPDATEREQUEST_UPDATE._serialized_end=73991
+  _SERVERGETTIMERANGESTATSREQUEST._serialized_start=73994
+  _SERVERGETTIMERANGESTATSREQUEST._serialized_end=74177
+  _SERVERGETTIMERANGESTATSRESPONSE._serialized_start=74180
+  _SERVERGETTIMERANGESTATSRESPONSE._serialized_end=75648
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS._serialized_start=74879
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS._serialized_end=75373
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_PERCENTILESTATSENTRY._serialized_start=75224
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_PERCENTILESTATSENTRY._serialized_end=75321
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_SCALARSTATSENTRY._serialized_start=75323
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERINFERENCESTATS_SCALARSTATSENTRY._serialized_end=75373
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERSTATUSCODECOUNT._serialized_start=75375
+  _SERVERGETTIMERANGESTATSRESPONSE_SERVERSTATUSCODECOUNT._serialized_end=75434
+  _SERVERGETTIMERANGESTATSRESPONSE_REQUESTPERCENTILESTATSENTRY._serialized_start=75436
+  _SERVERGETTIMERANGESTATSRESPONSE_REQUESTPERCENTILESTATSENTRY._serialized_end=75540
+  _SERVERGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY._serialized_start=43328
+  _SERVERGETTIMERANGESTATSRESPONSE_CONTAINERPERCENTILESTATSENTRY._serialized_end=43434
+  _SERVERREQUESTFETCHREQUEST._serialized_start=75651
+  _SERVERREQUESTFETCHREQUEST._serialized_end=75799
+  _SERVERREQUESTFETCHREQUEST_TAIL._serialized_start=35321
+  _SERVERREQUESTFETCHREQUEST_TAIL._serialized_end=35342
+  _SERVERREQUESTFETCHRESPONSE._serialized_start=75801
+  _SERVERREQUESTFETCHRESPONSE._serialized_end=75880
+  _SERVERREQUESTINFO._serialized_start=75883
+  _SERVERREQUESTINFO._serialized_end=76028
+  _SERVICEUSER._serialized_start=76031
+  _SERVICEUSER._serialized_end=76194
+  _SERVICEUSERIDENTITY._serialized_start=76196
+  _SERVICEUSERIDENTITY._serialized_end=76317
+  _SERVICEUSERLISTRESPONSE._serialized_start=76319
+  _SERVICEUSERLISTRESPONSE._serialized_end=76394
+  _SHAREDVOLUMEDELETEREQUEST._serialized_start=76396
+  _SHAREDVOLUMEDELETEREQUEST._serialized_end=76449
+  _SHAREDVOLUMEGETFILEREQUEST._serialized_start=76451
+  _SHAREDVOLUMEGETFILEREQUEST._serialized_end=76519
+  _SHAREDVOLUMEGETFILERESPONSE._serialized_start=76521
+  _SHAREDVOLUMEGETFILERESPONSE._serialized_end=76604
+  _SHAREDVOLUMEGETORCREATEREQUEST._serialized_start=76607
+  _SHAREDVOLUMEGETORCREATEREQUEST._serialized_end=76776
+  _SHAREDVOLUMEGETORCREATERESPONSE._serialized_start=76778
+  _SHAREDVOLUMEGETORCREATERESPONSE._serialized_end=76837
+  _SHAREDVOLUMEHEARTBEATREQUEST._serialized_start=76839
+  _SHAREDVOLUMEHEARTBEATREQUEST._serialized_end=76895
+  _SHAREDVOLUMELISTFILESREQUEST._serialized_start=76897
+  _SHAREDVOLUMELISTFILESREQUEST._serialized_end=76967
+  _SHAREDVOLUMELISTFILESRESPONSE._serialized_start=76969
+  _SHAREDVOLUMELISTFILESRESPONSE._serialized_end=77042
+  _SHAREDVOLUMELISTITEM._serialized_start=77045
+  _SHAREDVOLUMELISTITEM._serialized_end=77181
+  _SHAREDVOLUMELISTREQUEST._serialized_start=77183
+  _SHAREDVOLUMELISTREQUEST._serialized_end=77234
+  _SHAREDVOLUMELISTRESPONSE._serialized_start=77236
+  _SHAREDVOLUMELISTRESPONSE._serialized_end=77339
+  _SHAREDVOLUMEMOUNT._serialized_start=77341
+  _SHAREDVOLUMEMOUNT._serialized_end=77465
+  _SHAREDVOLUMEPUTFILEREQUEST._serialized_start=77468
+  _SHAREDVOLUMEPUTFILEREQUEST._serialized_end=77629
+  _SHAREDVOLUMEPUTFILERESPONSE._serialized_start=77631
+  _SHAREDVOLUMEPUTFILERESPONSE._serialized_end=77676
+  _SHAREDVOLUMEREMOVEFILEREQUEST._serialized_start=77678
+  _SHAREDVOLUMEREMOVEFILEREQUEST._serialized_end=77768
+  _STATSPERCENTILE._serialized_start=77770
+  _STATSPERCENTILE._serialized_end=77835
+  _STATSPERCENTILEDISTRIBUTION._serialized_start=77837
+  _STATSPERCENTILEDISTRIBUTION._serialized_end=77932
+  _STRINGMAP._serialized_start=77934
+  _STRINGMAP._serialized_end=78051
+  _STRINGMAP_CONTENTSENTRY._serialized_start=78004
+  _STRINGMAP_CONTENTSENTRY._serialized_end=78051
+  _SYSTEMERRORMESSAGE._serialized_start=78053
+  _SYSTEMERRORMESSAGE._serialized_end=78147
+  _TASKCLUSTERHELLOREQUEST._serialized_start=78149
+  _TASKCLUSTERHELLOREQUEST._serialized_end=78235
+  _TASKCLUSTERHELLORESPONSE._serialized_start=78238
+  _TASKCLUSTERHELLORESPONSE._serialized_end=78400
+  _TASKCURRENTINPUTSRESPONSE._serialized_start=78402
+  _TASKCURRENTINPUTSRESPONSE._serialized_end=78448
+  _TASKGETCOMMANDROUTERACCESSREQUEST._serialized_start=78450
+  _TASKGETCOMMANDROUTERACCESSREQUEST._serialized_end=78502
+  _TASKGETCOMMANDROUTERACCESSRESPONSE._serialized_start=78504
+  _TASKGETCOMMANDROUTERACCESSRESPONSE._serialized_end=78566
+  _TASKGETINFOREQUEST._serialized_start=78568
+  _TASKGETINFOREQUEST._serialized_end=78605
+  _TASKGETINFORESPONSE._serialized_start=78607
+  _TASKGETINFORESPONSE._serialized_end=78682
+  _TASKINFO._serialized_start=78685
+  _TASKINFO._serialized_end=78960
+  _TASKLISTREQUEST._serialized_start=78962
+  _TASKLISTREQUEST._serialized_end=79021
+  _TASKLISTRESPONSE._serialized_start=79023
+  _TASKLISTRESPONSE._serialized_end=79081
+  _TASKLOGS._serialized_start=79084
+  _TASKLOGS._serialized_end=79394
+  _TASKLOGSBATCH._serialized_start=79397
+  _TASKLOGSBATCH._serialized_end=79659
+  _TASKPROGRESS._serialized_start=79661
+  _TASKPROGRESS._serialized_end=79773
+  _TASKRESULTREQUEST._serialized_start=79775
+  _TASKRESULTREQUEST._serialized_end=79839
+  _TASKSTATS._serialized_start=79841
+  _TASKSTATS._serialized_end=79951
+  _TASKTEMPLATE._serialized_start=79954
+  _TASKTEMPLATE._serialized_end=80106
+  _TEMPLATELISTREQUEST._serialized_start=80108
+  _TEMPLATELISTREQUEST._serialized_end=80129
+  _TEMPLATELISTRESPONSE._serialized_start=80132
+  _TEMPLATELISTRESPONSE._serialized_end=80283
+  _TEMPLATELISTRESPONSE_TEMPLATELISTITEM._serialized_start=80224
+  _TEMPLATELISTRESPONSE_TEMPLATELISTITEM._serialized_end=80283
+  _TOKENCREATERESPONSE._serialized_start=80285
+  _TOKENCREATERESPONSE._serialized_end=80346
+  _TOKENDELETEREQUEST._serialized_start=80348
+  _TOKENDELETEREQUEST._serialized_end=80386
+  _TOKENFLOWCREATEREQUEST._serialized_start=80388
+  _TOKENFLOWCREATEREQUEST._serialized_end=80502
+  _TOKENFLOWCREATERESPONSE._serialized_start=80504
+  _TOKENFLOWCREATERESPONSE._serialized_end=80604
+  _TOKENFLOWWAITREQUEST._serialized_start=80606
+  _TOKENFLOWWAITREQUEST._serialized_end=80689
+  _TOKENFLOWWAITRESPONSE._serialized_start=80691
+  _TOKENFLOWWAITRESPONSE._serialized_end=80799
+  _TOKENINFOGETREQUEST._serialized_start=80801
+  _TOKENINFOGETREQUEST._serialized_end=80822
+  _TOKENINFOGETRESPONSE._serialized_start=80825
+  _TOKENINFOGETRESPONSE._serialized_end=81160
+  _TUNNELDATA._serialized_start=81163
+  _TUNNELDATA._serialized_end=81331
+  _TUNNELSTARTREQUEST._serialized_start=81333
+  _TUNNELSTARTREQUEST._serialized_end=81456
+  _TUNNELSTARTRESPONSE._serialized_start=81459
+  _TUNNELSTARTRESPONSE._serialized_end=81612
+  _TUNNELSTOPREQUEST._serialized_start=81614
+  _TUNNELSTOPREQUEST._serialized_end=81647
+  _TUNNELSTOPRESPONSE._serialized_start=81649
+  _TUNNELSTOPRESPONSE._serialized_end=81685
+  _UPLOADURLLIST._serialized_start=81687
+  _UPLOADURLLIST._serialized_end=81717
+  _USERACTIONINFO._serialized_start=81719
+  _USERACTIONINFO._serialized_end=81818
+  _USERGROUPENVIRONMENTSETREQUEST._serialized_start=81820
+  _USERGROUPENVIRONMENTSETREQUEST._serialized_end=81944
+  _USERIDENTITY._serialized_start=81946
+  _USERIDENTITY._serialized_end=81995
+  _VOLUMECOMMITREQUEST._serialized_start=81997
+  _VOLUMECOMMITREQUEST._serialized_end=82081
+  _VOLUMECOMMITRESPONSE._serialized_start=82083
+  _VOLUMECOMMITRESPONSE._serialized_end=82126
+  _VOLUMECOPYFILES2REQUEST._serialized_start=82128
+  _VOLUMECOPYFILES2REQUEST._serialized_end=82228
+  _VOLUMECOPYFILESREQUEST._serialized_start=82230
+  _VOLUMECOPYFILESREQUEST._serialized_end=82329
+  _VOLUMECREATEOPTIONS._serialized_start=82332
+  _VOLUMECREATEOPTIONS._serialized_end=82503
+  _VOLUMECREATEOPTIONS_EXPERIMENTALOPTIONSENTRY._serialized_start=34027
+  _VOLUMECREATEOPTIONS_EXPERIMENTALOPTIONSENTRY._serialized_end=34085
+  _VOLUMEDELETEREQUEST._serialized_start=82505
+  _VOLUMEDELETEREQUEST._serialized_end=82575
+  _VOLUMEGETBYIDREQUEST._serialized_start=82577
+  _VOLUMEGETBYIDREQUEST._serialized_end=82618
+  _VOLUMEGETBYIDRESPONSE._serialized_start=82620
+  _VOLUMEGETBYIDRESPONSE._serialized_end=82710
+  _VOLUMEGETFILE2REQUEST._serialized_start=82712
+  _VOLUMEGETFILE2REQUEST._serialized_end=82824
+  _VOLUMEGETFILE2RESPONSE._serialized_start=82826
+  _VOLUMEGETFILE2RESPONSE._serialized_end=82910
+  _VOLUMEGETFILEREQUEST._serialized_start=82912
+  _VOLUMEGETFILEREQUEST._serialized_end=82995
+  _VOLUMEGETFILERESPONSE._serialized_start=82997
+  _VOLUMEGETFILERESPONSE._serialized_end=83116
+  _VOLUMEGETORCREATEREQUEST._serialized_start=83119
+  _VOLUMEGETORCREATEREQUEST._serialized_end=83413
+  _VOLUMEGETORCREATERESPONSE._serialized_start=83416
+  _VOLUMEGETORCREATERESPONSE._serialized_end=83558
+  _VOLUMEHEARTBEATREQUEST._serialized_start=83560
+  _VOLUMEHEARTBEATREQUEST._serialized_end=83603
+  _VOLUMELISTFILES2REQUEST._serialized_start=83605
+  _VOLUMELISTFILES2REQUEST._serialized_end=83724
+  _VOLUMELISTFILES2RESPONSE._serialized_start=83726
+  _VOLUMELISTFILES2RESPONSE._serialized_end=83794
+  _VOLUMELISTFILESREQUEST._serialized_start=83796
+  _VOLUMELISTFILESREQUEST._serialized_end=83914
+  _VOLUMELISTFILESRESPONSE._serialized_start=83916
+  _VOLUMELISTFILESRESPONSE._serialized_end=83983
+  _VOLUMELISTITEM._serialized_start=83985
+  _VOLUMELISTITEM._serialized_end=84103
+  _VOLUMELISTREQUEST._serialized_start=84105
+  _VOLUMELISTREQUEST._serialized_end=84200
+  _VOLUMELISTRESPONSE._serialized_start=84202
+  _VOLUMELISTRESPONSE._serialized_end=84293
+  _VOLUMEMETADATA._serialized_start=84296
+  _VOLUMEMETADATA._serialized_end=84425
+  _VOLUMEMOUNT._serialized_start=84428
+  _VOLUMEMOUNT._serialized_end=84569
+  _VOLUMEPUTFILES2REQUEST._serialized_start=84572
+  _VOLUMEPUTFILES2REQUEST._serialized_end=84918
+  _VOLUMEPUTFILES2REQUEST_FILE._serialized_start=84718
+  _VOLUMEPUTFILES2REQUEST_FILE._serialized_end=84840
+  _VOLUMEPUTFILES2REQUEST_BLOCK._serialized_start=84842
+  _VOLUMEPUTFILES2REQUEST_BLOCK._serialized_end=84918
+  _VOLUMEPUTFILES2RESPONSE._serialized_start=84921
+  _VOLUMEPUTFILES2RESPONSE._serialized_end=85096
+  _VOLUMEPUTFILES2RESPONSE_MISSINGBLOCK._serialized_start=85024
+  _VOLUMEPUTFILES2RESPONSE_MISSINGBLOCK._serialized_end=85096
+  _VOLUMEPUTFILESREQUEST._serialized_start=85098
+  _VOLUMEPUTFILESREQUEST._serialized_end=85223
+  _VOLUMERELOADREQUEST._serialized_start=85225
+  _VOLUMERELOADREQUEST._serialized_end=85265
+  _VOLUMEREMOVEFILE2REQUEST._serialized_start=85267
+  _VOLUMEREMOVEFILE2REQUEST._serialized_end=85345
+  _VOLUMEREMOVEFILEREQUEST._serialized_start=85347
+  _VOLUMEREMOVEFILEREQUEST._serialized_end=85424
+  _VOLUMERENAMEREQUEST._serialized_start=85426
+  _VOLUMERENAMEREQUEST._serialized_end=85480
+  _WARNING._serialized_start=85483
+  _WARNING._serialized_end=85715
+  _WARNING_WARNINGTYPE._serialized_start=85561
+  _WARNING_WARNINGTYPE._serialized_end=85715
+  _WEBURLINFO._serialized_start=85717
+  _WEBURLINFO._serialized_end=85799
+  _WEBHOOKCONFIG._serialized_start=85802
+  _WEBHOOKCONFIG._serialized_end=86153
+  _WEBHOOKTOKEN._serialized_start=86156
+  _WEBHOOKTOKEN._serialized_end=86286
+  _WEBHOOKTOKENCREATEREQUEST._serialized_start=86288
+  _WEBHOOKTOKENCREATEREQUEST._serialized_end=86345
+  _WEBHOOKTOKENENVIRONMENTADDREQUEST._serialized_start=86347
+  _WEBHOOKTOKENENVIRONMENTADDREQUEST._serialized_end=86424
+  _WEBHOOKTOKENENVIRONMENTLISTREQUEST._serialized_start=86426
+  _WEBHOOKTOKENENVIRONMENTLISTREQUEST._serialized_end=86480
+  _WEBHOOKTOKENENVIRONMENTLISTRESPONSE._serialized_start=86482
+  _WEBHOOKTOKENENVIRONMENTLISTRESPONSE._serialized_end=86544
+  _WEBHOOKTOKENENVIRONMENTREMOVEREQUEST._serialized_start=86546
+  _WEBHOOKTOKENENVIRONMENTREMOVEREQUEST._serialized_end=86626
+  _WEBHOOKTOKENLISTFORENVIRONMENTREQUEST._serialized_start=86628
+  _WEBHOOKTOKENLISTFORENVIRONMENTREQUEST._serialized_end=86693
+  _WEBHOOKTOKENLISTRESPONSE._serialized_start=86695
+  _WEBHOOKTOKENLISTRESPONSE._serialized_end=86765
+  _WEBHOOKTOKENUPDATEREQUEST._serialized_start=86767
+  _WEBHOOKTOKENUPDATEREQUEST._serialized_end=86840
+  _WORKSPACEBILLINGRATESREQUEST._serialized_start=86842
+  _WORKSPACEBILLINGRATESREQUEST._serialized_end=86872
+  _WORKSPACEBILLINGRATESRESPONSE._serialized_start=86875
+  _WORKSPACEBILLINGRATESRESPONSE._serialized_end=87356
+  _WORKSPACEBILLINGRATESRESPONSE_RATESENTRY._serialized_start=87194
+  _WORKSPACEBILLINGRATESRESPONSE_RATESENTRY._serialized_end=87238
+  _WORKSPACEBILLINGRATESRESPONSE_DEPRECATIONWARNINGSENTRY._serialized_start=87240
+  _WORKSPACEBILLINGRATESRESPONSE_DEPRECATIONWARNINGSENTRY._serialized_end=87298
+  _WORKSPACEBILLINGRATESRESPONSE_DEPRECATIONERRORSENTRY._serialized_start=87300
+  _WORKSPACEBILLINGRATESRESPONSE_DEPRECATIONERRORSENTRY._serialized_end=87356
+  _WORKSPACEBILLINGREPORTITEM._serialized_start=87359
+  _WORKSPACEBILLINGREPORTITEM._serialized_end=87767
+  _WORKSPACEBILLINGREPORTITEM_TAGSENTRY._serialized_start=1057
+  _WORKSPACEBILLINGREPORTITEM_TAGSENTRY._serialized_end=1100
+  _WORKSPACEBILLINGREPORTITEM_COSTBYRESOURCEENTRY._serialized_start=87714
+  _WORKSPACEBILLINGREPORTITEM_COSTBYRESOURCEENTRY._serialized_end=87767
+  _WORKSPACEBILLINGREPORTREQUEST._serialized_start=87770
+  _WORKSPACEBILLINGREPORTREQUEST._serialized_end=87986
+  _WORKSPACEBILLINGSUMMARYREQUEST._serialized_start=87988
+  _WORKSPACEBILLINGSUMMARYREQUEST._serialized_end=88073
+  _WORKSPACEBILLINGSUMMARYRESPONSE._serialized_start=88076
+  _WORKSPACEBILLINGSUMMARYRESPONSE._serialized_end=88559
+  _WORKSPACEBILLINGSUMMARYRESPONSE_METEREDCOSTBREAKDOWNENTRY._serialized_start=25651
+  _WORKSPACEBILLINGSUMMARYRESPONSE_METEREDCOSTBREAKDOWNENTRY._serialized_end=25710
+  _WORKSPACEBILLINGSUMMARYRESPONSE_ADJUSTMENTSENTRY._serialized_start=88509
+  _WORKSPACEBILLINGSUMMARYRESPONSE_ADJUSTMENTSENTRY._serialized_end=88559
+  _WORKSPACEDASHBOARDURLREQUEST._serialized_start=88561
+  _WORKSPACEDASHBOARDURLREQUEST._serialized_end=88617
+  _WORKSPACEDASHBOARDURLRESPONSE._serialized_start=88619
+  _WORKSPACEDASHBOARDURLRESPONSE._serialized_end=88663
+  _WORKSPACEMEMBERSLISTITEM._serialized_start=88666
+  _WORKSPACEMEMBERSLISTITEM._serialized_end=89000
+  _WORKSPACEMEMBERSLISTRESPONSE._serialized_start=89002
+  _WORKSPACEMEMBERSLISTRESPONSE._serialized_end=89089
+  _WORKSPACENAMELOOKUPRESPONSE._serialized_start=89091
+  _WORKSPACENAMELOOKUPRESPONSE._serialized_end=89166
+  _WORKSPACESETDEFAULTENVIRONMENTREQUEST._serialized_start=89168
+  _WORKSPACESETDEFAULTENVIRONMENTREQUEST._serialized_end=89233
+  _WORKSPACESETDEFAULTENVIRONMENTSETTINGSREQUEST._serialized_start=89236
+  _WORKSPACESETDEFAULTENVIRONMENTSETTINGSREQUEST._serialized_end=89421
+  _WORKSPACESETDEFAULTENVIRONMENTSETTINGSRESPONSE._serialized_start=89423
+  _WORKSPACESETDEFAULTENVIRONMENTSETTINGSRESPONSE._serialized_end=89544
+  _WORKSPACESETIMAGEBUILDERVERSIONREQUEST._serialized_start=89546
+  _WORKSPACESETIMAGEBUILDERVERSIONREQUEST._serialized_end=89621
+  _WORKSPACESETIMAGEBUILDERVERSIONRESPONSE._serialized_start=89623
+  _WORKSPACESETIMAGEBUILDERVERSIONRESPONSE._serialized_end=89695
+  _WORKSPACESETTINGSRESPONSE._serialized_start=89697
+  _WORKSPACESETTINGSRESPONSE._serialized_end=89789
+  _MODALCLIENT._serialized_start=98363
+  _MODALCLIENT._serialized_end=122535
 # @@protoc_insertion_point(module_scope)

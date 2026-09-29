@@ -20,6 +20,7 @@ if typing.TYPE_CHECKING:
     from .file_info_schema import FileInfoSchema
     from .file_upload_schema import FileUploadSchema
     from .file_upload_url_schema import FileUploadUrlSchema
+    from .job_trigger_category import JobTriggerCategory
     from .job_trigger_schema import JobTriggerSchema
     from .ml_model_task_type import MlModelTaskType
     from .ml_problem_type import MlProblemType
@@ -57,6 +58,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FileInfoSchema": ".file_info_schema",
     "FileUploadSchema": ".file_upload_schema",
     "FileUploadUrlSchema": ".file_upload_url_schema",
+    "JobTriggerCategory": ".job_trigger_category",
     "JobTriggerSchema": ".job_trigger_schema",
     "MlModelTaskType": ".ml_model_task_type",
     "MlProblemType": ".ml_problem_type",
@@ -118,6 +120,7 @@ __all__ = [
     "FileInfoSchema",
     "FileUploadSchema",
     "FileUploadUrlSchema",
+    "JobTriggerCategory",
     "JobTriggerSchema",
     "MlModelTaskType",
     "MlProblemType",

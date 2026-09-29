@@ -30,20 +30,11 @@ from fastapi.responses import (
 from fastapi.responses import Response as FastAPIResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from pyodide.webloop import WebLoop
 from starlette.background import BackgroundTask
 from starlette.middleware.gzip import GZipMiddleware
-from testlib.entrypoint import TestRunner
+from testlib.entrypoint import RunSuiteRequest, TestRunner
 
 import asgi
-
-
-async def _noop(*args):
-    pass
-
-
-WebLoop.shutdown_asyncgens = _noop
-WebLoop.shutdown_default_executor = _noop
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -603,7 +594,9 @@ class FastAPIAppPlugin:
 @app.get("/run-tests/{suite_name:path}")
 async def run_suite(suite_name: str, request: Request):
     runner = TestRunner(request.scope["env"], extra_plugins=[FastAPIAppPlugin()])
-    result = runner.run_suite(suite_name)
+    result = runner.run_suite(
+        suite_name, RunSuiteRequest.from_query_params(request.query_params)
+    )
     return JSONResponse(result.payload, status_code=result.status)
 
 

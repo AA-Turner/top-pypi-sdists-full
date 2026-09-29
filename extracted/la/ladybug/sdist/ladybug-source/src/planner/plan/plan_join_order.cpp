@@ -13,6 +13,7 @@
 #include "planner/join_order/cost_model.h"
 #include "planner/join_order/join_plan_solver.h"
 #include "planner/join_order/join_tree_constructor.h"
+#include "planner/operator/extend/logical_extend.h"
 #include "planner/operator/scan/logical_scan_node_table.h"
 #include "planner/planner.h"
 
@@ -30,6 +31,31 @@ static bool dependsOnAnyVariable(const std::shared_ptr<Expression>& expression) 
     auto collector = DependentVarNameCollector();
     collector.visit(expression);
     return !collector.getVarNames().empty();
+}
+
+// True when the predicates contain an equality between an expression over the given node
+// and a constant (variable-free) expression, e.g. a restated outer filter like a.ID = 123
+// inside an OPTIONAL MATCH / EXISTS subquery. Shared with the subquery unnesting logic in
+// plan_subquery.cpp (which treats such predicates as filters rather than join keys).
+static bool hasConstantPredicate(const binder::NodeExpression& node,
+    const binder::expression_vector& predicates) {
+    for (auto& predicate : predicates) {
+        if (predicate->expressionType != common::ExpressionType::EQUALS) {
+            continue;
+        }
+        auto lhsHasVars = dependsOnAnyVariable(predicate->getChild(0));
+        auto rhsHasVars = dependsOnAnyVariable(predicate->getChild(1));
+        if (lhsHasVars == rhsHasVars) {
+            continue;
+        }
+        auto side = lhsHasVars ? predicate->getChild(0) : predicate->getChild(1);
+        auto collector = DependentVarNameCollector();
+        collector.visit(side);
+        if (collector.getVarNames().contains(node.getUniqueName())) {
+            return true;
+        }
+    }
+    return false;
 }
 
 LogicalPlan Planner::planQueryGraphCollectionInNewContext(
@@ -266,7 +292,16 @@ void Planner::planBaseTableScans(const QueryGraphPlanningInfo& info) {
                 // query ("(a)-[e1]->(b)") needs to scan a, which is already scanned in the outer
                 // query (a). To avoid scanning storage twice, we keep track of node table "a" and
                 // make sure when planning inner query, we only scan internal ID of "a".
-                planNodeIDScan(nodePos);
+                // Exception: a correlated node carrying a constant predicate (e.g. a restated
+                // outer filter like a.ID = 123) must be scanned with properties so the
+                // predicate is applied as a filter. An ID-only scan would silently drop it
+                // (level-1 filter emission only sees full node scans), producing wrong
+                // results for unnested EXISTS/OPTIONAL subqueries.
+                if (hasConstantPredicate(*queryNode, info.predicates)) {
+                    planNodeScan(nodePos);
+                } else {
+                    planNodeIDScan(nodePos);
+                }
             } else {
                 planNodeScan(nodePos);
             }
@@ -506,31 +541,58 @@ void Planner::planWCOJoin(uint32_t leftLevel, uint32_t rightLevel) {
     }
 }
 
-static LogicalOperator* getSequentialScan(LogicalOperator* op) {
-    switch (op->getOperatorType()) {
-    case LogicalOperatorType::FLATTEN:
-    case LogicalOperatorType::FILTER:
-    case LogicalOperatorType::EXTEND:
-    case LogicalOperatorType::PACKED_EXTEND:
-    case LogicalOperatorType::PROJECTION: { // operators we directly search through
-        return getSequentialScan(op->getChild(0).get());
-    }
-    case LogicalOperatorType::SCAN_NODE_TABLE: {
-        return op;
-    }
-    default:
-        return nullptr;
-    }
-}
-
 // Check whether given node ID has sequential guarantee on the plan.
+// A node is sequential if it is either the node scanned at the plan's root, or a neighbor
+// node bound by an extend: each tuple produced by an extend carries exactly one value for
+// the newly bound neighbor, so index (CSR) seeks on it are valid and we can continue
+// extending (index nested loop join) from it. This allows linear multi-hop patterns to be
+// planned as extend chains rooted at a selective node scan (e.g. a primary key or index
+// scan), instead of falling back to hash joins after the first hop.
 static bool isNodeSequentialOnPlan(const LogicalPlan& plan, const NodeExpression& node) {
-    const auto seqScan = getSequentialScan(plan.getLastOperator().get());
-    if (seqScan == nullptr) {
-        return false;
+    const auto targetID = node.getInternalID()->getUniqueName();
+    auto* op = plan.getLastOperator().get();
+    // Whether the target node is bound by an extend in the chain below the root scan. Such
+    // nodes are only safe to keep extending (index nested loop join) when the chain is
+    // selective. Chains without any selective predicate grow multiplicatively with each
+    // hop (full scan -> all its neighbors -> all their neighbors, ...) and get materialized
+    // as hash join build sides, which can exhaust the buffer pool on cyclic queries (e.g.
+    // LSQB q3). We detect selectivity by the presence of a filter inside the chain (below
+    // at least one extend). Filters on top of the outermost extend do not count: the
+    // blowup happens below them.
+    bool boundByExtend = false;
+    bool sawExtend = false;
+    bool filterInsideChain = false;
+    while (op != nullptr) {
+        switch (op->getOperatorType()) {
+        case LogicalOperatorType::EXTEND:
+        case LogicalOperatorType::PACKED_EXTEND: {
+            const auto& extend = op->constCast<LogicalExtend>();
+            if (extend.getNbrNode()->getInternalID()->getUniqueName() == targetID) {
+                boundByExtend = true;
+            }
+            sawExtend = true;
+            op = op->getChild(0).get();
+        } break;
+        case LogicalOperatorType::FLATTEN:
+        case LogicalOperatorType::FILTER:
+        case LogicalOperatorType::PROJECTION: { // operators we directly search through
+            if (op->getOperatorType() == LogicalOperatorType::FILTER && sawExtend) {
+                filterInsideChain = true;
+            }
+            op = op->getChild(0).get();
+        } break;
+        case LogicalOperatorType::SCAN_NODE_TABLE: {
+            const auto& scan = op->constCast<LogicalScanNodeTable>();
+            if (boundByExtend) {
+                return filterInsideChain;
+            }
+            return scan.getNodeID()->getUniqueName() == targetID;
+        }
+        default:
+            return false;
+        }
     }
-    const auto sequentialScan = dynamic_cast_checked<LogicalScanNodeTable*>(seqScan);
-    return sequentialScan->getNodeID()->getUniqueName() == node.getInternalID()->getUniqueName();
+    return false;
 }
 
 // As a heuristic for wcoj, we always pick rel scan that starts from the bound node.
@@ -668,7 +730,8 @@ bool Planner::tryPlanPackedINLJoin(const SubqueryGraph& subgraph,
     if (!subgraph.isSingleRel() && !otherSubgraph.isSingleRel()) {
         return false;
     }
-    if (subgraph.isSingleRel()) {
+    if (subgraph.isSingleRel() && !otherSubgraph.isSingleRel()) {
+        // Always put single rel subgraph to right.
         return tryPlanPackedINLJoin(otherSubgraph, subgraph, joinNodes);
     }
     auto relPos = UINT32_MAX;
@@ -726,7 +789,8 @@ bool Planner::tryPlanINLJoin(const SubqueryGraph& subgraph, const SubqueryGraph&
     if (!subgraph.isSingleRel() && !otherSubgraph.isSingleRel()) {
         return false;
     }
-    if (subgraph.isSingleRel()) { // Always put single rel subgraph to right.
+    if (subgraph.isSingleRel() && !otherSubgraph.isSingleRel()) {
+        // Always put single rel subgraph to right.
         return tryPlanINLJoin(otherSubgraph, subgraph, joinNodes);
     }
     auto relPos = UINT32_MAX;

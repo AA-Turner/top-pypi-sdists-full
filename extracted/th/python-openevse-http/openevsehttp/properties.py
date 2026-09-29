@@ -20,6 +20,7 @@ class PropertiesMixin:
 
     _status: dict[str, Any]
     _config: dict[str, Any]
+    _github_token: str | None
 
     # These are used by properties but defined in client.py
     def _version_check(self, min_version: str, max_version: str = "") -> bool:
@@ -576,3 +577,97 @@ class PropertiesMixin:
             _LOGGER.debug("Feature not supported for older firmware.")
             raise UnsupportedFeature
         return self._config.get("rfid_enabled")
+
+    @property
+    def cable_temp_enabled(self) -> bool:
+        """Return whether cable temperature monitoring is enabled."""
+        if not self._config:
+            return False
+        return bool(self._config.get("cable_temp", False))
+
+    @property
+    def cable_temperatures(self) -> dict[str, float | None]:
+        """Return decoded cable temperatures in degrees C.
+
+        Returns a mapping of logical source name ('ev1', 'ev2', 'in1', 'in2')
+        to temperature in degrees C, or None if unassigned or unavailable.
+        Values in status are stored in tenths of a degree C (c10).
+        """
+        temps: dict[str, float | None] = {}
+        if not self._status:
+            return temps
+
+        source_keys = [
+            ("ev1", "cable_temp_ev1"),
+            ("ev2", "cable_temp_ev2"),
+            ("in1", "cable_temp_in1"),
+            ("in2", "cable_temp_in2"),
+        ]
+        for src, key in source_keys:
+            if key in self._status:
+                val = self._status[key]
+                if val is False or val is None:
+                    temps[src] = None
+                else:
+                    try:
+                        temps[src] = float(val) / 10.0
+                    except (ValueError, TypeError):
+                        temps[src] = None
+        return temps
+
+    @property
+    def timezone(self) -> str | None:
+        """Return charger timezone string."""
+        return self._config.get("time_zone")
+
+    @property
+    def time_offset(self) -> str | None:
+        """Return charger timezone offset string (e.g. +0000 or -0700)."""
+        return self._status.get("offset")
+
+    @property
+    def sntp_enabled(self) -> bool:
+        """Return whether SNTP / NTP time synchronization is enabled."""
+        if not self._config:
+            return False
+        return bool(self._config.get("sntp_enabled", False))
+
+    @property
+    def sntp_hostname(self) -> str | None:
+        """Return configured SNTP server hostname."""
+        return self._config.get("sntp_hostname")
+
+    @property
+    def scheduler_start_window(self) -> int | None:
+        """Return scheduler start window in seconds."""
+        return self._config.get("scheduler_start_window")
+
+    @property
+    def schedule_version(self) -> int | None:
+        """Return schedule version counter integer.
+
+        Monotonically incremented by the gateway whenever schedule events
+        are created, modified, or deleted. Used to trigger state updates.
+        """
+        return self._status.get("schedule_version")
+
+    @property
+    def schedule_plan_version(self) -> int | None:
+        """Return schedule plan version counter integer.
+
+        Monotonically incremented by the gateway whenever the calculated
+        weekly schedule execution plan changes or advances.
+        """
+        return self._status.get("schedule_plan_version")
+
+    @property
+    def github_token(self) -> str | None:
+        """Return configured GitHub token."""
+        return getattr(self, "_github_token", None)
+
+    @github_token.setter
+    def github_token(self, token: str | None) -> None:
+        """Set or update configured GitHub token."""
+        self._github_token = (
+            token.strip() if isinstance(token, str) and token.strip() else None
+        )

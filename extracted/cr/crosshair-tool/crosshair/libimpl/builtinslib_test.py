@@ -33,6 +33,7 @@ from typing import (
     SupportsRound,
     Tuple,
     Type,
+    TypedDict,
     TypeVar,
     Union,
     get_type_hints,
@@ -88,7 +89,6 @@ from crosshair.util import (
     CrosshairUnsupported,
     CrossHairValue,
     IgnoreAttempt,
-    UnknownSatisfiability,
 )
 
 
@@ -139,12 +139,9 @@ class SmokeDetector:
         return "smoke" in air_samples
 
 
-if sys.version_info >= (3, 9):
-    from typing import TypedDict
-
-    class Movie(TypedDict):
-        name: str
-        year: int
+class Movie(TypedDict):
+    name: str
+    year: int
 
 
 INF = float("inf")
@@ -376,29 +373,6 @@ def test_int___pow___method():
         return a**3
 
     check_states(f, POST_FAIL)
-
-
-def test_int___pow___to_ieee_float():
-    with standalone_statespace as space:
-        with NoTracing():
-            space.extra(ModelingDirector).global_representations[
-                float
-            ] = PreciseIeeeSymbolicFloat
-            a = SymbolicInt("a")
-        with pytest.raises(UnknownSatisfiability):
-            sqrt_a = a**0.5
-
-
-def test_int___pow___to_real_based_float():
-    with standalone_statespace as space:
-        with NoTracing():
-            space.extra(ModelingDirector).global_representations[
-                float
-            ] = RealBasedSymbolicFloat
-            a = SymbolicInt("a")
-        sqrt_a = a**0.5
-        with pytest.raises(UnknownSatisfiability):
-            realize(sqrt_a == 3)
 
 
 def test_int___pow___nonpositive_exponent():
@@ -980,6 +954,80 @@ def test_int_to_bytes_optional_args():
 @pytest.mark.parametrize(
     "float_type", [RealBasedSymbolicFloat, PreciseIeeeSymbolicFloat]
 )
+@pytest.mark.parametrize(
+    "base,exp",
+    [(9.0, 0.5), (-8.0, 1 / 3), (0.5, math.inf), (-2.0, math.inf), (2.0, -3.0)],
+)
+def test_float___pow___symbolic_base(space, float_type, base, exp):
+    space.extra(ModelingDirector).global_representations[float] = float_type
+    x = float_type("x")
+    with ResumedTracing():
+        space.add(x == base)
+        result = x**exp
+    assert realize(result) == base**exp
+
+
+@pytest.mark.parametrize(
+    "float_type", [RealBasedSymbolicFloat, PreciseIeeeSymbolicFloat]
+)
+@pytest.mark.parametrize("base,exp", [(9.0, 0.5), (-8.0, 1 / 3), (2.0, -3.0)])
+def test_float___pow___symbolic_exponent(space, float_type, base, exp):
+    space.extra(ModelingDirector).global_representations[float] = float_type
+    y = float_type("y")
+    with ResumedTracing():
+        space.add(y == exp)
+        result = base**y
+    assert realize(result) == base**exp
+
+
+@pytest.mark.parametrize(
+    "float_type", [RealBasedSymbolicFloat, PreciseIeeeSymbolicFloat]
+)
+def test_int___pow___negative_base_fractional_exponent(space, float_type):
+    space.extra(ModelingDirector).global_representations[float] = float_type
+    b = SymbolicInt("b")
+    e = float_type("e")
+    with ResumedTracing():
+        space.add(b == -1)
+        space.add(e == -1.4375)
+        result = b**e
+    assert realize(result) == (-1) ** -1.4375
+
+
+def test_float___pow___overflow(space):
+    x = RealBasedSymbolicFloat("x")
+    with ResumedTracing():
+        space.add(x == 1e200)
+        with pytest.raises(OverflowError):
+            x**2.5
+
+
+def test_float___pow___integral_exponent_stays_symbolic(space):
+    space.extra(ModelingDirector).global_representations[float] = RealBasedSymbolicFloat
+    x = RealBasedSymbolicFloat("x")
+    with ResumedTracing():
+        result = x**2.0
+    assert isinstance(result, RealBasedSymbolicFloat)
+    assert space.is_possible(result.var == 9)
+    assert space.is_possible(result.var == 16)
+
+
+@pytest.mark.parametrize(
+    "float_type", [RealBasedSymbolicFloat, PreciseIeeeSymbolicFloat]
+)
+def test_float___pow___zero_exponent_keeps_base_symbolic(space, float_type):
+    space.extra(ModelingDirector).global_representations[float] = float_type
+    x = float_type("x")
+    with ResumedTracing():
+        result = x**0.0
+        assert space.is_possible(x == 5.0)
+        assert space.is_possible(x == 7.0)
+    assert result == 1.0
+
+
+@pytest.mark.parametrize(
+    "float_type", [RealBasedSymbolicFloat, PreciseIeeeSymbolicFloat]
+)
 def test_float_floordiv_and_divmod_return_float(space, float_type):
     space.extra(ModelingDirector).global_representations[float] = float_type
     x = float_type("x")
@@ -1020,6 +1068,14 @@ def test_smt_for_unification(space):
         space.add(ord(sym[1]) == ord("b"))
     assert space.is_possible(SymbolicBool(sym._smt_for_unification("ab")))
     assert not space.is_possible(SymbolicBool(z3.Not(sym._smt_for_unification("ab"))))
+
+
+@pytest.mark.parametrize("other", ["ab", 7, 1.5, True, [1, "a"]])
+def test_symbolic_bounded_int_tuple_rejects_incompatible_unification_values(
+    space, other
+):
+    sym = SymbolicBoundedIntTuple([(0, 255)], "sym")
+    assert sym._smt_for_unification(other) is None
 
 
 def test_pin_to_constrains_scalar(space):
@@ -1128,6 +1184,20 @@ def test_str___contains___method() -> None:
     check_states(f, POST_FAIL)
 
 
+def test_str_slice_equals_literal_forks_once(space) -> None:
+    with NoTracing():
+        string = proxy_for_type(str, "string")
+    with ResumedTracing():
+        space.add(len(string) >= 5)
+        head = string[0:5]
+        nodes_before = len(space.choices_made)
+        is_false = head == "false"
+        assert len(space.choices_made) == nodes_before
+        assert space.is_possible(is_false)
+        assert space.is_possible(not is_false)
+        assert head != "no"
+
+
 def test_str_find_does_not_realize_string_length() -> None:
     def f(a: str) -> str:
         """post: len(_) != 100"""
@@ -1143,6 +1213,30 @@ def test_str_find_with_limits_ok() -> None:
         return a.find("abc", 1, 3)
 
     check_states(f, CONFIRMED)
+
+
+@pytest.mark.parametrize("method", ["find", "rfind", "count"])
+def test_str_search_with_end_stays_symbolic(space, method) -> None:
+    string = proxy_for_type(str, "string")
+    with ResumedTracing():
+        space.add(len(string) >= 4)
+        result = getattr(string, method)("\n", 0, 4)
+        results = [r for r in (-1, 0, 1, 2, 3) if space.is_possible(result == r)]
+        if method == "count":
+            assert results == [0, 1, 2, 3]
+        else:
+            assert results == [-1, 0, 1, 2, 3]
+
+
+@pytest.mark.parametrize("method", ["find", "rfind"])
+def test_bytes_search_with_end_stays_symbolic(space, method) -> None:
+    b = proxy_for_type(bytes, "b")
+    with ResumedTracing():
+        space.add(len(b) >= 3)
+        result = getattr(b, method)(b"ab", 0, 3)
+        assert space.is_possible(result == -1)
+        assert space.is_possible(result == 0)
+        assert space.is_possible(result == 1)
 
 
 def test_str_find_with_negative_limits_fail() -> None:
@@ -1997,6 +2091,9 @@ def test_tuple___getitem___method() -> None:
         (0, None, None),
         (5, 2, None),
         (2, 5, -1),
+        (None, 0, -1),
+        (3, 0, -1),
+        (5, 1, -2),
     ],
 )
 def test_symbolic_bounded_int_tuple_slice_cases(
@@ -2006,11 +2103,20 @@ def test_symbolic_bounded_int_tuple_slice_cases(
     t = SymbolicBoundedIntTuple([(0, 100)], "t")
     with ResumedTracing():
         space.add(len(t) == 6)
+        sliced_symbolic = t[start:stop:step]
         for idx, val in enumerate(concrete):
             space.add(t[idx] == val)
-        sliced = [realize(v) for v in t[start:stop:step]]
+        sliced = [realize(v) for v in sliced_symbolic]
     expected = list(concrete[start:stop:step])
     assert sliced == expected
+
+
+def test_symbolic_bounded_int_tuple_empty_prefix_keeps_length_symbolic(space) -> None:
+    t = SymbolicBoundedIntTuple([(0, 100)], "t")
+    with ResumedTracing():
+        assert t[0:0] == []
+        assert space.is_possible(len(t) == 0)
+        assert space.is_possible(len(t) == 5)
 
 
 @pytest.mark.demo
@@ -2041,6 +2147,25 @@ def test_tuple___repr__symbolic_in_concrete_namedtuple(space) -> None:
         space.add(x == 4)  # type: ignore
         container = NamedTupleClass(target=x)
         assert repr(container) == "NamedTupleClass(target=4)"
+
+
+def test_tuple_concatenation_never_equals_list() -> None:
+    def f(t: Tuple[int, ...]) -> bool:
+        """post: _ == False"""
+        return (t + (7,)) == [1, 7]
+
+    check_states(f, CONFIRMED)
+
+
+def test_tuple_step_slice() -> None:
+    def f(t: Tuple[int, ...]) -> int:
+        """
+        pre: len(t) == 2
+        post: _ == 1
+        """
+        return len(t[::2])
+
+    check_states(f, CONFIRMED)
 
 
 def test_tuple_range_intersection_fail() -> None:
@@ -2857,11 +2982,7 @@ def test_dict___or___method():
         space.add(len(d) == 0)
         with pytest.raises(TypeError):
             d | set()
-        if sys.version_info >= (3, 9):
-            assert d | {1: 2} == {1: 2}
-        else:
-            with pytest.raises(TypeError):
-                d | {1: 2}
+        assert d | {1: 2} == {1: 2}
 
 
 @pytest.mark.demo("yellow")
@@ -3302,22 +3423,20 @@ def test_dict_untyped_access():
     check_states(f, MessageType.POST_FAIL)
 
 
-# NOTE: TypedDict appeared earlier than 3.9, but was not runtime-detectable until then
-if sys.version_info >= (3, 9):
+def test_TypedDict_fail() -> None:
+    def f(td: Movie):
+        '''post: _['year'] != 2020 or _['name'] != "hi"'''
+        return td
 
-    def test_TypedDict_fail() -> None:
-        def f(td: Movie):
-            '''post: _['year'] != 2020 or _['name'] != "hi"'''
-            return td
+    check_states(f, POST_FAIL)
 
-        check_states(f, POST_FAIL)
 
-    def test_TypedDict_in_container_fail() -> None:
-        def f(tdlist: List[Movie]):
-            """post: _[1]['year'] != 2020"""
-            return tdlist
+def test_TypedDict_in_container_fail() -> None:
+    def f(tdlist: List[Movie]):
+        """post: _[1]['year'] != 2020"""
+        return tdlist
 
-        check_states(f, POST_FAIL)
+    check_states(f, POST_FAIL)
 
 
 @pytest.mark.smoke
@@ -4399,6 +4518,22 @@ def test_float_neg_zero_is_falsey(space):
         negzero = x / math.inf
         assert not space.is_possible(negzero != 0.0)
         assert bool(negzero) is False
+
+
+@pytest.mark.xfail(
+    reason="PreciseIeeeSymbolicFloat.is_integer() raises on non-finite values",
+    raises=(OverflowError, ValueError),
+    strict=True,
+)
+@pytest.mark.parametrize("val", [math.inf, -math.inf, math.nan])
+def test_float_is_integer_nonfinite(space, val):
+    space.extra(ModelingDirector).global_representations[
+        float
+    ] = PreciseIeeeSymbolicFloat
+    x = PreciseIeeeSymbolicFloat("x")
+    space.add(x.var == z3.FPVal(val, x.var.sort()))
+    with ResumedTracing():
+        assert not x.is_integer()
 
 
 def TODO_test_int_mod_float():

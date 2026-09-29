@@ -1,7 +1,9 @@
 # Copyright Modal Labs 2022
 import builtins
 import os
+from collections.abc import Collection
 from datetime import datetime
+from pathlib import Path
 from typing import Callable
 
 from google.protobuf.message import Message
@@ -85,7 +87,7 @@ class _SecretManager:
             env_dict=env_dict,
         )
         try:
-            await client.stub.SecretGetOrCreate(req)
+            await client._stub.SecretGetOrCreate(req)
         except AlreadyExistsError:
             if not allow_existing:
                 raise
@@ -144,7 +146,7 @@ class _SecretManager:
             req = api_pb2.SecretListRequest(
                 environment_name=_get_environment_name(environment_name), pagination=pagination
             )
-            resp = await client.stub.SecretList(req)
+            resp = await client._stub.SecretList(req)
             items.extend(resp.items)
             finished = (len(resp.items) < max_page_size) or (max_objects is not None and len(items) >= max_objects)
             return finished
@@ -205,7 +207,7 @@ class _SecretManager:
                 raise
         else:
             req = api_pb2.SecretDeleteRequest(secret_id=obj.object_id)
-            await obj.client.stub.SecretDelete(req)
+            await obj.client._stub.SecretDelete(req)
 
 
 SecretManager = synchronize_api(_SecretManager)
@@ -227,7 +229,7 @@ async def _load_from_env_dict(instance: "_Secret", load_context: LoadContext, en
             environment_name=load_context.environment_name,
         )
 
-    resp = await load_context.client.stub.SecretGetOrCreate(req)
+    resp = await load_context.client._stub.SecretGetOrCreate(req)
     instance._hydrate(resp.secret_id, load_context.client, resp.metadata)
 
 
@@ -242,6 +244,7 @@ class _Secret(_Object, type_prefix="st"):
     """
 
     _metadata: api_pb2.SecretMetadata | None = None
+    _keys: set[str] | None = None
     _load_env_dict: Callable[[], dict[str, str]] | None = None
 
     @classproperty
@@ -253,15 +256,34 @@ class _Secret(_Object, type_prefix="st"):
     def name(self) -> str | None:
         return self._name
 
+    async def _refresh_metadata(self):
+        # Not using @live_method because if we are dehydrated, the act of hydration will refresh
+        # metadata anyway, so we don't need to do the SecretGetInfo rpc
+        if not self._is_hydrated:
+            await self.hydrate()
+            return
+
+        req = api_pb2.SecretGetInfoRequest(secret_id=self.object_id)
+        response = await self.client._stub.SecretGetInfo(req)
+        self._hydrate(self.object_id, self.client, response.metadata)
+
     def _hydrate_metadata(self, metadata: Message | None):
         if metadata:
             assert isinstance(metadata, api_pb2.SecretMetadata)
             self._metadata = metadata
             self._name = metadata.name
+            self._keys = set(metadata.keys)
 
     def _get_metadata(self) -> api_pb2.SecretMetadata:
         assert self._metadata
         return self._metadata
+
+    async def _get_keys(self, *, refresh: bool = False) -> set[str]:
+        if refresh or self._keys is None:
+            await self._refresh_metadata()
+
+        assert self._keys is not None
+        return set(self._keys)
 
     @property
     def _is_ephemeral(self) -> bool:
@@ -307,9 +329,12 @@ class _Secret(_Object, type_prefix="st"):
 
         rep = f"Secret.from_dict([{', '.join(env_dict.keys())}])"
         # TODO: scoping - these should probably not be lazily hydrated without having an app and/or sandbox association
-        return _Secret._from_load_env_dict(
+        obj = _Secret._from_load_env_dict(
             _load_env_dict, rep, hydrate_lazily=True, load_context_overrides=LoadContext.empty()
         )
+        obj._keys = set(env_dict_filtered.keys())
+
+        return obj
 
     @staticmethod
     def from_local_environ(
@@ -338,7 +363,9 @@ class _Secret(_Object, type_prefix="st"):
         return _Secret.from_dict({})
 
     @staticmethod
-    def from_dotenv(path=None, *, filename=".env", client: _Client | None = None) -> "_Secret":
+    def from_dotenv(
+        path: str | Path | None = None, *, filename: str = ".env", client: _Client | None = None
+    ) -> "_Secret":
         """Load environment variables from a `.env` file into a Secret.
 
         With no `path`, searches from the current working directory (not the caller's file path).
@@ -377,7 +404,7 @@ class _Secret(_Object, type_prefix="st"):
 
             if path is not None:
                 # This basically implements the logic in find_dotenv
-                for dirname in _walk_to_root(path):
+                for dirname in _walk_to_root(os.fspath(path)):
                     check_path = os.path.join(dirname, filename)
                     if os.path.isfile(check_path):
                         dotenv_path = check_path
@@ -445,7 +472,7 @@ class _Secret(_Object, type_prefix="st"):
                 environment_name=load_context.environment_name,
                 required_keys=required_keys,
             )
-            response = await load_context.client.stub.SecretGetOrCreate(req)
+            response = await load_context.client._stub.SecretGetOrCreate(req)
             self._hydrate(response.secret_id, load_context.client, response.metadata)
 
         rep = _Secret._repr(name, environment_name)
@@ -455,6 +482,45 @@ class _Secret(_Object, type_prefix="st"):
             hydrate_lazily=True,
             name=name,
             load_context_overrides=LoadContext(environment_name=environment_name, client=client),
+            skip_reload=True,
+        )
+
+    @staticmethod
+    def _from_id(secret_id: str, *, client: _Client | None = None):
+        """mdmd:hidden
+
+        Reference a Secret by ID.
+
+        Hydration is lazy until the Secret is used.
+
+        Args:
+            secret_id: ID of the Secret.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A `Secret` handle (possibly not yet hydrated).
+
+        Examples:
+            ```python
+            secret = modal.Secret._from_id("st-1234")
+
+            @app.function(secrets=[secret])
+            def run():
+                ...
+            ```
+        """
+
+        async def _load(self: _Secret, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
+            req = api_pb2.SecretGetInfoRequest(secret_id=secret_id)
+            response = await load_context.client._stub.SecretGetInfo(req)
+            self._hydrate(secret_id, load_context.client, response.metadata)
+
+        rep = f"modal.Secret.from_id({secret_id!r})"
+        return _Secret._from_loader(
+            _load,
+            rep,
+            hydrate_lazily=True,
+            load_context_overrides=LoadContext(client=client),
             skip_reload=True,
         )
 
@@ -481,7 +547,7 @@ class _Secret(_Object, type_prefix="st"):
             object_creation_type=object_creation_type,
             env_dict=env_dict,
         )
-        resp = await client.stub.SecretGetOrCreate(request)
+        resp = await client._stub.SecretGetOrCreate(request)
         return resp.secret_id
 
     @live_method
@@ -493,6 +559,7 @@ class _Secret(_Object, type_prefix="st"):
             name=metadata.name or None,
             created_at=timestamp_to_localized_dt(creation_info.created_at),
             created_by=creation_info.created_by or None,
+            environment_name=metadata.environment_name,
         )
 
     @live_method
@@ -511,23 +578,30 @@ class _Secret(_Object, type_prefix="st"):
             raise InvalidError(err)
         updates = [api_pb2.SecretUpdateRequest.Update(key=k, value=v) for k, v in env_dict.items()]
         req = api_pb2.SecretUpdateRequest(secret_id=self.object_id, updates=updates)
-        await self.client.stub.SecretUpdate(req)
+
+        await self.client._stub.SecretUpdate(req)
+
+        # Since we are hydrated at this point, this will never be None
+        assert self._keys is not None
+        self._keys = self._keys | set(env_dict.keys())
 
 
-def _split_env_dict_and_resolvable_secrets(secrets: list[_Secret]) -> tuple[dict[str, str], list[_Secret]]:
-    """Split secrets into secrets that can be resolved locally and secrets that are remote.
+def _resolvable_secrets(secrets: Collection[_Secret]) -> list[_Secret]:
+    """Secrets that must be resolved server-side and referenced by id, e.g. `Secret.from_name`."""
+    return [secret for secret in secrets if not secret._load_env_dict]
 
-    Locally resolvable secrets include: `Secret.from_dict`, `Secret.from_dotenv`
-    Remote secrets include: `Secret.from_name`
-    """
+
+def _local_secret_env(secrets: Collection[_Secret]) -> dict[str, str]:
+    """Env vars from locally resolvable Secrets (`Secret.from_dict`, `Secret.from_dotenv`, ...)."""
     env_dict: dict[str, str] = {}
-    resolvable_secrets: list[_Secret] = []
     for secret in secrets:
         if secret._load_env_dict:
             env_dict |= secret._load_env_dict()
-        else:
-            resolvable_secrets.append(secret)
-    return env_dict, resolvable_secrets
+        elif secret._keys:
+            # Inlined values override named Secrets regardless of order, so drop keys a later named Secret sets.
+            for key in secret._keys:
+                env_dict.pop(key, None)
+    return env_dict
 
 
 Secret = synchronize_api(_Secret)

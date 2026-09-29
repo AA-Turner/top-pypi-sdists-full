@@ -17,7 +17,7 @@ from .content import (
 )
 from ..._files import deepcopy_with_paths
 from ..._types import Body, Omit, Query, Headers, NotGiven, FileTypes, omit, not_given
-from ..._utils import extract_files, path_template, maybe_transform, async_maybe_transform
+from ..._utils import extract_files, path_template, maybe_transform, strip_not_given, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -65,6 +65,7 @@ class FilesResource(SyncAPIResource):
         self,
         *,
         file: FileTypes,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -78,10 +79,12 @@ class FilesResource(SyncAPIResource):
         Send the file as multipart/form-data in the `file` field; the request body
         carries the raw bytes, unlike cloud_imports which only references blobs that
         already exist in cloud storage. The upload is rejected if it exceeds 25 MB;
-        larger or direct-to-storage uploads use a separate upload flow. Content is
-        deduplicated by checksum and MIME type, so uploading bytes identical to an
-        existing file reuses the already-stored object instead of storing a second copy.
-        Returns the created file's metadata.
+        larger or direct-to-storage uploads use a separate upload flow. The server
+        detects the content type from the bytes and rejects content that fails the
+        structural validation for that type. Content is deduplicated by checksum and
+        MIME type, so uploading bytes identical to an existing file reuses the
+        already-stored object instead of storing a second copy. Returns the created
+        file's metadata.
 
         Args:
           extra_headers: Send extra headers
@@ -92,6 +95,7 @@ class FilesResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         body = deepcopy_with_paths({"file": file}, [["file"]])
         files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
         # It should be noted that the actual Content-Type header that will be
@@ -112,6 +116,7 @@ class FilesResource(SyncAPIResource):
         self,
         file_id: str,
         *,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -137,6 +142,7 @@ class FilesResource(SyncAPIResource):
         """
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._get(
             path_template("/v5/files/{file_id}", file_id=file_id),
             options=make_request_options(
@@ -150,6 +156,7 @@ class FilesResource(SyncAPIResource):
         file_id: str,
         *,
         tags: Dict[str, object] | Omit = omit,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -175,6 +182,7 @@ class FilesResource(SyncAPIResource):
         """
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._patch(
             path_template("/v5/files/{file_id}", file_id=file_id),
             body=maybe_transform({"tags": tags}, file_update_params.FileUpdateParams),
@@ -193,6 +201,7 @@ class FilesResource(SyncAPIResource):
         sort_by: str | Omit = omit,
         sort_order: SortOrder | Omit = omit,
         starting_after: str | Omit = omit,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -219,6 +228,7 @@ class FilesResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._get_api_list(
             "/v5/files",
             page=SyncCursorPage[SGPFile],
@@ -246,6 +256,7 @@ class FilesResource(SyncAPIResource):
         self,
         file_id: str,
         *,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -274,6 +285,7 @@ class FilesResource(SyncAPIResource):
         """
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._delete(
             path_template("/v5/files/{file_id}", file_id=file_id),
             options=make_request_options(
@@ -286,6 +298,7 @@ class FilesResource(SyncAPIResource):
         self,
         *,
         files: Iterable[file_import_from_cloud_params.File],
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -317,6 +330,7 @@ class FilesResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._post(
             "/v5/files/cloud_imports",
             body=maybe_transform({"files": files}, file_import_from_cloud_params.FileImportFromCloudParams),
@@ -355,6 +369,7 @@ class AsyncFilesResource(AsyncAPIResource):
         self,
         *,
         file: FileTypes,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -368,10 +383,12 @@ class AsyncFilesResource(AsyncAPIResource):
         Send the file as multipart/form-data in the `file` field; the request body
         carries the raw bytes, unlike cloud_imports which only references blobs that
         already exist in cloud storage. The upload is rejected if it exceeds 25 MB;
-        larger or direct-to-storage uploads use a separate upload flow. Content is
-        deduplicated by checksum and MIME type, so uploading bytes identical to an
-        existing file reuses the already-stored object instead of storing a second copy.
-        Returns the created file's metadata.
+        larger or direct-to-storage uploads use a separate upload flow. The server
+        detects the content type from the bytes and rejects content that fails the
+        structural validation for that type. Content is deduplicated by checksum and
+        MIME type, so uploading bytes identical to an existing file reuses the
+        already-stored object instead of storing a second copy. Returns the created
+        file's metadata.
 
         Args:
           extra_headers: Send extra headers
@@ -382,6 +399,7 @@ class AsyncFilesResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         body = deepcopy_with_paths({"file": file}, [["file"]])
         files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
         # It should be noted that the actual Content-Type header that will be
@@ -402,6 +420,7 @@ class AsyncFilesResource(AsyncAPIResource):
         self,
         file_id: str,
         *,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -427,6 +446,7 @@ class AsyncFilesResource(AsyncAPIResource):
         """
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return await self._get(
             path_template("/v5/files/{file_id}", file_id=file_id),
             options=make_request_options(
@@ -440,6 +460,7 @@ class AsyncFilesResource(AsyncAPIResource):
         file_id: str,
         *,
         tags: Dict[str, object] | Omit = omit,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -465,6 +486,7 @@ class AsyncFilesResource(AsyncAPIResource):
         """
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return await self._patch(
             path_template("/v5/files/{file_id}", file_id=file_id),
             body=await async_maybe_transform({"tags": tags}, file_update_params.FileUpdateParams),
@@ -483,6 +505,7 @@ class AsyncFilesResource(AsyncAPIResource):
         sort_by: str | Omit = omit,
         sort_order: SortOrder | Omit = omit,
         starting_after: str | Omit = omit,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -509,6 +532,7 @@ class AsyncFilesResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._get_api_list(
             "/v5/files",
             page=AsyncCursorPage[SGPFile],
@@ -536,6 +560,7 @@ class AsyncFilesResource(AsyncAPIResource):
         self,
         file_id: str,
         *,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -564,6 +589,7 @@ class AsyncFilesResource(AsyncAPIResource):
         """
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return await self._delete(
             path_template("/v5/files/{file_id}", file_id=file_id),
             options=make_request_options(
@@ -576,6 +602,7 @@ class AsyncFilesResource(AsyncAPIResource):
         self,
         *,
         files: Iterable[file_import_from_cloud_params.File],
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -607,6 +634,7 @@ class AsyncFilesResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return await self._post(
             "/v5/files/cloud_imports",
             body=await async_maybe_transform({"files": files}, file_import_from_cloud_params.FileImportFromCloudParams),

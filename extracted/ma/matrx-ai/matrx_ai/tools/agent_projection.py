@@ -223,8 +223,16 @@ async def resolve_agent_specs(
                 color="red",
             )
 
+        agent_name = str(getattr(row, "name", "") or "").strip()
+        role = (spec.display_name or "").strip()
+        if role and agent_name and role.lower() != agent_name.lower():
+            display_name = f"{role} · {agent_name}"
+        else:
+            display_name = role or agent_name or None
+
         tool_def = ToolDefinition(
             name=projected_name,
+            display_name=display_name,
             description=description,
             parameters=parameters,
             tool_type=ToolType.AGENT,

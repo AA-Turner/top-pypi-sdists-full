@@ -15,6 +15,37 @@ import pytest
 from runlayer_cli.hook_install import safe_fs
 
 
+def _lstat_uid_override(monkeypatch, path: Path, uid: int) -> None:
+    """Make ``os.lstat(path)`` report *uid* as owner (tests run unprivileged)."""
+    real_lstat = os.lstat
+
+    def fake(target, *args, **kwargs):
+        st = real_lstat(target, *args, **kwargs)
+        if isinstance(target, (str, os.PathLike)) and Path(target) == path:
+            values = list(st)
+            values[4] = uid
+            return os.stat_result(values)
+        return st
+
+    monkeypatch.setattr(os, "lstat", fake)
+
+
+def _other_uid(home: Path) -> int:
+    return home.stat().st_uid + 1
+
+
+def _record_fchown_inodes(monkeypatch) -> list[int]:
+    records: list[int] = []
+    real_fchown = os.fchown
+
+    def spy(fd: int, uid: int, gid: int) -> None:
+        records.append(os.fstat(fd).st_ino)
+        real_fchown(fd, uid, gid)
+
+    monkeypatch.setattr(os, "fchown", spy)
+    return records
+
+
 class TestSafeWriteText:
     def test_creates_missing_parent_dirs(self, tmp_path: Path):
         home = tmp_path / "home"
@@ -60,6 +91,8 @@ class TestSafeWriteText:
         assert target.read_text() == "safe"
 
     def test_refuses_symlinked_parent(self, tmp_path: Path):
+        """An ancestor link is neither followed nor replaced: the walk aborts
+        and the user's link (however hostile) is left exactly as it was."""
         home = tmp_path / "home"
         home.mkdir()
         outside_dir = tmp_path / "outside_dir"
@@ -67,13 +100,12 @@ class TestSafeWriteText:
         (home / ".claude").symlink_to(outside_dir, target_is_directory=True)
         target = home / ".claude" / "settings.json"
 
-        # Symlinked intermediate component: the link is replaced by a real dir
-        # (self-heal) rather than followed, so nothing lands in outside_dir.
-        safe_fs.safe_write_text(home, target, "safe")
+        with pytest.raises(OSError) as excinfo:
+            safe_fs.safe_write_text(home, target, "safe")
 
+        assert excinfo.value.errno == errno.ELOOP
         assert not (outside_dir / "settings.json").exists()
-        assert target.read_text() == "safe"
-        assert not (home / ".claude").is_symlink()
+        assert (home / ".claude").is_symlink()
 
     def test_rejects_path_outside_home(self, tmp_path: Path):
         home = tmp_path / "home"
@@ -485,6 +517,622 @@ class TestSafeReadText:
         assert safe_fs.safe_read_text(home, tmp_path / "x.txt") is None
 
 
+class TestResolveWithinHome:
+    """Links whose resolved chain stays under home resolve; escapes return None."""
+
+    def test_regular_file_resolves_to_itself(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        target = home / ".claude" / "settings.json"
+        target.write_text("{}")
+
+        assert safe_fs.resolve_within_home(home, target) == target
+
+    def test_missing_regular_path_resolves_to_itself(self, tmp_path: Path):
+        home = tmp_path / "home"
+        home.mkdir()
+        target = home / ".claude" / "settings.json"
+
+        assert safe_fs.resolve_within_home(home, target) == target
+
+    def test_absolute_file_link_in_home(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / "dotfiles").mkdir()
+        real = home / "dotfiles" / "settings.json"
+        real.write_text("{}")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(real)
+
+        assert safe_fs.resolve_within_home(home, link) == real
+
+    def test_relative_file_link_in_home(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / "dotfiles").mkdir()
+        real = home / "dotfiles" / "settings.json"
+        real.write_text("{}")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(Path("..") / "dotfiles" / "settings.json")
+
+        assert safe_fs.resolve_within_home(home, link) == real
+
+    def test_directory_link_ancestor_in_home(self, tmp_path: Path):
+        home = tmp_path / "home"
+        real_dir = home / "dotfiles" / "claude"
+        real_dir.mkdir(parents=True)
+        (home / ".claude").symlink_to(real_dir, target_is_directory=True)
+
+        resolved = safe_fs.resolve_within_home(home, home / ".claude" / "settings.json")
+
+        assert resolved == real_dir / "settings.json"
+
+    def test_dangling_link_in_home_resolves_to_target(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(home / "dotfiles" / "settings.json")
+
+        resolved = safe_fs.resolve_within_home(home, link)
+
+        assert resolved == home / "dotfiles" / "settings.json"
+
+    def test_escaping_link_returns_none(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        outside = tmp_path / "secret"
+        outside.write_text("x")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(outside)
+
+        assert safe_fs.resolve_within_home(home, link) is None
+
+    def test_dotdot_link_escaping_home_returns_none(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (tmp_path / "secret").write_text("x")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(Path("..") / ".." / "secret")
+
+        assert safe_fs.resolve_within_home(home, link) is None
+
+    def test_link_to_home_itself_returns_none(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(home)
+
+        assert safe_fs.resolve_within_home(home, link) is None
+
+    def test_symlink_loop_returns_none(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        a = home / ".claude" / "a"
+        b = home / ".claude" / "b"
+        a.symlink_to(b)
+        b.symlink_to(a)
+
+        assert safe_fs.resolve_within_home(home, a) is None
+
+    def test_path_outside_home_returns_none(self, tmp_path: Path):
+        home = tmp_path / "home"
+        home.mkdir()
+
+        assert safe_fs.resolve_within_home(home, tmp_path / "x.txt") is None
+
+    def test_hop_through_outside_directory_returns_none(self, tmp_path: Path):
+        """Every hop must stay in-home, even one that lands back inside: root
+        must never walk a user-chosen path outside the home (automount hang,
+        existence oracle on root-only directories)."""
+        home = tmp_path / "home"
+        real_dir = home / "dotfiles" / "claude"
+        real_dir.mkdir(parents=True)
+        (real_dir / "settings.json").write_text("{}")
+        outside_hop = tmp_path / "hop"
+        outside_hop.symlink_to(real_dir, target_is_directory=True)
+        (home / ".claude").symlink_to(outside_hop, target_is_directory=True)
+
+        assert (
+            safe_fs.resolve_within_home(home, home / ".claude" / "settings.json")
+            is None
+        )
+
+    def test_relative_dotdot_hop_inside_home_resolves(self, tmp_path: Path):
+        home = tmp_path / "home"
+        real_dir = home / "dotfiles" / "claude"
+        real_dir.mkdir(parents=True)
+        (home / "cfg").mkdir()
+        (home / "cfg" / ".claude").symlink_to(
+            Path("..") / "dotfiles" / "claude", target_is_directory=True
+        )
+
+        resolved = safe_fs.resolve_within_home(
+            home, home / "cfg" / ".claude" / "settings.json"
+        )
+
+        assert resolved == real_dir / "settings.json"
+
+    def test_resolution_never_calls_realpath_on_the_chain(
+        self, tmp_path: Path, monkeypatch
+    ):
+        home = tmp_path / "home"
+        real_dir = home / "dotfiles" / "claude"
+        real_dir.mkdir(parents=True)
+        (home / ".claude").symlink_to(real_dir, target_is_directory=True)
+
+        def boom(*_args, **_kwargs):
+            raise AssertionError("realpath walked a user-chosen chain")
+
+        monkeypatch.setattr(safe_fs.os.path, "realpath", boom)
+
+        resolved = safe_fs.resolve_within_home(home, home / ".claude" / "settings.json")
+
+        assert resolved == real_dir / "settings.json"
+
+    def test_long_hop_chain_returns_none(self, tmp_path: Path):
+        home = tmp_path / "home"
+        home.mkdir()
+        real = home / "real.json"
+        real.write_text("{}")
+        previous = real
+        for index in range(safe_fs._MAX_LINK_HOPS + 1):
+            link = home / f"hop{index}.json"
+            link.symlink_to(previous)
+            previous = link
+
+        assert safe_fs.resolve_within_home(home, previous) is None
+
+    def test_hop_chain_within_bound_resolves(self, tmp_path: Path):
+        home = tmp_path / "home"
+        home.mkdir()
+        real = home / "real.json"
+        real.write_text("{}")
+        previous = real
+        for index in range(safe_fs._MAX_LINK_HOPS):
+            link = home / f"hop{index}.json"
+            link.symlink_to(previous)
+            previous = link
+
+        assert safe_fs.resolve_within_home(home, previous) == real
+
+    def test_link_to_target_owned_by_another_uid_returns_none(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """In-home is not enough: the user must already own what root would write."""
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / "dotfiles").mkdir()
+        real = home / "dotfiles" / "settings.json"
+        real.write_text("{}")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(real)
+        _lstat_uid_override(monkeypatch, real, _other_uid(home))
+
+        assert safe_fs.resolve_within_home(home, link) is None
+
+    def test_link_through_directory_owned_by_another_uid_returns_none(
+        self, tmp_path: Path, monkeypatch
+    ):
+        home = tmp_path / "home"
+        real_dir = home / "managed" / "claude"
+        real_dir.mkdir(parents=True)
+        (real_dir / "settings.json").write_text("{}")
+        (home / ".claude").symlink_to(real_dir, target_is_directory=True)
+        _lstat_uid_override(monkeypatch, home / "managed", _other_uid(home))
+
+        assert (
+            safe_fs.resolve_within_home(home, home / ".claude" / "settings.json")
+            is None
+        )
+
+    def test_plain_path_owned_by_another_uid_resolves_to_itself(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """No link followed means no new trust decision: the old walk applies."""
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        target = home / ".claude" / "settings.json"
+        target.write_text("{}")
+        _lstat_uid_override(monkeypatch, target, _other_uid(home))
+
+        assert safe_fs.resolve_within_home(home, target) == target
+
+
+class TestMaybeSafeInHomeLinks:
+    """Opted-in dispatch follows in-home links; default and escaping links refuse."""
+
+    def test_read_follows_in_home_link(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / "dotfiles").mkdir()
+        real = home / "dotfiles" / "settings.json"
+        real.write_text("linked")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(real)
+
+        assert (
+            safe_fs.maybe_safe_read_text(link, home=home, follow_in_home_links=True)
+            == "linked"
+        )
+        read = safe_fs.maybe_safe_read_file(link, home=home, follow_in_home_links=True)
+        assert read is not None and read["data"] == b"linked"
+
+    def test_read_ignores_in_home_link_without_opt_in(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / "dotfiles").mkdir()
+        real = home / "dotfiles" / "settings.json"
+        real.write_text("linked")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(real)
+
+        assert safe_fs.maybe_safe_read_text(link, home=home) is None
+        assert safe_fs.maybe_safe_read_file(link, home=home) is None
+
+    def test_read_does_not_follow_escaping_link(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        outside = tmp_path / "secret"
+        outside.write_text("root-only-secret")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(outside)
+
+        assert (
+            safe_fs.maybe_safe_read_text(link, home=home, follow_in_home_links=True)
+            is None
+        )
+        assert (
+            safe_fs.maybe_safe_read_file(link, home=home, follow_in_home_links=True)
+            is None
+        )
+
+    def test_write_follows_in_home_link(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / "dotfiles").mkdir()
+        real = home / "dotfiles" / "settings.json"
+        real.write_text("old")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(real)
+
+        safe_fs.maybe_safe_write_text(
+            link, "new", home=home, replace_symlink=False, follow_in_home_links=True
+        )
+
+        assert link.is_symlink()
+        assert real.read_text() == "new"
+
+    def test_write_refuses_in_home_link_without_opt_in(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / "dotfiles").mkdir()
+        real = home / "dotfiles" / "settings.json"
+        real.write_text("keep")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(real)
+
+        with pytest.raises(OSError) as excinfo:
+            safe_fs.maybe_safe_write_text(link, "new", home=home, replace_symlink=False)
+
+        assert excinfo.value.errno == errno.ELOOP
+        assert real.read_text() == "keep"
+
+    def test_write_refuses_escaping_link(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        outside = tmp_path / "secret"
+        outside.write_text("keep")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(outside)
+
+        with pytest.raises(OSError) as excinfo:
+            safe_fs.maybe_safe_write_text(
+                link, "new", home=home, replace_symlink=False, follow_in_home_links=True
+            )
+
+        assert excinfo.value.errno == errno.ELOOP
+        assert link.is_symlink()
+        assert outside.read_text() == "keep"
+
+    def test_unlink_removes_link_not_target(self, tmp_path: Path):
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / "dotfiles").mkdir()
+        real = home / "dotfiles" / "settings.json"
+        real.write_text("keep")
+        link = home / ".claude" / "settings.json"
+        link.symlink_to(real)
+
+        assert safe_fs.maybe_safe_unlink(link, home=home)
+
+        assert not link.is_symlink()
+        assert real.read_text() == "keep"
+
+    def test_unlink_follows_in_home_directory_link(self, tmp_path: Path):
+        """A file behind ``~/.claude -> ~/dotfiles/claude`` is reachable without
+        any opt-in: ancestor links in-home are the user's layout, not a target."""
+        home = tmp_path / "home"
+        real_dir = home / "dotfiles" / "claude"
+        real_dir.mkdir(parents=True)
+        (home / ".claude").symlink_to(real_dir, target_is_directory=True)
+        backup = real_dir / "settings.backup_20260901_120000_000000.json"
+        backup.write_text("{}")
+
+        assert safe_fs.maybe_safe_unlink(home / ".claude" / backup.name, home=home)
+        assert not backup.exists()
+        assert (home / ".claude").is_symlink()
+
+    def test_unlink_refuses_escaping_directory_link(self, tmp_path: Path):
+        home = tmp_path / "home"
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        home.mkdir()
+        (home / ".claude").symlink_to(outside, target_is_directory=True)
+        victim = outside / "settings.backup_20260901_120000_000000.json"
+        victim.write_text("{}")
+
+        assert not safe_fs.maybe_safe_unlink(home / ".claude" / victim.name, home=home)
+        assert victim.exists()
+
+
+class TestAncestorLinks:
+    """In-home ancestor links are followed for every op; none is ever replaced."""
+
+    def test_plain_write_follows_linked_parent(self, tmp_path: Path):
+        """Runlayer-owned files under a linked user dir (Goose ``plugin.json``
+        under ``~/.agents -> ~/dotfiles/agents``) land in the real dir."""
+        home = tmp_path / "home"
+        real_dir = home / "dotfiles" / "agents"
+        real_dir.mkdir(parents=True)
+        (home / ".agents").symlink_to(real_dir, target_is_directory=True)
+        path = home / ".agents" / "plugins" / "runlayer-hooks" / "plugin.json"
+
+        safe_fs.maybe_safe_write_text(path, "{}", home=home)
+
+        assert (home / ".agents").is_symlink()
+        assert (
+            real_dir / "plugins" / "runlayer-hooks" / "plugin.json"
+        ).read_text() == "{}"
+
+    def test_plain_write_still_replaces_final_link(self, tmp_path: Path):
+        home = tmp_path / "home"
+        real_dir = home / "dotfiles" / "agents"
+        real_dir.mkdir(parents=True)
+        (home / ".agents").symlink_to(real_dir, target_is_directory=True)
+        elsewhere = home / "elsewhere.json"
+        elsewhere.write_text("keep")
+        final_link = real_dir / "plugin.json"
+        final_link.symlink_to(elsewhere)
+
+        safe_fs.maybe_safe_write_text(home / ".agents" / "plugin.json", "{}", home=home)
+
+        assert not final_link.is_symlink()
+        assert final_link.read_text() == "{}"
+        assert elsewhere.read_text() == "keep"
+
+    def test_plain_write_refuses_final_link_when_asked(self, tmp_path: Path):
+        home = tmp_path / "home"
+        real_dir = home / "dotfiles" / "agents"
+        real_dir.mkdir(parents=True)
+        (home / ".agents").symlink_to(real_dir, target_is_directory=True)
+        elsewhere = home / "elsewhere.json"
+        elsewhere.write_text("keep")
+        (real_dir / "plugin.json").symlink_to(elsewhere)
+
+        with pytest.raises(OSError) as excinfo:
+            safe_fs.maybe_safe_write_text(
+                home / ".agents" / "plugin.json", "{}", home=home, replace_symlink=False
+            )
+
+        assert excinfo.value.errno == errno.ELOOP
+        assert elsewhere.read_text() == "keep"
+
+    def test_plain_read_follows_linked_parent(self, tmp_path: Path):
+        home = tmp_path / "home"
+        real_dir = home / "dotfiles" / "agents"
+        real_dir.mkdir(parents=True)
+        (real_dir / "plugin.json").write_text("manifest")
+        (home / ".agents").symlink_to(real_dir, target_is_directory=True)
+
+        assert (
+            safe_fs.maybe_safe_read_text(home / ".agents" / "plugin.json", home=home)
+            == "manifest"
+        )
+
+    def test_escaping_parent_link_is_refused_not_replaced(self, tmp_path: Path):
+        home = tmp_path / "home"
+        home.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (home / ".agents").symlink_to(outside, target_is_directory=True)
+
+        with pytest.raises(OSError) as excinfo:
+            safe_fs.maybe_safe_write_text(
+                home / ".agents" / "plugin.json", "{}", home=home
+            )
+
+        assert excinfo.value.errno == errno.ELOOP
+        assert (home / ".agents").is_symlink()
+        assert not (outside / "plugin.json").exists()
+
+    def test_foreign_owned_parent_link_target_is_refused(
+        self, tmp_path: Path, monkeypatch
+    ):
+        home = tmp_path / "home"
+        real_dir = home / "managed" / "agents"
+        real_dir.mkdir(parents=True)
+        (home / ".agents").symlink_to(real_dir, target_is_directory=True)
+        _lstat_uid_override(monkeypatch, home / "managed", _other_uid(home))
+
+        with pytest.raises(OSError) as excinfo:
+            safe_fs.maybe_safe_write_text(
+                home / ".agents" / "plugin.json", "{}", home=home
+            )
+
+        assert excinfo.value.errno == errno.ELOOP
+        assert not (real_dir / "plugin.json").exists()
+
+    def test_created_components_under_linked_parent_are_handed_over(
+        self, tmp_path: Path, monkeypatch
+    ):
+        home = tmp_path / "home"
+        real_dir = home / "dotfiles" / "agents"
+        real_dir.mkdir(parents=True)
+        (home / ".agents").symlink_to(real_dir, target_is_directory=True)
+        path = home / ".agents" / "plugins" / "plugin.json"
+        _fstat_created_as_root(monkeypatch, home)
+        records = _record_fchown_inodes(monkeypatch)
+
+        safe_fs.maybe_safe_write_text(path, "{}", home=home)
+
+        assert set(records) == {
+            (real_dir / "plugins").stat().st_ino,
+            (real_dir / "plugins" / "plugin.json").stat().st_ino,
+        }
+
+    def test_linked_parent_to_regular_file_is_refused(self, tmp_path: Path):
+        """A parent link whose target is a *file* must not be mkdir'd over."""
+        home = tmp_path / "home"
+        (home / "dotfiles").mkdir(parents=True)
+        notes = home / "dotfiles" / "notes.txt"
+        notes.write_text("keep")
+        (home / ".claude").symlink_to(notes)
+
+        with pytest.raises(OSError) as excinfo:
+            safe_fs.maybe_safe_write_text(
+                home / ".claude" / "settings.json", "{}", home=home
+            )
+
+        assert excinfo.value.errno == errno.ELOOP
+        assert (home / ".claude").is_symlink()
+        assert notes.read_text() == "keep"
+        assert list(home.rglob("settings.json")) == []
+
+    def test_links_under_runlayer_tree_are_never_followed(self, tmp_path: Path):
+        """``~/.runlayer`` is Runlayer's own tree: a link anywhere in it is
+        refused, even one the ownership gate would otherwise pass."""
+        home = tmp_path / "home"
+        real_dir = home / "dotfiles" / "runlayer"
+        (real_dir / "aiwatch").mkdir(parents=True)
+        (real_dir / "aiwatch" / "cred").write_text("secret\n")
+        (home / ".runlayer").symlink_to(real_dir, target_is_directory=True)
+        path = home / ".runlayer" / "aiwatch" / "cred"
+
+        with pytest.raises(OSError) as excinfo:
+            safe_fs.maybe_safe_write_text(
+                path, "new\n", home=home, replace_symlink=False
+            )
+
+        assert excinfo.value.errno == errno.ELOOP
+        assert safe_fs.maybe_safe_read_text(path, home=home) is None
+        assert not safe_fs.maybe_safe_unlink(path, home=home)
+        assert (real_dir / "aiwatch" / "cred").read_text() == "secret\n"
+        assert (home / ".runlayer").is_symlink()
+
+
+def _fstat_created_as_root(monkeypatch, home: Path) -> None:
+    """Make ``os.fstat`` report ``st_uid=0`` for anything not yet under *home*.
+
+    Tests run unprivileged, so everything the walk creates is really owned by
+    the test user; this fakes the root-run picture where every inode that did
+    not exist when the helper was called was created by root. ``st_ino`` and
+    ``st_mode`` survive so inode-based spies keep working.
+    """
+    existing = {home.lstat().st_ino} | {p.lstat().st_ino for p in home.rglob("*")}
+    real_fstat = os.fstat
+
+    def fake(fd: int):
+        st = real_fstat(fd)
+        if st.st_ino not in existing:
+            values = list(st)
+            values[4] = 0
+            return os.stat_result(values)
+        return st
+
+    monkeypatch.setattr(os, "fstat", fake)
+
+
+class TestSafeWriteOwner:
+    """``owner=`` hands over what the walk created, while the fds are held."""
+
+    def test_owner_hands_over_created_dirs_and_file_only(
+        self, tmp_path: Path, monkeypatch
+    ):
+        home = tmp_path / "home"
+        (home / "dotfiles").mkdir(parents=True)
+        target = home / "dotfiles" / "vscode" / "settings.json"
+        _fstat_created_as_root(monkeypatch, home)
+        records = _record_fchown_inodes(monkeypatch)
+
+        safe_fs.safe_write_bytes(home, target, b"{}", owner=(os.getuid(), os.getgid()))
+
+        assert set(records) == {target.parent.stat().st_ino, target.stat().st_ino}
+
+    def test_no_owner_never_chowns(self, tmp_path: Path, monkeypatch):
+        home = tmp_path / "home"
+        target = home / "dotfiles" / "vscode" / "settings.json"
+        _fstat_created_as_root(monkeypatch, home.parent)
+        records = _record_fchown_inodes(monkeypatch)
+
+        safe_fs.safe_write_bytes(home, target, b"{}")
+
+        assert records == []
+
+    def test_followed_dangling_link_hands_over_created_chain(
+        self, tmp_path: Path, monkeypatch
+    ):
+        home = tmp_path / "home"
+        link = home / ".config" / "Code" / "User" / "settings.json"
+        link.parent.mkdir(parents=True)
+        target = home / "dotfiles" / "vscode" / "settings.json"
+        link.symlink_to(target)
+        _fstat_created_as_root(monkeypatch, home)
+        records = _record_fchown_inodes(monkeypatch)
+
+        safe_fs.maybe_safe_write_bytes(
+            link, b"{}", home=home, follow_in_home_links=True
+        )
+
+        assert link.is_symlink()
+        assert set(records) == {
+            (home / "dotfiles").stat().st_ino,
+            target.parent.stat().st_ino,
+            target.stat().st_ino,
+        }
+
+    def test_plain_path_with_opt_in_does_not_chown(self, tmp_path: Path, monkeypatch):
+        """No link followed means nothing to hand over here; the caller's plain
+        ``reown_to_console_user`` reclaims Runlayer-created paths."""
+        home = tmp_path / "home"
+        home.mkdir()
+        target = home / ".claude" / "settings.json"
+        _fstat_created_as_root(monkeypatch, home)
+        records = _record_fchown_inodes(monkeypatch)
+
+        safe_fs.maybe_safe_write_bytes(
+            target, b"{}", home=home, follow_in_home_links=True
+        )
+
+        assert records == []
+
+
+class TestSafeChownAncestors:
+    def test_chowns_chain(self, tmp_path: Path, monkeypatch):
+        home = tmp_path / "home"
+        target = home / "dotfiles" / "claude" / "settings.json"
+        target.parent.mkdir(parents=True)
+        target.write_text("{}")
+        records = _record_fchown_inodes(monkeypatch)
+
+        safe_fs.safe_chown_within_home(home, target, os.getuid(), os.getgid())
+
+        assert set(records) == {
+            (home / "dotfiles").stat().st_ino,
+            (home / "dotfiles" / "claude").stat().st_ino,
+            target.stat().st_ino,
+        }
+
+
 class TestWalkParentsFdLeak:
     """``_walk_parents`` must not leak fds when an iteration raises mid-walk."""
 
@@ -500,21 +1148,10 @@ class TestWalkParentsFdLeak:
         real_open = safe_fs._open_dir_component
         real_close = os.close
 
-        def tracking_open(
-            parent_fd: int,
-            name: str,
-            *,
-            create: bool,
-            replace_symlink: bool = True,
-        ) -> int:
+        def tracking_open(parent_fd: int, name: str, *, create: bool) -> int:
             if name == "c":
                 raise OSError("boom mid-walk")
-            fd = real_open(
-                parent_fd,
-                name,
-                create=create,
-                replace_symlink=replace_symlink,
-            )
+            fd = real_open(parent_fd, name, create=create)
             opened.append(fd)
             return fd
 
@@ -584,7 +1221,9 @@ class TestSafeChownWithinHome:
         assert outside_ino not in inodes
 
 
-@pytest.mark.skipif(os.name != "posix", reason="descriptor-relative helpers are POSIX-only")
+@pytest.mark.skipif(
+    os.name != "posix", reason="descriptor-relative helpers are POSIX-only"
+)
 def test_safe_read_file_max_bytes_bounds_the_read(tmp_path: Path) -> None:
     home = tmp_path / "home"
     target = home / ".runlayer" / "secret"

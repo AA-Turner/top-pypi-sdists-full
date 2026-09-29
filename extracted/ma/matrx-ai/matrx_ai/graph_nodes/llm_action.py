@@ -55,9 +55,9 @@ def _build_response_format(output_schema: dict[str, JsonValue]) -> dict[str, Any
         )
 
     report = lint_output_schema(output_schema)
-    schema = report.portable_schema
-    if schema is None and report.ok:
-        schema = output_schema
+    # The author's schema on the envelope; each provider translator derives its
+    # wire copy from it, and the answer is checked against and pruned back to it.
+    schema = output_schema if (report.portable_schema is not None or report.ok) else None
     if schema is None:
         errors = "; ".join(f"{f.provider} {f.path}: {f.message}" for f in report.errors)
         raise ExecutionError(

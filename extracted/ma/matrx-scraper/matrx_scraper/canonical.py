@@ -17,6 +17,8 @@ from __future__ import annotations
 import re
 from urllib.parse import urlsplit, urlunsplit
 
+from matrx_scraper.utils.proxy import redact_url_secrets
+
 __all__ = ["canonical_url", "url_host", "host_folder", "story_url_key"]
 
 _SLUG = re.compile(r"[^a-z0-9]+")
@@ -91,7 +93,7 @@ def story_url_key(url: str) -> str:
     parts = urlsplit(text)
     host = (parts.hostname or "").lower().removeprefix("www.")
     if not host:
-        raise ValueError(f"story URL has no host: {url!r}")
+        raise ValueError(f"story URL has no host: {redact_url_secrets(url)!r}")
     port = parts.port  # raises ValueError for a malformed port
     netloc = host if port is None or port in _DEFAULT_PORTS else f"{host}:{port}"
     path = parts.path.rstrip("/") or "/"

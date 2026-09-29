@@ -131,6 +131,29 @@ def test_a_cleared_form_at_the_same_url_is_still_unknown_not_a_coarse_success():
     assert v.reason == "form_cleared_url_unchanged"
 
 
+def test_search_form_navigation_is_never_treated_as_login_success():
+    """A page that was not a sign-in flow cannot authenticate by clearing a form.
+
+    This is the PyPI-class false positive: a search form submits, disappears,
+    and changes its query URL, but no credential form was ever submitted.
+    """
+    v = verify(
+        PageObservation(
+            login_form_present=False,
+            login_form_present_before=True,
+            password_field_present=False,
+            otp_field_present=False,
+            captcha_present=False,
+            url_before="https://pypi.org/search/",
+            url="https://pypi.org/search/?q=harbor+recycling",
+            url_probe_known=True,
+            selector_probe_known=True,
+        ),
+        expect=ExpectSpec(),
+    )
+    assert (v.outcome, v.reason) == ("unknown", "form_cleared_without_sign_in_flow")
+
+
 def test_an_unreadable_probe_is_never_a_coarse_success():
     """selector_probe_known=False is transport failure, not an absent form."""
     v = verify(_coarse(selector_probe_known=False), expect=ExpectSpec())

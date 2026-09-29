@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from io import BytesIO
 from numbers import Number
-from typing import Optional, Union
 
 
 class TaxConfiguration(Enum):
@@ -58,7 +57,7 @@ class ProductDescriptionConfig:
 
 @dataclass
 class FooterStamp:
-    logo: Optional[Union[str, BytesIO, bytes]] = None
+    logo: str | BytesIO | bytes | None = None
     text: str = ""
     height: Number = 5
     logo_max_width: Number = 20
@@ -67,7 +66,7 @@ class FooterStamp:
 
 @dataclass
 class DanfeConfig:
-    logo: Union[str, BytesIO, bytes] = None
+    logo: str | BytesIO | bytes = None
     margins: Margins = field(default_factory=Margins)
     receipt_pos: ReceiptPosition = ReceiptPosition.TOP
     carrier_receipt: bool = False

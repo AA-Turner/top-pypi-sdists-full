@@ -617,6 +617,44 @@ class RunlayerClient(CatalogClientMixin):
             response.raise_for_status()
             return response.json()
 
+    def submit_skills_batch(
+        self,
+        envelope: Mapping[str, Any],
+        skills: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Submit one device's skills in one request.
+
+        ``envelope`` carries the device + scan-evidence fields shared by every
+        item. Returns ``{"results": [...]}`` in request order, or
+        ``{"unsupported": True}`` on a backend that predates the route (no
+        ``/mcp-watch`` alias: that legacy prefix predates this route too).
+        """
+        return self._submit_artifact_batch("skills", envelope, skills)
+
+    def submit_plugins_batch(
+        self,
+        envelope: Mapping[str, Any],
+        plugins: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Submit one device's plugins in one request (see ``submit_skills_batch``)."""
+        return self._submit_artifact_batch("plugins", envelope, plugins)
+
+    def _submit_artifact_batch(
+        self,
+        kind: str,
+        envelope: Mapping[str, Any],
+        items: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        with self._client(timeout=120) as client:
+            response = client.post(
+                f"{self.base_url}/api/v1/ai-watch/{kind}/submit-batch",
+                json={**envelope, kind: items},
+            )
+            if response.status_code == 404:
+                return {"unsupported": True}
+            response.raise_for_status()
+            return response.json()
+
     def submit_skill_removals(
         self,
         path_hashes: list[str],

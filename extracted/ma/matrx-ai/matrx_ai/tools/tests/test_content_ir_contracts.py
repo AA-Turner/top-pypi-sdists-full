@@ -849,6 +849,19 @@ async def test_cloud_browser_terminal_lifecycle_outcomes_do_not_capture_or_screa
         "matrx_connect.streaming.error_capture.capture_error", capture_error
     )
     monkeypatch.setattr("matrx_ai.tools.executor.vcprint", capture_terminal)
+    # The declaration registry is process-wide by design: a host (aidream)
+    # contributes its @tool models at import, and any earlier test in the same
+    # session may have imported them. This fixture's cloud_browser is an
+    # undeclared {}-args tool, so the host's real CloudBrowserArgs must not
+    # apply to it — otherwise the outcome depends on which tests ran first.
+    from matrx_ai.tools import declared
+
+    monkeypatch.delitem(declared._REGISTRY, "cloud_browser", raising=False)
+    monkeypatch.setattr(
+        declared,
+        "_FAMILY_REGISTRY",
+        [f for f in declared._FAMILY_REGISTRY if not f.matches("cloud_browser")],
+    )
 
     registry = ToolRegistry.get_instance()
     saved_tools = dict(registry._tools)

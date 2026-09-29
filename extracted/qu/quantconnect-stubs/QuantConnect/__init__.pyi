@@ -6194,6 +6194,11 @@ class Extensions(System.Object):
         ...
 
     @staticmethod
+    def is_available_for_future_market(data_mapping_mode: QuantConnect.DataMappingMode, market: str) -> bool:
+        """Determines whether there is mapping data for the given data mapping mode in the given future market"""
+        ...
+
+    @staticmethod
     def is_common_business_day(date: typing.Union[datetime.datetime, datetime.date]) -> bool:
         """
         Business day here is defined as any day of the week that is not saturday or sunday

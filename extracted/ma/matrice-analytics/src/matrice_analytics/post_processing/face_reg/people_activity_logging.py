@@ -15,7 +15,16 @@ except ImportError:
     cv2 = None
 from datetime import datetime, timezone
 
+from ..utils.geometry_utils import bbox_xyxy_pixels
 from .face_recognition_client import FacialRecognitionClient
+
+# The FR server stores the activity ``bbox`` as sent, and the VMS reads it back as pixels on a fixed
+# 640 x 640 grid: fe-analytics ``FrameBboxImage`` with ``{kind: "detector", size:
+# ALERT_BBOX_DETECTOR_SIZE}``, ``ALERT_BBOX_DETECTOR_SIZE = 640``. The legacy FR path met that grid
+# implicitly, by handing this use case its 640 x 640 detector's pixel boxes. The new flow hands it
+# normalized [0, 1] boxes, so they are scaled onto the same grid here. Pixel boxes pass through
+# unchanged (``bbox_xyxy_pixels``), so the legacy path sends exactly what it sent before.
+ACTIVITY_BBOX_GRID = 640
 
 
 # codeql[py/should-be-context-manager]
@@ -27,7 +36,9 @@ class PeopleActivityLogging:
         self.logger = logging.getLogger(__name__)
 
         # Log project ID information for observability and debugging
-        face_client_project_id = getattr(self.face_client, "project_id", None) if self.face_client else None
+        face_client_project_id = (
+            getattr(self.face_client, "project_id", None) if self.face_client else None
+        )
         env_project_id = os.getenv("MATRICE_PROJECT_ID", "")
         self.logger.info(
             "[PROJECT_ID] PeopleActivityLogging initialized "
@@ -89,8 +100,8 @@ class PeopleActivityLogging:
             try:
                 loop.close()
             except Exception:
-                # Non-fatal: exception ignored here; execution continues per surrounding logic.
-                pass
+                # Non-fatal: the loop is being discarded either way; keep the reason in the log.
+                self.logger.error("Failed to close the activity event loop", exc_info=True)
 
     async def _process_activity_queue(self):
         """Process activity queue continuously"""
@@ -147,13 +158,10 @@ class PeopleActivityLogging:
                 return
 
             bbox = detection.get("bounding_box", {})
-            bbox_list = [
-                bbox.get("xmin", 0),
-                bbox.get("ymin", 0),
-                bbox.get("xmax", 0),
-                bbox.get("ymax", 0),
-            ]
-            activity_data["bbox"] = bbox_list
+            # A copy for the FR server only; the detection itself stays normalized.
+            activity_data["bbox"] = list(
+                bbox_xyxy_pixels(bbox, ACTIVITY_BBOX_GRID, ACTIVITY_BBOX_GRID)
+            )
             # Update last detection time
             self.last_detection_time = time.time()
             self.empty_detection_logged = False
@@ -251,7 +259,9 @@ class PeopleActivityLogging:
                     _, buffer = cv2.imencode(".jpg", current_frame)
                     frame_bytes = buffer.tobytes()
                     image_data = base64.b64encode(frame_bytes).decode("utf-8")
-                    self.logger.debug(f"Encoded image data - employee_id={employee_id}, size={len(frame_bytes)} bytes")
+                    self.logger.debug(
+                        f"Encoded image data - employee_id={employee_id}, size={len(frame_bytes)} bytes"
+                    )
                 except Exception as e:
                     self.logger.error(
                         f"Error encoding frame for employee_id={employee_id}: {e}",
@@ -281,7 +291,9 @@ class PeopleActivityLogging:
                 self.logger.info(f"Activity log stored successfully for employee_id={employee_id}")
             else:
                 error_msg = response.get("error", "Unknown error") if response else "No response"
-                self.logger.warning(f"Failed to store activity log for employee_id={employee_id} - {error_msg}")
+                self.logger.warning(
+                    f"Failed to store activity log for employee_id={employee_id} - {error_msg}"
+                )
 
             return response
         except Exception as e:
@@ -297,7 +309,9 @@ class PeopleActivityLogging:
             _, buffer = cv2.imencode(".jpg", current_frame)
             frame_bytes = buffer.tobytes()
 
-            self.logger.info(f"Uploading frame to storage - employee_id={employee_id}, size={len(frame_bytes)} bytes")
+            self.logger.info(
+                f"Uploading frame to storage - employee_id={employee_id}, size={len(frame_bytes)} bytes"
+            )
             upload_success = await self.face_client.upload_image_to_url(frame_bytes, upload_url)
 
             if upload_success:
@@ -330,13 +344,12 @@ class PeopleActivityLogging:
         """
         try:
             # Extract coordinates - handle different bounding box formats
-            x1 = int(bounding_box.get("xmin", bounding_box.get("x1", 0)))
-            y1 = int(bounding_box.get("ymin", bounding_box.get("y1", 0)))
-            x2 = int(bounding_box.get("xmax", bounding_box.get("x2", 0)))
-            y2 = int(bounding_box.get("ymax", bounding_box.get("y2", 0)))
+            # New-flow boxes arrive normalized [0, 1]; scale by this frame's own size before
+            # slicing pixels (int() of a normalized box is a 0-size crop). Pixel boxes unchanged.
+            h, w = frame.shape[:2]
+            x1, y1, x2, y2 = (int(v) for v in bbox_xyxy_pixels(bounding_box, w, h))
 
             # Ensure coordinates are within frame bounds
-            h, w = frame.shape[:2]
             x1, y1 = max(0, x1), max(0, y1)
             x2, y2 = min(w, x2), min(h, y2)
 
@@ -375,5 +388,5 @@ class PeopleActivityLogging:
         try:
             self.stop_background_processing()
         except Exception:
-            # Non-fatal: exception ignored here; execution continues per surrounding logic.
-            pass
+            # Non-fatal: the object is going away either way; keep the reason in the log.
+            self.logger.error("Failed to stop activity logging during cleanup", exc_info=True)

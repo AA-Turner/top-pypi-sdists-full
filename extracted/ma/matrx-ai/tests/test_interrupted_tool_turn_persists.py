@@ -24,9 +24,10 @@ Two layers:
 
 from __future__ import annotations
 
+from matrx_utils.source_guard import stable_source
+
 import ast
 import asyncio
-import inspect
 import textwrap
 
 import pytest
@@ -176,7 +177,7 @@ def test_every_interrupt_handler_attaches_the_in_flight_tool_turn():
     dispatch without first attaching the in-flight tool_use turn."""
     checked: list[str] = []
 
-    inner = ast.parse(textwrap.dedent(inspect.getsource(executor_mod._execute_until_complete_inner)))
+    inner = ast.parse(textwrap.dedent(stable_source(executor_mod._execute_until_complete_inner)))
     for node in ast.walk(inner):
         if not isinstance(node, ast.Try):
             continue
@@ -193,7 +194,7 @@ def test_every_interrupt_handler_attaches_the_in_flight_tool_turn():
                     "the in-flight tool turn — its tool_call rows will be unlinked"
                 )
 
-    outer = ast.parse(textwrap.dedent(inspect.getsource(executor_mod.execute_until_complete)))
+    outer = ast.parse(textwrap.dedent(stable_source(executor_mod.execute_until_complete)))
     for node in ast.walk(outer):
         if isinstance(node, ast.ExceptHandler) and "CancelledError" in ast.unparse(node.type or ast.Name("")):
             checked.append(f"cancel:{node.lineno}")

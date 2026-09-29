@@ -1,8 +1,10 @@
 #include "processor/operator/intersect/intersect.h"
 
 #include <algorithm>
+#include <cstring>
 
 #include "function/hash/hash_functions.h"
+#include "processor/operator/intersect/intersect_kernels.h"
 #include "processor/result/factorized_table.h"
 
 using namespace lbug::common;
@@ -54,10 +56,12 @@ void Intersect::probeHTs() {
         function::Hash::operation<nodeID_t>(key, false, hashVal);
         auto flatTuple = sharedHTs[i]->getHashTable()->getTupleForHash(hashVal);
         while (flatTuple) {
-            if (*(nodeID_t*)flatTuple == key) {
+            nodeID_t tupleKey;
+            memcpy(&tupleKey, flatTuple, sizeof(nodeID_t));
+            if (tupleKey == key) {
                 probedFlatTuples[i].push_back(flatTuple);
             }
-            flatTuple = *sharedHTs[i]->getHashTable()->getPrevTuple(flatTuple);
+            flatTuple = sharedHTs[i]->getHashTable()->getPrevTupleValue(flatTuple);
         }
     }
 }
@@ -67,24 +71,9 @@ void Intersect::twoWayIntersect(nodeID_t* leftNodeIDs, SelectionVector& lSelVect
     DASSERT(lSelVector.getSelSize() <= rSelVector.getSelSize());
     auto leftPositionBuffer = lSelVector.getMutableBuffer();
     auto rightPositionBuffer = rSelVector.getMutableBuffer();
-    sel_t leftPosition = 0, rightPosition = 0;
-    uint64_t outputValuePosition = 0;
-    while (leftPosition < lSelVector.getSelSize() && rightPosition < rSelVector.getSelSize()) {
-        auto leftNodeID = leftNodeIDs[leftPosition];
-        auto rightNodeID = rightNodeIDs[rightPosition];
-        if (leftNodeID < rightNodeID) {
-            leftPosition++;
-        } else if (leftNodeID > rightNodeID) {
-            rightPosition++;
-        } else {
-            leftPositionBuffer[outputValuePosition] = leftPosition;
-            rightPositionBuffer[outputValuePosition] = rightPosition;
-            leftNodeIDs[outputValuePosition] = leftNodeID;
-            leftPosition++;
-            rightPosition++;
-            outputValuePosition++;
-        }
-    }
+    const auto outputValuePosition =
+        intersectNodeIDs(leftNodeIDs, lSelVector.getSelSize(), rightNodeIDs,
+            rSelVector.getSelSize(), leftPositionBuffer.data(), rightPositionBuffer.data());
     lSelVector.setToFiltered(outputValuePosition);
     rSelVector.setToFiltered(outputValuePosition);
 }
@@ -93,9 +82,13 @@ static std::vector<overflow_value_t> fetchListsToIntersectFromTuples(
     const std::vector<uint8_t*>& tuples, const std::vector<bool>& isFlatValue) {
     std::vector<overflow_value_t> listsToIntersect(tuples.size());
     for (auto i = 0u; i < tuples.size(); i++) {
-        listsToIntersect[i] =
-            isFlatValue[i] ? overflow_value_t{1 /* numElements */, tuples[i] + sizeof(nodeID_t)} :
-                             *(overflow_value_t*)(tuples[i] + sizeof(nodeID_t));
+        if (isFlatValue[i]) {
+            listsToIntersect[i] =
+                overflow_value_t{1 /* numElements */, tuples[i] + sizeof(nodeID_t)};
+        } else {
+            // Tuples are packed without alignment padding; use memcpy.
+            memcpy(&listsToIntersect[i], tuples[i] + sizeof(nodeID_t), sizeof(overflow_value_t));
+        }
     }
     return listsToIntersect;
 }
@@ -142,10 +135,19 @@ void Intersect::intersectLists(const std::vector<overflow_value_t>& listsToInter
     std::vector<SelectionVector*> selVectorsForIntersectedLists;
     intersectSelVectors[0]->setToUnfiltered(listsToIntersect[0].numElements);
     selVectorsForIntersectedLists.push_back(intersectSelVectors[0].get());
+    // Reusable aligned buffer for the right-hand adjacency list. Lists live in packed
+    // factorized-table/unflat storage without alignment padding, so the raw value pointer
+    // may be misaligned for nodeID_t; copy it into aligned storage before intersecting.
+    std::vector<nodeID_t> alignedRightList;
     for (auto i = 0u; i < listsToIntersect.size() - 1; i++) {
         intersectSelVectors[i + 1]->setToUnfiltered(listsToIntersect[i + 1].numElements);
-        twoWayIntersect((nodeID_t*)outKeyVector->getData(), lSelVector,
-            (nodeID_t*)listsToIntersect[i + 1].value, *intersectSelVectors[i + 1]);
+        alignedRightList.resize(listsToIntersect[i + 1].numElements);
+        if (!alignedRightList.empty()) {
+            memcpy(alignedRightList.data(), listsToIntersect[i + 1].value,
+                listsToIntersect[i + 1].numElements * sizeof(nodeID_t));
+        }
+        twoWayIntersect((nodeID_t*)outKeyVector->getData(), lSelVector, alignedRightList.data(),
+            *intersectSelVectors[i + 1]);
         // Here we need to slice all selVectors that have been previously intersected, as all these
         // lists need to be selected synchronously to read payloads correctly.
         sliceSelVectors(selVectorsForIntersectedLists, lSelVector);

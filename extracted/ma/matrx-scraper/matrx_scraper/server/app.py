@@ -494,6 +494,38 @@ class _FeatureKnobSnapshot:
         return self._values[key]
 
 
+def _scoped_knob_reader(feature: str):
+    """``knowledge.scraper`` values for ONE organization / person / site.
+
+    Resolved by THE platform resolver in SQL (``platform.knob_resolve`` — the
+    same rule aidream's ``scoped_knob_raw`` mirrors: platform → organization →
+    site → user, rung locks, direction, clamps), all keys in one round trip.
+    The crawler calls it once per run, so this is never a per-page read.
+    """
+
+    async def read(keys: list[str], scope) -> dict[str, object]:
+        import json
+
+        from matrx_orm.core.async_db_manager import AsyncDatabaseManager
+
+        scopes = (
+            json.dumps([{"kind": "site", "id": str(scope.site_id)}]) if scope.site_id else None
+        )
+        rows = await AsyncDatabaseManager.execute_query(
+            WEB_DB_NAME,
+            "SELECT k AS key, platform.knob_resolve($1, k, $2::uuid, $3::uuid, $4::jsonb)::text "
+            "AS value_json FROM unnest($5::text[]) AS k",
+            feature,
+            str(scope.organization_id),
+            str(scope.user_id) if scope.user_id else None,
+            scopes,
+            list(keys),
+        )
+        return {str(r["key"]): json.loads(r["value_json"]) for r in rows}
+
+    return read
+
+
 async def _bind_parser_knobs(loader=None) -> _FeatureKnobSnapshot:
     """Bind ``configure_parser_knobs`` to this server's own knob snapshot.
 
@@ -508,7 +540,7 @@ async def _bind_parser_knobs(loader=None) -> _FeatureKnobSnapshot:
         state = f"{len(values)} row(s) primed"
     except Exception as e:  # noqa: BLE001 — announced below; reads fall back loudly per key
         state = f"FIRST LOAD FAILED ({e!r}); reads use mirrored defaults until a refresh succeeds"
-    configure_parser_knobs(snapshot.read)
+    configure_parser_knobs(snapshot.read, scoped_reader=_scoped_knob_reader(FEATURE))
     print(
         f"[scraper-server] parser/crawler knobs bound: configure_parser_knobs -> "
         f"platform.feature_knob feature={FEATURE!r} via {WEB_DB_NAME} "
@@ -923,6 +955,7 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
         crawl_router,
         ext_router,
         preview_router,
+        press_clip_router,
         scrape_router,
     )
 
@@ -966,6 +999,12 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
         browser_router,
         prefix="/api/scraper",
         tags=["browser"],
+        dependencies=[Depends(scraper_caller)],
+    )
+    app.include_router(
+        press_clip_router,
+        prefix="/api/scraper",
+        tags=["press-clips"],
         dependencies=[Depends(scraper_caller)],
     )
     app.include_router(

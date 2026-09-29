@@ -14,17 +14,18 @@
 
 """Standard A2UI Direct JSON inference format coordination."""
 
+from collections.abc import Mapping, Sequence
 import copy
-from typing import Any, Optional, Callable, Union
+from typing import Any, Callable
 
 from a2ui.schema.utils import load_from_bundled_resource
 from a2ui.inference_format import InferenceFormat
-from a2ui.core.schema.client_capabilities import V09Capabilities
+from a2ui.core.schema.v0_9.client_capabilities import V09Capabilities
 
 from a2ui.schema.constants import (
     SERVER_TO_CLIENT_SCHEMA_KEY,
     COMMON_TYPES_SCHEMA_KEY,
-    SPEC_VERSION_MAP,
+    PROTOCOL_VERSION_MAP,
     INLINE_CATALOGS_KEY,
     CATALOG_COMPONENTS_KEY,
     INLINE_CATALOG_NAME,
@@ -41,12 +42,12 @@ class DirectJsonFormat(InferenceFormat):
     def __init__(
         self,
         version: str,
-        catalogs: Optional[list[CatalogConfig]] = None,
+        catalogs: Sequence[CatalogConfig] | None = None,
         accepts_inline_catalogs: bool = False,
-        schema_modifiers: Optional[
-            list[Callable[[dict[str, Any]], dict[str, Any]]]
-        ] = None,
-        experiments: Optional[Union[set[str], frozenset[str]]] = None,
+        schema_modifiers: (
+            Sequence[Callable[[dict[str, Any]], dict[str, Any]]] | None
+        ) = None,
+        experiments: set[str] | frozenset[str] | None = None,
     ):
         """Initializes the DirectJsonFormat with schemas and catalogs.
 
@@ -66,8 +67,8 @@ class DirectJsonFormat(InferenceFormat):
         self._supported_catalogs: list[A2uiCatalog] = []
         self._catalog_example_paths: dict[str, str] = {}
         self._schema_modifiers = schema_modifiers or []
-        self._parser: Optional[DirectJsonParser] = None
-        self._prompt_generator: Optional[DirectJsonPromptGenerator] = None
+        self._parser: DirectJsonParser | None = None
+        self._prompt_generator: DirectJsonPromptGenerator | None = None
         self._load_schemas(version, catalogs or [])
 
     @property
@@ -88,7 +89,6 @@ class DirectJsonFormat(InferenceFormat):
             default_catalog = self._supported_catalogs[0]
             self._parser = DirectJsonParser(
                 default_catalog,
-                default_catalog.validator,
             )
         return self._parser
 
@@ -111,25 +111,25 @@ class DirectJsonFormat(InferenceFormat):
     def _load_schemas(
         self,
         version: str,
-        catalogs: Optional[list[CatalogConfig]] = None,
+        catalogs: Sequence[CatalogConfig] | None = None,
     ) -> None:
         """Loads separate schema components and processes catalogs."""
         catalogs = catalogs or []
-        if version not in SPEC_VERSION_MAP:
+        if version not in PROTOCOL_VERSION_MAP:
             raise A2uiCatalogError(
                 f"Unknown A2UI specification version: {version}. Supported:"
-                f" {list(SPEC_VERSION_MAP.keys())}"
+                f" {list(PROTOCOL_VERSION_MAP.keys())}"
             )
 
         # Load server-to-client and common types schemas
         self._server_to_client_schema = self._apply_modifiers(
             load_from_bundled_resource(
-                version, SERVER_TO_CLIENT_SCHEMA_KEY, SPEC_VERSION_MAP
+                version, SERVER_TO_CLIENT_SCHEMA_KEY, PROTOCOL_VERSION_MAP
             )
         )
         self._common_types_schema = self._apply_modifiers(
             load_from_bundled_resource(
-                version, COMMON_TYPES_SCHEMA_KEY, SPEC_VERSION_MAP
+                version, COMMON_TYPES_SCHEMA_KEY, PROTOCOL_VERSION_MAP
             )
         )
 
@@ -152,7 +152,7 @@ class DirectJsonFormat(InferenceFormat):
 
     def _select_catalog(
         self,
-        client_ui_capabilities: Optional[Union[dict[str, Any], V09Capabilities]] = None,
+        client_ui_capabilities: Mapping[str, Any] | V09Capabilities | None = None,
     ) -> A2uiCatalog:
         """Selects the component catalog for the prompt based on client capabilities.
 
@@ -182,7 +182,7 @@ class DirectJsonFormat(InferenceFormat):
         if not client_ui_capabilities:
             return self._supported_catalogs[0]
 
-        if isinstance(client_ui_capabilities, dict):
+        if isinstance(client_ui_capabilities, Mapping):
             # Inject default supportedCatalogIds if missing to pass validation
             data = dict(client_ui_capabilities)
             if (
@@ -254,9 +254,9 @@ class DirectJsonFormat(InferenceFormat):
 
     def get_selected_catalog(
         self,
-        client_ui_capabilities: Optional[Union[dict[str, Any], V09Capabilities]] = None,
-        allowed_components: Optional[list[str]] = None,
-        allowed_messages: Optional[list[str]] = None,
+        client_ui_capabilities: Mapping[str, Any] | V09Capabilities | None = None,
+        allowed_components: Sequence[str] | None = None,
+        allowed_messages: Sequence[str] | None = None,
     ) -> A2uiCatalog:
         """Selects and prunes the catalog according to client capabilities and restrictions.
 

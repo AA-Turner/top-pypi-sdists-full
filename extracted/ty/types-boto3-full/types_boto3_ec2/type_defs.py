@@ -97,8 +97,11 @@ from .literals import (
     ChronologicalOrderType,
     ClientCertificateRevocationListStatusCodeType,
     ClientVpnAuthenticationTypeType,
+    ClientVpnAuthorizationPolicyShadowModeType,
+    ClientVpnAuthorizationPolicyStatusType,
     ClientVpnAuthorizationRuleStatusCodeType,
     ClientVpnConnectionStatusCodeType,
+    ClientVpnDeviceTrustProviderTypeType,
     ClientVpnEndpointAttributeStatusCodeType,
     ClientVpnEndpointStatusCodeType,
     ClientVpnRouteStatusCodeType,
@@ -736,6 +739,8 @@ __all__ = (
     "ClientVpnEndpointTypeDef",
     "ClientVpnRouteStatusTypeDef",
     "ClientVpnRouteTypeDef",
+    "ClientVpnTrustProviderRequestTypeDef",
+    "ClientVpnTrustProviderTypeDef",
     "CloudWatchLogOptionsSpecificationTypeDef",
     "CloudWatchLogOptionsTypeDef",
     "CoipAddressUsageTypeDef",
@@ -1036,6 +1041,8 @@ __all__ = (
     "DeleteCapacityManagerDataExportResultTypeDef",
     "DeleteCarrierGatewayRequestTypeDef",
     "DeleteCarrierGatewayResultTypeDef",
+    "DeleteClientVpnEndpointAuthorizationPolicyRequestTypeDef",
+    "DeleteClientVpnEndpointAuthorizationPolicyResultTypeDef",
     "DeleteClientVpnEndpointRequestTypeDef",
     "DeleteClientVpnEndpointResultTypeDef",
     "DeleteClientVpnRouteRequestTypeDef",
@@ -1845,6 +1852,8 @@ __all__ = (
     "DetachVolumeRequestVolumeDetachFromInstanceTypeDef",
     "DetachVpnGatewayRequestTypeDef",
     "DeviceOptionsTypeDef",
+    "DevicePostureOptionsTypeDef",
+    "DevicePostureResponseOptionsTypeDef",
     "DhcpConfigurationTypeDef",
     "DhcpOptionsCreateTagsRequestTypeDef",
     "DhcpOptionsTypeDef",
@@ -2109,6 +2118,8 @@ __all__ = (
     "GetCapacityManagerMonitoredTagKeysResultTypeDef",
     "GetCapacityReservationUsageRequestTypeDef",
     "GetCapacityReservationUsageResultTypeDef",
+    "GetClientVpnEndpointAuthorizationPolicyRequestTypeDef",
+    "GetClientVpnEndpointAuthorizationPolicyResultTypeDef",
     "GetCoipPoolUsageRequestTypeDef",
     "GetCoipPoolUsageResultTypeDef",
     "GetConsoleOutputRequestInstanceConsoleOutputTypeDef",
@@ -2598,6 +2609,8 @@ __all__ = (
     "ModifyCapacityReservationFleetResultTypeDef",
     "ModifyCapacityReservationRequestTypeDef",
     "ModifyCapacityReservationResultTypeDef",
+    "ModifyClientVpnEndpointAuthorizationPolicyRequestTypeDef",
+    "ModifyClientVpnEndpointAuthorizationPolicyResultTypeDef",
     "ModifyClientVpnEndpointRequestTypeDef",
     "ModifyClientVpnEndpointResultTypeDef",
     "ModifyDefaultCreditSpecificationRequestTypeDef",
@@ -4493,6 +4506,7 @@ class ConnectionLogResponseOptionsTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     CloudwatchLogGroup: NotRequired[str]
     CloudwatchLogStream: NotRequired[str]
+    IncludeAuthorizationPolicyContext: NotRequired[bool]
 
 
 class TransitGatewayConfigurationDescribeEndpointStructureTypeDef(TypedDict):
@@ -4505,6 +4519,18 @@ class TransitGatewayConfigurationDescribeEndpointStructureTypeDef(TypedDict):
 class ClientVpnRouteStatusTypeDef(TypedDict):
     Code: NotRequired[ClientVpnRouteStatusCodeType]
     Message: NotRequired[str]
+
+
+class ClientVpnTrustProviderRequestTypeDef(TypedDict):
+    TrustProviderType: NotRequired[ClientVpnDeviceTrustProviderTypeType]
+    TenantId: NotRequired[str]
+    PublicSigningKeyUrl: NotRequired[str]
+
+
+class ClientVpnTrustProviderTypeDef(TypedDict):
+    TrustProviderType: NotRequired[ClientVpnDeviceTrustProviderTypeType]
+    TenantId: NotRequired[str]
+    PublicSigningKeyUrl: NotRequired[str]
 
 
 class CloudWatchLogOptionsSpecificationTypeDef(TypedDict):
@@ -4548,6 +4574,7 @@ class ConnectionLogOptionsTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     CloudwatchLogGroup: NotRequired[str]
     CloudwatchLogStream: NotRequired[str]
+    IncludeAuthorizationPolicyContext: NotRequired[bool]
 
 
 class ConnectionNotificationTypeDef(TypedDict):
@@ -5104,6 +5131,11 @@ class DeleteCapacityManagerDataExportRequestTypeDef(TypedDict):
 
 class DeleteCarrierGatewayRequestTypeDef(TypedDict):
     CarrierGatewayId: str
+    DryRun: NotRequired[bool]
+
+
+class DeleteClientVpnEndpointAuthorizationPolicyRequestTypeDef(TypedDict):
+    ClientVpnEndpointId: str
     DryRun: NotRequired[bool]
 
 
@@ -7118,6 +7150,11 @@ class InstanceUsageTypeDef(TypedDict):
     UsedInstanceCount: NotRequired[int]
 
 
+class GetClientVpnEndpointAuthorizationPolicyRequestTypeDef(TypedDict):
+    ClientVpnEndpointId: str
+    DryRun: NotRequired[bool]
+
+
 class GetConsoleOutputRequestInstanceConsoleOutputTypeDef(TypedDict):
     Latest: NotRequired[bool]
     DryRun: NotRequired[bool]
@@ -8307,6 +8344,15 @@ class ModifyAddressAttributeRequestTypeDef(TypedDict):
 class ModifyAvailabilityZoneGroupRequestTypeDef(TypedDict):
     GroupName: str
     OptInStatus: ModifyAvailabilityZoneOptInStatusType
+    DryRun: NotRequired[bool]
+
+
+class ModifyClientVpnEndpointAuthorizationPolicyRequestTypeDef(TypedDict):
+    ClientVpnEndpointId: str
+    PolicyDocument: NotRequired[str]
+    Description: NotRequired[str]
+    ShadowMode: NotRequired[ClientVpnAuthorizationPolicyShadowModeType]
+    ClientToken: NotRequired[str]
     DryRun: NotRequired[bool]
 
 
@@ -10159,6 +10205,11 @@ class DeleteCapacityManagerDataExportResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteClientVpnEndpointAuthorizationPolicyResultTypeDef(TypedDict):
+    Status: ClientVpnAuthorizationPolicyStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteEgressOnlyInternetGatewayResultTypeDef(TypedDict):
     ReturnCode: bool
     ResponseMetadata: ResponseMetadataTypeDef
@@ -10476,6 +10527,15 @@ class GetCapacityManagerAttributesResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetClientVpnEndpointAuthorizationPolicyResultTypeDef(TypedDict):
+    ClientVpnEndpointId: str
+    PolicyDocument: str
+    Description: str
+    ShadowMode: ClientVpnAuthorizationPolicyShadowModeType
+    Status: ClientVpnAuthorizationPolicyStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetConsoleOutputResultTypeDef(TypedDict):
     InstanceId: str
     Timestamp: datetime
@@ -10592,6 +10652,11 @@ class ModifyAvailabilityZoneGroupResultTypeDef(TypedDict):
 
 class ModifyCapacityReservationFleetResultTypeDef(TypedDict):
     Return: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ModifyClientVpnEndpointAuthorizationPolicyResultTypeDef(TypedDict):
+    Status: ClientVpnAuthorizationPolicyStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -12608,6 +12673,7 @@ class ClientVpnConnectionTypeDef(TypedDict):
     Status: NotRequired[ClientVpnConnectionStatusTypeDef]
     ConnectionEndTime: NotRequired[str]
     PostureComplianceStatuses: NotRequired[list[str]]
+    AuthorizationPolicyLastEvaluatedTime: NotRequired[str]
 
 
 class TerminateConnectionStatusTypeDef(TypedDict):
@@ -12651,6 +12717,15 @@ class CreateClientVpnRouteResultTypeDef(TypedDict):
 class DeleteClientVpnRouteResultTypeDef(TypedDict):
     Status: ClientVpnRouteStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DevicePostureOptionsTypeDef(TypedDict):
+    TrustProviders: NotRequired[Sequence[ClientVpnTrustProviderRequestTypeDef]]
+    Enabled: NotRequired[bool]
+
+
+class DevicePostureResponseOptionsTypeDef(TypedDict):
+    TrustProviders: NotRequired[list[ClientVpnTrustProviderTypeDef]]
 
 
 class VpnTunnelLogOptionsSpecificationTypeDef(TypedDict):
@@ -16451,26 +16526,6 @@ class VpcEndpointAssociationTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
 
 
-class ModifyClientVpnEndpointRequestTypeDef(TypedDict):
-    ClientVpnEndpointId: str
-    ServerCertificateArn: NotRequired[str]
-    ConnectionLogOptions: NotRequired[ConnectionLogOptionsTypeDef]
-    DnsServers: NotRequired[DnsServersOptionsModifyStructureTypeDef]
-    VpnPort: NotRequired[int]
-    Description: NotRequired[str]
-    SplitTunnel: NotRequired[bool]
-    DryRun: NotRequired[bool]
-    SecurityGroupIds: NotRequired[Sequence[str]]
-    VpcId: NotRequired[str]
-    SelfServicePortal: NotRequired[SelfServicePortalType]
-    ClientConnectOptions: NotRequired[ClientConnectOptionsTypeDef]
-    SessionTimeoutHours: NotRequired[int]
-    ClientLoginBannerOptions: NotRequired[ClientLoginBannerOptionsTypeDef]
-    ClientRouteEnforcementOptions: NotRequired[ClientRouteEnforcementOptionsTypeDef]
-    DisconnectOnSessionTimeout: NotRequired[bool]
-    TransitGatewayConfiguration: NotRequired[TransitGatewayConfigurationInputStructureTypeDef]
-
-
 class EbsInfoTypeDef(TypedDict):
     EbsOptimizedSupport: NotRequired[EbsOptimizedSupportType]
     EncryptionSupport: NotRequired[EbsEncryptionSupportType]
@@ -19596,6 +19651,46 @@ class DescribeClassicLinkInstancesResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class DescribeClientVpnConnectionsResultTypeDef(TypedDict):
+    Connections: list[ClientVpnConnectionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class TerminateClientVpnConnectionsResultTypeDef(TypedDict):
+    ClientVpnEndpointId: str
+    Username: str
+    ConnectionStatuses: list[TerminateConnectionStatusTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeClientVpnRoutesResultTypeDef(TypedDict):
+    Routes: list[ClientVpnRouteTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ModifyClientVpnEndpointRequestTypeDef(TypedDict):
+    ClientVpnEndpointId: str
+    ServerCertificateArn: NotRequired[str]
+    ConnectionLogOptions: NotRequired[ConnectionLogOptionsTypeDef]
+    DnsServers: NotRequired[DnsServersOptionsModifyStructureTypeDef]
+    VpnPort: NotRequired[int]
+    Description: NotRequired[str]
+    SplitTunnel: NotRequired[bool]
+    DryRun: NotRequired[bool]
+    SecurityGroupIds: NotRequired[Sequence[str]]
+    VpcId: NotRequired[str]
+    SelfServicePortal: NotRequired[SelfServicePortalType]
+    ClientConnectOptions: NotRequired[ClientConnectOptionsTypeDef]
+    SessionTimeoutHours: NotRequired[int]
+    ClientLoginBannerOptions: NotRequired[ClientLoginBannerOptionsTypeDef]
+    ClientRouteEnforcementOptions: NotRequired[ClientRouteEnforcementOptionsTypeDef]
+    DisconnectOnSessionTimeout: NotRequired[bool]
+    TransitGatewayConfiguration: NotRequired[TransitGatewayConfigurationInputStructureTypeDef]
+    DevicePostureOptions: NotRequired[DevicePostureOptionsTypeDef]
+
+
 class ClientVpnEndpointTypeDef(TypedDict):
     ClientVpnEndpointId: NotRequired[str]
     Description: NotRequired[str]
@@ -19627,25 +19722,7 @@ class ClientVpnEndpointTypeDef(TypedDict):
     TransitGatewayConfiguration: NotRequired[
         TransitGatewayConfigurationDescribeEndpointStructureTypeDef
     ]
-
-
-class DescribeClientVpnConnectionsResultTypeDef(TypedDict):
-    Connections: list[ClientVpnConnectionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class TerminateClientVpnConnectionsResultTypeDef(TypedDict):
-    ClientVpnEndpointId: str
-    Username: str
-    ConnectionStatuses: list[TerminateConnectionStatusTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeClientVpnRoutesResultTypeDef(TypedDict):
-    Routes: list[ClientVpnRouteTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+    DevicePostureOptions: NotRequired[DevicePostureResponseOptionsTypeDef]
 
 
 class ModifyVpnTunnelOptionsSpecificationTypeDef(TypedDict):
@@ -21949,6 +22026,7 @@ class CreateClientVpnEndpointRequestTypeDef(TypedDict):
     EndpointIpAddressType: NotRequired[EndpointIpAddressTypeType]
     TrafficIpAddressType: NotRequired[TrafficIpAddressTypeType]
     TransitGatewayConfiguration: NotRequired[TransitGatewayConfigurationInputStructureTypeDef]
+    DevicePostureOptions: NotRequired[DevicePostureOptionsTypeDef]
 
 
 class CreateCoipPoolRequestTypeDef(TypedDict):

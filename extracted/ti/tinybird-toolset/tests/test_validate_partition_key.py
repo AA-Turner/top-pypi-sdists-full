@@ -41,40 +41,60 @@ class TestValidatePartitionKey(unittest.TestCase):
             columns=[{"name": "ts", "type": "DateTime"}],
             partition_key="toStartOfMinute(ts)",
         )
-        self.assertIsNotNone(err)
-        self.assertIn("finer than hourly", err)
+        self.assertEqual(
+            err,
+            "Partition key granularity (Minute) on column 'ts' is finer than hourly. This tends to create a very "
+            "large number of parts, which makes merges and queries expensive regardless of the table's TTL. Use "
+            "an hourly or coarser partition key.",
+        )
 
     def test_invalid_second_partition_key(self):
         err = chquery.validate_partition_key(
             columns=[{"name": "ts", "type": "DateTime"}],
             partition_key="toStartOfSecond(ts)",
         )
-        self.assertIsNotNone(err)
-        self.assertIn("finer than hourly", err)
+        self.assertEqual(
+            err,
+            "Partition key granularity (Second) on column 'ts' is finer than hourly. This tends to create a very "
+            "large number of parts, which makes merges and queries expensive regardless of the table's TTL. Use "
+            "an hourly or coarser partition key.",
+        )
 
     def test_invalid_five_minute_partition_key(self):
         err = chquery.validate_partition_key(
             columns=[{"name": "ts", "type": "DateTime"}],
             partition_key="toStartOfFiveMinutes(ts)",
         )
-        self.assertIsNotNone(err)
-        self.assertIn("finer than hourly", err)
+        self.assertEqual(
+            err,
+            "Partition key granularity (Minute) on column 'ts' is finer than hourly. This tends to create a very "
+            "large number of parts, which makes merges and queries expensive regardless of the table's TTL. Use "
+            "an hourly or coarser partition key.",
+        )
 
     def test_invalid_ten_minute_partition_key(self):
         err = chquery.validate_partition_key(
             columns=[{"name": "ts", "type": "DateTime"}],
             partition_key="toStartOfTenMinutes(ts)",
         )
-        self.assertIsNotNone(err)
-        self.assertIn("finer than hourly", err)
+        self.assertEqual(
+            err,
+            "Partition key granularity (Minute) on column 'ts' is finer than hourly. This tends to create a very "
+            "large number of parts, which makes merges and queries expensive regardless of the table's TTL. Use "
+            "an hourly or coarser partition key.",
+        )
 
     def test_invalid_fifteen_minute_partition_key(self):
         err = chquery.validate_partition_key(
             columns=[{"name": "ts", "type": "DateTime"}],
             partition_key="toStartOfFifteenMinutes(ts)",
         )
-        self.assertIsNotNone(err)
-        self.assertIn("finer than hourly", err)
+        self.assertEqual(
+            err,
+            "Partition key granularity (Minute) on column 'ts' is finer than hourly. This tends to create a very "
+            "large number of parts, which makes merges and queries expensive regardless of the table's TTL. Use "
+            "an hourly or coarser partition key.",
+        )
 
     def test_invalid_five_minute_singular_alias_partition_key(self):
         # toStartOfFiveMinute (singular) is a registered alias for toStartOfFiveMinutes.
@@ -82,32 +102,48 @@ class TestValidatePartitionKey(unittest.TestCase):
             columns=[{"name": "ts", "type": "DateTime"}],
             partition_key="toStartOfFiveMinute(ts)",
         )
-        self.assertIsNotNone(err)
-        self.assertIn("finer than hourly", err)
+        self.assertEqual(
+            err,
+            "Partition key granularity (Minute) on column 'ts' is finer than hourly. This tends to create a very "
+            "large number of parts, which makes merges and queries expensive regardless of the table's TTL. Use "
+            "an hourly or coarser partition key.",
+        )
 
     def test_invalid_millisecond_partition_key(self):
         err = chquery.validate_partition_key(
             columns=[{"name": "ts", "type": "DateTime64(3)"}],
             partition_key="toStartOfMillisecond(ts)",
         )
-        self.assertIsNotNone(err)
-        self.assertIn("finer than hourly", err)
+        self.assertEqual(
+            err,
+            "Partition key granularity (Millisecond) on column 'ts' is finer than hourly. This tends to create a "
+            "very large number of parts, which makes merges and queries expensive regardless of the table's TTL. "
+            "Use an hourly or coarser partition key.",
+        )
 
     def test_invalid_microsecond_partition_key(self):
         err = chquery.validate_partition_key(
             columns=[{"name": "ts", "type": "DateTime64(6)"}],
             partition_key="toStartOfMicrosecond(ts)",
         )
-        self.assertIsNotNone(err)
-        self.assertIn("finer than hourly", err)
+        self.assertEqual(
+            err,
+            "Partition key granularity (Microsecond) on column 'ts' is finer than hourly. This tends to create a "
+            "very large number of parts, which makes merges and queries expensive regardless of the table's TTL. "
+            "Use an hourly or coarser partition key.",
+        )
 
     def test_invalid_nanosecond_partition_key(self):
         err = chquery.validate_partition_key(
             columns=[{"name": "ts", "type": "DateTime64(9)"}],
             partition_key="toStartOfNanosecond(ts)",
         )
-        self.assertIsNotNone(err)
-        self.assertIn("finer than hourly", err)
+        self.assertEqual(
+            err,
+            "Partition key granularity (Nanosecond) on column 'ts' is finer than hourly. This tends to create a "
+            "very large number of parts, which makes merges and queries expensive regardless of the table's TTL. "
+            "Use an hourly or coarser partition key.",
+        )
 
     def test_invalid_yyyymmddhhmmss_partition_key(self):
         # Packs the full date+time down to the second - no coarsening at all.
@@ -115,8 +151,12 @@ class TestValidatePartitionKey(unittest.TestCase):
             columns=[{"name": "ts", "type": "DateTime"}],
             partition_key="toYYYYMMDDhhmmss(ts)",
         )
-        self.assertIsNotNone(err)
-        self.assertIn("finer than hourly", err)
+        self.assertEqual(
+            err,
+            "Partition key granularity (Second) on column 'ts' is finer than hourly. This tends to create a very "
+            "large number of parts, which makes merges and queries expensive regardless of the table's TTL. Use "
+            "an hourly or coarser partition key.",
+        )
 
     def test_valid_skipped_for_composite_partition_key(self):
         self.assertIsNone(
@@ -142,6 +182,38 @@ class TestValidatePartitionKey(unittest.TestCase):
             chquery.validate_partition_key(
                 columns=[{"name": "k", "type": "String"}],
                 partition_key="k",
+            )
+        )
+
+    def test_invalid_bare_datetime_partition_key(self):
+        err = chquery.validate_partition_key(
+            columns=[{"name": "ts", "type": "DateTime"}],
+            partition_key="ts",
+        )
+        self.assertEqual(
+            err,
+            "Partition key granularity (Second) on column 'ts' is finer than hourly. This tends to create a very "
+            "large number of parts, which makes merges and queries expensive regardless of the table's TTL. Use "
+            "an hourly or coarser partition key, e.g. toStartOfHour(ts), toYYYYMMDD(ts), or toYYYYMM(ts).",
+        )
+
+    def test_invalid_bare_datetime64_partition_key(self):
+        err = chquery.validate_partition_key(
+            columns=[{"name": "ts", "type": "DateTime64(3)"}],
+            partition_key="ts",
+        )
+        self.assertEqual(
+            err,
+            "Partition key granularity (Millisecond) on column 'ts' is finer than hourly. This tends to create a "
+            "very large number of parts, which makes merges and queries expensive regardless of the table's TTL. "
+            "Use an hourly or coarser partition key, e.g. toStartOfHour(ts), toYYYYMMDD(ts), or toYYYYMM(ts).",
+        )
+
+    def test_valid_skipped_for_bare_date_column(self):
+        self.assertIsNone(
+            chquery.validate_partition_key(
+                columns=[{"name": "d", "type": "Date"}],
+                partition_key="d",
             )
         )
 

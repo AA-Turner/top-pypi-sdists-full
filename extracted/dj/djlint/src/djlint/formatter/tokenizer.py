@@ -45,6 +45,9 @@ class TagToken:
 
 
 _TEMPLATE_DELIMITERS: Final = MappingProxyType({"{%": "%}", "{#": "#}"})
+# handlebars raw blocks open with "{{{{", the longest brace run of any
+# template language
+_LONGEST_BRACE_RUN: Final = 4
 
 
 def _after_mako_expression(source: str, start: int) -> int | None:
@@ -78,10 +81,15 @@ def _after_brace_run_expression(source: str, start: int) -> int | None:
 
     Handlebars allows a variable-length brace run, so the opening run is
     matched with a closing run of the same length; a leftover brace would
-    otherwise abort the surrounding tag scan.
+    otherwise abort the surrounding tag scan. Counting past the longest
+    run a template language opens with would read a long run of braces
+    again from each one of them.
     """
     open_length = 2
-    while source[start + open_length : start + open_length + 1] == "{":
+    while (
+        open_length < _LONGEST_BRACE_RUN
+        and source[start + open_length : start + open_length + 1] == "{"
+    ):
         open_length += 1
     if _starts_markup(source, start + open_length):
         return None
@@ -98,15 +106,14 @@ def _after_delimited(
     A second opener before the closing delimiter means the first one was
     never closed: no template language nests these, and reading an
     unclosed `{%` as an expression hides every tag between it and the
-    next `%}` anywhere on the page.
+    next `%}` anywhere on the page. The closing delimiter is only looked
+    for up to that second opener, so a run of unclosed ones is read once.
     """
-    end = source.find(closing, start + len(opening))
-    if end < 0:
-        return None
-    nested = source.find(opening, start + len(opening))
-    if 0 <= nested < end:
-        return None
-    return end + len(closing)
+    after_opening = start + len(opening)
+    nested = source.find(opening, after_opening)
+    stop = len(source) if nested < 0 else nested + len(closing) - 1
+    end = source.find(closing, after_opening, stop)
+    return None if end < 0 else end + len(closing)
 
 
 def _starts_markup(source: str, index: int) -> bool:
@@ -135,6 +142,33 @@ def _after_template(source: str, start: int) -> int | None:
     ):
         return None
     return _after_delimited(source, start, source[start : start + 2], closing)
+
+
+def _has_bare_gt(source: str, start: int, end: int) -> bool:
+    """Whether a ">" in source[start:end] is outside a closed string.
+
+    A string that never closes is not a string: its quote belongs to the
+    HTML around the expression, as in a="{{">, where the ">" ends the tag.
+    """
+    quote: str | None = None
+    gt_in_quote = False
+    cursor = start
+    while cursor < end:
+        char = source[cursor]
+        if quote is not None:
+            if char == "\\":
+                cursor += 1
+            elif char == quote:
+                quote = None
+                gt_in_quote = False
+            elif char == ">":
+                gt_in_quote = True
+        elif char in "\"'":
+            quote = char
+        elif char == ">":
+            return True
+        cursor += 1
+    return gt_in_quote
 
 
 def _next_template_opener(
@@ -183,7 +217,9 @@ def tokenize_tags(source: str) -> Iterator[TagToken]:
     {% translate "You don't have permission" %} would otherwise be read as
     closing the attribute. One spanning the tag's own ">" is left alone: a
     quoted literal like a="{{" has no closing of its own, so the "}}" a
-    plain search settles on lies past the end of the tag.
+    plain search settles on lies past the end of the tag. A ">" inside one
+    of the expression's own strings, as in "{{ x|default:"a>b" }}", is not
+    the tag's.
     """
     mako = "$" in source
     has_templates = mako or "{" in source
@@ -254,6 +290,7 @@ def tokenize_tags(source: str) -> Iterator[TagToken]:
                     and quote is not None
                     and char != "$"
                     and source.find(">", cursor, template_end) >= 0
+                    and _has_bare_gt(source, cursor, template_end)
                 )
                 if template_end is not None and not spans_tag_end:
                     cursor = template_end

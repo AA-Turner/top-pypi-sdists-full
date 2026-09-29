@@ -61,9 +61,16 @@ class AskUserQuestionResult(BaseModel):
 @client_tool(
     name="ask_user_question",
     description=(
+        "MANDATORY POST-CALLBACK RULE: when the returned answer selects a value-entry choice "
+        "instead of containing the value, your next response must be one ordinary assistant "
+        "message asking for that value; do not call any tool. For example, an answer of 'Enter "
+        "service account' requires a message such as 'What service account email should I use?' "
+        "ONLY use this tool for multiple-choice decisions, never to request an open-ended value. "
         "Ask the user one or more questions and wait for their responses. "
         "Each question has 2-4 choices plus an automatic 'Other' option for free text. "
-        "Use this to gather preferences, clarify requirements, or get decisions."
+        "Use this to gather preferences, clarify requirements, or get decisions. "
+        "A value-entry choice may say custom, manual, other, or 'I will type/provide/enter/choose/"
+        "supply it.' Never repeat or reformulate the completed choice or invent new options."
     ),
     input_schema=AskUserQuestionArgs,
     output_schema=AskUserQuestionResult,

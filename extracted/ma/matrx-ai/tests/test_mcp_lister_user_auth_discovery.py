@@ -215,7 +215,7 @@ async def test_lister_discovers_as_the_user_and_loads_live_members(
     assert result.output["count"] == len(GITHUB_TOOLS)
     # Members came from the server's managed definitions, not an edge walk.
     assert lister_host["definition_model"].filters == [
-        {"managed_by_server_id": SERVER_ID, "is_active": True}
+        {"managed_by_server_id": SERVER_ID, "is_active": True, "deleted_at__isnull": True}
     ]
 
 

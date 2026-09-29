@@ -40,6 +40,8 @@ public:
     static ColumnChunkMetadata flushData(const ColumnChunkData& chunkData,
         PageAllocator& pageAllocator);
 
+    ShadowFile* getShadowFile() const { return shadowFile; }
+
     // Use lookupInternal to specialize
     void lookupValue(const ChunkState& state, common::offset_t nodeOffset,
         common::ValueVector* resultVector, uint32_t posInVector) const;
@@ -95,8 +97,8 @@ public:
         return common::dynamic_cast_checked<TARGET&>(*this);
     }
 
-    // Return value is the new segments if segment splitting occurs during an out of place
-    // checkpoint
+    // Return value is the new segment(s) replacing the persistent segment if it was checkpointed
+    // out of place (more than one if it was split), or empty if it was checkpointed in place
     virtual std::vector<std::unique_ptr<ColumnChunkData>> checkpointSegment(
         ColumnCheckpointState&& checkpointState, PageAllocator& pageAllocator,
         bool canSplitSegment = true) const;

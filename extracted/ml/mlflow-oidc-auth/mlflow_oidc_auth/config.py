@@ -171,6 +171,10 @@ class AppConfig:
         # secrets manager is reported as missing instead of silently turning the deployment into a
         # public client. Requires PKCE, and refuses a client secret configured alongside it.
         self.OIDC_PUBLIC_CLIENT = config_manager.get_bool("OIDC_PUBLIC_CLIENT", default=False)
+        # Whether the flat-configured provider's groups and workspace claims may be read from its
+        # UserInfo endpoint when the ID token lacks them. Off by default: those claims decide
+        # access and administrator status. Identity claims are completed from UserInfo either way.
+        self.OIDC_USERINFO_GROUPS = config_manager.get_bool("OIDC_USERINFO_GROUPS", default=False)
 
         # Permission cache settings
         # Whether a write from one source may overwrite a row another source owns (#319).
@@ -185,8 +189,11 @@ class AppConfig:
         self.OIDC_USERNAME_FIELD = config_manager.get_list("OIDC_USERNAME_FIELD", default=["email", "preferred_username"])
         self.OIDC_DISPLAY_NAME_FIELD = config_manager.get_list("OIDC_DISPLAY_NAME_FIELD", default=["name"])
 
-        # Group settings
+        # Group settings. OIDC_GROUP_NAME is exact names; OIDC_GROUP_NAME_PATTERN is opt-in
+        # shell-style patterns (issue #78), kept separate so a name containing a pattern
+        # character keeps meaning only itself.
         self.OIDC_GROUP_NAME = config_manager.get_list("OIDC_GROUP_NAME", default=["mlflow"])
+        self.OIDC_GROUP_NAME_PATTERN = config_manager.get_list("OIDC_GROUP_NAME_PATTERN", default=[])
         self.OIDC_ADMIN_GROUP_NAME = config_manager.get_list("OIDC_ADMIN_GROUP_NAME", default=["mlflow-admin"])
         self.OIDC_GROUP_DETECTION_PLUGIN = config_manager.get("OIDC_GROUP_DETECTION_PLUGIN")
         # Optional issuer (iss) validation for JWTs. When set, tokens must carry a matching
@@ -486,24 +493,34 @@ class AppConfig:
         reason as _warn_if_username_field_unusable: this is a module-level singleton
         imported by tooling that has nothing to do with OIDC login.
         """
-        if not self._has_usable_entry(self.OIDC_GROUP_NAME):
-            logger.warning("OIDC_GROUP_NAME is empty; no user will ever be recognized as a member of an allowed group and be able to log in.")
+        if not self._has_usable_entry(self.OIDC_GROUP_NAME) and not self._has_usable_entry(self.OIDC_GROUP_NAME_PATTERN):
+            logger.warning(
+                "OIDC_GROUP_NAME and OIDC_GROUP_NAME_PATTERN are empty; no user will ever be recognized as a member of an allowed group and be able to log in."
+            )
+        from mlflow_oidc_auth.group_patterns import matches_everything
+
+        # The offending pattern is not echoed: configuration values can come from a secret store,
+        # and the operator can find a match-everything entry in their own setting.
+        if any(isinstance(p, str) and matches_everything(p) for p in self.OIDC_GROUP_NAME_PATTERN):
+            logger.warning(
+                "OIDC_GROUP_NAME_PATTERN contains a pattern such as '*', which admits every user whose token carries any group at all. "
+                "Prefer a scoped pattern such as 'mlflow-*'."
+            )
         if not self._has_usable_entry(self.OIDC_ADMIN_GROUP_NAME):
             logger.warning("OIDC_ADMIN_GROUP_NAME is empty; no user will ever be granted admin access via group membership.")
 
     def _warn_if_default_permission_is_permissive(self) -> None:
-        """Announce that an open-by-default deployment will change on the next major.
+        """Warn when DEFAULT_MLFLOW_PERMISSION is configured to grant access.
 
         DEFAULT_MLFLOW_PERMISSION decides access when a resource has no user, group, regex
-        or group-regex grant. Shipping MANAGE means a fresh install is open by default:
-        every authenticated user can read, edit and delete every experiment and model
-        until grants exist. That default is changing to NO_PERMISSIONS (issue #293), which
-        is a breaking change for anyone relying on it.
+        or group-regex grant. It defaults to NO_PERMISSIONS (since v7.6.0, issue #293); a
+        granting value such as MANAGE makes the deployment open by default — every
+        authenticated user can read, edit and delete every experiment and model until
+        grants exist. That is usually set to keep pre-7.6 behaviour while migrating.
 
-        Warned at startup so the change is not a surprise on upgrade, and so operators can
-        act on it while the current release still behaves permissively. The counters added
-        alongside this (get_permission_fallback_counts) show how much access is actually
-        coming from the fallback in a running deployment.
+        Warned at startup so the open default stays visible rather than becoming a
+        forgotten setting. The counters (get_permission_fallback_counts) show how much
+        access is actually coming from the fallback in a running deployment.
 
         Silent when the deployment is unaffected: a default that grants nothing, or
         workspaces enabled — with workspaces, workspace permissions take the fallback role
@@ -525,9 +542,8 @@ class AppConfig:
         logger.warning(
             f"DEFAULT_MLFLOW_PERMISSION={self.DEFAULT_MLFLOW_PERMISSION} grants access to every resource that has no "
             "explicit permission, so any authenticated user can reach resources nobody granted them. "
-            "This default becomes NO_PERMISSIONS in the next major version (issue #293). "
-            "See docs/permissions.md 'Migrating to deny-by-default' — set the value explicitly now to pin "
-            "current behaviour, or create the grants your users rely on before upgrading."
+            "The shipped default is NO_PERMISSIONS (issue #293). "
+            "See docs/permissions.md 'Migrating to deny-by-default' to replace fallback access with explicit grants."
         )
 
     def _warn_if_resource_creation_restriction_is_inert(self) -> None:

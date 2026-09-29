@@ -10,17 +10,18 @@ from pathlib import Path
 from typing import Annotated
 
 from packaging.version import Version
-from pikepdf import Name, Pdf, Stream
+from pikepdf import Name, Pdf, PdfError, Stream
 from pydantic import BaseModel, Field
 
 from ocrmypdf import hookimpl
 from ocrmypdf._exec import ghostscript
 from ocrmypdf._options import ProcessingMode
 from ocrmypdf.exceptions import MissingDependencyError
-from ocrmypdf.helpers import (
-    RESOURCES_XOBJECT,
-    pikepdf_get_dict,
-    pikepdf_get_int,
+from ocrmypdf.helpers import RESOURCES_XOBJECT
+from ocrmypdf.pdfa import (
+    find_nonembedded_fonts,
+    has_embedded_fonts,
+    is_standard14_font,
 )
 from ocrmypdf.subprocess import check_external_program
 
@@ -121,7 +122,12 @@ class GhostscriptOptions(BaseModel):
             type=str,
             choices=[ccs.value for ccs in ColorConversionStrategy],
             default=ColorConversionStrategy.LEAVE_COLOR_UNCHANGED.value,
-            help="Set Ghostscript color conversion strategy",
+            help="Set Ghostscript color conversion strategy. OCRmyPDF does no "
+            "color conversion of its own: 'LeaveColorUnchanged' and 'RGB' are "
+            "met by any PDF/A pikepdf's validator approves, while 'CMYK', "
+            "'Gray' and 'UseDeviceIndependentColor' require Ghostscript and "
+            "select --pdfa-backend ghostscript (an error with --pdfa-backend "
+            "internal).",
         )
         gs.add_argument(
             '--pdfa-image-compression',
@@ -187,14 +193,23 @@ def add_options(parser):
 @hookimpl
 def check_options(options):
     """Check that the options are valid for this plugin."""
-    # Only require Ghostscript for pdfa* output types (not 'auto' or 'pdf')
-    # 'auto' mode uses best-effort PDF/A without Ghostscript fallback
-    if options.output_type.startswith('pdfa'):
+    # Ghostscript is required to make PDF/A for the pdfa* output types, unless
+    # the internal backend was chosen, and for --output-type auto only if the
+    # Ghostscript backend was chosen: auto otherwise degrades to a regular PDF
+    # when it cannot produce PDF/A.
+    if options.output_type == 'pdfa':
+        options.output_type = 'pdfa-2'
+    makes_pdfa = options.output_type == 'auto' or options.output_type.startswith('pdfa')
+    explicit_backend = options.pdfa_backend == 'ghostscript' and makes_pdfa
+    if explicit_backend or (
+        options.pdfa_backend != 'internal' and options.output_type.startswith('pdfa')
+    ):
         check_external_program(
             program='gs',
             package='ghostscript',
             version_checker=ghostscript.version,
             need_version='9.54',  # RHEL 9's version; Ubuntu 22.04 has 9.55
+            required_for='--pdfa-backend ghostscript' if explicit_backend else None,
         )
         gs_version = ghostscript.version()
         if gs_version in BLACKLISTED_GS_VERSIONS:
@@ -231,8 +246,6 @@ def check_options(options):
                 gs_version,
                 ghostscript.GS_TOUNICODE_MULTICHAR_FIXED,
             )
-        if options.output_type == 'pdfa':
-            options.output_type = 'pdfa-2'
 
     if (
         options.ghostscript.color_conversion_strategy
@@ -324,10 +337,10 @@ def _collect_dctdecode_images(pdf: Pdf) -> dict[tuple, list[tuple[Stream, bytes]
                 filt = obj.get(Name.Filter)
                 if filt == Name.DCTDecode:
                     sig = (
-                        pikepdf_get_int(obj, Name.Width),
-                        pikepdf_get_int(obj, Name.Height),
+                        obj.get_int(Name.Width, 0, coerce=True),
+                        obj.get_int(Name.Height, 0, coerce=True),
                         str(filt),
-                        pikepdf_get_int(obj, Name.BitsPerComponent),
+                        obj.get_int(Name.BitsPerComponent, 0, coerce=True),
                         get_colorspace_key(obj),
                     )
                     raw_bytes = obj.read_raw_bytes()
@@ -337,11 +350,11 @@ def _collect_dctdecode_images(pdf: Pdf) -> dict[tuple, list[tuple[Stream, bytes]
             # Recurse into Form XObjects
             elif obj.get(Name.Subtype) == Name.Form:
                 process_xobject_dict(
-                    pikepdf_get_dict(obj, RESOURCES_XOBJECT), depth=depth + 1
+                    obj.get_dict(RESOURCES_XOBJECT) or {}, depth=depth + 1
                 )
 
     for page in pdf.pages:
-        process_xobject_dict(pikepdf_get_dict(page.obj, RESOURCES_XOBJECT))
+        process_xobject_dict(page.obj.get_dict(RESOURCES_XOBJECT) or {})
 
     return images
 
@@ -362,8 +375,10 @@ def _repair_gs106_jpeg_corruption(
     first_error_logged = False
 
     with (
-        Pdf.open(input_pdf_path) as input_pdf,
-        Pdf.open(output_pdf_path, allow_overwriting_input=True) as output_pdf,
+        Pdf.open(input_pdf_path, conversion_mode='explicit') as input_pdf,
+        Pdf.open(
+            output_pdf_path, allow_overwriting_input=True, conversion_mode='explicit'
+        ) as output_pdf,
     ):
         # Collect all DCTDecode images from both PDFs
         input_images = _collect_dctdecode_images(input_pdf)
@@ -419,6 +434,48 @@ def _repair_gs106_jpeg_corruption(
     return repaired_count > 0
 
 
+def _check_font_embedding(pdf_pages) -> bool:
+    """Warn about fonts Ghostscript will substitute; decide on font subsetting.
+
+    PDF/A requires embedded fonts, so Ghostscript substitutes a font of its own
+    for every font the input does not embed. Standard 14 fonts have
+    metric-compatible substitutes, so only other fonts are worth a warning.
+
+    Subsetting fonts can damage the encoding of fonts already embedded in the
+    input (#1592), so it stays disabled whenever any font is embedded. When no
+    font is embedded, every font Ghostscript writes is one of its own
+    substitutes, which subset safely, and embedding them in full would inflate
+    the output by tens of kilobytes per font (#1369).
+
+    Returns:
+        True if Ghostscript may subset fonts.
+    """
+    nonembedded: set[str] = set()
+    any_embedded = False
+    try:
+        for page_file in pdf_pages:
+            with Pdf.open(page_file, conversion_mode='explicit') as pdf:
+                nonembedded |= find_nonembedded_fonts(pdf)
+                any_embedded = any_embedded or has_embedded_fonts(pdf)
+    except (OSError, PdfError) as e:
+        log.debug("Could not check font embedding: %s", e)
+        return False
+
+    substituted = sorted(f for f in nonembedded if not is_standard14_font(f))
+    if substituted:
+        shown = ', '.join(substituted[:5])
+        if len(substituted) > 5:
+            shown += ", ..."
+        count = f"{len(substituted)} fonts are" if len(substituted) > 1 else "1 font is"
+        log.warning(
+            f"{count} not embedded in the input file ({shown}). "
+            "PDF/A requires embedded fonts, so Ghostscript will "
+            "substitute other fonts, which may change the appearance and size of "
+            "the file. Use `--output-type pdf` to keep the fonts unchanged."
+        )
+    return bool(nonembedded) and not any_embedded
+
+
 @hookimpl
 def generate_pdfa(
     pdf_pages,
@@ -435,6 +492,7 @@ def generate_pdfa(
         context.options.ghostscript.pdfa_image_compression,
         context.options.optimize,
     )
+    subset_fonts = _check_font_embedding(pdf_pages)
 
     ghostscript.generate_pdfa(
         pdf_pages=[pdfmark, *pdf_pages],
@@ -447,6 +505,7 @@ def generate_pdfa(
         pdfa_part=pdfa_part,
         progressbar_class=progressbar_class,
         stop_on_error=stop_on_soft_error,
+        subset_fonts=subset_fonts,
     )
 
     # Record that Ghostscript produced this file, so the optimizer knows whether

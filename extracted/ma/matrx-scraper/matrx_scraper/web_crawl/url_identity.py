@@ -125,8 +125,13 @@ class ResolvedPageUrl(BaseModel):
 class CrawlIdentityResolution(BaseModel):
     requested_url: str
     final_url: str
+    #: The page's IDENTITY — the fetched (post-redirect) URL. Named for the
+    #: `canonical_page_id` group it heads, NOT the page's declared rel=canonical.
     canonical_url: str
     page_id: str
+    #: The page's declared same-site rel=canonical, when it names ANOTHER URL — an
+    #: attribute/relationship of this page, never its identity (ruling, 2026-09-28).
+    declared_canonical_url: str | None = None
     alias_page_ids: list[str] = Field(default_factory=list)
     canonical_was_new: bool = False
 
@@ -215,6 +220,10 @@ def build_canonical_identity_plan(
 
     outgoing: dict[str, UrlRelation] = {}
     for relation in relations:
+        if relation.kind == "canonical":
+            # A declared rel=canonical is a relationship between two pages, not
+            # proof they are one page (ruling 2026-09-28). It never merges them.
+            continue
         source_url = normalize_url(relation.source_url)
         target_url = normalize_url(relation.target_url)
         source = by_url.get(source_url)
@@ -691,17 +700,34 @@ def _crawl_observed_urls(
     requested_url: str,
     final_url: str,
     redirect_chain: list[dict[str, Any]],
-    canonical_url: str | None,
-    root_url: str,
 ) -> list[str]:
+    """The URLs ONE fetch proved are the same page: the request and its redirect hops."""
     urls = [requested_url]
     urls.extend(
         str(hop.get("url")) for hop in redirect_chain if isinstance(hop, dict) and hop.get("url")
     )
     urls.append(final_url)
-    if canonical_url and _is_same_site(canonical_url, root_url):
-        urls.append(canonical_url)
     return list(dict.fromkeys(normalize_url(url) for url in urls))
+
+
+def crawl_identity_target(
+    requested_url: str,
+    final_url: str,
+    redirect_chain: list[dict[str, Any]],
+) -> tuple[str, list[str]]:
+    """Which page a fetch belongs to, and which URLs collapse into it — ONE rule.
+
+    Ruling (2026-09-28, Screaming Frog is the reference): the FETCHED URL is the
+    page's identity. A redirect proves two URLs are one page, so the request and
+    its hops collapse into the final URL. A declared rel=canonical proves
+    nothing of the sort — it is the page's CLAIM about another URL, recorded as
+    an attribute (snapshot ``head_tags.canonical_url``) and a relation, never
+    used to file this page's snapshot under the other page. Filing by canonical
+    let a canonicalized page overwrite its target's latest snapshot depending on
+    crawl order, and hid both pages' own verdicts.
+    """
+    final = normalize_url(final_url)
+    return final, _crawl_observed_urls(requested_url, final_url, redirect_chain)
 
 
 async def resolve_crawl_page_identity(
@@ -720,20 +746,13 @@ async def resolve_crawl_page_identity(
     """Persist every crawl alias and return the one canonical page identity."""
 
     requested = normalize_url(requested_url)
-    final = normalize_url(final_url)
     declared = (
         normalize_url(declared_canonical_url)
         if declared_canonical_url and _is_same_site(declared_canonical_url, root_url)
         else None
     )
-    observed_urls = _crawl_observed_urls(
-        requested,
-        final,
-        redirect_chain,
-        declared,
-        root_url,
-    )
-    target_url = declared or final
+    target_url, observed_urls = crawl_identity_target(requested, final_url, redirect_chain)
+    final = target_url
     target_existed = await WebPage.exists(
         site_id=site_id,
         url_hash=url_hash(target_url),
@@ -792,6 +811,7 @@ async def resolve_crawl_page_identity(
         page_id=target_page_id,
         alias_page_ids=sorted(set(alias_ids)),
         canonical_was_new=not target_existed,
+        declared_canonical_url=declared if declared and declared != target_url else None,
     )
 
 
@@ -1214,6 +1234,7 @@ __all__ = [
     "UrlRelation",
     "build_canonical_identity_plan",
     "reconcile_site_urls",
+    "crawl_identity_target",
     "resolve_crawl_page_identity",
     "upsert_observed_page_urls",
 ]

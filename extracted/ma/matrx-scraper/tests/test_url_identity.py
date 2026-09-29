@@ -189,7 +189,11 @@ def test_redirect_chain_flattens_every_hop_to_final_page() -> None:
     assert set(plan.canonical_by_page_id.values()) == {"c"}
 
 
-def test_declared_canonical_wins_after_redirect_chain() -> None:
+def test_declared_canonical_never_merges_pages_redirects_still_do() -> None:
+    """Ruling 2026-09-28 (Screaming Frog is the reference): the fetched URL is the
+    page's identity. A redirect proves two URLs are one page; a rel=canonical is a
+    claim about ANOTHER page and never merges them (it used to: the canonical won
+    and the canonicalized page's snapshot was filed under it)."""
     pages = [
         page("a", "https://example.com/a"),
         page("b", "https://example.com/b"),
@@ -210,7 +214,26 @@ def test_declared_canonical_wins_after_redirect_chain() -> None:
         root_url="https://example.com",
     )
 
-    assert set(plan.canonical_by_page_id.values()) == {"canonical"}
+    assert plan.canonical_by_page_id["a"] == plan.canonical_by_page_id["b"]
+    assert plan.canonical_by_page_id["canonical"] == "canonical"
+    assert plan.canonical_by_page_id["b"] != "canonical"
+
+
+def test_crawl_identity_target_is_the_fetched_url_never_the_canonical() -> None:
+    from matrx_scraper.web_crawl.url_identity import crawl_identity_target
+
+    target, collapsed = crawl_identity_target(
+        "https://example.com/old",
+        "https://example.com/variant",
+        [{"status": 301, "url": "https://example.com/old"}],
+    )
+    assert target == "https://example.com/variant"
+    assert collapsed == ["https://example.com/old", "https://example.com/variant"]
+    # The signature no longer even accepts a declared canonical: identity cannot
+    # depend on it by construction.
+    import inspect
+
+    assert "canonical" not in " ".join(inspect.signature(crawl_identity_target).parameters)
 
 
 def test_newer_direct_observation_overrides_stale_redirect() -> None:

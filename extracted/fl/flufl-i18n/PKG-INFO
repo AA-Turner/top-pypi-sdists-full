@@ -1,11 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: flufl.i18n
-Version: 6.0.0
+Version: 7.0.0
 Summary: A high level API for internationalizing Python libraries and applications
 Project-URL: Home Page, https://flufli18n.readthedocs.io
 Project-URL: Documentation, https://flufli18n.readthedocs.io
-Project-URL: Source Code, https://gitlab.com/warsaw/flufl.i18n.git
-Project-URL: Bug Tracker, https://gitlab.com/warsaw/flufl.i18n/issues
+Project-URL: Source Code, https://gitlab.com/flufl/flufl.i18n.git
+Project-URL: Bug Tracker, https://gitlab.com/flufl/flufl.i18n/-/work_items
 Author-email: Barry Warsaw <barry@python.org>
 License: Apache-2.0
 License-File: LICENSE
@@ -43,7 +43,7 @@ servers.
 Author
 ======
 
-``flufl.i18n`` is Copyright (C) 2004-2025 Barry Warsaw <barry@python.org>
+``flufl.i18n`` is Copyright (C) 2004-2026 Barry Warsaw <barry@python.org>
 
 Licensed under the terms of the Apache License Version 2.0.  See the LICENSE
 file for details.
@@ -52,8 +52,8 @@ file for details.
 Project details
 ===============
 
- * Project home: https://gitlab.com/warsaw/flufl.i18n
- * Report bugs at: https://gitlab.com/warsaw/flufl.i18n/issues
- * Code hosting: https://gitlab.com/warsaw/flufl.i18n.git
- * Documentation: https://flufli18n.readthedocs.io/
+ * Project home: https://gitlab.com/flufl/flufl.i18n
+ * Report bugs at: https://gitlab.com/flufl/flufl.i18n/-/work_items
+ * Code hosting: https://gitlab.com/flufl/flufl.i18n.git
+ * Documentation: https://flufli18n.readthedocs.io
  * PyPI: https://pypi.python.org/pypi/flufl.i18n

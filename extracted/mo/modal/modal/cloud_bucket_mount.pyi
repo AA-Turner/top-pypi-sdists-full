@@ -11,6 +11,22 @@ class _CloudBucketMount:
     [the AWS S3 Mountpoint documentation](https://github.com/awslabs/mountpoint-s3/blob/main/doc/SEMANTICS.md)
     for more information.
 
+    Args:
+        bucket_name: Name of the cloud bucket to mount.
+        bucket_endpoint_url: Endpoint URL of the bucket. Required for Cloudflare R2 and
+            Google Cloud Storage buckets, which are identified by their endpoint hostname.
+        key_prefix: Prefix prepended to every object path in the bucket. Must end in `/`.
+        secret: Credentials used to access the bucket. A private bucket requires a secret
+            containing `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; a publicly accessible
+            bucket needs none.
+        oidc_auth_role_arn: Role ARN to assume when accessing the bucket with OIDC
+            authentication instead of static credentials.
+        read_only: Mount the bucket read-only.
+        requester_pays: Whether the bucket is configured as Requester Pays, so that the
+            caller is billed for requests. Requires `secret`.
+        force_path_style: Address objects as `<endpoint>/<bucket>/<key>` rather than using
+            virtual-hosted-style bucket subdomains.
+
     Examples:
         S3:
 
@@ -126,7 +142,9 @@ class _CloudBucketMount:
         ...
 
 def cloud_bucket_mounts_to_proto(
-    mounts: collections.abc.Sequence[tuple[str, _CloudBucketMount]], split_ephemeral_credentials: bool = False
+    mounts: collections.abc.Sequence[tuple[str, _CloudBucketMount]],
+    split_ephemeral_credentials: bool = False,
+    include_secrets: bool = True,
 ) -> tuple[list[modal_proto.api_pb2.CloudBucketMount], dict[str, modal_proto.api_pb2.StringMap]]:
     """mdmd:hidden
     Helper function to convert `CloudBucketMount` to a list of protobufs that can be passed to the server.
@@ -140,6 +158,22 @@ class CloudBucketMount:
     S3 mounts are optimized for reading large files sequentially. It does not support every file operation; consult
     [the AWS S3 Mountpoint documentation](https://github.com/awslabs/mountpoint-s3/blob/main/doc/SEMANTICS.md)
     for more information.
+
+    Args:
+        bucket_name: Name of the cloud bucket to mount.
+        bucket_endpoint_url: Endpoint URL of the bucket. Required for Cloudflare R2 and
+            Google Cloud Storage buckets, which are identified by their endpoint hostname.
+        key_prefix: Prefix prepended to every object path in the bucket. Must end in `/`.
+        secret: Credentials used to access the bucket. A private bucket requires a secret
+            containing `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; a publicly accessible
+            bucket needs none.
+        oidc_auth_role_arn: Role ARN to assume when accessing the bucket with OIDC
+            authentication instead of static credentials.
+        read_only: Mount the bucket read-only.
+        requester_pays: Whether the bucket is configured as Requester Pays, so that the
+            caller is billed for requests. Requires `secret`.
+        force_path_style: Address objects as `<endpoint>/<bucket>/<key>` rather than using
+            virtual-hosted-style bucket subdomains.
 
     Examples:
         S3:

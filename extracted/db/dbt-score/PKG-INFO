@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-score
-Version: 0.17.0
+Version: 0.18.0
 Summary: Linter for dbt metadata.
 Author-email: Picnic Analyst Development Platform <analyst-development-platform@teampicnic.com>
 License: MIT

@@ -16,6 +16,19 @@ using namespace lbug::processor;
 namespace lbug {
 namespace function {
 
+// Returns true if any input type is an unresolved ANY, e.g. the placeholder a parameter is
+// bound to during a bind pass that runs before parameter values are known. Such statements are
+// re-bound with concrete parameter types before execution, so overload validation can be
+// deferred until then.
+static bool hasUnresolvedInputType(const std::vector<LogicalType>& inputTypes) {
+    for (auto& inputType : inputTypes) {
+        if (inputType.getLogicalTypeID() == LogicalTypeID::ANY) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void validateNonEmptyCandidateFunctions(std::vector<AggregateFunction*>& candidateFunctions,
     const std::string& name, const std::vector<LogicalType>& inputTypes, bool isDistinct,
     const function::function_set& set);
@@ -63,6 +76,34 @@ AggregateFunction* BuiltInFunctionsUtils::matchAggregateFunction(const std::stri
             continue;
         }
         candidateFunctions.push_back(aggregateFunction);
+    }
+    if (candidateFunctions.empty() && hasUnresolvedInputType(inputTypes)) {
+        // Parameters whose values are not known yet are bound as ANY-typed placeholders and the
+        // statement is re-bound with concrete parameter types before execution (e.g. a statement
+        // prepared through the C API). Defer overload validation to that re-bind by
+        // deterministically picking a compatible (non-)distinct overload: ANY inputs match any
+        // declared parameter type, while concrete inputs must match exactly (mirroring
+        // getAggregateFunctionCost, which also treats a declared ANY parameter as a wildcard).
+        for (auto& function : functionSet) {
+            auto aggregateFunction = function->ptrCast<AggregateFunction>();
+            if (aggregateFunction->isDistinct != isDistinct ||
+                aggregateFunction->parameterTypeIDs.size() != inputTypes.size()) {
+                continue;
+            }
+            auto compatible = true;
+            for (auto i = 0u; i < inputTypes.size(); ++i) {
+                auto inputTypeID = inputTypes[i].getLogicalTypeID();
+                auto paramTypeID = aggregateFunction->parameterTypeIDs[i];
+                if (inputTypeID != LogicalTypeID::ANY && paramTypeID != LogicalTypeID::ANY &&
+                    inputTypeID != paramTypeID) {
+                    compatible = false;
+                    break;
+                }
+            }
+            if (compatible) {
+                return aggregateFunction;
+            }
+        }
     }
     validateNonEmptyCandidateFunctions(candidateFunctions, name, inputTypes, isDistinct,
         functionSet);

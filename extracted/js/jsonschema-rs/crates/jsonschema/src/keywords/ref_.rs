@@ -10,6 +10,7 @@ use crate::{
     validator::{EvaluationResult, Validate, ValidationContext},
     Json, ValidationError,
 };
+use referencing::Resolved;
 use serde_json::{Map, Value};
 
 /// Tracks `$ref` traversals for recursive references where the target is behind `BoxedValidator<F>`
@@ -181,6 +182,25 @@ fn extract_ref_target_base(alias: &referencing::Uri<String>) -> Location {
     Location::new()
 }
 
+/// Whether `alias` names its target by an anchor rather than a JSON Pointer.
+fn is_named(alias: &referencing::Uri<String>) -> bool {
+    alias.fragment().is_some_and(|fragment| {
+        !fragment.as_str().is_empty() && !fragment.as_str().starts_with('/')
+    })
+}
+
+/// Location of a named target within its resource.
+fn named_target_base<F: Json>(
+    ctx: &compiler::Context<F>,
+    resolved: &Resolved<'_>,
+) -> Result<Location, referencing::Error> {
+    let resolver = resolved.resolver();
+    let resource = resolver.lookup("")?;
+    Ok(ctx
+        .anchor_location(resource.contents(), resolved.contents())
+        .expect("A named target lives in its resolver's resource"))
+}
+
 fn compile_reference_validator<'a, F: Json>(
     ctx: &compiler::Context<F>,
     parent: &Map<String, Value>,
@@ -205,6 +225,14 @@ fn compile_reference_validator<'a, F: Json>(
     let resolved = match ctx.lookup(reference) {
         Ok(resolved) => resolved,
         Err(error) => return Some(Err(ValidationError::from(error))),
+    };
+    let ref_target_base = if is_named(&alias) {
+        match named_target_base(ctx, &resolved) {
+            Ok(location) => location,
+            Err(error) => return Some(Err(ValidationError::from(error))),
+        }
+    } else {
+        ref_target_base
     };
 
     // Direct self-reference - skip to avoid infinite recursion. This compares node identity
@@ -1305,6 +1333,75 @@ mod tests {
         );
     }
 
+    #[test_case(
+        &json!({"child": {"v": 1}}),
+        None;
+        "target relative ref accepts integer"
+    )]
+    #[test_case(
+        &json!({"child": {"v": "x"}}),
+        Some((
+            "\"x\" is not of type \"integer\"",
+            "/$defs/leaf/properties/v/type",
+            "https://example.com/root.json#/$defs/leaf/properties/v/type",
+        ));
+        "target relative ref rejects string"
+    )]
+    #[test_case(
+        &json!({"child": "str"}),
+        None;
+        "target permits non-object"
+    )]
+    fn cross_document_dynamic_ref_uses_target_base(
+        instance: &Value,
+        expected_error: Option<(&str, &str, &str)>,
+    ) {
+        let tree = json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://example.com/tree.json",
+            "$dynamicAnchor": "node",
+            "type": "object",
+            "properties": {"child": {"$dynamicRef": "#node"}},
+            "$defs": {"leaf": {"type": "string"}}
+        });
+        let root = json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://example.com/root.json",
+            "$ref": "tree.json",
+            "$defs": {
+                "node": {"$dynamicAnchor": "node", "$ref": "#/$defs/leaf"},
+                "leaf": {"properties": {"v": {"type": "integer"}}}
+            }
+        });
+        let registry = crate::Registry::new()
+            .add("https://example.com/tree.json", &tree)
+            .expect("Invalid resource")
+            .prepare()
+            .expect("Invalid registry");
+        let validator = crate::options()
+            .with_registry(&registry)
+            .build(&root)
+            .expect("Invalid schema");
+
+        assert_eq!(validator.is_valid(instance), expected_error.is_none());
+        let result = validator.validate(instance);
+        match expected_error {
+            Some((message, schema_path, absolute_keyword_location)) => {
+                let error = result.expect_err("Should fail");
+                assert_eq!(error.to_string(), message);
+                assert_eq!(error.schema_path().as_str(), schema_path);
+                assert_eq!(
+                    error
+                        .absolute_keyword_location()
+                        .expect("Absolute keyword location")
+                        .as_str(),
+                    absolute_keyword_location
+                );
+            }
+            None => assert!(result.is_ok()),
+        }
+    }
+
     #[test]
     fn evaluation_path_triple_nested_ref() {
         // Three levels of $ref
@@ -1472,6 +1569,81 @@ mod tests {
 
         assert!(paths.contains(&"/properties/name/$ref/type".to_string()));
         assert!(paths.contains(&"/properties/age/$ref/type".to_string()));
+    }
+
+    // A named target reports the same `schema_path` as a JSON Pointer to it
+    #[test_case(
+        &json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": {"model": {"$anchor": "model", "properties": {"name": {"type": "string"}}}},
+            "properties": {"named": {"$ref": "#model"}, "pointer": {"$ref": "#/$defs/model"}}
+        }),
+        "/$defs/model/properties/name/type";
+        "draft2020 anchor"
+    )]
+    #[test_case(
+        &json!({
+            "$schema": "https://json-schema.org/draft/2019-09/schema",
+            "$defs": {"model": {"$anchor": "model", "properties": {"name": {"type": "string"}}}},
+            "properties": {"named": {"$ref": "#model"}, "pointer": {"$ref": "#/$defs/model"}}
+        }),
+        "/$defs/model/properties/name/type";
+        "draft2019 anchor"
+    )]
+    #[test_case(
+        &json!({
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "definitions": {"model": {"$id": "#model", "properties": {"name": {"type": "string"}}}},
+            "properties": {"named": {"$ref": "#model"}, "pointer": {"$ref": "#/definitions/model"}}
+        }),
+        "/definitions/model/properties/name/type";
+        "draft7 fragment id"
+    )]
+    #[test_case(
+        &json!({
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "definitions": {"model": {"id": "#model", "properties": {"name": {"type": "string"}}}},
+            "properties": {"named": {"$ref": "#model"}, "pointer": {"$ref": "#/definitions/model"}}
+        }),
+        "/definitions/model/properties/name/type";
+        "draft4 fragment id"
+    )]
+    #[test_case(
+        &json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": {"model": {"$dynamicAnchor": "model", "properties": {"name": {"type": "string"}}}},
+            "properties": {"named": {"$dynamicRef": "#model"}, "pointer": {"$ref": "#/$defs/model"}}
+        }),
+        "/$defs/model/properties/name/type";
+        "draft2020 dynamic anchor"
+    )]
+    #[test_case(
+        &json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://example.com/root.json",
+            "$defs": {
+                "inner": {
+                    "$id": "inner.json",
+                    "$defs": {"model": {"$anchor": "model", "properties": {"name": {"type": "string"}}}}
+                }
+            },
+            "properties": {"named": {"$ref": "inner.json#model"}, "pointer": {"$ref": "inner.json#/$defs/model"}}
+        }),
+        "/$defs/model/properties/name/type";
+        "anchor in embedded resource"
+    )]
+    fn schema_path_of_named_target(schema: &Value, expected: &str) {
+        let validator = crate::validator_for(schema).expect("Invalid schema");
+        for property in ["named", "pointer"] {
+            let instance = json!({property: {"name": 42}});
+            let error = validator.validate(&instance).expect_err("Should fail");
+            assert_eq!(error.schema_path().as_str(), expected, "{property}");
+            let errors: Vec<_> = validator
+                .iter_errors(&instance)
+                .map(|error| error.schema_path().to_string())
+                .collect();
+            assert_eq!(errors, vec![expected.to_string()], "{property}");
+        }
     }
 
     #[test]
@@ -1754,5 +1926,117 @@ mod tests {
         let validator = crate::validator_for(&schema).expect("Invalid schema");
         assert!(validator.is_valid(&json!(1)));
         assert!(!validator.is_valid(&json!("text")));
+    }
+
+    #[test_case(crate::Draft::Draft4, "id"; "draft4")]
+    #[test_case(crate::Draft::Draft6, "$id"; "draft6")]
+    #[test_case(crate::Draft::Draft7, "$id"; "draft7")]
+    fn distinct_fragment_ids_keep_distinct_cached_targets(draft: crate::Draft, id: &str) {
+        let schema = json!({
+            id: "https://example.com/model.json",
+            "type": "object",
+            "definitions": {
+                "directive": {id: "#directive", "$ref": "#/definitions/text"},
+                "model": {
+                    id: "#model",
+                    "type": "object",
+                    "properties": {"name": {"$ref": "#/definitions/text"}},
+                    "required": ["name"]
+                },
+                "text": {"type": "string"}
+            },
+            "properties": {
+                "$schema": {"$ref": "#directive"},
+                "alias": {"$ref": "#/definitions/model"},
+                "model": {"$ref": "#model"}
+            },
+            "required": ["model"]
+        });
+        let validator = crate::options()
+            .with_draft(draft)
+            .build(&schema)
+            .expect("Valid fragment-ID schema");
+        for instance in [
+            json!({"model": {"name": "actual model"}}),
+            json!({"$schema": "a reference", "model": {"name": "actual model"}}),
+            json!({"alias": {"name": "same target"}, "model": {"name": "actual model"}}),
+        ] {
+            tests_util::is_valid_with(&validator, &instance);
+        }
+        for instance in [
+            json!({"model": "not a model object"}),
+            json!({"model": {"name": 42}}),
+            json!({"model": {}}),
+            json!({"$schema": {}, "model": {"name": "actual model"}}),
+            json!({"alias": {"name": 42}, "model": {"name": "actual model"}}),
+        ] {
+            tests_util::is_not_valid_with(&validator, &instance);
+        }
+    }
+
+    #[test_case(crate::Draft::Draft4, "id", "id", "#", "definitions"; "draft4")]
+    #[test_case(crate::Draft::Draft6, "$id", "$id", "#", "definitions"; "draft6")]
+    #[test_case(crate::Draft::Draft7, "$id", "$id", "#", "definitions"; "draft7")]
+    #[test_case(crate::Draft::Draft201909, "$id", "$anchor", "", "$defs"; "draft2019")]
+    #[test_case(crate::Draft::Draft202012, "$id", "$anchor", "", "$defs"; "draft2020")]
+    fn distinct_recursive_anchors_keep_their_own_children(
+        draft: crate::Draft,
+        id: &str,
+        anchor: &str,
+        prefix: &str,
+        definitions: &str,
+    ) {
+        let schema = json!({
+            id: "https://example.com/recursive.json",
+            "type": "object",
+            definitions: {
+                "left": {
+                    anchor: format!("{prefix}left"),
+                    "type": "object",
+                    "properties": {
+                        "tag": {"enum": ["left"]},
+                        "next": {"$ref": "#right"}
+                    },
+                    "required": ["tag"],
+                    "additionalProperties": false
+                },
+                "right": {
+                    anchor: format!("{prefix}right"),
+                    "type": "object",
+                    "properties": {
+                        "tag": {"enum": ["right"]},
+                        "next": {"$ref": "#left"}
+                    },
+                    "required": ["tag"],
+                    "additionalProperties": false
+                }
+            },
+            "properties": {
+                "left": {"$ref": "#left"},
+                "right": {"$ref": "#right"},
+                "viaPointer": {"$ref": format!("#/{definitions}/left")}
+            }
+        });
+        let validator = crate::options()
+            .with_draft(draft)
+            .build(&schema)
+            .expect("Valid recursive anchor schema");
+        for instance in [
+            json!({"left": {"tag": "left"}, "right": {"tag": "right"}}),
+            json!({"left": {"tag": "left", "next": {"tag": "right", "next": {"tag": "left"}}}}),
+            json!({"viaPointer": {"tag": "left", "next": {"tag": "right"}}}),
+        ] {
+            tests_util::is_valid_with(&validator, &instance);
+        }
+        for instance in [
+            json!({"left": {"tag": "right"}}),
+            json!({"right": {"tag": "left"}}),
+            json!({"left": {"tag": "left", "next": {"tag": "left"}}}),
+            json!({"right": {"tag": "right", "next": {"tag": "right"}}}),
+            json!({"viaPointer": {"tag": "right"}}),
+            json!({"viaPointer": {"tag": "left", "next": {"tag": "left"}}}),
+        ] {
+            tests_util::is_not_valid_with(&validator, &instance);
+        }
     }
 }

@@ -26,7 +26,7 @@ class EvaluationGroup(BaseModel):
     name: str
     """Name of the evaluation group"""
 
-    tags: List[str]
+    tags: Optional[List[str]] = None
     """The tags associated with the entity"""
 
     deleted_at: Optional[datetime] = None
@@ -36,7 +36,11 @@ class EvaluationGroup(BaseModel):
     """Optional description"""
 
     members: Optional[List[EvaluationGroupMember]] = None
-    """Evaluation members in this group. Populated with 'members' view."""
+    """Evaluation members in this group.
+
+    Returned by default on GET by id; on list endpoints, populated only with the
+    'members' view.
+    """
 
     metadata: Optional[Dict[str, object]] = None
     """Optional metadata key-value pairs"""

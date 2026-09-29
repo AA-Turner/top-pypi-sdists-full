@@ -190,6 +190,19 @@ class TreeStore(DictStore):
             self._known_object_roots_cache: set[str] | None = None
             self._effective_object_roots_cache: tuple[str, set[str]] | None = None
 
+    def materialize(self, destination, *, overwrite=False):
+        """Write this tree and all RemoteStore references as one local TreeStore."""
+        from blosc2.store_materialize import materialize_store
+
+        return materialize_store(self, destination, overwrite=overwrite)
+
+    def _info_contents(self, keys):
+        from blosc2.info import format_store_tree
+
+        return format_store_tree(
+            dict.fromkeys((key.strip("/") for key in keys), ""), self.subtree_path or "/"
+        )
+
     # ------------------------------------------------------------------
     # Object registry helpers
     # ------------------------------------------------------------------
@@ -207,15 +220,18 @@ class TreeStore(DictStore):
         self._known_object_roots_cache = None
         self._effective_object_roots_cache = None
 
-    def _register_object(self, full_key: str, *, kind: str, version: int, layout: str) -> None:
+    def _register_object(
+        self, full_key: str, *, kind: str, version: int, layout: str, strict: bool = False, **metadata
+    ) -> None:
         """Register *full_key* as an object root in the persistent registry."""
         try:
             reg = self._objects_registry()
-            reg[full_key] = {"kind": kind, "version": version, "layout": layout}
+            reg[full_key] = {"kind": kind, "version": version, "layout": layout, **metadata}
             self._estore._store.vlmeta["_object_registry"] = reg
             self._invalidate_object_roots_cache()
         except Exception:
-            pass  # best-effort
+            if strict:
+                raise
 
     def _unregister_object(self, full_key: str) -> None:
         """Remove *full_key* from the object registry."""
@@ -379,7 +395,14 @@ class TreeStore(DictStore):
         return key
 
     def __setitem__(
-        self, key: str, value: blosc2.Array | SChunk | blosc2.ObjectArray | blosc2.BatchArray | blosc2.CTable
+        self,
+        key: str,
+        value: blosc2.Array
+        | SChunk
+        | blosc2.ObjectArray
+        | blosc2.BatchArray
+        | blosc2.CTable
+        | blosc2.RemoteStore,
     ) -> None:
         """Add a node with hierarchical key validation.
 
@@ -418,6 +441,10 @@ class TreeStore(DictStore):
         """
         key = self._validate_key(key)
 
+        if isinstance(value, blosc2.RemoteStore):
+            self._set_remote_store_reference(key, value)
+            return
+
         # --- CTable: store as inline subtree object ---
         if isinstance(value, blosc2.CTable):
             self._set_ctable_object(key, value)
@@ -440,7 +467,7 @@ class TreeStore(DictStore):
 
         # Check if this key already has children (is a structural subtree)
         children = self.get_children(key)
-        if children:
+        if children or super().__contains__(full_key + "/__vlmeta__"):
             raise ValueError(
                 f"Cannot assign array to structural path '{key}' that already has children: {children}"
             )
@@ -458,6 +485,65 @@ class TreeStore(DictStore):
                 )
 
         super().__setitem__(full_key, value)
+
+    def _set_remote_store_reference(self, key: str, value: blosc2.RemoteStore) -> None:
+        """Persist a lazy reference to a remote group at an explicit object root."""
+        from blosc2.remote_store import validate_remote_store_reference
+
+        if self.mode == "r":
+            raise ValueError("TreeStore is in read-only mode")
+        full_key = self._translate_key_to_full(key)
+        if (self._object_info(full_key) or self._probe_object_info(full_key)) is not None:
+            raise ValueError(f"'{key}' already exists as an object root. Delete it first.")
+        if super().__contains__(full_key):
+            raise ValueError(f"'{key}' already exists as a data leaf. Delete it first.")
+        if self._is_object_internal_key(key):
+            raise ValueError(f"Cannot assign to '{key}': it is inside an existing object root.")
+        children = self.get_children(key)
+        if children:
+            raise ValueError(
+                f"Cannot assign RemoteStore to '{key}': structural children already exist: {children}."
+            )
+        source = value.source
+        descriptor = validate_remote_store_reference(
+            {
+                **source,
+                "cache_policy": value.cache_policy.value,
+                "max_cache_bytes": value.max_cache_bytes,
+            }
+        )
+        self._register_object(
+            full_key,
+            kind="remote_store",
+            version=1,
+            layout="reference",
+            source=descriptor,
+            strict=True,
+        )
+        self._modified = True
+
+    def open_remote(
+        self,
+        key: str,
+        *,
+        storage_options=None,
+        cache_policy=None,
+        max_cache_bytes=None,
+        cache_dir=None,
+    ) -> blosc2.RemoteStore:
+        """Open a stored RemoteStore reference with runtime-specific options."""
+        key = self._validate_key(key)
+        info = self._object_info(self._translate_key_to_full(key))
+        if not isinstance(info, dict) or info.get("kind") != "remote_store":
+            raise KeyError(f"Key '{key}' is not a RemoteStore reference")
+        runtime = {"storage_options": storage_options}
+        if cache_policy is not None:
+            runtime["cache_policy"] = cache_policy
+        if max_cache_bytes is not None:
+            runtime["max_cache_bytes"] = max_cache_bytes
+        if cache_dir is not None:
+            runtime["cache_dir"] = cache_dir
+        return blosc2.RemoteStore._from_reference(info["source"], **runtime)
 
     def _set_ctable_object(self, key: str, value: blosc2.CTable) -> None:
         """Materialise a CTable inline into this store at *key*."""
@@ -533,6 +619,8 @@ class TreeStore(DictStore):
             ctable = blosc2.CTable._open_from_treestore(self, full_key)
             self._inline_handles.append(ctable)
             return ctable
+        if info is not None and info["kind"] == "remote_store":
+            return blosc2.RemoteStore._from_reference(info["source"])
 
         # Check if the key exists as an actual data node
         key_exists_as_data = super().__contains__(full_key)
@@ -540,7 +628,7 @@ class TreeStore(DictStore):
         # Check if this key has children (is a structural subtree)
         children = self.get_children(key)
 
-        if children:
+        if children or super().__contains__(full_key + "/__vlmeta__"):
             return self.get_subtree(key)
         elif key_exists_as_data:
             return super().__getitem__(full_key)
@@ -597,11 +685,12 @@ class TreeStore(DictStore):
             key=len,
             reverse=True,
         )
+        metadata_keys = [k for k in DictStore.keys(self) if k.startswith(prefix) and self._is_vlmeta_key(k)]
 
-        if not key_exists_as_data and not descendants and not object_roots_to_delete:
+        if not key_exists_as_data and not descendants and not object_roots_to_delete and not metadata_keys:
             raise KeyError(f"Key '{key}' not found")
 
-        keys_to_delete = []
+        keys_to_delete = [self._translate_key_from_full(k) for k in metadata_keys]
         if key_exists_as_data:
             keys_to_delete.append(key)
         for descendant in descendants:
@@ -681,6 +770,8 @@ class TreeStore(DictStore):
                 super().__contains__(full_key)
                 or self._object_info(full_key) is not None
                 or self._probe_object_info(full_key) is not None
+                or super().__contains__(full_key + "/__vlmeta__")
+                or bool(self.get_children(key))
             )
         except ValueError:
             return False
@@ -715,8 +806,8 @@ class TreeStore(DictStore):
                 if relative_key is not None:
                     all_keys.add(relative_key)
 
-        # Filter out vlmeta keys
-        all_keys = {key for key in all_keys if not self._is_vlmeta_key(key)}
+        # Metadata-only groups remain visible; their internal carrier does not.
+        all_keys = {key.rsplit("/", 1)[0] if self._is_vlmeta_key(key) else key for key in all_keys} - {""}
 
         # Filter out object-internal keys
         object_roots = self._effective_object_roots()
@@ -865,7 +956,7 @@ class TreeStore(DictStore):
 
         for child in direct_children:
             child_descendants = self.get_descendants(child)
-            if child_descendants:
+            if child_descendants or super().__contains__(self._translate_key_to_full(child) + "/__vlmeta__"):
                 # Extract just the name from the full path
                 child_name = child.split("/")[-1]
                 children_dirs.append(child_name)
@@ -904,8 +995,7 @@ class TreeStore(DictStore):
 
         # Recursively walk child directories (structural nodes)
         for child in direct_children:
-            child_descendants = self.get_descendants(child)
-            if child_descendants:
+            if child.rsplit("/", 1)[-1] in children_dirs:
                 yield from self.walk(child, topdown=topdown)
 
         if not topdown:

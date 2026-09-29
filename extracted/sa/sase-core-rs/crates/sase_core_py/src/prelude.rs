@@ -211,6 +211,13 @@ pub(crate) use sase_core::agent_stats::{
     query_run_stats as core_query_run_stats, AgentActivityStatsRequestWire,
     AgentRunStatsRequestWire,
 };
+pub(crate) use sase_core::agent_tab::{
+    build_agent_tab_catalog as core_build_agent_tab_catalog,
+    canonicalize_agent_tab_name as core_canonicalize_agent_tab_name,
+    resolve_effective_agent_tab as core_resolve_effective_agent_tab,
+    AgentTabCatalogOptionsWire, AgentTabError as AgentTabDomainError,
+    AgentTabRootWire,
+};
 pub(crate) use sase_core::agent_tribe::{
     agent_tribe_display_key as core_agent_tribe_display_key,
     canonicalize_agent_tribe_metadata as core_canonicalize_agent_tribe_metadata,
@@ -698,6 +705,11 @@ pub(crate) use sase_core::glossary::{
     GlossaryInputEntryWire,
 };
 pub(crate) use sase_core::inline_code_ranges as core_inline_code_ranges;
+pub(crate) use sase_core::launch_scratch_liveness::{
+    observe_launch_scratch_liveness as core_observe_launch_scratch_liveness,
+    LaunchScratchLivenessRequestWire,
+    LAUNCH_SCRATCH_LIVENESS_WIRE_SCHEMA_VERSION,
+};
 pub(crate) use sase_core::machine_hood::{
     machine_hood_of as core_machine_hood_of,
     qualify_machine_agent_name as core_qualify_machine_agent_name,
@@ -818,7 +830,7 @@ pub(crate) use sase_core::procs::{
     ProcFinishWire, ProcReserveWire, ProcRuntimeRetentionRequestWire,
     ProcSettlementWire, ProcStopRequestWire, ProcStoreError,
     ProcSupervisorClaimWire, ProcUpdateWire, ProcWire,
-    PROC_RUNTIME_RETENTION_WIRE_SCHEMA_VERSION,
+    PROC_RUNTIME_RETENTION_WIRE_SCHEMA_VERSION, PROC_WIRE_SCHEMA_VERSION,
 };
 pub(crate) use sase_core::project_spec::{
     apply_project_aliases_update as core_apply_project_aliases_update,
@@ -1037,10 +1049,14 @@ pub(crate) use sase_core::tool_run::{
     retention_preview as core_tool_run_retention_preview,
     show_run as core_tool_run_show, store_stats as core_tool_run_store_stats,
     summarize as core_tool_run_summary,
+    tool_run_briefs as core_tool_run_briefs,
+    tool_run_live_glance as core_tool_run_live_glance,
+    tool_run_node_summaries as core_tool_run_node_summaries,
     tool_run_receipts_report as core_tool_run_receipts_report,
     unknown_evidence as core_tool_run_unknown_evidence, ToolDefinitionWire,
     ToolFingerprintWire, ToolRunAppendRequestWire, ToolRunBeginRequestWire,
-    ToolRunFinishRequestWire, ToolRunListRequestWire,
+    ToolRunBriefsRequestWire, ToolRunFinishRequestWire, ToolRunListRequestWire,
+    ToolRunLiveGlanceRequestWire, ToolRunNodeSummariesRequestWire,
     ToolRunObserveRequestWire, ToolRunReceiptsReportRequestWire,
     ToolRunReconcileRequestWire, ToolRunRetentionRequestWire,
     ToolRunShowRequestWire, ToolRunSummaryRequestWire,

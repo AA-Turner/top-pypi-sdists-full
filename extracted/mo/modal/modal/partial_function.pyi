@@ -53,9 +53,7 @@ class PartialFunction(
         modal._partial_function.P, modal._partial_function.ReturnType, modal._partial_function.OriginalReturnType
     ]: ...
 
-def method(
-    _warn_parentheses_missing=None, *, is_generator: typing.Optional[bool] = None
-) -> modal._partial_function._MethodDecoratorType:
+def method(*, is_generator: typing.Optional[bool] = None) -> modal._partial_function._MethodDecoratorType:
     """Decorator for methods that should be transformed into a Modal Function registered against this class's App.
 
     Examples:
@@ -70,14 +68,13 @@ def method(
     """
     ...
 
-def web_endpoint(_warn_parentheses_missing=None, *args, **kwargs) -> None:
+def web_endpoint(*args, **kwargs) -> None:
     """mdmd:hidden
     DEPRECATED: This decorator has been renamed to `@modal.fastapi_endpoint`.
     """
     ...
 
 def fastapi_endpoint(
-    _warn_parentheses_missing=None,
     *,
     method: str = "GET",
     label: typing.Optional[str] = None,
@@ -113,7 +110,6 @@ def fastapi_endpoint(
     ...
 
 def asgi_app(
-    _warn_parentheses_missing=None,
     *,
     label: typing.Optional[str] = None,
     custom_domains: typing.Optional[collections.abc.Iterable[str]] = None,
@@ -149,7 +145,6 @@ def asgi_app(
     ...
 
 def wsgi_app(
-    _warn_parentheses_missing=None,
     *,
     label: typing.Optional[str] = None,
     custom_domains: typing.Optional[collections.abc.Iterable[str]] = None,
@@ -231,7 +226,7 @@ def web_server(
     ...
 
 def enter(
-    _warn_parentheses_missing=None, *, snap: bool = False
+    *, snap: bool = False
 ) -> collections.abc.Callable[
     [typing.Union[PartialFunction, collections.abc.Callable[[typing.Any], typing.Any]]], PartialFunction
 ]:
@@ -241,9 +236,7 @@ def enter(
     """
     ...
 
-def exit(
-    _warn_parentheses_missing=None,
-) -> collections.abc.Callable[[collections.abc.Callable[[typing.Any], typing.Any]], PartialFunction]:
+def exit() -> collections.abc.Callable[[collections.abc.Callable[[typing.Any], typing.Any]], PartialFunction]:
     """Decorator for methods which should be executed when a container is about to exit.
 
     See the [lifeycle function guide](https://modal.com/docs/guide/lifecycle-functions#exit) for more information.
@@ -251,7 +244,7 @@ def exit(
     ...
 
 def batched(
-    _warn_parentheses_missing=None, *, max_batch_size: int, wait_ms: int
+    *, max_batch_size: int, wait_ms: int
 ) -> collections.abc.Callable[
     [
         typing.Union[
@@ -289,10 +282,7 @@ def batched(
     ...
 
 def concurrent(
-    _warn_parentheses_missing=None,
-    *,
-    max_inputs: typing.Optional[int] = None,
-    target_inputs: typing.Optional[int] = None,
+    *, max_inputs: typing.Optional[int] = None, target_inputs: typing.Optional[int] = None
 ) -> collections.abc.Callable[
     [
         typing.Union[
@@ -343,5 +333,94 @@ def concurrent(
 
     *Added in v0.73.148:* This decorator replaces the `allow_concurrent_inputs` parameter
     in `@app.function()` and `@app.cls()`.
+    """
+    ...
+
+def clustered(*, size: int, rdma: bool = False) -> modal._partial_function._ClusteredDecorator:
+    """Run a Function or Server on a cluster of colocated, networked containers.
+
+    Apply below `@app.function()`, `@app.cls()`, or `@app.server()`. Each container
+    must request all GPUs on its host (for example, `gpu="H100:8"`); CPU-only
+    clusters are not supported. A clustered Cls can expose only one method.
+    Use a Server for HTTP serving; clustered Web Functions are not supported.
+
+    Function inputs are broadcast to every container, and only rank 0's output
+    is returned. Server requests are routed only to rank 0 and are not broadcast
+    to the other containers. Use `modal.Cluster.from_context()` inside a container
+    to discover its rank and the cluster's container IP addresses:
+
+    ```python notest
+    cluster = modal.Cluster.from_context()
+    rank = cluster.container_rank()
+    container_ips = cluster.container_ips()
+    ```
+
+    `min_containers`, `max_containers`, and `buffer_containers` count individual
+    containers and must be multiples of `size`. For example, `size=4` with
+    `min_containers=8` keeps two clusters warm.
+
+    See the [multi-node clusters guide](https://modal.com/docs/guide/multi-node-clusters)
+    for hardware requirements and networking details.
+
+    Parameters:
+    size: int
+        Number of containers in each cluster.
+    rdma: bool = False
+        Request RDMA networking for fast communication between nodes, such as
+        GPU collectives during distributed training. With False, containers
+        can still communicate over the private IP network without requiring
+        RDMA-capable placement.
+    """
+    ...
+
+def sessioned() -> collections.abc.Callable[
+    [
+        typing.Union[
+            collections.abc.Callable[modal._partial_function.P, modal._partial_function.ReturnType],
+            PartialFunction[
+                modal._partial_function.P, modal._partial_function.ReturnType, modal._partial_function.ReturnType
+            ],
+        ]
+    ],
+    PartialFunction[modal._partial_function.P, modal._partial_function.ReturnType, modal._partial_function.ReturnType],
+]:
+    """Decorator that enables sticky sessions on a Server.
+
+    Every request must carry a session token obtained from a session start request; requests with the same token are
+    routed to the same container until the session is idle for `idle_timeout` seconds or explicitly terminated. A
+    container won't be scaled down for as long as it holds a live session.
+
+    Only valid with `@app.server()`.
+
+    Examples:
+        Define a Server with the `@modal.sessioned()` decorator:
+
+        ```python
+        app = modal.App("my-app")
+
+        @app.server(port=8000)
+        @modal.sessioned()
+        class MyServer:
+            @modal.enter()
+            def start(self):
+                self.proc = subprocess.Popen(["python3", "-m", "http.server", "8000"])
+
+            @modal.exit()
+            def stop(self):
+                self.proc.terminate()
+        ```
+
+        After deploying the App, start a session from another script:
+
+        ```python notest
+        server = modal.Server.from_name("my-app", "MyServer")
+        server_url = server.get_url()
+        session = server.sessions.start(idle_timeout=600)
+        headers = {"Modal-Authorization": f"Bearer {session.token}"}
+
+        requests.get(server_url, headers=headers).raise_for_status()
+
+        server.sessions.terminate(session.token)
+        ```
     """
     ...

@@ -1658,7 +1658,12 @@ class ComWrappers(System.Object, metaclass=abc.ABCMeta):
     def get_i_unknown_impl(fp_query_interface: typing.Optional[System.IntPtr], fp_add_ref: typing.Optional[System.IntPtr], fp_release: typing.Optional[System.IntPtr]) -> typing.Tuple[None, System.IntPtr, System.IntPtr, System.IntPtr]:
         ...
 
+    @overload
     def get_or_create_com_interface_for_object(self, instance: typing.Any, flags: System.Runtime.InteropServices.CreateComInterfaceFlags) -> System.IntPtr:
+        ...
+
+    @overload
+    def get_or_create_com_interface_for_object(self, instance: typing.Any, flags: System.Runtime.InteropServices.CreateComInterfaceFlags, interface_id: System.Guid) -> System.IntPtr:
         ...
 
     @overload

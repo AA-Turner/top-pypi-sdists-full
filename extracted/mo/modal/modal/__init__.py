@@ -9,13 +9,14 @@ if sys.version_info[:2] >= (3, 15):
 from modal_version import __version__
 
 try:
-    from . import billing, types
+    from . import billing, experimental, types
     from ._runtime.execution_context import current_function_call_id, current_input_id, interact, is_local
     from ._tunnel import Tunnel, forward
     from .app import App
     from .client import Client
     from .cloud_bucket_mount import CloudBucketMount
     from .cls import Cls, parameter
+    from .cluster import Cluster
     from .dict import Dict
     from .environments import Environment
     from .exception import Error
@@ -27,11 +28,13 @@ try:
     from .partial_function import (
         asgi_app,
         batched,
+        clustered,
         concurrent,
         enter,
         exit,
         fastapi_endpoint,
         method,
+        sessioned,
         web_endpoint,
         web_server,
         wsgi_app,
@@ -61,6 +64,7 @@ __all__ = [
     "__version__",
     "App",
     "Client",
+    "Cluster",
     "Cls",
     "Cron",
     "Dict",
@@ -88,18 +92,21 @@ __all__ = [
     "asgi_app",
     "batched",
     "billing",
+    "clustered",
     "concurrent",
     "current_function_call_id",
     "current_input_id",
     "enable_output",
     "enter",
     "exit",
+    "experimental",
     "fastapi_endpoint",
     "forward",
     "is_local",
     "interact",
     "method",
     "parameter",
+    "sessioned",
     "types",
     "web_endpoint",
     "web_server",

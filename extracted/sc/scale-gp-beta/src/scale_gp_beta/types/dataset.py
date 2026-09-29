@@ -24,7 +24,7 @@ class Dataset(BaseModel):
 
     name: str
 
-    tags: List[str]
+    tags: Optional[List[str]] = None
     """The tags associated with the entity"""
 
     archived_at: Optional[datetime] = None

@@ -15,17 +15,14 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
-# isort: THIRDPARTY
+
 import pytest
 
-# isort: LOCAL
 from pyudev import Devices, Monitor
 
 try:
-    # isort: STDLIB
     from unittest import mock
 except ImportError:
-    # isort: THIRDPARTY
     import mock
 
 
@@ -80,7 +77,7 @@ class DeprecatedObserverTestBase:
 
     def stop_when_done(self, *args, **kwargs):
         self.no_emitted_signals += 1
-        if self.no_emitted_signals >= 2:
+        if self.no_emitted_signals >= 2:  # noqa: PLR2004
             self.stop_event_loop()
 
     def prepare_test(self, monitor):
@@ -152,10 +149,6 @@ class TestDeprecatedPysideObserver(DeprecatedQtObserverTestBase):
     BINDING_NAME = "PySide"
 
 
-class TestDeprecatedPyQt4Observer(DeprecatedQtObserverTestBase):
-    BINDING_NAME = "PyQt4"
-
-
 class TestDeprecatedGlibObserver(DeprecatedObserverTestBase):
     ACTION_SIGNAL_MAP = {
         "add": "device-added",
@@ -174,8 +167,8 @@ class TestDeprecatedGlibObserver(DeprecatedObserverTestBase):
             self.glib.source_remove(source)
 
     def create_observer(self, monitor):
-        # isort: LOCAL
-        from pyudev.glib import GUDevMonitorObserver
+
+        from pyudev.glib import GUDevMonitorObserver  # noqa: PLC0415
 
         self.observer = GUDevMonitorObserver(monitor)
 
@@ -216,8 +209,8 @@ class TestDeprecatedWxObserver(DeprecatedObserverTestBase):
         self.wx = pytest.importorskip("wx")
 
     def create_observer(self, monitor):
-        # isort: LOCAL
-        from pyudev import wx
+
+        from pyudev import wx  # noqa: PLC0415
 
         self.observer = wx.WxUDevMonitorObserver(monitor)
         self.action_event_map = {
@@ -229,8 +222,7 @@ class TestDeprecatedWxObserver(DeprecatedObserverTestBase):
 
     def connect_signal(self, callback, action=None):
         if action is None:
-            # isort: LOCAL
-            from pyudev.wx import EVT_DEVICE_EVENT
+            from pyudev.wx import EVT_DEVICE_EVENT  # noqa: PLC0415
 
             def _wrapper(event):
                 return callback(event.action, event.device)

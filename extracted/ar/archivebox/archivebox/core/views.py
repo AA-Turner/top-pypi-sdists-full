@@ -17,7 +17,6 @@ from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY, get_user_model
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.sessions.models import Session
 from django.core import signing
-from django.core.paginator import InvalidPage
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import redirect, render
@@ -48,7 +47,6 @@ from archivebox.config.configset import BaseConfigSet
 from archivebox.core.forms import AddLinkForm
 from archivebox.core.models import ArchiveResult, Snapshot, SnapshotTag
 from archivebox.core.permissions import (
-    PERMISSIONS_PRIVATE,
     PERMISSIONS_PUBLIC,
     PERMISSIONS_UNLISTED,
     can_view_snapshot,
@@ -92,6 +90,7 @@ from archivebox.plugins.discovery import (
 from archivebox.plugins.forms import get_plugin_config_binary_urls
 from archivebox.plugins.views import get_config_definition_link
 from archivebox.progressmonitor.views import live_progress_view
+from archivebox.progressmonitor.collection import collection_summary
 from archivebox.search.config import (
     get_search_mode,
     get_search_mode_backend,
@@ -1213,6 +1212,18 @@ class OriginalDomainReplayView(View):
 
 
 class PublicIndexView(ListView):
+    """Keep browsing responsive while the same small server is archiving.
+
+    Performance takes priority over perfect initial totals: on a 1 vCPU / 1 GB
+    host with hundreds of thousands of snapshots, even an indexed count can
+    consume the entire roughly 0.5-0.7 second page-load budget. Benchmark with
+    the runner active, since it shares the CPU, memory, and SQLite database.
+
+    The unfiltered list therefore renders rows first and accepts missing/stale
+    display totals. A later ordinary reload can show the background-cached
+    count; do not restore a synchronous COUNT or add polling just to fill it in.
+    """
+
     template_name = "public_index.html"
     model = Snapshot
     ordering: ClassVar[list[str]] = ["-bookmarked_at", "-created_at"]
@@ -1238,14 +1249,28 @@ class PublicIndexView(ListView):
             "status",
             "output_size",
             "permissions",
+            # Modern replay URLs need the filesystem version and owner's name.
+            # Deferring these caused four extra SELECTs per displayed snapshot.
+            "fs_version",
+            "crawl__created_by__username",
         )
 
-    def _ordered_public_page_from_order_index(self, *, page_number: int, page_size: int) -> list[Snapshot] | None:
-        target_count = page_number * page_size
+    def _ordered_public_page_from_order_index(self, *, page_number: int, page_size: int) -> list[Snapshot]:
+        # One extra row determines Next without a full collection count. Cached
+        # totals can be stale while the runner adds/removes snapshots, so they
+        # must never decide whether the requested page exists.
+        target_count = page_number * page_size + 1
         public_snapshots: list[Snapshot] = []
         scanned = 0
-        chunk_size = max(self.public_page_scan_chunk_size, page_size)
-        ordered_snapshots = Snapshot.objects.order_by(*self.ordering).only(*self._base_public_snapshot_fields())
+        chunk_size = max(self.public_page_scan_chunk_size, page_size + 1)
+        # Read in snapshot_public_order_idx order and filter visibility in small
+        # batches. Combining the permissions predicate with ORDER BY can make
+        # SQLite select the permissions index and sort the whole public archive
+        # before LIMIT. This favors the common early pages without a new index;
+        # deep pages or mostly private collections can still require more reads.
+        ordered_snapshots = (
+            Snapshot.objects.select_related("crawl__created_by").order_by(*self.ordering).only(*self._base_public_snapshot_fields())
+        )
 
         while len(public_snapshots) < target_count:
             chunk = list(ordered_snapshots[scanned : scanned + chunk_size])
@@ -1261,20 +1286,39 @@ class PublicIndexView(ListView):
         if self.request.GET.get("q", default="").strip():
             return super().paginate_queryset(queryset, page_size)
 
-        public_count = self.get_exact_public_snapshot_count()
-        paginator = self.get_paginator(range(public_count), page_size)
         page_kwarg = self.kwargs.get(self.page_kwarg)
         page_query = self.request.GET.get(self.page_kwarg)
         page_number = page_kwarg or page_query or 1
 
         try:
-            page = paginator.page(page_number)
-        except InvalidPage as err:
+            page_number = int(page_number)
+            if page_number < 1:
+                raise ValueError("Page must be positive")
+        except (ValueError, TypeError) as err:
             raise Http404(f"Invalid page ({page_number}): {err}") from err
 
-        object_list = self._ordered_public_page_from_order_index(page_number=page.number, page_size=page_size)
-        page.object_list = object_list
-        return paginator, page, object_list, page.has_other_pages()
+        snapshots = self._ordered_public_page_from_order_index(page_number=page_number, page_size=page_size)
+        if not snapshots and page_number > 1:
+            raise Http404(f"Invalid page ({page_number}): No snapshots")
+        # Exhausting the rows gives an exact total for this read at no extra
+        # cost. Otherwise the lookahead is only a lower bound: an absent count
+        # is preferable to an on-request scan or a cached total smaller than
+        # the rows we just observed. Cached overestimates are acceptable here.
+        observed_count = (page_number - 1) * page_size + len(snapshots)
+        self.public_snapshot_count = observed_count
+        if len(snapshots) > page_size:
+            summary = collection_summary(self.request.user, public=True)
+            cached_count = summary["snapshots"] if summary is not None else None
+            self.public_snapshot_count = cached_count if cached_count is not None and cached_count >= observed_count else None
+
+        # Give Django an in-memory lower bound, never the collection QuerySet
+        # whose Paginator.count would issue COUNT(*). Navigation uses this read's
+        # lookahead even when a stale total would hide a newly added page.
+        # The template must use the separate display totals, not num_pages here.
+        paginator = self.get_paginator(range(observed_count), page_size)
+        page = paginator.page(page_number)
+        page.object_list = snapshots[:page_size]
+        return paginator, page, page.object_list, page.has_other_pages()
 
     def get_context_data(self, **kwargs):
         runtime_config = self.__dict__.get("runtime_config")
@@ -1303,10 +1347,16 @@ class PublicIndexView(ListView):
             and search_mode_backend
             and context["paginator"].count == 0,
         )
+        context["public_snapshot_count"] = context["paginator"].count if query else self.public_snapshot_count
+        count = context["public_snapshot_count"]
+        context["public_page_count"] = (
+            max(1, (count + context["paginator"].per_page - 1) // context["paginator"].per_page) if count is not None else None
+        )
         snapshots = list(context.get("object_list") or ())
         from archivebox.plugins.output_groups import plugin_output_sizes
 
         all_results_by_snapshot = {str(snapshot.id): [] for snapshot in snapshots}
+        snapshots_by_id = {str(snapshot.id): snapshot for snapshot in snapshots}
         icons_by_snapshot: dict[str, dict[str, ArchiveResult]] = {str(snapshot.id): {} for snapshot in snapshots}
         tag_names_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
         list_icon_paths_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
@@ -1343,8 +1393,17 @@ class PublicIndexView(ListView):
                     "output_size",
                 )
             )
-            for result in results.iterator(chunk_size=1000):
+            # This is already bounded by the displayed snapshot page. Finish
+            # the SELECT before parsing output manifests: a streaming cursor
+            # otherwise keeps SQLite's read lock throughout rendering.
+            for result in list(results):
                 snapshot_key = str(result.snapshot_id)
+                # Thumbnail URLs traverse result.snapshot too; share the page's
+                # already-loaded parent rather than fetching it once per result.
+                result.snapshot = snapshots_by_id[snapshot_key]
+                # These read-only page objects are shared by icons, sizes, and
+                # thumbnails. Normalize each manifest once for this render.
+                result._render_output_file_map = result.output_file_map()
                 all_results_by_snapshot[snapshot_key].append(result)
                 progress = progress_by_snapshot[snapshot_key]
                 progress["total"] += 1
@@ -1376,13 +1435,12 @@ class PublicIndexView(ListView):
         context["object_list"] = snapshots
         return context
 
-    def get_exact_public_snapshot_count(self) -> int:
-        hidden_count = Snapshot.objects.filter(permissions=PERMISSIONS_PRIVATE).count()
-        hidden_count += Snapshot.objects.filter(permissions=PERMISSIONS_UNLISTED).count()
-        return Snapshot.objects.count() - hidden_count
-
     def get_queryset(self, **kwargs):
-        qs = public_snapshots_queryset(super().get_queryset(**kwargs)).only(*self._base_public_snapshot_fields())
+        qs = (
+            public_snapshots_queryset(super().get_queryset(**kwargs))
+            .select_related("crawl__created_by")
+            .only(*self._base_public_snapshot_fields())
+        )
         query = self.request.GET.get("q", default="").strip()
 
         if not query:

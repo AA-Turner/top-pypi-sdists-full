@@ -196,6 +196,9 @@ class SeoAuditResult:
         }
 
 
+_HEADING_TAGS = frozenset({"h1", "h2", "h3", "h4", "h5", "h6"})
+
+
 def audit_html(html: str, base_url: str) -> SeoAuditResult:
     """Run the full SEO audit on a raw HTML string.
 
@@ -300,7 +303,16 @@ def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
     headings: list[HeadingItem] = []
     h1: list[str] = []
     h2: list[str] = []
-    for h in tree.css("h1, h2, h3, h4, h5, h6"):
+    # DOCUMENT order. `tree.css("h1, h2, …")` returns matches grouped by
+    # selector — every h1, then every h2 — which sorted every outline by level
+    # and made a skipped level (h1 → h4 → h2) invisible to `heading_hierarchy`.
+    # Caught by the audit fixture site (`tests/fixtures/audit_site/main`,
+    # /heading-skip).
+    root = tree.root
+    heading_nodes = (
+        [node for node in root.traverse() if node.tag in _HEADING_TAGS] if root is not None else []
+    )
+    for h in heading_nodes:
         try:
             level = int(h.tag[1])
         except (ValueError, IndexError):
@@ -1381,6 +1393,53 @@ SECURITY_RESPONSE_HEADERS: frozenset[str] = frozenset(
     }
 )
 
+# Indexing directives a server can send as a RESPONSE HEADER instead of (or as
+# well as) the robots meta tag. Google honours both; before 2026-09-28 only the
+# meta tag was read, so a header-noindexed page scored as indexable (caught by
+# the audit fixture site's /noindex-header and badseo.dev's /index/noindex-header).
+# Persisted beside the security headers by `security_response_headers()`.
+ROBOTS_RESPONSE_HEADERS: frozenset[str] = frozenset({"x-robots-tag"})
+
+# Directives that take a value after a colon; any other `<name>:` prefix in an
+# X-Robots-Tag value names the crawler the rest of the value is for.
+_VALUED_ROBOTS_DIRECTIVES = frozenset(
+    {"unavailable_after", "max-snippet", "max-image-preview", "max-video-preview"}
+)
+#: Crawler names whose X-Robots-Tag rules we apply (Google's own crawler).
+_ROBOTS_HEADER_AGENTS = frozenset({"googlebot"})
+
+
+def effective_robots_directives(
+    meta_robots: str | None, response_headers: Mapping[str, str] | None
+) -> str | None:
+    """The page's robots directives from the meta tag AND the X-Robots-Tag header.
+
+    The ONE place both sources meet: every indexability verdict reads its result.
+    Header rules scoped to another crawler (`bingbot: noindex`) are ignored; rules
+    for all crawlers or for googlebot apply. Returns the comma-joined directives,
+    or the meta value unchanged when no header applies.
+    """
+
+    parts: list[str] = [meta_robots.strip()] if meta_robots and meta_robots.strip() else []
+    for name, value in (response_headers or {}).items():
+        if str(name).strip().lower() not in ROBOTS_RESPONSE_HEADERS or not value:
+            continue
+        agent: str | None = None
+        for raw in str(value).split(","):
+            segment = raw.strip()
+            if not segment:
+                continue
+            head, sep, rest = segment.partition(":")
+            if sep and head.strip().lower() not in _VALUED_ROBOTS_DIRECTIVES:
+                agent = head.strip().lower()
+                segment = rest.strip()
+                if not segment:
+                    continue
+            if agent is None or agent in _ROBOTS_HEADER_AGENTS:
+                parts.append(segment)
+    return ", ".join(parts) if parts else None
+
+
 # HTTP-variant probe verdicts for `https_enforcement`. A permanent redirect is
 # the only answer that consolidates the duplicate; a temporary one leaves both
 # URLs indexable and tells crawlers the HTTP address is still real.
@@ -1464,7 +1523,7 @@ CHECK_EVIDENCE_SAMPLE_LIMIT = 5
 
 
 def security_response_headers(headers: Mapping[str, str] | None) -> dict[str, str]:
-    """Lower-cased security headers worth persisting, and nothing else.
+    """Lower-cased security headers (plus X-Robots-Tag) worth persisting, and nothing else.
 
     Returns ``{}`` for "no headers to keep" — which is indistinguishable from
     "the fetch captured nothing". Callers that persist evidence therefore store
@@ -1476,7 +1535,9 @@ def security_response_headers(headers: Mapping[str, str] | None) -> dict[str, st
     kept: dict[str, str] = {}
     for name, value in headers.items():
         key = str(name).strip().lower()
-        if key in SECURITY_RESPONSE_HEADERS and value is not None:
+        if (
+            key in SECURITY_RESPONSE_HEADERS or key in ROBOTS_RESPONSE_HEADERS
+        ) and value is not None:
             kept[key] = str(value).strip()
     return kept
 
@@ -1606,6 +1667,12 @@ class PageEvidence:
     # every image check must answer `n_a` for.
     image_items: list[dict[str, Any]] = field(default_factory=list)
     http_status: int | None = None
+    #: Set when the crawler was KEPT OUT of this URL rather than seeing it fail —
+    #: `web.crawl_url.reason_code` `cloudflare_block`, `blocked` (401/403),
+    #: `RateLimited` or `RateLimitTimeout`. The transport checks answer n_a
+    #: naming the block: a wall is a crawl state, never a broken page (the same
+    #: rule the broken-link checks follow, OPENSEO-TOOLS-SPEC §8.1).
+    fetch_blocked_reason: str | None = None
     redirect_chain: list[dict[str, Any]] = field(default_factory=list)
     mixed_content: list[str] = field(default_factory=list)
     # Security-relevant response headers, lower-cased (`security_response_headers`).
@@ -1813,6 +1880,7 @@ def evidence_from_audit(
     response_bytes: int | None = None,
     response_time_ms: int | None = None,
     ttfb_ms: int | None = None,
+    response_headers: Mapping[str, str] | None = None,
 ) -> PageEvidence:
     """Turn a live `audit_html` result into checkable evidence.
 
@@ -1829,7 +1897,7 @@ def evidence_from_audit(
     )
     indexability = evaluate_indexability(
         http_status,
-        audit.robots,
+        effective_robots_directives(audit.robots, response_headers),
         audit.canonical,
         redirect_chain or [],
         final_url or audit.url,
@@ -1929,7 +1997,24 @@ def check_url_design_quality(ev: PageEvidence) -> CheckOutcome:
     )
 
 
+def _head_not_captured() -> CheckOutcome:
+    """A URL we attempted but never parsed (a 404, a 5xx, a loop) has no <head>.
+
+    Reporting its title, description or canonical as MISSING would invent three
+    findings about markup nobody read — the transport checks own that URL.
+    Caught by the audit fixture site (`/gone`, `/server-error`).
+    """
+    return CheckOutcome(
+        "n_a",
+        None,
+        "We never received this page's HTML (the server answered with an error or "
+        "never answered), so there is no <head> to judge.",
+    )
+
+
 def check_title_presence(ev: PageEvidence) -> CheckOutcome:
+    if not ev.head_captured:
+        return _head_not_captured()
     if ev.title:
         return CheckOutcome("pass", 100, f'Title present: "{ev.title[:120]}".')
     return CheckOutcome(
@@ -1985,6 +2070,8 @@ def check_title_length(ev: PageEvidence) -> CheckOutcome:
 
 
 def check_meta_description_presence(ev: PageEvidence) -> CheckOutcome:
+    if not ev.head_captured:
+        return _head_not_captured()
     if ev.description:
         return CheckOutcome("pass", 100, "Meta description present.")
     return CheckOutcome(
@@ -2739,6 +2826,8 @@ def check_meta_robots_conflicts(ev: PageEvidence) -> CheckOutcome:
 
 
 def check_canonical_presence(ev: PageEvidence) -> CheckOutcome:
+    if not ev.head_captured:
+        return _head_not_captured()
     canonical = ev.canonical_url
     if not canonical:
         return CheckOutcome(
@@ -2821,7 +2910,35 @@ def _chain_urls(ev: PageEvidence) -> list[str]:
     ]
 
 
+_BLOCKED_FETCH_WORDS = {
+    "cloudflare_block": "a bot-protection challenge (Cloudflare or similar) stopped our crawler",
+    "blocked": "the server refused our crawler (HTTP 401/403)",
+    "RateLimited": "the server kept answering 'too many requests' until we gave up",
+    "RateLimitTimeout": "the crawl stopped on rate limits before this page was fetched",
+}
+
+
+def _blocked_fetch_outcome(ev: PageEvidence) -> CheckOutcome | None:
+    """n_a, naming the wall, when we were kept out instead of seeing a failure."""
+
+    reason = ev.fetch_blocked_reason
+    if not reason:
+        return None
+    words = _BLOCKED_FETCH_WORDS.get(reason, f"our crawler was blocked ({reason})")
+    return CheckOutcome(
+        "n_a",
+        None,
+        f"Blocked — could not assess: {words}. A page that shuts out a crawler is "
+        "not a broken page; it may load fine for people. Check it in a browser, or "
+        "allow our crawler and crawl again.",
+        evidence={"blocked_reason": reason, "http_status": ev.http_status},
+    )
+
+
 def check_broken_page_4xx(ev: PageEvidence) -> CheckOutcome:
+    blocked = _blocked_fetch_outcome(ev)
+    if blocked is not None:
+        return blocked
     status = ev.http_status
     if status is None:
         return CheckOutcome(
@@ -2843,6 +2960,9 @@ def check_broken_page_4xx(ev: PageEvidence) -> CheckOutcome:
 
 
 def check_server_error_5xx(ev: PageEvidence) -> CheckOutcome:
+    blocked = _blocked_fetch_outcome(ev)
+    if blocked is not None:
+        return blocked
     status = ev.http_status
     if status is None:
         return CheckOutcome(
@@ -2874,9 +2994,19 @@ def check_server_error_5xx(ev: PageEvidence) -> CheckOutcome:
     return CheckOutcome("pass", 100, f"HTTP {status} — not a server error.")
 
 
+def _chain_loops(ev: PageEvidence) -> bool:
+    urls = _chain_urls(ev)
+    return len(urls) != len(set(urls))
+
+
 def check_redirect_chain(ev: PageEvidence) -> CheckOutcome:
     chain = ev.redirect_chain or []
     status = ev.http_status
+    if _chain_loops(ev):
+        # One defect, one verdict: a loop is `redirect_loop`'s finding (the
+        # categorically worse one). Scoring it here too would report the same
+        # broken redirect twice under two names.
+        return CheckOutcome("n_a", None, "This redirect loops — see the redirect loop check.")
     if status is not None and 300 <= status < 400:
         return CheckOutcome(
             "warn",
@@ -4818,6 +4948,7 @@ __all__ = [
     "SOCIAL_NO_TWITTER_CARD_PENALTY",
     "SOCIAL_OG_URL_CONFLICT_PENALTY",
     "SOCIAL_REQUIRED_OG_TAGS",
+    "ROBOTS_RESPONSE_HEADERS",
     "SOFT_404_EMPTY_MAX_WORDS",
     "SOFT_404_PHRASE_MAX_WORDS",
     "SOFT_404_TITLE_PATTERN",
@@ -4889,6 +5020,7 @@ __all__ = [
     "normalized_url_key",
     "rich_result_type_of",
     "structured_data_blocks",
+    "effective_robots_directives",
     "evidence_from_audit",
     "registrable_host",
     "run_page_checks",

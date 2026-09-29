@@ -10,7 +10,11 @@ from tests.e2e.conftest import strip_ansi
 
 from runlayer_cli.main import app
 from runlayer_cli.scan.client_presence import DetectedClient
-from runlayer_cli.scan.service import ScanResult, ScanSubmissionResult
+from runlayer_cli.scan.service import (
+    _SUBMIT_BATCH_MAX_ITEMS,
+    ScanResult,
+    ScanSubmissionResult,
+)
 
 pytestmark = pytest.mark.no_backend_e2e
 
@@ -19,6 +23,23 @@ SCAN_RESPONSE = {
     "shadow_servers_found": 1,
     "managed_servers_matched": 0,
 }
+
+
+def _batch_results(request: Request, kind: str, **result: object) -> Response:
+    items = request.get_json()[kind]
+    return Response(
+        json.dumps({"results": [result for _ in items]}),
+        status=200,
+        content_type="application/json",
+    )
+
+
+def _skill_batch_ok(request: Request) -> Response:
+    return _batch_results(request, "skills", skill_id=None, created=False)
+
+
+def _plugin_batch_ok(request: Request) -> Response:
+    return _batch_results(request, "plugins", plugin_id="x", created=False)
 
 
 def _invoke_scan(runner, httpserver, **extra_args):
@@ -56,14 +77,14 @@ def test_scan_submit_server(runner, scan_home, httpserver):
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
-    ).respond_with_json({})
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
+    ).respond_with_handler(_skill_batch_ok)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
-    ).respond_with_json({"plugin_id": "x", "created": False})
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
+    ).respond_with_handler(_plugin_batch_ok)
 
     result = _invoke_scan(runner, httpserver)
     assert result.exit_code == 0, strip_ansi(result.output)
@@ -173,14 +194,14 @@ def test_scan_submit_with_findings_records_detect_checkin(
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
-    ).respond_with_json({})
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
+    ).respond_with_handler(_skill_batch_ok)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
-    ).respond_with_json({"plugin_id": "x", "created": False})
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
+    ).respond_with_handler(_plugin_batch_ok)
 
     result = _invoke_scan(runner, httpserver)
 
@@ -251,7 +272,7 @@ def test_scan_submit_skill_unknown(runner, scan_home, httpserver):
 
     def _skill_submit(request: Request):
         skill_requests.append(request)
-        return Response(json.dumps({}), status=200, content_type="application/json")
+        return _skill_batch_ok(request)
 
     httpserver.expect_request("/api/v1/ai-watch/scan", method="POST").respond_with_json(
         SCAN_RESPONSE
@@ -260,14 +281,14 @@ def test_scan_submit_skill_unknown(runner, scan_home, httpserver):
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_handler(_skill_lookup)
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
     ).respond_with_handler(_skill_submit)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
-    ).respond_with_json({"plugin_id": "x", "created": False})
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
+    ).respond_with_handler(_plugin_batch_ok)
 
     result = _invoke_scan(runner, httpserver)
     assert result.exit_code == 0, strip_ansi(result.output)
@@ -277,8 +298,12 @@ def test_scan_submit_skill_unknown(runner, scan_home, httpserver):
     assert "identifier" in lookup_body
     assert "artifact_type" in lookup_body
     submit_body = skill_requests[1].get_json()
-    assert "files" in submit_body
-    assert "identifier" in submit_body
+    assert "device_id" in submit_body
+    assert len(submit_body["skills"]) == 1
+    item = submit_body["skills"][0]
+    assert "files" in item
+    assert "identifier" in item
+    assert "device_id" not in item
 
 
 # ── Skill: known -> submit with empty files ──────────────────────────
@@ -289,7 +314,7 @@ def test_scan_submit_skill_known(runner, scan_home, httpserver):
 
     def _submit_handler(request: Request):
         submit_bodies.append(request.get_json())
-        return Response("{}", status=200, content_type="application/json")
+        return _skill_batch_ok(request)
 
     httpserver.expect_request("/api/v1/ai-watch/scan", method="POST").respond_with_json(
         SCAN_RESPONSE
@@ -298,19 +323,19 @@ def test_scan_submit_skill_known(runner, scan_home, httpserver):
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
     ).respond_with_handler(_submit_handler)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
-    ).respond_with_json({"plugin_id": "x", "created": False})
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
+    ).respond_with_handler(_plugin_batch_ok)
 
     result = _invoke_scan(runner, httpserver)
     assert result.exit_code == 0, strip_ansi(result.output)
-    assert len(submit_bodies) >= 1
-    assert submit_bodies[0]["files"] == []
+    assert len(submit_bodies) == 1
+    assert submit_bodies[0]["skills"][0]["files"] == []
 
 
 # ── Plugin: unknown -> lookup + submit ───────────────────────────────
@@ -327,11 +352,7 @@ def test_scan_submit_plugin_unknown(runner, scan_home, httpserver):
 
     def _plugin_submit(request: Request):
         plugin_requests.append(request)
-        return Response(
-            json.dumps({"plugin_id": "x", "created": True}),
-            status=200,
-            content_type="application/json",
-        )
+        return _batch_results(request, "plugins", plugin_id="x", created=True)
 
     httpserver.expect_request("/api/v1/ai-watch/scan", method="POST").respond_with_json(
         SCAN_RESPONSE
@@ -340,24 +361,34 @@ def test_scan_submit_plugin_unknown(runner, scan_home, httpserver):
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
-    ).respond_with_json({})
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
+    ).respond_with_handler(_skill_batch_ok)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_handler(_plugin_lookup)
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
     ).respond_with_handler(_plugin_submit)
 
     result = _invoke_scan(runner, httpserver)
     assert result.exit_code == 0, strip_ansi(result.output)
 
-    assert len(plugin_requests) == 2
-    lookup_body = plugin_requests[0].get_json()
-    assert "identifier" in lookup_body
-    submit_body = plugin_requests[1].get_json()
-    assert "files" in submit_body
-    assert "name" in submit_body
+    # Host machines may expose extra editor-bundled plugins; every one is
+    # looked up, then all of them ship on the batch route in chunks of at
+    # most _SUBMIT_BATCH_MAX_ITEMS, each carrying the device envelope once.
+    lookups = [r for r in plugin_requests if r.path.endswith("/plugins/lookup")]
+    submits = [r for r in plugin_requests if r.path.endswith("/submit-batch")]
+    assert lookups
+    assert "identifier" in lookups[0].get_json()
+    assert submits
+    bodies = [r.get_json() for r in submits]
+    assert all("device_id" in body for body in bodies)
+    assert all(0 < len(body["plugins"]) <= _SUBMIT_BATCH_MAX_ITEMS for body in bodies)
+    submitted = [p for body in bodies for p in body["plugins"]]
+    assert len(submitted) == len(lookups)
+    item = next(p for p in submitted if p["name"] == "test-plugin")
+    assert "files" in item
+    assert "device_id" not in item
 
 
 # ── Plugin: known -> submit with empty files ─────────────────────────
@@ -368,6 +399,48 @@ def test_scan_submit_plugin_known(runner, scan_home, httpserver):
 
     def _submit_handler(request: Request):
         submit_bodies.append(request.get_json())
+        return _plugin_batch_ok(request)
+
+    httpserver.expect_request("/api/v1/ai-watch/scan", method="POST").respond_with_json(
+        SCAN_RESPONSE
+    )
+    httpserver.expect_request(
+        "/api/v1/ai-watch/skills/lookup", method="POST"
+    ).respond_with_json({"known": True})
+    httpserver.expect_request(
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
+    ).respond_with_handler(_skill_batch_ok)
+    httpserver.expect_request(
+        "/api/v1/ai-watch/plugins/lookup", method="POST"
+    ).respond_with_json({"known": True})
+    httpserver.expect_request(
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
+    ).respond_with_handler(_submit_handler)
+
+    result = _invoke_scan(runner, httpserver)
+    assert result.exit_code == 0, strip_ansi(result.output)
+    # Every plugin is known, so every submitted item ships without content
+    # (however many chunks the host's plugin count spans).
+    submitted = [p for body in submit_bodies for p in body["plugins"]]
+    assert submitted
+    assert all(p["files"] == [] for p in submitted)
+
+
+# ── Fallback: submit-batch 404 -> per-item submit ───────────────────
+
+
+def test_scan_submit_batch_404_falls_back_to_per_item(runner, scan_home, httpserver):
+    """A backend without ``submit-batch`` answers 404; the CLI then hits the
+    per-item routes for every planned artifact instead of failing the scan."""
+    skill_submits: list[Request] = []
+    plugin_submits: list[Request] = []
+
+    def _skill_submit(request: Request):
+        skill_submits.append(request)
+        return Response(json.dumps({}), status=200, content_type="application/json")
+
+    def _plugin_submit(request: Request):
+        plugin_submits.append(request)
         return Response(
             json.dumps({"plugin_id": "x", "created": False}),
             status=200,
@@ -379,21 +452,33 @@ def test_scan_submit_plugin_known(runner, scan_home, httpserver):
     )
     httpserver.expect_request(
         "/api/v1/ai-watch/skills/lookup", method="POST"
-    ).respond_with_json({"known": True})
+    ).respond_with_json({"known": False})
+    httpserver.expect_request(
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
+    ).respond_with_json({"detail": "Not Found"}, status=404)
     httpserver.expect_request(
         "/api/v1/ai-watch/skills/submit", method="POST"
-    ).respond_with_json({})
+    ).respond_with_handler(_skill_submit)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
-    ).respond_with_json({"known": True})
+    ).respond_with_json({"known": False})
+    httpserver.expect_request(
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
+    ).respond_with_json({"detail": "Not Found"}, status=404)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/submit", method="POST"
-    ).respond_with_handler(_submit_handler)
+    ).respond_with_handler(_plugin_submit)
 
     result = _invoke_scan(runner, httpserver)
-    assert result.exit_code == 0, strip_ansi(result.output)
-    assert len(submit_bodies) >= 1
-    assert submit_bodies[0]["files"] == []
+    out = strip_ansi(result.output)
+
+    assert result.exit_code == 0, out
+    assert "Could not submit" not in out
+    assert "not supported" not in out
+    assert len(skill_submits) == 1
+    assert "identifier" in skill_submits[0].get_json()
+    assert plugin_submits
+    assert all("name" in request.get_json() for request in plugin_submits)
 
 
 # ── Fallback: ai-watch 404 -> mcp-watch ─────────────────────────────
@@ -418,14 +503,14 @@ def test_scan_fallback_to_mcp_watch(runner, scan_home, httpserver):
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
-    ).respond_with_json({})
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
+    ).respond_with_handler(_skill_batch_ok)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
-    ).respond_with_json({"plugin_id": "x", "created": False})
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
+    ).respond_with_handler(_plugin_batch_ok)
 
     result = _invoke_scan(runner, httpserver)
     assert result.exit_code == 0, strip_ansi(result.output)
@@ -447,14 +532,14 @@ def test_scan_unsupported_server(runner, scan_home, httpserver):
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
-    ).respond_with_json({})
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
+    ).respond_with_handler(_skill_batch_ok)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
-    ).respond_with_json({"plugin_id": "x", "created": False})
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
+    ).respond_with_handler(_plugin_batch_ok)
 
     result = _invoke_scan(runner, httpserver)
     assert result.exit_code == 2, strip_ansi(result.output)
@@ -588,14 +673,14 @@ def test_scan_backend_incomplete_surface_exits_0_with_warning(
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
-    ).respond_with_json({})
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
+    ).respond_with_handler(_skill_batch_ok)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
-    ).respond_with_json({"plugin_id": "x", "created": False})
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
+    ).respond_with_handler(_plugin_batch_ok)
 
     result = _invoke_scan(runner, httpserver)
     out = strip_ansi(result.output)
@@ -627,14 +712,14 @@ def test_scan_skill_submit_500_exits_3(runner, scan_home, httpserver):
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
     ).respond_with_json({"detail": "boom"}, status=500)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
-    ).respond_with_json({"plugin_id": "x", "created": False})
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
+    ).respond_with_handler(_plugin_batch_ok)
 
     result = _invoke_scan(runner, httpserver)
     out = strip_ansi(result.output)
@@ -651,13 +736,13 @@ def test_scan_plugin_submit_500_exits_3(runner, scan_home, httpserver):
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
-    ).respond_with_json({})
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
+    ).respond_with_handler(_skill_batch_ok)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
     ).respond_with_json({"detail": "boom"}, status=500)
 
     result = _invoke_scan(runner, httpserver)
@@ -675,15 +760,11 @@ def test_scan_server_500_still_submits_skills_and_plugins(
 
     def _skill_submit(request: Request):
         skill_submits.append(request)
-        return Response(json.dumps({}), status=200, content_type="application/json")
+        return _skill_batch_ok(request)
 
     def _plugin_submit(request: Request):
         plugin_submits.append(request)
-        return Response(
-            json.dumps({"plugin_id": "x", "created": False}),
-            status=200,
-            content_type="application/json",
-        )
+        return _plugin_batch_ok(request)
 
     httpserver.expect_request("/api/v1/ai-watch/scan", method="POST").respond_with_json(
         {"detail": "boom"}, status=500
@@ -692,13 +773,13 @@ def test_scan_server_500_still_submits_skills_and_plugins(
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
     ).respond_with_handler(_skill_submit)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
     ).respond_with_handler(_plugin_submit)
 
     result = _invoke_scan(runner, httpserver)
@@ -783,7 +864,7 @@ def test_scan_skill_submit_401_exits_1(runner, scan_home, httpserver):
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
     ).respond_with_json({"detail": "Unauthorized"}, status=401)
 
     result = _invoke_scan(runner, httpserver)
@@ -802,13 +883,13 @@ def test_scan_plugin_submit_403_exits_1(runner, scan_home, httpserver):
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
-    ).respond_with_json({})
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
+    ).respond_with_handler(_skill_batch_ok)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
     ).respond_with_json({"detail": "Forbidden"}, status=403)
 
     result = _invoke_scan(runner, httpserver)
@@ -829,14 +910,14 @@ def test_scan_server_error(runner, scan_home, httpserver):
         "/api/v1/ai-watch/skills/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/skills/submit", method="POST"
-    ).respond_with_json({})
+        "/api/v1/ai-watch/skills/submit-batch", method="POST"
+    ).respond_with_handler(_skill_batch_ok)
     httpserver.expect_request(
         "/api/v1/ai-watch/plugins/lookup", method="POST"
     ).respond_with_json({"known": True})
     httpserver.expect_request(
-        "/api/v1/ai-watch/plugins/submit", method="POST"
-    ).respond_with_json({"plugin_id": "x", "created": False})
+        "/api/v1/ai-watch/plugins/submit-batch", method="POST"
+    ).respond_with_handler(_plugin_batch_ok)
 
     result = _invoke_scan(runner, httpserver)
     out = strip_ansi(result.output)

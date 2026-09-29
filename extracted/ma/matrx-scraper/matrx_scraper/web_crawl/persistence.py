@@ -43,6 +43,7 @@ from matrx_scraper.crawler import (
 from matrx_scraper.utils.url import url_hash as url_hash
 from matrx_scraper.audit_metrics import build_stored_audit_metrics
 from matrx_scraper.meta_metrics import build_stored_seo_metrics
+from matrx_scraper.seo_audit import effective_robots_directives
 from matrx_scraper.db.models_web import (
     CrawlEvent as WebCrawlEvent,
     CrawlSession as WebCrawlSession,
@@ -1245,6 +1246,7 @@ class WebCrawlRepository:
                 status = {
                     "completed": "complete",
                     "canceled": "partial",
+                    "stopped": "partial",
                     "failed": "failed",
                 }[event.status]
                 terminal = await WebCrawlSession.update_where(
@@ -1258,6 +1260,7 @@ class WebCrawlRepository:
                         "bytes_downloaded": event.bytes_downloaded,
                         "duration_ms": event.duration_ms,
                         "termination": event.status,
+                        "stop_reason": event.stop_reason,
                         "limit_reached": event.limit_reached,
                         "remaining_queue_depth": event.remaining_queue_depth,
                         "screenshots_expected": state.screenshots_expected,
@@ -1733,6 +1736,145 @@ def _site_folder_label(root_url: str | None, site_id: str) -> str:
             host = ""
     host = host.removeprefix("www.")
     return host or f"Site {site_id}"
+
+
+def snapshot_evidence_columns(
+    summary: Any,
+    *,
+    requested_url: str,
+    final_url: str,
+    extractor_results: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """The evidence columns of ONE ``web.snapshot`` row, from a crawl's ``PageSummary``.
+
+    Pure — no DB, no I/O. ``CanonicalBodyPersister._persist_rows`` writes exactly
+    this dict, and the audit fixture harness
+    (``tests/test_audit_fixture_site.py``) builds its in-memory snapshots from
+    the same function, so what the analysis sweep reads in a test can never
+    drift from what a real crawl stores.
+    """
+
+    # An HTML response served from a machine endpoint (a WordPress REST
+    # error page, a feed rendered as HTML) is still not a page a human
+    # visits — never score it. ONE rule: matrx_utils.web_page_class.
+    audit_eligible = summary.mime_type == HTML_CONTENT_TYPE and not is_machine_resource(
+        requested_url, summary.mime_type
+    )
+    return {
+        "head_tags": {
+            "title": summary.title,
+            "meta_description": summary.meta_description,
+            "meta_robots": summary.meta_robots,
+            "canonical_url": summary.canonical_url,
+            "lang": summary.lang,
+            "hreflang": [item.model_dump(mode="json") for item in summary.hreflang],
+            "og": summary.og_tags,
+            "twitter": summary.twitter_tags,
+            # {"viewport", "refresh"} — absent (None) when the
+            # capture never parsed HTML, which the viewport and
+            # meta-refresh checks read as "not measured".
+            "meta": summary.head_meta,
+        },
+        # Audit metrics describe an HTML PAGE. A machine resource
+        # (JSON/XML endpoint, asset) has no og: tags and no <h1>, so
+        # scoring it manufactures errors on a URL nobody publishes.
+        # ONE rule — matrx_utils.web_page_class.
+        # Deterministic SERP metrics for the OBSERVED metadata —
+        # contract v1 (matrx-frontend migrations/web_seo_metrics.sql).
+        # Same char-width table as the frontend evaluator, so the
+        # stored numbers never depend on who computed them.
+        "seo_metrics": (
+            build_stored_seo_metrics(
+                summary.title or "",
+                summary.meta_description or "",
+                source="scraper",
+            )
+            if audit_eligible
+            else None
+        ),
+        # Deterministic page audit (social card / headings /
+        # indexability) — contract v1 (matrx-frontend
+        # migrations/web_audit_metrics.sql), mirrored by
+        # features/seo/audit/ in the browser.
+        "audit_metrics": (
+            build_stored_audit_metrics(
+                og_tags=summary.og_tags,
+                twitter_tags=summary.twitter_tags,
+                headings=[item.model_dump(mode="json") for item in summary.headings_full],
+                http_status=summary.http_status,
+                # Meta tag AND X-Robots-Tag header — Google honours both.
+                meta_robots=effective_robots_directives(
+                    summary.meta_robots, summary.response_headers
+                ),
+                canonical_url=summary.canonical_url,
+                redirect_chain=summary.redirect_chain,
+                final_url=final_url,
+                url=requested_url,
+                source="scraper",
+            )
+            if audit_eligible
+            else None
+        ),
+        "headings": {
+            "h1": summary.h1,
+            "h2": summary.h2,
+            "h1_count": summary.h1_count,
+            "all": [item.model_dump(mode="json") for item in summary.headings_full],
+        },
+        "links_summary": {
+            "internal": summary.internal_links,
+            "external": summary.external_links,
+            "total": summary.link_count,
+        },
+        "images": {
+            "count": summary.images_count,
+            "missing_alt": summary.images_missing_alt,
+            "items": summary.image_inventory,
+        },
+        "structured_data": summary.structured_data
+        or {
+            "schema_org": summary.schema_org,
+            "schema_types": summary.schema_types,
+        },
+        "perf": {
+            # Two DIFFERENT measurements, never interchangeable:
+            # response_time_ms is the whole fetch (server + body
+            # download); ttfb_ms is the server's own latency, and
+            # is what `ttfb_server_response` grades. A snapshot
+            # written before 2026-08-09 has no ttfb_ms key at all,
+            # which the check reads as "not measured".
+            "response_time_ms": summary.response_time_ms,
+            "ttfb_ms": summary.ttfb_ms,
+            "bytes": summary.bytes,
+        },
+        "extracted": {
+            "sentence_count": summary.sentence_count,
+            # UTF-8 bytes of the same visible text `word_count`
+            # counts — the numerator of the text_html_ratio check
+            # (its denominator is perf.bytes, the raw HTML).
+            "text_bytes": summary.text_bytes,
+            "flesch_reading_ease": summary.flesch_reading_ease,
+            "text_hash": summary.text_hash,
+            # Versioned duplicate-detection fingerprint
+            # (exact_sha256 + simhash64 hex) — computed at capture
+            # time by parser/hashing.compute_text_fingerprint and
+            # read by the frontend content report's duplicate
+            # clustering. None for empty/non-text captures.
+            "fingerprint": summary.content_fingerprint,
+            "mixed_content": summary.mixed_content,
+            # Security headers, allowlisted at the source
+            # (`seo_audit.SECURITY_RESPONSE_HEADERS`). Absent/None
+            # means the fetch recorded none — the security checks
+            # answer `n_a` rather than passing on nothing.
+            "response_headers": summary.response_headers,
+            "redirect_chain": summary.redirect_chain,
+            "pagination": summary.pagination,
+            "content_type": summary.mime_type,
+            "resources": summary.resources,
+            "page_identity": summary.page_identity,
+            "custom": extractor_results,
+        },
+    }
 
 
 class CanonicalBodyPersister:
@@ -2235,12 +2377,6 @@ class CanonicalBodyPersister:
         revived_dismissals = revived_dismissals or []
 
         captured_at = utcnow()
-        # An HTML response served from a machine endpoint (a WordPress REST
-        # error page, a feed rendered as HTML) is still not a page a human
-        # visits — never score it. ONE rule: matrx_utils.web_page_class.
-        audit_eligible = summary.mime_type == HTML_CONTENT_TYPE and not is_machine_resource(
-            identity.requested_url, summary.mime_type
-        )
         discovery = await self.state.discovery_for(request.url)
         async with self.state.page_identity_lock:
             async with transaction(WEB_DB_NAME):
@@ -2308,118 +2444,12 @@ class CanonicalBodyPersister:
                             else {}
                         ),
                     },
-                    head_tags={
-                        "title": summary.title,
-                        "meta_description": summary.meta_description,
-                        "meta_robots": summary.meta_robots,
-                        "canonical_url": summary.canonical_url,
-                        "lang": summary.lang,
-                        "hreflang": [item.model_dump(mode="json") for item in summary.hreflang],
-                        "og": summary.og_tags,
-                        "twitter": summary.twitter_tags,
-                        # {"viewport", "refresh"} — absent (None) when the
-                        # capture never parsed HTML, which the viewport and
-                        # meta-refresh checks read as "not measured".
-                        "meta": summary.head_meta,
-                    },
-                    # Audit metrics describe an HTML PAGE. A machine resource
-                    # (JSON/XML endpoint, asset) has no og: tags and no <h1>, so
-                    # scoring it manufactures errors on a URL nobody publishes.
-                    # ONE rule — matrx_utils.web_page_class.
-                    # Deterministic SERP metrics for the OBSERVED metadata —
-                    # contract v1 (matrx-frontend migrations/web_seo_metrics.sql).
-                    # Same char-width table as the frontend evaluator, so the
-                    # stored numbers never depend on who computed them.
-                    seo_metrics=(
-                        build_stored_seo_metrics(
-                            summary.title or "",
-                            summary.meta_description or "",
-                            source="scraper",
-                        )
-                        if audit_eligible
-                        else None
+                    **snapshot_evidence_columns(
+                        summary,
+                        requested_url=identity.requested_url,
+                        final_url=identity.final_url,
+                        extractor_results=request.extractor_results,
                     ),
-                    # Deterministic page audit (social card / headings /
-                    # indexability) — contract v1 (matrx-frontend
-                    # migrations/web_audit_metrics.sql), mirrored by
-                    # features/seo/audit/ in the browser.
-                    audit_metrics=(
-                        build_stored_audit_metrics(
-                            og_tags=summary.og_tags,
-                            twitter_tags=summary.twitter_tags,
-                            headings=[
-                                item.model_dump(mode="json") for item in summary.headings_full
-                            ],
-                            http_status=summary.http_status,
-                            meta_robots=summary.meta_robots,
-                            canonical_url=summary.canonical_url,
-                            redirect_chain=summary.redirect_chain,
-                            final_url=identity.final_url,
-                            url=identity.requested_url,
-                            source="scraper",
-                        )
-                        if audit_eligible
-                        else None
-                    ),
-                    headings={
-                        "h1": summary.h1,
-                        "h2": summary.h2,
-                        "h1_count": summary.h1_count,
-                        "all": [item.model_dump(mode="json") for item in summary.headings_full],
-                    },
-                    links_summary={
-                        "internal": summary.internal_links,
-                        "external": summary.external_links,
-                        "total": summary.link_count,
-                    },
-                    images={
-                        "count": summary.images_count,
-                        "missing_alt": summary.images_missing_alt,
-                        "items": summary.image_inventory,
-                    },
-                    structured_data=summary.structured_data
-                    or {
-                        "schema_org": summary.schema_org,
-                        "schema_types": summary.schema_types,
-                    },
-                    perf={
-                        # Two DIFFERENT measurements, never interchangeable:
-                        # response_time_ms is the whole fetch (server + body
-                        # download); ttfb_ms is the server's own latency, and
-                        # is what `ttfb_server_response` grades. A snapshot
-                        # written before 2026-08-09 has no ttfb_ms key at all,
-                        # which the check reads as "not measured".
-                        "response_time_ms": summary.response_time_ms,
-                        "ttfb_ms": summary.ttfb_ms,
-                        "bytes": summary.bytes,
-                    },
-                    extracted={
-                        "sentence_count": summary.sentence_count,
-                        # UTF-8 bytes of the same visible text `word_count`
-                        # counts — the numerator of the text_html_ratio check
-                        # (its denominator is perf.bytes, the raw HTML).
-                        "text_bytes": summary.text_bytes,
-                        "flesch_reading_ease": summary.flesch_reading_ease,
-                        "text_hash": summary.text_hash,
-                        # Versioned duplicate-detection fingerprint
-                        # (exact_sha256 + simhash64 hex) — computed at capture
-                        # time by parser/hashing.compute_text_fingerprint and
-                        # read by the frontend content report's duplicate
-                        # clustering. None for empty/non-text captures.
-                        "fingerprint": summary.content_fingerprint,
-                        "mixed_content": summary.mixed_content,
-                        # Security headers, allowlisted at the source
-                        # (`seo_audit.SECURITY_RESPONSE_HEADERS`). Absent/None
-                        # means the fetch recorded none — the security checks
-                        # answer `n_a` rather than passing on nothing.
-                        "response_headers": summary.response_headers,
-                        "redirect_chain": summary.redirect_chain,
-                        "pagination": summary.pagination,
-                        "content_type": summary.mime_type,
-                        "resources": summary.resources,
-                        "page_identity": summary.page_identity,
-                        "custom": request.extractor_results,
-                    },
                 )
 
                 for position, link in enumerate(summary.links):

@@ -1090,9 +1090,15 @@ class UnifiedConfig:
         # Tripwire: a picklist reference envelope must have been resolved to text by
         # resolve_picklist_references() upstream. If one reaches here, a code path skipped
         # resolution — substitute a safe placeholder (never str(dict)) and record the gap.
-        from matrx_ai.config.picklist_runtime import guard_unresolved_refs
+        from matrx_ai.config.picklist_runtime import (
+            guard_unresolved_refs,
+            guard_unresolved_source_sets,
+        )
 
         variables = guard_unresolved_refs(variables)
+        # Same tripwire for a ``sources`` variable whose door skipped the
+        # pre-substitution step: a named notice, never the envelope's JSON.
+        variables = guard_unresolved_source_sets(variables)
         # Values are DATA: only placeholders the author wrote are slots, across
         # every pass (config/template_substitution.py).
         from matrx_ai.config.template_substitution import substitute_authored

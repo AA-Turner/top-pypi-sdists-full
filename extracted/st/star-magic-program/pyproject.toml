@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "star-magic-program"
-version = "0.442.0"
-description = "Star-Magic UQFF calculator v0.442.0: Q-251 PRE-STATED TEST SHIP (PAPER_2283) - two predictions for Lennard-Jones argon committed to the repo before the run (k_c 9.19 or 13.79 nm^-1), measured k_c 7.17 +- 0.05: neither; Q-251 closed negative; the eta(k) cutoff tracks the molecular diameter in both liquids (k_c sigma 2.50 / 2.44), not omega_SCm/c_s - opened as Q-252, Daniel-gated; gate 6,115/0."
+version = "0.444.0"
+description = "Star-Magic UQFF calculator v0.444.0: THE CLIENT-USER BAND (B290) - the downhole gauge program gets its client-facing layer: canonical sample record with quality rules, nine report types in scope-of-work outline (drift, accuracy MAPE/90pct CI, well tests, alarms ISA-18.2, model cards, store-and-forward, monthly SLA, FAT/SAT), drift monitor with re-fit change log, config versioning, SBOM, dashboard; 13 modules, 12 CLI commands, acceptance 163; no dispatch/physics change. Gate 6,115/0; 2,334 keys."
 readme = "README.md"
 authors = [
     { name = "Daniel T. Murphy", email = "daniel.murphy00@enrgyone.com" }
@@ -170,6 +170,19 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     ".github/workflows/ci.yml",
     ".github/workflows/release-to-pypi.yml",
 ]
+"share/star-magic-program/audit" = [
+    "audit/CONSTANT_DRIFT_TABLE.csv",
+    "audit/EXTERNAL_CONTACT_AUDIT.md",
+    "audit/EXTERNAL_CONTACT_AUDIT_ROWS.csv",
+    "audit/INSTRUCTION_FIDELITY_LEDGER.md",
+    "audit/THE_RECORD_WHERE_AI_FAILED.md",
+    "audit/WHITEPAPER_AUDIT.md",
+    "audit/WHITEPAPER_AUDIT_ROWS.csv",
+    "audit/look_elsewhere.py",
+    "audit/rubric.txt",
+    "audit/spotcheck.txt",
+    "audit/template_census.py",
+]
 "share/star-magic-program/commercial" = [
     "commercial/BENCH_READINESS.md",
     "commercial/PILOT_PROPOSAL_SUBSURFACE_SURVEYING.md",
@@ -300,6 +313,9 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "reference/UQFF_VALIDATION_SYNC_AUDIT.pdf",
     "reference/uqff_production_arxiv.pdf",
 ]
+"share/star-magic-program/tender" = [
+    "tender/CDG2752P27_REQUIREMENTS_MATRIX.md",
+]
 "share/star-magic-program/tex" = [
     "tex/PAPER_001_GW170817_UQFF_Damping_Analysis.tex",
     "tex/PAPER_002_GW190425_Mass_Gap_Interpretation.tex",
@@ -428,10 +444,22 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "uqff_downhole_simulator/__init__.py",
     "uqff_downhole_simulator/__main__.py",
     "uqff_downhole_simulator/acceptance_tests.py",
+    "uqff_downhole_simulator/accuracy_statement.py",
+    "uqff_downhole_simulator/alarm_engine.py",
+    "uqff_downhole_simulator/client_reports.py",
+    "uqff_downhole_simulator/config_versioning.py",
+    "uqff_downhole_simulator/dashboard.py",
+    "uqff_downhole_simulator/drift_monitor.py",
     "uqff_downhole_simulator/example_register_map.json",
+    "uqff_downhole_simulator/fat_sat.py",
     "uqff_downhole_simulator/matplotlib_demo.py",
+    "uqff_downhole_simulator/model_card.py",
     "uqff_downhole_simulator/qt6_downhole_app.py",
+    "uqff_downhole_simulator/sample_record.py",
     "uqff_downhole_simulator/sample_well_profile.csv",
+    "uqff_downhole_simulator/sbom.py",
+    "uqff_downhole_simulator/sla_report.py",
+    "uqff_downhole_simulator/store_forward.py",
     "uqff_downhole_simulator/uqff_bench.py",
     "uqff_downhole_simulator/uqff_blind_harness.py",
     "uqff_downhole_simulator/uqff_case_study.py",
@@ -463,6 +491,7 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "uqff_downhole_simulator/uqff_telemetry.py",
     "uqff_downhole_simulator/uqff_tool_library.py",
     "uqff_downhole_simulator/uqff_well_assembler.py",
+    "uqff_downhole_simulator/well_test_validation.py",
 ]
 "share/star-magic-program/uqff_downhole_simulator/catalog" = [
     "uqff_downhole_simulator/catalog/acex_lomonosov_age_depth_model.provenance.json",

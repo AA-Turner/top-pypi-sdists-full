@@ -40,9 +40,14 @@ def reown_to_console_user(path: Path) -> None:
     Link-safe (ENG-3217 / CWE-59,61): the home is a user-controlled directory,
     so a non-admin user could plant a symlink (``~/.claude/settings.json ->
     /etc/passwd``) to redirect a naive ``os.chown`` to an arbitrary file and
-    seize it. We walk the path with ``O_NOFOLLOW`` via ``safe_chown_within_home``
-    and ``fchown`` the resulting fds, so no symlink (final or ancestor) is ever
-    followed; a symlinked component aborts the reown instead.
+    seize it. The path is walked with ``O_NOFOLLOW`` via
+    ``safe_chown_within_home`` and ``fchown``ed through the resulting fds, so
+    no link is ever followed: a link anywhere in the chain aborts. That is
+    enough because a third-party config reached through the user's own
+    in-home link (dotfiles layout) is either rewritten in place, keeping its
+    owner, or created by a write that hands every new component to the home's
+    owner as it goes (``safe_write_bytes(owner=)``) — there is nothing left
+    for this pass to reclaim behind a link.
 
     No-op unless running as root on POSIX with a resolvable console-user home
     that *path* lives under. Windows ACL inheritance covers the SYSTEM case.
@@ -62,8 +67,8 @@ def reown_to_console_user(path: Path) -> None:
     try:
         safe_chown_within_home(home, path, home_stat.st_uid, home_stat.st_gid)
     except (OSError, ValueError):
-        # Best-effort: path not under home, a symlinked component, or a missing
-        # ancestor — leave ownership untouched rather than follow a link.
+        # Best-effort: a link in the chain or a missing ancestor — leave
+        # ownership untouched rather than follow a link.
         return
 
 

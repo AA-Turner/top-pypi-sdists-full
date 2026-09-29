@@ -30,6 +30,14 @@ class TestFiles:
         assert_matches_type(SGPFile, file, path=["response"])
 
     @parametrize
+    def test_method_create_with_all_params(self, client: SGPClient) -> None:
+        file = client.files.create(
+            file=b"Example data",
+            x_project_id="x-project-id",
+        )
+        assert_matches_type(SGPFile, file, path=["response"])
+
+    @parametrize
     def test_raw_response_create(self, client: SGPClient) -> None:
         response = client.files.with_raw_response.create(
             file=b"Example data",
@@ -56,14 +64,22 @@ class TestFiles:
     @parametrize
     def test_method_retrieve(self, client: SGPClient) -> None:
         file = client.files.retrieve(
-            "file_id",
+            file_id="file_id",
+        )
+        assert_matches_type(SGPFile, file, path=["response"])
+
+    @parametrize
+    def test_method_retrieve_with_all_params(self, client: SGPClient) -> None:
+        file = client.files.retrieve(
+            file_id="file_id",
+            x_project_id="x-project-id",
         )
         assert_matches_type(SGPFile, file, path=["response"])
 
     @parametrize
     def test_raw_response_retrieve(self, client: SGPClient) -> None:
         response = client.files.with_raw_response.retrieve(
-            "file_id",
+            file_id="file_id",
         )
 
         assert response.is_closed is True
@@ -74,7 +90,7 @@ class TestFiles:
     @parametrize
     def test_streaming_response_retrieve(self, client: SGPClient) -> None:
         with client.files.with_streaming_response.retrieve(
-            "file_id",
+            file_id="file_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -88,7 +104,7 @@ class TestFiles:
     def test_path_params_retrieve(self, client: SGPClient) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `file_id` but received ''"):
             client.files.with_raw_response.retrieve(
-                "",
+                file_id="",
             )
 
     @parametrize
@@ -103,6 +119,7 @@ class TestFiles:
         file = client.files.update(
             file_id="file_id",
             tags={"foo": "bar"},
+            x_project_id="x-project-id",
         )
         assert_matches_type(SGPFile, file, path=["response"])
 
@@ -151,6 +168,7 @@ class TestFiles:
             sort_by="sort_by",
             sort_order="asc",
             starting_after="starting_after",
+            x_project_id="x-project-id",
         )
         assert_matches_type(SyncCursorPage[SGPFile], file, path=["response"])
 
@@ -177,14 +195,22 @@ class TestFiles:
     @parametrize
     def test_method_delete(self, client: SGPClient) -> None:
         file = client.files.delete(
-            "file_id",
+            file_id="file_id",
+        )
+        assert_matches_type(FileDeleteResponse, file, path=["response"])
+
+    @parametrize
+    def test_method_delete_with_all_params(self, client: SGPClient) -> None:
+        file = client.files.delete(
+            file_id="file_id",
+            x_project_id="x-project-id",
         )
         assert_matches_type(FileDeleteResponse, file, path=["response"])
 
     @parametrize
     def test_raw_response_delete(self, client: SGPClient) -> None:
         response = client.files.with_raw_response.delete(
-            "file_id",
+            file_id="file_id",
         )
 
         assert response.is_closed is True
@@ -195,7 +221,7 @@ class TestFiles:
     @parametrize
     def test_streaming_response_delete(self, client: SGPClient) -> None:
         with client.files.with_streaming_response.delete(
-            "file_id",
+            file_id="file_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -209,7 +235,7 @@ class TestFiles:
     def test_path_params_delete(self, client: SGPClient) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `file_id` but received ''"):
             client.files.with_raw_response.delete(
-                "",
+                file_id="",
             )
 
     @parametrize
@@ -223,6 +249,21 @@ class TestFiles:
                     "filepath": "filepath",
                 }
             ],
+        )
+        assert_matches_type(FileImportFromCloudResponse, file, path=["response"])
+
+    @parametrize
+    def test_method_import_from_cloud_with_all_params(self, client: SGPClient) -> None:
+        file = client.files.import_from_cloud(
+            files=[
+                {
+                    "container": "container",
+                    "file_type": "file_type",
+                    "filename": "filename",
+                    "filepath": "filepath",
+                }
+            ],
+            x_project_id="x-project-id",
         )
         assert_matches_type(FileImportFromCloudResponse, file, path=["response"])
 
@@ -278,6 +319,14 @@ class TestAsyncFiles:
         assert_matches_type(SGPFile, file, path=["response"])
 
     @parametrize
+    async def test_method_create_with_all_params(self, async_client: AsyncSGPClient) -> None:
+        file = await async_client.files.create(
+            file=b"Example data",
+            x_project_id="x-project-id",
+        )
+        assert_matches_type(SGPFile, file, path=["response"])
+
+    @parametrize
     async def test_raw_response_create(self, async_client: AsyncSGPClient) -> None:
         response = await async_client.files.with_raw_response.create(
             file=b"Example data",
@@ -304,14 +353,22 @@ class TestAsyncFiles:
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncSGPClient) -> None:
         file = await async_client.files.retrieve(
-            "file_id",
+            file_id="file_id",
+        )
+        assert_matches_type(SGPFile, file, path=["response"])
+
+    @parametrize
+    async def test_method_retrieve_with_all_params(self, async_client: AsyncSGPClient) -> None:
+        file = await async_client.files.retrieve(
+            file_id="file_id",
+            x_project_id="x-project-id",
         )
         assert_matches_type(SGPFile, file, path=["response"])
 
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncSGPClient) -> None:
         response = await async_client.files.with_raw_response.retrieve(
-            "file_id",
+            file_id="file_id",
         )
 
         assert response.is_closed is True
@@ -322,7 +379,7 @@ class TestAsyncFiles:
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncSGPClient) -> None:
         async with async_client.files.with_streaming_response.retrieve(
-            "file_id",
+            file_id="file_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -336,7 +393,7 @@ class TestAsyncFiles:
     async def test_path_params_retrieve(self, async_client: AsyncSGPClient) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `file_id` but received ''"):
             await async_client.files.with_raw_response.retrieve(
-                "",
+                file_id="",
             )
 
     @parametrize
@@ -351,6 +408,7 @@ class TestAsyncFiles:
         file = await async_client.files.update(
             file_id="file_id",
             tags={"foo": "bar"},
+            x_project_id="x-project-id",
         )
         assert_matches_type(SGPFile, file, path=["response"])
 
@@ -399,6 +457,7 @@ class TestAsyncFiles:
             sort_by="sort_by",
             sort_order="asc",
             starting_after="starting_after",
+            x_project_id="x-project-id",
         )
         assert_matches_type(AsyncCursorPage[SGPFile], file, path=["response"])
 
@@ -425,14 +484,22 @@ class TestAsyncFiles:
     @parametrize
     async def test_method_delete(self, async_client: AsyncSGPClient) -> None:
         file = await async_client.files.delete(
-            "file_id",
+            file_id="file_id",
+        )
+        assert_matches_type(FileDeleteResponse, file, path=["response"])
+
+    @parametrize
+    async def test_method_delete_with_all_params(self, async_client: AsyncSGPClient) -> None:
+        file = await async_client.files.delete(
+            file_id="file_id",
+            x_project_id="x-project-id",
         )
         assert_matches_type(FileDeleteResponse, file, path=["response"])
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncSGPClient) -> None:
         response = await async_client.files.with_raw_response.delete(
-            "file_id",
+            file_id="file_id",
         )
 
         assert response.is_closed is True
@@ -443,7 +510,7 @@ class TestAsyncFiles:
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncSGPClient) -> None:
         async with async_client.files.with_streaming_response.delete(
-            "file_id",
+            file_id="file_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -457,7 +524,7 @@ class TestAsyncFiles:
     async def test_path_params_delete(self, async_client: AsyncSGPClient) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `file_id` but received ''"):
             await async_client.files.with_raw_response.delete(
-                "",
+                file_id="",
             )
 
     @parametrize
@@ -471,6 +538,21 @@ class TestAsyncFiles:
                     "filepath": "filepath",
                 }
             ],
+        )
+        assert_matches_type(FileImportFromCloudResponse, file, path=["response"])
+
+    @parametrize
+    async def test_method_import_from_cloud_with_all_params(self, async_client: AsyncSGPClient) -> None:
+        file = await async_client.files.import_from_cloud(
+            files=[
+                {
+                    "container": "container",
+                    "file_type": "file_type",
+                    "filename": "filename",
+                    "filepath": "filepath",
+                }
+            ],
+            x_project_id="x-project-id",
         )
         assert_matches_type(FileImportFromCloudResponse, file, path=["response"])
 

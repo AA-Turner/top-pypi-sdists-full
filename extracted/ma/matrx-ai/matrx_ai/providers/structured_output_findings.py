@@ -68,8 +68,37 @@ def schema_fingerprint(schema: Any) -> str | None:
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
+def schema_name_from_schema(schema: Any) -> str | None:
+    """A name for a schema that arrived without one.
+
+    Every Google finding landed with ``schema_name`` null because the hydrated
+    Gemini envelope carries no ``name`` and this function read nothing else — so
+    the reader was told which agent and not which shape. A registered kind states
+    its identity INSIDE the schema, as the ``__kind`` const, which is the most
+    precise name available; ``title`` is the next best.
+    """
+    if not isinstance(schema, dict):
+        return None
+    kind = (schema.get("properties") or {}).get("__kind")
+    if isinstance(kind, dict):
+        const = kind.get("const")
+        if isinstance(const, str) and const:
+            return const
+        enum = kind.get("enum")
+        if isinstance(enum, list) and len(enum) == 1 and isinstance(enum[0], str):
+            return enum[0]
+    title = schema.get("title")
+    return title if isinstance(title, str) and title else None
+
+
 def response_format_identity(response_format: Any) -> dict[str, Any]:
-    """Name + fingerprint of the declared schema inside a unified response_format."""
+    """Name + fingerprint of the declared schema inside a unified response_format.
+
+    A finding has to name BOTH the agent and the shape or nobody can act on it.
+    Measured over all 89 live rows on 2026-09-27: **not one** named both — the
+    Anthropic rows carried the shape and no agent, the Google rows the agent and
+    no shape. This is the shape half; :func:`_agent_identity` is the other.
+    """
     if not isinstance(response_format, dict):
         return {}
     inner = response_format.get("json_schema")
@@ -82,7 +111,41 @@ def response_format_identity(response_format: Any) -> dict[str, Any]:
             if isinstance(inner.get("schema"), dict)
             else (inner if {"type", "properties"} & inner.keys() else schema)
         )
-    return {"schema_name": name, "schema_fingerprint": schema_fingerprint(schema)}
+    return {
+        "schema_name": name or schema_name_from_schema(schema),
+        "schema_fingerprint": schema_fingerprint(schema),
+    }
+
+
+#: Findings from the capability GATES, which run before the call — so whether the
+#: request was really recovered is not known when they fire. Until 2026-09-28 the
+#: gates wrote ``was_recovered=True`` synchronously, before the provider was even
+#: called, and a call that then failed still read "recovered"
+#: (SCHEMA-TRANSLATION-VERIFY.md, R11). A finding recorded with
+#: ``was_recovered=None`` waits here and is written by the dispatch seam's flush,
+#: with the outcome the call actually had.
+_GATE_PENDING: ContextVar[list[dict[str, Any]] | None] = ContextVar(
+    "structured_output_gate_findings", default=None
+)
+
+
+def open_gate_findings() -> None:
+    """Start a fresh gate buffer for the call about to be gated. Anything left
+    from a call that never reached the provider is written now, as NOT
+    recovered, rather than dropped or blamed on the next call."""
+    stale = _GATE_PENDING.get()
+    _GATE_PENDING.set([])
+    for item in stale or ():
+        record_structured_output_finding_sync(
+            item["key"],
+            provider=item["provider"],
+            model=item["model"],
+            detail={
+                **item["detail"],
+                "outcome": "the call never reached the provider after this adjustment",
+            },
+            was_recovered=False,
+        )
 
 
 def begin_translation_findings() -> Token:
@@ -128,7 +191,46 @@ def note_translation(
     )
 
 
+#: Metadata keys that an ``AppContext`` ACTUALLY carries, verified by finding
+#: their writers (2026-09-27). The fallback added on 2026-09-27 read
+#: ``agent_run_label`` and ``surface_name``; **neither is ever written to
+#: ``AppContext.metadata`` anywhere in either repository** — ``agent_run_label``
+#: lives in the ``context`` JSONB of a ``runtime.global_execution`` row
+#: (``services/runtime/internal_agent_runs.py``), not on the context — so the
+#: fallback could not fire, and 65 of 68 live findings arrived with no agent
+#: named. A fallback that cannot fire is the same defect as no fallback, wearing
+#: a comment that says otherwise.
+#:
+#: ``conversation_step_label`` is where an internal run's label really lands
+#: (``agents/executor.py`` → ``resolve_step_label_for_title(label, agent.name)``,
+#: so ``agent_factory:<name>`` reaches it), and ``runtime_execution_id`` is the
+#: `runtime.global_execution` row whose ``context.agent_run_label`` IS that label
+#: — which is how a reader gets from a finding to the run.
+_IDENTITY_METADATA_KEYS: tuple[str, ...] = (
+    "mandate_key",
+    "agent_name",
+    "conversation_step_label",
+    "runtime_execution_id",
+)
+
+#: What makes a finding attributable: at least one of these must be present, or
+#: nobody can act on it.
+_ACTIONABLE_IDENTITY_KEYS: frozenset[str] = frozenset(
+    {
+        "agent_id",
+        "agent_version_id",
+        "mandate_key",
+        "agent_name",
+        "conversation_step_label",
+        "runtime_execution_id",
+    }
+)
+
+
 def _agent_identity() -> dict[str, Any]:
+    """WHO this finding belongs to. Never returns an un-actionable dict silently:
+    when nothing identifies the run, it says so with ``agent_attribution`` so the
+    gap is visible on the issue surface instead of looking like an empty column."""
     try:
         from matrx_connect import try_get_app_context
 
@@ -136,21 +238,34 @@ def _agent_identity() -> dict[str, Any]:
     except Exception:  # noqa: BLE001 — identity is best-effort, never fatal
         ctx = None
     if ctx is None:
-        return {}
+        return {"agent_attribution": "no app context on this call"}
     metadata = getattr(ctx, "metadata", None) or {}
-    identity = {
+    identity: dict[str, Any] = {
         "agent_id": getattr(ctx, "agent_id", None),
         "agent_version_id": getattr(ctx, "agent_version_id", None),
         "source_feature": getattr(ctx, "source_feature", None) or None,
+        # Where the run came from, so a finding with no agent at all is still a
+        # place someone can start.
+        "route": getattr(ctx, "route", None) or None,
+        "source_app": getattr(ctx, "source_app", None) or None,
+        "request_id": getattr(ctx, "request_id", None) or None,
+        "conversation_id": getattr(ctx, "conversation_id", None) or None,
+        "organization_id": getattr(ctx, "organization_id", None) or None,
     }
     if isinstance(metadata, dict):
-        # System and internal runs carry no agent_id on the context; the run's
-        # own label (``agent_factory:<name>``, ``mandate:<key>``) is then the
-        # name a person can act on.
-        for key in ("mandate_key", "agent_run_label", "agent_name", "surface_name"):
+        # A system or internal run carries no agent_id on the context; the run's
+        # own label is then the name a person can act on.
+        for key in _IDENTITY_METADATA_KEYS:
             if metadata.get(key):
                 identity[key] = str(metadata[key])[:200]
-    return {k: v for k, v in identity.items() if v}
+    identity = {k: v for k, v in identity.items() if v}
+    if not (_ACTIONABLE_IDENTITY_KEYS & identity.keys()):
+        identity["agent_attribution"] = (
+            "UNATTRIBUTED: this call carried no agent id, mandate key, agent name or "
+            "run label on its app context — fix the caller's attribution "
+            "(matrx_ai.agents.source_tracking) so the next one names a run"
+        )
+    return identity
 
 
 async def record_structured_output_finding(
@@ -186,9 +301,12 @@ def record_structured_output_finding_sync(
     provider: str,
     model: str | None,
     detail: dict[str, Any],
-    was_recovered: bool = True,
+    was_recovered: bool | None = True,
 ) -> bool:
     """Record a finding from SYNCHRONOUS code. Returns whether it was handed off.
+
+    ``was_recovered=None`` means "not known yet": the finding is held for the
+    dispatch seam's flush, which writes it with the call's real outcome.
 
     For the capability gates in ``UnifiedAIClient`` — the two places the schema or
     the tool surface is genuinely thrown away, ABOVE every translator, where
@@ -203,6 +321,13 @@ def record_structured_output_finding_sync(
     that left 65 of 68 rows unattributable.
     """
     detail = {**_agent_identity(), **detail}
+    if was_recovered is None:
+        pending = _GATE_PENDING.get()
+        if pending is None:
+            pending = []
+            _GATE_PENDING.set(pending)
+        pending.append({"key": key, "provider": provider, "model": model, "detail": detail})
+        return True
     try:
         import asyncio
 
@@ -230,9 +355,80 @@ def record_structured_output_finding_sync(
         return False
 
 
-async def flush_translation_findings(*, model: str | None) -> None:
+def translation_outcome(
+    succeeded: bool | None, answer_off_contract: bool | None
+) -> tuple[bool, str]:
+    """THE ONE PLACE ``was_recovered`` is decided for a structured-output finding,
+    and it is decided only from facts that have already happened.
+
+    A compromise is RECOVERED when the call it was made for came back AND the
+    answer that came back met the declared contract. Anything else is not
+    recovered, and the sentence says which of the four it was so a reader never
+    has to infer it:
+
+    * ``succeeded is None`` — build-only translate (the batch lane): the outcome
+      arrives hours later, so nothing is asserted;
+    * ``succeeded is False`` — the call failed, so the compromise bought nothing;
+    * ``answer_off_contract is True`` — the call returned and the answer MISSED
+      the contract, which is the opposite of recovered;
+    * ``answer_off_contract is None`` — no contract was bound on this call, so
+      there was no answer to judge; the request being served is all "recovered"
+      can mean here and the sentence says exactly that.
+
+    Until 2026-09-28 the three translation writes below passed no
+    ``was_recovered`` at all and took :func:`record_structured_output_finding`'s
+    default ``True``, so every one of the 279 live translation findings claimed a
+    recovery nothing had measured (SCHEMA-TRANSLATION-VERIFY.md, F2). The gate
+    half read only ``succeeded``, so a served call whose answer then missed the
+    contract still read "recovered".
+    """
+    if succeeded is None:
+        return False, (
+            "outcome not known when the request was built (build-only translate) — "
+            "nothing is asserted about recovery"
+        )
+    if not succeeded:
+        return False, "the call then FAILED — the compromise did not recover it"
+    if answer_off_contract:
+        return False, (
+            "the call returned and the answer was then judged OFF CONTRACT — "
+            "the compromise did not deliver the declared shape"
+        )
+    if answer_off_contract is None:
+        return True, (
+            "the call then succeeded; no output contract was bound on it, so there was "
+            "no answer to judge against one"
+        )
+    return True, "the call then succeeded and its answer was judged ON CONTRACT"
+
+
+async def flush_translation_findings(
+    *,
+    model: str | None,
+    succeeded: bool | None = None,
+    answer_off_contract: bool | None = None,
+) -> None:
     """Record everything buffered for the current call (called once, by the
-    dispatch seam, when the provider call ends — success or failure)."""
+    dispatch seam, when the provider call ends — success or failure).
+
+    ``succeeded`` is the call's real outcome: ``True``/``False`` on a live call,
+    ``None`` on a build-only translate (the batch lane), whose outcome arrives
+    long after this. ``answer_off_contract`` is what the seam's own answer check
+    found (``None`` when no contract was bound, so nothing was judged). Both are
+    read ONLY through :func:`translation_outcome`, the single decision point for
+    every finding written here — gate half and translation half alike."""
+    recovered, outcome = translation_outcome(succeeded, answer_off_contract)
+    gate = _GATE_PENDING.get()
+    if gate:
+        _GATE_PENDING.set([])
+        for item in gate:
+            await record_structured_output_finding(
+                item["key"],
+                provider=item["provider"],
+                model=item["model"] or model,
+                detail={**item["detail"], "outcome": outcome},
+                was_recovered=recovered,
+            )
     pending = _PENDING.get()
     if not pending:
         return
@@ -241,6 +437,7 @@ async def flush_translation_findings(*, model: str | None) -> None:
         base = {
             "schema_name": item.get("schema_name"),
             "schema_fingerprint": item.get("schema_fingerprint"),
+            "outcome": outcome,
         }
         if item.get("dropped"):
             await record_structured_output_finding(
@@ -253,6 +450,7 @@ async def flush_translation_findings(*, model: str | None) -> None:
                     "narrowed": item["narrowed"],
                     "relaxed": item["relaxed"],
                 },
+                was_recovered=recovered,
             )
         elif item["relaxed"]:
             await record_structured_output_finding(
@@ -260,6 +458,7 @@ async def flush_translation_findings(*, model: str | None) -> None:
                 provider=item["provider"],
                 model=model,
                 detail={**base, "relaxed": item["relaxed"], "narrowed": item["narrowed"]},
+                was_recovered=recovered,
             )
         elif item["narrowed"]:
             await record_structured_output_finding(
@@ -267,6 +466,7 @@ async def flush_translation_findings(*, model: str | None) -> None:
                 provider=item["provider"],
                 model=model,
                 detail={**base, "narrowed": item["narrowed"]},
+                was_recovered=recovered,
             )
 
 
@@ -280,8 +480,11 @@ __all__ = [
     "end_translation_findings",
     "flush_translation_findings",
     "note_translation",
+    "open_gate_findings",
     "record_structured_output_finding",
     "record_structured_output_finding_sync",
     "response_format_identity",
+    "schema_name_from_schema",
     "schema_fingerprint",
+    "translation_outcome",
 ]

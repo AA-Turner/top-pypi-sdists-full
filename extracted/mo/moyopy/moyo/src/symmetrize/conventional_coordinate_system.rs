@@ -63,7 +63,7 @@ impl ConventionalCoordinateSystem {
         // standardized cell is always related to the conventional one by the fixed
         // centering matrix `entry.centering.linear()`.
         let conv_lattice_tmp = Transformation::from_linear(
-            space_group.transformation.linear * entry.centering.linear(),
+            space_group.transformation.linear() * entry.centering.linear(),
         )
         .transform_lattice(prim_lattice);
         let (prim_transformation, conv_trans_linear) = match lattice_system {
@@ -106,8 +106,8 @@ impl ConventionalCoordinateSystem {
 
         // prim_transformation * (conv_trans_linear, 0)
         let transformation = Transformation::new(
-            prim_transformation.linear * conv_trans_linear,
-            prim_transformation.origin_shift,
+            prim_transformation.linear() * conv_trans_linear,
+            *prim_transformation.origin_shift(),
         );
 
         Ok(Self {
@@ -128,10 +128,7 @@ fn standardize_triclinic_cell(
 ) -> UnimodularTransformation {
     let lattice_prim_std_tmp = transformation_to_prim_std.transform_lattice(lattice);
     let (_, niggli_linear) = lattice_prim_std_tmp.unchecked_niggli_reduce();
-    UnimodularTransformation::new(
-        niggli_linear * transformation_to_prim_std.linear,
-        transformation_to_prim_std.origin_shift,
-    )
+    transformation_to_prim_std.clone() * UnimodularTransformation::from_linear(niggli_linear)
 }
 
 #[cfg(test)]
@@ -142,6 +139,54 @@ mod tests {
     use crate::base::{Lattice, UnimodularTransformation};
     use crate::data::{Centering, HallSymbol};
     use crate::identify::SpaceGroup;
+
+    #[rstest::rstest]
+    fn test_triclinic_reduction_after_identification(#[values(1, -1)] handedness: i32) {
+        // The identified P-1 basis still needs a reduction that does not commute
+        // with the input-to-identified shear.
+        let identified_lattice = Lattice::new(matrix![
+            4.0, 0.0, 0.0;
+            3.0, 2.0, 0.0;
+            0.2, 0.1, 5.0;
+        ]);
+        let to_identified = UnimodularTransformation::new(
+            matrix![handedness, 1, 0; 0, 1, 1; 0, 0, 1],
+            vector![0.17, 0.23, 0.31],
+        );
+        let lattice = to_identified
+            .inverse()
+            .transform_lattice(&identified_lattice);
+        let space_group =
+            SpaceGroup::from_hall_number_and_transformation(2, to_identified.clone()).unwrap();
+        let operations = to_identified.inverse().transform_operations(
+            &HallSymbol::from_hall_number(2)
+                .unwrap()
+                .primitive_traverse(),
+        );
+
+        let selected = ConventionalCoordinateSystem::new(&lattice, &space_group, 1e-8).unwrap();
+        let reduced = selected.prim_transformation.transform_lattice(&lattice);
+        assert!(reduced.is_niggli_reduced());
+        assert!(reduced.basis.determinant() > 0.0);
+        assert_relative_eq!(reduced.volume(), lattice.volume(), epsilon = 1e-10);
+        assert_relative_eq!(
+            selected.prim_transformation.origin_shift(),
+            to_identified.origin_shift(),
+            epsilon = 1e-12
+        );
+        for operation in selected
+            .prim_transformation
+            .transform_operations(&operations)
+        {
+            let target = selected
+                .prim_std_operations
+                .iter()
+                .find(|target| target.rotation == operation.rotation)
+                .unwrap();
+            let delta = operation.translation - target.translation;
+            assert!((delta - delta.map(f64::round)).norm() < 1e-12);
+        }
+    }
 
     #[test]
     fn test_imma_basis_and_origin_selection() {
@@ -180,15 +225,15 @@ mod tests {
         assert_relative_eq!(conv_basis.column(2).norm(), 5.0, epsilon = 1e-8);
 
         let correction = to_input * selected.prim_transformation.clone();
-        assert!(correction.origin_shift.norm() > 1e-3);
+        assert!(correction.origin_shift().norm() > 1e-3);
         assert_eq!(selected.conv_trans_linear, Centering::I.linear());
         assert_eq!(
             selected.transformation.linear,
-            selected.prim_transformation.linear * selected.conv_trans_linear
+            selected.prim_transformation.linear() * selected.conv_trans_linear
         );
         assert_relative_eq!(
             selected.transformation.origin_shift,
-            selected.prim_transformation.origin_shift
+            *selected.prim_transformation.origin_shift()
         );
 
         let transformed = selected

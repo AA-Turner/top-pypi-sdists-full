@@ -323,15 +323,21 @@ def _backup_file(file_path: Path, *, home: Path | None = None) -> Path | None:
     With *home* set the read/write are link-safe (root MDM writes into the
     user-controlled home can't be redirected by a planted symlink, nor leak a
     root-only file into a user-readable backup — ENG-3217); otherwise plain path
-    ops are used. Older backups beyond the retention cap are pruned so repeated
-    installs never pile up. Returns the backup path, or ``None`` when there is
-    no real file to back up.
+    ops are used. The copy sits beside the file, or under
+    ``~/.runlayer/config-backups`` when the file's directory is reached through
+    a link (``backup_dir_for``); in MDM scope it and any directory root had to
+    create for it are handed back to the console user, so a root-owned
+    ``~/.runlayer`` never blocks the user's own CLI. Older backups beyond the
+    retention cap are pruned so repeated installs never pile up. Returns the
+    backup path, or ``None`` when there is no real file to back up.
     """
     data = maybe_safe_read_bytes(file_path, home=home)
     if data is None:
         return None
-    backup_path = backup_path_for(file_path)
+    backup_path = backup_path_for(file_path, home=home)
     maybe_safe_write_bytes(backup_path, data, home=home)
+    if home is not None:
+        reown_to_console_user(backup_path)
     prune_backups(file_path, home=home)
     return backup_path
 

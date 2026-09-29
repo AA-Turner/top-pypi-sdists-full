@@ -49,6 +49,7 @@ from typing import Any
 
 from matrx_ai.db._registry import get_model as get_db_model
 from matrx_ai.tools.implementations.kind_shared import (
+    WriteRefused,
     ctx_org_id,
     ctx_user_id,
     ensure_can_view_kind,
@@ -56,8 +57,11 @@ from matrx_ai.tools.implementations.kind_shared import (
     err,
     is_uuid,
     kind_title_key,
+    refused,
     resolve_kind,
+    update_as_the_person,
     validate_against_schema,
+    writing_as_the_person,
 )
 from matrx_ai.tools.kinds.kind_instances import (
     KindInstanceDetail,
@@ -377,8 +381,12 @@ async def instance_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # row is correctly born unconfirmed, but the door is defective.
         from matrx_orm import declared_actor
 
-        async with declared_actor("ai", "tool:instance_create"):
-            created = await KindInstance.create_item(**payload)
+        # content_ir.kind_instance is certified: written AS THE PERSON (RLS decides).
+        try:
+            async with writing_as_the_person(ctx), declared_actor("ai", "tool:instance_create"):
+                created = await KindInstance.create_item(**payload)
+        except WriteRefused as exc:
+            return refused("a new instance of kind", str(kd.id), exc)
 
         fresh = await KindInstance.get_or_none(use_cache=False, id=str(created.id))
         verdict = fresh.validation_status if fresh else "unknown"
@@ -661,7 +669,10 @@ async def instance_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             fresh = _store_row(found, arm) if found is not None else None
         else:
             KindInstance = get_db_model("KindInstance")
-            await KindInstance.update_where({"id": str(row.id)}, **updates)
+            try:
+                await update_as_the_person(KindInstance, str(row.id), ctx, **updates)
+            except WriteRefused as exc:
+                return refused("instance", str(row.id), exc)
             fresh = await KindInstance.get_or_none(use_cache=False, id=str(row.id))
         verdict = fresh.validation_status if fresh else "unknown"
         return _instance_surface_write(row, fresh, kd.kind, ToolResult(
@@ -732,11 +743,15 @@ async def instance_delete(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 ),
             )
         KindInstance = get_db_model("KindInstance")
-        await KindInstance.update_where(
-            {"id": str(row.id)},
-            deleted_at=datetime.now(UTC),
-            updated_by=ctx_user_id(ctx),
-        )
+        try:
+            # Trashing is admin-level; the governance trigger decides in the person's session.
+            await update_as_the_person(
+                KindInstance, str(row.id), ctx,
+                deleted_at=datetime.now(UTC),
+                updated_by=ctx_user_id(ctx),
+            )
+        except WriteRefused as exc:
+            return refused("instance", str(row.id), exc)
         return ToolResult(
             success=True,
             output=KindInstanceWriteResult(

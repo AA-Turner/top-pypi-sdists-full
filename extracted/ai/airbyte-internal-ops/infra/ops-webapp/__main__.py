@@ -253,6 +253,7 @@ def define_cloud_run_service(
                         _env("AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_ID", OAUTH_CLIENT_ID),
                         _env("AIRBYTE_CLOUD_CONFIG_API_URL", AIRBYTE_CONFIG_API_URL),
                         _env("AIRBYTE_INTERNAL_ADMIN_FLAG", AIRBYTE_DOMAIN),
+                        _env("SENTRY_ENVIRONMENT", "production"),
                         _secret_env(
                             "AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_SECRET",
                             OAUTH_CLIENT_SECRET_ID,
@@ -350,6 +351,7 @@ def define_preview_cloud_run_service(
                         _env("AIRBYTE_CLOUD_CONFIG_API_URL", AIRBYTE_CONFIG_API_URL),
                         _env("AIRBYTE_INTERNAL_ADMIN_FLAG", AIRBYTE_DOMAIN),
                         _env("AIRBYTE_OPS_WEBAPP_PREVIEW", "1"),
+                        _env("SENTRY_ENVIRONMENT", "preview"),
                         _secret_env(
                             "AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_SECRET",
                             OAUTH_CLIENT_SECRET_ID,

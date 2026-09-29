@@ -45,7 +45,10 @@ class Brand(MatrxEntity):
     integrations = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
     shown_to = EnumField(enum_class=ShownTo, )
-    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'brand_asset': {'from_model': 'BrandAsset', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_asset', 'from_schema': 'web'}, 'brand_offering': {'from_model': 'BrandOffering', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_offering', 'from_schema': 'web'}, 'business_fact': {'from_model': 'BusinessFact', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_fact', 'from_schema': 'web'}, 'business_location': {'from_model': 'BusinessLocation', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_location', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'site': {'from_model': 'Site', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'site', 'from_schema': 'web'}}
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'brand_asset': {'from_model': 'BrandAsset', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_asset', 'from_schema': 'web'}, 'brand_offering': {'from_model': 'BrandOffering', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_offering', 'from_schema': 'web'}, 'business_fact': {'from_model': 'BusinessFact', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_fact', 'from_schema': 'web'}, 'business_location': {'from_model': 'BusinessLocation', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_location', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'site': {'from_model': 'Site', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'site', 'from_schema': 'web'}, 'voice_fingerprint': {'from_model': 'VoiceFingerprint', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'voice_fingerprint', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "brand"
     _db_schema = "web"
@@ -65,8 +68,8 @@ class ChannelAnalyticsDaily(MatrxEntity):
     subscribers_gained = IntegerField(null=False, default=0)
     video_external_id = TextField()
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     version = IntegerField(null=False, default=1)
@@ -109,15 +112,18 @@ class ListingPublisher(MatrxEntity):
     citation_weight = SmallIntegerField(null=False, default=50)
     sort_rank = IntegerField(null=False, default=1000)
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
-    visibility = EnumField(enum_class=Visibility, null=False, default='public')
+    visibility = EnumField(enum_class=Visibility, null=False)
     shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'location_listing': {'from_model': 'LocationListing', 'from_field': 'publisher_id', 'referenced_field': 'id', 'related_name': 'location_listing', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "listing_publisher"
@@ -169,8 +175,11 @@ class NewsItem(MatrxEntity):
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
-    visibility = EnumField(enum_class=Visibility, null=False, default='internal')
+    visibility = EnumField(enum_class=Visibility, null=False)
     shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "news_item"
@@ -206,16 +215,19 @@ class OfferingTemplate(MatrxEntity):
     status = TextField(null=False, default='active')
     sort = IntegerField(null=False, default=0)
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
-    visibility = EnumField(enum_class=Visibility, null=False, default='public')
+    visibility = EnumField(enum_class=Visibility, null=False)
     parent_id = ForeignKey(to_model='OfferingTemplate', to_column='id', to_schema='web', )
     shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'brand_offering': {'from_model': 'BrandOffering', 'from_field': 'template_id', 'referenced_field': 'id', 'related_name': 'brand_offering', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "offering_template"
@@ -245,18 +257,21 @@ class Provider(MatrxEntity):
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
-    visibility = EnumField(enum_class=Visibility, null=False, default='public')
+    visibility = EnumField(enum_class=Visibility, null=False)
     key = TextField(null=False)
     label = TextField(null=False)
     kind = TextField(null=False)
     config = JSONBField(null=False, default={})
     is_builtin = BooleanField(null=False, default=False)
     shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_item': {'from_model': 'AnalysisItem', 'from_field': 'default_provider_id', 'referenced_field': 'id', 'related_name': 'analysis_item', 'from_schema': 'web'}, 'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'provider_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'site_item_config': {'from_model': 'SiteItemConfig', 'from_field': 'provider_id', 'referenced_field': 'id', 'related_name': 'site_item_config', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "provider"
@@ -296,16 +311,19 @@ class YoutubeVideo(MatrxEntity):
     sync_status = TextField(null=False, default='available')
     sync_status_reason = TextField()
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
-    visibility = EnumField(enum_class=Visibility, null=False, default='personal')
+    visibility = EnumField(enum_class=Visibility, null=False)
     custom_fields = JSONBField(null=False, default={})
     shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "youtube_video"
@@ -340,7 +358,7 @@ class AnalysisItem(MatrxEntity):
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
-    visibility = EnumField(enum_class=Visibility, null=False, default='public')
+    visibility = EnumField(enum_class=Visibility, null=False)
     key = TextField(null=False)
     label = TextField(null=False)
     description = TextField()
@@ -353,6 +371,10 @@ class AnalysisItem(MatrxEntity):
     is_builtin = BooleanField(null=False, default=False)
     default_provider_id = ForeignKey(to_model=Provider, to_column='id', to_schema='web', )
     shown_to = EnumField(enum_class=ShownTo, )
+    remedy = JSONBField()
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'item_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'finding': {'from_model': 'Finding', 'from_field': 'item_id', 'referenced_field': 'id', 'related_name': 'finding', 'from_schema': 'web'}, 'site_item_config': {'from_model': 'SiteItemConfig', 'from_field': 'item_id', 'referenced_field': 'id', 'related_name': 'site_item_config', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "analysis_item"
@@ -480,8 +502,8 @@ class BusinessLocation(MatrxEntity):
     identifiers = JSONBField(null=False, default={})
     description = TextField()
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     deleted_at = DateTimeField()
@@ -498,6 +520,52 @@ class BusinessLocation(MatrxEntity):
     _is_org_scoped = True
     _rls_variant = "component"
 
+
+
+class Visibility(str, Enum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class VoiceFingerprint(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    label = TextField(null=False)
+    profile_scope = TextField(null=False)
+    person_user_id = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    brand_id = ForeignKey(to_model=Brand, to_column='id', to_schema='web', )
+    status = TextField(null=False, default='draft')
+    confidence = TextField(null=False)
+    register_label = TextField()
+    sample_count = IntegerField(null=False)
+    sample_word_count = IntegerField(null=False)
+    last_extracted_at = DateTimeField(null=False)
+    refresh_due_at = DateTimeField(null=False)
+    fingerprint = JSONBField(null=False)
+    confirmed_at = DateTimeField()
+    confirmed_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "voice_fingerprint"
+    _db_schema = "web"
+    _entity_token = "web_voice_fingerprint"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "entity"
+
 class LocationListing(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     location_id = ForeignKey(to_model=BusinessLocation, to_column='id', to_schema='web', null=False)
@@ -511,8 +579,8 @@ class LocationListing(MatrxEntity):
     source = TextField(null=False, default='manual')
     notes = TextField()
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     deleted_at = DateTimeField()
@@ -605,8 +673,8 @@ class CrawlPreset(MatrxEntity):
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
@@ -632,8 +700,8 @@ class CrawlSchedule(MatrxEntity):
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
@@ -939,8 +1007,8 @@ class PageContent(MatrxEntity):
     version = IntegerField(null=False, default=1)
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     deleted_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
@@ -1118,6 +1186,9 @@ class Site(MatrxEntity):
     previous_slugs = TextArrayField(null=False, default=[])
     custom_fields = JSONBField(null=False, default={})
     shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}, 'crawl_preset': {'from_model': 'CrawlPreset', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_preset', 'from_schema': 'web'}, 'crawl_schedule': {'from_model': 'CrawlSchedule', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_schedule', 'from_schema': 'web'}, 'crawl_session': {'from_model': 'CrawlSession', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_session', 'from_schema': 'web'}, 'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'endpoint_family_sweep_state': {'from_model': 'EndpointFamilySweepState', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'endpoint_family_sweep_state', 'from_schema': 'web'}, 'finding': {'from_model': 'Finding', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'finding', 'from_schema': 'web'}, 'gsc_page_stat': {'from_model': 'GscPageStat', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'gsc_page_stat', 'from_schema': 'web'}, 'link_edge': {'from_model': 'LinkEdge', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'link_edge', 'from_schema': 'web'}, 'page_content': {'from_model': 'PageContent', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_content', 'from_schema': 'web'}, 'page_evidence': {'from_model': 'PageEvidence', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_evidence', 'from_schema': 'web'}, 'page': {'from_model': 'Page', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page', 'from_schema': 'web'}, 'page_sitemap': {'from_model': 'PageSitemap', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_sitemap', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'screenshot': {'from_model': 'Screenshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'screenshot', 'from_schema': 'web'}, 'site_endpoint_rule': {'from_model': 'SiteEndpointRule', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_endpoint_rule', 'from_schema': 'web'}, 'site_item_config': {'from_model': 'SiteItemConfig', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_item_config', 'from_schema': 'web'}, 'site_offering': {'from_model': 'SiteOffering', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_offering', 'from_schema': 'web'}, 'sitemap': {'from_model': 'Sitemap', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'sitemap', 'from_schema': 'web'}, 'snapshot': {'from_model': 'Snapshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'snapshot', 'from_schema': 'web'}, 'tag_manager_snapshot': {'from_model': 'TagManagerSnapshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'tag_manager_snapshot', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "site"
@@ -1164,8 +1235,8 @@ class SiteItemConfig(MatrxEntity):
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
@@ -1192,8 +1263,8 @@ class SiteOffering(MatrxEntity):
     brand_offering_id = ForeignKey(to_model=BrandOffering, to_column='id', to_schema='web', null=False)
     status = TextField(null=False, default='active')
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     deleted_at = DateTimeField()
@@ -1215,8 +1286,8 @@ class Sitemap(MatrxEntity):
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
@@ -1294,8 +1365,8 @@ class TagManagerSnapshot(MatrxEntity):
     has_conversion_tag = BooleanField(null=False)
     has_consent = BooleanField(null=False)
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     deleted_at = DateTimeField()
@@ -1456,6 +1527,7 @@ __all__ = [
     "BrandOffering",
     "BusinessFact",
     "BusinessLocation",
+    "VoiceFingerprint",
     "LocationListing",
     "AnalysisResult",
     "CrawlEvent",
@@ -1506,6 +1578,7 @@ model_registry.register_all(
         BrandOffering,
         BusinessFact,
         BusinessLocation,
+        VoiceFingerprint,
         LocationListing,
         AnalysisResult,
         CrawlEvent,

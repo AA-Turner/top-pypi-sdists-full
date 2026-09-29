@@ -1,5 +1,7 @@
 from anthropic import Anthropic, AsyncAnthropic, transform_schema
+from anthropic.types import Model as AnthropicModelID
 import enum
+import click
 import llm
 from llm.models import _partition_tools
 from llm.parts import (
@@ -12,13 +14,62 @@ from llm.parts import (
     ToolResultPart,
 )
 import json
+import re
+import typing
 from typing import Any, Dict, Optional, List
 from urllib.parse import urlsplit
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 DEFAULT_THINKING_TOKENS = 1024
 DEFAULT_TEMPERATURE = 1.0
 MCP_BETA = "mcp-client-2025-11-20"
+
+# Settings for the newest generation of Claude models. Models this plugin
+# has no built-in entry for - listed by the anthropic SDK, or cached by
+# "llm anthropic refresh" - start from these, adjusted by any capabilities
+# reported by the Anthropic models API
+LATEST_MODEL_DEFAULTS = dict(
+    supports_pdf=True,
+    supports_system_messages=True,
+    thinks_by_default=True,
+    always_thinks=True,
+    supports_thinking=True,
+    supports_thinking_effort=True,
+    supports_adaptive_thinking=True,
+    supports_web_search=True,
+    supports_code_execution=True,
+    use_structured_outputs=True,
+    default_max_tokens=128000,
+)
+# max_tokens for a model the API has not told us the limit for: the lowest
+# output limit of any current model, so requests are never rejected
+UNKNOWN_MODEL_MAX_TOKENS = 64000
+# Request parameters accepted by the count_tokens endpoint
+COUNT_TOKENS_PARAMS = {
+    "model",
+    "messages",
+    "system",
+    "tools",
+    "tool_choice",
+    "thinking",
+    "output_config",
+    "betas",
+    "mcp_servers",
+    "context_management",
+    "speed",
+}
+
+
+class TokenCount(Exception):
+    """Raised by execute() when the count_tokens option is set, so the
+    llm prompt command never reaches the point where it logs a response"""
+
+    def __init__(self, count):
+        self.count = count
+        super().__init__(
+            f"Token count: {count} (use 'llm anthropic count' to count tokens)"
+        )
 
 
 class ClaudeRefusal(llm.ModelError):
@@ -50,7 +101,283 @@ class ThinkingEffort(str, enum.Enum):
 
 
 @llm.hookimpl
+def register_commands(cli):
+    @cli.group()
+    def anthropic():
+        "Commands relating to the llm-anthropic plugin"
+
+    @anthropic.command()
+    @click.option("json_", "--json", is_flag=True, help="Output raw JSON")
+    @click.option("--key", help="Anthropic API key to use")
+    def models(json_, key):
+        "List models available from the Anthropic API"
+        client = Anthropic(api_key=_api_key(key))
+        data = fetch_models(client)
+        if json_:
+            click.echo(json.dumps(data, indent=2))
+            return
+        for model in data["data"]:
+            click.echo(
+                "{}: {} (created {})".format(
+                    model["id"],
+                    model.get("display_name") or "",
+                    (model.get("created_at") or "")[:10],
+                )
+            )
+
+    @anthropic.command()
+    @click.option("--key", help="Anthropic API key to use")
+    def refresh(key):
+        """
+        Refresh the cached list of models from the Anthropic API
+
+        Models your API key can access that this version of the plugin does
+        not know about will be registered, using the capabilities reported
+        by the API.
+        """
+        client = Anthropic(api_key=_api_key(key))
+        data = fetch_models(client)
+        before = _registered_model_ids()
+        path = models_cache_path()
+        path.write_text(json.dumps(data, indent=2))
+        after = _registered_model_ids()
+        count = len(data["data"])
+        click.echo(
+            "Saved {} model{} to {}".format(count, "" if count == 1 else "s", path)
+        )
+        added = [model_id for model_id in after if model_id not in before]
+        removed = [model_id for model_id in before if model_id not in after]
+        if added:
+            click.echo("Added models: " + ", ".join(added))
+        if removed:
+            click.echo("Removed models: " + ", ".join(removed))
+
+    prompt_command = cli.commands["prompt"]
+    # llm prompt options that make no sense when counting tokens
+    skip = {
+        "save",
+        "log",
+        "no_log",
+        "usage",
+        "extract",
+        "extract_last",
+        "json_output",
+        "async_",
+        "no_stream",
+        "hide_reasoning",
+        "show_model_options",
+        "tools_debug",
+        "tools_approve",
+        "chain_limit",
+    }
+
+    @click.pass_context
+    def count(ctx, **kwargs):
+        kwargs["options"] = (("count_tokens", "1"),) + tuple(kwargs["options"])
+        try:
+            ctx.invoke(prompt_command, no_log=True, **kwargs)
+        except (TokenCount, click.ClickException) as ex:
+            # llm prompt wraps exceptions in ClickException, unless
+            # LLM_RAISE_ERRORS is set or it is running under pytest
+            token_count = ex if isinstance(ex, TokenCount) else ex.__context__
+            if not isinstance(token_count, TokenCount):
+                # Options validation rejected count_tokens: not an Anthropic model
+                if isinstance(token_count, ValidationError) and any(
+                    error["loc"] == ("count_tokens",)
+                    and error["type"] == "extra_forbidden"
+                    for error in token_count.errors()
+                ):
+                    raise click.ClickException(
+                        "Token counting only works with Anthropic models"
+                    )
+                raise
+            click.echo(token_count.count)
+
+    anthropic.add_command(
+        click.Command(
+            "count",
+            callback=count,
+            params=[p for p in prompt_command.params if p.name not in skip],
+            help=(
+                "Count tokens for a prompt using the Anthropic token counting API\n\n"
+                "Accepts the same options as 'llm prompt'\n\n"
+                "Example:\n\n"
+                "\b\n"
+                "    llm anthropic count 'Describe this' -m opus -a image.jpg"
+            ),
+        )
+    )
+
+
+def fetch_models(client):
+    "Fetch all pages from /v1/models, returning the combined JSON"
+    models = []
+    after_id = None
+    while True:
+        kwargs = {"limit": 1000}
+        if after_id:
+            kwargs["after_id"] = after_id
+        page = client.models.with_raw_response.list(**kwargs).http_response.json()
+        models.extend(page["data"])
+        if not page.get("has_more"):
+            break
+        after_id = page["last_id"]
+    return {
+        "data": models,
+        "has_more": False,
+        "first_id": models[0]["id"] if models else None,
+        "last_id": models[-1]["id"] if models else None,
+    }
+
+
+def _api_key(key=None):
+    api_key = llm.get_key(input=key, alias="anthropic", env="ANTHROPIC_API_KEY")
+    if not api_key:
+        raise click.ClickException(
+            "No key found - set one with 'llm keys set anthropic' "
+            "or the ANTHROPIC_API_KEY environment variable"
+        )
+    return api_key
+
+
+def _registered_model_ids():
+    return [
+        model.claude_model_id
+        for model in llm.get_models()
+        if isinstance(model, ClaudeMessages)
+    ]
+
+
+def models_cache_path():
+    "Where 'llm anthropic refresh' saves the /v1/models response"
+    return llm.user_dir() / "anthropic_models.json"
+
+
+def cached_models():
+    "Model details saved by 'llm anthropic refresh', newest first"
+    path = models_cache_path()
+    if not path.exists():
+        return []
+    try:
+        return [
+            info
+            for info in json.loads(path.read_text())["data"]
+            if isinstance(info.get("id"), str)
+        ]
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return []
+
+
+def sdk_model_ids():
+    "Model IDs listed by the anthropic SDK's Model type, newest first"
+    model_ids = []
+    for arg in typing.get_args(AnthropicModelID):
+        model_ids.extend(v for v in typing.get_args(arg) if isinstance(v, str))
+    return model_ids
+
+
+def _base_model_id(model_id):
+    """
+    Collapse the different IDs for the same model into one, e.g.
+    claude-haiku-4-5-20251001 and claude-haiku-4-5, or
+    claude-sonnet-4-20250514 and claude-sonnet-4-0
+    """
+    return re.sub(r"-(\d{8}|latest|0)$", "", model_id)
+
+
+def _dotted_alias(model_id):
+    "claude-opus-5-6 => claude-opus-5.6, claude-opus-4-1-20250805 => claude-opus-4.1"
+    match = re.match(r"^(claude-[a-z]+-\d+)-(\d{1,2})(-\d{8})?$", model_id)
+    if match:
+        return "{}.{}".format(match.group(1), match.group(2))
+    return None
+
+
+def model_kwargs_from_info(info):
+    """
+    Constructor arguments for a model with no built-in entry, starting from
+    LATEST_MODEL_DEFAULTS and applying whatever the models API reported
+    """
+    kwargs = dict(LATEST_MODEL_DEFAULTS)
+    kwargs["default_max_tokens"] = UNKNOWN_MODEL_MAX_TOKENS
+    if isinstance(info.get("max_tokens"), int):
+        kwargs["default_max_tokens"] = info["max_tokens"]
+    capabilities = info.get("capabilities")
+    if isinstance(capabilities, dict):
+
+        def supported(*path):
+            node = capabilities
+            for key in path:
+                node = node.get(key) if isinstance(node, dict) else None
+            return bool(isinstance(node, dict) and node.get("supported"))
+
+        kwargs.update(
+            supports_images=supported("image_input"),
+            supports_pdf=supported("pdf_input"),
+            supports_thinking=supported("thinking"),
+            supports_adaptive_thinking=supported("thinking", "types", "adaptive"),
+            supports_thinking_effort=supported("effort"),
+            supports_code_execution=supported("code_execution"),
+            use_structured_outputs=supported("structured_outputs"),
+        )
+        # Thinking by default is implemented using adaptive thinking
+        if not (kwargs["supports_thinking"] and kwargs["supports_adaptive_thinking"]):
+            kwargs["thinks_by_default"] = False
+            kwargs["always_thinks"] = False
+    return kwargs
+
+
+def extra_models(builtin):
+    """
+    Models with no built-in entry, as a list of (model_id, kwargs, aliases)
+
+    ``builtin`` maps each Claude model ID registered by register_builtin_models()
+    to its aliases. Candidates come from the anthropic SDK's list of model IDs
+    and from the models API response cached by 'llm anthropic refresh'.
+    """
+    candidates = {}
+    # Oldest first, so they show up in release order in 'llm models'
+    for model_id in reversed(sdk_model_ids()):
+        candidates.setdefault(_base_model_id(model_id), {"id": model_id})
+    for info in reversed(cached_models()):
+        # Details from the API win over a bare ID from the SDK
+        candidates[_base_model_id(info["id"])] = info
+    builtin_bases = {_base_model_id(model_id) for model_id in builtin}
+    taken = set(builtin)
+    for aliases in builtin.values():
+        taken.update(aliases)
+    extras = []
+    for base, info in candidates.items():
+        if base in builtin_bases:
+            continue
+        model_id = info["id"]
+        aliases = []
+        for alias in (model_id, _dotted_alias(model_id)):
+            if alias and alias not in taken:
+                aliases.append(alias)
+                taken.add(alias)
+        extras.append((model_id, model_kwargs_from_info(info), tuple(aliases)))
+    return extras
+
+
+@llm.hookimpl
 def register_models(register):
+    builtin = {}
+
+    def register_builtin(model, async_model=None, aliases=None):
+        builtin[model.claude_model_id] = tuple(aliases or ())
+        register(model, async_model, aliases=aliases)
+
+    register_builtin_models(register_builtin)
+    for model_id, kwargs, aliases in extra_models(builtin):
+        register(
+            ClaudeMessages(model_id, **kwargs),
+            AsyncClaudeMessages(model_id, **kwargs),
+            aliases=aliases,
+        )
+
+
+def register_builtin_models(register):
     # https://docs.anthropic.com/claude/docs/models-overview
     register(
         ClaudeMessages("claude-3-opus-20240229"),
@@ -501,38 +828,16 @@ def register_models(register):
         ),
         aliases=("claude-fable-5.1",),
     )
-    # claude-opus-5.5
-    register(
-        ClaudeMessages(
-            "claude-opus-5-5",
-            supports_pdf=True,
-            supports_system_messages=True,
-            thinks_by_default=True,
-            always_thinks=True,
-            supports_thinking=True,
-            supports_thinking_effort=True,
-            supports_adaptive_thinking=True,
-            supports_web_search=True,
-            supports_code_execution=True,
-            use_structured_outputs=True,
-            default_max_tokens=128000,
-        ),
-        AsyncClaudeMessages(
-            "claude-opus-5-5",
-            supports_pdf=True,
-            supports_system_messages=True,
-            thinks_by_default=True,
-            always_thinks=True,
-            supports_thinking=True,
-            supports_thinking_effort=True,
-            supports_adaptive_thinking=True,
-            supports_web_search=True,
-            supports_code_execution=True,
-            use_structured_outputs=True,
-            default_max_tokens=128000,
-        ),
-        aliases=("claude-opus-5.5",),
-    )
+    # claude-opus-5.5, claude-sonnet-5.5
+    for model_id in ("opus-5.5", "sonnet-5.5"):
+        model_id_underscore = model_id.replace(".", "-")
+        register(
+            ClaudeMessages(f"claude-{model_id_underscore}", **LATEST_MODEL_DEFAULTS),
+            AsyncClaudeMessages(
+                f"claude-{model_id_underscore}", **LATEST_MODEL_DEFAULTS
+            ),
+            aliases=(f"claude-{model_id}",),
+        )
 
 
 class ClaudeOptions(llm.Options):
@@ -587,6 +892,10 @@ class ClaudeOptions(llm.Options):
         description="Use fast mode for lower latency responses: https://platform.claude.com/docs/en/build-with-claude/fast-mode",
         default=None,
     )
+
+    # Undocumented, hidden from llm models --options: used by the
+    # "llm anthropic count" command to count tokens instead of prompting
+    count_tokens: SkipJsonSchema[bool | None] = None
 
     @field_validator("stop_sequences")
     def validate_stop_sequences(cls, stop_sequences):
@@ -879,8 +1188,8 @@ class CodeExecution(llm.ServerSideTool):
             kwargs["container"] = self.container
 
 
-def source_for_attachment(attachment):
-    if attachment.url:
+def source_for_attachment(attachment, inline_urls=False):
+    if attachment.url and not inline_urls:
         return {
             "type": "url",
             "url": attachment.url,
@@ -1052,7 +1361,12 @@ class _Shared:
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
-            return message.model_dump()
+            dumped = message.model_dump()
+        # anthropic>=1.9 adds an opt-in "diagnostics" field that is always
+        # null unless the request asks for it, which this plugin never does
+        if dumped.get("diagnostics") is None:
+            dumped.pop("diagnostics", None)
+        return dumped
 
     # --- messages= support -------------------------------------------------
     #
@@ -1063,7 +1377,7 @@ class _Shared:
     # or role="tool") are merged because Anthropic requires alternating
     # user/assistant turns.
 
-    def _part_to_block(self, part) -> Optional[Dict[str, Any]]:
+    def _part_to_block(self, part, inline_urls=False) -> Optional[Dict[str, Any]]:
         """Translate one llm Part into an Anthropic content block."""
         pm = getattr(part, "provider_metadata", None) or {}
         anthropic_pm = pm.get("anthropic", {}) if isinstance(pm, dict) else {}
@@ -1145,16 +1459,23 @@ class _Shared:
             )
             return {
                 "type": attachment_type,
-                "source": source_for_attachment(attachment),
+                "source": source_for_attachment(attachment, inline_urls),
             }
         return None
 
-    def _message_to_blocks(self, message: Message) -> List[Dict[str, Any]]:
+    def _message_to_blocks(
+        self, message: Message, inline_urls=False
+    ) -> List[Dict[str, Any]]:
         blocks: List[Dict[str, Any]] = []
         for part in message.parts:
-            block = self._part_to_block(part)
-            if block is not None:
-                blocks.append(block)
+            block = self._part_to_block(part, inline_urls)
+            if block is None:
+                continue
+            if block.get("type") == "text" and not block.get("text"):
+                # Anthropic rejects empty text blocks, e.g. the empty
+                # assistant turn left behind by a refusal
+                continue
+            blocks.append(block)
         if message.role == "assistant":
             filtered_blocks: List[Dict[str, Any]] = []
             seen_tool_use = False
@@ -1172,11 +1493,13 @@ class _Shared:
             blocks = filtered_blocks
         return blocks
 
-    def _append_message(self, out: List[Dict[str, Any]], message: Message) -> None:
+    def _append_message(
+        self, out: List[Dict[str, Any]], message: Message, inline_urls=False
+    ) -> None:
         """Append an Anthropic-shaped message, merging with the previous one
         if both would be user-side turns (tool_result + text in the same
         user message is the required shape for tool follow-ups)."""
-        blocks = self._message_to_blocks(message)
+        blocks = self._message_to_blocks(message, inline_urls)
         if not blocks:
             return
         # Anthropic: tool messages from llm become user messages with
@@ -1237,7 +1560,7 @@ class _Shared:
         if assistant_content:
             out.append({"role": "assistant", "content": assistant_content})
 
-    def build_messages(self, prompt, conversation) -> list[dict]:
+    def build_messages(self, prompt, conversation, inline_urls=False) -> list[dict]:
         messages: List[Dict[str, Any]] = []
 
         # Current turn — iterate prompt.messages (auto-synthesized from
@@ -1249,7 +1572,7 @@ class _Shared:
             if message.role == "system":
                 self._append_system_message(messages, message, index == 0)
             else:
-                self._append_message(messages, message)
+                self._append_message(messages, message, inline_urls)
 
         # The API requires an inline system entry to immediately follow a
         # user turn (and precede an assistant turn or end the array), but
@@ -1299,15 +1622,13 @@ class _Shared:
             return prompt.system
         if prompt.messages and prompt.messages[0].role == "system":
             texts = [
-                p.text
-                for p in prompt.messages[0].parts
-                if isinstance(p, TextPart)
+                p.text for p in prompt.messages[0].parts if isinstance(p, TextPart)
             ]
             if texts:
                 return "\n\n".join(texts)
         return None
 
-    def build_kwargs(self, prompt, conversation):
+    def build_kwargs(self, prompt, conversation, inline_urls=False):
         if prompt.schema and prompt.tools:
             raise ValueError(
                 "llm-anthropic does not yet support using both schema and tools in the same prompt"
@@ -1315,7 +1636,7 @@ class _Shared:
 
         kwargs = {
             "model": self.claude_model_id,
-            "messages": self.build_messages(prompt, conversation),
+            "messages": self.build_messages(prompt, conversation, inline_urls),
         }
         if prompt.options.user_id:
             kwargs["metadata"] = {"user_id": prompt.options.user_id}
@@ -1466,6 +1787,18 @@ class _Shared:
 
         return kwargs
 
+    def _count_tokens(self, client, prompt, conversation):
+        # count_tokens rejects URL sources that messages.create accepts
+        kwargs = self.build_kwargs(prompt, conversation, inline_urls=True)
+        count_kwargs = {k: v for k, v in kwargs.items() if k in COUNT_TOKENS_PARAMS}
+        # extra_body carries sampling parameters count_tokens does not accept,
+        # plus thinking when it has been moved there for the 128K output beta
+        if "thinking" in kwargs.get("extra_body", {}):
+            count_kwargs["extra_body"] = {"thinking": kwargs["extra_body"]["thinking"]}
+        if "betas" in count_kwargs:
+            return client.beta.messages.count_tokens(**count_kwargs)
+        return client.messages.count_tokens(**count_kwargs)
+
     def set_usage(self, response):
         usage = response.response_json.pop("usage")
         input_tokens = usage.pop("input_tokens")
@@ -1520,8 +1853,19 @@ class _Shared:
 
 
 class ClaudeMessages(_Shared, llm.KeyModel):
+    def count_tokens(self, prompt=None, *, conversation=None, key=None, **kwargs):
+        """Count the input tokens for a prompt using the Anthropic token
+        counting API. Accepts the same arguments as model.prompt()"""
+        llm_prompt = (conversation or self).prompt(prompt, **kwargs).prompt
+        client = Anthropic(api_key=self.get_key(key), base_url=self.base_url)
+        return self._count_tokens(client, llm_prompt, conversation).input_tokens
+
     def execute(self, prompt, stream, response, conversation, key):
         client = Anthropic(api_key=self.get_key(key), base_url=self.base_url)
+        if prompt.options.count_tokens:
+            raise TokenCount(
+                self._count_tokens(client, prompt, conversation).input_tokens
+            )
         kwargs = self.build_kwargs(prompt, conversation)
         prefill_text = self.prefill_text(prompt)
         if "betas" in kwargs:
@@ -1658,8 +2002,19 @@ class ClaudeMessages(_Shared, llm.KeyModel):
 
 
 class AsyncClaudeMessages(_Shared, llm.AsyncKeyModel):
+    async def count_tokens(self, prompt=None, *, conversation=None, key=None, **kwargs):
+        """Count the input tokens for a prompt using the Anthropic token
+        counting API. Accepts the same arguments as model.prompt()"""
+        llm_prompt = (conversation or self).prompt(prompt, **kwargs).prompt
+        client = AsyncAnthropic(api_key=self.get_key(key), base_url=self.base_url)
+        count = await self._count_tokens(client, llm_prompt, conversation)
+        return count.input_tokens
+
     async def execute(self, prompt, stream, response, conversation, key):
         client = AsyncAnthropic(api_key=self.get_key(key), base_url=self.base_url)
+        if prompt.options.count_tokens:
+            count = await self._count_tokens(client, prompt, conversation)
+            raise TokenCount(count.input_tokens)
         kwargs = self.build_kwargs(prompt, conversation)
         if "betas" in kwargs:
             messages_client = client.beta.messages

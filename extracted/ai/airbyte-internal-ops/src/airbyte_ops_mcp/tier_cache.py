@@ -137,6 +137,16 @@ _TIER_VALUE_TO_ROLLOUT_TIER: dict[str, CustomerTier] = {
 DEFAULT_TIER: CustomerTier = "UNKNOWN"
 
 
+class TierExportUnavailableError(RuntimeError):
+    """Raised when the tier export cannot be read at all.
+
+    Distinct from `TierExportValidationError`, which means the export was read
+    but cannot be trusted. Both subclass `RuntimeError` so callers that catch
+    it broadly keep working, while a caller that wants only tier failures can
+    name these instead of swallowing every `RuntimeError`.
+    """
+
+
 class TierExportValidationError(RuntimeError):
     """Base error for a tier export that cannot be trusted."""
 
@@ -554,7 +564,7 @@ def _fetch_tier_data_from_gcs(
         try:
             parsed = _parse_tier_export_line(line)
         except json.JSONDecodeError as exc:
-            raise RuntimeError(
+            raise TierExportValidationError(
                 f"Malformed JSON on line {line_number} of tier export "
                 f"gs://{TIER_EXPORT_BUCKET}/{most_recent.name}: {exc}. "
                 f"Refusing to serve a partial tier map (would bypass tier protection)."
@@ -689,7 +699,7 @@ def _load_tier_cache(
             )
             logger.warning(reason)
             return TierCacheLoadResult(data={}, degraded=True, reason=reason)
-        raise RuntimeError(
+        raise TierExportUnavailableError(
             f"GCS tier refresh failed. Cannot proceed without tier data "
             f"(would bypass tier protection). Identity attempted: {identity}. "
             f"Original error: {exc}"
@@ -713,7 +723,7 @@ def _load_tier_cache(
             return TierCacheLoadResult(
                 data={}, degraded=True, reason=reason, export_row_count=0
             )
-        raise RuntimeError(
+        raise TierExportUnavailableError(
             f"GCS tier export returned no rows. Cannot proceed without tier data "
             f"(would bypass tier protection). Identity attempted: {identity}. "
             f"Check GCS access and gs://{TIER_EXPORT_BUCKET}/{TIER_EXPORT_PREFIX}."

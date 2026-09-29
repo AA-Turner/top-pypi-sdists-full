@@ -10,6 +10,7 @@
 #include <simpleble/Exceptions.h>
 #include <simpleble/Peripheral.h>
 #include <simpleble/Types.h>
+#include <simpleble/local/Peripheral.h>
 
 namespace SimpleBLE {
 
@@ -81,6 +82,15 @@ class SIMPLEBLE_EXPORT Adapter {
      * NOTE: This method is currently only supported by the Windows backend. (More backends coming soon.)
      */
     std::vector<Peripheral> get_connected_peripherals();
+
+    /**
+     * Create a local BLE peripheral host.
+     *
+     * The returned object is used to define local GATT services,
+     * configure advertising, and publish characteristic value updates to
+     * subscribed clients.
+     */
+    Local::Peripheral create_local_peripheral();
 
     static bool bluetooth_enabled();
 

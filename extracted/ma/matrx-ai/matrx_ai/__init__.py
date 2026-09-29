@@ -69,6 +69,7 @@ def configure(
     persistence_policy_registrar=None,
     handoff_ledger=None,
     relation_words_resolver=None,
+    news_search=None,
     **ext_kwargs,
 ) -> None:
     """Configure matrx-ai with external dependencies from the host application.
@@ -168,6 +169,10 @@ def configure(
             ``matrx_ai.tools.relation_words``; unwired, the dataset tools hand
             the model raw identifiers and say so once, loudly, with the wiring
             point (never a silent pass-through).
+        news_search: Optional async callable ``(query, *, organization_id,
+            limit) -> NewsSearchResult`` used by the legacy headlines tool.
+            The host owns the native search engine; this package only maps its
+            result into the tool's established output contract.
         **ext_kwargs: External deps (settings, get_async_supabase_client, etc.).
     """
     # A normal import — NOT a file-path load. matrx_ai/db/__init__.py resolves
@@ -213,6 +218,8 @@ def configure(
     # capability the dataset tools need is visible in this signature.
     if relation_words_resolver is not None:
         ext_kwargs["relation_words_resolver"] = relation_words_resolver
+    if news_search is not None:
+        ext_kwargs["news_search"] = news_search
     if ext_kwargs:
         configure_ext(**ext_kwargs)
 

@@ -13,6 +13,7 @@ Features:
 
 import json
 import logging
+import math
 import os
 import time
 from collections import OrderedDict, deque
@@ -52,7 +53,9 @@ class AdvancedTracker:
         removed_stracks (List[STrack]): List of removed tracks.
         frame_id (int): The current frame ID.
         config (TrackerConfig): Tracker configuration.
-        max_time_lost (int): The maximum frames for a track to be considered as 'lost'.
+        max_time_lost (int): Frame-count view of the lost-track grace, kept for
+            external readers. The grace ACTUALLY applied is in seconds of stream
+            time (see ``_lost_grace_seconds``); under a sampler the two differ.
         kalman_filter (KalmanFilterXYAH): Kalman Filter object.
         class_smoother (Optional[ClassSmoother]): Optional class smoother for class label smoothing over flicker.
     """
@@ -87,7 +90,9 @@ class AdvancedTracker:
         if config.enable_class_aggregation:
             from .track_class_aggregator import TrackClassAggregator
 
-            self.class_aggregator = TrackClassAggregator(window_size=config.class_aggregation_window_size)
+            self.class_aggregator = TrackClassAggregator(
+                window_size=config.class_aggregation_window_size
+            )
 
         # Track recovery for re-entries: stores recently removed tracks for potential re-matching
         # Structure: {track_id: {"last_xyxy": bbox, "lost_time": timestamp, "category": cat}}
@@ -141,6 +146,22 @@ class AdvancedTracker:
         self._fps_samples: deque = deque(maxlen=30)  # update() monotonic stamps
         self._last_adapt_ts: Optional[float] = None
 
+        # Per-frame time base (SG-24). `timestamp=` on update() carries the
+        # frame's own presentation time in seconds (see rtp_clock.RtpClock for
+        # the RTP -> seconds conversion). When present it is the source of the
+        # effective interval; when absent or non-monotonic the tracker falls
+        # back to counting frames at the effective fps, which reproduces the
+        # historical behaviour exactly.
+        self._last_frame_ts: Optional[float] = None
+        self._last_frame_dt: Optional[float] = None
+        self._using_frame_timestamps = False
+        self._non_monotonic_ts_count = 0
+        # Stream time: seconds elapsed over the frames this tracker has seen.
+        # Advanced by the real per-frame dt when one is available, else by one
+        # nominal frame at the effective fps. All ageing is measured on it.
+        self._stream_time = 0.0
+        self._frame_times: "OrderedDict[int, float]" = OrderedDict()
+
         # Temporal confirmation: per-track sliding-window hit buffers.
         self._hit_buffers: Dict[int, deque] = {}
         self._confirmed_ids: Set[int] = set()
@@ -152,6 +173,7 @@ class AdvancedTracker:
         self,
         detections: Union[List[Dict], Dict[str, List[Dict]]],
         img: Optional[np.ndarray] = None,
+        timestamp: Optional[float] = None,
     ) -> Union[List[Dict], Dict[str, List[Dict]]]:
         """
         Update the tracker with new detections and return the current list of tracked objects.
@@ -161,6 +183,14 @@ class AdvancedTracker:
                 - List[Dict]: Single frame detections
                 - Dict[str, List[Dict]]: Multi-frame detections with frame keys
             img: Optional image for motion compensation
+            timestamp: Optional presentation time of THIS frame, in seconds on a
+                monotonic media clock. For an RTSP source this is the forwarded
+                RTP timestamp converted by ``rtp_clock.RtpClock`` — the gateway
+                never rewrites it, so ``ts_now - ts_prev`` is the true interval
+                even when a sampler dropped everything in between. Optional and
+                backward compatible: callers that omit it (or pass a
+                non-monotonic value) keep the previous frame-counting behaviour,
+                and the fallback is logged rather than taken silently.
 
         Returns:
             Tracking results in the same format as input
@@ -168,17 +198,23 @@ class AdvancedTracker:
         # predict()-only gap glide on empty single-frame input (opt-in). predict()
         # does its own frame_id increment, so return BEFORE incrementing here.
         # Default (flag off) preserves the historical "empty in -> empty out".
-        if self.config.enable_predict_on_empty and isinstance(detections, list) and len(detections) == 0:
-            return self.predict()
+        if (
+            self.config.enable_predict_on_empty
+            and isinstance(detections, list)
+            and len(detections) == 0
+        ):
+            return self.predict(timestamp=timestamp)
 
         self.frame_id += 1
 
-        # Auto-adapt to the real frame-rate BEFORE any predict/threshold read.
-        # Sampled here (once per update() call) rather than per processed frame so
-        # the multi-frame dict format — which runs several frames back-to-back
-        # inside ONE call — cannot mistake its own loop speed for the camera fps.
-        # Fully gated behind enable_fps_adaptation (default off -> no clock read).
-        self._maybe_adapt_fps()
+        # Establish this frame's interval, then advance the stream clock, BEFORE
+        # any predict/threshold read. Sampled once per update() call rather than
+        # per processed frame so the multi-frame dict format — which runs several
+        # frames back-to-back inside ONE call — cannot mistake its own loop speed
+        # for the camera's frame spacing.
+        dt = self._frame_dt(timestamp)
+        self._advance_stream_time(dt)
+        self._maybe_adapt_fps(dt)
 
         # Handle different input formats
         if isinstance(detections, dict):
@@ -188,7 +224,9 @@ class AdvancedTracker:
             # Single frame format
             return self._update_single_frame(detections, img)
 
-    def _update_single_frame(self, detections: List[Dict], img: Optional[np.ndarray] = None) -> List[Dict]:
+    def _update_single_frame(
+        self, detections: List[Dict], img: Optional[np.ndarray] = None
+    ) -> List[Dict]:
         """Update tracker with single frame detections."""
         # Convert detections to STrack format
         stracks = self._convert_detections_to_stracks(detections)
@@ -332,7 +370,9 @@ class AdvancedTracker:
 
         return detections
 
-    def _perform_tracking_update(self, detections: List[STrack], _img: Optional[np.ndarray] = None) -> List[STrack]:
+    def _perform_tracking_update(
+        self, detections: List[STrack], _img: Optional[np.ndarray] = None
+    ) -> List[STrack]:
         """Perform the core tracking update algorithm."""
         # Ensure namespace is set for any new track ID generation
         _ = (_img,)
@@ -344,24 +384,10 @@ class AdvancedTracker:
         lost_stracks = []
         removed_stracks = []
 
-        # Separate high and low confidence detections
-        scores = np.array([det.score for det in detections])
-        remain_inds = scores >= self.config.track_high_thresh
-        inds_low = scores > self.config.track_low_thresh
-        inds_high = scores < self.config.track_high_thresh
-
-        inds_second = inds_low & inds_high
-        dets_second = [detections[i] for i in range(len(detections)) if inds_second[i]]
-        dets = [detections[i] for i in range(len(detections)) if remain_inds[i]]
+        dets, dets_second = self._split_by_confidence(detections)
 
         # Step 1: First association, with high score detection boxes
-        unconfirmed = []
-        tracked_stracks = []
-        for track in self.tracked_stracks:
-            if not track.is_activated:
-                unconfirmed.append(track)
-            else:
-                tracked_stracks.append(track)
+        unconfirmed, tracked_stracks = self._partition_unconfirmed()
 
         # Predict the current location with KF
         strack_pool = self.joint_stracks(tracked_stracks, self.lost_stracks)
@@ -379,10 +405,12 @@ class AdvancedTracker:
 
         # Step 2: Second association, with low score detection boxes
         # Uses secondary_match_thresh (configurable, default 0.5) for IoU-only matching
-        r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
+        r_tracked_stracks = [
+            strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked
+        ]
         dists = iou_distance(STrack.xyxy_matrix(r_tracked_stracks), STrack.xyxy_matrix(dets_second))
         secondary_thresh = getattr(self.config, "secondary_match_thresh", 0.5)
-        matches, u_track, u_detection_second = linear_assignment(dists, thresh=secondary_thresh)
+        matches, u_track, _u_detection_second = linear_assignment(dists, thresh=secondary_thresh)
 
         self._apply_matches(
             [(r_tracked_stracks[i], dets_second[j]) for i, j in matches],
@@ -417,47 +445,11 @@ class AdvancedTracker:
             removed_stracks.append(track)
 
         # Step 4: Init new stracks (with track recovery attempt)
-        for inew in u_detection:
-            track = detections[inew]
-            if track.score < self._new_track_thresh:
-                continue
+        self._init_new_tracks(detections, u_detection, activated_stracks)
 
-            # Try to recover a previously lost track before creating a new one
-            recovered_id = self._try_recover_track(track)
-            if recovered_id is not None:
-                # Use the recovered track ID instead of creating a new one
-                track.track_id = recovered_id
-                self._track_aliases[track.track_id] = recovered_id
-                logger.debug(f"[TRACK_RECOVERY] Reusing recovered track ID {recovered_id}")
-
-            track.activate(self.kalman_filter, self.frame_id)
-            activated_stracks.append(track)
-
-        # Step 5: Update state
-        for track in self.lost_stracks:
-            if self.frame_id - track.end_frame > self.max_time_lost:
-                track.mark_removed()
-                removed_stracks.append(track)
-
-        self.tracked_stracks = [t for t in self.tracked_stracks if t.state == TrackState.Tracked]
-        self.tracked_stracks = self.joint_stracks(self.tracked_stracks, activated_stracks)
-        self.tracked_stracks = self.joint_stracks(self.tracked_stracks, refind_stracks)
-        self.lost_stracks = self.sub_stracks(self.lost_stracks, self.tracked_stracks)
-        self.lost_stracks.extend(lost_stracks)
-        self.lost_stracks = self.sub_stracks(self.lost_stracks, self.removed_stracks)
-        self.tracked_stracks, self.lost_stracks = self.remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
-        self.removed_stracks.extend(removed_stracks)
-
-        if len(self.removed_stracks) > 1000:
-            self.removed_stracks = self.removed_stracks[-999:]
-
-        # Clean up aggregator windows for removed tracks
-        if self.class_aggregator is not None and removed_stracks:
-            self.class_aggregator.remove_tracks([t.track_id for t in removed_stracks])
-
-        # Update recovery pool with removed tracks for potential re-identification
-        if removed_stracks:
-            self._update_recovery_pool(removed_stracks)
+        # Step 5: Update state.
+        self._retire_expired_lost_tracks(removed_stracks)
+        self._commit_frame_state(activated_stracks, refind_stracks, lost_stracks, removed_stracks)
 
         # Update cumulative tracking statistics
         active_stracks = [x for x in self.tracked_stracks if x.is_activated]
@@ -478,6 +470,107 @@ class AdvancedTracker:
         self._maybe_save_state()
 
         return emit_stracks
+
+    def _split_by_confidence(self, detections: List[STrack]) -> Tuple[List[STrack], List[STrack]]:
+        """Split detections into the high-score set and the BYTE low-score set.
+
+        Returns ``(dets, dets_second)``: the first drives the primary
+        association, the second the low-score recovery pass.
+        """
+        scores = np.array([det.score for det in detections])
+        remain_inds = scores >= self.config.track_high_thresh
+        inds_low = scores > self.config.track_low_thresh
+        inds_high = scores < self.config.track_high_thresh
+
+        inds_second = inds_low & inds_high
+        dets_second = [detections[i] for i in range(len(detections)) if inds_second[i]]
+        dets = [detections[i] for i in range(len(detections)) if remain_inds[i]]
+        return dets, dets_second
+
+    def _partition_unconfirmed(self) -> Tuple[List[STrack], List[STrack]]:
+        """Split the tracked list into ``(unconfirmed, activated)`` tracks."""
+        unconfirmed = []
+        tracked_stracks = []
+        for track in self.tracked_stracks:
+            if not track.is_activated:
+                unconfirmed.append(track)
+            else:
+                tracked_stracks.append(track)
+        return unconfirmed, tracked_stracks
+
+    def _init_new_tracks(
+        self,
+        candidates: List[STrack],
+        u_detection: Any,
+        activated_stracks: List[STrack],
+    ) -> None:
+        """Step 4: start a track for each unmatched detection worth keeping,
+        reusing a recovered id where one is available."""
+        for inew in u_detection:
+            track = candidates[inew]
+            if track.score < self._new_track_thresh:
+                continue
+
+            # Try to recover a previously lost track before creating a new one
+            recovered_id = self._try_recover_track(track)
+            if recovered_id is not None:
+                # Use the recovered track ID instead of creating a new one
+                track.track_id = recovered_id
+                self._track_aliases[track.track_id] = recovered_id
+                logger.debug(f"[TRACK_RECOVERY] Reusing recovered track ID {recovered_id}")
+
+            track.activate(self.kalman_filter, self.frame_id)
+            activated_stracks.append(track)
+
+    def _retire_expired_lost_tracks(self, removed_stracks: List[STrack]) -> None:
+        """Remove lost tracks that are past the grace, appending them to
+        ``removed_stracks``.
+
+        Ageing is measured in SECONDS of stream time, not frames. A grace of N
+        frames is N x the sampling factor in wall-clock seconds, so under a
+        sampler a frame-counted grace keeps dead tracks alive far longer than
+        intended and lets them steal associations from genuinely new objects.
+        """
+        lost_grace_sec = self._lost_grace_seconds()
+        for track in self.lost_stracks:
+            if self._elapsed_since_frame(track.end_frame) > lost_grace_sec:
+                track.mark_removed()
+                removed_stracks.append(track)
+
+    def _commit_frame_state(
+        self,
+        activated_stracks: List[STrack],
+        refind_stracks: List[STrack],
+        lost_stracks: List[STrack],
+        removed_stracks: List[STrack],
+    ) -> None:
+        """Fold this frame's activated/refound/lost/removed tracks back into the
+        tracker's own lists, then run the bounded-growth and cleanup bookkeeping.
+
+        Order matters and is unchanged: ``self.removed_stracks`` is read by
+        ``sub_stracks`` BEFORE this frame's removals are appended to it.
+        """
+        self.tracked_stracks = [t for t in self.tracked_stracks if t.state == TrackState.Tracked]
+        self.tracked_stracks = self.joint_stracks(self.tracked_stracks, activated_stracks)
+        self.tracked_stracks = self.joint_stracks(self.tracked_stracks, refind_stracks)
+        self.lost_stracks = self.sub_stracks(self.lost_stracks, self.tracked_stracks)
+        self.lost_stracks.extend(lost_stracks)
+        self.lost_stracks = self.sub_stracks(self.lost_stracks, self.removed_stracks)
+        self.tracked_stracks, self.lost_stracks = self.remove_duplicate_stracks(
+            self.tracked_stracks, self.lost_stracks
+        )
+        self.removed_stracks.extend(removed_stracks)
+
+        if len(self.removed_stracks) > 1000:
+            self.removed_stracks = self.removed_stracks[-999:]
+
+        # Clean up aggregator windows for removed tracks
+        if self.class_aggregator is not None and removed_stracks:
+            self.class_aggregator.remove_tracks([t.track_id for t in removed_stracks])
+
+        # Update recovery pool with removed tracks for potential re-identification
+        if removed_stracks:
+            self._update_recovery_pool(removed_stracks)
 
     def _apply_matches(self, pairs, activated_stracks, refind_stracks):
         """Apply matched (track, detection) pairs: ONE batched Kalman correction for
@@ -548,6 +641,12 @@ class AdvancedTracker:
         self._effective_fps = float(self.config.frame_rate)
         self._fps_samples.clear()
         self._last_adapt_ts = None
+        self._last_frame_ts = None
+        self._last_frame_dt = None
+        self._using_frame_timestamps = False
+        self._non_monotonic_ts_count = 0
+        self._stream_time = 0.0
+        self._frame_times.clear()
         self._hit_buffers.clear()
         self._confirmed_ids = set()
         self._recompute_confirm_params()
@@ -591,7 +690,7 @@ class AdvancedTracker:
         dup_thresh = getattr(self.config, "duplicate_removal_iou_thresh", 0.3)
         pairs = np.where(pdist < dup_thresh)
         dupa, dupb = [], []
-        for p, q in zip(*pairs):
+        for p, q in zip(*pairs, strict=False):
             timep = stracksa[p].frame_id - stracksa[p].start_frame
             timeq = stracksb[q].frame_id - stracksb[q].start_frame
             if timep > timeq:
@@ -627,7 +726,9 @@ class AdvancedTracker:
 
         # Clean up expired entries
         expired_ids = [
-            tid for tid, info in self._recovery_pool.items() if now - info.get("lost_time", 0) > recovery_window
+            tid
+            for tid, info in self._recovery_pool.items()
+            if now - info.get("lost_time", 0) > recovery_window
         ]
         for tid in expired_ids:
             del self._recovery_pool[tid]
@@ -635,7 +736,9 @@ class AdvancedTracker:
         # Add newly removed tracks
         for track in removed_stracks:
             self._recovery_pool[track.track_id] = {
-                "last_xyxy": track.xyxy.tolist() if hasattr(track.xyxy, "tolist") else list(track.xyxy),
+                "last_xyxy": track.xyxy.tolist()
+                if hasattr(track.xyxy, "tolist")
+                else list(track.xyxy),
                 "lost_time": now,
                 "category": track.cls,
                 "score": track.score,
@@ -677,7 +780,9 @@ class AdvancedTracker:
                 best_match_id = track_id
 
         if best_match_id is not None:
-            logger.info(f"[TRACK_RECOVERED] Matched new detection to lost track {best_match_id} (IoU={best_iou:.2f})")
+            logger.info(
+                f"[TRACK_RECOVERED] Matched new detection to lost track {best_match_id} (IoU={best_iou:.2f})"
+            )
             # Remove from recovery pool since it's recovered
             del self._recovery_pool[best_match_id]
             return best_match_id
@@ -740,7 +845,9 @@ class AdvancedTracker:
                 self._recent_category_track_ids[category] = seen_for_cat
                 self._category_track_counts.setdefault(category, 0)
             if self._remember_track_id(seen_for_cat, track_id):
-                self._category_track_counts[category] = self._category_track_counts.get(category, 0) + 1
+                self._category_track_counts[category] = (
+                    self._category_track_counts.get(category, 0) + 1
+                )
 
     def get_total_count(self) -> int:
         """Get total unique track count since tracker start."""
@@ -800,10 +907,14 @@ class AdvancedTracker:
                 "total_track_count": self._total_track_count,
                 "category_track_counts": dict(self._category_track_counts),
                 "recent_track_ids": list(self._recent_track_ids),
-                "recent_category_track_ids": {cat: list(ids) for cat, ids in self._recent_category_track_ids.items()},
+                "recent_category_track_ids": {
+                    cat: list(ids) for cat, ids in self._recent_category_track_ids.items()
+                },
                 "recovery_pool": self._recovery_pool,
                 "track_aliases": {str(k): v for k, v in self._track_aliases.items()},
-                "id_counter": BaseTrack._id_counters.get(self.namespace, 0) if self.namespace else BaseTrack._count,
+                "id_counter": BaseTrack._id_counters.get(self.namespace, 0)
+                if self.namespace
+                else BaseTrack._count,
             }
 
             file_path = self.get_state_file_path()
@@ -816,7 +927,7 @@ class AdvancedTracker:
             )
             return True
 
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             logger.error(f"[STATE_SAVE_ERROR] Failed to save tracker state: {e}")
             return False
 
@@ -858,10 +969,12 @@ class AdvancedTracker:
             # clamp at 0 so "the file appears to come from the future" reads as
             # "brand new" and restores, rather than sailing past the expiry check
             # with a nonsensical negative age.
-            state_age = max(0.0, time.time() - state.get("timestamp", 0))
+            state_age = max(0.0, time.time() - state.get("timestamp", 0))  # nosemgrep
             expiry_seconds = getattr(self.config, "state_expiry_seconds", 3600.0)
             if state_age > expiry_seconds:
-                logger.warning(f"[STATE_RESTORE] Saved state is {state_age / 60:.1f} minutes old, skipping restore")
+                logger.warning(
+                    f"[STATE_RESTORE] Saved state is {state_age / 60:.1f} minutes old, skipping restore"
+                )
                 return False
 
             # Restore state. v1.1 persists exact counts plus a bounded recent-ID
@@ -869,7 +982,9 @@ class AdvancedTracker:
             # both from those lists when loading an older file.
             if "total_track_count" in state:
                 self._total_track_count = int(state.get("total_track_count", 0))
-                self._category_track_counts = {cat: int(n) for cat, n in state.get("category_track_counts", {}).items()}
+                self._category_track_counts = {
+                    cat: int(n) for cat, n in state.get("category_track_counts", {}).items()
+                }
                 recent_ids = state.get("recent_track_ids", [])
                 recent_by_cat = state.get("recent_category_track_ids", {})
             else:
@@ -881,7 +996,8 @@ class AdvancedTracker:
             # Keep only the newest window's worth, preserving insertion order.
             self._recent_track_ids = OrderedDict.fromkeys(recent_ids[-_RECENT_TRACK_ID_WINDOW:])
             self._recent_category_track_ids = {
-                cat: OrderedDict.fromkeys(ids[-_RECENT_TRACK_ID_WINDOW:]) for cat, ids in recent_by_cat.items()
+                cat: OrderedDict.fromkeys(ids[-_RECENT_TRACK_ID_WINDOW:])
+                for cat, ids in recent_by_cat.items()
             }
             # The recovery pool's "lost_time" is a monotonic() stamp, which is only
             # meaningful inside the process that wrote it. Rebase every restored
@@ -897,7 +1013,7 @@ class AdvancedTracker:
                 for info in self._recovery_pool.values():
                     if saved_monotonic is None:
                         # v1.0 file: "lost_time" was a wall-clock stamp.
-                        entry_age = max(0.0, time.time() - info.get("lost_time", 0))
+                        entry_age = max(0.0, time.time() - info.get("lost_time", 0))  # nosemgrep
                     else:
                         # v1.1: age within the writing process, plus the gap since.
                         entry_age = max(0.0, saved_monotonic - info.get("lost_time", 0)) + state_age
@@ -920,7 +1036,7 @@ class AdvancedTracker:
             )
             return True
 
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             logger.error(f"[STATE_RESTORE_ERROR] Failed to restore tracker state: {e}")
             return False
 
@@ -937,7 +1053,7 @@ class AdvancedTracker:
                 os.remove(file_path)
                 logger.info(f"[STATE_CLEARED] Removed saved state at {file_path}")
             return True
-        except Exception as e:
+        except OSError as e:
             logger.error(f"[STATE_CLEAR_ERROR] Failed to clear saved state: {e}")
             return False
 
@@ -952,19 +1068,170 @@ class AdvancedTracker:
             self._last_state_save_frame = self.frame_id
 
     # =========================================================================
+    # PER-FRAME TIME BASE (SG-24) - the frame's own timestamp drives dt/ageing
+    # =========================================================================
+
+    def _frame_dt(self, timestamp: Optional[float]) -> Optional[float]:
+        """Interval in seconds between this frame and the previous timed frame.
+
+        Returns ``None`` whenever the per-frame time base cannot be used for this
+        frame — no timestamp supplied, a non-finite value, or a non-monotonic one
+        (stream restart/seek). The caller then falls back to counting frames at
+        the effective fps, which is the historical behaviour. Every fallback is
+        logged; none of them is taken silently.
+        """
+        if timestamp is None:
+            if self._using_frame_timestamps:
+                logger.warning(
+                    "[FRAME_DT] frame %d arrived without a timestamp after a timed run; "
+                    "reverting to the frame-counting time base",
+                    self.frame_id,
+                )
+                self._using_frame_timestamps = False
+                self._last_frame_ts = None
+            self._last_frame_dt = None
+            return None
+
+        try:
+            ts = float(timestamp)
+        except (TypeError, ValueError):
+            logger.warning(
+                "[FRAME_DT] frame %d carried a non-numeric timestamp (%r); "
+                "falling back to the frame-counting time base",
+                self.frame_id,
+                timestamp,
+            )
+            self._last_frame_dt = None
+            return None
+
+        if not math.isfinite(ts):
+            logger.warning(
+                "[FRAME_DT] frame %d carried a non-finite timestamp (%r); "
+                "falling back to the frame-counting time base",
+                self.frame_id,
+                timestamp,
+            )
+            self._last_frame_dt = None
+            return None
+
+        prev = self._last_frame_ts
+        self._last_frame_ts = ts
+        if not self._using_frame_timestamps:
+            logger.info(
+                "[FRAME_DT] frame %d: driving the tracker time base from per-frame timestamps",
+                self.frame_id,
+            )
+            self._using_frame_timestamps = True
+
+        if prev is None:
+            # First timed frame: an origin, not yet an interval.
+            self._last_frame_dt = None
+            return None
+
+        dt = ts - prev
+        if dt <= 0.0:
+            self._non_monotonic_ts_count += 1
+            # Rate-limited: a resetting source would otherwise log every frame.
+            if self._non_monotonic_ts_count == 1 or self._non_monotonic_ts_count % 100 == 0:
+                logger.warning(
+                    "[FRAME_DT] non-monotonic frame timestamp at frame %d (%.6fs -> %.6fs, %d so far); "
+                    "falling back to the frame-counting time base for this frame",
+                    self.frame_id,
+                    prev,
+                    ts,
+                    self._non_monotonic_ts_count,
+                )
+            self._last_frame_dt = None
+            return None
+
+        self._last_frame_dt = dt
+        return dt
+
+    def _nominal_dt(self) -> float:
+        """One frame's worth of seconds at the current effective fps."""
+        return 1.0 / max(self._effective_fps, 1e-6)
+
+    def _advance_stream_time(self, dt: Optional[float]) -> None:
+        """Advance the stream clock by this frame's interval and record it.
+
+        ``_frame_times`` maps frame_id -> stream time so ageing can be expressed
+        in seconds without touching ``STrack`` (``end_frame`` stays the only
+        per-track bookmark). It is pruned by time, so a frame_id that has fallen
+        out of it is by construction older than any grace the tracker applies.
+        """
+        if dt is None:
+            dt = self._nominal_dt()
+        self._stream_time += dt
+        self._frame_times[self.frame_id] = self._stream_time
+        self._prune_frame_times()
+
+    def _frame_time_horizon(self) -> float:
+        """How far back frame->time bookmarks must be retained, in seconds."""
+        recovery = float(getattr(self.config, "track_recovery_time_window", 30.0) or 0.0)
+        return max(self._lost_grace_seconds(), recovery) * 2.0 + 10.0
+
+    def _prune_frame_times(self) -> None:
+        """Drop frame->time bookmarks older than the horizon (oldest first)."""
+        cutoff = self._stream_time - self._frame_time_horizon()
+        while self._frame_times:
+            oldest_frame = next(iter(self._frame_times))
+            if self._frame_times[oldest_frame] >= cutoff:
+                break
+            del self._frame_times[oldest_frame]
+
+    def _elapsed_since_frame(self, frame_id: int) -> float:
+        """Seconds of stream time since ``frame_id``.
+
+        An unknown past frame_id was pruned, which means it is older than the
+        retention horizon and therefore older than any grace — ``inf`` is the
+        correct answer, not a guess.
+        """
+        recorded = self._frame_times.get(int(frame_id))
+        if recorded is None:
+            return 0.0 if frame_id >= self.frame_id else float("inf")
+        return self._stream_time - recorded
+
+    # =========================================================================
     # FPS ADAPTATION - auto-detect frame-rate and rescale time-dependent params
     # (ported from CCTVTracker; opt-in via config.enable_fps_adaptation)
     # =========================================================================
 
-    def _grace_period_sec(self) -> float:
-        """Lost-track grace in seconds. An explicit ``grace_period_sec`` wins;
-        otherwise it is derived from the CONFIGURED ``max_time_lost`` so adaptation
-        rescales the caller's own grace rather than replacing it with a hardcoded
-        one (at reference_fps the derived value reproduces max_time_lost exactly)."""
+    def _lost_grace_seconds(self) -> float:
+        """Lost-track grace in SECONDS. An explicit ``grace_period_sec`` wins,
+        otherwise ``max_lost_seconds`` (which ``TrackerConfig`` derives from a
+        caller-supplied ``max_time_lost`` when one was given, so an existing
+        max_time_lost=1800 at reference_fps=30 still means exactly 60 s)."""
         grace = self.config.grace_period_sec
         if grace is None:
-            grace = float(self.config.max_time_lost) / float(self.config.reference_fps)
+            grace = self.config.max_lost_seconds
         return float(grace)
+
+    # Back-compat alias: the pre-SG-24 name, kept because tests and the
+    # adaptation math both refer to it.
+    def _grace_period_sec(self) -> float:
+        """Deprecated alias for :meth:`_lost_grace_seconds`."""
+        return self._lost_grace_seconds()
+
+    def _propagation_dt(self, dt: float, ref: float) -> float:
+        """Clamp the Kalman propagation step to ``config.max_extrapolation_sec``.
+
+        ``dt`` here is in REFERENCE FRAMES (``reference_fps / fps``), which is
+        the unit the motion matrix works in; the ceiling is in seconds, so it
+        converts as ``ceiling * ref``. ``None`` (the default) means no bound and
+        returns ``dt`` unchanged, so the pre-existing behaviour is byte-identical.
+
+        Only the constant-velocity term is bounded. The lost-track grace and the
+        low-fps threshold blend keep the true measured interval, because those
+        are correct at any gap length — it is only the *mean displacement* that
+        goes wrong, and it goes wrong because ``KalmanFilter.predict`` scales F
+        by dt without scaling the process noise by dt: past a second or so the
+        predicted box has moved a long way with an unchanged uncertainty
+        ellipse, so IoU association reports a miss instead of a widened gate.
+        """
+        ceiling = self.config.max_extrapolation_sec
+        if ceiling is None:
+            return dt
+        return min(dt, float(ceiling) * ref)
 
     def _compute_adaptation(self, fps: float) -> Dict[str, float]:
         """Pure math: map a measured fps to the rescaled params. Side-effect free
@@ -973,15 +1240,19 @@ class AdvancedTracker:
         Mirrors CCTVTracker._apply_fps_params: thresholds blend from the cached
         BASE values toward the low-fps floors (never compounding), Kalman dt is
         reference_fps/fps, and the lost grace becomes time-based."""
-        fps = min(max(float(fps), 1.0), float(self.config.max_detected_fps))
+        fps = min(
+            max(float(fps), float(self.config.min_detected_fps)),
+            float(self.config.max_detected_fps),
+        )
         ref = float(self.config.reference_fps)
         fps_factor = min(1.0, fps / ref)
         return {
             "fps": fps,
-            "dt": ref / fps,
+            "dt": self._propagation_dt(ref / fps, ref),
             "fps_factor": fps_factor,
             "match_thresh": (
-                self._base_match_thresh * fps_factor + (1.0 - fps_factor) * self.config.match_thresh_low_fps_floor
+                self._base_match_thresh * fps_factor
+                + (1.0 - fps_factor) * self.config.match_thresh_low_fps_floor
             ),
             "new_track_thresh": (
                 self._base_new_track_thresh * fps_factor
@@ -1006,12 +1277,43 @@ class AdvancedTracker:
         self.max_time_lost = int(a["max_time_lost"])
         self._recompute_confirm_params()
 
-    def _maybe_adapt_fps(self) -> None:
-        """Measure the real detection fps from update() spacing and re-adapt when
-        it drifts. FULLY gated: with enable_fps_adaptation off (default) this
-        returns before touching time.monotonic(), so the core path stays
-        deterministic and the 30-sample clock buffer is never populated."""
+    def _maybe_adapt_fps(self, dt: Optional[float] = None) -> None:
+        """Re-adapt the time-dependent params to this frame's real interval.
+
+        Two estimators, in order of preference:
+
+        1. ``dt`` — the interval taken from the frame's OWN timestamp. This is
+           the correct estimator and is used per frame, with no drift gate and
+           no rate limit: a sampler's drop pattern is bursty, and it is exactly
+           the isolated 2-second gap that breaks association. Damping the
+           response would reintroduce the bug this replaced.
+        2. ``time.monotonic()`` spacing averaged over the last 30 update() calls
+           — the legacy estimator, kept only for callers that cannot supply a
+           per-frame timestamp. An average over a bursty stream reports the mean
+           rate and is blind to the gaps, so it is a fallback, not a design.
+
+        FULLY gated: with enable_fps_adaptation off (default) this returns before
+        touching either clock, so the core path stays deterministic and the
+        30-sample clock buffer is never populated.
+        """
         if not self.config.enable_fps_adaptation:
+            return
+
+        if dt is not None:
+            # Per-frame dt path: this frame's interval IS the effective interval.
+            measured = min(
+                max(1.0 / dt, float(self.config.min_detected_fps)),
+                float(self.config.max_detected_fps),
+            )
+            if abs(measured - self._effective_fps) <= 1e-9:
+                return  # already adapted to exactly this rate; nothing to do
+            self._apply_adaptation(measured)
+            logger.debug(
+                "[FPS_ADAPT] dt=%.4fs -> fps=%.2f, kalman dt=%.3f",
+                dt,
+                measured,
+                self.kalman_filter._dt,
+            )
             return
 
         now = time.monotonic()
@@ -1031,7 +1333,10 @@ class AdvancedTracker:
         # would drive dt toward 0 (tracks stop predicting) and max_time_lost into
         # the millions (lost tracks never pruned). _compute_adaptation clamps too;
         # doing it here as well keeps _effective_fps and the drift gate in range.
-        measured = min(max(1.0 / mean_interval, 1.0), float(self.config.max_detected_fps))
+        measured = min(
+            max(1.0 / mean_interval, float(self.config.min_detected_fps)),
+            float(self.config.max_detected_fps),
+        )
 
         # Only adapt on a >20% change vs the current effective fps.
         if abs(measured - self._effective_fps) / max(self._effective_fps, 1.0) <= 0.2:
@@ -1101,15 +1406,21 @@ class AdvancedTracker:
     # (ported from CCTVTracker; used by update([]) when enable_predict_on_empty)
     # =========================================================================
 
-    def predict(self) -> List[Dict]:
+    def predict(self, timestamp: Optional[float] = None) -> List[Dict]:
         """Advance every track one frame via Kalman predict-only (no detections),
         so boxes glide smoothly on video frames rendered between inference frames.
 
         Returns the confirmed/active tracks (respecting temporal confirmation when
         on) plus recently-lost confirmed tracks within a short grace, converted to
         the standard detection-dict format. Does not consume detections, so it does
-        not advance the temporal hit buffers (no evidence either way this frame)."""
+        not advance the temporal hit buffers (no evidence either way this frame).
+
+        ``timestamp`` has the same meaning as on :meth:`update` — a glide frame
+        still moves the stream clock, so it must be able to say by how much."""
         self.frame_id += 1
+        dt = self._frame_dt(timestamp)
+        self._advance_stream_time(dt)
+        self._maybe_adapt_fps(dt)
         if self.namespace:
             BaseTrack.set_namespace(self.namespace)
 
@@ -1124,8 +1435,12 @@ class AdvancedTracker:
         # lost here, after which the normal lost/removal machinery below applies.
         # Every real inference frame refreshes end_frame, so an interleaved
         # predict/update stream never reaches the budget.
-        glide_budget = max(1, int(self.config.predict_glide_grace_sec * self._effective_fps))
-        stale = [t for t in self.tracked_stracks if self.frame_id - t.end_frame > glide_budget]
+        glide_budget_sec = float(self.config.predict_glide_grace_sec)
+        stale = [
+            t
+            for t in self.tracked_stracks
+            if self._elapsed_since_frame(t.end_frame) > glide_budget_sec
+        ]
         if stale:
             stale_ids = {id(t) for t in stale}
             self.tracked_stracks = [t for t in self.tracked_stracks if id(t) not in stale_ids]
@@ -1137,8 +1452,9 @@ class AdvancedTracker:
         # Step-5 removal in _perform_tracking_update, which predict() bypasses).
         if self.lost_stracks:
             still_lost = []
+            lost_grace_sec = self._lost_grace_seconds()
             for t in self.lost_stracks:
-                if self.frame_id - t.end_frame > self.max_time_lost:
+                if self._elapsed_since_frame(t.end_frame) > lost_grace_sec:
                     t.mark_removed()
                     self.removed_stracks.append(t)
                 else:
@@ -1151,11 +1467,13 @@ class AdvancedTracker:
 
         if self.config.enable_temporal_confirmation:
             emit = [t for t in active_stracks if t.track_id in self._confirmed_ids]
-            short_grace = max(1, int(0.2 * self._effective_fps))
+            short_grace_sec = 0.2
             emit += [
                 t
                 for t in self.lost_stracks
-                if t.is_activated and t.track_id in self._confirmed_ids and (self.frame_id - t.end_frame) <= short_grace
+                if t.is_activated
+                and t.track_id in self._confirmed_ids
+                and self._elapsed_since_frame(t.end_frame) <= short_grace_sec
             ]
         else:
             emit = active_stracks

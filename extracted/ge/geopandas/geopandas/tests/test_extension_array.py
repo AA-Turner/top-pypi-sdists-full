@@ -25,7 +25,7 @@ from pandas.tests.extension import base as extension_tests
 import shapely.geometry
 from shapely.geometry import Point
 
-from geopandas._compat import PANDAS_GE_21, PANDAS_GE_22, PANDAS_GE_30
+from geopandas._compat import PANDAS_GE_30
 from geopandas.array import GeometryArray, GeometryDtype, from_shapely
 
 import pytest
@@ -254,21 +254,54 @@ def invalid_scalar(data):
 # here instead of importing for compatibility
 
 
-@pytest.fixture(
-    params=["sum", "max", "min", "mean", "prod", "std", "var", "median", "kurt", "skew"]
-)
+_all_numeric_reductions = [
+    "count",
+    "sum",
+    "max",
+    "min",
+    "mean",
+    "prod",
+    "std",
+    "var",
+    "median",
+    "kurt",
+    # "skew",  # skew is defined as non-reduction geospatial method, so skipping here
+    "sem",
+]
+
+
+@pytest.fixture(params=_all_numeric_reductions)
 def all_numeric_reductions(request):
     """
-    Fixture for numeric reduction names
+    Fixture for numeric reduction names.
     """
     return request.param
 
 
-@pytest.fixture(params=["all", "any"])
+_all_boolean_reductions = ["all", "any"]
+
+
+@pytest.fixture(params=_all_boolean_reductions)
 def all_boolean_reductions(request):
     """
-    Fixture for boolean reduction names
+    Fixture for boolean reduction names.
     """
+    return request.param
+
+
+_all_reductions = _all_numeric_reductions + _all_boolean_reductions
+
+
+@pytest.fixture(params=_all_reductions)
+def all_reductions(request):
+    """
+    Fixture for all (boolean + numeric) reduction names.
+    """
+    return request.param
+
+
+@pytest.fixture(params=[True, False])
+def skipna(request):
     return request.param
 
 
@@ -467,27 +500,15 @@ class TestMissing(extension_tests.BaseMissingTests):
         # `geopandas\tests\test_pandas_methods.py::test_fillna_scalar`
         # and `geopandas\tests\test_pandas_methods.py::test_fillna_series`.
 
-    @pytest.mark.skipif(
-        not PANDAS_GE_21, reason="fillna method not supported with older pandas"
-    )
     def test_fillna_limit_pad(self, data_missing):
         super().test_fillna_limit_pad(data_missing)
 
-    @pytest.mark.skipif(
-        not PANDAS_GE_21, reason="fillna method not supported with older pandas"
-    )
     def test_fillna_limit_backfill(self, data_missing):
         super().test_fillna_limit_backfill(data_missing)
 
-    @pytest.mark.skipif(
-        not PANDAS_GE_21, reason="fillna method not supported with older pandas"
-    )
     def test_fillna_series_method(self, data_missing, fillna_method):
         super().test_fillna_series_method(data_missing, fillna_method)
 
-    @pytest.mark.skipif(
-        not PANDAS_GE_21, reason="fillna method not supported with older pandas"
-    )
     def test_fillna_no_op_returns_copy(self, data):
         super().test_fillna_no_op_returns_copy(data)
 
@@ -496,16 +517,13 @@ class TestMissing(extension_tests.BaseMissingTests):
         super().test_fillna_readonly(data_missing)
 
 
-if PANDAS_GE_22:
-    from pandas.tests.extension.base import BaseReduceTests
-else:
-    from pandas.tests.extension.base import BaseNoReduceTests as BaseReduceTests
+from pandas.tests.extension.base import BaseReduceTests
 
 
 class TestReduce(BaseReduceTests):
-    @pytest.mark.skip("boolean reduce (any/all) tested in test_pandas_methods")
-    def test_reduce_series_boolean(self):
-        pass
+    def _supports_reduction(self, ser: pd.Series, op_name: str) -> bool:
+        # Specify if we expect this reduction to succeed.
+        return op_name in ("count", "any", "all")
 
 
 _all_arithmetic_operators = [
@@ -535,11 +553,6 @@ def all_arithmetic_operators(request):
     return request.param
 
 
-# an inherited test from pandas creates a Series from a list of geometries, which
-# triggers the warning from Shapely, out of control of GeoPandas, so ignoring here
-@pytest.mark.filterwarnings(
-    "ignore:The array interface is deprecated and will no longer work in Shapely 2.0"
-)
 class TestArithmeticOps(extension_tests.BaseArithmeticOpsTests):
     @pytest.mark.skip(reason="not applicable")
     def test_divmod_series_array(self, data, data_for_twos):
@@ -550,11 +563,6 @@ class TestArithmeticOps(extension_tests.BaseArithmeticOpsTests):
         pass
 
 
-# an inherited test from pandas creates a Series from a list of geometries, which
-# triggers the warning from Shapely, out of control of GeoPandas, so ignoring here
-@pytest.mark.filterwarnings(
-    "ignore:The array interface is deprecated and will no longer work in Shapely 2.0"
-)
 class TestComparisonOps(extension_tests.BaseComparisonOpsTests):
     def _compare_other(self, s, data, op_name, other):
         op = getattr(operator, op_name.strip("_"))
@@ -623,6 +631,15 @@ class TestMethods(extension_tests.BaseMethodsTests):
     @no_minmax
     def test_argmax_argmin_no_skipna_notimplemented(self):
         pass
+
+    # https://github.com/geopandas/geopandas/issues/1906
+    @pytest.mark.xfail(reason="JSON serialization not yet working")
+    def test_values_for_json(self, data):
+        super().test_values_for_json(data)
+
+    @pytest.mark.xfail(reason="JSON serialization not yet working")
+    def test_json_roundtrip(self, data):
+        super().test_json_roundtrip(data)
 
 
 class TestCasting(extension_tests.BaseCastingTests):

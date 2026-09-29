@@ -2,6 +2,7 @@ import collections.abc
 import datetime
 import google.protobuf.message
 import modal._environments
+import modal.app
 import modal.client
 import modal.object
 import modal.types
@@ -114,6 +115,53 @@ class EnvironmentManager:
             ...
 
     delete: __delete_spec
+
+class EnvironmentAppsManager:
+    """mdmd:namespace"""
+    def __init__(self, environment: Environment):
+        """mdmd:hidden"""
+        ...
+
+    class __list_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> list[modal.app.App]:
+            """Return handles for live Apps in this Environment.
+
+            The returned handles reference existing remote Apps and can be used with APIs such as
+            [`App.info()`](https://modal.com/docs/sdk/py/latest/App#info),
+            [`App.logs`](https://modal.com/docs/sdk/py/latest/App#logs), and
+            [`Sandbox.create()`](https://modal.com/docs/sdk/py/latest/Sandbox#create). Listing Apps does not create
+            Apps.
+
+            Examples:
+
+            ```python notest
+            environment = modal.Environment.from_name("prod")
+            apps = environment.apps.list()
+            print([app.name for app in apps])
+            ```
+            """
+            ...
+
+        async def aio(self, /) -> list[modal.app.App]:
+            """Return handles for live Apps in this Environment.
+
+            The returned handles reference existing remote Apps and can be used with APIs such as
+            [`App.info()`](https://modal.com/docs/sdk/py/latest/App#info),
+            [`App.logs`](https://modal.com/docs/sdk/py/latest/App#logs), and
+            [`Sandbox.create()`](https://modal.com/docs/sdk/py/latest/Sandbox#create). Listing Apps does not create
+            Apps.
+
+            Examples:
+
+            ```python notest
+            environment = modal.Environment.from_name("prod")
+            apps = environment.apps.list()
+            print([app.name for app in apps])
+            ```
+            """
+            ...
+
+    list: __list_spec
 
 class EnvironmentRolesManager:
     """mdmd:namespace"""
@@ -459,6 +507,11 @@ class Environment(modal.object.Object):
     @property
     def members(self) -> EnvironmentMembersManager:
         """mdmd:hidden"""
+        ...
+
+    @property
+    def apps(self) -> EnvironmentAppsManager:
+        """Namespace for accessing Apps deployed in this Environment."""
         ...
 
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...

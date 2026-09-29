@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import json
+import logging
 import os
 import signal
 import shutil
@@ -223,6 +224,7 @@ class CrawlRunner:
         self.snapshot_service = SnapshotService(
             self.bus,
             crawl_id=str(crawl.id),
+            interrupted=self.execution_interrupted,
         )
         HookArchiveResultService(self.bus, emit_jsonl=False)
         ArchiveResultService(self.bus)
@@ -233,7 +235,7 @@ class CrawlRunner:
         self.snapshot_semaphore = asyncio.Semaphore(1)
         self.max_concurrent_snapshots = 1
         self._warmup_snapshot_id: str | None = None
-        self._memory_baseline: tuple[int, int] | None = None
+        self._memory_baseline: int | None = None
         self._memory_peak_cost = 0
         self._observed_snapshot_cost: int | None = None
         self._resource_deferred = False
@@ -256,6 +258,10 @@ class CrawlRunner:
         # for timely delivery of a final "stop now" event.
         self._signal_abort_requested = False
         self._last_lease_heartbeat_at = 0.0
+
+    def execution_interrupted(self) -> bool:
+        """Owner loss preserves work; explicit user abort keeps its sealing policy."""
+        return self._signal_abort_requested and not self._user_aborted
 
     async def on_CrawlAbortEvent(self, event: CrawlAbortEvent) -> None:
         self._signal_abort_requested = True
@@ -506,7 +512,7 @@ class CrawlRunner:
             return
         if self._observed_snapshot_cost is None and self._warmup_snapshot_id is None:
             observation = resource_admission.memory_headroom()
-            self._memory_baseline = (observation[0], observation[2]) if observation is not None else None
+            self._memory_baseline = observation[0] if observation is not None else None
             self._memory_peak_cost = 0
             self._warmup_snapshot_id = snapshot_id
         if isinstance(current_event, CrawlStartEvent):
@@ -596,15 +602,13 @@ class CrawlRunner:
             return
         observation = resource_admission.memory_headroom()
         if observation is not None:
-            used, _available, host_available = observation
-            baseline_used, baseline_host_available = self._memory_baseline
-            # Host headroom sees helpers outside ArchiveBox's cgroup. Keep a
-            # high-water cost as later URLs may use more than the first one.
-            # Never divide concurrent growth by task count: their pages vary.
+            used, _available = observation
+            # Only attribute this workload's growth to a capture. Other jobs on
+            # the host reduce available headroom, but are not a per-capture cost
+            # to multiply again for every snapshot we want to admit.
             self._memory_peak_cost = max(
                 self._memory_peak_cost,
-                used - baseline_used,
-                baseline_host_available - host_available,
+                used - self._memory_baseline,
             )
             if self._observed_snapshot_cost is not None:
                 self._observed_snapshot_cost = max(self._observed_snapshot_cost, self._memory_peak_cost)
@@ -615,6 +619,13 @@ class CrawlRunner:
         self._observe_snapshot_memory()
         if self._memory_peak_cost > 0:
             self._observed_snapshot_cost = self._memory_peak_cost
+            headroom = resource_admission.memory_headroom()
+            logging.getLogger(__name__).info(
+                "Snapshot admission: concurrency limit=%s, observed memory growth=%s bytes, available=%s bytes",
+                self.max_concurrent_snapshots,
+                self._observed_snapshot_cost,
+                headroom[1] if headroom else None,
+            )
         else:
             # No observed cost cannot justify parallel admission. Probe the
             # next real snapshot while the queue keeps moving one at a time.
@@ -716,6 +727,9 @@ class CrawlRunner:
         from archivebox.machine.models import Machine, NetworkInterface, Process
 
         self.primary_url = self.crawl.get_urls_list()[0] if self.crawl.get_urls_list() else ""
+        # Validate saved binary paths at the execution boundary, including
+        # config edited since this process first registered its Machine.
+        machine = Machine._sanitize_config(Machine.current())
         current_iface = NetworkInterface.current(refresh=not self.allow_maintenance_on_inactive_crawl)
         current_process = Process.current()
         if current_process.iface_id != current_iface.id or current_process.machine_id != current_iface.machine_id:
@@ -724,7 +738,7 @@ class CrawlRunner:
             current_process.save(update_fields=["iface", "machine", "modified_at"])
         self.persona = self.crawl.resolve_persona()
         self.base_config = get_config(crawl=self.crawl, overrides=self.config_overrides)
-        self.derived_config = dict(Machine.current().config or {})
+        self.derived_config = dict(machine.config or {})
         self.crawl_output_dir = str(self.crawl.output_dir)
         if self.persona:
             self.base_config.update(
@@ -1122,18 +1136,17 @@ class CrawlRunner:
             finally:
                 cancel_watcher.cancel()
                 await asyncio.gather(cancel_watcher, return_exceptions=True)
-            completed_event = event.emit(
-                CrawlCompletedEvent(
-                    url=snapshot["url"],
-                    snapshot_id=snapshot["id"],
-                    output_dir=str(output_dir),
-                ),
-            )
-            # Same signal lifecycle as CrawlCleanupEvent above: completion is a
-            # normal bus event unless the interpreter is already unwinding from
-            # SIGINT/SIGTERM/SIGHUP, where synchronous bus delivery is no
-            # longer a dependable shutdown primitive.
-            if not self._signal_abort_requested:
+            # emit() schedules handlers immediately; guarding only the await
+            # still lets completion projectors run during takeover. An aborted
+            # execution owner must leave durable work for its replacement.
+            if not self.execution_interrupted():
+                completed_event = event.emit(
+                    CrawlCompletedEvent(
+                        url=snapshot["url"],
+                        snapshot_id=snapshot["id"],
+                        output_dir=str(output_dir),
+                    ),
+                )
                 await _run_event_now(completed_event, CrawlCompletedEvent.model_fields["event_timeout"].default)
 
         on_archivebox_CrawlStartEvent.__name__ = "on_archivebox_CrawlStartEvent__run_snapshots"
@@ -1270,6 +1283,8 @@ class CrawlRunner:
                     raise RuntimeError(f"Snapshot {snapshot_id} did not complete")
                 await completed_snapshot.wait(timeout=snapshot_phase_timeout)
                 await completed_snapshot.event_results_list()
+                if self.execution_interrupted():
+                    return
                 if snapshot["status"] == "sealed":
                     await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id, output_dir=output_dir)
                     return

@@ -73,7 +73,7 @@ void Adapter::set_callback_on_power_off(std::function<void()> on_power_off) {
 }
 
 void Adapter::scan_start() {
-    if (!bluetooth_enabled()) {
+    if (!(*this)->bluetooth_enabled()) {
         SIMPLEBLE_LOG_WARN(fmt::format("Bluetooth is not enabled."));
         return;
     }
@@ -81,7 +81,7 @@ void Adapter::scan_start() {
 }
 
 void Adapter::scan_stop() {
-    if (!bluetooth_enabled()) {
+    if (!(*this)->bluetooth_enabled()) {
         SIMPLEBLE_LOG_WARN(fmt::format("Bluetooth is not enabled."));
         return;
     }
@@ -89,7 +89,7 @@ void Adapter::scan_stop() {
 }
 
 void Adapter::scan_for(int timeout_ms) {
-    if (!bluetooth_enabled()) {
+    if (!(*this)->bluetooth_enabled()) {
         SIMPLEBLE_LOG_WARN(fmt::format("Bluetooth is not enabled."));
         return;
     }
@@ -102,7 +102,11 @@ std::vector<Peripheral> Adapter::scan_get_results() { return Factory::vector((*t
 
 std::vector<Peripheral> Adapter::get_paired_peripherals() { return Factory::vector((*this)->get_paired_peripherals()); }
 
-std::vector<Peripheral> Adapter::get_connected_peripherals() { return Factory::vector((*this)->get_connected_peripherals()); }
+std::vector<Peripheral> Adapter::get_connected_peripherals() {
+    return Factory::vector((*this)->get_connected_peripherals());
+}
+
+Local::Peripheral Adapter::create_local_peripheral() { return Factory::build((*this)->create_local_peripheral()); }
 
 void Adapter::set_callback_on_scan_start(std::function<void()> on_scan_start) {
     (*this)->set_callback_on_scan_start(std::move(on_scan_start));

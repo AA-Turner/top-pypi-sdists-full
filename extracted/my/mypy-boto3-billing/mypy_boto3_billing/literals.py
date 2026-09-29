@@ -37,6 +37,8 @@ __all__ = (
     "GetCreditAllocationHistoryPaginatorName",
     "ListBillingViewSegmentsPaginatorName",
     "ListBillingViewsPaginatorName",
+    "ListBusinessSupportAccountChargesPaginatorName",
+    "ListBusinessSupportSubscriptionHistoryPaginatorName",
     "ListEnterpriseSupportLinkedAccountChargesPaginatorName",
     "ListSourceViewsForBillingViewPaginatorName",
     "PaginatorName",
@@ -79,6 +81,10 @@ DimensionType = Literal["LINKED_ACCOUNT"]
 GetCreditAllocationHistoryPaginatorName = Literal["get_credit_allocation_history"]
 ListBillingViewSegmentsPaginatorName = Literal["list_billing_view_segments"]
 ListBillingViewsPaginatorName = Literal["list_billing_views"]
+ListBusinessSupportAccountChargesPaginatorName = Literal["list_business_support_account_charges"]
+ListBusinessSupportSubscriptionHistoryPaginatorName = Literal[
+    "list_business_support_subscription_history"
+]
 ListEnterpriseSupportLinkedAccountChargesPaginatorName = Literal[
     "list_enterprise_support_linked_account_charges"
 ]
@@ -241,6 +247,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -527,6 +534,8 @@ PaginatorName = Literal[
     "get_credit_allocation_history",
     "list_billing_view_segments",
     "list_billing_views",
+    "list_business_support_account_charges",
+    "list_business_support_subscription_history",
     "list_enterprise_support_linked_account_charges",
     "list_source_views_for_billing_view",
 ]

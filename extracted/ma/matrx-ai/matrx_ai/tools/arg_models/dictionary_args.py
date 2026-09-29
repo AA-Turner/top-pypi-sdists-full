@@ -52,6 +52,16 @@ class DictDeleteEntriesWire(ToolArgs):
     ids: list[str]
 
 
+class DictRestoreEntriesWire(ToolArgs):
+    """Bring archived entries back (delete_entries archives them; migration 1355).
+    Re-adding the same term through upsert_entries revives it too."""
+
+    action: Literal["restore_entries"]
+    level: DictLevel
+    owner_id: str = ""
+    ids: list[str]
+
+
 class DictGetSettingsWire(ToolArgs):
     action: Literal["get_settings"]
     level: DictLevel
@@ -81,6 +91,7 @@ class DictionaryArgs(
                 DictResolveWire,
                 DictUpsertEntriesWire,
                 DictDeleteEntriesWire,
+                DictRestoreEntriesWire,
                 DictGetSettingsWire,
                 DictSetSettingsWire,
                 DictFetchUserContentWire,

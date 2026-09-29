@@ -20,6 +20,7 @@ import modal.running_app
 import modal.schedule
 import modal.secret
 import modal.server
+import modal.types
 import modal.volume
 import pathlib
 import synchronicity.combined_types
@@ -155,6 +156,7 @@ class _App:
     _running_app: typing.Optional[modal.running_app.RunningApp]
     _client: typing.Optional[modal.client._Client]
     _root_load_context: modal._load_context.LoadContext
+    _info: typing.Optional[modal.types.AppInfo]
 
     @property
     def _local_state(self) -> _LocalAppState:
@@ -194,6 +196,10 @@ class _App:
         """
         ...
 
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        ...
+
     @property
     def name(self) -> typing.Optional[str]:
         """The user-provided name of the App.
@@ -201,11 +207,6 @@ class _App:
         Returns:
             The configured app name, if any.
         """
-        ...
-
-    @property
-    def is_interactive(self) -> bool:
-        """mdmd:hidden"""
         ...
 
     @property
@@ -238,6 +239,18 @@ class _App:
     @description.setter
     def description(self, value):
         """mdmd:hidden"""
+        ...
+
+    @staticmethod
+    def _new_remote(
+        name: typing.Optional[str],
+        app_id: str,
+        environment_name: str,
+        client: modal.client._Client,
+        info: typing.Optional[modal.types.AppInfo] = None,
+        description: typing.Optional[str] = None,
+    ) -> _App:
+        """Construct a handle for an existing remote App without making an RPC."""
         ...
 
     @staticmethod
@@ -285,30 +298,7 @@ class _App:
         """
         ...
 
-    def set_description(self, description: str):
-        """mdmd:hidden
-        Set the description of the App before it starts running.
-
-        Note: we don't recommend using the method and may deprecate it in the future.
-        """
-        ...
-
     def _validate_blueprint_value(self, key: str, value: typing.Any): ...
-    @property
-    def image(self) -> modal._image._Image:
-        """mdmd:hidden
-        Retrieve the Image that will be used as the default for any Functions registered to the App.
-
-        Note: This property is only relevant in the build phase and won't be populated on a deployed
-        App that is retrieved via `modal.App.lookup`. It is likely to be deprecated in the future.
-        """
-        ...
-
-    @image.setter
-    def image(self, value):
-        """mdmd:hidden"""
-        ...
-
     def _uncreate_all_objects(self): ...
     def _set_local_app(
         self, client: modal.client._Client, running_app: modal.running_app.RunningApp
@@ -497,7 +487,7 @@ class _App:
         ...
 
     def local_entrypoint(
-        self, _warn_parentheses_missing: typing.Any = None, *, name: typing.Optional[str] = None
+        self, *, name: typing.Optional[str] = None
     ) -> collections.abc.Callable[[collections.abc.Callable[..., typing.Any]], _LocalEntrypoint]:
         """Decorate a function to be used as a CLI entrypoint for a Modal App.
 
@@ -557,7 +547,6 @@ class _App:
 
     def function(
         self,
-        _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal._image._Image] = None,
         schedule: typing.Optional[modal.schedule.Schedule] = None,
@@ -656,7 +645,6 @@ class _App:
     )
     def cls(
         self,
-        _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal._image._Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
@@ -694,7 +682,9 @@ class _App:
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         _experimental_restrict_output: bool = False,
         max_inputs: typing.Optional[int] = None,
-    ) -> collections.abc.Callable[[typing.Union[CLS_T, modal._partial_function._PartialFunction]], CLS_T]:
+    ) -> collections.abc.Callable[
+        [typing.Union[CLS_T, modal._partial_function._PartialFunction[..., typing.Any, typing.Any]]], CLS_T
+    ]:
         """Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/Cls) with this App.
 
         Args:
@@ -742,7 +732,6 @@ class _App:
 
     def server(
         self,
-        _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal._image._Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
@@ -757,6 +746,7 @@ class _App:
         memory: typing.Union[int, tuple[int, int], None] = None,
         ephemeral_disk: typing.Optional[int] = None,
         target_concurrency: typing.Optional[float] = None,
+        max_concurrency: typing.Optional[int] = None,
         min_containers: typing.Optional[int] = None,
         max_containers: typing.Optional[int] = None,
         buffer_containers: typing.Optional[int] = None,
@@ -778,7 +768,8 @@ class _App:
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
     ) -> collections.abc.Callable[
-        [typing.Union[type[typing.Any], modal._partial_function._PartialFunction]], modal._server._Server
+        [typing.Union[type[typing.Any], modal._partial_function._PartialFunction[..., typing.Any, typing.Any]]],
+        modal._server._Server,
     ]:
         """Decorator to register a new Modal Server with this App.
 
@@ -806,6 +797,9 @@ class _App:
             target_concurrency:
                 Target number of concurrent requests per container; 0 disables autoscaling. May be
                 fractional, e.g. 1.5 to target three concurrent requests per two containers.
+            max_concurrency:
+                Maximum number of concurrent requests per container. Requests above this limit
+                receive a 503 response. If set to 0 or unset, request concurrency is unlimited.
             min_containers: Minimum number of containers to keep running regardless of demand.
             max_containers: Limit on the number of containers that can be concurrently running.
             buffer_containers: Extra containers to scale up beyond current demand.
@@ -940,6 +934,24 @@ class _App:
         """
         ...
 
+    async def info(self, refresh: bool = False) -> modal.types.AppInfo:
+        """Return information for a modal `App`.
+
+        The information returned includes the App's ID, member functions and servers,
+        as well as basic lifecycle information, e.g. who created the app and when.
+
+        Args:
+            refresh: Whether to fetch the latest info. By default, false, so
+                the info corresponds the App state at the time of the previous lookup.
+
+        See also:
+            - [`AppInfo`](https://modal.com/docs/sdk/py/latest/types#appinfo)
+
+        Returns:
+            `AppInfo` object.
+        """
+        ...
+
 SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 
 class App:
@@ -983,6 +995,7 @@ class App:
     _running_app: typing.Optional[modal.running_app.RunningApp]
     _client: typing.Optional[modal.client.Client]
     _root_load_context: modal._load_context.LoadContext
+    _info: typing.Optional[modal.types.AppInfo]
 
     def __init__(
         self,
@@ -1022,6 +1035,7 @@ class App:
         """For internal use only. Do not use this property directly."""
         ...
 
+    def __repr__(self) -> str: ...
     @property
     def name(self) -> typing.Optional[str]:
         """The user-provided name of the App.
@@ -1029,11 +1043,6 @@ class App:
         Returns:
             The configured app name, if any.
         """
-        ...
-
-    @property
-    def is_interactive(self) -> bool:
-        """mdmd:hidden"""
         ...
 
     @property
@@ -1066,6 +1075,18 @@ class App:
     @description.setter
     def description(self, value):
         """mdmd:hidden"""
+        ...
+
+    @staticmethod
+    def _new_remote(
+        name: typing.Optional[str],
+        app_id: str,
+        environment_name: str,
+        client: modal.client.Client,
+        info: typing.Optional[modal.types.AppInfo] = None,
+        description: typing.Optional[str] = None,
+    ) -> App:
+        """Construct a handle for an existing remote App without making an RPC."""
         ...
 
     class __lookup_spec(typing_extensions.Protocol):
@@ -1166,30 +1187,7 @@ class App:
 
     get_dashboard_url: __get_dashboard_url_spec
 
-    def set_description(self, description: str):
-        """mdmd:hidden
-        Set the description of the App before it starts running.
-
-        Note: we don't recommend using the method and may deprecate it in the future.
-        """
-        ...
-
     def _validate_blueprint_value(self, key: str, value: typing.Any): ...
-    @property
-    def image(self) -> modal.image.Image:
-        """mdmd:hidden
-        Retrieve the Image that will be used as the default for any Functions registered to the App.
-
-        Note: This property is only relevant in the build phase and won't be populated on a deployed
-        App that is retrieved via `modal.App.lookup`. It is likely to be deprecated in the future.
-        """
-        ...
-
-    @image.setter
-    def image(self, value):
-        """mdmd:hidden"""
-        ...
-
     def _uncreate_all_objects(self): ...
 
     class ___set_local_app_spec(typing_extensions.Protocol):
@@ -1527,7 +1525,7 @@ class App:
         ...
 
     def local_entrypoint(
-        self, _warn_parentheses_missing: typing.Any = None, *, name: typing.Optional[str] = None
+        self, *, name: typing.Optional[str] = None
     ) -> collections.abc.Callable[[collections.abc.Callable[..., typing.Any]], LocalEntrypoint]:
         """Decorate a function to be used as a CLI entrypoint for a Modal App.
 
@@ -1587,7 +1585,6 @@ class App:
 
     def function(
         self,
-        _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal.image.Image] = None,
         schedule: typing.Optional[modal.schedule.Schedule] = None,
@@ -1686,7 +1683,6 @@ class App:
     )
     def cls(
         self,
-        _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal.image.Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
@@ -1724,7 +1720,9 @@ class App:
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         _experimental_restrict_output: bool = False,
         max_inputs: typing.Optional[int] = None,
-    ) -> collections.abc.Callable[[typing.Union[CLS_T, modal.partial_function.PartialFunction]], CLS_T]:
+    ) -> collections.abc.Callable[
+        [typing.Union[CLS_T, modal.partial_function.PartialFunction[..., typing.Any, typing.Any]]], CLS_T
+    ]:
         """Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/Cls) with this App.
 
         Args:
@@ -1772,7 +1770,6 @@ class App:
 
     def server(
         self,
-        _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal.image.Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
@@ -1787,6 +1784,7 @@ class App:
         memory: typing.Union[int, tuple[int, int], None] = None,
         ephemeral_disk: typing.Optional[int] = None,
         target_concurrency: typing.Optional[float] = None,
+        max_concurrency: typing.Optional[int] = None,
         min_containers: typing.Optional[int] = None,
         max_containers: typing.Optional[int] = None,
         buffer_containers: typing.Optional[int] = None,
@@ -1808,7 +1806,8 @@ class App:
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
     ) -> collections.abc.Callable[
-        [typing.Union[type[typing.Any], modal.partial_function.PartialFunction]], modal.server.Server
+        [typing.Union[type[typing.Any], modal.partial_function.PartialFunction[..., typing.Any, typing.Any]]],
+        modal.server.Server,
     ]:
         """Decorator to register a new Modal Server with this App.
 
@@ -1836,6 +1835,9 @@ class App:
             target_concurrency:
                 Target number of concurrent requests per container; 0 disables autoscaling. May be
                 fractional, e.g. 1.5 to target three concurrent requests per two containers.
+            max_concurrency:
+                Maximum number of concurrent requests per container. Requests above this limit
+                receive a 503 response. If set to 0 or unset, request concurrency is unlimited.
             min_containers: Minimum number of containers to keep running regardless of demand.
             max_containers: Limit on the number of containers that can be concurrently running.
             buffer_containers: Extra containers to scale up beyond current demand.
@@ -2011,5 +2013,44 @@ class App:
                 CLI access to logs for an App.
         """
         ...
+
+    class __info_spec(typing_extensions.Protocol):
+        def __call__(self, /, refresh: bool = False) -> modal.types.AppInfo:
+            """Return information for a modal `App`.
+
+            The information returned includes the App's ID, member functions and servers,
+            as well as basic lifecycle information, e.g. who created the app and when.
+
+            Args:
+                refresh: Whether to fetch the latest info. By default, false, so
+                    the info corresponds the App state at the time of the previous lookup.
+
+            See also:
+                - [`AppInfo`](https://modal.com/docs/sdk/py/latest/types#appinfo)
+
+            Returns:
+                `AppInfo` object.
+            """
+            ...
+
+        async def aio(self, /, refresh: bool = False) -> modal.types.AppInfo:
+            """Return information for a modal `App`.
+
+            The information returned includes the App's ID, member functions and servers,
+            as well as basic lifecycle information, e.g. who created the app and when.
+
+            Args:
+                refresh: Whether to fetch the latest info. By default, false, so
+                    the info corresponds the App state at the time of the previous lookup.
+
+            See also:
+                - [`AppInfo`](https://modal.com/docs/sdk/py/latest/types#appinfo)
+
+            Returns:
+                `AppInfo` object.
+            """
+            ...
+
+    info: __info_spec
 
 _default_image: modal._image._Image

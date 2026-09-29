@@ -68,6 +68,14 @@ class DelegationNotDurable(RuntimeError):
 # matrx_ai.tools, which queue_helpers transitively reaches via cx_managers).
 
 
+#: ``chat.tool_call.metadata`` key naming what a SERVER park waits on — a person
+#: answering an action request (``{"kind": "action_request", "action_request_id"}``).
+#: A row carrying it is never a client tool: ``list_pending_calls`` never offers
+#: it and a client ``/tool_results`` POST may not answer it; only the
+#: action-request resolver resolves it (Lane L live walk, 2026-09-28).
+PARKED_ON_KEY = "parked_on"
+
+
 def _cxm():
     # Lazy: resolving cxm constructs host-injected ORM managers, which requires
     # matrx_ai.configure(). Import at call time so `import matrx_ai.tools`
@@ -736,7 +744,8 @@ class ToolExecutionLogger:
             "success": False,
             "is_error": True,
             "error_type": result.error.error_type if result.error else "unknown",
-            "error_message": result.error.message if result.error else "Unknown error",
+            # The message AND its instruction lines — a rebuilt turn replays this.
+            "error_message": result.error.persisted_message() if result.error else "Unknown error",
             "duration_ms": result.duration_ms,
             "completed_at": datetime.fromtimestamp(result.completed_at, tz=UTC).isoformat()
             if result.completed_at
@@ -764,12 +773,25 @@ class ToolExecutionLogger:
         *,
         expires_at: datetime,
         allow_desktop_target: bool = True,
+        parked_on: dict[str, Any] | None = None,
     ) -> None:
         update_data: dict[str, Any] = {
             "status": "delegated",
             "is_client_delegated": True,
             "expires_at": expires_at.isoformat(),
         }
+        if parked_on is not None:
+            # A SERVER park waiting on a PERSON (an action request), written in the
+            # SAME update as the park so no reader ever sees the park without it.
+            # `status`/`is_client_delegated` are the resume machinery's keys and
+            # stay; this marker is what keeps a client from treating the call as
+            # its own tool (list_pending_calls, resolve_client_tool_results).
+            rows = await _cxm().tool_call.filter_items(id=row_id)
+            existing = getattr(rows[0], "metadata", None) if rows else None
+            update_data["metadata"] = {
+                **(existing if isinstance(existing, dict) else {}),
+                PARKED_ON_KEY: dict(parked_on),
+            }
         # Pin this suspend to its runtime-spine execution (the WAITING_INPUT root the
         # resume must re-attach to). Without it, a conversation with TWO concurrent
         # suspended turns resumes against the NEWEST root — mis-attributing the other
@@ -803,8 +825,12 @@ class ToolExecutionLogger:
         expires_at: datetime,
         allow_desktop_target: bool = True,
         reason: str,
+        parked_on: dict[str, Any] | None = None,
     ) -> None:
         """Park a tool call, commit the park, and PROVE it is on disk.
+
+        ``parked_on`` marks a server park that waits on a person (``{"kind":
+        "action_request", "action_request_id": …}``); see :data:`PARKED_ON_KEY`.
 
         🚨 WHY THIS EXISTS. ``log_delegated`` is a QUEUED write. Every consumer
         of a parked turn — ``_resolve_resume_user_request_id``,
@@ -849,7 +875,10 @@ class ToolExecutionLogger:
 
         if coordinator is not None:
             await self.log_delegated(
-                row_id, expires_at=expires_at, allow_desktop_target=allow_desktop_target
+                row_id,
+                expires_at=expires_at,
+                allow_desktop_target=allow_desktop_target,
+                parked_on=parked_on,
             )
             await coordinator.finalize(reason=f"{reason}_pre_client_delegation_commit")
         else:
@@ -857,13 +886,18 @@ class ToolExecutionLogger:
 
             async with standalone_coordinator(reason=reason):
                 await self.log_delegated(
-                    row_id, expires_at=expires_at, allow_desktop_target=allow_desktop_target
+                    row_id,
+                    expires_at=expires_at,
+                    allow_desktop_target=allow_desktop_target,
+                    parked_on=parked_on,
                 )
 
-        await self.assert_delegated_on_disk(row_id, reason=reason)
+        await self.assert_delegated_on_disk(row_id, reason=reason, parked_on=parked_on)
 
     @staticmethod
-    async def assert_delegated_on_disk(row_id: str, *, reason: str) -> None:
+    async def assert_delegated_on_disk(
+        row_id: str, *, reason: str, parked_on: dict[str, Any] | None = None
+    ) -> None:
         """Read the row back and refuse to call an unwritten park a park."""
         rows = await _cxm().tool_call.filter_items(id=row_id)
         row = rows[0] if rows else None
@@ -875,8 +909,18 @@ class ToolExecutionLogger:
         status = str(getattr(row, "status", "") or "")
         is_delegated = bool(getattr(row, "is_client_delegated", False))
         expires_at_on_disk = getattr(row, "expires_at", None)
-        if status == "delegated" and is_delegated and expires_at_on_disk is not None:
+        metadata = getattr(row, "metadata", None)
+        marked = parked_on is None or (
+            isinstance(metadata, dict) and metadata.get(PARKED_ON_KEY) == dict(parked_on)
+        )
+        if status == "delegated" and is_delegated and expires_at_on_disk is not None and marked:
             return
+        if not marked:
+            raise DelegationNotDurable(
+                f"{reason}: chat.tool_call {row_id!r} is parked but its "
+                f"metadata.{PARKED_ON_KEY} marker did not land — a client would treat "
+                "a call waiting on a person as its own tool, so the park is refused."
+            )
         raise DelegationNotDurable(
             f"{reason}: the delegation write for chat.tool_call {row_id!r} did not "
             f"land — the row reads status={status!r}, "

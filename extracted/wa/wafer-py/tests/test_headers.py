@@ -101,6 +101,83 @@ class TestRefererChain:
         headers = mock.last_kwargs.get("headers", {})
         assert headers.get("Referer") == "https://google.com"
 
+    @patch("time.sleep")
+    def test_referer_chain_is_a_same_origin_link_click(self, mock_sleep):
+        """A navigation with a Referer came from that page: Chrome never
+        sends Sec-Fetch-Site: none beside a Referer."""
+        session, mock = make_sync_session([
+            MockResponse(200, body="page A"),
+            MockResponse(200, body="page B"),
+        ])
+        session.get("https://example.com/a")
+        assert "Sec-Fetch-Site" not in mock.last_kwargs["headers"]
+        session.get("https://example.com/b")
+        headers = mock.last_kwargs["headers"]
+        assert headers["Referer"] == "https://example.com/a"
+        assert headers["Sec-Fetch-Site"] == "same-origin"
+
+    @pytest.mark.parametrize(
+        ("referer", "site"),
+        [
+            ("https://www.example.com/x", "same-site"),
+            ("https://google.com/", "cross-site"),
+            ("http://api.example.com/", "cross-site"),
+            ("https://api.example.com:8443/", "same-site"),
+            ("https://api.example.com/y", "same-origin"),
+        ],
+    )
+    def test_caller_referer_sets_the_site_relation(self, referer, site):
+        session, _ = make_sync_session([])
+        headers = session._build_headers(
+            "https://api.example.com/", {"Referer": referer}
+        )
+        assert headers["Sec-Fetch-Site"] == site
+
+    def test_caller_sec_fetch_site_is_kept(self):
+        session, _ = make_sync_session([])
+        headers = session._build_headers(
+            "https://example.com/",
+            {"Referer": "https://google.com/", "sec-fetch-site": "none"},
+        )
+        assert headers["sec-fetch-site"] == "none"
+        assert "Sec-Fetch-Site" not in headers
+
+    def test_session_sec_fetch_site_is_kept(self):
+        from wafer import SyncSession
+
+        with SyncSession(headers={"Sec-Fetch-Site": "cross-site"}) as s:
+            s._last_url["example.com"] = "https://example.com/a"
+            headers = s._build_headers("https://example.com/b")
+        assert headers["Referer"] == "https://example.com/a"
+        assert "Sec-Fetch-Site" not in headers  # the client-level value stands
+
+    def test_safari_identity_replaces_its_client_level_none(self):
+        from wafer import Profile
+
+        session, _ = make_sync_session([], profile=Profile.IOS_SAFARI)
+        assert session._client_headers["Sec-Fetch-Site"] == "none"
+        headers = session._build_headers(
+            "https://example.com/b", {"Referer": "https://example.com/a"}
+        )
+        assert headers["Sec-Fetch-Site"] == "same-origin"
+
+    @pytest.mark.parametrize("profile", ["dart", "okhttp"])
+    def test_clients_without_fetch_metadata_get_none_added(self, profile):
+        from wreq import Emulation
+
+        from wafer import Profile, SyncSession
+
+        kwargs = (
+            {"profile": Profile.DART}
+            if profile == "dart"
+            else {"emulation": Emulation.OkHttp4_12}
+        )
+        with SyncSession(**kwargs) as s:
+            headers = s._build_headers(
+                "https://example.com/b", {"Referer": "https://example.com/a"}
+            )
+        assert not any(k.lower() == "sec-fetch-site" for k in headers)
+
     @pytest.mark.asyncio
     async def test_async_referer_chain(self):
         """Async session should also track referer chain."""
@@ -748,10 +825,12 @@ class TestEmbedOwnedHeaders:
         from wreq import Emulation
 
         from wafer import SyncSession
+        from wafer._fingerprint import chromium_navigation_order
 
         kwargs = SyncSession()._build_client_kwargs()
         assert isinstance(kwargs["emulation"], Emulation)
-        assert "orig_headers" not in kwargs
+        # wreq's header set stays on; wafer only fixes Chrome's order.
+        assert kwargs["orig_headers"] == chromium_navigation_order()
 
     @pytest.mark.parametrize("embed", ["xhr", "xhr-jquery"])
     def test_xhr_sends_no_navigation_headers(self, embed):
@@ -861,7 +940,183 @@ class TestEmbedOwnedHeaders:
         assert "orig_headers" not in kwargs
 
     def test_suspended_embed_restores_navigation_headers(self):
+        from wafer._fingerprint import chromium_navigation_order, embed_header_order
+
         session = self._session("xhr")
         with session._embed_suspended():
-            assert "orig_headers" not in session._build_client_kwargs()
-        assert "orig_headers" in session._build_client_kwargs()
+            assert (
+                session._build_client_kwargs()["orig_headers"]
+                == chromium_navigation_order()
+            )
+        assert session._build_client_kwargs()["orig_headers"] == embed_header_order(
+            "chromium", "xhr"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Client Hints and Cache-Control as Chrome sends them
+# ---------------------------------------------------------------------------
+
+
+class TestClientHintsAndRevalidation:
+    """Chrome 153, captured 2026-09-27: a navigation carries only the
+    low-entropy hints until the origin sends Accept-CH, Critical-CH makes it
+    resend once, and only a form POST revalidates with Cache-Control."""
+
+    _HIGH = {
+        "sec-ch-ua-arch",
+        "sec-ch-ua-bitness",
+        "sec-ch-ua-full-version",
+        "sec-ch-ua-full-version-list",
+        "sec-ch-ua-model",
+        "sec-ch-ua-platform-version",
+    }
+
+    def test_first_navigation_has_low_entropy_hints_and_no_cache_control(self):
+        from wafer import SyncSession
+
+        s = SyncSession()
+        client = {k.lower() for k in s._build_client_kwargs()["headers"]}
+        assert {"sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform"} <= client
+        assert not client & self._HIGH
+        assert "cache-control" not in client
+        built = {k.lower() for k in s._build_headers("https://example.com/")}
+        assert not built & self._HIGH
+        assert "cache-control" not in built
+
+    @patch("time.sleep")
+    def test_accept_ch_scopes_requested_hints_to_its_origin(self, mock_sleep):
+        session, _ = make_sync_session(
+            [
+                MockResponse(
+                    200,
+                    {"accept-ch": "Sec-CH-UA-Full-Version-List, Sec-CH-UA-Arch"},
+                    "<html>a</html>",
+                )
+            ]
+        )
+        session.get("https://a.example/")
+        same = {k.lower() for k in session._build_headers("https://a.example/x")}
+        other = {k.lower() for k in session._build_headers("https://b.example/")}
+        assert same & self._HIGH == {"sec-ch-ua-full-version-list", "sec-ch-ua-arch"}
+        assert not other & self._HIGH
+
+    @patch("time.sleep")
+    def test_accept_ch_outside_a_secure_context_is_ignored(self, mock_sleep):
+        session, _ = make_sync_session(
+            [MockResponse(200, {"accept-ch": "Sec-CH-UA-Arch"}, "<html>a</html>")]
+        )
+        session.get("http://a.example/")
+        assert session._accept_ch == {}
+
+    @patch("time.sleep")
+    def test_critical_ch_resends_once_with_the_hint(self, mock_sleep):
+        critical = {
+            "accept-ch": "Sec-CH-UA-Full-Version-List",
+            "critical-ch": "Sec-CH-UA-Full-Version-List",
+        }
+        session, mock = make_sync_session(
+            [
+                MockResponse(200, critical, "<html>first</html>"),
+                MockResponse(200, critical, "<html>second</html>"),
+                MockResponse(200, critical, "<html>third</html>"),
+            ]
+        )
+        resp = session.get("https://a.example/")
+        assert resp.text == "<html>second</html>"
+        assert mock.request_count == 2
+        sent = {k.lower() for k in mock.last_kwargs["headers"]}
+        assert "sec-ch-ua-full-version-list" in sent
+
+    def test_only_a_post_navigation_revalidates(self):
+        from wafer import SyncSession
+
+        s = SyncSession()
+        assert s._build_headers("https://a.example/", method="POST")[
+            "Cache-Control"
+        ] == "max-age=0"
+        assert "Cache-Control" not in s._build_headers("https://a.example/")
+        kept = s._build_headers(
+            "https://a.example/", {"Cache-Control": "no-cache"}, method="POST"
+        )
+        assert kept["Cache-Control"] == "no-cache"
+
+    def test_firefox_navigation_is_left_to_wreq(self):
+        from wreq import Emulation
+
+        from wafer import SyncSession
+
+        s = SyncSession(emulation=Emulation.Firefox151)
+        s._accept_ch["https://a.example:443"] = frozenset(self._HIGH)
+        assert "orig_headers" not in s._build_client_kwargs()
+        built = {k.lower() for k in s._build_headers("https://a.example/")}
+        assert not built & self._HIGH
+
+    @staticmethod
+    def _embed(mode):
+        from wafer import SyncSession
+
+        return SyncSession(embed=mode, embed_origin="https://www.site.example")
+
+    def test_same_origin_fetch_get_has_no_origin(self):
+        s = self._embed("xhr")
+        assert "Origin" not in s._build_headers("https://www.site.example/api")
+        assert (
+            s._build_headers("https://www.site.example/api", method="POST")["Origin"]
+            == "https://www.site.example"
+        )
+        assert (
+            s._build_headers("https://api.other.example/x")["Origin"]
+            == "https://www.site.example"
+        )
+
+    def test_iframe_form_post_revalidates(self):
+        s = self._embed("iframe")
+        assert "Cache-Control" not in s._build_headers("https://w.other.example/")
+        posted = s._build_headers("https://w.other.example/", method="POST")
+        assert posted["Cache-Control"] == "max-age=0"
+
+    def test_embed_requests_carry_no_high_entropy_hints(self):
+        s = self._embed("xhr")
+        s._accept_ch["https://www.site.example:443"] = frozenset(self._HIGH)
+        built = {k.lower() for k in s._build_headers("https://www.site.example/api")}
+        assert not built & self._HIGH
+
+    @pytest.mark.parametrize(
+        "name", ["Opera131", "OkHttp5", "Safari26_4", "SafariIos26_2"]
+    )
+    def test_embed_refuses_emulations_without_a_captured_shape(self, name):
+        from wreq import Emulation
+
+        from wafer import SyncSession
+
+        with pytest.raises(ValueError, match="Embed mode needs"):
+            SyncSession(
+                emulation=getattr(Emulation, name),
+                embed="xhr",
+                embed_origin="https://www.site.example",
+            )
+
+    def test_embed_refuses_an_unshaped_pool_entry(self):
+        from wreq import Emulation
+
+        from wafer import SyncSession
+
+        with pytest.raises(ValueError, match="Opera131"):
+            SyncSession(
+                fingerprint_pool=[Emulation.Chrome153, Emulation.Opera131],
+                embed="iframe",
+                embed_origin="https://www.site.example",
+            )
+
+    def test_embed_accepts_shaped_emulations_and_safari_profile(self):
+        from wreq import Emulation
+
+        from wafer import Profile, SyncSession
+
+        for kwargs in (
+            {"emulation": Emulation.Edge148},
+            {"fingerprint_pool": [Emulation.Chrome153, Emulation.Firefox151]},
+            {"profile": Profile.SAFARI},
+        ):
+            SyncSession(embed="xhr", embed_origin="https://www.site.example", **kwargs)

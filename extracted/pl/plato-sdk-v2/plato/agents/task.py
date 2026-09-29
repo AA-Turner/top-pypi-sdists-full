@@ -19,10 +19,13 @@ from plato.agents.audit import (
     write_audit_context,
 )
 from plato.agents.browser_tooling import build_agent_browser_sessions_block
+from plato.agents.computer_use_mcp import sandbox_ssh_fields
 from plato.agents.context import AgentContext
+from plato.agents.desktop import provision_agent_desktop
 from plato.agents.login_backends import resolve_login_backend
 from plato.agents.mounts import AgentWorkspaceMount
 from plato.runtimes.base import Runtime, RuntimeInfo
+from plato.runtimes.config import VMRuntimeConfig
 from plato.sims.ubuntu_vm.client import (
     _api_base_url_from_environment,
     _deployment_connect_gateway,
@@ -431,7 +434,9 @@ class AgentTask:
             return instruction
         if resolve_login_backend(self._agent.package) != "agent_browser":
             return instruction
-        aliases = [env.alias for env in self._session.envs if env.artifact_id]
+        aliases = [
+            env.alias for env in self._session.envs if env.artifact_id and not self._session.is_agent_desktop(env)
+        ]
         return instruction + build_agent_browser_sessions_block(aliases)
 
     def _register_tool_request_context(
@@ -532,7 +537,7 @@ class AgentTask:
             await asyncio.shield(lease.bind(pooled, workspace_paths, fingerprint=self._setup_fingerprint()))
             return True
 
-    def _workspace_info(self, info: RuntimeInfo) -> RuntimeInfo:
+    def _workspace_info(self, info: RuntimeInfo, *, sandbox_host: str | None = None) -> RuntimeInfo:
         """The runtime whose filesystem this run's workspaces belong on.
 
         Normally the agent VM. A ``sandbox_tools_only`` agent's file tools act
@@ -545,12 +550,14 @@ class AgentTask:
         the agent is never handed it. A world that turns on ``sandbox_tools_only``
         with mounted workspaces therefore has to authorize that key on the
         sandbox VM, the same ``add_ssh_key`` call it already makes to reach any
-        VM it owns.
+        VM it owns. ``sandbox_host`` is the per-execution alternative: the
+        desktop ``computer_use_artifact_id`` provisioned for this run, which
+        the SDK authorized that key on itself.
         """
         config = self._agent.config
         if config.get("sandbox_tools_only") is not True:
             return info
-        host = config.get("computer_use_ssh_host")
+        host = sandbox_host or config.get("computer_use_ssh_host")
         if not host:
             raise ValueError(
                 "sandbox_tools_only needs computer_use_ssh_host: the agent's workspaces mount on the sandbox"
@@ -560,7 +567,7 @@ class AgentTask:
         )
 
     def _mounts_by_host(
-        self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount]
+        self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount], *, sandbox_host: str | None = None
     ) -> list[tuple[RuntimeInfo, list[AgentWorkspaceMount]]]:
         """Group mounts by the VM each one belongs on.
 
@@ -570,7 +577,7 @@ class AgentTask:
         :meth:`AgentWorkspaceMount.pinned_to_agent_vm`, which hold state the
         CLI process writes directly and so have to stay where the CLI runs.
         """
-        workspace_info = self._workspace_info(info)
+        workspace_info = self._workspace_info(info, sandbox_host=sandbox_host)
         if workspace_info is info:
             return [(info, mounts)] if mounts else []
         pinned = [m for m in mounts if m.on_agent_vm]
@@ -582,12 +589,16 @@ class AgentTask:
             groups.append((info, pinned))
         return groups
 
-    async def _setup_workspaces(self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount]) -> None:
-        for host, group in self._mounts_by_host(info, mounts):
+    async def _setup_workspaces(
+        self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount], *, sandbox_host: str | None = None
+    ) -> None:
+        for host, group in self._mounts_by_host(info, mounts, sandbox_host=sandbox_host):
             await vm_setup.setup_workspaces(host, group)
 
-    async def _sync_back_workspaces(self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount]) -> None:
-        for host, group in self._mounts_by_host(info, mounts):
+    async def _sync_back_workspaces(
+        self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount], *, sandbox_host: str | None = None
+    ) -> None:
+        for host, group in self._mounts_by_host(info, mounts, sandbox_host=sandbox_host):
             await vm_setup.sync_back_workspaces(host, group)
 
     def _agent_context(self, display_name: str | None) -> AgentContext:
@@ -766,6 +777,28 @@ class AgentTask:
         mounts: list[AgentWorkspaceMount],
         skip_vm_setup: bool = False,
     ) -> str:
+        # Resource cleanup also runs if audit collection or a post-run hook
+        # raises, and finishes before the agent runtime returns to its pool.
+        async with contextlib.AsyncExitStack() as resources:
+            return await self._run_on_runtime_with_resources(
+                info,
+                instruction,
+                display_name=display_name,
+                mounts=mounts,
+                skip_vm_setup=skip_vm_setup,
+                resources=resources,
+            )
+
+    async def _run_on_runtime_with_resources(
+        self,
+        info: RuntimeInfo,
+        instruction: str,
+        *,
+        display_name: str | None,
+        mounts: list[AgentWorkspaceMount],
+        skip_vm_setup: bool,
+        resources: contextlib.AsyncExitStack,
+    ) -> str:
         self.runtime_info = info
         self._current_runtime_info = info
         current_display_name = display_name or self._display_name
@@ -782,10 +815,55 @@ class AgentTask:
             # Resolve runner path (needs agent code installed)
             runner_path = await vm_setup.resolve_runner_path(info)
 
+            # An artifact desktop is created before anything else touches hosts:
+            # under sandbox_tools_only it IS the sandbox the workspaces mount on.
+            desktop_config: dict[str, object] = {}
+            desktop_note = ""
+            sandbox_host: str | None = None
+            if self._agent.computer_use_artifact_id is not None:
+                if self._session is None or not isinstance(self._agent.runtime, VMRuntimeConfig):
+                    raise ValueError("computer_use_artifact_id requires a VM runtime and a Plato session")
+                desktop = await resources.enter_async_context(
+                    provision_agent_desktop(
+                        self._session,
+                        self._agent.computer_use_artifact_id,
+                        gateway_host=self._connect_gateway_host(),
+                        timeout=self._agent.runtime.vm.timeout,
+                        resources=self._agent.runtime.vm,
+                    )
+                )
+                desktop_config = {"computer_use_mcp_enabled": True, "computer_use_vm_url": desktop.url}
+                if self._agent.config.get("sandbox_tools_only") is True:
+                    # The agent's own shell and file tools run on this desktop
+                    # (Codex's exec-server, the computer server's bash), so it
+                    # gets the per-run key a world-supplied sandbox would carry,
+                    # plus the world's runner key for the workspace transports.
+                    ssh_fields = await sandbox_ssh_fields(desktop.env)
+                    if info.ssh_key_path is not None:
+                        runner_public_key = Path(f"{info.ssh_key_path}.pub").read_text().strip()
+                        await desktop.env.add_ssh_key(runner_public_key, wait_for_vm=False)
+                    desktop_config.update(ssh_fields)
+                    sandbox_host = ssh_fields["computer_use_ssh_host"]
+                else:
+                    if info.env is None:
+                        raise ValueError("computer_use_artifact_id requires the agent environment's mesh IP")
+                    app_host = await info.env.get_mesh_ip()
+                    if not app_host:
+                        raise ValueError("Agent environment has no mesh IP for desktop app access")
+                    # The harness's system prompt already explains that the
+                    # `computer` MCP drives a separate desktop VM; only the agent
+                    # VM's address is run-specific, so that is all the task
+                    # instruction adds. Under sandbox_tools_only the agent's shell
+                    # already runs on the desktop, so there is nothing to add.
+                    desktop_note = (
+                        f"\n\nThe remote desktop reaches this machine at {app_host}: serve anything it "
+                        f"should open on 0.0.0.0 and browse http://{app_host}:<port> from the desktop."
+                    )
+
             # Mount workspaces. A sandbox_tools_only agent reads and writes files
             # with tools that run on the sandbox VM, so its workspaces mount there
             # instead — same transports, same sync-back, just a different host.
-            await self._setup_workspaces(info, mounts)
+            await self._setup_workspaces(info, mounts, sandbox_host=sandbox_host)
 
             # Prepare hooks
             for hook in self._prepare_hooks:
@@ -803,6 +881,8 @@ class AgentTask:
                 instruction = self._maybe_append_sessions_block(instruction)
 
             run_agent_config = self._build_run_agent_config(info, mounts)
+            run_agent_config.update(desktop_config)
+            instruction += desktop_note
             workdir = mounts[0].agent_path if mounts else "/workspace"
 
             self.continuation_exhausted = False
@@ -880,7 +960,7 @@ class AgentTask:
                     logger.info("Agent execution completed on VM %s", info.runtime_id)
 
                     # Sync workspaces back after execution
-                    await self._sync_back_workspaces(info, mounts)
+                    await self._sync_back_workspaces(info, mounts, sandbox_host=sandbox_host)
 
                     # If no exit condition configured, one-shot — break immediately
                     if self._exit_condition is None:
@@ -911,7 +991,7 @@ class AgentTask:
                         # must NOT abort the build/review loop (the build's own
                         # changes already synced at the pre-compaction sync_back).
                         try:
-                            workspace_info = self._workspace_info(info)
+                            workspace_info = self._workspace_info(info, sandbox_host=sandbox_host)
                             # The summary is written by a PostCompact hook — a
                             # local subprocess of the agent CLI, so it writes on
                             # the agent VM and never travels the sandbox tool
@@ -930,7 +1010,7 @@ class AgentTask:
                                 and not _under_pinned_mount(summary_path, mounts)
                             ):
                                 await vm_setup.relocate_compaction_summary(info, workspace_info, summary_path)
-                            await self._sync_back_workspaces(info, mounts)
+                            await self._sync_back_workspaces(info, mounts, sandbox_host=sandbox_host)
                         except Exception:
                             logger.warning(
                                 "Post-compaction workspace sync-back failed; the "

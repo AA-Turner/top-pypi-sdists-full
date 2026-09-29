@@ -57,7 +57,7 @@ def world(monkeypatch: pytest.MonkeyPatch):
     }
 
     @contextlib.asynccontextmanager
-    async def acting_as_caller():
+    async def acting_as_caller(_ctx: Any = None):
         from matrx_connect.context.app_context import get_app_context
 
         token = _acting.set(get_app_context().user_id)

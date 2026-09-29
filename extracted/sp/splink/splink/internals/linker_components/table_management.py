@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from splink.internals.chunking import _blocked_pairs_cache_key
 from splink.internals.database_api import AcceptableInputTableType
 from splink.internals.input_column import InputColumn
 from splink.internals.misc import (
@@ -10,6 +11,7 @@ from splink.internals.misc import (
 )
 from splink.internals.pipeline import CTEPipeline
 from splink.internals.splink_dataframe import SplinkDataFrame
+from splink.internals.splinkdataframe_utils import _raise_not_a_splink_dataframe
 from splink.internals.term_frequencies import (
     colname_to_tf_tablename,
     term_frequencies_for_single_column_sql,
@@ -43,18 +45,19 @@ class LinkerTableManagement:
 
             Real time linkage
             ```py
-            linker = Linker(df, settings="saved_settings.json", db_api=db_api)
+            linker = Linker(df, settings="saved_settings.json")
             linker.table_management.compute_tf_table("surname")
-            linker.inference.compare_two_records(record_left, record_right)
+            linker.inference.score_pair(record_left, record_right)
             ```
             Pre-computed term frequency tables
             ```py
-            linker = Linker(df, db_api)
+            linker = Linker(df, settings="saved_settings.json")
             df_first_name_tf = linker.table_management.compute_tf_table("first_name")
-            df_first_name_tf.write.parquet("folder/first_name_tf")
-            >>>
+            df_first_name_tf.to_parquet("folder/first_name_tf.parquet")
             # On subsequent data linking job, read this table rather than recompute
-            df_first_name_tf = pd.read_parquet("folder/first_name_tf")
+            df_first_name_tf = db_api.register(
+                pd.read_parquet("folder/first_name_tf.parquet")
+            )
             linker.table_management.register_term_frequency_lookup(
                 df_first_name_tf, "first_name"
             )
@@ -89,6 +92,53 @@ class LinkerTableManagement:
 
         return tf_df
 
+    def register_blocked_pairs_for_predict(
+        self,
+        input_data: SplinkDataFrame,
+    ) -> SplinkDataFrame:
+        """Register a pre-computed blocked pairs table to be scored by `predict()`
+        rather than Splink computing blocking from the model's blocking rules.
+
+        Once registered, you can then `linker.inference.predict()` to
+        produce predictions based on the registered blocked pairs.
+        A subsequent registration replaces the previous one.
+        The chunk-based prediction methods (`predict_chunk()` and
+        `predict(num_chunks_left=..., num_chunks_right=...)`)
+        are not supported once a table has been registered.  If you want chunked
+        predictions, use ``compute_blocked_pairs_for_predict_chunk``, then register
+        its output.
+
+        Args:
+            input_data (SplinkDataFrame): The blocked pairs table to register. Register
+                raw data first with `db_api.register()` to obtain a `SplinkDataFrame`.
+
+        Returns:
+            SplinkDataFrame: An abstraction representing the registered blocked pairs
+                table.
+
+        Examples:
+            ```py
+            blocked_pairs = db_api.register(
+                duckdb.read_parquet("path/to/blocked_pairs.parquet")
+            )
+            linker.table_management.register_blocked_pairs_for_predict(blocked_pairs)
+            predictions = linker.inference.predict()
+            ```
+        """
+        if not isinstance(input_data, SplinkDataFrame):
+            _raise_not_a_splink_dataframe(input_data)
+
+        cache_key = _blocked_pairs_cache_key()
+
+        splink_dataframe = self._linker._db_api.table_to_splink_dataframe(
+            "__splink__blocked_id_pairs",
+            input_data.physical_name,
+        )
+        splink_dataframe.metadata["registered_for_predict"] = True
+        self._linker._intermediate_table_cache[cache_key] = splink_dataframe
+
+        return splink_dataframe
+
     def invalidate_cache(self):
         """Invalidate the Splink cache.  Any previously-computed tables
         will be recomputed.
@@ -115,39 +165,7 @@ class LinkerTableManagement:
         # As a result, any previously cached tables will not be found
         self._linker._intermediate_table_cache.invalidate_cache()
 
-    def register_table_input_nodes_concat_with_tf(
-        self, input_data: AcceptableInputTableType, overwrite: bool = False
-    ) -> SplinkDataFrame:
-        """Register a pre-computed version of the input_nodes_concat_with_tf table that
-        you want to re-use e.g. that you created in a previous run.
-
-        This method allows you to register this table in the Splink cache so it will be
-        used rather than Splink computing this table anew.
-
-        Args:
-            input_data (AcceptableInputTableType): The data you wish to register. This
-                can be either a dictionary, pandas dataframe, pyarrow table or a spark
-                dataframe.
-            overwrite (bool): Overwrite the table in the underlying database if it
-                exists.
-
-        Returns:
-            SplinkDataFrame: An abstraction representing the table created by the sql
-                pipeline
-        """
-
-        table_name_physical = "__splink__df_concat_with_tf_" + self._linker._cache_uid
-        splink_dataframe = self.register_table(
-            input_data, table_name_physical, overwrite=overwrite
-        )
-        splink_dataframe.templated_name = "__splink__df_concat_with_tf"
-
-        self._linker._intermediate_table_cache["__splink__df_concat_with_tf"] = (
-            splink_dataframe
-        )
-        return splink_dataframe
-
-    def register_table_predict(self, input_data, overwrite=False):
+    def register_table_predict(self, input_data: SplinkDataFrame) -> SplinkDataFrame:
         """Register a pre-computed version of the prediction table for use in Splink.
 
         This method allows you to register a pre-computed prediction table in the Splink
@@ -155,35 +173,37 @@ class LinkerTableManagement:
 
         Examples:
             ```py
-            predict_df = pd.read_parquet("path/to/predict_df.parquet")
-            predict_as_splinkdataframe = linker.table_management.register_table_predict(predict_df)
+            predict_df = db_api.register(pd.read_parquet("path/to/predict_df.parquet"))
+            predict_as_splinkdataframe = linker.table_management.register_table_predict(
+                predict_df
+            )
             clusters = linker.clustering.cluster_pairwise_predictions_at_threshold(
                 predict_as_splinkdataframe, threshold_match_probability=0.75
             )
             ```
 
         Args:
-            input_data (AcceptableInputTableType): The data you wish to register. This
-                can be either a dictionary, pandas dataframe, pyarrow table, or a spark
-                dataframe.
-            overwrite (bool, optional): Overwrite the table in the underlying database
-                if it exists. Defaults to False.
+            input_data (SplinkDataFrame): The prediction table to register. Register
+                raw data first with `db_api.register()` to obtain a `SplinkDataFrame`.
 
         Returns:
-            (SplinkDataFrame): An abstraction representing the table created by the SQL
-                pipeline.
+            (SplinkDataFrame): An abstraction representing the registered table.
         """  # noqa: E501
-        table_name_physical = "__splink__df_predict_" + self._linker._cache_uid
-        splink_dataframe = self.register_table(
-            input_data, table_name_physical, overwrite=overwrite
+        if not isinstance(input_data, SplinkDataFrame):
+            _raise_not_a_splink_dataframe(input_data)
+
+        splink_dataframe = self._linker._db_api.table_to_splink_dataframe(
+            "__splink__df_predict",
+            input_data.physical_name,
         )
         self._linker._intermediate_table_cache["__splink__df_predict"] = (
             splink_dataframe
         )
-        splink_dataframe.templated_name = "__splink__df_predict"
         return splink_dataframe
 
-    def register_term_frequency_lookup(self, input_data, col_name, overwrite=False):
+    def register_term_frequency_lookup(
+        self, input_data: SplinkDataFrame, col_name: str
+    ) -> SplinkDataFrame:
         """Register a pre-computed term frequency lookup table for a given column.
 
         This method allows you to register a term frequency table in the Splink
@@ -191,13 +211,10 @@ class LinkerTableManagement:
         rather than computing the term frequency table anew from your input data.
 
         Args:
-            input_data (AcceptableInputTableType): The data representing the term
-                frequency table. This can be either a dictionary, pandas dataframe,
-                pyarrow table, or a spark dataframe.
+            input_data (SplinkDataFrame): The term frequency table to register. Register
+                raw data first with `db_api.register()` to obtain a `SplinkDataFrame`.
             col_name (str): The name of the column for which the term frequency
                 lookup table is being registered.
-            overwrite (bool, optional): Overwrite the table in the underlying
-                database if it exists. Defaults to False.
 
         Returns:
             (SplinkDataFrame): An abstraction representing the registered term
@@ -209,13 +226,16 @@ class LinkerTableManagement:
                 {"first_name": "theodore", "tf_first_name": 0.012},
                 {"first_name": "alfie", "tf_first_name": 0.013},
             ]
-            tf_df = pd.DataFrame(tf_table)
+            tf_df = db_api.register(pd.DataFrame(tf_table))
             linker.table_management.register_term_frequency_lookup(
                 tf_df,
                 "first_name"
             )
             ```
         """
+
+        if not isinstance(input_data, SplinkDataFrame):
+            _raise_not_a_splink_dataframe(input_data)
 
         input_col = InputColumn(
             col_name,
@@ -224,21 +244,21 @@ class LinkerTableManagement:
         )
 
         table_name_templated = colname_to_tf_tablename(input_col)
-        table_name_physical = f"{table_name_templated}_{self._linker._cache_uid}"
-        splink_dataframe = self.register_table(
-            input_data, table_name_physical, overwrite=overwrite
+        splink_dataframe = self._linker._db_api.table_to_splink_dataframe(
+            table_name_templated,
+            input_data.physical_name,
         )
         self._linker._intermediate_table_cache[table_name_templated] = splink_dataframe
-        splink_dataframe.templated_name = table_name_templated
         return splink_dataframe
 
-    def register_labels_table(self, input_data, overwrite=False):
-        table_name_physical = "__splink__df_labels_" + ascii_uid(8)
-        splink_dataframe = self.register_table(
-            input_data, table_name_physical, overwrite=overwrite
+    def register_labels_table(self, input_data: SplinkDataFrame) -> SplinkDataFrame:
+        if not isinstance(input_data, SplinkDataFrame):
+            _raise_not_a_splink_dataframe(input_data)
+
+        return self._linker._db_api.table_to_splink_dataframe(
+            "__splink__df_labels",
+            input_data.physical_name,
         )
-        splink_dataframe.templated_name = "__splink__df_labels"
-        return splink_dataframe
 
     def delete_tables_created_by_splink_from_db(self):
         self._linker._db_api.delete_tables_created_by_splink_from_db()
@@ -275,4 +295,6 @@ class LinkerTableManagement:
                 pipeline
         """
 
-        return self._linker._db_api.register_table(input_table, table_name, overwrite)
+        return self._linker._db_api._create_backend_table(
+            input_table, table_name, overwrite
+        )

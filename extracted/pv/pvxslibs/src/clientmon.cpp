@@ -46,6 +46,8 @@ struct SubscriptionImpl final : public OperationBase, public Subscription
     std::function<void (Subscription&, const Value&)> onInit;
     std::function<void(Subscription&)> event;
     Value pvRequest;
+    bool event_busy = false;
+    bool onInit_busy = false;
     bool pipeline = false;
     bool autostart = true;
     bool maskConn = false, maskDiscon = true;
@@ -109,12 +111,14 @@ struct SubscriptionImpl final : public OperationBase, public Subscription
     void doNotify()
     {
         if(event) {
+            event_busy = true;
             try {
                 event(*this);
             }catch(std::exception& e){
                 log_exc_printf(io, "Unhandled user exception in Monitor %s %s : %s\n",
                                 __func__, typeid (e).name(), e.what());
             }
+            event_busy = false;
         }
     }
 
@@ -256,7 +260,8 @@ struct SubscriptionImpl final : public OperationBase, public Subscription
 
                 ret.reset(strong.get(), [strong](Subscription*) mutable {
                     // on worker?
-                    auto junk(std::move(strong));
+                    decltype(strong) junk;
+                    junk.swap(strong);
                     // need to do cleanup on worker if running
                     auto loop(junk->loop);
                     loop.tryCall(std::bind([](std::shared_ptr<SubscriptionImpl>& junk) noexcept {
@@ -276,17 +281,23 @@ struct SubscriptionImpl final : public OperationBase, public Subscription
     virtual void _onEvent(std::function<void(Subscription&)>&& fn) override final {
         decltype (event) junk;
         loop.call([this, &junk, &fn]() {
-            junk = std::move(event);
+            if(event_busy)
+                throw std::logic_error("Must not replace Subscription::onEvent() while callback in progress");
+            junk.swap(event);
             this->event = std::move(fn);
         });
     }
 
     virtual bool cancel() override final {
         decltype (event) junk;
+        decltype (onInit) junkI;
         bool ret = false;
-        (void)loop.tryCall([this, &junk, &ret](){
+        (void)loop.tryCall([this, &junk, &junkI, &ret](){
             ret = _cancel(false);
-            junk = std::move(event);
+            if(!event_busy)
+                junk.swap(event); // trash when cancelled from app. worker
+            if(!onInit_busy)
+                junkI.swap(onInit);
             // leave opByIOID for GC
         });
         return ret;
@@ -297,10 +308,12 @@ struct SubscriptionImpl final : public OperationBase, public Subscription
             log_info_printf(io, "Server %s channel %s monitor implied cancel\n",
                             chan->conn ? chan->conn->peerName.c_str() : "<disconnected>",
                             chan->name.c_str());
+
+        } else {
+            log_info_printf(io, "Server %s channel %s monitor cancel\n",
+                            chan->conn ? chan->conn->peerName.c_str() : "<disconnected>",
+                            chan->name.c_str());
         }
-        log_info_printf(io, "Server %s channel %s monitor cancel\n",
-                        chan->conn ? chan->conn->peerName.c_str() : "<disconnected>",
-                        chan->name.c_str());
 
         if(state==Idle || state==Running) {
             chan->conn->sendDestroyRequest(chan->sid, ioid);
@@ -624,6 +637,7 @@ void Connection::handle_MONITOR()
 
         mon->state = SubscriptionImpl::Idle;
 
+        mon->onInit_busy = true;
         try {
             if(mon->onInit)
                 mon->onInit(*mon, info->prototype);
@@ -634,6 +648,7 @@ void Connection::handle_MONITOR()
                             peerName.c_str(),
                             mon->chan->name.c_str(), e.what());
         }
+        mon->onInit_busy = false;
 
         if(mon->autostart && mon->state == SubscriptionImpl::Idle)
             mon->resume();
@@ -816,6 +831,12 @@ std::shared_ptr<Subscription> MonitorBuilder::exec()
         // from user thread
         auto temp(std::move(op));
         auto loop(temp->loop);
+        if(syncCancel && loop.inLoop())
+            log_err_printf(io,
+                           "syncCancel monitor '%s' being destroyed on worker thread.\n"
+                           "Possible self-reference loop.  Setup with .syncCancel(false) if intended.\n",
+                           temp->channelName.c_str());
+
         // std::bind for lack of c++14 generalized capture
         // to move internal ref to worker for dtor
         loop.tryInvoke(syncCancel, std::bind([](std::shared_ptr<SubscriptionImpl>& op) {

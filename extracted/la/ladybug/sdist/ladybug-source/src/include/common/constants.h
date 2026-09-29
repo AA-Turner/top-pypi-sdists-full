@@ -174,6 +174,9 @@ struct PlannerKnobs {
     // Avoid doing probe to build SIP if we have to accumulate a probe side that is much bigger than
     // build side. Also avoid doing build to probe SIP if probe side is not much bigger than build.
     static constexpr uint64_t SIP_RATIO = 5;
+    // Recursive extend runs one graph search per bound source node. Measured per-source setup
+    // cost vs per-output-pair cost is ~1000:1, so seed cardinality dominates direction choice.
+    static constexpr uint64_t RECURSIVE_EXTEND_SOURCE_COST = 1000;
 };
 
 struct OrderByConstants {
@@ -213,6 +216,11 @@ struct PortDBConstants {
     static constexpr const char* SCHEMA_ONLY_OPTION = "SCHEMA_ONLY";
     static constexpr const char* EXPORT_FORMAT_OPTION = "FORMAT";
     static constexpr const char* DEFAULT_EXPORT_FORMAT_OPTION = "PARQUET";
+    // IMPORT DATABASE option: when set to 'icebug-disk', the exported icedisk files are
+    // mounted in place instead of being ingested into native tables (the default).
+    static constexpr const char* IMPORT_STORAGE_FORMAT_OPTION = "STORAGE_FORMAT";
+    // Parquet key-value metadata key written on every EXPORT DATABASE data file.
+    static constexpr const char* ICEBUG_DISK_VERSION_OPTION = "icebug_disk_version";
 };
 
 struct WarningConstants {

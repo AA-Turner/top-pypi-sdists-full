@@ -1,6 +1,7 @@
 import base64
 import configparser
 import logging
+import os
 import pathlib
 from netrc import netrc
 from platform import system
@@ -72,8 +73,6 @@ class CredentialsCannotBeNone(Exception):
     Copernicus Marine `registration page <https://data.marine.copernicus.eu/register>`_
     """
 
-    pass
-
 
 class InvalidUsernameOrPassword(Exception):
     """
@@ -82,8 +81,6 @@ class InvalidUsernameOrPassword(Exception):
     To register and create your valid credentials, please visit:
     Copernicus Marine `registration page <https://data.marine.copernicus.eu/register>`_
     """
-
-    pass
 
 
 class CouldNotConnectToAuthenticationSystem(Exception):
@@ -96,9 +93,7 @@ class CouldNotConnectToAuthenticationSystem(Exception):
     - Make sure to authorize ``auth.marine.copernicus.eu`` domain
 
     If none of this worked, maybe the authentication system is down, please try again later.
-    """  # noqa
-
-    pass
+    """  # noqa: E501
 
 
 def _warning_netrc_deprecated_hosts():
@@ -122,10 +117,10 @@ def _load_credential_from_copernicus_marine_configuration_file(
     credential_type: Literal["username", "password"],
     configuration_filename: pathlib.Path,
 ) -> str | None:
-    configuration_file = open(configuration_filename)
-    configuration_string = base64.standard_b64decode(
-        configuration_file.read()
-    ).decode("utf8")
+    with open(configuration_filename) as configuration_file:
+        configuration_string = base64.standard_b64decode(
+            configuration_file.read()
+        ).decode("utf8")
     config = configparser.RawConfigParser()
     config.read_string(configuration_string)
     credential = config.get("credentials", credential_type)
@@ -161,14 +156,18 @@ def _load_credential_from_motu_configuration_file(
     credential_type: Literal["username", "password"],
     configuration_filename: pathlib.Path,
 ) -> str | None:
-    motu_file = open(configuration_filename)
-    motu_credential_type = "user" if credential_type == "username" else "pwd"
-    config = configparser.RawConfigParser()
-    config.read_string(motu_file.read())
-    credential = config.get("Main", motu_credential_type)
-    if credential:
-        logger.debug(f"{credential_type} loaded from {configuration_filename}")
-    return credential
+    with open(configuration_filename) as motu_file:
+        motu_credential_type = (
+            "user" if credential_type == "username" else "pwd"
+        )
+        config = configparser.RawConfigParser()
+        config.read_string(motu_file.read())
+        credential = config.get("Main", motu_credential_type)
+        if credential:
+            logger.debug(
+                f"{credential_type} loaded from {configuration_filename}"
+            )
+        return credential
 
 
 def _retrieve_credential_from_prompt(
@@ -417,12 +416,11 @@ def create_copernicusmarine_configuration_file(
             return None, True
 
     configuration_file_directory.mkdir(parents=True, exist_ok=True)
-    configuration_file = open(configuration_filename, "w")
-    configuration_string = base64.b64encode(
-        "".join(configuration_lines).encode("ascii", "strict")
-    ).decode("utf8")
-    configuration_file.write(configuration_string)
-    configuration_file.close()
+    with open(configuration_filename, "w") as configuration_file:
+        configuration_string = base64.b64encode(
+            "".join(configuration_lines).encode("ascii", "strict")
+        ).decode("utf8")
+        configuration_file.write(configuration_string)
     return configuration_filename, False
 
 
@@ -462,7 +460,10 @@ def _check_credentials_with_cas(username: str, password: str) -> str | None:
         if response_get.status_code == 200:
             response_json = response_get.json()
             return response_json["preferred_username"]
-    elif response_post.status_code == 401:
+    elif (
+        response_post.status_code == 400
+        and "invalid_grant" in response_post.text
+    ):
         # Invalid credentials
         return None
     else:
@@ -528,10 +529,14 @@ def get_and_check_username_password(
     username: str | None,
     password: str | None,
     credentials_file: pathlib.Path | None,
-) -> tuple[str, str]:
+) -> str:
     username, password = get_username_password(
         username=username, password=password, credentials_file=credentials_file
     )
+    if token := os.getenv("COPERNICUSMARINE_MYOCEAN_AUTH"):
+        if not (user_myocean := check_credentials_from_myocean_bearer(token)):
+            raise InvalidUsernameOrPassword("Invalid MyOcean token.")
+        return user_myocean
     user = _validate_and_get_user(
         username,
         password,
@@ -542,7 +547,20 @@ def get_and_check_username_password(
             "https://help.marine.copernicus.eu/en/articles/"
             "4444552-i-forgot-my-username-or-my-password-what-should-i-do"
         )
-    return (user, password)
+    return user
+
+
+def check_credentials_from_myocean_bearer(token: str) -> str:
+    MYOCEAN_AUTH_URL = "https://data-be-prd.marine.copernicus.eu/api/user"
+    session = get_configured_requests_session()
+    bearer_auth = BearerAuth(token)
+    response = session.get(
+        MYOCEAN_AUTH_URL,
+        auth=bearer_auth,
+    )
+    session.close()
+    username = response.json().get("username")
+    return username
 
 
 def get_username_password(

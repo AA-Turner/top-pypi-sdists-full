@@ -42,6 +42,7 @@ ws_editor/org_id,ws_id:
     - ws_reviewer/org_id,ws_id
     - flow_editor/org_id,ws_id,*
     - agent_editor/org_id,ws_id
+    - session_viewer_live/org_id,ws_id
     - connection_user/org_id,ws_id
     - dh_viewer_sandbox/org_id,ws_id
     - dh_viewer_live/org_id,ws_id
@@ -121,8 +122,9 @@ flow_deployer/org_id,ws_id,flow_folder_id:
     - flow_editor/org_id,ws_id,flow_folder_id
     - deploy:flows/org_id,ws_id,flow_folder_id,{env=*}
     - deploy:jobs/org_id,ws_id,flow_folder_id
+    - w:job_run/org_id,ws_id,flow_folder_id,{env=live}
 
-# P141c agent roles, carved verbatim from the ws_* roles (capability-neutral)
+# P141c workspace-scoped agent and session-viewer roles.
 agent_viewer/org_id,ws_id:
     - r:workspace_agent_management/org_id,ws_id,{type=*}
 agent_execute_sandbox/org_id,ws_id:
@@ -132,12 +134,17 @@ agent_execute_live/org_id,ws_id:
 agent_editor/org_id,ws_id:
     - agent_viewer/org_id,ws_id
     - agent_execute_sandbox/org_id,ws_id
+    - session_viewer_sandbox/org_id,ws_id
     - w+d:workspace_agent_management/org_id,ws_id,{type=*}
     - r:workspace_agent_execution/org_id,ws_id,{env=*,type=agent}
 agent_deployer/org_id,ws_id:
-    # placeholder until agent publish gets its own permission (today it checks
-    # w:workspace_agent_management, same as edit)
     - agent_editor/org_id,ws_id
+    - deploy:workspace_agent_management/org_id,ws_id,{type=*}
+session_viewer_sandbox/org_id,ws_id:
+    - r:agent_sessions/org_id,ws_id,{env=sandbox}
+session_viewer_live/org_id,ws_id:
+    - session_viewer_sandbox/org_id,ws_id
+    - r:agent_sessions/org_id,ws_id,{env=live}
 copilot_user/org_id,ws_id:
     - r+w:workspace_agent_execution/org_id,ws_id,{env=*,type=copilot}
 
@@ -437,6 +444,7 @@ d_api_key/org_id:
 fwd_viewer/org_id:
     - d_member/org_id
     - ws_viewer/org_id,*
+    - session_viewer_live/org_id,*
     - r:organization/org_id
     - r:internal_resources/org_id
     - r:workspace_analytics_dashboard/org_id,ws_id

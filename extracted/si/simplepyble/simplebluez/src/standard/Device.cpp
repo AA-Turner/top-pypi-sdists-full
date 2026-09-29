@@ -14,7 +14,10 @@ Device::Device(std::shared_ptr<SimpleDBus::Connection> conn, const std::string& 
 Device::~Device() {
     _callback_on_connected.unload();
     _callback_on_disconnected.unload();
+    _callback_on_connected_changed.unload();
     device1()->Connected.on_changed.unload();
+    device1()->RSSI.on_changed.unload();
+    device1()->TxPower.on_changed.unload();
 }
 
 void Device::on_registration() {
@@ -23,9 +26,15 @@ void Device::on_registration() {
         if (connected) {
             _callback_on_connected();
         } else {
+            _outgoing = false;
             _callback_on_disconnected();
         }
+        _callback_on_connected_changed(connected);
     });
+    // BlueZ invalidates RSSI and TxPower when discovery stops, so keep the last received values.
+    device1->RSSI.on_changed.load([this](int16_t rssi) { _rssi = rssi; });
+    device1->TxPower.on_changed.load([this](int16_t tx_power) { _tx_power = tx_power; });
+
     _interfaces.emplace(std::make_pair("org.bluez.Device1", device1));
 
     auto properties = std::make_shared<SimpleDBus::Interfaces::Properties>(_conn, shared_from_this());
@@ -72,7 +81,10 @@ void Device::pair() { device1()->Pair(); }
 
 void Device::cancel_pairing() { device1()->CancelPairing(); }
 
-void Device::connect() { device1()->Connect(); }
+void Device::connect() {
+    _outgoing = true;
+    device1()->Connect();
+}
 
 void Device::disconnect() {
     if (!valid()) return;
@@ -87,9 +99,9 @@ std::string Device::name() { return device1()->Name; }
 
 std::string Device::alias() { return device1()->Alias; }
 
-int16_t Device::rssi() { return device1()->RSSI; }
+int16_t Device::rssi() { return _rssi; }
 
-int16_t Device::tx_power() { return device1()->TxPower; }
+int16_t Device::tx_power() { return _tx_power; }
 
 std::vector<std::string> Device::uuids() { return device1()->UUIDs.refresh(); }
 
@@ -102,6 +114,8 @@ bool Device::paired() { return valid() && device1()->Paired.refresh(); }
 bool Device::bonded() { return valid() && device1()->Bonded.refresh(); }
 
 bool Device::connected() { return valid() && device1()->Connected.refresh(); }
+
+bool Device::outgoing() { return _outgoing; }
 
 bool Device::services_resolved() {
     if (!valid()) return false;
@@ -122,6 +136,12 @@ void Device::set_on_disconnected(std::function<void()> callback) {
 }
 
 void Device::clear_on_disconnected() { _callback_on_disconnected.unload(); }
+
+void Device::set_on_connected_changed(std::function<void(bool connected)> callback) {
+    _callback_on_connected_changed.load(std::move(callback));
+}
+
+void Device::clear_on_connected_changed() { _callback_on_connected_changed.unload(); }
 
 void Device::set_on_services_resolved(std::function<void()> callback) {
     device1()->ServicesResolved.on_changed.load([callback](bool services_resolved) {

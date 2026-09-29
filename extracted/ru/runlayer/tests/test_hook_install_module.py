@@ -1885,7 +1885,9 @@ class TestGrokCLIInstall:
             "path_has_link_or_reparse_point",
             lambda path: path == hook_path,
         )
-        monkeypatch.setattr(clients_module, "_reown_to_console_user", lambda _p: None)
+        monkeypatch.setattr(
+            clients_module, "_reown_to_console_user", lambda _p, **_kw: None
+        )
 
         with pytest.raises(OSError, match="unsafe Grok CLI hooks directory"):
             install_client(
@@ -2054,7 +2056,9 @@ class TestGrokCLIInstall:
             "read_managed_config",
             lambda: {"grok_home": ".grok-custom"},
         )
-        monkeypatch.setattr(clients_module, "_reown_to_console_user", lambda _p: None)
+        monkeypatch.setattr(
+            clients_module, "_reown_to_console_user", lambda _p, **_kw: None
+        )
 
         result = install_client(
             Client.GROK_CLI,
@@ -2771,7 +2775,9 @@ class TestClineCliInstall:
         monkeypatch.setattr(
             console_user_module, "find_console_user_home", lambda: console_home
         )
-        monkeypatch.setattr(clients_module, "_reown_to_console_user", lambda _p: None)
+        monkeypatch.setattr(
+            clients_module, "_reown_to_console_user", lambda _p, **_kw: None
+        )
 
         with pytest.raises(OSError):
             install_client(
@@ -2799,7 +2805,9 @@ class TestClineCliInstall:
         monkeypatch.setattr(
             console_user_module, "find_console_user_home", lambda: console_home
         )
-        monkeypatch.setattr(clients_module, "_reown_to_console_user", lambda _p: None)
+        monkeypatch.setattr(
+            clients_module, "_reown_to_console_user", lambda _p, **_kw: None
+        )
         install_client(
             Client.CLINE_CLI,
             scope=InstallScope.MDM,
@@ -2809,9 +2817,9 @@ class TestClineCliInstall:
         original_read = clients_module.maybe_safe_read_text
         swapped = False
 
-        def swap_after_read(path, *, home):
+        def swap_after_read(path, *, home, **kwargs):
             nonlocal swapped
-            text = original_read(path, home=home)
+            text = original_read(path, home=home, **kwargs)
             if path.name == "PreToolUse" and not swapped:
                 swapped = True
                 (console_home / ".cline").rename(console_home / ".cline-original")
@@ -2835,7 +2843,9 @@ class TestClineCliInstall:
         monkeypatch.setattr(
             clients_module, "path_has_link_or_reparse_point", lambda _p: True
         )
-        monkeypatch.setattr(clients_module, "_reown_to_console_user", lambda _p: None)
+        monkeypatch.setattr(
+            clients_module, "_reown_to_console_user", lambda _p, **_kw: None
+        )
 
         with pytest.raises(OSError, match="unsafe Cline hooks directory"):
             install_client(
@@ -4314,6 +4324,46 @@ class TestCheck:
         # Symlink not followed: the outside hooks were never read.
         assert result.status == ClientStatus.MISSING
 
+    def test_mdm_claude_code_check_follows_in_home_symlinked_settings(
+        self, tmp_path, monkeypatch
+    ):
+        """ENG-6814: a dotfiles link that stays inside the console home is the
+        user's own layout; the root drift check reads through it and reports
+        the installed hooks instead of MISSING."""
+        from runlayer_cli.hook_install import clients as clients_module
+        from runlayer_cli.hook_install import console_user as console_user_module
+
+        console_home = tmp_path / "Users" / "alice"
+        _mark_client_executable_installed(monkeypatch)
+        console_claude_root = console_home / ".claude"
+        console_claude_root.mkdir(parents=True)
+        real = console_home / "dotfiles" / "claude" / "settings.json"
+        real.parent.mkdir(parents=True)
+        real.write_text("{}")
+        (console_claude_root / "settings.json").symlink_to(real)
+        monkeypatch.setattr(
+            clients_module, "enterprise_claude_code_dir", lambda: console_claude_root
+        )
+        monkeypatch.setattr(
+            console_user_module, "find_console_user_home", lambda: console_home
+        )
+
+        install_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.MDM,
+            include_pipeline=True,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+        result = check_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.MDM,
+            expected_hook_command="/usr/local/bin/aiwatch hook",
+            include_pipeline=True,
+        )
+
+        assert (console_claude_root / "settings.json").is_symlink()
+        assert result.status == ClientStatus.OK
+
     def test_mdm_hermes_check_refuses_symlinked_config(self, tmp_path, monkeypatch):
         """Regression (ENG-3217): a planted ``~/.hermes/config.yaml`` symlink is
         not followed by the root drift check."""
@@ -4692,7 +4742,9 @@ class TestDevinCLIInstall:
         monkeypatch.setattr(
             clients_module, "path_has_link_or_reparse_point", lambda _p: True
         )
-        monkeypatch.setattr(clients_module, "_reown_to_console_user", lambda _p: None)
+        monkeypatch.setattr(
+            clients_module, "_reown_to_console_user", lambda _p, **_kw: None
+        )
 
         with pytest.raises(OSError, match="unsafe Windows MDM hooks path"):
             install_client(
@@ -4759,7 +4811,9 @@ class TestDevinCLIInstall:
         monkeypatch.setattr(
             clients_module, "path_has_link_or_reparse_point", lambda _p: True
         )
-        monkeypatch.setattr(clients_module, "_reown_to_console_user", lambda _p: None)
+        monkeypatch.setattr(
+            clients_module, "_reown_to_console_user", lambda _p, **_kw: None
+        )
 
         result = install_client(
             Client.DEVIN_CLI,

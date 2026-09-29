@@ -11,22 +11,157 @@ The list comes from the distribution: each component description it ships names 
 handlers of a module built on that component (`moduleHandlers`), both spellings included, and
 the stdlib extractor keeps them in the `module_handlers` section of stdlib.json - each type
 with its OWN handlers. A component inherits the handlers of its bases, so the lookup walks
-`bases`, the way the member sets are expanded.
+`bases`, the way the member sets are expanded. A handler may be there in some compatibility
+modes only - the description says which (see `declared_in`).
 
-Only interface components are covered: the handlers of the other modules (an object module,
-the module of a register, of a scheduled job) are declared by the compiler in code, not in a
-description, and nothing here speaks for them. Without the section - a public checkout, or data
-extracted before it existed - every answer is empty, and a caller judges nothing.
+The handlers of the other modules (an object module, the record set of a register, the module
+of a scheduled job) are declared by the compiler in code, not in a description; the extractor
+reads that code (xbsl/extract/elementhandlers.py) and keeps the result in the
+`element_module_handlers` section, by the kind of the element and its module: "" for the
+element's own module, the Russian `Object`, `RecordSet`, `Record` for the others. Some of those modules
+take handler names from the element's own description at build time - the operations of a
+processing, the operations of a SOAP client, the record-level security handlers of an entity -
+and their slot says `dynamic`: any name may be a handler there, and element_slot answers None.
+Without the sections - a public checkout, or data extracted before they existed - every answer
+is empty, and a caller judges nothing.
+
+The record-level security handlers are the one dynamic source whose names are the platform's
+and not the project's. The build picks the handler by the access settings of the element, so
+the extractor sees a term read from metadata; the terms it picks from are three constants of the
+distribution, listed in RECORD_SECURITY with their proof. element_rows adds them to a module
+whose slot names that source, and handler_names to the names of the whole data.
+
+Which of them an entity declares follows from its kind (record_security_rows), and whether the
+compiler USES them - and the permissions handler beside them - from its access settings: a
+handler the element declares but its settings leave off is refused with a message of its own
+("Handler X is not used in this project item"). access_slot splits the handlers of such a module
+into the ones the settings use and the ones they leave off. An HTTP service, a SOAP service and
+a processing have access settings too, and their own module takes the permissions handler by
+them the same way.
+
+A slot with no handlers at all is a module the compiler knows and declares nothing for - a
+common module: every name is wrong there. A row with `per` is declared once per item of a
+collection the element's description fills, and not at all when the description leaves it
+empty (PER_ITEM_PROPERTIES, per_item_split). The module of the project declares its handler in
+the project of an application alone (project_rows).
+
+Some handlers the compiler requires as well: a module that does not declare one is refused
+with "Mandatory handler X is not defined". A row marked `required` is required wherever it is
+declared, a row with `needs` makes the handlers it names required once the module declares it,
+and the access handlers are required exactly when the settings use them (required_rows,
+needs_of).
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import lru_cache
 
-from xbsl import dataset
+from xbsl import dataset, terms
 
 #: The section of stdlib.json this module reads.
 SECTION = "module_handlers"
+#: The section with the handlers of the modules of the other elements.
+ELEMENT_SECTION = "element_module_handlers"
+
+#: The record-level security handlers of an entity, both spellings. The build names the handler
+#: by the access settings of the element (`PermissionsComputedForEachObject`): the permissions of
+#: the objects for every entity, the access keys for read and for update apart for a periodic
+#: register. The three terms are constants of the access-control constants class of the
+#: distribution (`AccessControlCommonConstants`, the fields ending in `_NAME_TERM`), and the
+#: producer of the access-control metadata (`AccessControlRtMetadataProducer`, the constants set
+#: has one of its own) stores one of them as the handler term of the entity - the very value
+#: the extractor meets as a term read at build time. The help names the same three handlers
+#: (topics manage-access-control and rights-for-information-registers).
+RECORD_SECURITY: tuple[dict, ...] = (
+    {"ru": "ВычислитьРазрешенияДоступаДляОбъектов", "en": "ComputeAccessPermissionsForObjects"},
+    {"ru": "ВычислитьКлючиДоступаДляЧтения", "en": "ComputeAccessKeysForRead"},
+    {"ru": "ВычислитьКлючиДоступаДляИзменения", "en": "ComputeAccessKeysForUpdate"},
+)
+#: The place a slot names for them in `dynamic`: the handler term of the access-control
+#: metadata of an entity, as the extractor writes it.
+RECORD_SECURITY_SOURCE = "EntityAccessControlMetadata$HandlerMetadata.computeHandlerTerm"
+
+_OBJECTS, _READ, _UPDATE = RECORD_SECURITY
+#: The record-level security handlers each entity kind declares. The access-control metadata of
+#: the entity lists them: an entity with objects takes the permissions for objects (the object
+#: entity producer, `produceDefaultEntityAccessControlMetadata`); a register takes the access keys
+#: for read and for update apart when it computes them separately (the register producer,
+#: `shouldComputeAccessKeysSeparately`: always for an accumulation register, see _PERIODIC_KIND
+#: for an information register); a constants set takes the keys apart, always (its own
+#: producer).
+_RECORD_SECURITY_BY_KIND: dict[str, tuple[dict, ...]] = {
+    "Справочник": (_OBJECTS,),
+    "Документ": (_OBJECTS,),
+    "ПланОбмена": (_OBJECTS,),
+    "ХранилищеНастроек": (_OBJECTS,),
+    "ИнтегрируемоеПриложение": (_OBJECTS,),
+    "РегистрНакопления": (_READ, _UPDATE),
+    "НаборКонстант": (_READ, _UPDATE),
+}
+#: The information register computes the keys apart only when it is periodic (the register
+#: producer asks `isPeriodic`: a periodicity other than the non-periodic one); a non-periodic
+#: register takes the permissions for objects.
+_PERIODIC_KIND = "РегистрСведений"
+#: The kinds whose records never compute permissions for each object: the record type of a
+#: constants set keeps the default of the entity type (`isRlsEnabled()` is false), so the
+#: handlers it declares are never used.
+_NO_PER_OBJECT = frozenset({"НаборКонстант"})
+
+#: The handler the own module of an element with access settings computes permissions in. The
+#: access-control provider of the compiler declares it beside the record-level security handlers
+#: and uses it only when the settings compute some permission (`hasComputedPrivileges()`: a
+#: privilege computed, for each object or not) and are not the standard ones of a settings
+#: storage (`hasDefaultPrivileges()`); the record-level security handlers only when they compute
+#: the permissions for each object (`isRlsEnabled()`) and are not the standard ones either.
+ACCESS_PERMISSIONS = {"ru": "ВычислитьРазрешенияДоступа", "en": "ComputeAccessPermissions"}
+#: The kind the data files the module of the project under - the kind of the project description.
+PROJECT_KIND = "Проект"
+#: The project kind (`ProjectKind` of the description, the application when it names none) whose
+#: module declares the handler of the project. The handler provider of the project description
+#: tests the project type of an application (`ApplicationProjectG5ProjectType`) and nothing else;
+#: a library and an extension have project types of their own, and no provider declares anything
+#: for them - nor does the access-control provider, which gives a project no access-control
+#: target. The system privilege the handler computes exists in an application only as well: its
+#: access settings are produced for the project kind `APPLICATION` alone.
+APPLICATION_PROJECT = "Приложение"
+#: The values of `ProjectKind` besides the application, in the Russian spelling.
+OTHER_PROJECTS = frozenset({"Библиотека", "Расширение"})
+
+#: {the collection a row is declared once per item of (`per`): the property of the element
+#: description that fills it}. The extractor names the collection by the getter a language model
+#: fills its field from (elementhandlers._field_source): the model of an object entity keeps the
+#: types to create the object on basis of, read by `RuntimeEntityMetadata.createOnBasisSources`,
+#: and declares `OnCreateOnBasis` once for each of them. The producer of that metadata takes the
+#: list from the design-time adapter of the element, `getCreateOnBasisSources`, and the adapters
+#: of a catalog, a document, an exchange plan and an integrable application return the
+#: `CreateOnBasis` list of the description (an empty one when it has none), each with creation on
+#: basis supported unconditionally. A description without the list gets no such handler, and a
+#: probe on a server refused `OnCreateOnBasis` there as a handler that is not found.
+PER_ITEM_PROPERTIES = {"RuntimeEntityMetadata.createOnBasisSources": "СозданиеНаОсновании"}
+
+
+@dataclass(frozen=True)
+class AccessSettings:
+    """What the access settings of an element say about its access handlers."""
+
+    computed: bool = False     # some privilege computes its permissions, for each object or not
+    per_object: bool = False   # some privilege computes them for each object
+    standard: bool = False     # the standard permissions of a settings storage
+    periodic: bool = False     # a periodic information register
+
+
+def record_security_rows(kind: str, periodic: bool | None = False) -> tuple[dict, ...] | None:
+    """The record-level security handlers an entity of `kind` declares, None for another kind.
+
+    `periodic` matters for an information register only; None there - a periodicity that cannot
+    be told - answers every handler the kind may declare.
+    """
+    if kind == _PERIODIC_KIND:
+        if periodic is None:
+            return RECORD_SECURITY
+        return (_READ, _UPDATE) if periodic else (_OBJECTS,)
+    return _RECORD_SECURITY_BY_KIND.get(kind)
 
 
 def _catalog() -> dict:
@@ -56,7 +191,8 @@ def rows_of(type_name: str) -> tuple[dict, ...]:
     """The handler rows of a module built on `type_name`: its own and its bases', nearest first.
 
     Empty when the type is unknown to the catalog or the data carries no lists. A row is
-    {"ru", "en"} plus the compatibility modes (`from`, `to`) where the description states them.
+    {"ru", "en"} plus the compatibility modes (`from`, `to`) where the description states them;
+    which modes those admit is `declared_in`'s call.
     """
     table = _table()
     if not table:
@@ -76,14 +212,30 @@ def rows_of(type_name: str) -> tuple[dict, ...]:
     return tuple(rows)
 
 
-@lru_cache(maxsize=None)
-def of_type(type_name: str) -> dict[str, str]:
-    """{handler name in either spelling: its English spelling} for a module on `type_name`."""
-    names: dict[str, str] = {}
-    for row in rows_of(type_name):
-        names[row["ru"]] = row["en"]
-        names[row["en"]] = row["en"]
-    return names
+def declared_in(row: dict, mode: tuple[int, ...] | None) -> bool:
+    """Whether a module declares the handler of `row` in compatibility mode `mode`.
+
+    A description limits a handler to some modes by `from` and `to`, and the range is half-open:
+    `from` is the first mode the handler is there in, `to` the first mode it is gone from. The
+    compiler says so itself. The web chat handler of a client application, `to: 8.0` in the
+    description, is declared by the handler provider of the compiler only while the mode is
+    below 8.0 (`G5CompatibilityMode.lt(CMODE_8_0)`), under a term named for that range
+    (`_00_80`); the web chat property of the newer modes is declared from 8.0 on, the mode
+    itself included (`ge(CMODE_8_0)`, a term named `_80_00`). The descriptions of the components
+    read the same way against the help: `to: 8.0` of the groups the help marks
+    `Версия 7.0 и ниже`, and the `from` of a component is the mode its page marks "and above".
+
+    An unknown mode (None) declares every row: which of them the project has cannot be told,
+    and a row taken away on a guess would report an override the compiler accepts.
+    """
+    if mode is None:
+        return True
+    # The reader of a dotted version the rules share; imported here, since the rules import
+    # this module.
+    from xbsl.rules.component_since import _version
+
+    first, last = _version(row.get("from")), _version(row.get("to"))
+    return (first is None or first <= mode) and (last is None or mode < last)
 
 
 @lru_cache(maxsize=1)
@@ -123,11 +275,300 @@ def platform_base(head: str, project_base, limit: int = 32) -> str:
     return ""
 
 
+@lru_cache(maxsize=1)
+def _elements() -> dict[str, dict[str, dict]]:
+    """{kind: {module: {"handlers": rows, "dynamic": sources}}} - the rows checked like above."""
+    section = _catalog().get(ELEMENT_SECTION)
+    if not isinstance(section, dict):
+        return {}
+    found: dict[str, dict[str, dict]] = {}
+    for kind, modules in section.items():
+        if not isinstance(modules, dict):
+            continue
+        for module, slot in modules.items():
+            if not isinstance(slot, dict):
+                continue
+            rows = tuple(row for row in slot.get("handlers") or () if isinstance(row, dict)
+                         and isinstance(row.get("ru"), str) and isinstance(row.get("en"), str))
+            dynamic = tuple(str(item) for item in slot.get("dynamic") or ())
+            found.setdefault(str(kind), {})[str(module)] = {"handlers": rows, "dynamic": dynamic}
+    return found
+
+
+def element_available() -> bool:
+    """Whether the data carries the handlers of the modules of the other elements."""
+    return bool(_elements())
+
+
+def element_slot(kind: str, module: str) -> tuple[dict, ...] | None:
+    """The handler rows of the module `module` of an element of `kind`, None when not to judge.
+
+    `module` is "" for the element's own module, else the word its file adds (the Russian `Object`). None
+    answers both "the data knows nothing of this module" and "its handler names are taken at
+    build time" - in either case no name can be called wrong.
+    """
+    slot = _elements().get(kind, {}).get(module)
+    if slot is None or slot["dynamic"]:
+        return None
+    return slot["handlers"]
+
+
+def access_slot(kind: str, module: str, settings: AccessSettings | None,
+                controlled: bool = False) -> tuple[tuple[dict, ...], tuple[dict, ...]] | None:
+    """(the rows the settings use, the rows they leave off) of a module whose handlers the
+    access settings of its element pick, None for any other module or a kind not known here.
+
+    The own module of an entity is dynamic only for the record-level security handlers
+    (RECORD_SECURITY_SOURCE): the kind tells which of them it declares (record_security_rows),
+    and `settings` - read from the description of the element - which of those and of the
+    permissions handler the compiler uses. The own module of another element whose description
+    has access settings (`controlled`: an HTTP service, a SOAP service, a processing) declares
+    the permissions handler alone, and the compiler uses it by the same test of the settings.
+    Without settings (a description that cannot be read) every handler counts as used: only a
+    name the element cannot declare at all is then wrong.
+    """
+    slot = _elements().get(kind, {}).get(module)
+    if slot is None:
+        return None
+    if not slot["dynamic"] and controlled and not module:
+        rows = slot["handlers"]
+        if settings is None:
+            return rows, ()
+        computed = settings.computed and not settings.standard
+        used = tuple(row for row in rows if computed or row["ru"] != ACCESS_PERMISSIONS["ru"])
+        return used, tuple(row for row in rows if row not in used)
+    if set(slot["dynamic"]) != {RECORD_SECURITY_SOURCE}:
+        return None
+    periodic = settings.periodic if settings is not None else None
+    security = record_security_rows(kind, periodic)
+    if security is None:
+        return None
+    rows = slot["handlers"]
+    if settings is None:
+        return rows + security, ()
+    computed = settings.computed and not settings.standard
+    per_object = (settings.per_object and not settings.standard
+                  and kind not in _NO_PER_OBJECT)
+    used = tuple(row for row in rows if computed or row["ru"] != ACCESS_PERMISSIONS["ru"])
+    off = tuple(row for row in rows if row not in used)
+    return (used + security, off) if per_object else (used, off + security)
+
+
+def unused_reason(kind: str, row: dict, settings: AccessSettings | None) -> str:
+    """Why the settings leave off the handler of `row` (one access_slot left off): the standard
+    permissions, a kind that never computes permissions for each object, or the value missing
+    from the settings - `computed` for the permissions handler, `per-object` for the rest."""
+    if settings is not None and settings.standard:
+        return "standard"
+    if row["ru"] == ACCESS_PERMISSIONS["ru"]:
+        return "computed"
+    return "never" if kind in _NO_PER_OBJECT else "per-object"
+
+
+def project_rows() -> tuple[dict, ...]:
+    """The handlers the module of the project may override (`Проект.xbsl` beside the project
+    description), () when the data does not list them.
+
+    The compiler declares them for the project of an application only (the project kind of the
+    description, the default one) and not in a mobile application; a library or an extension
+    project declares none (see project_slot).
+    """
+    slot = _elements().get(PROJECT_KIND, {}).get("")
+    return slot["handlers"] if slot is not None and not slot["dynamic"] else ()
+
+
+def project_slot(project_kind: str) -> tuple[dict, ...] | None:
+    """The handler rows of the module of a project of `project_kind`, None when not to judge.
+
+    The data lists the module of an application project; the other project kinds declare
+    nothing (see APPLICATION_PROJECT), which is known only while the data knows the module of
+    the project at all. A value the enumeration does not have gives None.
+    """
+    slot = _elements().get(PROJECT_KIND, {}).get("")
+    if slot is None or slot["dynamic"]:
+        return None
+    if project_kind == APPLICATION_PROJECT:
+        return slot["handlers"]
+    return () if project_kind in OTHER_PROJECTS else None
+
+
+def per_item_split(rows: tuple[dict, ...], given: frozenset[str] | None
+                   ) -> tuple[tuple[dict, ...], tuple[dict, ...]]:
+    """(the rows the module declares, the rows it declares none of) by the description.
+
+    A row with `per` is declared once per item of the property PER_ITEM_PROPERTIES names for
+    it; `given` holds the properties the description fills with at least one item. None - a
+    description that cannot be read - declares every row, and so does a `per` the table does
+    not know: only what is proven absent is taken away.
+    """
+    if given is None:
+        return rows, ()
+    declared, absent = [], []
+    for row in rows:
+        prop = PER_ITEM_PROPERTIES.get(str(row.get("per") or ""))
+        (absent if prop is not None and prop not in given else declared).append(row)
+    return tuple(declared), tuple(absent)
+
+
+def per_item_property(row: dict) -> str | None:
+    """The property of the description a row is declared once per item of, None for a row
+    declared unconditionally or by a collection PER_ITEM_PROPERTIES does not know."""
+    return PER_ITEM_PROPERTIES.get(str(row.get("per") or ""))
+
+
+def _is_access_handler(row: dict) -> bool:
+    """Whether the row is one of the handlers the access-control provider declares."""
+    return row["ru"] in {ACCESS_PERMISSIONS["ru"], *(item["ru"] for item in RECORD_SECURITY)}
+
+
+def required_rows(kind: str, module: str, settings: AccessSettings | None,
+                  given: frozenset[str] | None, mode: tuple[int, ...] | None,
+                  controlled: bool = False) -> tuple[dict, ...]:
+    """The handlers the compiler requires in the module `module` of an element of `kind`: a
+    module that does not declare one of them is refused ("Mandatory handler X is not defined").
+
+    Three sources. A row the data marks `required` is required wherever it is declared - the
+    handler of a command or of a scheduled job, the permissions handler of an action privilege.
+    Such a row with `per` is required once per item of its collection, so only when the
+    description fills it (`given`, see per_item_split); a description that cannot be read that
+    far requires none of them. And the access-control provider builds each handler it declares
+    with `enabled(x).required(x)` of one value: the handlers the settings use (access_slot) are
+    the ones required. Settings that cannot be read (None) require none of those. A row is
+    required only in the modes it is declared in (declared_in).
+    """
+    slot = _elements().get(kind, {}).get(module)
+    if slot is None:
+        return ()
+    rows = [row for row in slot["handlers"] if row.get("required")]
+    split = access_slot(kind, module, settings, controlled) if settings is not None else None
+    if split is not None:
+        known = {row["ru"] for row in rows}
+        rows += [row for row in split[0] if _is_access_handler(row) and row["ru"] not in known]
+    out = []
+    for row in rows:
+        prop = per_item_property(row)
+        if row.get("per") and (prop is None or given is None or prop not in given):
+            continue
+        if declared_in(row, mode):
+            out.append(row)
+    return tuple(out)
+
+
+def needs_of(kind: str, module: str) -> dict[str, tuple[dict, ...]]:
+    """{the name of a handler in either spelling: the rows it makes required along with it}
+    of the module `module` of an element of `kind` - the rows with `needs` in the data.
+
+    The provider builds such a handler with `requiredHandlers`: a module that declares one of
+    a pair has to declare the other (the link to an external navigation link and back), and a
+    probe on a server refused the first alone with "Mandatory handler X is not defined" for
+    the second.
+    """
+    slot = _elements().get(kind, {}).get(module)
+    if slot is None:
+        return {}
+    by_name = {row["ru"]: row for row in slot["handlers"]}
+    out: dict[str, tuple[dict, ...]] = {}
+    for row in slot["handlers"]:
+        needed = tuple(by_name[name] for name in row.get("needs") or () if name in by_name)
+        if needed:
+            out.update(dict.fromkeys((row["ru"], row["en"]), needed))
+    return out
+
+
+@lru_cache(maxsize=1)
+def per_item_properties() -> frozenset[str]:
+    """The properties some row of the data is declared once per item of: what a description
+    has to say for the rule to tell those rows apart."""
+    return frozenset(
+        prop for modules in _elements().values() for slot in modules.values()
+        for row in slot["handlers"] for prop in [per_item_property(row)] if prop
+    )
+
+
+
+def element_rows(kind: str, module: str) -> tuple[dict, ...]:
+    """Every handler row known for the module `module` of an element of `kind`, () when none.
+
+    Unlike element_slot, a module that takes more names at build time answers too - what the
+    translator needs, not what a rule judges by. It answers the rows the compiler declares there
+    whatever the element's description says and, where the slot takes the record-level security
+    handlers (RECORD_SECURITY_SOURCE), those: all of them are the platform's words. The other
+    names such a module takes - the operations of a processing, of a SOAP client - are the
+    project's or the service's, and are not here.
+    """
+    slot = _elements().get(kind, {}).get(module)
+    if slot is None:
+        return ()
+    rows = slot["handlers"]
+    if RECORD_SECURITY_SOURCE in slot["dynamic"]:
+        known = {row["ru"] for row in rows}
+        rows = rows + tuple(row for row in RECORD_SECURITY if row["ru"] not in known)
+    return rows
+
+
+@lru_cache(maxsize=1)
+def element_modules() -> frozenset[str]:
+    """The module words the section names (the Russian `Object`, `RecordSet`), own module aside."""
+    return frozenset(module for modules in _elements().values() for module in modules if module)
+
+
+@lru_cache(maxsize=1)
+def element_names() -> frozenset[str]:
+    """Both spellings of every handler a module of any other element may override."""
+    return frozenset(
+        name for modules in _elements().values() for slot in modules.values()
+        for row in slot["handlers"] for name in (row["ru"], row["en"])
+    )
+
+
+@lru_cache(maxsize=1)
+def handler_names() -> frozenset[str]:
+    """Both spellings of every handler the data lets some module override.
+
+    The component lists, the element lists and, once some slot of the element lists takes them,
+    the record-level security handlers (see element_rows). Empty without the sections.
+    """
+    names = set(all_names()) | element_names()
+    if any(RECORD_SECURITY_SOURCE in slot["dynamic"]
+           for modules in _elements().values() for slot in modules.values()):
+        names.update(name for row in RECORD_SECURITY for name in (row["ru"], row["en"]))
+    return frozenset(names)
+
+
+@lru_cache(maxsize=1)
+def module_words() -> dict[str, str]:
+    """{the word a module file adds, in either spelling: the module as the data names it}."""
+    words: dict[str, str] = {}
+    for module in element_modules():
+        words[module] = module
+        english = terms.facet_suffix_english(module)
+        if english:
+            words[english] = module
+    return words
+
+
+def element_module(stem: str) -> tuple[str, str]:
+    """(the stem of the element's yaml, the module) of a module file stem.
+
+    `Stock.Object` gives (`Stock`, the Russian `Object`) - the file pairs with `Stock.yaml`; a
+    stem without a module word the section names is the element's own module: (stem, "").
+    """
+    base, dot, word = stem.rpartition(".")
+    if dot and "/" not in word and word in module_words():
+        return base, module_words()[word]
+    return stem, ""
+
+
 def _reset() -> None:
     _table.cache_clear()
     rows_of.cache_clear()
-    of_type.cache_clear()
     all_names.cache_clear()
+    _elements.cache_clear()
+    element_modules.cache_clear()
+    element_names.cache_clear()
+    handler_names.cache_clear()
+    module_words.cache_clear()
+    per_item_properties.cache_clear()
 
 
 dataset.register_reset(_reset)

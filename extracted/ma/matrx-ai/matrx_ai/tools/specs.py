@@ -105,6 +105,14 @@ class AgentToolSpec(BaseModel):
         description="Optional override of the projected tool's description. "
         "When omitted, the agent's own description is used.",
     )
+    display_name: str | None = Field(
+        default=None,
+        description=(
+            "The human role this projected agent plays for the caller (an Orchestra edge's role "
+            "title). Projection shows it with the agent's own name on the tool card; None = the "
+            "agent's name alone."
+        ),
+    )
     max_calls_per_conversation: int | None = None
     cost_cap_per_call: float | None = None
     max_recursion_depth: int | None = Field(

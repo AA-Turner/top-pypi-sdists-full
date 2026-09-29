@@ -2315,6 +2315,7 @@ async def _finalize_and_persist(
     Persistence is non-blocking to the caller: errors are logged
     but never propagated. The CompletedRequest is always returned.
     """
+    await _scream_if_history_shifted(current_request, state, seam="finalize")
     post_count = len(current_request.config.messages)
     has_new_messages = post_count > pre_execution_message_count
 
@@ -2485,6 +2486,95 @@ async def _finalize_and_persist(
     return completed
 
 
+HISTORY_SHIFTED_KIND = "persisted_history_shifted"
+
+
+async def _scream_if_history_shifted(
+    current_request: AIMatrixRequest, state: ExecutionState | None, *, seam: str
+) -> bool:
+    """Layer 2 of the Lane AZ class: the live history may only GROW during a turn.
+
+    Every cursor the barrier uses (trigger position, pre-execution count,
+    ``committed_position``) is an index into ``config.messages``. If anything
+    removes or inserts an EARLIER message mid-turn, those indexes point at the
+    wrong rows and the barrier writes the wrong ones or nothing (2026-09-26 →
+    09-28: the provider sanitizer deleted old orphan rows from the live list and
+    admin@admin.com's staff thread stopped saving). Layer 1 is the wire copy in
+    ``providers/unified_client._build_provider_wire_config``; this layer never
+    lets a future mutator do it silently. Returns True when the shift is seen.
+    """
+    if state is None or state.trigger_message is None:
+        return False
+    messages = current_request.config.messages
+    position = state.trigger_position
+    if 0 <= position < len(messages) and messages[position] is state.trigger_message:
+        return False
+    moved_to = next((i for i, m in enumerate(messages) if m is state.trigger_message), None)
+    detail = (
+        f"the trigger message was at position {position} when this turn started and is now "
+        f"{'gone' if moved_to is None else f'at {moved_to}'}; the list went from "
+        f"{state.pre_execution_message_count} to {len(messages)} messages. Something "
+        f"removed or inserted earlier history mid-turn, so this turn's rows are persisted "
+        f"at the wrong cursors or not at all. Find the in-place mutator of "
+        f"config.messages (shape the wire copy instead)."
+    )
+    vcprint(f"[executor] 🚨 PERSISTED HISTORY SHIFTED ({seam}) — {detail}", color="red")
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+        from matrx_connect.streaming.error_capture import capture_error
+
+        exec_ctx = try_get_app_context()
+        exc = RuntimeError(f"persisted history shifted mid-turn: {detail}")
+        await capture_error(
+            exc,
+            kind=HISTORY_SHIFTED_KIND,
+            request_id=current_request.request_id or getattr(exec_ctx, "request_id", None),
+            user_id=getattr(exec_ctx, "user_id", None),
+            conversation_id=current_request.conversation_id
+            or getattr(exec_ctx, "conversation_id", None),
+            route=f"orchestrator/{seam}",
+            error_type=type(exc).__name__,
+            payload={
+                "trigger_position": position,
+                "moved_to": moved_to,
+                "pre_execution_message_count": state.pre_execution_message_count,
+                "post_count": len(messages),
+            },
+        )
+    except Exception as capture_exc:  # noqa: BLE001 — the red line above already fired
+        vcprint(f"[executor] history-shift capture failed: {capture_exc!r}", color="red")
+    return True
+
+
+def _history_shifted_barrier_error(
+    current_request: AIMatrixRequest, state: ExecutionState | None
+) -> Exception:
+    """The barrier's STOP for a shifted ledger — the same error every failed barrier raises.
+
+    Raising ``PersistenceBarrierError`` routes the turn through the one path that
+    already means "this turn could not be saved": degrade-and-secure, then
+    ``fatal_error`` to the client and the door's honest failure text to the
+    person. The shift itself was captured to ``ops.system_error``
+    (``persisted_history_shifted``) by ``_scream_if_history_shifted``.
+    """
+    from matrx_ai.persistence.coordinator import FlushReport, PersistenceBarrierError
+
+    trigger = getattr(state, "trigger_position", None)
+    return PersistenceBarrierError(
+        reason=HISTORY_SHIFTED_KIND,
+        report=FlushReport(
+            reason="error",
+            error=(
+                f"the live history shifted mid-turn (trigger message no longer at position "
+                f"{trigger}); positions are chat.message.position, so nothing is written "
+                f"rather than rows at the wrong positions"
+            ),
+        ),
+        conversation_id=current_request.conversation_id or None,
+        request_id=current_request.request_id or None,
+    )
+
+
 async def _persist_turn_and_commit(
     *,
     current_request: AIMatrixRequest,
@@ -2510,6 +2600,15 @@ async def _persist_turn_and_commit(
     most the single in-flight turn, never the whole conversation.
     """
     post_count = len(current_request.config.messages)
+    if await _scream_if_history_shifted(current_request, state, seam="turn_barrier"):
+        # A shifted ledger cannot be persisted: every cursor below is a list
+        # index and chat.message.position IS that index, so writing now lands
+        # this turn's rows at the wrong positions or not at all — and the next
+        # turn then answers from a history that never recorded this one. STOP
+        # the turn the way every failed barrier does (fatal_error to the
+        # client, the door's honest failure text to the person), never answer
+        # from a ghost history. (Lane AZ2, 2026-09-28.)
+        raise _history_shifted_barrier_error(current_request, state)
     # Nothing new beyond what a prior barrier already committed.
     if post_count - 1 <= state.committed_position:
         return
@@ -4002,6 +4101,11 @@ async def _execute_until_complete_inner(
     state.current_request = current_request
     state.trigger_position = trigger_position
     state.pre_execution_message_count = pre_execution_message_count
+    state.trigger_message = (
+        current_request.config.messages[trigger_position]
+        if 0 <= trigger_position < pre_execution_message_count
+        else None
+    )
     # Messages already persisted (loaded from the DB) at execution start carry
     # their real cx_message.id. Persistence skips re-INSERTing these so a retry
     # (which reloads existing messages into config.messages) can't duplicate the

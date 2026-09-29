@@ -58,11 +58,14 @@ class AgentResponse(BaseModel):
     llm_models: Optional[List[LLMModelResponse]] = Field(default=None, description="LLM models used by this agent.")
     data_sources: Optional[List[DataSourceResponse]] = Field(default=None, description="Data sources used by this agent.")
     infrastructure: RunsOn = Field(description="Where the machine hosting this agent is, served from `provenance.runs_on`. Typed as RunsOn rather than the data plane's Infrastructure enum because that enum describes how the ENGINE was deployed and cannot say `endpoint` or `unknown` -- so a Jamf record used to report the engine's cloud. Agents with no provenance fall back to their data plane's infrastructure, which is what it has always meant for them.")
+    mute_reason: Optional[StrictStr] = None
+    muted_by: Optional[StrictStr] = None
+    muted_at: Optional[datetime] = None
     is_stale: Optional[StrictBool] = Field(default=False, description="Whether every source reporting this agent has gone quiet. An AND across evidence, not an OR: a record corroborated by a live Splunk query is not stale because a decommissioned Jamf source stopped answering. False for an agent with no evidence, which is every agent predating discovery.")
     source_ids: Optional[List[StrictStr]] = Field(default=None, description="Discovery sources behind this agent, in evidence order. Backs the inventory's \"Found by\" column and the source_id filter. Evidence with no configured source behind it -- OTEL, manual, anything predating discovery -- contributes nothing here.")
     external_ids: Optional[List[StrictStr]] = Field(default=None, description="The sources' own identifiers for this agent, in evidence order. Canonical identity, never reconciled across sources, so an agent seen by two sources legitimately carries two different values.")
     source_classes: Optional[List[SourceClass]] = Field(default=None, description="Where this agent has been observed from -- cloud, siem, endpoint, otel or manual -- in evidence order. Backs the \"Found by\" column and the source_classes filter.")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "provenance", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "id", "workspace_id", "evidence", "creation_source", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure", "is_stale", "source_ids", "external_ids", "source_classes"]
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "provenance", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "id", "workspace_id", "evidence", "creation_source", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure", "mute_reason", "muted_by", "muted_at", "is_stale", "source_ids", "external_ids", "source_classes"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -171,6 +174,21 @@ class AgentResponse(BaseModel):
         if self.muted_until is None and "muted_until" in self.model_fields_set:
             _dict['muted_until'] = None
 
+        # set to None if mute_reason (nullable) is None
+        # and model_fields_set contains the field
+        if self.mute_reason is None and "mute_reason" in self.model_fields_set:
+            _dict['mute_reason'] = None
+
+        # set to None if muted_by (nullable) is None
+        # and model_fields_set contains the field
+        if self.muted_by is None and "muted_by" in self.model_fields_set:
+            _dict['muted_by'] = None
+
+        # set to None if muted_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.muted_at is None and "muted_at" in self.model_fields_set:
+            _dict['muted_at'] = None
+
         return _dict
 
     @classmethod
@@ -204,6 +222,9 @@ class AgentResponse(BaseModel):
             "llm_models": [LLMModelResponse.from_dict(_item) for _item in obj["llm_models"]] if obj.get("llm_models") is not None else None,
             "data_sources": [DataSourceResponse.from_dict(_item) for _item in obj["data_sources"]] if obj.get("data_sources") is not None else None,
             "infrastructure": obj.get("infrastructure"),
+            "mute_reason": obj.get("mute_reason"),
+            "muted_by": obj.get("muted_by"),
+            "muted_at": obj.get("muted_at"),
             "is_stale": obj.get("is_stale") if obj.get("is_stale") is not None else False,
             "source_ids": obj.get("source_ids"),
             "external_ids": obj.get("external_ids"),

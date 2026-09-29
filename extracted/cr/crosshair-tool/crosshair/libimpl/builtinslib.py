@@ -23,6 +23,7 @@ from typing import (
     BinaryIO,
     Callable,
     Dict,
+    Final,
     FrozenSet,
     Hashable,
     Iterable,
@@ -85,6 +86,7 @@ from crosshair.simplestructs import (
     ShellMutableMap,
     ShellMutableSequence,
     ShellMutableSet,
+    ShellSequence,
     SimpleDict,
     SliceView,
     compose_slices,
@@ -128,7 +130,21 @@ from crosshair.util import (
     smtlib_typename,
     type_arg_of,
 )
-from crosshair.z3util import z3And, z3Eq, z3Ge, z3Gt, z3IntVal, z3Not, z3Or
+from crosshair.z3util import (
+    z3And,
+    z3App,
+    z3Const,
+    z3Distinct,
+    z3Eq,
+    z3Ge,
+    z3Gt,
+    z3IntVal,
+    z3Le,
+    z3Not,
+    z3Or,
+    z3Select,
+    z3Store,
+)
 
 if sys.version_info >= (3, 12):
     from collections.abc import Buffer
@@ -208,6 +224,7 @@ def typeable_value(val: object) -> object:
 
 _SMT_INT_SORT = z3.IntSort()
 _SMT_BOOL_SORT = z3.BoolSort()
+_SMT_TRUE = z3.BoolVal(True)
 
 
 @memo
@@ -696,14 +713,6 @@ def apply_smt(op: BinFn, x: z3.ExprRef, y: z3.ExprRef) -> z3.ExprRef:
                     return x % y
                 else:
                     return (x % y) + y
-        elif op == ops.pow:
-            if space.smt_fork(z3.And(x == 0, y < 0)):
-                raise ZeroDivisionError("zero cannot be raised to a negative power")
-            if z3.is_fp(x) or z3.is_fp(y):
-                # Smtlib does not support exponentiation on true floats
-                raise UnknownSatisfiability("pow on floats is not supported by smtlib")
-            if x.is_int() and y.is_int():
-                return z3.ToInt(op(x, y))
     return op(x, y)
 
 
@@ -719,7 +728,7 @@ _MAX_SYMBOLIC_POW_DEGREE = 64
 def _symbolic_int_pow(base: Union[int, "SymbolicInt"], exp: int) -> Number:
     """base ** exp for a concrete exponent >= 1."""
     if isinstance(base, SymbolicInt) and exp <= _MAX_SYMBOLIC_POW_DEGREE:
-        return SymbolicInt(apply_smt(ops.pow, base.var, z3IntVal(exp)))
+        return SymbolicInt(z3.ToInt(base.var ** z3IntVal(exp)))
     concrete_base = realize(base)
     if concrete_base not in (-1, 0, 1) and (
         exp * concrete_base.bit_length() > MAX_REALIZED_INT_BITS
@@ -822,6 +831,29 @@ def setup_binops():
 
     setup_binop(_, _ARITHMETIC_AND_COMPARISON_OPS)
 
+    # A real-valued SMT power only matches Python for an integral exponent: Python
+    # gives complex results for negative bases, and the solver can't reason about
+    # irrational ones.
+    def _(
+        op: BinFn,
+        a: Union[SymbolicFloat, KindedFloat],
+        b: Union[SymbolicFloat, KindedFloat],
+    ):
+        with NoTracing():
+            exp = b.val if isinstance(b, KindedFloat) else realize(b)
+            if exp == 0:
+                return 1.0
+            if (
+                isinstance(a, RealBasedSymbolicFloat)
+                and exp.is_integer()
+                and 1 <= exp <= _MAX_SYMBOLIC_POW_DEGREE
+            ):
+                return RealBasedSymbolicFloat(a.var ** z3.RealVal(int(exp)))
+            base = a.val if isinstance(a, KindedFloat) else realize(a)
+            return base**exp
+
+    setup_binop(_, {ops.pow})
+
     # def _(
     #     op: BinFn, a: NonFiniteFloat, b: NonFiniteFloat
     # ):  # TODO: isn't this impossible (one must be symbolic)?
@@ -860,9 +892,9 @@ def setup_binops():
 
     setup_binop(_, _COMPARISON_OPS)
 
-    # apply_smt models int**int as ToInt(x**y), which is right only for a positive
-    # exponent: a negative one truncates to 0 (Python gives a float) and 0**0
-    # evaluates to 0 (Python gives 1). A symbolic exponent also defeats the solver.
+    # An SMT int power, ToInt(x**y), is right only for a positive exponent: a
+    # negative one truncates to 0 (Python gives a float) and 0**0 evaluates to 0
+    # (Python gives 1). A symbolic exponent also defeats the solver.
     def _(op: BinFn, a: SymbolicInt, b: SymbolicInt):
         with NoTracing():
             space = context_statespace()
@@ -1473,9 +1505,9 @@ class SymbolicBoundedInt(SymbolicInt):
         self._ch_minimum = minimum
         self._ch_maximum = maximum
         if minimum is not None:
-            space.add(self.var >= minimum)
+            space.add(z3Ge(self.var, z3IntVal(minimum)))
         if maximum is not None:
-            space.add(self.var <= maximum)
+            space.add(z3Le(self.var, z3IntVal(maximum)))
 
     def __lt__(self, other):
         with NoTracing():
@@ -1531,15 +1563,11 @@ class SymbolicBoundedInt(SymbolicInt):
         if new_min is not None:
             if self._ch_minimum is None or new_min > self._ch_minimum:
                 self._ch_minimum = new_min
-                space.add(
-                    self.var >= int(new_min)
-                )  # cast b/c z3 isn't tolerant of enum ints
+                space.add(z3Ge(self.var, z3IntVal(new_min)))
         if new_max is not None:
             if self._ch_maximum is None or new_max < self._ch_maximum:
                 self._ch_maximum = new_max
-                space.add(
-                    self.var <= int(new_max)
-                )  # cast b/c z3 isn't tolerant of enum ints
+                space.add(z3Le(self.var, z3IntVal(new_max)))
 
     def _unary_op(self, op):
         with NoTracing():
@@ -1698,10 +1726,6 @@ class PreciseIeeeSymbolicFloat(SymbolicFloat):
         with NoTracing():
             self._check_finite_convert_to("integer")
             return PreciseIeeeSymbolicFloat(z3.fpRoundToIntegral(z3.RTP(), self.var))
-
-    def __pow__(self, other, mod=None):
-        # TODO: consider losen-ing a little
-        return pow(realize(self), realize(other), realize(mod))
 
     def __trunc__(self):
         with NoTracing():
@@ -1979,24 +2003,29 @@ class SymbolicDict(SymbolicDictOrSet, collections.abc.Mapping):
             space = context_statespace()
             idx = 0
             arr_sort = self._arr().sort()
+            key_sort = arr_sort.domain()
+            val_constructor = self.val_constructor
+            val_sort = val_constructor.domain(0)
             is_missing = self.val_missing_checker
-            while SymbolicBool(idx < len_var).__bool__():
-                if space.choose_possible(arr_var == self.empty, probability_true=0.0):
+            while SymbolicBool(z3Gt(len_var, z3IntVal(idx))).__bool__():
+                if space.choose_possible(
+                    z3Eq(arr_var, self.empty), probability_true=0.0
+                ):
                     raise IgnoreAttempt("SymbolicDict in inconsistent state")
-                k = z3.Const("k" + str(idx) + space.uniq(), arr_sort.domain())
-                v = z3.Const(
-                    "v" + str(idx) + space.uniq(), self.val_constructor.domain(0)
+                k = z3Const("k" + str(idx) + space.uniq(), key_sort)
+                v = z3Const("v" + str(idx) + space.uniq(), val_sort)
+                remaining = z3Const("remaining" + str(idx) + space.uniq(), arr_sort)
+                space.add(
+                    z3Eq(arr_var, z3Store(remaining, k, z3App(val_constructor, v)))
                 )
-                remaining = z3.Const("remaining" + str(idx) + space.uniq(), arr_sort)
-                space.add(arr_var == z3.Store(remaining, k, self.val_constructor(v)))
-                space.add(is_missing(z3.Select(remaining, k)))
+                space.add(z3App(is_missing, z3Select(remaining, k)))
 
                 if idx > len(iter_cache):
                     raise CrossHairInternal()
                 if idx == len(iter_cache):
                     iter_cache.append(k)
                 else:
-                    space.add(k == iter_cache[idx])
+                    space.add(z3Eq(k, iter_cache[idx]))
                 idx += 1
                 yieldval = smt_to_ch_value(space, self.snapshot, k, self.key_pytype)
                 with ResumedTracing():
@@ -2004,7 +2033,9 @@ class SymbolicDict(SymbolicDictOrSet, collections.abc.Mapping):
                 arr_var = remaining
             # In this conditional, we reconcile the parallel symbolic variables for
             # length and contents:
-            if space.choose_possible(arr_var != self.empty, probability_true=0.0):
+            if space.choose_possible(
+                z3Distinct(arr_var, self.empty), probability_true=0.0
+            ):
                 raise IgnoreAttempt("SymbolicDict in inconsistent state")
 
     def copy(self):
@@ -2141,30 +2172,31 @@ class SymbolicFrozenSet(SymbolicDictOrSet, FrozenSetBase):
             space = context_statespace()
             idx = 0
             arr_sort = self._arr().sort()
-            keys_on_heap = is_heapref_sort(arr_sort.domain())
+            key_sort = arr_sort.domain()
+            keys_on_heap = is_heapref_sort(key_sort)
             already_yielded = []
             while True:
                 if idx < len(iter_cache):
                     k = iter_cache[idx]
-                elif SymbolicBool(idx < len_var).__bool__():
+                elif SymbolicBool(z3Gt(len_var, z3IntVal(idx))).__bool__():
                     if space.choose_possible(
-                        arr_var == self.empty, probability_true=0.0
+                        z3Eq(arr_var, self.empty), probability_true=0.0
                     ):
                         raise IgnoreAttempt("SymbolicFrozenSet in inconsistent state")
-                    k = z3.Const("k" + str(idx) + space.uniq(), arr_sort.domain())
+                    k = z3Const("k" + str(idx) + space.uniq(), key_sort)
                 else:
                     break
-                remaining = z3.Const("remaining" + str(idx) + space.uniq(), arr_sort)
-                space.add(arr_var == z3.Store(remaining, k, True))
+                remaining = z3Const("remaining" + str(idx) + space.uniq(), arr_sort)
+                space.add(z3Eq(arr_var, z3Store(remaining, k, _SMT_TRUE)))
                 # TODO: this seems like it won't work the same for heaprefs which can be distinct but equal:
-                space.add(z3.Not(z3.Select(remaining, k)))
+                space.add(z3Not(z3Select(remaining, k)))
 
                 if idx > len(iter_cache):
                     raise CrossHairInternal()
                 if idx == len(iter_cache):
                     iter_cache.append(k)
                 else:
-                    space.add(k == iter_cache[idx])
+                    space.add(z3Eq(k, iter_cache[idx]))
 
                 idx += 1
                 ch_value = smt_to_ch_value(space, self.snapshot, k, self.key_pytype)
@@ -2185,7 +2217,9 @@ class SymbolicFrozenSet(SymbolicDictOrSet, FrozenSetBase):
                 arr_var = remaining
             # In this conditional, we reconcile the parallel symbolic variables for length
             # and contents:
-            if space.choose_possible(arr_var != self.empty, probability_true=0.0):
+            if space.choose_possible(
+                z3Distinct(arr_var, self.empty), probability_true=0.0
+            ):
                 raise IgnoreAttempt("SymbolicFrozenSet in inconsistent state")
 
     def _set_op(self, attr, other):
@@ -2379,7 +2413,7 @@ class SymbolicArrayBasedUniformTuple(SymbolicSequence):
         return self._len_int
 
     def __bool__(self) -> bool:
-        return self._len_int > 0
+        return bool(self._len_int > 0)
 
     def __eq__(self, other):
         with NoTracing():
@@ -2489,13 +2523,13 @@ class SymbolicArrayBasedUniformTuple(SymbolicSequence):
     def __getitem__(self, i):
         space = context_statespace()
         with NoTracing():
-            if (
-                isinstance(i, slice)
-                and i.start is None
-                and i.stop is None
-                and i.step is None
-            ):
-                return self
+            if isinstance(i, slice):
+                if i.start is None and i.stop is None and i.step is None:
+                    return self
+                if i.step is not None:
+                    with ResumedTracing():
+                        if i.step != 1:
+                            return list(self)[i]
             with ResumedTracing():
                 idx_or_pair = process_slice_vs_bounded_len(i, self._len_int)
             if isinstance(idx_or_pair, tuple):
@@ -2695,9 +2729,7 @@ class SymbolicRange:
             return iter(SymbolicRange(stop - tail_space, start - tail_space, -step))
 
 
-class SymbolicList(
-    ShellMutableSequence, collections.abc.MutableSequence, CrossHairValue
-):
+class SymbolicList(ShellMutableSequence):
     def __init__(self, arg: Union[Sequence, str], typ=list):
         if isinstance(arg, str):
             ShellMutableSequence.__init__(
@@ -2705,44 +2737,6 @@ class SymbolicList(
             )
         else:
             ShellMutableSequence.__init__(self, arg)
-
-    def __ch_pytype__(self):
-        return list
-
-    def __ch_realize__(self):
-        return list(i for i in self)
-
-    def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
-        """See :func:`~crosshair.core.smt_for_unification`"""
-        return smt_for_unification(self.inner, other_value)
-
-    def _spawn(self, items: Sequence) -> "ShellMutableSequence":
-        return SymbolicList(items)
-
-    def __eq__(self, other):
-        if not isinstance(other, list):
-            return False
-        return ShellMutableSequence.__eq__(self, other)
-
-    def __lt__(self, other):
-        if not isinstance(other, (list, SymbolicList)):
-            raise TypeError
-        return super().__lt__(other)
-
-    def __le__(self, other):
-        if not isinstance(other, (list, SymbolicList)):
-            raise TypeError
-        return super().__le__(other)
-
-    def __gt__(self, other):
-        if not isinstance(other, (list, SymbolicList)):
-            raise TypeError
-        return super().__gt__(other)
-
-    def __ge__(self, other):
-        if not isinstance(other, (list, SymbolicList)):
-            raise TypeError
-        return super().__ge__(other)
 
     def __mod__(self, *a):
         raise TypeError
@@ -3063,39 +3057,12 @@ class SymbolicCallable:
         return f"(x:={value_repr}, lambda *a: x.pop(0) if len(x) > 1 else x[0])[1]"
 
 
-class SymbolicUniformTuple(
-    SymbolicArrayBasedUniformTuple, collections.abc.Sequence, collections.abc.Hashable
-):
-    def __repr__(self):
-        return tuple(self).__repr__()
-
-    def __hash__(self):
-        return tuple(self).__hash__()
-
-    def __eq__(self, other):
-        if not isinstance(other, tuple):
-            return False
-        return SymbolicArrayBasedUniformTuple.__eq__(self, other)
-
-    def __lt__(self, other):
-        if not isinstance(other, tuple):
-            raise TypeError
-        return SymbolicArrayBasedUniformTuple.__lt__(self, other)
-
-    def __le__(self, other):
-        if not isinstance(other, tuple):
-            raise TypeError
-        return SymbolicArrayBasedUniformTuple.__le__(self, other)
-
-    def __gt__(self, other):
-        if not isinstance(other, tuple):
-            raise TypeError
-        return SymbolicArrayBasedUniformTuple.__gt__(self, other)
-
-    def __ge__(self, other):
-        if not isinstance(other, tuple):
-            raise TypeError
-        return SymbolicArrayBasedUniformTuple.__ge__(self, other)
+class SymbolicTuple(ShellSequence):
+    def __init__(self, arg: Union[Sequence, str], typ=tuple):
+        if isinstance(arg, str):
+            ShellSequence.__init__(self, SymbolicArrayBasedUniformTuple(arg, typ))
+        else:
+            ShellSequence.__init__(self, arg)
 
 
 class SymbolicBoundedIntTuple(collections.abc.Sequence):
@@ -3119,7 +3086,10 @@ class SymbolicBoundedIntTuple(collections.abc.Sequence):
         """See :func:`~crosshair.core.smt_for_unification`"""
         if isinstance(other_value, CrossHairValue):
             return None
-        otherlen = len(other_value)
+        try:
+            otherlen = len(other_value)
+        except TypeError:
+            return None
         assert isinstance(otherlen, int)
         requirements = [self._len.var == otherlen]
         if otherlen == 0:
@@ -3129,9 +3099,9 @@ class SymbolicBoundedIntTuple(collections.abc.Sequence):
             self._get_smt_component_prefix(otherlen), other_value
         ):
             other_value_smt = SymbolicInt._coerce_to_smt_sort(other_value)
+            if other_value_smt is None:
+                return None
             requirements.append(my_value.var == other_value_smt)
-        if None in requirements:
-            return None
         return z3.And(*requirements)
 
     @assert_tracing(False)
@@ -3237,7 +3207,8 @@ class SymbolicBoundedIntTuple(collections.abc.Sequence):
                 mylen = self._len
                 if (
                     # Can we use a prefix of my created vars?:
-                    (stop is not None and stop > 0)  # a useful stop is given
+                    (stop is not None and stop >= 0)  # a non-negative stop is given
+                    and (step is None or step > 0)  # we slice forward
                     and (
                         start is None or 0 <= start
                     )  # start is not negative (handling this would require realizing my length)
@@ -3377,7 +3348,35 @@ def rsplit_parts_lazy(patt: re.Pattern, string: str, maxsplit: int) -> List:
     return parts
 
 
+def select_first(
+    conditions: Sequence[Union[bool, SymbolicBool]],
+    values: Sequence[Union[int, SymbolicInt]],
+    default: int,
+) -> Union[int, SymbolicInt]:
+    """
+    Return the value paired with the first true condition, or ``default``.
+
+    Symbolic conditions yield a symbolic result rather than a branch.
+    """
+    with NoTracing():
+        result: Union[int, SymbolicInt] = default
+        for condition, value in zip(reversed(conditions), reversed(values)):
+            if isinstance(condition, SymbolicBool):
+                result = SymbolicInt(
+                    z3.If(
+                        condition.var,
+                        force_to_smt_sort(value, SymbolicInt),
+                        force_to_smt_sort(result, SymbolicInt),
+                    )
+                )
+            elif condition:
+                result = value
+        return result
+
+
 class AnySymbolicStr(AbcString):
+    _ch_select_first = staticmethod(select_first)
+
     def __ch_is_deeply_immutable__(self) -> bool:
         return True
 
@@ -3434,11 +3433,7 @@ class AnySymbolicStr(AbcString):
     def capitalize(self):
         if self.__len__() == 0:
             return ""
-        if version_info >= (3, 8):
-            firstchar = self[0].title()
-        else:
-            firstchar = self[0].upper()
-        return firstchar + self[1:].lower()
+        return self[0].title() + self[1:].lower()
 
     def casefold(self):
         if len(self) != 1:
@@ -3970,14 +3965,20 @@ class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
         with NoTracing():
             mypoints = self._codepoints
             if isinstance(other, LazyIntSymbolicStr):
-                with ResumedTracing():
-                    return mypoints == other._codepoints
+                otherpoints = other._codepoints
             elif isinstance(other, str):
                 otherpoints = [ord(ch) for ch in other]
-                with ResumedTracing():
-                    return mypoints.__eq__(otherpoints)
             else:
                 return NotImplemented
+            if isinstance(mypoints, (list, tuple)) and isinstance(
+                otherpoints, (list, tuple)
+            ):
+                if len(mypoints) != len(otherpoints):
+                    return False
+                with ResumedTracing():
+                    return all(map(ops.eq, mypoints, otherpoints))
+            with ResumedTracing():
+                return mypoints == otherpoints
 
     def __getitem__(self, i):
         with NoTracing():
@@ -4118,12 +4119,14 @@ def is_ascii_space_ord(char_ord: int):
 
 
 class BytesLike(Buffer, AbcString, CrossHairValue):
+    _ch_select_first = staticmethod(select_first)
+
     def __eq__(self, other) -> bool:
         if not isinstance(other, _ALL_BYTES_TYPES):
             return False
         if len(self) != len(other):
             return False
-        return list(self) == list(other)
+        return all(map(ops.eq, self, other))
 
     def _ch_operand_points(self, operand):
         # Hook for AbcString's shared algorithms: a bytes needle/separator must
@@ -4304,7 +4307,7 @@ class BytesLike(Buffer, AbcString, CrossHairValue):
 
 def _bytes_data_prop(s):
     with NoTracing():
-        return bytes(s.inner)
+        return bytes(tracing_iter(s.inner))
 
 
 class SymbolicBytes(BytesLike):
@@ -4480,10 +4483,6 @@ class SymbolicByteArray(BytesLike, ShellMutableSequence):  # type: ignore
         with NoTracing():
             return SymbolicByteArray(codepoints)
 
-    def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
-        """See :func:`~crosshair.core.smt_for_unification`."""
-        return smt_for_unification(self.inner, other_value)
-
     def __ch_realize__(self):
         return bytearray(tracing_iter(self.inner))
 
@@ -4521,6 +4520,12 @@ class SymbolicByteArray(BytesLike, ShellMutableSequence):  # type: ignore
 
     def _spawn(self, items: Sequence) -> ShellMutableSequence:
         return SymbolicByteArray(items)
+
+    def __mul__(self, count):
+        return self._ch_make(self.data * count)
+
+    def __rmul__(self, count):
+        return self._ch_make(self.data * count)
 
     def append(self, item):
         ShellMutableSequence.append(self, _as_byte_value(item))
@@ -4765,7 +4770,7 @@ def make_tuple(creator: SymbolicFactory, *type_args):
     if not type_args:
         type_args = (object, ...)  # type: ignore
     if len(type_args) == 2 and type_args[1] == ...:
-        return SymbolicUniformTuple(creator.varname, creator.pytype)
+        return SymbolicTuple(creator.varname, creator.pytype)
     elif len(type_args) == 1 and type_args[0] == ():
         # In python, the type for the empty tuple is written like Tuple[()]
         return ()
@@ -5433,6 +5438,8 @@ def _str_contains(
 def _tuple_repr(self):
     if not isinstance(self, tuple):
         raise TypeError
+    if len(self) == 1:
+        return "(" + repr(self[0]) + ",)"
     contents = ", ".join(map(repr, self))
     return "(" + contents + ")"
 
@@ -5446,10 +5453,7 @@ def make_registrations():
 
     register_type(Union, make_union_choice)
 
-    if version_info >= (3, 8):
-        from typing import Final
-
-        register_type(Final, lambda p, t: p(t))
+    register_type(Final, lambda p, t: p(t))
 
     # Types modeled in the SMT solver:
 
@@ -5602,10 +5606,9 @@ def make_registrations():
         "translate",
         "upper",
         "zfill",
+        "removeprefix",
+        "removesuffix",
     ]
-    if version_info >= (3, 9):
-        names_to_str_patch.append("removeprefix")
-        names_to_str_patch.append("removesuffix")
     for name in names_to_str_patch:
         assert hasattr(str, name), f"'{name}' not on str"
         orig_impl = getattr(str, name)

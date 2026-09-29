@@ -213,6 +213,23 @@ void GeoArrowBuilderReset(struct GeoArrowBuilder* builder);
 
 /// @}
 
+/// \defgroup geoarrow-udf Function implementations
+///
+/// The GeoArrow C library provides a limited number of function implementations
+/// for several low-level ST_ functions. These functions are more database-like
+/// than the previous GeoArrowKernel-based framework whose interface did not
+/// align well with any existing UDF framework. The implementations provided here
+/// may still require some composition at a higher level but are better suited
+/// to dropping in to a SedonaDB/DuckDB/Acero-like engine.
+///
+/// @{
+
+GeoArrowErrorCode GeoArrowScalarUdfFactoryInit(struct GeoArrowScalarUdfFactory* out,
+                                               const char* name, const char* options,
+                                               struct GeoArrowError* error);
+
+/// @}
+
 /// \defgroup geoarrow-kernels Transform Arrays
 ///
 /// The GeoArrow C library provides limited support for transforming arrays.
@@ -401,6 +418,14 @@ GeoArrowErrorCode GeoArrowNativeWriterInit(struct GeoArrowNativeWriter* writer,
 GeoArrowErrorCode GeoArrowNativeWriterInitVisitor(struct GeoArrowNativeWriter* writer,
                                                   struct GeoArrowVisitor* v);
 
+/// \brief Append a GeoArrowGeometryView to this writer
+GeoArrowErrorCode GeoArrowNativeWriterAppend(struct GeoArrowNativeWriter* writer,
+                                             struct GeoArrowGeometryView geom,
+                                             struct GeoArrowError* error);
+
+/// \brief Append a null element to this writer
+GeoArrowErrorCode GeoArrowNativeWriterAppendNull(struct GeoArrowNativeWriter* writer);
+
 /// \brief Finish an ArrowArray containing elements from the visited input
 ///
 /// This function can be called more than once to support multiple batches.
@@ -415,7 +440,8 @@ void GeoArrowNativeWriterReset(struct GeoArrowNativeWriter* writer);
 ///
 /// This struct also contains options for well-known text serialization.
 /// These options can be modified from the defaults after
-/// GeoArrowWKTWriterInit() and before GeoArrowWKTWriterInitVisitor().
+/// GeoArrowWKTWriterInit() and before GeoArrowWKTWriterInitVisitor() or
+/// GeoArrowWKTWriterAppend().
 ///
 /// Note that whether or not GeoArrow was compiled with ryu has a significant
 /// impact on the output: notably, ryu is locale-independent and much faster.
@@ -435,7 +461,7 @@ struct GeoArrowWKTWriter {
   /// Use -1 to denote an unlimited size for each element. When the limit is
   /// reached or shortly after, the called handler method will return EAGAIN,
   /// after which it is safe to call feat_end to end the feature. This ensures
-  /// that a finite amount of input is consumed if this elemtn is set.
+  /// that a finite amount of input is consumed if this element is set.
   int64_t max_element_size_bytes;
 
   /// \brief Implementation-specific details
@@ -451,6 +477,16 @@ GeoArrowErrorCode GeoArrowWKTWriterInit(struct GeoArrowWKTWriter* writer);
 /// \brief Populate a GeoArrowVisitor pointing to this writer
 void GeoArrowWKTWriterInitVisitor(struct GeoArrowWKTWriter* writer,
                                   struct GeoArrowVisitor* v);
+
+/// \brief Append a geometry view to this writer
+///
+/// The geometry is appended using the current writer options. The caller retains
+/// ownership of the geometry view and its referenced memory.
+GeoArrowErrorCode GeoArrowWKTWriterAppend(struct GeoArrowWKTWriter* writer,
+                                          struct GeoArrowGeometryView geom);
+
+/// \brief Append a null element to this writer
+GeoArrowErrorCode GeoArrowWKTWriterAppendNull(struct GeoArrowWKTWriter* writer);
 
 /// \brief Finish an ArrowArray containing elements from the visited input
 ///
@@ -495,6 +531,13 @@ struct GeoArrowWKBWriter {
 /// If GEOARROW_OK is returned, the caller is responsible for calling
 /// GeoArrowWKBWriterReset().
 GeoArrowErrorCode GeoArrowWKBWriterInit(struct GeoArrowWKBWriter* writer);
+
+/// \brief Append a null element to this writer
+GeoArrowErrorCode GeoArrowWKBWriterAppendNull(struct GeoArrowWKBWriter* writer);
+
+/// \brief Append a GeoArrowGeometryView to this writer
+GeoArrowErrorCode GeoArrowWKBWriterAppend(struct GeoArrowWKBWriter* writer,
+                                          struct GeoArrowGeometryView geom);
 
 /// \brief Populate a GeoArrowVisitor pointing to this writer
 void GeoArrowWKBWriterInitVisitor(struct GeoArrowWKBWriter* writer,

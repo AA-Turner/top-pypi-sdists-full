@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <string>
 
+#include "common/exception/checkpoint.h"
 #include "common/exception/io.h"
 #include "common/exception/runtime.h"
 #include "common/file_system/file_info.h"
@@ -22,8 +23,10 @@
 #include "storage/storage_manager.h"
 #include "storage/storage_utils.h"
 #include "storage/wal/checksum_reader.h"
+#include "storage/wal/wal.h"
 #include "storage/wal/wal_record.h"
 #include "transaction/transaction_context.h"
+#include "transaction/transaction_manager.h"
 #include <format>
 #ifndef _WIN32
 #include <fcntl.h>
@@ -265,8 +268,21 @@ void WALReplayer::replayFrozenWAL(Checkpointer& checkpointer, bool throwOnWalRep
                 auto walRecord = WALRecord::deserialize(deserializer, clientContext);
                 replayWALRecord(*walRecord);
             }
+            if (offsetDeserialized == 0) {
+                // Nothing was committed, so the frozen WAL holds nothing to keep.
+                fileInfo.reset();
+                removeFileAndSyncParentDirectory(checkpointWalPath);
+                return;
+            }
+            // The replayed records now live only in memory and in the frozen WAL, so the frozen
+            // WAL must stay until a checkpoint commits them to the data file. Finish the
+            // interrupted checkpoint now, before the active WAL is replayed: its CHECKPOINT record
+            // goes to the frozen WAL, so a crash at any point either replays the frozen WAL again
+            // or applies the checkpoint, and the active WAL is replayed on top in both cases.
+            // Drop any torn tail first, so the CHECKPOINT record directly follows the last commit.
+            truncateWALFile(*fileInfo, offsetDeserialized);
             fileInfo.reset();
-            removeFileAndSyncParentDirectory(checkpointWalPath);
+            completeInterruptedCheckpoint();
         }
     } catch (const std::exception&) {
         auto transactionContext = TransactionContext::Get(clientContext);
@@ -274,6 +290,17 @@ void WALReplayer::replayFrozenWAL(Checkpointer& checkpointer, bool throwOnWalRep
             transactionContext->rollback();
         }
         throw;
+    }
+}
+
+void WALReplayer::completeInterruptedCheckpoint() const {
+    // Only the main WAL adopts its frozen file; attached-graph WALs rotate normally.
+    WAL::FrozenWALAdoptionGuard adoption{*WAL::Get(clientContext)};
+    try {
+        TransactionManager::Get(clientContext)->checkpoint(clientContext);
+    } catch (const std::exception& e) {
+        throw CheckpointException(std::format(
+            "Failed while completing an interrupted checkpoint during recovery: {}", e.what()));
     }
 }
 

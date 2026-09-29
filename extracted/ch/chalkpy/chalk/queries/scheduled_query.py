@@ -29,6 +29,7 @@ class ScheduledQuery:
         store_offline: bool = True,
         incremental_resolvers: Collection[str] | None = None,
         planner_options: dict[str, str] | None = None,
+        env_overrides: dict[str, str] | None = None,
         resource_group: str | None = None,
         completion_deadline: timedelta | None = None,
         num_shards: int | None = None,
@@ -38,6 +39,7 @@ class ScheduledQuery:
         max_retries: int | None = None,
         resources: ResourceRequests | None = None,
         environment: str | None = None,
+        use_metaplanner: bool | None = None,
         write_to: str | None = None,
     ):
         """Create an offline query which runs on a schedule.
@@ -96,8 +98,14 @@ class ScheduledQuery:
         planner_options
             A dictionary of options to pass to the planner. These are typically provided by Chalk Support
             for specific use cases.
+        env_overrides
+            Environment variables to apply to each scheduled query run. These are typically provided by
+            Chalk Support for specific use cases.
         resource_group
             The resource group to use for the query. If not set, the default resource group will be used.
+        use_metaplanner
+            Whether to route scheduled query runs through the metaplanner. If unset, the server chooses
+            based on deployment configuration and other query settings.
         write_to
             A storage URI (e.g. `s3://bucket/path/`) to which each run's output rows
             are written directly, in addition to online/offline store persistence.
@@ -188,12 +196,14 @@ class ScheduledQuery:
             )
         self.incremental_resolvers = incremental_resolvers
         self.planner_options = {k: str(v) for k, v in planner_options.items()} if planner_options else None
+        self.env_overrides = {k: str(v) for k, v in env_overrides.items()} if env_overrides else None
         self.resource_group = resource_group
 
         self.completion_deadline = completion_deadline
         self.max_retries = max_retries
         self.resources = resources
         self.environment = environment
+        self.use_metaplanner = use_metaplanner
 
         self.num_shards = num_shards
         self.num_workers = num_workers

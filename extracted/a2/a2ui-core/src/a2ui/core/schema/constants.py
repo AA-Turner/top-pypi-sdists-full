@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Final, Literal, TypeAlias
+"""Deprecated shim for a2ui.core.schema.constants."""
 
-SPEC_VERSION: Final = "v0.9"
-SPEC_VERSION_TYPE: TypeAlias = Literal["v0.9"]
-SPEC_BASE_URL = "https://a2ui.org/specification"
+from a2ui.core._compat import reexport_all as _reexport_all, warn_moved as _warn_moved
+from a2ui.core.schema.v0_9.constants import *
 
-MSG_TYPE_CREATE_SURFACE = "createSurface"
-MSG_TYPE_UPDATE_COMPONENTS = "updateComponents"
-MSG_TYPE_UPDATE_DATA_MODEL = "updateDataModel"
-MSG_TYPE_DELETE_SURFACE = "deleteSurface"
-
-CATALOG_COMPONENTS_KEY = "components"
-SURFACE_ID_KEY = "surfaceId"
-THEME_KEY = "theme"
-
-ROOT_ID = "root"
+_warn_moved("a2ui.core.schema.constants", "a2ui.core.schema.v0_9.constants")
+SPEC_VERSION = PROTOCOL_VERSION
+SPEC_VERSION_TYPE = PROTOCOL_VERSION_TYPE
+SPEC_BASE_URL = PROTOCOL_BASE_URL
+__all__ = [
+    *_reexport_all("a2ui.core.schema.v0_9.constants", globals()),
+    "SPEC_VERSION",
+    "SPEC_VERSION_TYPE",
+    "SPEC_BASE_URL",
+]

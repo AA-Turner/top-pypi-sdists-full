@@ -16,13 +16,14 @@ from __future__ import annotations
 
 import re
 import json
-from typing import Any, List, Dict, Optional, Set, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from a2ui.inference_formats.direct_json.streaming import DirectJsonStreamParser
 from a2ui.parser.response_part import ResponsePart
 from a2ui.parser.constants import *
 from a2ui.schema.constants import SURFACE_ID_KEY, CATALOG_COMPONENTS_KEY
-from a2ui.core.validating.validator import RELAXED_VALIDATION
+from a2ui.core.validation import RELAXED_VALIDATION
+from a2ui.core import A2uiValidationError
 
 if TYPE_CHECKING:
     from a2ui.schema.catalog import A2uiCatalog
@@ -37,7 +38,7 @@ class DirectJsonStreamParserV09(DirectJsonStreamParser):
         self._default_root_id = DEFAULT_ROOT_ID
 
     @property
-    def _placeholder_component(self) -> Dict[str, Any]:
+    def _placeholder_component(self) -> dict[str, Any]:
         """Returns a v0.9 flat style placeholder component specification."""
         return {
             'component': 'Row',
@@ -49,7 +50,7 @@ class DirectJsonStreamParserV09(DirectJsonStreamParser):
         """Returns the message type identifier for data model updates."""
         return MSG_TYPE_UPDATE_DATA_MODEL
 
-    def is_protocol_msg(self, obj: Dict[str, Any]) -> bool:
+    def is_protocol_msg(self, obj: dict[str, Any]) -> bool:
         """Checks if the object is a recognized v0.9 message."""
         return any(
             k in obj
@@ -57,13 +58,14 @@ class DirectJsonStreamParserV09(DirectJsonStreamParser):
                 MSG_TYPE_CREATE_SURFACE,
                 MSG_TYPE_UPDATE_COMPONENTS,
                 MSG_TYPE_UPDATE_DATA_MODEL,
+                MSG_TYPE_DELETE_SURFACE,
             )
         )
 
     def _sniff_metadata(self) -> None:
         """Sniffs for v0.9 metadata in the json_buffer."""
 
-        def get_latest_value(key: str) -> Optional[str]:
+        def get_latest_value(key: str) -> str | None:
             idx = len(self._json_buffer)
             while True:
                 idx = self._json_buffer.rfind(f'"{key}"', 0, idx)
@@ -88,16 +90,23 @@ class DirectJsonStreamParserV09(DirectJsonStreamParser):
 
     def _handle_complete_object(
         self,
-        obj: Dict[str, Any],
-        sid: Optional[str],
-        messages: List[ResponsePart],
+        obj: dict[str, Any],
+        sid: str | None,
+        messages: list[ResponsePart],
     ) -> bool:
         """Handles v0.9 specific complete objects."""
         if not isinstance(obj, dict):
             return False
 
         if self._validator:
-            self._validator.validate(obj, root_id=sid, config=RELAXED_VALIDATION)
+            v = self._get_s2c_validator()
+            if v:
+                from jsonschema.exceptions import best_match
+
+                errors = list(v.iter_errors(obj))
+                if errors:
+                    err = best_match(errors) or errors[0]
+                    raise A2uiValidationError(f'Validation failed: {err.message}')
 
         # Update state based on the message content
         surface_id = obj.get(SURFACE_ID_KEY, self.surface_id)
@@ -118,6 +127,7 @@ class DirectJsonStreamParserV09(DirectJsonStreamParser):
             val = obj[MSG_TYPE_CREATE_SURFACE]
             if isinstance(val, dict):
                 self.root_id = val.get('root', self.root_id or DEFAULT_ROOT_ID)
+                self._record_inline_components(sid, val.get('components'))
             self._buffered_start_message = obj
 
             # Yield createSurface immediately when it completes
@@ -164,12 +174,12 @@ class DirectJsonStreamParserV09(DirectJsonStreamParser):
         return False
 
     def _construct_sniffed_data_model_message(
-        self, active_msg_type: str, delta_msg_payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, active_msg_type: str, delta_msg_payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """Returns the message to yield for a partial data model update for v0.9."""
         return {'version': 'v0.9', active_msg_type: delta_msg_payload}
 
-    def _sniff_partial_data_model(self, messages: List[ResponsePart]) -> None:
+    def _sniff_partial_data_model(self, messages: list[ResponsePart]) -> None:
         """Sniffs for partial data model updates in v0.9 (value property)."""
         msg_type = MSG_TYPE_UPDATE_DATA_MODEL
         if f'"{msg_type}"' not in self._json_buffer:
@@ -185,7 +195,7 @@ class DirectJsonStreamParserV09(DirectJsonStreamParser):
             fixed_fragment = self._fix_json(raw_fragment)
             obj = None
             try:
-                obj = json.loads(fixed_fragment)
+                obj = json.loads(fixed_fragment, strict=False)
             except json.JSONDecodeError:
                 # Fallback: iteratively strip from the last comma
                 trimmed = raw_fragment
@@ -194,7 +204,7 @@ class DirectJsonStreamParserV09(DirectJsonStreamParser):
                     try:
                         fixed_trimmed = self._fix_json(trimmed)
                         if fixed_trimmed:
-                            obj = json.loads(fixed_trimmed)
+                            obj = json.loads(fixed_trimmed, strict=False)
                             break
                     except json.JSONDecodeError:
                         continue
@@ -230,28 +240,42 @@ class DirectJsonStreamParserV09(DirectJsonStreamParser):
                             # Do NOT update _yielded_data_model here, let update_data_model do it when complete
                             # Wait! If we don't update it, will we over-yield it in the next chunk?
                             # Yes, we might. So we should update it or track it!
-                            # The base class updates it (line 644 approx). So we should update it too!
                             self._yielded_data_model.update(delta)
 
+    def _record_inline_components(self, sid: str, components: Any) -> None:
+        """Records inline components from createSurface as already yielded."""
+        if not isinstance(components, list):
+            return
+        seen_components = self._components_by_surface.setdefault(sid, {})
+        for comp in components:
+            if isinstance(comp, dict) and 'id' in comp:
+                cid = comp['id']
+                seen_components[cid] = comp
+                self._yielded_ids.setdefault(sid, set()).add(cid)
+                self._yielded_contents[(sid, cid)] = json.dumps(comp, sort_keys=True)
+
     def _construct_partial_message(
-        self, processed_components: List[Dict[str, Any]], active_msg_type: str
-    ) -> Dict[str, Any]:
-        """Constructs a partial message for v0.9 (updateComponents)."""
-        payload: Dict[str, Any] = {
+        self, processed_components: list[dict[str, Any]], active_msg_type: str
+    ) -> dict[str, Any]:
+        """Constructs a partial message for v0.9/v1.0 (updateComponents)."""
+        payload: dict[str, Any] = {
             CATALOG_COMPONENTS_KEY: processed_components,
         }
         if self.surface_id:
             payload[SURFACE_ID_KEY] = self.surface_id
-        return {'version': 'v0.9', MSG_TYPE_UPDATE_COMPONENTS: payload}
+        version = getattr(self._catalog, 'version', None) or 'v0.9'
+        if not str(version).startswith('v'):
+            version = f'v{version}'
+        return {'version': version, MSG_TYPE_UPDATE_COMPONENTS: payload}
 
     @property
-    def _yielded_surfaces_set(self) -> Set[str]:
+    def _yielded_surfaces_set(self) -> set[str]:
         """Provides access to version-specific yielded surfaces set."""
         if not hasattr(self, '_yielded_create_surfaces'):
-            self._yielded_create_surfaces: Set[str] = set()
+            self._yielded_create_surfaces: set[str] = set()
         return self._yielded_create_surfaces
 
-    def _get_active_msg_type_for_components(self) -> Optional[str]:
+    def _get_active_msg_type_for_components(self) -> str | None:
         """Determines which msg_type to use when wrapping component updates."""
         if self._active_msg_type:
             return self._active_msg_type
@@ -261,7 +285,7 @@ class DirectJsonStreamParserV09(DirectJsonStreamParser):
                 return mt
         return self._msg_types[0] if self._msg_types else None
 
-    def _deduplicate_data_model(self, m: Dict[str, Any]) -> bool:
+    def _deduplicate_data_model(self, m: dict[str, Any]) -> bool:
         if MSG_TYPE_UPDATE_DATA_MODEL in m:
             udm = m[MSG_TYPE_UPDATE_DATA_MODEL]
             if isinstance(udm, dict):

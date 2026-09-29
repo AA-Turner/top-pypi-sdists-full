@@ -2095,10 +2095,8 @@ pub enum SuperStyle {
 pub enum AnnotationStyle {
     /// Annotated assignment: `x: MyType = my_value`
     Direct,
-    /// First assignment after a bare annotation: `x: MyType` then `x = value`.
-    /// Annotation takes precedence (the variable had no prior value).
-    ForwardedInitial,
-    /// Reassignment of an already-initialized annotated variable.
+    /// Assignment or reassignment of an already-declared annotated variable:
+    /// for example, `x: MyType` then `x = value`.
     /// Expression type takes precedence; annotation is an upper-bound hint.
     Forwarded,
 }
@@ -2197,6 +2195,8 @@ pub struct NameAssign {
     pub receiver_idx: Option<Idx<Key>>,
     /// `Some` if the RHS is an attrs field specifier call (`field()` / `attr.ib()`).
     pub attrs_field_specifier: Option<AttrsSpecifier>,
+    /// If this name was redefined or narrowed prior to this assignment, the previous definition or narrow.
+    pub last_value_or_narrow: Option<Idx<Key>>,
 }
 
 impl NameAssign {

@@ -7,6 +7,8 @@ recorded as an "observer" event.
 
 from __future__ import annotations
 
+from matrx_utils.source_guard import stable_source
+
 from types import SimpleNamespace
 
 import matrx_ai.mandates as mandates
@@ -133,7 +135,6 @@ async def test_adapter_refuses_a_holder_that_authors_no_user_turn(monkeypatch) -
 async def test_observer_retry_nudge_is_the_holders_text() -> None:
     """Residue pass 2 (2026-09-25): the retry nudge is the Holder's
     ``retry_nudge`` variable — the code names it, never types it."""
-    import inspect
 
     from matrx_ai.memory import observer_agent
 
@@ -150,7 +151,7 @@ async def test_observer_retry_nudge_is_the_holders_text() -> None:
         {"role": "assistant", "content": "no block here"},
         {"role": "user", "holder_text": "retry_nudge"},
     ]
-    assert "required <observations> block" not in inspect.getsource(observer_agent)
+    assert "required <observations> block" not in stable_source(observer_agent)
 
 
 async def test_adapter_sends_the_holders_retry_text_and_refuses_without_it(monkeypatch) -> None:

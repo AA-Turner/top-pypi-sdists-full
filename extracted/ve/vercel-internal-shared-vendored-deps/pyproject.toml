@@ -66,6 +66,7 @@ substitute = [
     { match = "import h2\\.settings", replace = "from vercel.internal._vendor import h2\nfrom vercel.internal._vendor.h2 import settings" },
     { match = "import anyio\\.abc", replace = "from anyio import abc" },
     { match = "import anyio\\.streams\\.tls", replace = "from anyio.streams import tls" },
+    { match = "import_module\\(f\"anyio\\._backends\\._", replace = "import_module(f\"vercel.internal._vendor.anyio._backends._" },
 ]
 drop = [
     "*.so",

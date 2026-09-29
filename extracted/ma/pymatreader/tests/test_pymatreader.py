@@ -102,8 +102,12 @@ def test_v6v73():
 
 def test_v7v73():
     """Test that the data is read correctly from old and new mat versions."""
-    v7_data = _sanitize_dict(read_mat(Path(test_data_folder, testdata_v7_fname)))
-    v73_data = _sanitize_dict(read_mat(Path(test_data_folder, testdata_v73_fname)))
+    with warnings.catch_warnings():
+        # Turn warnings into errors so that e.g. a spurious "Complex objects"
+        # warning for single arrays fails the test
+        warnings.simplefilter('error')
+        v7_data = _sanitize_dict(read_mat(Path(test_data_folder, testdata_v7_fname)))
+        v73_data = _sanitize_dict(read_mat(Path(test_data_folder, testdata_v73_fname)))
 
     for key, val in v7_data.items():
         if '_complex_' in key:

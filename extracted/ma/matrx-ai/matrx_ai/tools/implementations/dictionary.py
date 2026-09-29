@@ -74,6 +74,39 @@ def _ok(ctx: ToolContext, started: float, output: Any) -> ToolResult:
     )
 
 
+#: Migration 1355 (aidream db/migrations/1355_dictionary_entries_archive_not_delete.sql)
+#: gives dictionary.dict_entries its `deleted_at` column and turns
+#: `dict_delete_entries_for` into an ARCHIVE. Until that column exists the same
+#: function still runs a real DELETE, so this tool refuses to call it rather
+#: than destroy a person's vocabulary. Once seen, the column is cached for the
+#: life of the process (it never goes away).
+ARCHIVE_COLUMN = "deleted_at"
+ARCHIVE_MIGRATION = "migration 1355 (aidream db/migrations/1355_dictionary_entries_archive_not_delete.sql)"
+_archive_seen = False
+
+
+async def dictionary_archive_live(database: str) -> bool:
+    """True once dictionary.dict_entries carries `deleted_at` in the live database."""
+    global _archive_seen
+    if _archive_seen:
+        return True
+    from matrx_orm.operations.catalog_select import live_columns
+
+    _archive_seen = ARCHIVE_COLUMN in await live_columns("dictionary", "dict_entries", database=database)
+    return _archive_seen
+
+
+def _archive_not_live(ctx: ToolContext, started: float, action: str) -> ToolResult:
+    return _err(
+        ctx,
+        started,
+        "archive_not_live",
+        f"dictionary: {action} is paused. Deleting an entry now ARCHIVES it instead of destroying "
+        f"it, and the archive column '{ARCHIVE_COLUMN}' on dictionary.dict_entries does not exist yet "
+        f"({ARCHIVE_MIGRATION} has not been applied). Nothing was deleted; retry after the migration window.",
+    )
+
+
 def _owner_id(action: Any, user_id: str) -> str:
     """Resolve owner_id, defaulting the user level to the calling user."""
     level = getattr(action, "level", None)
@@ -159,7 +192,10 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
 
         if action == "delete_entries":
+            if not await dictionary_archive_live(database):
+                return _archive_not_live(ctx, started, "delete_entries")
             oid = _owner_id(parsed, user_id)
+            # After 1355 this function ARCHIVES (sets deleted_at); it never deletes.
             n = await call_function(
                 database,
                 "public",
@@ -169,7 +205,27 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 oid,
                 ArrayArg([str(x) for x in parsed.ids]),
             )
-            return _ok(ctx, started, {"deleted": int(n or 0)})
+            archived = int(n or 0)
+            return _ok(
+                ctx,
+                started,
+                {"archived": archived, "deleted": archived, "restore_with": "dictionary action=restore_entries"},
+            )
+
+        if action == "restore_entries":
+            if not await dictionary_archive_live(database):
+                return _archive_not_live(ctx, started, "restore_entries")
+            oid = _owner_id(parsed, user_id)
+            n = await call_function(
+                database,
+                "public",
+                "dict_restore_entries_for",
+                user_id,
+                parsed.level,
+                oid,
+                ArrayArg([str(x) for x in parsed.ids]),
+            )
+            return _ok(ctx, started, {"restored": int(n or 0)})
 
         if action == "get_settings":
             oid = _owner_id(parsed, user_id)

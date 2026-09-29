@@ -16,7 +16,7 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from bedrock_agentcore._utils.endpoints import get_control_plane_endpoint
+from bedrock_agentcore._utils.endpoints import CP_ENDPOINT_OVERRIDE
 from bedrock_agentcore._utils.user_agent import build_user_agent_suffix
 from bedrock_agentcore.services.identity import IdentityClient
 
@@ -250,29 +250,30 @@ class PaymentClient:
     def __init__(
         self,
         region_name: Optional[str] = None,
-        integration_source: Optional[str] = None,
+        integration_source: str = "raw-sdk",
     ) -> None:
         """Initialize the Payments control plane client.
 
         Args:
             region_name: AWS region name. Defaults to boto3 session region or us-west-2
-            integration_source: Optional identifier for tracking integration source in telemetry
+            integration_source: Identifier of the surface making the calls, propagated via
+                the boto3 User-Agent header for usage measurement. Defaults to "raw-sdk".
 
         """
         self.region_name = region_name or boto3.Session().region_name or "us-west-2"
-        self.integration_source = integration_source
+        self.integration_source = integration_source or "raw-sdk"
 
         # Build config with user-agent for telemetry
-        user_agent_extra = build_user_agent_suffix(integration_source)
+        user_agent_extra = build_user_agent_suffix(integration_source=self.integration_source, feature="payments")
         client_config = Config(user_agent_extra=user_agent_extra)
 
-        # Control plane operations are available through bedrock-agentcore-control service
-        self.payments_cp_client = boto3.client(
-            "bedrock-agentcore-control",
-            region_name=self.region_name,
-            endpoint_url=get_control_plane_endpoint(self.region_name),
-            config=client_config,
-        )
+        # Control plane operations are available through bedrock-agentcore-control service.
+        # boto3 resolves the endpoint natively (partition-correct, incl. aws-cn);
+        # only override when the operator set BEDROCK_AGENTCORE_CP_ENDPOINT.
+        cp_kwargs = {"region_name": self.region_name, "config": client_config}
+        if CP_ENDPOINT_OVERRIDE:
+            cp_kwargs["endpoint_url"] = CP_ENDPOINT_OVERRIDE
+        self.payments_cp_client = boto3.client("bedrock-agentcore-control", **cp_kwargs)
 
         # Initialize identity client for credential provider operations
         self.identity_client = IdentityClient(region=self.region_name)

@@ -283,7 +283,11 @@ class UnifiedMessage:
                         parsed_content.append(reconstruct_content({**item, "type": "code_exec"}))
                     elif content_type in ("code_execution_result", "code_result"):
                         parsed_content.append(reconstruct_content({**item, "type": "code_result"}))
-                    elif content_type in ("decision_questions", "decision_answers", "speech_script"):
+                    elif content_type in (
+                        "decision_questions",
+                        "decision_answers",
+                        "speech_script",
+                    ):
                         parsed_content.append(reconstruct_content(item))
                     elif content_type in STRUCTURED_INPUT_TYPE_MAP:
                         obj = reconstruct_structured_input(item)
@@ -625,6 +629,7 @@ class UnifiedMessage:
         text_parts: list[dict[str, Any]] = []
         tool_media_parts: list[dict[str, Any]] = []
         text_content_id: str | None = None
+        dropped_search_calls = 0
 
         for content in self.content:
             if isinstance(content, ThinkingContent):
@@ -660,6 +665,14 @@ class UnifiedMessage:
                         tool_media_parts.append(media_part)
 
             elif isinstance(content, WebSearchCallContent):
+                # OpenAI refuses a replayed web_search_call whose paired reasoning item is not
+                # in the same input ("Item 'ws_…' of type 'web_search_call' was provided without
+                # its required 'reasoning' item"). A reasoning block with no encrypted content
+                # cannot be replayed (above), so its search call cannot be either: the search's
+                # findings already live in the assistant text that follows. Dropped, counted.
+                if not any(i.get("type") == "reasoning" for i in items):
+                    dropped_search_calls += 1
+                    continue
                 item = {
                     "type": "web_search_call",
                     "id": content.id,
@@ -724,6 +737,13 @@ class UnifiedMessage:
         if tool_media_parts:
             items.append({"role": "user", "content": tool_media_parts})
 
+        if dropped_search_calls:
+            vcprint(
+                f"[UNIFIED MESSAGE] {dropped_search_calls} web_search_call item(s) not replayed to "
+                "OpenAI: their reasoning item carries no encrypted content, and OpenAI refuses a "
+                "search call without it. The search's findings remain in the assistant text.",
+                color="yellow",
+            )
         return items
 
     def to_anthropic_blocks(self) -> list[dict[str, Any]]:
@@ -816,9 +836,7 @@ class UnifiedMessage:
             "content": content_storage_dicts,
         }
         if self.user_content is not None:
-            result["user_content"] = [
-                content.to_storage_dict() for content in self.user_content
-            ]
+            result["user_content"] = [content.to_storage_dict() for content in self.user_content]
         # Carry the existing cx_message.id (set for messages loaded from the DB)
         # so persistence can recognize an already-persisted message and not
         # re-INSERT it (retry duplicate-user-message guard).
@@ -1392,7 +1410,11 @@ class MessageList:
         # 2026-09-13). Those calls are left untouched here; the strict pass
         # before any provider request still repairs a real orphan.
         pending_ids: set[str] = set()
-        if allow_empty and visible and getattr(visible[-1].role, "value", visible[-1].role) == "assistant":
+        if (
+            allow_empty
+            and visible
+            and getattr(visible[-1].role, "value", visible[-1].role) == "assistant"
+        ):
             pending_ids = {
                 c.id
                 for c in visible[-1].content
@@ -1444,9 +1466,7 @@ class MessageList:
             )
         if repaired_orphans:
             visible = repaired_visible
-            report_orphan_tool_uses_repaired(
-                layer=LAYER_SANITIZE, repaired=repaired_orphans
-            )
+            report_orphan_tool_uses_repaired(layer=LAYER_SANITIZE, repaired=repaired_orphans)
 
         # Pass 3 prep — ADJACENCY-aware pairing. The provider's rule is strict:
         # an assistant's tool_results must be in the IMMEDIATELY-following message,
@@ -1872,9 +1892,9 @@ class MessageList:
 
         if self._messages:
             tail = self._messages[-1]
-            if (
-                flags_of(tail).get("prefill")
-                and not (getattr(tail, "id", None) is not None and getattr(tail, "position", None) is not None)
+            if flags_of(tail).get("prefill") and not (
+                getattr(tail, "id", None) is not None
+                and getattr(tail, "position", None) is not None
             ):
                 self._messages.pop()
                 try:
@@ -1926,8 +1946,7 @@ class MessageList:
         if last.role != Role.USER:
             return False
         return not (
-            getattr(last, "id", None) is not None
-            and getattr(last, "position", None) is not None
+            getattr(last, "id", None) is not None and getattr(last, "position", None) is not None
         )
 
     def append_assistant_text(self, text: str, **kwargs) -> None:

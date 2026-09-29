@@ -140,9 +140,12 @@ def read_historian_csv(path) -> LiveStream:
         for cname, ch in channels.items():
             if cname.endswith('_' + tag) or ('_' + tag + '_') in cname:
                 ch.quality = flags
+    meta = {'path': str(p), 'columns': str(len(header))}
+    if t0 is not None:
+        meta['start_time'] = t0.isoformat()      # ISO origin of the elapsed-seconds index (client records)
     return LiveStream(name=p.stem, source_format='historian_csv',
                       index_kind='time_s', index=times, channels=channels,
-                      meta={'path': str(p), 'columns': str(len(header))})
+                      meta=meta)
 
 
 # ---------------------------------------------------------------------------

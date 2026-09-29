@@ -1,6 +1,7 @@
+import datetime as _dt
 import re
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, Union
 
 import agate
 import dbt_common.exceptions
@@ -28,13 +29,15 @@ from dbt.adapters.sqlserver.relation_configs.index import (
     index_config_changes,
     normalize_drop_unmanaged,
 )
-from dbt.adapters.sqlserver.sqlserver_auth import is_mssql_python_backend
+from dbt.adapters.sqlserver.sqlserver_auth import is_adbc_backend, is_mssql_python_backend
 from dbt.adapters.sqlserver.sqlserver_column import SQLServerColumn, SQLServerColumnNative
 from dbt.adapters.sqlserver.sqlserver_configs import SQLServerConfigs
 from dbt.adapters.sqlserver.sqlserver_connections import (
     SQLServerConnectionManager,
     _discard_pending_results,
 )
+from dbt.adapters.sqlserver.sqlserver_deny import deny_changes as _deny_changes
+from dbt.adapters.sqlserver.sqlserver_deny import resolve_denies as _resolve_denies
 from dbt.adapters.sqlserver.sqlserver_mask import ColumnMask
 from dbt.adapters.sqlserver.sqlserver_mask import mask_changes as _mask_changes
 from dbt.adapters.sqlserver.sqlserver_mask import resolve_masks as _resolve_masks
@@ -148,13 +151,52 @@ def _executed_name_for_system_type(base_type: str, backend: Any) -> Optional[str
     return _SYSTEM_TYPE_TO_EXECUTED_NAME.get(base_type)
 
 
+def _normalize_result_datetimes(
+    result: Union[Tuple, List[Tuple], None],
+) -> Union[Tuple, List[Tuple], None]:
+    """Strip spurious ``tzinfo=UTC`` that ADBC attaches to SQL Server
+    DATETIME2 / DATETIME values.
+
+    SQL Server does **not** store timezone offsets for these types, so the
+    correct Python representation is a naive ``datetime``.  ADBC's Arrow
+    backend wraps every ``timestamp`` column as ``timestamp[us, tz=UTC]``
+    regardless of the source semantics, producing ``datetime(…, tzinfo=UTC)``.
+    We revert that to match SQL Server semantics and to stay compatible with
+    the existing pyodbc / mssql-python backends.
+    """
+    if result is None:
+        return None
+
+    if isinstance(result, tuple):
+        return tuple(
+            (v.replace(tzinfo=None) if isinstance(v, _dt.datetime) and v.tzinfo is not None else v)
+            for v in result
+        )
+
+    if isinstance(result, list):
+        return [
+            tuple(
+                (
+                    v.replace(tzinfo=None)
+                    if isinstance(v, _dt.datetime) and v.tzinfo is not None
+                    else v
+                )
+                for v in row
+            )
+            for row in result
+        ]
+
+    return result
+
+
 class SQLServerAdapter(SQLAdapter):
     """
     Controls actual implementation of adapter, and ability to override certain methods.
     """
 
     ConnectionManager = SQLServerConnectionManager
-    Column = SQLServerColumn
+    # Annotated because __init__ swaps in the SQLServerColumnNative subclass.
+    Column: Type[SQLServerColumn] = SQLServerColumn
     AdapterSpecificConfigs = SQLServerConfigs
     Relation = SQLServerRelation
 
@@ -194,20 +236,25 @@ class SQLServerAdapter(SQLAdapter):
 
     @property
     def _behavior_flags(self) -> List[BehaviorFlag]:
-        return [
-            {
+        # dbt-common declares BehaviorFlag's optional keys with a NotRequired
+        # that falls back to Optional under a try/except ImportError shim, so a
+        # type checker reads `source` and `docs_url` as required and rejects
+        # every flag below. The suppressions go stale once that shim is dropped.
+        return [  # ty: ignore[invalid-return-type]
+            {  # ty: ignore[missing-typed-dict-key]
                 "name": "dbt_sqlserver_use_default_schema_concat",
-                "default": False,
+                "default": True,
                 "description": (
-                    "When True, uses dbt-core's standard schema concatenation "
+                    "When True (default), uses dbt-core's standard schema concatenation "
                     "(`target.schema` + `_` + `custom_schema_name`). "
-                    "When False (default), uses legacy adapter behaviour: "
+                    "When False, uses the legacy adapter behaviour: "
                     "`custom_schema_name` is used directly without prefixing `target.schema`. "
-                    "For a permanent solution, override the `sqlserver__generate_schema_name` "
-                    "macro in your project instead."
+                    "The legacy behaviour is deprecated and this override will be removed in a "
+                    "future release. For a permanent solution, override the "
+                    "`sqlserver__generate_schema_name` macro in your project instead."
                 ),
             },
-            {
+            {  # ty: ignore[missing-typed-dict-key]
                 "name": "dbt_sqlserver_disable_empty_relation_aliases",
                 "default": True,
                 "description": (
@@ -216,18 +263,19 @@ class SQLServerAdapter(SQLAdapter):
                     "out of alias generation temporarily for testing."
                 ),
             },
-            {
+            {  # ty: ignore[missing-typed-dict-key]
                 "name": "dbt_sqlserver_use_native_string_types",
-                "default": False,
+                "default": True,
                 "description": (
-                    "When True, uses SQL Server-native string type mappings: "
+                    "When True (default), uses SQL Server-native string type mappings: "
                     "STRING -> VARCHAR(MAX), NCHAR -> NCHAR(1), NVARCHAR -> NVARCHAR(4000). "
-                    "When False (default), preserves legacy mappings: "
+                    "When False, preserves deprecated legacy mappings: "
                     "STRING and NVARCHAR -> VARCHAR(8000), NCHAR -> CHAR(1). "
-                    "The new behaviour is intended to become the default in a future release."
+                    "The legacy False behavior is deprecated "
+                    "and will be removed in a future release."
                 ),
             },
-            {
+            {  # ty: ignore[missing-typed-dict-key]
                 "name": "dbt_sqlserver_enable_safe_type_expansion",
                 "default": False,
                 "description": (
@@ -237,16 +285,17 @@ class SQLServerAdapter(SQLAdapter):
                     "and numeric(p,s) -> numeric(p2,s2) using alter column."
                 ),
             },
-            {
+            {  # ty: ignore[missing-typed-dict-key]
                 "name": "dbt_sqlserver_use_dbt_transactions",
-                "default": False,
+                "default": True,
                 "description": (
-                    "When True, dbt transaction hooks (begin/commit) emit real T-SQL "
+                    "When True (default), dbt transaction hooks (begin/commit) emit real T-SQL "
                     "BEGIN TRANSACTION / COMMIT TRANSACTION statements. "
-                    "When False (default and legacy), begin/commit are no-ops and each statement "
-                    "is auto-committed by the driver. This means earlier successful statements "
+                    "When False, begin/commit are no-ops and each statement "
+                    "is auto-committed by the driver, meaning earlier successful statements "
                     "are not rolled back if a later statement fails. "
-                    "This behavior is intended to become the default in a future release."
+                    "The legacy False behavior is deprecated "
+                    "and will be removed in a future release."
                 ),
             },
         ]
@@ -297,15 +346,21 @@ class SQLServerAdapter(SQLAdapter):
 
         Returns None -- deliberately, rather than raising -- whenever the
         describe cannot be trusted to match what executing would have reported:
-        a query the describe fails on, or a type this backend's driver has no
-        known executed name for. The caller then executes as before, which is
-        slower but never disagrees with itself.
+        an unsupported backend, a query the describe fails on, or a type this
+        backend's driver has no known executed name for. The caller then
+        executes as before, which is slower but never disagrees with itself.
 
         A query that fails to compile is no exception: executing it fails at
         compile too, costing nothing, and raises the query's own error --
         Msg 207 naming the missing column -- through the normal path.
         """
         credentials = self.connections.profile.credentials
+        if is_adbc_backend(credentials.backend):
+            # ADBC derives its type names from Arrow codes (int64 -> bigint,
+            # large_string -> varchar(max)), so the map above -- built for the
+            # pyodbc/mssql-python collapse -- would make the two branches
+            # disagree on that backend.
+            return None
 
         # The function rather than ``exec sp_describe_first_result_set``: the
         # procedure raises whatever stops it describing, and handling a raised
@@ -365,6 +420,22 @@ class SQLServerAdapter(SQLAdapter):
         # an empty list would read as "this query has no columns" and surface
         # as a baffling contract mismatch; execute instead.
         return columns or None
+
+    @classmethod
+    def quote(cls, identifier: str) -> str:
+        """Double-quote an identifier, doubling any embedded double quote.
+
+        ``SQLAdapter.quote`` interpolates the identifier verbatim, so a name
+        containing a ``"`` would close the quoted identifier early and the
+        remainder would parse as SQL. T-SQL escapes a delimiter by doubling
+        it -- the same rule ``QUOTENAME()`` applies to brackets -- so
+        ``ab"cd`` must render as ``"ab""cd"``.
+
+        This is the quoting used by every macro that formats an identifier
+        (see #785). Relation rendering escapes nothing, since it goes through
+        ``BaseRelation.quote_character`` upstream rather than this method.
+        """
+        return '"{}"'.format(str(identifier).replace('"', '""'))
 
     @classmethod
     def convert_boolean_type(cls, agate_table, col_idx):
@@ -484,9 +555,9 @@ class SQLServerAdapter(SQLAdapter):
             if not fetch:
                 conn.handle.commit()
             if fetch == "one":
-                return cursor.fetchone()
+                return _normalize_result_datetimes(cursor.fetchone())
             elif fetch == "all":
-                return cursor.fetchall()
+                return _normalize_result_datetimes(cursor.fetchall())
             else:
                 return
         except BaseException:
@@ -720,54 +791,82 @@ class SQLServerAdapter(SQLAdapter):
             _discard_pending_results(cursor)
         return int(row[0]) if row else 0
 
-    def expand_column_types(self, goal, current, max_rows: int = 1000000):
-        """Override to ensure we preserve nvarchar/nchar type family during
-        column expansion. Necessary same-family resizes (e.g. varchar size)
-        always proceed. Safe type expansions (cross-family promotions like
-        varchar -> nvarchar) are guarded by column_type_expansion_max_rows.
-        enable_safe_type_expansion is the future approach for widening."""
+    def _safe_expansion_allowed(self, current, max_rows: int) -> bool:
+        """Whether cross-family promotions may run against ``current``.
+
+        Requires the ``dbt_sqlserver_enable_safe_type_expansion`` behaviour
+        flag, then consults ``column_type_expansion_max_rows``, which carries
+        three kinds of value: ``-1`` disables the row-count check, ``0``
+        blocks safe expansion outright, and a positive N blocks it once
+        ``current`` holds more than N rows. Counting rows costs a query, so it
+        runs only when the flag is on and a positive limit is set.
+        """
+        if not self.behavior.dbt_sqlserver_enable_safe_type_expansion:
+            return False
+
+        if max_rows == -1:
+            return True
+
+        if max_rows == 0:
+            logger.info(
+                "Safe type expansion skipped for %s: column_type_expansion_max_rows is 0.",
+                current,
+            )
+            return False
+
+        row_count = self._get_row_count(current)
+        if row_count > max_rows:
+            logger.warning(
+                "Safe type expansion skipped for %s: "
+                "%s rows exceeds column_type_expansion_max_rows (%s). "
+                "Set column_type_expansion_max_rows=-1 to disable "
+                "this check, or increase the limit.",
+                current,
+                row_count,
+                max_rows,
+            )
+            return False
+
+        return True
+
+    def expand_column_types(
+        self,
+        goal,
+        current,
+        max_rows: int = 1000000,
+        prefer_single_alter_column: Optional[bool] = None,
+    ):
+        """Widen ``current``'s columns to match ``goal``, preserving the
+        nvarchar / nchar family.
+
+        Same-family resizes (a longer varchar) always proceed. Cross-family
+        promotions (varchar -> nvarchar) are opt-in and gated; see
+        ``_safe_expansion_allowed``.
+
+        ``prefer_single_alter_column`` is the model's config. Unset, a
+        same-family resize uses a single ``ALTER COLUMN``: metadata-only for a
+        longer varchar, atomic, and it keeps indexes, defaults and column
+        position, all of which block or move the four-step rewrite. A
+        cross-family promotion keeps the four-step path, since a single
+        ``ALTER COLUMN`` to nvarchar on a large columnstore table can fail
+        with Msg 35357 (dictionary size limit).
+        """
 
         reference_columns = {c.name: c for c in self.get_columns_in_relation(goal)}
         target_columns = {c.name: c for c in self.get_columns_in_relation(current)}
 
-        enable_safe = self.behavior.dbt_sqlserver_enable_safe_type_expansion
-
-        row_count_exceeds = False
-        if enable_safe and max_rows != -1:
-            if max_rows == 0:
-                row_count_exceeds = True
-                logger.info(
-                    "Safe type expansion skipped for %s: column_type_expansion_max_rows is 0.",
-                    current,
-                )
-            else:
-                row_count = self._get_row_count(current)
-                if row_count > max_rows:
-                    row_count_exceeds = True
-                    logger.warning(
-                        "Safe type expansion skipped for %s: "
-                        "%s rows exceeds column_type_expansion_max_rows (%s). "
-                        "Set column_type_expansion_max_rows=-1 to disable "
-                        "this check, or increase the limit.",
-                        current,
-                        row_count,
-                        max_rows,
-                    )
+        safe_expansion_allowed = self._safe_expansion_allowed(current, max_rows)
 
         for column_name, reference_column in reference_columns.items():
             target_column = target_columns.get(column_name)
             if target_column is None:
                 continue
 
-            if target_column.can_expand_to(reference_column):
-                pass
-            elif (
-                enable_safe
-                and not row_count_exceeds
-                and target_column.can_expand_safe(reference_column)
+            same_family = target_column.can_expand_to(reference_column)
+            if not (
+                same_family
+                or (safe_expansion_allowed and target_column.can_expand_safe(reference_column))
             ):
-                pass
-            else:
                 continue
 
             if reference_column.is_string():
@@ -782,11 +881,46 @@ class SQLServerAdapter(SQLAdapter):
                     table=_make_ref_key_dict(current),
                 )
             )
-            self.alter_column_type(current, column_name, new_type)
+            prefer_single = (
+                same_family if prefer_single_alter_column is None else prefer_single_alter_column
+            )
+            self.alter_column_type(current, column_name, new_type, prefer_single)
+
+    def alter_column_type(
+        self,
+        relation,
+        column_name,
+        new_column_type,
+        prefer_single_alter_column: Optional[bool] = None,
+    ) -> None:
+        """Pass the model's ``prefer_single_alter_column`` to the macro.
+
+        A macro run from Python sees no model config, so
+        ``config.get('prefer_single_alter_column')`` inside it is always the
+        default; and dbt-adapters' ``alter_column_type`` dispatcher forwards
+        only the three standard arguments. When the setting is known, call
+        the SQL Server implementation with it directly (dbt-msft/dbt-sqlserver#836).
+        """
+        if prefer_single_alter_column is None:
+            super().alter_column_type(relation, column_name, new_column_type)
+            return
+        self.execute_macro(
+            "sqlserver__alter_column_type",
+            kwargs={
+                "relation": relation,
+                "column_name": column_name,
+                "new_column_type": new_column_type,
+                "prefer_single": prefer_single_alter_column,
+            },
+        )
 
     @available.parse_none
     def expand_target_column_types(
-        self, from_relation: BaseRelation, to_relation: BaseRelation, max_rows: int = 1000000
+        self,
+        from_relation: BaseRelation,
+        to_relation: BaseRelation,
+        max_rows: int = 1000000,
+        prefer_single_alter_column: Optional[bool] = None,
     ) -> None:
         if not isinstance(from_relation, self.Relation):
             from dbt.adapters.base.impl import MacroArgTypeError
@@ -806,7 +940,7 @@ class SQLServerAdapter(SQLAdapter):
                 got_value=to_relation,
                 expected_type=self.Relation,
             )
-        self.expand_column_types(from_relation, to_relation, max_rows)
+        self.expand_column_types(from_relation, to_relation, max_rows, prefer_single_alter_column)
 
     @available
     def parse_index(self, raw_index: Any) -> Optional[SQLServerIndexConfig]:
@@ -1020,6 +1154,52 @@ class SQLServerAdapter(SQLAdapter):
             set(index_key_columns or []),
             existing_columns=(list(existing_columns) if existing_columns is not None else None),
         )
+
+    @available
+    def resolve_denies(self, model: Any, model_denies: Optional[dict] = None) -> Dict[str, list]:
+        """Normalise the model-level `denies` config into a `{privilege:
+        [principals]}` map for `apply_denies`.
+
+        `model` is the Jinja `model` dict (`node.to_dict()`); its `grants` config
+        (under `model['config']`) is read only to warn when a principal is both
+        granted and denied the same privilege. `model_denies` is
+        `config.get('denies')`, already surface-merged by dbt.
+
+        Unsupported privileges (anything other than the object-level table
+        privileges) are warned and skipped rather than failing the run — the
+        warning surfaces the likely typo without taking down the build.
+        """
+        model = model or {}
+        grant_config = (model.get("config") or {}).get("grants")
+        model_name = model.get("name") or model.get("alias") or "<unknown>"
+        resolved, warnings, unsupported = _resolve_denies(model_denies, grant_config, model_name)
+        for warning in warnings:
+            logger.warning(warning)
+        if unsupported:
+            from dbt.adapters.sqlserver.sqlserver_deny import SUPPORTED_PRIVILEGES
+
+            logger.warning(
+                f"On model '{model_name}', the `denies` config lists unsupported "
+                f"privilege(s): {', '.join(sorted(unsupported))}; skipping them. "
+                f"Object-level DENY is supported only for the table privileges: "
+                f"{', '.join(SUPPORTED_PRIVILEGES)}."
+            )
+        return resolved
+
+    @available
+    def deny_changes(self, existing_denies: Any, deny_config: Optional[dict]) -> dict:
+        """Diff a resolved deny map against current `sys.database_permissions`.
+
+        `existing_denies` is the agate table from `get_show_deny_sql` (columns
+        `grantee`, `privilege_type`). Returns plain lists for jinja: `denies` and
+        `revokes`, each a list of `[privilege, principal]` pairs. The macro emits
+        `DENY` for the former and `REVOKE` for the latter."""
+        rows = []
+        if existing_denies is not None:
+            column_names = existing_denies.column_names
+            for row in existing_denies.rows:
+                rows.append(dict(zip(column_names, row)))
+        return _deny_changes(rows, deny_config or {})
 
 
 COLUMNS_EQUAL_SQL = """

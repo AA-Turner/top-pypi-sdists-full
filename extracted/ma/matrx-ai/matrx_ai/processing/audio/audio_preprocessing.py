@@ -18,6 +18,22 @@ from matrx_ai.config import (
 )
 
 
+def _untranscribed_notice(reason: str) -> TextContent:
+    """What the model reads in place of audio it cannot hear and we could not transcribe.
+
+    🚨 NEVER A SILENT SKIP. Until 2026-09-28 a failed transcription removed the
+    audio with a log line only, so the model answered as if nothing had been
+    sent — a texted voice memo became "the person sent this without any words".
+    """
+    return TextContent(
+        text=(
+            "[An audio recording was attached here but could not be transcribed "
+            f"({reason}). Tell the person you could not listen to it.]"
+        ),
+        metadata={"original_type": "audio", "transcription_failed": reason},
+    )
+
+
 async def preprocess_audio_in_messages(
     messages: MessageList,
     debug: bool = False,
@@ -175,19 +191,20 @@ async def preprocess_audio_in_messages(
                             print(transcription)
                             print("--------------------------------")
                     else:
-                        # Transcription failed, skip audio
                         vcprint(
-                            "⚠️ Audio transcription failed - audio will be skipped",
+                            "⚠️ Audio transcription failed - the model is told so",
                             "Audio Preprocessing",
                             color="yellow",
                         )
+                        processed_content.append(_untranscribed_notice("no text was returned"))
 
                 except Exception as e:
                     vcprint(
-                        f"⚠️ Audio transcription error: {str(e)} - audio will be skipped",
+                        f"⚠️ Audio transcription error: {str(e)} - the model is told so",
                         "Audio Preprocessing",
                         color="yellow",
                     )
+                    processed_content.append(_untranscribed_notice(type(e).__name__))
             else:
                 # Keep content as-is
                 processed_content.append(content)

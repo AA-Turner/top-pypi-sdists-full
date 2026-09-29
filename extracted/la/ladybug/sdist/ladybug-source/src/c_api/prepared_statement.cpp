@@ -69,6 +69,28 @@ char* lbug_prepared_statement_get_error_message(lbug_prepared_statement* prepare
     LBUG_C_API_GUARD_END(nullptr)
 }
 
+lbug_state lbug_prepared_statement_get_arrow_schema(lbug_prepared_statement* prepared_statement,
+    ArrowSchema* out_schema) {
+    if (prepared_statement == nullptr || prepared_statement->_prepared_statement == nullptr ||
+        out_schema == nullptr) {
+        return LbugError;
+    }
+    LBUG_C_API_GUARD_BEGIN
+    try {
+        auto* statement = static_cast<PreparedStatement*>(prepared_statement->_prepared_statement);
+        if (!statement->isSuccess()) {
+            setLastCAPIErrorMessage(statement->getErrorMessage());
+            return LbugError;
+        }
+        *out_schema = *statement->getArrowSchema();
+        return LbugSuccess;
+    } catch (Exception& e) {
+        setLastCAPIErrorMessage(e.what());
+        return LbugError;
+    }
+    LBUG_C_API_GUARD_END(LbugError)
+}
+
 lbug_state lbug_prepared_statement_bind_bool(lbug_prepared_statement* prepared_statement,
     const char* param_name, bool value) {
     if (prepared_statement == nullptr || prepared_statement->_prepared_statement == nullptr) {

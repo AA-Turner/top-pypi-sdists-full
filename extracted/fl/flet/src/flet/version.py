@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 # set by CI
-flet_version = "1.0.1"
+flet_version = "1.0.2"
 """
 The Flet version in use.
 

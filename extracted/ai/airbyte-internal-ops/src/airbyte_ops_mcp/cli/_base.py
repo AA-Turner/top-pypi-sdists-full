@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastmcp_extensions.cli import App, cli_app
 
-from airbyte_ops_mcp._sentry import _SENTRY_DSN
+from airbyte_ops_mcp._sentry import _SENTRY_DSN, get_sentry_environment
 from airbyte_ops_mcp.telemetry import _DEFAULT_SEGMENT_WRITE_KEY
 
 _DOCS_URL = "https://airbytehq.github.io/airbyte-ops-mcp/airbyte_ops_mcp/cli.html"
@@ -22,7 +22,7 @@ app = cli_app(
         " and workflows."
     ),
     package_name="airbyte-internal-ops",
-    sentry_dsn=_SENTRY_DSN,
+    sentry_dsn=_SENTRY_DSN if get_sentry_environment() is not None else None,
     segment_write_key=_DEFAULT_SEGMENT_WRITE_KEY,
     segment_user_id="airbyte-ops-cli",
     docs_url=_DOCS_URL,

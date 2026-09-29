@@ -340,6 +340,7 @@ async def _note_patch_as_the_person(args: dict[str, Any], ctx: ToolContext) -> T
         return attach_surface_write(
             ToolResult(
                 success=True,
+                output_kind="note_tool_result",
                 output={
                     "id": n.get("id"),
                     "matched_at_pass": result.get("matched_at_pass"),
@@ -399,6 +400,7 @@ async def _note_delete_as_the_person(args: dict[str, Any], ctx: ToolContext) -> 
             )
         return ToolResult(
             success=True,
+            output_kind="note_tool_result",
             output={
                 "deleted": True,
                 "archived": True,

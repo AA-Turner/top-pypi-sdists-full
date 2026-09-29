@@ -49,6 +49,7 @@ __all__ = (
     "ComplianceStatusType",
     "ComplianceUploadTypeType",
     "ConnectionStatusType",
+    "DeletionModeType",
     "DescribeActivationsFilterKeysType",
     "DescribeActivationsPaginatorName",
     "DescribeAssociationExecutionTargetsPaginatorName",
@@ -267,6 +268,7 @@ ComplianceSeverityType = Literal[
 ComplianceStatusType = Literal["COMPLIANT", "NON_COMPLIANT"]
 ComplianceUploadTypeType = Literal["COMPLETE", "PARTIAL"]
 ConnectionStatusType = Literal["connected", "notconnected"]
+DeletionModeType = Literal["RemoveSharing", "RollbackMigration"]
 DescribeActivationsFilterKeysType = Literal["ActivationIds", "DefaultInstanceName", "IamRole"]
 DescribeActivationsPaginatorName = Literal["describe_activations"]
 DescribeAssociationExecutionTargetsPaginatorName = Literal["describe_association_execution_targets"]

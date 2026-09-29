@@ -158,11 +158,6 @@ class Object:
     @property
     def _class_name(self): ...
     @property
-    def local_uuid(self):
-        """mdmd:hidden"""
-        ...
-
-    @property
     def object_id(self) -> str:
         """mdmd:hidden"""
         ...
@@ -180,16 +175,6 @@ class Object:
 
     @property
     def client(self) -> modal.client.Client:
-        """mdmd:hidden"""
-        ...
-
-    @property
-    def is_hydrated(self) -> bool:
-        """mdmd:hidden"""
-        ...
-
-    @property
-    def deps(self) -> collections.abc.Callable[..., collections.abc.Sequence[Object]]:
         """mdmd:hidden"""
         ...
 

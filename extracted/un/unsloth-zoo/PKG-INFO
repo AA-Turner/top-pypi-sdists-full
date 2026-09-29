@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth_zoo
-Version: 2026.9.7
+Version: 2026.9.8
 Summary: Utils for Unsloth
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -29,7 +29,7 @@ Requires-Dist: mlx-vlm<=0.7.1,>=0.4.4; sys_platform == "darwin" and platform_mac
 Requires-Dist: packaging>=24.1
 Requires-Dist: transformers!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.17.0,>=4.52.4; sys_platform != "darwin" or platform_machine != "arm64"
 Requires-Dist: transformers!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.52.4; sys_platform == "darwin" and platform_machine == "arm64"
-Requires-Dist: datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1
+Requires-Dist: datasets!=4.0.*,!=4.1.0,!=4.4.*,!=4.5.0,<5.0.0,>=3.4.1
 Requires-Dist: sentencepiece>=0.2.0
 Requires-Dist: tqdm
 Requires-Dist: psutil
@@ -52,7 +52,7 @@ Requires-Dist: packaging>=24.1; extra == "core"
 Requires-Dist: tyro; extra == "core"
 Requires-Dist: transformers!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.17.0,>=4.52.4; (sys_platform != "darwin" or platform_machine != "arm64") and extra == "core"
 Requires-Dist: transformers!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.52.4; (sys_platform == "darwin" and platform_machine == "arm64") and extra == "core"
-Requires-Dist: datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1; extra == "core"
+Requires-Dist: datasets!=4.0.*,!=4.1.0,!=4.4.*,!=4.5.0,<5.0.0,>=3.4.1; extra == "core"
 Requires-Dist: sentencepiece>=0.2.0; extra == "core"
 Requires-Dist: tqdm; extra == "core"
 Requires-Dist: psutil; extra == "core"

@@ -295,6 +295,7 @@ class UpsertCronQueryGQL:
     upperBoundStr: Optional[str] = None
     resourceGroup: Optional[str] = None
     plannerOptions: Optional[Dict[str, str]] = None
+    envOverrides: Optional[Dict[str, str]] = None
     completionDeadline: Optional[str] = None
     numShards: Optional[int] = None
     numWorkers: Optional[int] = None
@@ -302,6 +303,7 @@ class UpsertCronQueryGQL:
     maxRetries: Optional[int] = None
     resources: Optional[Dict[str, Any]] = None
     environment: Optional[str] = None
+    useMetaplanner: Optional[bool] = None
 
 
 @dataclasses_json.dataclass_json

@@ -29,6 +29,10 @@ from crosshair.main import (
 from crosshair.test_util import simplefs
 from crosshair.util import add_to_pypath, load_file
 
+requires_subprocess = pytest.mark.skipif(
+    sys.platform == "emscripten", reason="wasm builds cannot spawn subprocesses"
+)
+
 
 @pytest.fixture(autouse=True)
 def rewind_modules():
@@ -386,6 +390,50 @@ def regular_foo(i: int) -> int:
         assert retcode == 1
 
 
+WONKY_FOO = {"foo.py": """
+_GLOBAL_THING = [42]
+
+def wonky_foo(i: int) -> int:
+    _GLOBAL_THING[0] += 1
+    if i > _GLOBAL_THING[0]:
+        pass
+    return i
+
+def plain_foo(i: int) -> int:
+    return i
+"""}
+
+
+def test_cover_not_deterministic(root, capsys) -> None:
+    simplefs(
+        root,
+        {"foo.py": """
+_GLOBAL_THING = [42]
+
+def wonky_foo(i: int) -> int:
+    _GLOBAL_THING[0] += 1
+    if i > _GLOBAL_THING[0]:
+        pass
+    return i
+"""},
+    )
+    with add_to_pypath(root):
+        ret = unwalled_main(["cover", str(root / "foo.py")])
+    out, err = capsys.readouterr()
+    # Nondeterminism is reported, but paths found are still emitted (not aborted):
+    assert "not behaving deterministically" in err
+    assert "wonky_foo(" in out
+    assert ret == 2
+
+
+def test_diffbehavior_not_deterministic(root) -> None:
+    simplefs(root, WONKY_FOO)
+    with add_to_pypath(root):
+        retcode, lines = call_diffbehavior("foo.wonky_foo", "foo.plain_foo")
+    assert any("not behaving deterministically" in ls for ls in lines)
+    assert retcode == 2
+
+
 def test_watch(root):
     # Just to make sure nothing explodes
     simplefs(root, SIMPLE_FOO)
@@ -476,6 +524,7 @@ def test_search(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
 
 
 @pytest.mark.smoke
+@requires_subprocess
 def test_main_as_subprocess(tmp_path: Path):
     # This helps check things like addaudithook() which we don't want to run inside
     # the testing process.
@@ -491,6 +540,7 @@ def test_main_as_subprocess(tmp_path: Path):
     assert "foo.py:3: error: false when calling foofn" in completion.stdout
 
 
+@requires_subprocess
 def test_mypycrosshair_command():
     example_file = join(
         split(__file__)[0], "examples", "PEP316", "bugs_detected", "showcase.py"

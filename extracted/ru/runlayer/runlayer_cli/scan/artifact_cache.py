@@ -41,13 +41,14 @@ logger = structlog.get_logger(__name__)
 ARTIFACT_CACHE_FILENAME = "artifact-cache.json"
 ARTIFACT_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
 # Throttled surfaces are reported incomplete, so no server staleness miss
-# accrues while a skill waits; a vanished skill is missed only by the complete
-# scan at each window expiry, so the server absence backstop is 3 misses x
-# window (six hours at two hours, versus 45 minutes unthrottled); explicit
-# removal POSTs are unaffected. Must stay well below the TTL above. Fallback
-# only: the synced ``skill_resubmit_window_seconds`` (0 = throttle off) wins
-# whenever the backend snapshot carries one. Presence-only entries that
-# restore the 3-scan bound: PLA-1746.
+# accrues while an artifact (skill or plugin) waits; a vanished artifact is
+# missed only by the complete scan at each window expiry, so the server
+# absence backstop is 3 misses x window (six hours at two hours, versus 45
+# minutes unthrottled); explicit removal POSTs are unaffected. Must stay well
+# below the TTL above. Fallback only: the synced
+# ``skill_resubmit_window_seconds`` (0 = throttle off) wins whenever the
+# backend snapshot carries one; plugins share that window. Presence-only
+# entries that restore the 3-scan bound: PLA-1746.
 SKILL_RESUBMIT_WINDOW_SECONDS = 2 * 60 * 60
 # Ceiling on the synced window (mirrors the backend clamp and the parse-time
 # copy in aiwatch_config_cache): the 3-miss absence backstop never lags more
@@ -297,7 +298,7 @@ class ArtifactCache:
         if version == 1:
             # Version 1 predates ``submissions`` and verifies on its own shape,
             # then upgrades in memory. A miss here would make every device
-            # re-upload every skill in full on its next scan.
+            # re-upload every artifact in full on its next scan.
             submissions: Any = {}
             unsigned = {"version": 1, "host": self._host, "entries": entries}
         else:

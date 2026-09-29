@@ -45,11 +45,6 @@ async def _picklist_item_is_read_only(item_id: str) -> bool:
 # is asked whether the list exists for them: ``workbench.udt_structured_lists`` under
 # the caller's RLS (``as_the_person``). No owner comparison, no has_access call here.
 
-LIST_IN_STORE_UNREADABLE = (
-    "List {list_id} lives in the new system (its organization switched its Data tables), "
-    "and the picklist tool cannot yet read a list there as you, so nothing was read. "
-    "Open it from the Lists page, where the store's own doors decide."
-)
 
 
 def _list_not_found(list_id: str) -> ToolResult:
@@ -62,30 +57,19 @@ def _list_not_found(list_id: str) -> ToolResult:
     )
 
 
-async def _list_open_to_person(list_id: str) -> str:
-    """``visible`` / ``hidden`` / ``in_store`` for ``list_id``, decided by the database.
+async def _update_choice_as_the_person(item_id: str, fields: dict[str, Any]) -> str:
+    """The shared service's choice write, in the caller's RLS session."""
+    from matrx_ai.db.content_types.picklist_access import update_choice_as_the_person
 
-    ``visible`` — the older list row answers inside the caller's RLS session.
-    ``in_store`` — the older row does not answer, and the arm (in the person's seat)
-    says the id lives in the record store; this tool cannot read it as the person yet.
-    ``hidden`` — anything else: missing and not-yours read the same.
-    """
-    from matrx_ai.db._registry import get_model as get_db_model
-    from matrx_ai.tools.person_session import as_the_person
+    return await update_choice_as_the_person(str(item_id), fields)
 
-    lists = get_db_model("UdtStructuredLists")
-    async with as_the_person():
-        row = await lists.get_or_none(use_cache=False, id=str(list_id))
-    if row is not None and getattr(row, "deleted_at", None) is None:
-        return "visible"
-    arm = _picklist_store_arm()
-    if arm is not None:
-        try:
-            if await arm.list_lives_in(str(list_id)) == "record":
-                return "in_store"
-        except Exception:  # noqa: BLE001 — an unanswered home is not a visible list
-            return "hidden"
-    return "hidden"
+
+def _choice_refusal(item_id: str, answer: str) -> str:
+    if answer == "no_access":
+        return f"You can view choice {item_id} but you do not have permission to change it; nothing was changed."
+    if answer == "nothing":
+        return "Nothing to change: give at least one of label, description, help_text, group_name, is_public, public_read, icon_name."
+    return f"Choice {item_id} was not found, or you do not have access to it; nothing was changed."
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +117,7 @@ def _held_result(exc: Exception) -> ToolResult:
     answer = getattr(exc, "answer", {}) or {}
     return ToolResult(
         success=True,
+        output_kind="picklist_approval_result",
         output={
             "applied": False,
             "awaiting_approval": answer.get("awaiting_approval"),
@@ -319,36 +304,17 @@ def _make_serializable(obj: Any) -> Any:
 
 
 async def userlist_get_all(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    from matrx_orm.sql_executor import execute_standard_query
+    """The person's own lists, both homes, read AS THE PERSON through the shared service."""
+    from matrx_ai.db.content_types.picklist_access import lists_for_person
 
     page = max(1, args.get("page", 1))
     page_size = min(100, max(1, args.get("page_size", 50)))
     search_term = args.get("search_term")
 
     try:
-        if search_term:
-            offset = (page - 1) * page_size
-            result = execute_standard_query(
-                "picklists_search",
-                {
-                    "user_id": ctx.user_id,
-                    "search_term": f"%{search_term}%",
-                    "limit": page_size,
-                    "offset": offset,
-                },
-            )
-        else:
-            raw = execute_standard_query(
-                "picklists_list_for_user", {"user_id": ctx.user_id}
-            )
-            all_lists = _make_serializable(raw) if raw else []
-            offset = (page - 1) * page_size
-            result = (
-                all_lists[offset : offset + page_size]
-                if isinstance(all_lists, list)
-                else all_lists
-            )
-
+        result = await lists_for_person(
+            str(ctx.user_id), search=search_term, limit=page_size, offset=(page - 1) * page_size
+        )
         lists = _make_serializable(result) if result else []
         return ToolResult(
             success=True,
@@ -368,66 +334,38 @@ async def userlist_get_all(args: dict[str, Any], ctx: ToolContext) -> ToolResult
 
 
 async def userlist_get_details(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    from matrx_orm.sql_executor import execute_standard_query
+    """One list and its choices AS THE PERSON, wherever it lives (older tables or the record
+    store) — the shared service decides; nothing is read on the privileged connection."""
+    from matrx_ai.db.content_types.picklist_access import grouped_choices, read_list_as_the_person
+    from matrx_ai.tools.person_session import PersonSessionUnavailable
 
     list_id = args.get("list_id")
     group_by = args.get("group_by", False)
-
     if not list_id:
         return ToolResult(
             success=False,
             error=ToolError(error_type="validation", message="list_id is required."),
         )
-
-    from matrx_ai.tools.person_session import PersonSessionUnavailable
-
     try:
-        seat = await _list_open_to_person(str(list_id))
+        listing = await read_list_as_the_person(str(list_id))
     except PersonSessionUnavailable as e:
         return ToolResult(success=False, error=ToolError(error_type="unavailable", message=str(e)))
-    if seat == "hidden":
+    if listing is None:
         return _list_not_found(str(list_id))
-    if seat == "in_store":
-        return ToolResult(
-            success=False,
-            error=ToolError(
-                error_type="unavailable",
-                message=LIST_IN_STORE_UNREADABLE.format(list_id=list_id),
-            ),
-        )
-
-    try:
-        list_data = execute_standard_query("picklists_get", {"list_id": list_id})
-        if not list_data:
-            return _list_not_found(str(list_id))
-
-        query_name = (
-            "picklists_get_items_grouped"
-            if group_by
-            else "picklists_get_items"
-        )
-        items = execute_standard_query(query_name, {"list_id": list_id})
-
-        return ToolResult(
-            success=True,
-            output=_make_serializable(
-                {
-                    "list": list_data,
-                    "items": items or [],
-                    "is_grouped": group_by,
-                }
-            ),
-        )
-    except Exception as e:
-        error_mesage = str(e)
-        vcprint(error_mesage, "error_mesage", color="red")
-        return ToolResult(
-            success=False, error=ToolError(error_type="execution", message=str(e))
-        )
+    items = listing.pop("items")
+    return ToolResult(
+        success=True,
+        output=_make_serializable(
+            {
+                "list": [listing],
+                "items": grouped_choices(items) if group_by else items,
+                "is_grouped": group_by,
+            }
+        ),
+    )
 
 
 async def userlist_update_item(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    from matrx_orm.sql_executor import execute_standard_query
 
     item_id = args.get("item_id")
     if not item_id:
@@ -487,30 +425,16 @@ async def userlist_update_item(args: dict[str, Any], ctx: ToolContext) -> ToolRe
                 raise
             return ToolResult(
                 success=True,
+                output_kind="picklist_item_update_result",
                 output={"item_id": item_id, "message": "Item updated successfully."},
             )
-        updated = execute_standard_query(
-            "picklists_update_item",
-            {
-                "item_id": item_id,
-                "user_id": ctx.user_id,
-                "label": update_fields.get("label"),
-                "description": update_fields.get("description"),
-                "help_text": update_fields.get("help_text"),
-                "group_name": update_fields.get("group_name"),
-                "is_public": args.get("is_public"),
-                "authenticated_read": args.get("authenticated_read"),
-                "public_read": args.get("public_read"),
-                "icon_name": args.get("icon_name"),
-            },
-        )
-        if not updated:
-            # UPDATE ... RETURNING id matched no row: nothing changed. Never report success.
+        answer = await _update_choice_as_the_person(str(item_id), {**update_fields})
+        if answer != "updated":
             return ToolResult(
                 success=False,
                 error=ToolError(
-                    error_type="not_found",
-                    message=f"Choice {item_id} was not found, or you may not change it; nothing was changed.",
+                    error_type="validation" if answer == "nothing" else answer,
+                    message=_choice_refusal(str(item_id), answer),
                 ),
             )
         return ToolResult(
@@ -526,7 +450,6 @@ async def userlist_update_item(args: dict[str, Any], ctx: ToolContext) -> ToolRe
 
 
 async def userlist_batch_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    from matrx_orm.sql_executor import execute_standard_query
 
     list_id = args.get("list_id")
     items = args.get("items", [])
@@ -579,23 +502,9 @@ async def userlist_batch_update(args: dict[str, Any], ctx: ToolContext) -> ToolR
                     raise
                 success_count += 1
                 continue
-            updated = execute_standard_query(
-                "picklists_update_item",
-                {
-                    "item_id": item_id,
-                    "user_id": ctx.user_id,
-                    "label": item.get("label"),
-                    "description": item.get("description"),
-                    "help_text": item.get("help_text"),
-                    "group_name": item.get("group_name"),
-                    "is_public": item.get("is_public"),
-                    "authenticated_read": item.get("authenticated_read"),
-                    "public_read": item.get("public_read"),
-                    "icon_name": item.get("icon_name"),
-                },
-            )
-            if not updated:
-                failed_items.append({"item_id": item_id, "error": f"Choice {item_id} was not found, or you may not change it; nothing was changed."})
+            answer = await _update_choice_as_the_person(str(item_id), item)
+            if answer != "updated":
+                failed_items.append({"item_id": item_id, "error": _choice_refusal(str(item_id), answer)})
                 continue
             success_count += 1
         except Exception as e:
@@ -627,19 +536,16 @@ _CHOICE_FIELDS = ("label", "description", "help_text", "group_name", "icon_name"
 
 
 async def _read_choices(list_id: str, item_ids: set[str]) -> dict[str, dict[str, Any]]:
-    """item id → its fields, for ``item_ids`` of ``list_id``, from the live view
-    (``workbench.pick_list_item_live`` — answers wherever the list lives)."""
-    from matrx_orm.sql_executor import execute_standard_query
+    """item id → its fields, for ``item_ids`` of ``list_id``, read AS THE PERSON through the
+    shared service (both homes). A list the person cannot open has no receipt."""
+    from matrx_ai.db.content_types.picklist_access import read_list_as_the_person
 
-    # A receipt never shows a list the person cannot open (the read is privileged).
-    if await _list_open_to_person(list_id) != "visible":
+    listing = await read_list_as_the_person(str(list_id))
+    if listing is None:
         raise LookupError(f"List {list_id} is not open to this person; no receipt is read.")
-    rows = await asyncio.to_thread(
-        lambda: execute_standard_query("picklists_get_items", {"list_id": list_id})
-    )
     return {
         str(r.get("id")): {k: r.get(k) for k in _CHOICE_FIELDS}
-        for r in _make_serializable(rows or [])
+        for r in _make_serializable(listing["items"])
         if str(r.get("id")) in item_ids
     }
 

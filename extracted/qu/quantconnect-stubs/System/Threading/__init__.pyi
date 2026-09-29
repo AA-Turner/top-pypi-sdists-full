@@ -168,6 +168,187 @@ class WaitHandleExtensions(System.Object):
         ...
 
 
+class CancellationTokenRegistration(System.IEquatable[System_Threading_CancellationTokenRegistration], System.IDisposable, System.IAsyncDisposable):
+    """This class has no documentation."""
+
+    @property
+    def token(self) -> System.Threading.CancellationToken:
+        ...
+
+    def __eq__(self, right: System.Threading.CancellationTokenRegistration) -> bool:
+        ...
+
+    def __ne__(self, right: System.Threading.CancellationTokenRegistration) -> bool:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def dispose_async(self) -> System.Threading.Tasks.ValueTask:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Threading.CancellationTokenRegistration) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def unregister(self) -> bool:
+        ...
+
+
+class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
+    """This class has no documentation."""
+
+    NONE: System.Threading.CancellationToken
+
+    @property
+    def is_cancellation_requested(self) -> bool:
+        ...
+
+    @property
+    def can_be_canceled(self) -> bool:
+        ...
+
+    @property
+    def wait_handle(self) -> System.Threading.WaitHandle:
+        ...
+
+    def __eq__(self, right: System.Threading.CancellationToken) -> bool:
+        ...
+
+    def __init__(self, canceled: bool) -> None:
+        ...
+
+    def __ne__(self, right: System.Threading.CancellationToken) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Threading.CancellationToken) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @overload
+    def register(self, callback: typing.Callable[[], typing.Any]) -> System.Threading.CancellationTokenRegistration:
+        ...
+
+    @overload
+    def register(self, callback: typing.Callable[[], typing.Any], use_synchronization_context: bool) -> System.Threading.CancellationTokenRegistration:
+        ...
+
+    @overload
+    def register(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
+        ...
+
+    @overload
+    def register(self, callback: typing.Callable[[System.Object, System.Threading.CancellationToken], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
+        ...
+
+    @overload
+    def register(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any, use_synchronization_context: bool) -> System.Threading.CancellationTokenRegistration:
+        ...
+
+    def throw_if_cancellation_requested(self) -> None:
+        ...
+
+    @overload
+    def unsafe_register(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
+        ...
+
+    @overload
+    def unsafe_register(self, callback: typing.Callable[[System.Object, System.Threading.CancellationToken], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
+        ...
+
+
+class IThreadPoolWorkItem(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def execute(self) -> None:
+        ...
+
+
+class UnixHandleAsyncContext(System.Object):
+    """This class has no documentation."""
+
+    class Operation(System.Object, System.Threading.IThreadPoolWorkItem, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        def execute_thread_pool_work_item(self) -> None:
+            ...
+
+    class AsyncResult(IntEnum):
+        """This class has no documentation."""
+
+        PENDING = 0
+
+        COMPLETED = 1
+
+        ABORTED = 2
+
+    class OnCompletedResult(IntEnum):
+        """This class has no documentation."""
+
+        COMPLETED = 1
+
+        ABORTED = 2
+
+        CANCELED = 3
+
+    class SyncResult(IntEnum):
+        """This class has no documentation."""
+
+        COMPLETED = 1
+
+        ABORTED = 2
+
+        TIMED_OUT = 4
+
+    IS_SUPPORTED: bool
+
+    @property
+    def inline_completions(self) -> bool:
+        ...
+
+    @inline_completions.setter
+    def inline_completions(self, value: bool) -> None:
+        ...
+
+    def __init__(self, handle: System.Runtime.InteropServices.SafeHandle) -> None:
+        ...
+
+    def abort_and_dispose(self) -> bool:
+        ...
+
+    def is_read_ready(self, observed_sequence_number: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    def is_write_ready(self, observed_sequence_number: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    def read(self, operation: System.Threading.UnixHandleAsyncContext.Operation, observed_sequence_number: int, timeout: int) -> System.Threading.UnixHandleAsyncContext.SyncResult:
+        ...
+
+    def start_async_read(self, operation: System.Threading.UnixHandleAsyncContext.Operation, observed_sequence_number: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.UnixHandleAsyncContext.AsyncResult:
+        ...
+
+    def start_async_write(self, operation: System.Threading.UnixHandleAsyncContext.Operation, observed_sequence_number: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.UnixHandleAsyncContext.AsyncResult:
+        ...
+
+    def write(self, operation: System.Threading.UnixHandleAsyncContext.Operation, observed_sequence_number: int, timeout: int) -> System.Threading.UnixHandleAsyncContext.SyncResult:
+        ...
+
+
 class PreAllocatedOverlapped(System.Object, System.IDisposable, System.Threading.IDeferredDisposable):
     """This class has no documentation."""
 
@@ -824,13 +1005,6 @@ class _ThreadPool_QueueUserWorkItem:
         ...
 
 
-class IThreadPoolWorkItem(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def execute(self) -> None:
-        ...
-
-
 class _Typed_ThreadPool_UnsafeQueueUserWorkItem(typing.Generic[System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState]):
     """"""
 
@@ -1189,109 +1363,6 @@ class AsyncLocalValueChangedArgs(typing.Generic[System_Threading_AsyncLocalValue
 
 class ThreadStartException(System.SystemException):
     """This class has no documentation."""
-
-
-class CancellationTokenRegistration(System.IEquatable[System_Threading_CancellationTokenRegistration], System.IDisposable, System.IAsyncDisposable):
-    """This class has no documentation."""
-
-    @property
-    def token(self) -> System.Threading.CancellationToken:
-        ...
-
-    def __eq__(self, right: System.Threading.CancellationTokenRegistration) -> bool:
-        ...
-
-    def __ne__(self, right: System.Threading.CancellationTokenRegistration) -> bool:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def dispose_async(self) -> System.Threading.Tasks.ValueTask:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Threading.CancellationTokenRegistration) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def unregister(self) -> bool:
-        ...
-
-
-class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
-    """This class has no documentation."""
-
-    NONE: System.Threading.CancellationToken
-
-    @property
-    def is_cancellation_requested(self) -> bool:
-        ...
-
-    @property
-    def can_be_canceled(self) -> bool:
-        ...
-
-    @property
-    def wait_handle(self) -> System.Threading.WaitHandle:
-        ...
-
-    def __eq__(self, right: System.Threading.CancellationToken) -> bool:
-        ...
-
-    def __init__(self, canceled: bool) -> None:
-        ...
-
-    def __ne__(self, right: System.Threading.CancellationToken) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Threading.CancellationToken) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @overload
-    def register(self, callback: typing.Callable[[], typing.Any]) -> System.Threading.CancellationTokenRegistration:
-        ...
-
-    @overload
-    def register(self, callback: typing.Callable[[], typing.Any], use_synchronization_context: bool) -> System.Threading.CancellationTokenRegistration:
-        ...
-
-    @overload
-    def register(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
-        ...
-
-    @overload
-    def register(self, callback: typing.Callable[[System.Object, System.Threading.CancellationToken], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
-        ...
-
-    @overload
-    def register(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any, use_synchronization_context: bool) -> System.Threading.CancellationTokenRegistration:
-        ...
-
-    def throw_if_cancellation_requested(self) -> None:
-        ...
-
-    @overload
-    def unsafe_register(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
-        ...
-
-    @overload
-    def unsafe_register(self, callback: typing.Callable[[System.Object, System.Threading.CancellationToken], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
-        ...
 
 
 class PeriodicTimer(System.Object, System.IDisposable):

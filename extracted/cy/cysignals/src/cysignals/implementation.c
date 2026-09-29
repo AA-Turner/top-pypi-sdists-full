@@ -29,6 +29,7 @@ Interrupt and signal handling for Cython
 
 
 #include "config.h"
+#include <Python.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -52,7 +53,6 @@ Interrupt and signal handling for Cython
 #if HAVE_SYS_PRCTL_H
 #include <sys/prctl.h>
 #endif
-#include <Python.h>
 
 // Custom signal handling of other packages.
 #define MAX_N_CUSTOM_HANDLERS 16
@@ -160,7 +160,7 @@ static inline void print_stderr(const char* s)
 /* str should have enough space allocated */
 static inline void ulong_to_str(unsigned long val, char *str, int base)
 {
-    const char xdigits[16] = "0123456789abcdef";
+    const char xdigits[16] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
     unsigned long aux;
     int len;
 

@@ -14,9 +14,10 @@
 
 """Prompt compiler for A2UI Atom inference format."""
 
-from typing import Any, Optional, TYPE_CHECKING
+from collections.abc import Mapping, Sequence
+from typing import Any, TYPE_CHECKING
 from a2ui.prompt import PromptGenerator
-from a2ui.core.schema.client_capabilities import V09Capabilities
+from a2ui.core.schema.v0_9.client_capabilities import V09Capabilities
 # CatalogSchemaHelper import handled lazily inside class
 
 if TYPE_CHECKING:
@@ -84,7 +85,7 @@ You MUST surround the entire A2UI Atom block with sentinel tags `<a2ui>` and `</
 """
 
 
-def _get_schema_enum(prop_schema: Any) -> Optional[list[str]]:
+def _get_schema_enum(prop_schema: Any) -> list[str] | None:
     """Helper to recursively find enum definitions inside a JSON schema."""
     if not isinstance(prop_schema, dict):
         return None
@@ -134,7 +135,7 @@ class AtomPromptGenerator(PromptGenerator):
     def generate_catalog_instructions(
         self,
         include_schema: bool = True,
-        catalog: Optional[Any] = None,
+        catalog: Any | None = None,
     ) -> str:
         """Assembles Atom component and function signatures."""
         if not include_schema:
@@ -155,7 +156,7 @@ class AtomPromptGenerator(PromptGenerator):
 
     def generate_examples(
         self,
-        catalog: Optional[Any] = None,
+        catalog: Any | None = None,
         validate: bool = False,
     ) -> str:
         """Loads and formats few-shot Atom examples."""
@@ -174,9 +175,9 @@ class AtomPromptGenerator(PromptGenerator):
         role_description: str = "",
         workflow_description: str = "",
         ui_description: str = "",
-        client_ui_capabilities: Optional[Any] = None,
-        allowed_components: Optional[list[str]] = None,
-        allowed_messages: Optional[list[str]] = None,
+        client_ui_capabilities: Mapping[str, Any] | V09Capabilities | None = None,
+        allowed_components: Sequence[str] | None = None,
+        allowed_messages: Sequence[str] | None = None,
         include_schema: bool = True,
         include_examples: bool = True,
         validate_examples: bool = False,
@@ -216,7 +217,7 @@ class AtomPromptGenerator(PromptGenerator):
 
         return "\n\n".join(parts)
 
-    def _generate_component_signatures(self, helper: Optional[Any] = None) -> str:
+    def _generate_component_signatures(self, helper: Any | None = None) -> str:
         """Compiles component definitions into S-expression signatures."""
         h = helper or self.schema_helper
         if not h:
@@ -261,7 +262,7 @@ class AtomPromptGenerator(PromptGenerator):
             signatures.append(sig)
         return "\n".join(signatures)
 
-    def _generate_function_signatures(self, helper: Optional[Any] = None) -> str:
+    def _generate_function_signatures(self, helper: Any | None = None) -> str:
         """Compiles function definitions into S-expression signatures."""
         h = helper or self.schema_helper
         if not h:

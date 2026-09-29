@@ -7,6 +7,9 @@
 #include <simpledbus/advanced/Proxy.h>
 #include <kvn/kvn_safe_callback.hpp>
 
+#include <atomic>
+#include <cstdint>
+
 namespace SimpleBluez {
 
 class Device : public SimpleDBus::Proxy {
@@ -35,6 +38,7 @@ class Device : public SimpleDBus::Proxy {
     bool paired();
     bool bonded();
     bool connected();
+    bool outgoing();
     bool services_resolved();
 
     // ----- METHODS -----
@@ -50,6 +54,8 @@ class Device : public SimpleDBus::Proxy {
     void clear_on_services_resolved();
     void set_on_disconnected(std::function<void()> callback);
     void clear_on_disconnected();
+    void set_on_connected_changed(std::function<void(bool connected)> callback);
+    void clear_on_connected_changed();
 
     // ----- BATTERY INTERFACE -----
     bool has_battery_interface();
@@ -67,6 +73,10 @@ class Device : public SimpleDBus::Proxy {
 
     kvn::safe_callback<void()> _callback_on_connected;
     kvn::safe_callback<void()> _callback_on_disconnected;
+    kvn::safe_callback<void(bool connected)> _callback_on_connected_changed;
+    std::atomic_bool _outgoing{false};
+    std::atomic<int16_t> _rssi{INT16_MIN};
+    std::atomic<int16_t> _tx_power{INT16_MIN};
 };
 
 }  // namespace SimpleBluez

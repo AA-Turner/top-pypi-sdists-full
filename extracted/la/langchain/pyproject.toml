@@ -21,7 +21,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-version = "1.4.2"
+version = "1.4.3"
 requires-python = ">=3.10.0,<4.0.0"
 dependencies = [
     "langchain-core>=1.6.3,<2.0.0",
@@ -34,7 +34,6 @@ community = ["langchain-community"]
 anthropic = ["langchain-anthropic"]
 openai = ["langchain-openai"]
 azure-ai = ["langchain-azure-ai"]
-#cohere = ["langchain-cohere"]
 google-vertexai = ["langchain-google-vertexai"]
 google-genai = ["langchain-google-genai"]
 fireworks = ["langchain-fireworks"]

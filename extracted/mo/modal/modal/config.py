@@ -108,8 +108,9 @@ from google.protobuf.empty_pb2 import Empty
 
 from modal_proto import api_pb2
 
+from ._utils.deprecation import deprecation_warning
 from ._utils.logger import configure_logger
-from .exception import InvalidError, NotFoundError
+from .exception import AuthError, InvalidError, NotFoundError
 
 # By default, try api.modal.com and fail over to api.modal2.com
 DEFAULT_SERVER_URL = "https://api.modal.com,https://api.modal2.com"
@@ -184,12 +185,52 @@ def _read_user_config():
 _user_config = _read_user_config()
 
 
-async def _lookup_workspace(server_url: str, token_id: str, token_secret: str) -> api_pb2.WorkspaceNameLookupResponse:
-    from .client import _Client
+async def _lookup_workspace(
+    server_url: str,
+    token_id: str | None = None,
+    token_secret: str | None = None,
+    *,
+    oauth_refresh_token: str | None = None,
+    oauth_client_id: str | None = None,
+    oauth_client_secret: str | None = None,
+) -> api_pb2.WorkspaceNameLookupResponse:
+    from .client import _Client, _OAuthCredentials
 
-    credentials = (token_id, token_secret)
-    async with _Client(server_url, api_pb2.CLIENT_TYPE_CLIENT, credentials) as client:
-        return await client.stub.WorkspaceNameLookup(Empty(), retry=None, timeout=3)
+    has_token_config = bool(token_id or token_secret)
+    has_oauth_config = bool(oauth_refresh_token or oauth_client_id or oauth_client_secret)
+    if has_token_config and has_oauth_config:
+        raise InvalidError("Modal token credentials and OAuth credentials cannot both be configured.")
+    if has_oauth_config:
+        missing_oauth_credentials = [
+            name
+            for name, value in (
+                ("refresh token", oauth_refresh_token),
+                ("client ID", oauth_client_id),
+                ("client secret", oauth_client_secret),
+            )
+            if not value
+        ]
+        if missing_oauth_credentials:
+            raise InvalidError(f"OAuth credentials are incomplete; missing {', '.join(missing_oauth_credentials)}.")
+        assert oauth_refresh_token and oauth_client_id and oauth_client_secret
+        credentials = None
+        oauth_credentials = _OAuthCredentials(
+            refresh_token=oauth_refresh_token,
+            client_id=oauth_client_id,
+            client_secret=oauth_client_secret,
+        )
+    else:
+        if not token_id or not token_secret:
+            raise AuthError("Token ID and secret must both be configured.")
+        credentials = (token_id, token_secret)
+        oauth_credentials = None
+    async with _Client(
+        server_url,
+        api_pb2.CLIENT_TYPE_CLIENT,
+        credentials,
+        oauth_credentials=oauth_credentials,
+    ) as client:
+        return await client._stub.WorkspaceNameLookup(Empty(), retry=None, timeout=3)
 
 
 def config_profiles():
@@ -254,15 +295,14 @@ def _set_profile(profile: str) -> None:
     _profile = profile
 
 
-# Define settings
-
-
 def _to_boolean(x: object) -> bool:
     return str(x).lower() not in {"", "0", "false"}
 
 
-def _check_value(options: list[str]) -> Callable[[str], str]:
+def _check_value(options: list[str], lowercase: bool = True) -> Callable[[str], str]:
     def checker(x: str) -> str:
+        if lowercase:
+            x = x.lower()
         if x not in options:
             raise ValueError(f"Must be one of {options}.")
         return x
@@ -306,50 +346,57 @@ def _transform_headers(s: str) -> dict[str, str]:
 class _Setting(typing.NamedTuple):
     default: typing.Any = None
     transform: typing.Callable[[str], typing.Any] = lambda x: x  # noqa: E731
+    deprecated: tuple[int, int, int] | None = None
+    internal: bool = False
 
 
 _SETTINGS = {
-    "loglevel": _Setting("WARNING", lambda s: s.upper()),
-    "log_format": _Setting("STRING", lambda s: s.upper()),
-    "log_pattern": _Setting(),  # optional override of the formatting pattern
+    # --- Authentication ---------------------------------------------------------
     "server_url": _Setting(DEFAULT_SERVER_URL),
     "token_id": _Setting(),
     "token_secret": _Setting(),
     "oauth_refresh_token": _Setting(),
     "oauth_client_id": _Setting(),
     "oauth_client_secret": _Setting(),
-    "task_id": _Setting(),
-    "serve_timeout": _Setting(transform=float),
-    "sync_entrypoint": _Setting(),
-    "logs_timeout": _Setting(10, float),
-    "image_id": _Setting(),
-    "heartbeat_interval": _Setting(15, float),
-    "function_runtime": _Setting(),
-    "function_runtime_debug": _Setting(False, transform=_to_boolean),  # For internal debugging use.
-    "runtime_perf_record": _Setting(False, transform=_to_boolean),  # For internal debugging use.
+    # --- Logging ----------------------------------------------------------------
+    "loglevel": _Setting("WARNING", lambda s: s.upper()),
+    "log_format": _Setting("STRING", lambda s: s.upper()),
+    "log_pattern": _Setting(),
+    # --- User-facing feature flags ----------------------------------------------
+    "sandbox_v2": _Setting(True, transform=_to_boolean),
+    "payload_format": _Setting("pickle", transform=_check_value(["pickle", "cbor"])),
+    "async_warnings": _Setting(True, transform=_to_boolean, deprecated=(2026, 9, 12)),
+    # --- User-facing configuration ----------------------------------------------
     "environment": _Setting(),
-    "default_cloud": _Setting(None, transform=lambda x: x if x else None),
-    "worker_id": _Setting(),  # For internal debugging use.
-    "restore_state_path": _Setting("/__modal/restore-state.json"),
+    "dev_suffix": _Setting("", transform=_enforce_suffix_rules),
+    "traceback": _Setting(False, transform=_to_boolean),
+    "build_validation": _Setting("error", transform=_check_value(["error", "warn", "ignore"])),
+    "image_builder_version": _Setting(),
     "force_build": _Setting(False, transform=_to_boolean),
     "ignore_cache": _Setting(False, transform=_to_boolean),
-    "traceback": _Setting(False, transform=_to_boolean),
-    "image_builder_version": _Setting(),
-    "strict_parameters": _Setting(False, transform=_to_boolean),  # For internal/experimental use
-    "sandbox_v2": _Setting(None, transform=_to_boolean),
-    "snapshot_debug": _Setting(False, transform=_to_boolean),
-    "cuda_checkpoint_path": _Setting("/__modal/.bin/cuda-checkpoint"),  # Used for snapshotting GPU memory.
-    "build_validation": _Setting("error", transform=_check_value(["error", "warn", "ignore"])),
-    # Payload format for function inputs/outputs: 'pickle' (default) or 'cbor'
-    "payload_format": _Setting(
-        "pickle",
-        transform=lambda s: _check_value(["pickle", "cbor"])(s.lower()),
-    ),
-    "dev_suffix": _Setting("", transform=_enforce_suffix_rules),
-    "max_throttle_wait": _Setting(None, transform=lambda x: int(x) if x else None),
-    "async_warnings": _Setting(True, transform=_to_boolean),  # Activate synchronicity usage warnings
     "disable_api_proxy": _Setting(False, transform=_to_boolean),
-    "override_headers": _Setting(None, transform=_transform_headers),
+    "default_cloud": _Setting(None, transform=lambda x: x if x else None, deprecated=(2026, 9, 12)),
+    # --- User-facing time controls -----------------------------------------------
+    "max_throttle_wait": _Setting(None, transform=lambda x: int(x) if x else None),
+    "logs_timeout": _Setting(10, float),
+    "serve_timeout": _Setting(transform=float),
+    "sandbox_channel_idle_timeout": _Setting(30, transform=float),
+    "volume_block_read_timeout": _Setting(60, transform=float),
+    # --- Internal configuration --------------------------------------------------
+    "sync_entrypoint": _Setting(internal=True),
+    "heartbeat_interval": _Setting(15, float, internal=True),
+    "function_runtime": _Setting(internal=True),
+    "function_runtime_debug": _Setting(False, transform=_to_boolean, internal=True),
+    "runtime_perf_record": _Setting(False, transform=_to_boolean, internal=True),
+    "use_control_plane_sidecar_create": _Setting(True, transform=_to_boolean, internal=True),
+    "worker_id": _Setting(internal=True),
+    "task_id": _Setting(internal=True),  # Read only -- unneeded?
+    "image_id": _Setting(internal=True),  # Read only -- unneeded?
+    # --- Internal CUDA checkpointing options -------------------------------------
+    "cuda_checkpoint_path": _Setting("/__modal/.bin/cuda-checkpoint", internal=True),
+    "restore_state_path": _Setting("/__modal/restore-state.json", internal=True),
+    "snapshot_debug": _Setting(False, transform=_to_boolean, internal=True),
+    "override_headers": _Setting(None, transform=_transform_headers, internal=True),
 }
 
 
@@ -388,8 +435,20 @@ class Config:
                 raise InvalidError(f"Invalid value for {key} config ({val!r}): {e}")
 
         if use_env and env_var_key in os.environ:
+            if s.deprecated is not None:
+                deprecation_warning(
+                    s.deprecated,
+                    f"The MODAL_{key.upper()} environment variable is deprecated and will be ignored in the future.",
+                    show_source=False,
+                )
             return transform(os.environ[env_var_key])
         elif profile in _user_config and key in _user_config[profile]:
+            if s.deprecated is not None:
+                deprecation_warning(
+                    s.deprecated,
+                    f"The {key} profile setting is deprecated and will be ignored in the future.",
+                    show_source=False,
+                )
             return transform(_user_config[profile][key])
         else:
             return s.default
@@ -412,8 +471,10 @@ class Config:
     def __repr__(self):
         return repr(self.to_dict())
 
-    def to_dict(self):
-        return {key: self.get(key) for key in sorted(_SETTINGS)}
+    def to_dict(self, *, include_internal: bool = False):
+        return {
+            key: self.get(key) for key, setting in sorted(_SETTINGS.items()) if include_internal or not setting.internal
+        }
 
 
 config = Config()

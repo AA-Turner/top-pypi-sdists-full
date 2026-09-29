@@ -97,7 +97,7 @@ class TestSeries:
     def test_align_mixed(self):
         a1 = self.a1
         s2 = pd.Series([1, 2], index=["B", "C"])
-        res1, res2 = a1.align(s2)
+        _res1, res2 = a1.align(s2)
 
         exp2 = pd.Series([np.nan, 1, 2], index=["A", "B", "C"])
         assert_series_equal(res2, exp2)
@@ -159,7 +159,6 @@ class TestSeries:
             self.a1.geom_equals_exact(self.a2, 0.001, align=False), [False, False]
         )
 
-    @pytest.mark.skipif(not compat.SHAPELY_GE_21, reason="requires Shapely>=2.1")
     def test_geom_equals_identical(self):
         assert np.all(self.g1.geom_equals_identical(self.g1))
         assert_array_equal(self.g1.geom_equals_identical(self.sq), [False, True])
@@ -496,7 +495,7 @@ class TestSeries:
             self.landmarks, GeoSeries.from_xy(x, y, index=x.index, crs=crs)
         )
         unindexed_landmarks = self.landmarks.copy()
-        unindexed_landmarks.reset_index(inplace=True, drop=True)
+        unindexed_landmarks = unindexed_landmarks.reset_index(drop=True)
         assert_geoseries_equal(
             unindexed_landmarks,
             GeoSeries.from_xy(x, y, crs=crs),
@@ -557,7 +556,7 @@ def test_geoseries_crs():
 def test_geoseries_override_existing_crs_warning():
     gs = GeoSeries(crs="epsg:4326")
     with pytest.warns(
-        DeprecationWarning,
+        FutureWarning,
         match="Overriding the CRS of a GeoSeries that already has CRS",
     ):
         gs.crs = "epsg:2100"

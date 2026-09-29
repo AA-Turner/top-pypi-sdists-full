@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 from pathlib import Path
@@ -13,9 +14,13 @@ from runlayer_cli.hook_install import (
     Client,
     InstallScope,
     install_client,
+    uninstall_client,
 )
 from runlayer_cli.hook_install import console_user as console_user_module
-from runlayer_cli.hook_install.clients import _vscode_user_settings_path
+from runlayer_cli.hook_install.clients import (
+    _CLINE_CLI_SCRIPT_MARKER,
+    _vscode_user_settings_path,
+)
 from runlayer_cli.hook_install.safe_fs import console_home_anchor
 
 
@@ -26,6 +31,21 @@ def _patch_console_home(monkeypatch, home: Path | None) -> None:
     the module attribute is picked up at call time.
     """
     monkeypatch.setattr(console_user_module, "find_console_user_home", lambda: home)
+
+
+def _lstat_uid_override(monkeypatch, path: Path, uid: int) -> None:
+    """Make ``os.lstat(path)`` report *uid* as owner (tests run unprivileged)."""
+    real_lstat = os.lstat
+
+    def fake(target, *args, **kwargs):
+        st = real_lstat(target, *args, **kwargs)
+        if isinstance(target, (str, os.PathLike)) and Path(target) == path:
+            values = list(st)
+            values[4] = uid
+            return os.stat_result(values)
+        return st
+
+    monkeypatch.setattr(os, "lstat", fake)
 
 
 class TestConsoleHomeAnchor:
@@ -93,6 +113,39 @@ def _spy_fchown(monkeypatch) -> list[tuple[int, int, int]]:
 
     monkeypatch.setattr(os, "fchown", spy)
     return records
+
+
+def _stat_created_as_root(monkeypatch, home: Path) -> None:
+    """Report ``st_uid=0`` from ``os.lstat``/``os.fstat`` for anything created
+    under *home* after this call.
+
+    Tests run unprivileged, so this fakes the root-run picture: every inode
+    that did not exist yet was created by root, until an ``fchown`` hands it
+    over. ``st_ino``/``st_mode`` survive so ``_spy_fchown`` and the ownership
+    gate keep working. Call before ``_spy_fchown`` so the spy wraps this.
+    """
+    owned = {home.lstat().st_ino} | {p.lstat().st_ino for p in home.rglob("*")}
+
+    def as_root(st: os.stat_result) -> os.stat_result:
+        if st.st_ino in owned:
+            return st
+        values = list(st)
+        values[4] = 0
+        return os.stat_result(values)
+
+    real_lstat = os.lstat
+    real_fstat = os.fstat
+    real_fchown = os.fchown
+
+    def handed_over(fd: int, uid: int, gid: int) -> None:
+        owned.add(real_fstat(fd).st_ino)
+        real_fchown(fd, uid, gid)
+
+    monkeypatch.setattr(
+        os, "lstat", lambda p, *a, **kw: as_root(real_lstat(p, *a, **kw))
+    )
+    monkeypatch.setattr(os, "fstat", lambda fd: as_root(real_fstat(fd)))
+    monkeypatch.setattr(os, "fchown", handed_over)
 
 
 class TestMDMScopeWrites:
@@ -766,8 +819,9 @@ class TestMDMScopeWrites:
         assert outside_settings.read_text() == '{"permissions": {"allow": ["Bash"]}}'
 
     def test_mdm_hermes_write_refuses_symlinked_config(self, tmp_path, monkeypatch):
-        """Regression (ENG-3217): symlinked ``~/.hermes/config.yaml`` must not be
-        followed by the root MDM write."""
+        """Regression (ENG-3217): a ``~/.hermes/config.yaml`` link escaping the
+        home is neither followed nor replaced by the root MDM write (ENG-6814:
+        replacing it wiped the user's real config)."""
         from runlayer_cli.hook_install import clients as clients_module
 
         console_home = tmp_path / "Users" / "alice"
@@ -781,18 +835,462 @@ class TestMDMScopeWrites:
         )
         _patch_console_home(monkeypatch, console_home)
 
+        with pytest.raises(OSError) as excinfo:
+            install_client(
+                Client.HERMES,
+                scope=InstallScope.MDM,
+                hook_command="/usr/local/bin/aiwatch hook",
+                skip_when_missing=False,
+            )
+
+        assert excinfo.value.errno == errno.ELOOP
+        assert outside.read_text() == "secret: do not clobber\n"
+        config_path = console_hermes_root / "config.yaml"
+        assert config_path.is_symlink()
+        assert config_path.resolve() == outside
+        assert list(console_hermes_root.glob("config.backup_*.yaml")) == []
+
+
+class TestMDMInHomeSymlinks:
+    """MDM writers follow links whose resolved chain stays inside the console home.
+
+    Regression (ENG-6814): a dotfiles setup symlinks e.g. VS Code's
+    ``settings.json`` to ``~/dotfiles/...``. The root reconcile treated every
+    link as hostile, read nothing, and replaced the link with a fresh file
+    holding only Runlayer's keys — every 15 minutes. Links that stay in-home
+    are the user's own layout and must merge; links escaping the home are
+    still refused.
+    """
+
+    def _vscode_setup(self, tmp_path, monkeypatch) -> tuple[Path, Path]:
+        from runlayer_cli.hook_install import clients as clients_module
+
+        console_home = tmp_path / "Users" / "alice"
+        console_vscode_root = console_home / ".copilot" / "hooks"
+        monkeypatch.setattr(
+            clients_module, "enterprise_vscode_dir", lambda: console_vscode_root
+        )
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Darwin")
+        _patch_console_home(monkeypatch, console_home)
+        settings_path = _vscode_user_settings_path(console_home)
+        settings_path.parent.mkdir(parents=True)
+        return console_home, settings_path
+
+    def test_mdm_vscode_merges_into_symlinked_user_settings(
+        self, tmp_path, monkeypatch
+    ):
+        console_home, settings_path = self._vscode_setup(tmp_path, monkeypatch)
+        target = console_home / "dotfiles" / "vscode" / "settings.json"
+        target.parent.mkdir(parents=True)
+        target.write_text('{"editor.fontSize": 14}\n')
+        settings_path.symlink_to(target)
+
+        install_client(
+            Client.VSCODE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+
+        assert settings_path.is_symlink()
+        assert settings_path.resolve() == target
+        merged = json.loads(target.read_text())
+        assert merged["editor.fontSize"] == 14
+        assert merged["chat.hookFilesLocations"]["~/.claude/settings.json"] is False
+        # The recovery copy lands beside the link, not inside the dotfiles repo.
+        assert len(list(settings_path.parent.glob("settings.backup_*.json"))) == 1
+        assert list(target.parent.glob("settings.backup_*.json")) == []
+
+    def test_mdm_vscode_creates_dangling_in_home_link_target(
+        self, tmp_path, monkeypatch
+    ):
+        console_home, settings_path = self._vscode_setup(tmp_path, monkeypatch)
+        target = console_home / "dotfiles" / "vscode" / "settings.json"
+        settings_path.symlink_to(target)
+
+        install_client(
+            Client.VSCODE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+
+        assert settings_path.is_symlink()
+        assert "chat.hookFilesLocations" in json.loads(target.read_text())
+
+    def test_mdm_vscode_reowns_parents_created_for_dangling_link_target(
+        self, tmp_path, monkeypatch
+    ):
+        """Dirs root had to create for the dangling target are handed back to
+        the user, otherwise VS Code can't rewrite its own settings file."""
+        console_home, settings_path = self._vscode_setup(tmp_path, monkeypatch)
+        target = console_home / "dotfiles" / "vscode" / "settings.json"
+        settings_path.symlink_to(target)
+        monkeypatch.setattr(console_user_module.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(console_user_module.os, "geteuid", lambda: 0, raising=False)
+        _stat_created_as_root(monkeypatch, console_home)
+        records = _spy_fchown(monkeypatch)
+
+        install_client(
+            Client.VSCODE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+
+        chowned_inos = {ino for ino, _, _ in records}
+        assert (console_home / "dotfiles").stat().st_ino in chowned_inos
+        assert (console_home / "dotfiles" / "vscode").stat().st_ino in chowned_inos
+        assert target.stat().st_ino in chowned_inos
+        assert console_home.stat().st_ino not in chowned_inos
+
+    def test_mdm_vscode_refuses_escaping_user_settings_link(
+        self, tmp_path, monkeypatch
+    ):
+        console_home, settings_path = self._vscode_setup(tmp_path, monkeypatch)
+        outside = tmp_path / "outside-settings.json"
+        outside.write_text('{"editor.fontSize": 14}\n')
+        settings_path.symlink_to(outside)
+
+        with pytest.raises(OSError) as excinfo:
+            install_client(
+                Client.VSCODE,
+                scope=InstallScope.MDM,
+                hook_command="/usr/local/bin/aiwatch hook",
+            )
+
+        assert excinfo.value.errno == errno.ELOOP
+        assert settings_path.is_symlink()
+        assert outside.read_text() == '{"editor.fontSize": 14}\n'
+        assert list(settings_path.parent.glob("settings.backup_*.json")) == []
+
+    def _claude_setup(self, tmp_path, monkeypatch) -> Path:
+        from runlayer_cli.hook_install import clients as clients_module
+
+        console_home = tmp_path / "Users" / "alice"
+        console_home.mkdir(parents=True)
+        monkeypatch.setattr(
+            clients_module,
+            "enterprise_claude_code_dir",
+            lambda: console_home / ".claude",
+        )
+        _patch_console_home(monkeypatch, console_home)
+        return console_home
+
+    def test_mdm_claude_code_merges_into_symlinked_settings(
+        self, tmp_path, monkeypatch
+    ):
+        console_home = self._claude_setup(tmp_path, monkeypatch)
+        (console_home / ".claude").mkdir()
+        target = console_home / "dotfiles" / "claude" / "settings.json"
+        target.parent.mkdir(parents=True)
+        target.write_text('{"permissions": {"allow": ["Bash"]}}\n')
+        settings_path = console_home / ".claude" / "settings.json"
+        settings_path.symlink_to(target)
+
+        install_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+
+        assert settings_path.is_symlink()
+        merged = json.loads(target.read_text())
+        assert merged["permissions"] == {"allow": ["Bash"]}
+        assert "PreToolUse" in merged["hooks"]
+
+    def test_mdm_claude_code_merges_through_symlinked_directory(
+        self, tmp_path, monkeypatch
+    ):
+        """``~/.claude -> ~/dotfiles/claude`` is a common dotfiles layout."""
+        console_home = self._claude_setup(tmp_path, monkeypatch)
+        target_dir = console_home / "dotfiles" / "claude"
+        target_dir.mkdir(parents=True)
+        (target_dir / "settings.json").write_text(
+            '{"permissions": {"allow": ["Bash"]}}\n'
+        )
+        (console_home / ".claude").symlink_to(target_dir, target_is_directory=True)
+
+        install_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+
+        assert (console_home / ".claude").is_symlink()
+        merged = json.loads((target_dir / "settings.json").read_text())
+        assert merged["permissions"] == {"allow": ["Bash"]}
+        assert "PreToolUse" in merged["hooks"]
+        # The linked dir is usually a git working tree; the recovery copy (which
+        # may carry a blanked API key) must never land in it.
+        assert list(target_dir.glob("settings.backup_*.json")) == []
+        relocated = console_home / ".runlayer" / "config-backups" / ".claude"
+        assert len(list(relocated.glob("settings.backup_*.json"))) == 1
+
+    def test_mdm_claude_code_prunes_relocated_backups_behind_directory_link(
+        self, tmp_path, monkeypatch
+    ):
+        from runlayer_cli.hook_install.config_backup import BACKUP_KEEP
+
+        console_home = self._claude_setup(tmp_path, monkeypatch)
+        target_dir = console_home / "dotfiles" / "claude"
+        target_dir.mkdir(parents=True)
+        (console_home / ".claude").symlink_to(target_dir, target_is_directory=True)
+        relocated = console_home / ".runlayer" / "config-backups" / ".claude"
+        for round_index in range(BACKUP_KEEP + 3):
+            (target_dir / "settings.json").write_text(
+                json.dumps({"permissions": {"allow": [f"Bash{round_index}"]}})
+            )
+            install_client(
+                Client.CLAUDE_CODE,
+                scope=InstallScope.MDM,
+                hook_command="/usr/local/bin/aiwatch hook",
+            )
+
+        assert len(list(relocated.glob("settings.backup_*.json"))) == BACKUP_KEEP
+        assert list(target_dir.glob("settings.backup_*.json")) == []
+
+    def test_mdm_claude_code_relocated_backup_keeps_owner_only_mode(
+        self, tmp_path, monkeypatch
+    ):
+        console_home = self._claude_setup(tmp_path, monkeypatch)
+        target_dir = console_home / "dotfiles" / "claude"
+        target_dir.mkdir(parents=True)
+        settings = target_dir / "settings.json"
+        settings.write_text('{"permissions": {"allow": ["Bash"]}}\n')
+        settings.chmod(0o600)
+        (console_home / ".claude").symlink_to(target_dir, target_is_directory=True)
+
+        install_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+
+        relocated = console_home / ".runlayer" / "config-backups" / ".claude"
+        [backup_path] = list(relocated.glob("settings.backup_*.json"))
+        assert backup_path.stat().st_mode & 0o777 == 0o600
+        assert settings.stat().st_mode & 0o777 == 0o600
+
+    def test_mdm_claude_code_refuses_backup_relocation_into_linked_runlayer(
+        self, tmp_path, monkeypatch
+    ):
+        """Relocation exists to keep the copy out of a dotfiles tree; a linked
+        ``~/.runlayer`` is such a tree, so the write refuses instead."""
+        console_home = self._claude_setup(tmp_path, monkeypatch)
+        target_dir = console_home / "dotfiles" / "claude"
+        target_dir.mkdir(parents=True)
+        original = '{"permissions": {"allow": ["Bash"]}}\n'
+        (target_dir / "settings.json").write_text(original)
+        (console_home / ".claude").symlink_to(target_dir, target_is_directory=True)
+        runlayer_dir = console_home / "dotfiles" / "runlayer"
+        runlayer_dir.mkdir()
+        (console_home / ".runlayer").symlink_to(runlayer_dir, target_is_directory=True)
+
+        with pytest.raises(OSError) as excinfo:
+            install_client(
+                Client.CLAUDE_CODE,
+                scope=InstallScope.MDM,
+                hook_command="/usr/local/bin/aiwatch hook",
+            )
+
+        assert excinfo.value.errno == errno.ELOOP
+        assert list(runlayer_dir.rglob("*")) == []
+        assert (target_dir / "settings.json").read_text() == original
+        assert (console_home / ".claude").is_symlink()
+        assert (console_home / ".runlayer").is_symlink()
+
+    def test_mdm_goose_writes_through_linked_agents_dir(self, tmp_path, monkeypatch):
+        """``~/.agents -> ~/dotfiles/agents``: both the hooks file and the
+        Runlayer-owned manifest land in the real dir; the link survives."""
+        from runlayer_cli.hook_install import clients as clients_module
+
+        console_home = tmp_path / "Users" / "alice"
+        real_agents = console_home / "dotfiles" / "agents"
+        real_agents.mkdir(parents=True)
+        (console_home / ".agents").symlink_to(real_agents, target_is_directory=True)
+        console_goose_root = console_home / ".agents" / "plugins" / "runlayer-hooks"
+        monkeypatch.setattr(
+            clients_module, "enterprise_goose_dir", lambda: console_goose_root
+        )
+        _patch_console_home(monkeypatch, console_home)
+        monkeypatch.setattr(console_user_module.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(console_user_module.os, "geteuid", lambda: 0, raising=False)
+        _stat_created_as_root(monkeypatch, console_home)
+        records = _spy_fchown(monkeypatch)
+
+        install_client(
+            Client.GOOSE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+
+        assert (console_home / ".agents").is_symlink()
+        real_root = real_agents / "plugins" / "runlayer-hooks"
+        hooks = json.loads((real_root / "hooks" / "hooks.json").read_text())
+        assert "PreToolUse" in hooks["hooks"]
+        assert (real_root / "plugin.json").exists()
+        chowned_inos = {ino for ino, _, _ in records}
+        for created in (
+            real_agents / "plugins",
+            real_root,
+            real_root / "hooks",
+            real_root / "hooks" / "hooks.json",
+            real_root / "plugin.json",
+        ):
+            assert created.stat().st_ino in chowned_inos, created
+        assert console_home.stat().st_ino not in chowned_inos
+
+    def test_mdm_claude_code_leaves_user_owned_link_target_alone(
+        self, tmp_path, monkeypatch
+    ):
+        """A pre-existing target reached through the user's link is rewritten
+        in place (owner preserved), so root has nothing to hand back and never
+        chowns through the link."""
+        console_home = self._claude_setup(tmp_path, monkeypatch)
+        (console_home / ".claude").mkdir()
+        target = console_home / "dotfiles" / "claude" / "settings.json"
+        target.parent.mkdir(parents=True)
+        target.write_text("{}\n")
+        (console_home / ".claude" / "settings.json").symlink_to(target)
+        monkeypatch.setattr(console_user_module.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(console_user_module.os, "geteuid", lambda: 0, raising=False)
+        records = _spy_fchown(monkeypatch)
+
+        install_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+
+        assert "hooks" in json.loads(target.read_text())
+        chowned_inos = {ino for ino, _, _ in records}
+        assert target.stat().st_ino not in chowned_inos
+        assert (console_home / "dotfiles").stat().st_ino not in chowned_inos
+        assert (console_home / "dotfiles" / "claude").stat().st_ino not in chowned_inos
+        assert console_home.stat().st_ino not in chowned_inos
+
+    def test_mdm_vscode_refuses_link_to_target_owned_by_another_uid(
+        self, tmp_path, monkeypatch
+    ):
+        """An in-home link to a file the user does not own is not followed:
+        root must never let the console user pick a root-owned file to write
+        and hand back to them."""
+        console_home, settings_path = self._vscode_setup(tmp_path, monkeypatch)
+        target = console_home / "Library" / "Managed" / "settings.json"
+        target.parent.mkdir(parents=True)
+        target.write_text('{"editor.fontSize": 14}\n')
+        settings_path.symlink_to(target)
+        _lstat_uid_override(monkeypatch, target, console_home.stat().st_uid + 1)
+
+        with pytest.raises(OSError) as excinfo:
+            install_client(
+                Client.VSCODE,
+                scope=InstallScope.MDM,
+                hook_command="/usr/local/bin/aiwatch hook",
+            )
+
+        assert excinfo.value.errno == errno.ELOOP
+        assert settings_path.is_symlink()
+        assert target.read_text() == '{"editor.fontSize": 14}\n'
+        assert list(settings_path.parent.glob("settings.backup_*.json")) == []
+
+    def test_mdm_cline_does_not_follow_in_home_link_on_runlayer_script(
+        self, tmp_path, monkeypatch
+    ):
+        """Runlayer-owned files keep refuse-or-replace: no link following."""
+        from runlayer_cli.hook_install import clients as clients_module
+
+        console_home = tmp_path / "Users" / "alice"
+        hooks_dir = console_home / ".cline" / "hooks"
+        hooks_dir.mkdir(parents=True)
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(
+            clients_module, "enterprise_cline_cli_dir", lambda: hooks_dir
+        )
+        _patch_console_home(monkeypatch, console_home)
+        target = console_home / "dotfiles" / "cline" / "PreToolUse"
+        target.parent.mkdir(parents=True)
+        original = f"#!/bin/sh\n{_CLINE_CLI_SCRIPT_MARKER}\necho stale\n"
+        target.write_text(original)
+        (hooks_dir / "PreToolUse").symlink_to(target)
+
+        install_client(
+            Client.CLINE_CLI,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+            skip_when_missing=False,
+        )
+
+        assert (hooks_dir / "PreToolUse").is_symlink()
+        assert target.read_text() == original
+        assert (hooks_dir / "PreToolUse.sh").is_file()
+
+    def test_mdm_claude_code_uninstall_edits_through_in_home_link(
+        self, tmp_path, monkeypatch
+    ):
+        console_home = self._claude_setup(tmp_path, monkeypatch)
+        (console_home / ".claude").mkdir()
+        target = console_home / "dotfiles" / "claude" / "settings.json"
+        target.parent.mkdir(parents=True)
+        target.write_text('{"permissions": {"allow": ["Bash"]}}\n')
+        settings_path = console_home / ".claude" / "settings.json"
+        settings_path.symlink_to(target)
+        install_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+        assert "hooks" in json.loads(target.read_text())
+
+        result = uninstall_client(Client.CLAUDE_CODE, scope=InstallScope.MDM)
+
+        assert result.changed
+        assert settings_path.is_symlink()
+        after = json.loads(target.read_text())
+        assert after["permissions"] == {"allow": ["Bash"]}
+        assert "hooks" not in after
+
+    def test_mdm_claude_code_uninstall_refuses_escaping_link(
+        self, tmp_path, monkeypatch
+    ):
+        console_home = self._claude_setup(tmp_path, monkeypatch)
+        (console_home / ".claude").mkdir()
+        outside = tmp_path / "outside-settings.json"
+        outside.write_text('{"hooks": {"PreToolUse": []}}\n')
+        settings_path = console_home / ".claude" / "settings.json"
+        settings_path.symlink_to(outside)
+
+        result = uninstall_client(Client.CLAUDE_CODE, scope=InstallScope.MDM)
+
+        assert not result.changed
+        assert settings_path.is_symlink()
+        assert outside.read_text() == '{"hooks": {"PreToolUse": []}}\n'
+
+    def test_mdm_hermes_uninstall_edits_through_in_home_link(
+        self, tmp_path, monkeypatch
+    ):
+        from runlayer_cli.hook_install import clients as clients_module
+
+        console_home = tmp_path / "Users" / "alice"
+        hermes_dir = console_home / ".hermes"
+        hermes_dir.mkdir(parents=True)
+        monkeypatch.setattr(clients_module, "enterprise_hermes_dir", lambda: hermes_dir)
+        _patch_console_home(monkeypatch, console_home)
+        target = console_home / "dotfiles" / "hermes" / "config.yaml"
+        target.parent.mkdir(parents=True)
+        target.write_text("model: gpt\n")
+        (hermes_dir / "config.yaml").symlink_to(target)
         install_client(
             Client.HERMES,
             scope=InstallScope.MDM,
             hook_command="/usr/local/bin/aiwatch hook",
             skip_when_missing=False,
         )
+        assert "hooks" in yaml.safe_load(target.read_text())
 
-        assert outside.read_text() == "secret: do not clobber\n"
-        config_path = console_hermes_root / "config.yaml"
-        assert not config_path.is_symlink()
-        config = yaml.safe_load(config_path.read_text())
-        assert "pre_tool_call" in config["hooks"]
+        result = uninstall_client(Client.HERMES, scope=InstallScope.MDM)
+
+        assert result.changed
+        assert (hermes_dir / "config.yaml").is_symlink()
+        assert yaml.safe_load(target.read_text()) == {"model": "gpt"}
 
     def test_mdm_codex_writes_managed_config_toml(self, tmp_path, monkeypatch):
         from runlayer_cli.hook_install import clients as clients_module
@@ -927,7 +1425,9 @@ class TestMDMScopeWrites:
             lambda: enterprise_root,
         )
         _patch_console_home(monkeypatch, console_home)
-        monkeypatch.setattr(clients_module, "_reown_to_console_user", lambda _p: None)
+        monkeypatch.setattr(
+            clients_module, "_reown_to_console_user", lambda _p, **_kw: None
+        )
 
         install_client(
             Client.CODEX,

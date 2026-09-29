@@ -15,25 +15,20 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    tests.test_discover
-    ===================
+tests.test_discover
+===================
 
-    Tests discovering what device is meant by somewhat unspecific information.
+Tests discovering what device is meant by somewhat unspecific information.
 
-    .. moduleauthor:: mulhern <amulhern@redhat.com>
+.. moduleauthor:: mulhern <amulhern@redhat.com>
 """
 
-# isort: STDLIB
 import os
 
-# isort: THIRDPARTY
-import pytest
 from hypothesis import assume, given, settings, strategies
 
-# isort: LOCAL
 import pyudev
 from pyudev import (
-    DeviceFileHypothesis,
     DeviceNameHypothesis,
     DeviceNumberHypothesis,
     DevicePathHypothesis,

@@ -60,8 +60,17 @@ bool RelTableCollectionScanner::scan(main::ClientContext* context, RelTableScanS
     }
 }
 
+void ScanMultiRelTable::refreshNbrMaskCache() {
+    refreshNbrMasks(nbrNodeMaskMap.get());
+}
+
+common::sel_t ScanMultiRelTable::applyNbrNodeMask() {
+    return applyNbrMaskFilter(scanState->outState->getSelVectorUnsafe(), outVectors[0]);
+}
+
 void ScanMultiRelTable::initLocalStateInternal(ResultSet* resultSet, ExecutionContext* context) {
     ScanTable::initLocalStateInternal(resultSet, context);
+    refreshNbrMaskCache();
     auto clientContext = context->clientContext;
     boundNodeIDVector = resultSet->getValueVector(opInfo.nodeIDPos).get();
     auto nbrNodeIDVector = outVectors[0];
@@ -115,7 +124,11 @@ bool ScanMultiRelTable::getNextTuplesInternal(ExecutionContext* context) {
     while (true) {
         if (currentScanner != nullptr &&
             currentScanner->scan(context->clientContext, *scanState, outVectors)) {
-            metrics->numOutputTuple.increase(scanState->outState->getSelVector().getSelSize());
+            const auto filteredSize = applyNbrNodeMask();
+            if (filteredSize == 0) {
+                continue;
+            }
+            metrics->numOutputTuple.increase(filteredSize);
             return true;
         }
         if (!children[0]->getNextTuple(context)) {

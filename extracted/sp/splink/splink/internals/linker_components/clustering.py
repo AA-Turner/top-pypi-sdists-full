@@ -153,10 +153,8 @@ class LinkerClustering:
         enqueue_df_concat(linker, pipeline)
 
         columns = concat_table_column_names(self._linker)
-        # don't want to include salting column in output if present
-        columns_without_salt = filter(lambda x: x != "__splink_salt", columns)
 
-        select_columns_sql = ", ".join(columns_without_salt)
+        select_columns_sql = ", ".join(columns)
 
         sql = f"""
         select
@@ -319,10 +317,8 @@ class LinkerClustering:
         enqueue_df_concat(linker, pipeline)
 
         columns = concat_table_column_names(self._linker)
-        # don't want to include salting column in output if present
-        columns_without_salt = filter(lambda x: x != "__splink_salt", columns)
 
-        select_columns_sql = ", ".join(columns_without_salt)
+        select_columns_sql = ", ".join(columns)
 
         sql = f"""
         select
@@ -493,7 +489,7 @@ class LinkerClustering:
         df_predict: SplinkDataFrame,
         df_clustered: SplinkDataFrame,
         *,
-        threshold_match_probability: float = None,
+        threshold_match_probability: float | None = None,
     ) -> GraphMetricsResults:
         """
         Generates tables containing graph metrics (for nodes, edges and clusters),

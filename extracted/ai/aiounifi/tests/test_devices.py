@@ -35,6 +35,7 @@ from .fixtures import (
     PLUG_UP1,
     STRIP_UP6,
     SWITCH_16_PORT_POE,
+    UDM_PRO_MAX_UPTIME_STATS,
     UPS_2U,
     UPS_2U_PRO,
 )
@@ -1485,6 +1486,44 @@ async def test_update_stats(unifi_controller: Controller) -> None:
         == "www.microsoft.com"
     )
     assert device.uptime_stats["WAN"].get("monitors")[0].get("type") == "icmp"
+
+
+@pytest.mark.parametrize(
+    ("device_payload"),
+    [[GATEWAY_USG3 | {"uptime_stats": UDM_PRO_MAX_UPTIME_STATS}]],
+)
+@pytest.mark.usefixtures("_mock_endpoints")
+async def test_update_stats_aggregates(unifi_controller: Controller) -> None:
+    """Test uptime stats groups carrying aggregates and no monitors."""
+    await unifi_controller.devices.update()
+    device = next(iter(unifi_controller.devices.values()))
+
+    assert device.uptime_stats is not None
+    assert set(device.uptime_stats) == {"WAN", "WAN3"}
+
+    wan = device.uptime_stats["WAN"]
+    assert wan.get("availability") == 100.0
+    assert wan.get("latency_average") == 15
+    assert wan.get("time_period") == 86400
+    assert wan.get("uptime") == 808277
+    assert len(wan.get("monitors", [])) == 3
+    # A monitor that never got a response omits latency_average entirely.
+    assert "latency_average" not in wan["monitors"][0]
+    assert wan["monitors"][0].get("availability") == 0.0
+    assert len(wan.get("alerting_monitors", [])) == 3
+    assert wan["alerting_monitors"][1].get("target") == "1.1.1.1"
+    assert wan["alerting_monitors"][1].get("type") == "dns"
+
+    # A GRE tunnelled 5G WAN reports aggregates but omits "monitors" entirely.
+    wan3 = device.uptime_stats["WAN3"]
+    assert "monitors" not in wan3
+    assert wan3.get("monitors") is None
+    assert wan3.get("monitors", []) == []
+    assert wan3.get("availability") == 99.73679998517036
+    assert wan3.get("latency_average") == 24
+    assert wan3.get("time_period") == 22745
+    assert wan3.get("uptime") == 137062
+    assert len(wan3.get("alerting_monitors", [])) == 1
 
 
 @pytest.mark.parametrize(("device_payload"), [[GATEWAY_USG3]])

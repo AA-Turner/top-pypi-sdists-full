@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SQLAlchemy-Continuum
-Version: 1.7.0
+Version: 1.8.0
 Summary: Versioning and auditing extension for SQLAlchemy.
 Author: Mark Steward, Jose Soto
 Author-email: Konsta Vesterinen <konsta@fastmonkeys.com>
@@ -23,7 +23,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: SQLAlchemy<2.1,>=1.4.53
+Requires-Dist: SQLAlchemy<2.2,>=1.4.53
 Provides-Extra: flask
 Requires-Dist: Flask>=2.0; extra == "flask"
 Provides-Extra: flask-login

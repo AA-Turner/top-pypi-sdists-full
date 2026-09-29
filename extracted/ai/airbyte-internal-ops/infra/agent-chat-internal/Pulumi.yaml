@@ -1,0 +1,21 @@
+name: agent-chat-internal
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: |
+  Pulumi Infrastructure as Code for the Airbyte AG-UI chat services.
+
+  This project manages:
+  - The WIF publisher service account and IAM for the bootstrap-owned airbyte-agui-internal Artifact Registry repository (looked up, not created)
+  - Cloud Run services for agui-server and agui-playground
+  - External HTTPS load balancer with managed certificate and IAP
+  - DNS A record for chat.internal.airbyte.ai in the internal.airbyte.ai Cloud DNS zone
+
+config:
+  gcp:project:
+    description: GCP project ID for the AG-UI chat runtime infrastructure
+    value: internal-airbyte-ai-infra
+  gcp:region:
+    description: GCP region
+    value: us-west3

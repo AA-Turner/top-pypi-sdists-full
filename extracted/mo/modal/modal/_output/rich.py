@@ -14,6 +14,7 @@ import io
 import platform
 import re
 import sys
+import time
 from collections.abc import Callable, Generator
 from datetime import timedelta
 from pathlib import Path
@@ -193,6 +194,10 @@ class RichStatusRow(StatusRow):
         if self._spinner is not None:
             self._spinner.update(text=message)
 
+    def details(self, message: str) -> None:
+        if self._step_node is not None:
+            self._step_node.add(f"{message}")
+
     def warn(self, warning: api_pb2.Warning) -> None:
         if self._step_node is not None:
             self._step_node.add(f"[yellow]:warning:[/yellow] {warning.message}")
@@ -200,7 +205,7 @@ class RichStatusRow(StatusRow):
     def finish(self, message: str) -> None:
         if self._step_node is not None and self._spinner is not None:
             self._spinner.update(text=message)
-            self._step_node.label = f"🔨 {message}"
+            self._step_node.label = f"[green]✓[/green] {message}"
 
 
 _LOG_FLUSH_THRESHOLD = 32768  # 32KB — flush batched log output roughly every ~400 lines
@@ -218,6 +223,9 @@ _FD_COLORS: dict[int, AnsiColor] = {
 }
 _ANSI_RESET = "\033[0m"
 
+# Seconds to wait after a task is scheduled before showing queueing progress again for a Function
+QUEUEING_STRAGGLER_GRACE_SECS = 30.0
+
 
 class RichOutputManager(OutputManager):
     """Rich-based implementation of OutputManager.
@@ -230,6 +238,7 @@ class RichOutputManager(OutputManager):
     _stderr_console: Console
     _task_states: dict[str, int]
     _task_progress_items: dict[tuple[str, int], TaskID]
+    _function_scheduled_at: dict[str, float]
     _current_render_group: Group | None
     _function_progress: Progress | None
     _function_queueing_progress: Progress | None
@@ -264,6 +273,7 @@ class RichOutputManager(OutputManager):
         self._stderr_console = _make_console(stderr=True, highlight=True)
         self._task_states = {}
         self._task_progress_items = {}
+        self._function_scheduled_at = {}
         self._current_render_group = None
         self._function_progress = None
         self._function_queueing_progress = None
@@ -587,6 +597,9 @@ class RichOutputManager(OutputManager):
         task_description = description or f"'{function_id}' function waiting on worker"
         task_description = escape(task_description)
         task_desc = f"[yellow]{task_description}. Time in queue:"
+        is_completion = completed == total
+        if is_completion:
+            self._function_scheduled_at[function_id] = time.monotonic()
         if task_key in self._task_progress_items:
             progress_task_id = self._task_progress_items[task_key]
             try:
@@ -596,14 +609,17 @@ class RichOutputManager(OutputManager):
                     completed=completed,
                     total=total,
                 )
-                if completed == total:
+                if is_completion:
                     del self._task_progress_items[task_key]
                     self._function_queueing_progress_bar.remove_task(progress_task_id)
             except KeyError:
                 pass
-        elif completed != total:  # Create new bar for queued function
-            progress_task_id = self._function_queueing_progress_bar.add_task(task_desc, start=True, total=None)
-            self._task_progress_items[task_key] = progress_task_id
+        elif not is_completion:
+            scheduled_at = self._function_scheduled_at.get(function_id)
+            if scheduled_at is None or (time.monotonic() - scheduled_at) >= QUEUEING_STRAGGLER_GRACE_SECS:
+                # Create new bar for queued function
+                progress_task_id = self._function_queueing_progress_bar.add_task(task_desc, start=True, total=None)
+                self._task_progress_items[task_key] = progress_task_id
 
     def _get_line_buffer(self, fd: int, mode: str, callback: Callable[[str], None]) -> LineBufferedOutput:
         """Get or create a LineBufferedOutput for the given file descriptor and mode.

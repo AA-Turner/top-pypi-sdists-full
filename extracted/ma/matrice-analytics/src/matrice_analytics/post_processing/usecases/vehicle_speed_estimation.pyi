@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from ..utils import apply_category_mapping
+from ..utils.speed_box3d_utils import Box3DFallback
 from ..utils.speed_fit_utils import baseline_slope, over_limit_pct, severity_for, uncertainty_pct
 from ..utils.speed_geometry_utils import RoadPlane
 from ..utils.speed_paint_calibration_utils import SelfCalibrator

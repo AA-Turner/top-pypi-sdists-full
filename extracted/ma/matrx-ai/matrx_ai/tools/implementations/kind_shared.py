@@ -31,6 +31,8 @@ import logging
 import os
 import re
 import shutil
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 from uuid import UUID
 
@@ -777,6 +779,80 @@ async def kind_rls_allows(kind_id: str, level: str) -> bool:
             row = await KindDefinition.get_or_none(use_cache=False, id=kind_id)
         return row is not None
     return await person_may_change(KindDefinition, {"id": kind_id})
+
+
+# ---------------------------------------------------------------------------
+# WRITES AS THE PERSON (chair ruling 2026-09-27)
+# ---------------------------------------------------------------------------
+#: Certified tables (audit.summary.certified) the kind tools write IN THE
+#: CALLER'S RLS SESSION — their policies and governance triggers decide.
+KIND_TABLES_WRITTEN_AS_THE_PERSON = (
+    "content_ir.kind_definition",
+    "content_ir.kind_instance",
+    "skill.definition",
+    "skill.render_definition",
+)
+#: 🚧 STILL WRITTEN ON THE PRIVILEGED CONNECTION (after the RLS-decided
+#: ensure_can_edit_kind gate): these component tables are not yet certified —
+#: their generated policies lack platform_admin_read and carry an unreachable
+#: anon lane. They move into the person's session once the read-lane v2 lane
+#: re-runs iam.apply_rls on them. Never widen this list; shrink it.
+KIND_TABLES_PENDING_CANONICAL_RLS = (
+    "content_ir.kind_component",
+    "content_ir.kind_example",
+    "content_ir.kind_edge",
+    "content_ir.kind_surface",
+    "content_ir.kind_component_incident",
+)
+
+_RLS_REFUSAL_MARKERS = ("row-level security", "permission denied", "42501")
+
+
+class WriteRefused(Exception):
+    """The database, in the caller's session, refused (or matched no row for) a write."""
+
+
+@asynccontextmanager
+async def writing_as_the_person(ctx: ToolContext | None) -> AsyncIterator[None]:
+    """Write to a certified kind table in the caller's RLS session.
+
+    On an admin surface the admin lane is opened inside the same session, so the
+    database's own admin arm (never this module) grants a platform mint. An RLS
+    refusal leaves as ``WriteRefused``.
+    """
+    from matrx_ai.tools.person_session import as_the_person
+
+    try:
+        async with as_the_person():
+            if ctx_is_admin(ctx):
+                from matrx_orm import admin_lane
+
+                async with admin_lane(database=get_db_model("KindDefinition")._database):
+                    yield
+            else:
+                yield
+    except WriteRefused:
+        raise
+    except Exception as exc:
+        if any(marker in str(exc) for marker in _RLS_REFUSAL_MARKERS):
+            raise WriteRefused(str(exc)) from exc
+        raise
+
+
+async def update_as_the_person(model: Any, row_id: str, ctx: ToolContext | None, **values: Any) -> None:
+    """``update_where`` by id in the caller's session; no row changed = ``WriteRefused``."""
+    async with writing_as_the_person(ctx):
+        result = await model.update_where({"id": str(row_id)}, **values)
+        if not int(getattr(result, "rows_affected", 0) or 0):
+            raise WriteRefused(f"no row {row_id} was changed for this person")
+
+
+def refused(noun: str, row_id: str, exc: Exception) -> ToolResult:
+    return err(
+        "no_access",
+        f"You do not have permission to change {noun} {row_id}; nothing was changed.",
+        f"The database refused the write for this person ({exc}).",
+    )
 
 
 async def can_access_kind(kind_row: Any, ctx: ToolContext, level: str) -> bool:

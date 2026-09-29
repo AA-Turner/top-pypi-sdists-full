@@ -323,10 +323,12 @@ def report_output_file_size(
         input_size = Path(input_file).stat().st_size
     except FileNotFoundError:
         return  # Outputting to stream or something
-    with pikepdf.open(output_file) as p:
+    with pikepdf.open(output_file, conversion_mode='explicit') as p:
         # Overhead constants obtained by estimating amount of data added by OCR
         # PDF/A conversion, and possible XMP metadata addition, with compression
         reasonable_overhead = file_overhead + page_overhead * len(p.pages)
+        # --output-type auto may or may not produce PDF/A, so ask the output
+        output_is_pdfa = bool(p.open_metadata().pdfa_status)
     ratio = output_size / input_size
     reasonable_ratio = output_size / (input_size + reasonable_overhead)
     if reasonable_ratio < 1.35 or input_size < 25000:
@@ -350,7 +352,9 @@ def report_output_file_size(
 
     reasons.extend(optimize_messages)
 
-    if options.output_type.startswith('pdfa'):
+    if options.output_type.startswith('pdfa') or (
+        options.output_type == 'auto' and output_is_pdfa
+    ):
         reasons.append("PDF/A conversion was enabled. (Try `--output-type pdf`.)")
     if options.plugins:
         reasons.append("Plugins were used.")

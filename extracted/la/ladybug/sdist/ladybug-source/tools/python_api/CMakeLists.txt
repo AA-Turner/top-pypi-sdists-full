@@ -6,6 +6,17 @@ project(_lbug LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(LBUG_SOURCE_DIR "" CACHE PATH "Path to the Ladybug source tree used for pybind builds")
 
+option(LBUG_SPLIT_DEBUG_SYMBOLS "Split _lbug debug symbols into separate files at build time." ON)
+
+# pybind11_add_module() auto-attaches a POST_BUILD ${CMAKE_STRIP} step, which
+# on Linux is a plain `strip` that removes both the symbol table and DWARF --
+# and it would run before our own split below, leaving nothing to separate
+# (this produced empty ~3KB .debug stubs in wheel builds). Neutralize it:
+# stripping is owned by the LBUG_SPLIT_DEBUG_SYMBOLS pipeline (in-build
+# objcopy split, or host-side split_debug_symbols.py for wheels), both of
+# which preserve .symtab so addresses stay mappable to function names.
+set(CMAKE_STRIP "")
+
 if(NOT TARGET pybind11::module)
     if(LBUG_SOURCE_DIR)
         add_subdirectory("${LBUG_SOURCE_DIR}/third_party/pybind11" "${CMAKE_BINARY_DIR}/third_party/pybind11" EXCLUDE_FROM_ALL)
@@ -62,6 +73,76 @@ set_target_properties(_lbug
         LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/ladybug"
         RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/ladybug"
         ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/ladybug")
+
+# Ensure hidden visibility is enforced for smaller binary sizes.
+set_target_properties(_lbug PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+)
+
+# Enable debug symbols even in Release mode so they can be extracted into
+# separate symbol files (see below, and
+# scripts/pip-package/split_debug_symbols.py used by python-wheel-workflow.yml).
+target_compile_options(_lbug PRIVATE
+    $<$<PLATFORM_ID:Windows>:/Zi>
+    $<$<PLATFORM_ID:Linux,Darwin>:-g>
+)
+target_link_options(_lbug PRIVATE
+    $<$<PLATFORM_ID:Windows>:/DEBUG>
+)
+
+# --- Cross-Platform Symbol Separation ---
+# NOTE: build-time splitting must be OFF for wheel builds
+# (-DLBUG_SPLIT_DEBUG_SYMBOLS=OFF, set by scripts/pip-package/setup.py).
+# Raw .debug/dSYM artifacts packaged inside the wheel break auditwheel
+# repair, and the split instead happens on the final repaired wheel via
+# scripts/pip-package/split_debug_symbols.py, which needs the debug info
+# to still be present in the shipped binary.
+if(APPLE)
+    # macOS: Extract symbols into a .dSYM bundle and strip the binary.
+    find_program(DSYMUTIL dsymutil)
+    find_program(STRIP strip)
+    if(DSYMUTIL AND STRIP AND LBUG_SPLIT_DEBUG_SYMBOLS)
+        add_custom_command(TARGET _lbug POST_BUILD
+            COMMAND ${DSYMUTIL} $<TARGET_FILE:_lbug> -o $<TARGET_FILE:_lbug>.dSYM
+            COMMAND ${STRIP} -S $<TARGET_FILE:_lbug>
+            COMMENT "macOS: Creating dSYM bundle and stripping debug symbols..."
+        )
+    else()
+        message(STATUS "_lbug debug symbols will not be split at build time.")
+    endif()
+elseif(WIN32)
+    # Windows: MSVC natively outputs a separate .pdb file if /DEBUG is set.
+    # No extra extraction step is needed; the .pyd is already free of debug data.
+    set_target_properties(_lbug PROPERTIES
+        PDB_NAME "_lbug"
+        PDB_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/ladybug"
+    )
+
+    # Optional: Automatically optimize and strip unreferenced code/data.
+    target_link_options(_lbug PRIVATE
+        $<$<CONFIG:Release,RelWithDebInfo>:/OPT:REF>
+        $<$<CONFIG:Release,RelWithDebInfo>:/OPT:ICF>
+    )
+elseif(UNIX)
+    # Linux: Use GNU objcopy to split symbols. The .debug file travels next to
+    # the extension so wheel builds can publish it as a separate artifact.
+    find_program(OBJCOPY objcopy)
+    if(OBJCOPY AND LBUG_SPLIT_DEBUG_SYMBOLS)
+        add_custom_command(TARGET _lbug POST_BUILD
+            COMMAND ${OBJCOPY} --only-keep-debug $<TARGET_FILE:_lbug> _lbug.debug
+            COMMAND ${OBJCOPY} --strip-debug $<TARGET_FILE:_lbug>
+            COMMAND ${OBJCOPY} --add-gnu-debuglink=_lbug.debug $<TARGET_FILE:_lbug>
+            # --add-gnu-debuglink resolves a relative filename against the
+            # process working directory, so run in the output dir to keep the
+            # stored link a portable bare filename instead of a build path.
+            WORKING_DIRECTORY $<TARGET_FILE_DIR:_lbug>
+            COMMENT "Linux: Splitting debug symbols into .debug file..."
+        )
+    else()
+        message(STATUS "_lbug debug symbols will not be split at build time.")
+    endif()
+endif()
 
 if(LBUG_API_USE_PRECOMPILED_LIB)
     if(NOT LBUG_API_PRECOMPILED_LIB_PATH)

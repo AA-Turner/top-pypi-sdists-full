@@ -14,6 +14,8 @@ SOURCE-CONVERGENCE §3 / §7 (Phase 1b guard). The landing door is an injected e
 
 from __future__ import annotations
 
+from matrx_utils.source_guard import stable_source
+
 import importlib
 from types import SimpleNamespace
 from typing import Any
@@ -256,14 +258,13 @@ async def test_streamed_pages_with_no_hook_raise(monkeypatch: pytest.MonkeyPatch
 def test_every_streaming_scrape_route_lands_as_web() -> None:
     """The three streaming routes that read pages each set ``land_as`` — a route that forgot it
     would be a producer that silently makes no Sources."""
-    import inspect
 
     for fn in (
         scrape_router._run_quick_scrape,
         scrape_router._run_search_and_scrape,
         scrape_router._run_search_and_scrape_limited,
     ):
-        assert 'service.land_as = "web"' in inspect.getsource(fn), fn.__name__
+        assert 'service.land_as = "web"' in stable_source(fn), fn.__name__
 
 
 # ── /batch and /content/save ──────────────────────────────────────────────────────────────────

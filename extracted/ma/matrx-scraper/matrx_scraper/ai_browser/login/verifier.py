@@ -121,6 +121,10 @@ class EvaluatedObservation(BaseModel):
     login_form_present_before: StrictBool | None = None
     login_form_present_after: StrictBool | None = None
     url_relation: UrlRelation = "unknown"
+    # The form-cleared fallback is meaningful only when the page that HAD the
+    # form was itself a sign-in flow.  A search form can clear and navigate just
+    # as convincingly; its URL changing is never login evidence.
+    url_flow_before: UrlFlow = "unknown"
     url_flow: UrlFlow = "unknown"
 
     # Each value aligns with the same-named authoritative ExpectSpec field.
@@ -320,6 +324,7 @@ def _evaluate_page_observation(
             else None
         ),
         url_relation=relation,
+        url_flow_before=_url_flow(observation.url_before) if observation.url_probe_known else "unknown",
         url_flow=_url_flow(observation.url) if observation.url_probe_known else "unknown",
         success_url_prefix=expect_match(
             expect.success_url_prefix,
@@ -374,6 +379,7 @@ AMBIGUOUS_STRUCTURAL_REASONS = (
     "password_form_on_new_page",
     "still_on_sign_in_flow",
     "form_cleared_url_unchanged",
+    "form_cleared_without_sign_in_flow",
 )
 
 #: EVERY generic structural signal this engine can emit, with its direction and
@@ -459,12 +465,14 @@ def _structural_signals(obs: EvaluatedObservation) -> tuple[list[VerdictSignal],
     if obs.url_relation == "unchanged":
         return [], "form_cleared_url_unchanged"
 
-    # Everything below here describes the SAME page shape: the sign-in form is
-    # gone AND the browser left the sign-in flow for an ordinary url. How much
+    # Everything below here describes the SAME page shape: a form ON a sign-in
+    # flow is gone AND the browser left that flow for an ordinary url. How much
     # that is worth depends on HOW WELL it was observed, and the difference is
     # confidence, not outcome — which is exactly what `confidence` is for.
     if not (obs.url_relation == "changed" and obs.url_flow == "other"):
         return [], None
+    if obs.url_flow_before != "sign_in":
+        return [], "form_cleared_without_sign_in_flow"
 
     settled_probe_saw_no_control = (
         obs.password_field_present_after is False

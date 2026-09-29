@@ -32,6 +32,7 @@ Usage::
         ListDataTablesPaginator,
         ListDefaultVocabulariesPaginator,
         ListEntitySecurityProfilesPaginator,
+        ListEvaluationFormAIVersionsPaginator,
         ListEvaluationFormVersionsPaginator,
         ListEvaluationFormsPaginator,
         ListExtractionDefinitionsPaginator,
@@ -123,6 +124,7 @@ Usage::
     list_data_tables_paginator: ListDataTablesPaginator = client.get_paginator("list_data_tables")
     list_default_vocabularies_paginator: ListDefaultVocabulariesPaginator = client.get_paginator("list_default_vocabularies")
     list_entity_security_profiles_paginator: ListEntitySecurityProfilesPaginator = client.get_paginator("list_entity_security_profiles")
+    list_evaluation_form_ai_versions_paginator: ListEvaluationFormAIVersionsPaginator = client.get_paginator("list_evaluation_form_ai_versions")
     list_evaluation_form_versions_paginator: ListEvaluationFormVersionsPaginator = client.get_paginator("list_evaluation_form_versions")
     list_evaluation_forms_paginator: ListEvaluationFormsPaginator = client.get_paginator("list_evaluation_forms")
     list_extraction_definitions_paginator: ListExtractionDefinitionsPaginator = client.get_paginator("list_extraction_definitions")
@@ -240,6 +242,8 @@ from .type_defs import (
     ListDefaultVocabulariesResponseTypeDef,
     ListEntitySecurityProfilesRequestPaginateTypeDef,
     ListEntitySecurityProfilesResponseTypeDef,
+    ListEvaluationFormAIVersionsRequestPaginateTypeDef,
+    ListEvaluationFormAIVersionsResponseTypeDef,
     ListEvaluationFormsRequestPaginateTypeDef,
     ListEvaluationFormsResponseTypeDef,
     ListEvaluationFormVersionsRequestPaginateTypeDef,
@@ -400,6 +404,7 @@ __all__ = (
     "ListDataTablesPaginator",
     "ListDefaultVocabulariesPaginator",
     "ListEntitySecurityProfilesPaginator",
+    "ListEvaluationFormAIVersionsPaginator",
     "ListEvaluationFormVersionsPaginator",
     "ListEvaluationFormsPaginator",
     "ListExtractionDefinitionsPaginator",
@@ -832,6 +837,26 @@ class ListEntitySecurityProfilesPaginator(_ListEntitySecurityProfilesPaginatorBa
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListEntitySecurityProfiles.html#Connect.Paginator.ListEntitySecurityProfiles.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listentitysecurityprofilespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListEvaluationFormAIVersionsPaginatorBase = Paginator[
+        ListEvaluationFormAIVersionsResponseTypeDef
+    ]
+else:
+    _ListEvaluationFormAIVersionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListEvaluationFormAIVersionsPaginator(_ListEvaluationFormAIVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListEvaluationFormAIVersions.html#Connect.Paginator.ListEvaluationFormAIVersions)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listevaluationformaiversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListEvaluationFormAIVersionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListEvaluationFormAIVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListEvaluationFormAIVersions.html#Connect.Paginator.ListEvaluationFormAIVersions.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listevaluationformaiversionspaginator)
         """
 
 if TYPE_CHECKING:

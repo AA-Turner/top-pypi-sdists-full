@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Union, Iterable
+from typing import Dict, Union, Iterable, Optional
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
 from .._types import SequenceNotStr
@@ -895,7 +895,7 @@ class InputInputItemOpenAITypesResponsesResponseInputParamImageGenerationCall(  
 
     id: Required[str]
 
-    result: Required[str]
+    result: Required[Optional[str]]
 
     status: Required[Literal["in_progress", "completed", "generating", "failed"]]
 
@@ -941,11 +941,11 @@ class InputInputItemResponseCodeInterpreterToolCallParam(  # type: ignore[call-a
 
     id: Required[str]
 
-    code: Required[str]
+    code: Required[Optional[str]]
 
     container_id: Required[str]
 
-    outputs: Required[Iterable[InputInputItemResponseCodeInterpreterToolCallParamOutput]]
+    outputs: Required[Optional[Iterable[InputInputItemResponseCodeInterpreterToolCallParamOutput]]]
 
     status: Required[Literal["in_progress", "completed", "incomplete", "interpreting", "failed"]]
 

@@ -136,13 +136,14 @@ def _fail(
     )
 
 
-async def _load_agent_as_the_person(agent_id: str, app_ctx: Any) -> Any | None:
+async def load_agent_as_the_person(agent_id: str, app_ctx: Any) -> Any | None:
     """The agent row AS THE CALLER SEES IT — None when missing or not theirs to run.
 
     Runs inside the caller's RLS session (``as_the_person``): Postgres decides,
     through ``agent.definition``'s own policies (owner, org, share, public), whether
     this person may see the agent. Viewer access IS the run gate (2026-08-12
-    ruling); this module never re-implements it. On an admin surface the admin
+    ruling); this module never re-implements it. Shared by every "may this
+    person run this agent" question (agent_call, plan validation). On an admin surface the admin
     lane is opened inside the same session, so the database's own admin arm —
     never app code — grants the wider reach (2026-09-25).
     """
@@ -151,7 +152,7 @@ async def _load_agent_as_the_person(agent_id: str, app_ctx: Any) -> Any | None:
     from matrx_ai.db.agx_manager import AgxDefinition
     from matrx_ai.tools.person_session import as_the_person
 
-    async with as_the_person():
+    async with as_the_person(app_ctx):
         if admin_surface_active(app_ctx):
             from matrx_orm import admin_lane
 
@@ -242,7 +243,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     from matrx_ai.tools.person_session import PersonSessionUnavailable
 
     try:
-        row = await _load_agent_as_the_person(agent_id, app_ctx)
+        row = await load_agent_as_the_person(agent_id, app_ctx)
     except PersonSessionUnavailable as exc:
         return _fail(ctx, started_at, error_type="unavailable", message=str(exc))
     except Exception as exc:

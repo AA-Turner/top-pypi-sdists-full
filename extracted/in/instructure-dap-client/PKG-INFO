@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instructure-dap-client
-Version: 2.3.0
+Version: 2.3.1
 Summary: Data Access Platform client library
 Maintainer-email: "Instructure, Inc." <dapclient@instructure.com>
 License-Expression: MIT

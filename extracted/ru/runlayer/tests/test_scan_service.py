@@ -6426,14 +6426,51 @@ class TestSubmitScanResults:
         }
         assert entries[("mcp", "host_static")]["complete"] is True
 
-    def test_skill_free_scan_resets_the_resubmit_baseline(self):
+    def test_fully_throttled_plugin_scan_is_success_with_incomplete_surface(self):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+
+        def throttle_everything(*_args, throttled_surfaces, **_kwargs):
+            throttled_surfaces.add("host_static")
+            return "success"
+
+        with mock.patch.object(
+            scan_service,
+            "submit_discovered_plugins",
+            side_effect=throttle_everything,
+        ):
+            submission = submit_scan_results(
+                client,
+                _submission_scan_result(plugins=2),
+                artifact_cache=mock.MagicMock(),
+            )
+
+        assert submission.exit_code == 0
+        assert submission.failed_submissions == []
+        assert submission.category_outcomes["plugin"] == "success"
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("plugin", "host_static")] == {
+            "category": "plugin",
+            "surface": "host_static",
+            "complete": False,
+            "reason": "resubmit_throttled",
+        }
+        assert entries[("mcp", "host_static")]["complete"] is True
+
+    def test_artifact_free_scan_resets_the_resubmit_baselines(self):
         client = mock.MagicMock()
         client.submit_scan_manifest.return_value = {"reconciled": 0}
         cache = mock.MagicMock()
 
         submit_scan_results(client, _submission_scan_result(), artifact_cache=cache)
 
-        cache.retain_submissions.assert_called_once_with(set(), kind="skill")
+        assert cache.retain_submissions.call_args_list == [
+            mock.call(set(), kind="plugin"),
+            mock.call(set(), kind="skill"),
+        ]
 
     def test_manifest_is_last_and_reuses_session_id_for_every_submit(self):
         client = mock.MagicMock()

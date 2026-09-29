@@ -16,10 +16,45 @@ re-resolved paths, so they are also TOCTOU-safe: an attacker who swaps a
 component for a symlink after our ``lstat`` still loses, because the subsequent
 ``O_NOFOLLOW`` open fails with ``ELOOP``.
 
-When a final/ancestor component is already a symlink, the write helpers unlink
-the *link itself* (``os.unlink`` never follows) and recreate a real file/dir, so
-the install self-heals against a pre-staged attack symlink without ever touching
-the link's target.
+The threat is a link that leads root to a file the user does not own. A link
+whose destination is the user's own file inside the home (a dotfiles layout
+such as ``~/.claude -> ~/dotfiles/claude``) is their file arrangement, so the
+scope-aware ``maybe_safe_*`` dispatch resolves the path's *parent* chain with
+:func:`resolve_within_home` for every op, and third-party-config callers opt in
+with ``follow_in_home_links=True`` to resolve the final component too; the
+``O_NOFOLLOW`` walk then runs on the *resolved* destination. The gate: every
+hop must stay under home (links are read one ``readlink`` at a time; root never
+``realpath``s a user-chosen chain, which could block on an automount or probe
+root-only directories), the destination must lie under home, and every existing
+component of it below home must be owned by the home's owner (other agents
+leave root-owned config in the home; a link to it must not let the user pick
+what root writes and re-owns). The walk from home still guarantees only a real
+regular file under home is ever touched; a TOCTOU swap between resolution and
+the walk can at most redirect to another in-home file. A chain that escapes,
+loops, or lands on a foreign-owned file resolves to ``None`` and the original
+path is walked, so the link itself is refused with ``ELOOP``. When a link was
+followed, the write hands every component it had to create (a dangling dotfiles
+target and its parents, or new dirs under a linked ``~/.agents``) to the home's
+owner via ``fchown`` on the fds it already holds, so root leaves nothing
+``root:wheel`` behind the user's link; pre-existing components passed the gate
+and stay as they are.
+
+Runlayer's own tree, ``~/.runlayer``, is fenced off from resolution: the routing
+credential and relocated config backups live there, and a linked ``~/.runlayer``
+would carry those secrets into whatever tree the user linked (the very case
+backup relocation exists to avoid). A path under it is walked as spelled, so any
+link in its chain is refused. A resolved parent that turns out to be a regular
+file is likewise rejected, so the create walk never replaces the link target
+with a directory.
+
+A symlinked *ancestor* is never replaced: one that survives resolution is
+hostile or foreign, and unlinking it would wipe the user's layout, so the op
+aborts with ``ELOOP``. At the *final* component the write helpers by default
+unlink the *link itself* (``os.unlink`` never follows) and recreate a real file,
+so a Runlayer-owned file (hook script, manifest, the routing credential)
+self-heals against a pre-staged attack symlink without touching the link's
+target. Callers that must never wipe a third-party file pass
+``replace_symlink=False`` and get ``ELOOP`` instead.
 
 The descriptor-relative helpers are POSIX-only because ``O_NOFOLLOW`` /
 ``O_DIRECTORY`` do not exist on Windows. Windows SYSTEM callers use a
@@ -94,6 +129,105 @@ def _relative_parts(home: Path, path: Path) -> tuple[str, ...]:
     return parts
 
 
+# Matches the kernel's symlink-nesting limit; a dotfiles layout needs one or two.
+_MAX_LINK_HOPS = 40
+
+
+def _link_parts_under_home(home: Path, link: str) -> Optional[list[str]]:
+    """Components of an absolute link target below *home*, or ``None``.
+
+    Accepts the caller's spelling of *home* or its canonical form; *home* is
+    the trusted anchor, so canonicalising it is safe.
+    """
+    target = Path(link)
+    try:
+        return list(target.relative_to(home).parts)
+    except ValueError:
+        pass
+    try:
+        return list(target.relative_to(Path(os.path.realpath(home))).parts)
+    except ValueError:
+        return None
+
+
+def resolve_within_home(home: Path, path: Path) -> Optional[Path]:
+    """Resolve *path*'s symlink chain if its destination is the user's own file.
+
+    Returns the resolved path re-anchored on *home* (so the descriptor-relative
+    walk applies unchanged) when every hop and the destination lie under
+    *home* and every component of the destination that already exists below
+    *home* is owned by the home's owner. Returns ``None`` when a hop leaves the
+    home, the chain resolves to the home itself, exceeds ``_MAX_LINK_HOPS``
+    (loop), reaches something the user does not own, or *path* is not under
+    *home*. A path with no link to follow is returned as-is: the walk already
+    enforces the old contract there.
+
+    Links are read one at a time with ``readlink`` and re-walked from *home*;
+    ``realpath`` is never run on the user's chain because it would make root
+    ``lstat`` whatever the user points at (an automount that blocks, a
+    root-only directory whose contents the write's success would reveal). A
+    dotfiles layout never needs a hop outside the home, so one is refused
+    rather than followed. Resolution is non-strict: a dangling in-home link
+    resolves to its target and a write creates that target (parents included)
+    rather than replacing the link. "In home" alone is not enough: other
+    agents leave root-owned config in the home, and a link to one of those
+    would let the user choose what root writes and re-owns.
+    """
+    try:
+        pending = list(_relative_parts(home, path))
+        home_uid = os.stat(home).st_uid
+    except (OSError, ValueError):
+        return None
+    resolved: list[str] = []
+    owners: list[int] = []
+    hops = 0
+    while pending:
+        name = pending.pop(0)
+        if name in ("", "."):
+            continue
+        if name == "..":
+            if not resolved:
+                return None
+            resolved.pop()
+            owners.pop()
+            continue
+        try:
+            st = os.lstat(home.joinpath(*resolved, name))
+        except FileNotFoundError:
+            # Dangling remainder: the write creates it and hands it to the
+            # home's owner as it goes, so there is nothing to check yet.
+            if ".." in pending:
+                return None
+            resolved.extend([name, *pending])
+            break
+        except OSError:
+            return None
+        if not stat.S_ISLNK(st.st_mode):
+            resolved.append(name)
+            owners.append(st.st_uid)
+            continue
+        hops += 1
+        if hops > _MAX_LINK_HOPS:
+            return None
+        try:
+            link = os.readlink(home.joinpath(*resolved, name))
+        except OSError:
+            return None
+        if os.path.isabs(link):
+            link_parts = _link_parts_under_home(home, link)
+            if link_parts is None:
+                return None
+            resolved, owners = [], []
+        else:
+            link_parts = link.split(os.sep)
+        pending = link_parts + pending
+    if not resolved:
+        return None
+    if hops and any(uid != home_uid for uid in owners):
+        return None
+    return home.joinpath(*resolved)
+
+
 def _lstat_at(parent_fd: int, name: str) -> Optional[os.stat_result]:
     """``lstat`` *name* relative to *parent_fd*, or ``None`` if it doesn't exist."""
     try:
@@ -102,25 +236,19 @@ def _lstat_at(parent_fd: int, name: str) -> Optional[os.stat_result]:
         return None
 
 
-def _open_dir_component(
-    parent_fd: int,
-    name: str,
-    *,
-    create: bool,
-    replace_symlink: bool = True,
-) -> int:
+def _open_dir_component(parent_fd: int, name: str, *, create: bool) -> int:
     """Open child directory *name* under *parent_fd* without following symlinks.
 
     With ``create=True`` a missing directory is created and a non-dir placeholder
-    is replaced. Symlinks are replaced only when *replace_symlink* is true.
-    With ``create=False`` a symlink/missing/non-dir entry raises ``OSError``.
+    is replaced. A symlink always raises ``ELOOP``: an in-home one the caller
+    wanted followed was resolved away before the walk (``_walk_target``), so
+    one met here escapes the home or points at a foreign-owned tree, and
+    unlinking it would wipe the user's layout (``~/.agents -> ~/dotfiles/agents``).
+    With ``create=False`` a missing/non-dir entry raises ``OSError`` too.
     """
     st = _lstat_at(parent_fd, name)
     if st is not None and stat.S_ISLNK(st.st_mode):
-        if not create or not replace_symlink:
-            raise OSError(errno.ELOOP, "symlinked path component", name)
-        os.unlink(name, dir_fd=parent_fd)
-        st = None
+        raise OSError(errno.ELOOP, "symlinked path component", name)
     if st is None:
         if not create:
             raise FileNotFoundError(errno.ENOENT, "missing path component", name)
@@ -167,13 +295,7 @@ def _open_home_dir(home: Path) -> int:
     return os.open(home, _DIR_OPEN_FLAGS)
 
 
-def _walk_parents(
-    home_fd: int,
-    parts: tuple[str, ...],
-    *,
-    create: bool,
-    replace_symlink: bool = True,
-) -> list[int]:
+def _walk_parents(home_fd: int, parts: tuple[str, ...], *, create: bool) -> list[int]:
     """Open dir fds for every component except the last, relative to *home_fd*.
 
     Returns the opened fds in order (caller owns closing them). The returned
@@ -183,12 +305,7 @@ def _walk_parents(
     parent_fd = home_fd
     try:
         for name in parts[:-1]:
-            child = _open_dir_component(
-                parent_fd,
-                name,
-                create=create,
-                replace_symlink=replace_symlink,
-            )
+            child = _open_dir_component(parent_fd, name, create=create)
             fds.append(child)
             parent_fd = child
     except BaseException:
@@ -225,13 +342,22 @@ def safe_write_bytes(
     *,
     mode: int = 0o644,
     replace_symlink: bool = True,
+    owner: Optional[tuple[int, int]] = None,
 ) -> None:
     """Write *data* to *path* (under *home*) without following any symlink.
 
     Creates missing parent dirs safely. Sets *path* to *mode* (via ``fchmod``,
     bypassing umask). Raises ``ValueError`` if *path* is not under *home*, or
-    ``OSError`` on any filesystem error. When *replace_symlink* is false, an
-    existing symlink anywhere below *home* is preserved and raises ``ELOOP``.
+    ``OSError`` on any filesystem error. *replace_symlink* governs the final
+    component only: a symlink there is unlinked and replaced by a real file, or
+    with ``replace_symlink=False`` preserved and reported as ``ELOOP``. A
+    symlinked ancestor is always ``ELOOP`` — never followed, never replaced.
+
+    With *owner* ``(uid, gid)``, every component the walk opened that is not
+    yet owned by *uid* is ``fchown``ed while its fd is still held — the dirs
+    and file root had to create for a dangling in-home link target. Doing it
+    here, not in a later chown pass, means no re-walk can be redirected and no
+    ownership gate has to reason about files root itself just created.
     """
     parts = _relative_parts(home, path)
     # ``home`` (e.g. ``/Users/alice``) and everything above it is root-owned and
@@ -241,12 +367,7 @@ def safe_write_bytes(
     home_fd = _open_home_dir(home)
     parent_fds: list[int] = []
     try:
-        parent_fds = _walk_parents(
-            home_fd,
-            parts,
-            create=True,
-            replace_symlink=replace_symlink,
-        )
+        parent_fds = _walk_parents(home_fd, parts, create=True)
         parent_fd = parent_fds[-1] if parent_fds else home_fd
         file_fd = _open_file_for_write(
             parent_fd,
@@ -255,6 +376,8 @@ def safe_write_bytes(
             replace_symlink=replace_symlink,
         )
         try:
+            if owner is not None:
+                _hand_over([*parent_fds, file_fd], *owner)
             os.fchmod(file_fd, mode)
             os.ftruncate(file_fd, 0)
             _write_all(file_fd, data, path)
@@ -263,6 +386,18 @@ def safe_write_bytes(
     finally:
         _close_all(parent_fds)
         os.close(home_fd)
+
+
+def _hand_over(fds: list[int], uid: int, gid: int) -> None:
+    """``fchown`` every fd not already owned by *uid* to *uid*/*gid*."""
+    for fd in fds:
+        if os.fstat(fd).st_uid != uid:
+            os.fchown(fd, uid, gid)
+
+
+def _home_owner(home: Path) -> tuple[int, int]:
+    st = os.stat(home)
+    return st.st_uid, st.st_gid
 
 
 def safe_write_text(
@@ -379,14 +514,16 @@ def safe_unlink(home: Path, path: Path) -> bool:
 
 
 def safe_chown_within_home(home: Path, path: Path, uid: int, gid: int) -> None:
-    """Chown *path* and its ancestor dirs up to (excluding) *home* to *uid*/*gid*.
+    """Chown *path* and its ancestor dirs up to *home* to *uid*/*gid*.
 
     Walks the chain with ``O_NOFOLLOW`` and chowns the resulting fds via
     ``fchown``, so no symlink is ever followed. This reclaims historical
     root-owned config that older installs left in the user's home, without the
-    link-following escalation of a plain ``os.chown``. Raises ``ValueError`` if
-    *path* is not under *home*, or ``OSError`` if any component is a symlink or
-    missing (the operation is all-or-nothing).
+    link-following escalation of a plain ``os.chown``. Raises ``ValueError``
+    if *path* is not under *home*, or ``OSError`` if any component is a
+    symlink or missing (the operation is all-or-nothing). Files reached
+    through the user's own link are not this function's job: the write that
+    created them handed them over already (``safe_write_bytes(owner=)``).
     """
     parts = _relative_parts(home, path)
     home_fd = _open_home_dir(home)
@@ -420,6 +557,45 @@ def safe_chown_within_home(home: Path, path: Path, uid: int, gid: int) -> None:
 # ``if mdm: safe_* else: plain`` at every call site. ``home is None`` means
 # "no privilege boundary" (the running user owns the path) and uses plain path
 # ops; a non-``None`` ``home`` is the trusted anchor for the link-safe walk.
+# The user's in-home directory links (``~/.agents -> ~/dotfiles/agents``) are
+# their layout, so every op resolves the *parent* chain through them (gated by
+# ownership). ``follow_in_home_links`` is the third-party-config opt-in that
+# extends this to the final component; Runlayer-owned files leave it off and
+# keep refuse-or-replace for a link at their own name. Nothing under
+# ``~/.runlayer`` is ever resolved: it holds secrets Runlayer put there.
+
+_RUNLAYER_TREE = Path(".runlayer")
+
+
+def _is_dir_or_missing(path: Path) -> bool:
+    try:
+        return stat.S_ISDIR(os.lstat(path).st_mode)
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+
+
+def _walk_target(home: Path, path: Path, follow_in_home_links: bool) -> Path:
+    """*path* with its in-home link chain resolved, as far as the caller allows.
+
+    Falls back to *path* itself when the chain cannot be followed — or when
+    *path* lies under ``~/.runlayer`` — so the descriptor walk meets the link
+    and refuses it with ``ELOOP``. A parent that resolves to something other
+    than a directory (a link to a regular file) is not followed either: the
+    create walk would otherwise replace that file with a directory.
+    """
+    if path.is_relative_to(home / _RUNLAYER_TREE):
+        return path
+    if follow_in_home_links:
+        resolved = resolve_within_home(home, path)
+    else:
+        parent = resolve_within_home(home, path.parent)
+        if parent is None or not _is_dir_or_missing(parent):
+            resolved = None
+        else:
+            resolved = parent / path.name
+    return path if resolved is None else resolved
 
 
 def console_home_anchor(config_dir: Path, *, mdm: bool) -> Optional[Path]:
@@ -512,14 +688,18 @@ def is_unsafe_windows_mdm_path(
     return mdm and platform.system() == "Windows" and path_check(path)
 
 
-def maybe_safe_read_text(path: Path, *, home: Optional[Path]) -> Optional[str]:
+def maybe_safe_read_text(
+    path: Path, *, home: Optional[Path], follow_in_home_links: bool = False
+) -> Optional[str]:
     """Link-safe read when *home* is set, plain read otherwise.
 
     Returns ``None`` when the file is missing or unreadable (and, in link-safe
-    mode, when it is reached through / is itself a symlink or non-regular file).
+    mode, when its parent chain holds a link the resolver rejects, when the
+    file is itself a symlink — unless *follow_in_home_links* is set and the
+    chain resolves to the user's own in-home file — or is not a regular file).
     """
     if home is not None:
-        return safe_read_text(home, path)
+        return safe_read_text(home, _walk_target(home, path, follow_in_home_links))
     if not path.exists():
         return None
     try:
@@ -528,10 +708,12 @@ def maybe_safe_read_text(path: Path, *, home: Optional[Path]) -> Optional[str]:
         return None
 
 
-def maybe_safe_read_bytes(path: Path, *, home: Optional[Path]) -> Optional[bytes]:
+def maybe_safe_read_bytes(
+    path: Path, *, home: Optional[Path], follow_in_home_links: bool = False
+) -> Optional[bytes]:
     """Bytes counterpart of :func:`maybe_safe_read_text`."""
     if home is not None:
-        return safe_read_bytes(home, path)
+        return safe_read_bytes(home, _walk_target(home, path, follow_in_home_links))
     if not path.exists():
         return None
     try:
@@ -541,11 +723,17 @@ def maybe_safe_read_bytes(path: Path, *, home: Optional[Path]) -> Optional[bytes
 
 
 def maybe_safe_read_file(
-    path: Path, *, home: Optional[Path], max_bytes: Optional[int] = None
+    path: Path,
+    *,
+    home: Optional[Path],
+    max_bytes: Optional[int] = None,
+    follow_in_home_links: bool = False,
 ) -> Optional[FileReadResult]:
     """Read bytes and mode from one descriptor; link-safe when *home* is set."""
     if home is not None:
-        return safe_read_file(home, path, max_bytes=max_bytes)
+        return safe_read_file(
+            home, _walk_target(home, path, follow_in_home_links), max_bytes=max_bytes
+        )
     if not path.exists():
         return None
     try:
@@ -654,6 +842,7 @@ def maybe_safe_write_text(
     home: Optional[Path],
     mode: int = 0o644,
     replace_symlink: bool = True,
+    follow_in_home_links: bool = False,
 ) -> None:
     """Link-safe write when *home* is set, plain write otherwise.
 
@@ -666,6 +855,7 @@ def maybe_safe_write_text(
         home=home,
         mode=mode,
         replace_symlink=replace_symlink,
+        follow_in_home_links=follow_in_home_links,
     )
 
 
@@ -676,15 +866,23 @@ def maybe_safe_write_bytes(
     home: Optional[Path],
     mode: int = 0o644,
     replace_symlink: bool = True,
+    follow_in_home_links: bool = False,
 ) -> None:
-    """Bytes counterpart of :func:`maybe_safe_write_text`."""
+    """Bytes counterpart of :func:`maybe_safe_write_text`.
+
+    When the user's in-home link was followed, whatever the write has to
+    create belongs to them, so it is handed to the home's owner as it is
+    created; a plain path is left for the caller's own re-own step.
+    """
     if home is not None:
+        target = _walk_target(home, path, follow_in_home_links)
         safe_write_bytes(
             home,
-            path,
+            target,
             data,
             mode=mode,
             replace_symlink=replace_symlink,
+            owner=_home_owner(home) if target != path else None,
         )
         return
     # Windows MDM writes (home=None) run as SYSTEM into user-controlled
@@ -717,9 +915,13 @@ def maybe_safe_write_bytes(
 
 
 def maybe_safe_unlink(path: Path, *, home: Optional[Path]) -> bool:
-    """Descriptor-relative unlink when *home* is set, plain unlink otherwise."""
+    """Descriptor-relative unlink when *home* is set, plain unlink otherwise.
+
+    Only the *parent* chain is ever resolved: a final-component link is
+    removed as a link, never followed to its target.
+    """
     if home is not None:
-        return safe_unlink(home, path)
+        return safe_unlink(home, _walk_target(home, path, False))
     try:
         path.unlink()
     except FileNotFoundError:
@@ -737,6 +939,7 @@ __all__ = [
     "maybe_safe_write_bytes",
     "maybe_safe_write_text",
     "path_has_link_or_reparse_point",
+    "resolve_within_home",
     "safe_chown_within_home",
     "safe_read_bytes",
     "safe_read_file",

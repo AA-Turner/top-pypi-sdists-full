@@ -771,6 +771,7 @@ class DomainDetailsTypeDef(TypedDict):
 class RemoteAccountDetailsTypeDef(TypedDict):
     AccountId: NotRequired[str]
     Affiliated: NotRequired[bool]
+    AwsServiceName: NotRequired[str]
 
 
 class BedrockGuardrailTypeDef(TypedDict):

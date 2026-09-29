@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,44 +13,85 @@
 # limitations under the License.
 
 # Auto-generated. Do not edit manually.
-from .common_types import (
-    StrictBaseModel as StrictBaseModel,
-    DataBinding as DataBinding,
-    FunctionCall as FunctionCall,
-    AccessibilityAttributes as AccessibilityAttributes,
-    CheckRule as CheckRule,
-    ActionEvent as ActionEvent,
-    Action as Action,
-    ComponentCommon as ComponentCommon,
+from __future__ import annotations
+from collections.abc import Mapping, Sequence
+from enum import Enum
+from typing import Any
+
+# Versioned schema namespaces
+from . import v0_8
+from . import v0_9
+from . import v1_0
+
+
+# Multi-version Protocol Version Enum
+class A2uiProtocolVersion(str, Enum):
+    V0_8 = "v0.8"
+    V0_9 = "v0.9"
+    V0_9_1 = "v0.9.1"
+    V1_0 = "v1.0"
+
+
+ProtocolVersion = A2uiProtocolVersion
+
+
+# Multi-version envelope unions (v1.0+ primary terminology)
+AgentToRendererMessage = (
+    v0_8.ServerToClientMessage
+    | v0_9.ServerToClientMessage
+    | v1_0.AgentToRendererMessage
 )
-from .constants import *
-from .server_to_client import (
-    CreateSurfaceMessage as CreateSurfaceMessage,
-    CreateSurface as CreateSurface,
-    UpdateComponentsMessage as UpdateComponentsMessage,
-    UpdateComponents as UpdateComponents,
-    UpdateDataModelMessage as UpdateDataModelMessage,
-    UpdateDataModel as UpdateDataModel,
-    DeleteSurfaceMessage as DeleteSurfaceMessage,
-    DeleteSurface as DeleteSurface,
-    A2uiMessage as A2uiMessage,
-    A2uiMessageListWrapper as A2uiMessageListWrapper,
+
+AgentToRendererMessageListWrapper = (
+    v0_8.A2uiMessageListWrapper
+    | v0_9.A2uiMessageListWrapper
+    | v1_0.AgentToRendererMessageListWrapper
 )
-from .client_capabilities import (
-    A2uiClientCapabilities as A2uiClientCapabilities,
-    V09Capabilities as V09Capabilities,
-    InlineCatalog as InlineCatalog,
-    FunctionDefinition as FunctionDefinition,
+
+AgentToRendererMessagePayload = (
+    AgentToRendererMessageListWrapper
+    | Sequence[AgentToRendererMessage]
+    | AgentToRendererMessage
+    | Mapping[str, Any]
+    | Sequence[Mapping[str, Any]]
 )
-from .client_to_server import (
-    A2uiClientMessage as A2uiClientMessage,
-    A2uiClientActionMessage as A2uiClientActionMessage,
-    A2uiClientErrorMessage as A2uiClientErrorMessage,
-    A2uiClientAction as A2uiClientAction,
-    A2uiValidationError as A2uiValidationError,
-    A2uiGenericError as A2uiGenericError,
-    A2uiClientError as A2uiClientError,
-    A2uiClientDataModel as A2uiClientDataModel,
-    A2uiClientMessageList as A2uiClientMessageList,
-    A2uiClientMessageListWrapper as A2uiClientMessageListWrapper,
+
+RendererToAgentMessage = (
+    v0_8.ClientToServerMessage
+    | v0_9.ClientToServerMessage
+    | v1_0.RendererToAgentMessage
 )
+
+RendererToAgentMessageListWrapper = (
+    v0_8.A2uiClientMessageListWrapper
+    | v0_9.A2uiClientMessageListWrapper
+    | v1_0.RendererToAgentMessageListWrapper
+)
+
+RendererToAgentMessagePayload = (
+    RendererToAgentMessageListWrapper
+    | Sequence[RendererToAgentMessage]
+    | RendererToAgentMessage
+    | Mapping[str, Any]
+    | Sequence[Mapping[str, Any]]
+)
+
+# Aliases for cross-version consistency
+ServerToClientMessage = AgentToRendererMessage
+ClientToServerMessage = RendererToAgentMessage
+A2uiMessage = AgentToRendererMessage
+A2uiClientMessage = RendererToAgentMessage
+ServerToClientMessageListWrapper = AgentToRendererMessageListWrapper
+ClientToServerMessageListWrapper = RendererToAgentMessageListWrapper
+ServerToClientMessagePayload = AgentToRendererMessagePayload
+ClientToServerMessagePayload = RendererToAgentMessagePayload
+A2uiRendererAction = v0_9.A2uiRendererAction
+A2uiClientAction = A2uiRendererAction
+A2uiClientUserAction = A2uiRendererAction
+
+# Re-exports from primary schema namespace for backwards compatibility
+from .v0_9.common_types import *
+from .v0_9.constants import *
+from .v0_9.server_to_client import *
+from .v0_9.client_to_server import *
+from .v0_9.client_capabilities import *

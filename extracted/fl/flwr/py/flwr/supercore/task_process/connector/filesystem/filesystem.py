@@ -19,8 +19,14 @@ from __future__ import annotations
 import os
 import stat
 
-from flwr.supercore.typing import JSONObject
+from flwr.proto.task_pb2 import TaskUsage  # pylint: disable=E0611
+from flwr.supercore.task_process.usage import (
+    FILESYSTEM_LIST_DIRECTORY_USAGE_TYPE,
+    FILESYSTEM_READ_FILE_USAGE_TYPE,
+)
+from flwr.supercore.typing import JSONObject, JSONValue
 
+from ..definition import ConnectorExecutionContext
 from ..http import ConnectorApiError
 
 FILESYSTEM_CONNECTOR_REF = "filesystem"
@@ -42,12 +48,15 @@ class FilesystemApiError(ConnectorApiError):
     provider = "Filesystem"
 
 
-def make_filesystem_tools() -> list[JSONObject]:
-    """Return the filesystem function tool schemas."""
+def make_filesystem_tools() -> tuple[JSONObject, ...]:
+    """Return tool schemas, or no tools when filesystem access is unavailable."""
     if not _PLATFORM_SUPPORTED or not os.getenv(FILESYSTEM_ALLOWED_DIRS_ENV):
-        return []
-    allowed_dirs = ", ".join(_allowed_dirs())
-    return [
+        return ()
+    try:
+        allowed_dirs = ", ".join(_allowed_dirs())
+    except FilesystemApiError:
+        return ()
+    return (
         {
             "type": "function",
             "name": FILESYSTEM_LIST_DIRECTORY_TOOL_NAME,
@@ -94,21 +103,57 @@ def make_filesystem_tools() -> list[JSONObject]:
                 "additionalProperties": False,
             },
         },
-    ]
+    )
 
 
-def invoke_filesystem(name: str, arguments: JSONObject) -> JSONObject:
+def invoke_filesystem(name: str, arguments: JSONValue) -> JSONObject:
     """Invoke one filesystem tool."""
-    if not _PLATFORM_SUPPORTED:
-        raise FilesystemApiError("unsupported_platform")
-    path = arguments.get("path")
-    if not isinstance(path, str):
+    try:
+        if not _PLATFORM_SUPPORTED:
+            raise FilesystemApiError("unsupported_platform")
+        if not isinstance(arguments, dict) or set(arguments) != {"path"}:
+            raise FilesystemApiError("invalid_request")
+        path = arguments.get("path")
+        if not isinstance(path, str):
+            raise FilesystemApiError("invalid_request")
+        if name == FILESYSTEM_LIST_DIRECTORY_TOOL_NAME:
+            return _list_directory(path, _allowed_dirs())
+        if name == FILESYSTEM_READ_FILE_TOOL_NAME:
+            return _read_file(path, _allowed_dirs())
         raise FilesystemApiError("invalid_request")
-    if name == FILESYSTEM_LIST_DIRECTORY_TOOL_NAME:
-        return _list_directory(path, _allowed_dirs())
-    if name == FILESYSTEM_READ_FILE_TOOL_NAME:
-        return _read_file(path, _allowed_dirs())
-    raise FilesystemApiError("invalid_request")
+    except FilesystemApiError as ex:
+        error: JSONObject = {"code": ex.code}
+        if ex.message is not None:
+            error["message"] = ex.message
+        return {"error": error}
+
+
+def list_directory(
+    path: str | None = None,
+    *,
+    context: ConnectorExecutionContext,
+    **extra: JSONValue,
+) -> JSONObject:
+    """List a directory through the built-in connector interface."""
+    output = invoke_filesystem(
+        FILESYSTEM_LIST_DIRECTORY_TOOL_NAME, {"path": path, **extra}
+    )
+    context.usage_recorder.record(
+        TaskUsage(usage_type=FILESYSTEM_LIST_DIRECTORY_USAGE_TYPE)
+    )
+    return output
+
+
+def read_file(
+    path: str | None = None,
+    *,
+    context: ConnectorExecutionContext,
+    **extra: JSONValue,
+) -> JSONObject:
+    """Read a file through the built-in connector interface."""
+    output = invoke_filesystem(FILESYSTEM_READ_FILE_TOOL_NAME, {"path": path, **extra})
+    context.usage_recorder.record(TaskUsage(usage_type=FILESYSTEM_READ_FILE_USAGE_TYPE))
+    return output
 
 
 def _list_directory(path: str, allowed: list[str]) -> JSONObject:
@@ -174,6 +219,8 @@ def _open_sandboxed(path: str, allowed: list[str], flags: int) -> tuple[int, str
         # with a symlink before it is opened. Parent-directory rename races require
         # hostile filesystem control and are outside this connector's threat model.
         return os.open(resolved, flags | _O_NOFOLLOW), resolved
+    except FileNotFoundError:
+        raise FilesystemApiError("not_found", message="Path not found.") from None
     except OSError:
         raise FilesystemApiError("access_denied") from None
 

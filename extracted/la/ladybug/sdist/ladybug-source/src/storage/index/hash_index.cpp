@@ -1,6 +1,7 @@
 #include "storage/index/hash_index.h"
 
 #include <bitset>
+#include <limits>
 
 #include "common/assert.h"
 #include "common/exception/message.h"
@@ -22,6 +23,7 @@
 #include "storage/shadow_utils.h"
 #include "storage/storage_manager.h"
 #include "transaction/transaction.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::transaction;
@@ -39,6 +41,42 @@ HashIndex<T>::HashIndex(MemoryManager& memoryManager, OverflowFileHandle* overfl
       memoryManager{memoryManager} {
     pSlots = diskArrays.getDiskArray<OnDiskSlotType>(indexPos);
     oSlots = diskArrays.getDiskArray<OnDiskSlotType>(NUM_HASH_INDEXES + indexPos);
+
+    const auto numPrimarySlots = pSlots->getNumElements();
+    const auto numOverflowSlots = oSlots->getNumElements();
+    constexpr auto maxUint64 = std::numeric_limits<uint64_t>::max();
+    if (numPrimarySlots > maxUint64 / PERSISTENT_SLOT_CAPACITY) {
+        throw RuntimeException(std::format(
+            "Cannot load hash index {}: the primary slot count is too large. The database file "
+            "may be corrupted.",
+            indexPos));
+    }
+    const auto maxPrimaryEntries = numPrimarySlots * PERSISTENT_SLOT_CAPACITY;
+    if (numOverflowSlots > (maxUint64 - maxPrimaryEntries) / PERSISTENT_SLOT_CAPACITY) {
+        throw RuntimeException(std::format(
+            "Cannot load hash index {}: the overflow slot count is too large. The database file "
+            "may be corrupted.",
+            indexPos));
+    }
+    const auto maxEntries = maxPrimaryEntries + numOverflowSlots * PERSISTENT_SLOT_CAPACITY;
+    if (indexHeaderForReadTrx.numEntries > maxEntries) {
+        throw RuntimeException(std::format(
+            "Cannot load hash index {}: header contains {} entries, but its slots can contain at "
+            "most {} entries. The database file may be corrupted.",
+            indexPos, indexHeaderForReadTrx.numEntries, maxEntries));
+    }
+    const auto numSlotsAtCurrentLevel = 1ull << indexHeaderForReadTrx.currentLevel;
+    const auto isNewEmptyIndex = indexHeaderForReadTrx.numEntries == 0 && numPrimarySlots == 0;
+    if ((isNewEmptyIndex && (indexHeaderForReadTrx.currentLevel != 1 ||
+                                indexHeaderForReadTrx.nextSplitSlotId != 0)) ||
+        (!isNewEmptyIndex && (numSlotsAtCurrentLevel > numPrimarySlots ||
+                                 indexHeaderForReadTrx.nextSplitSlotId >
+                                     numPrimarySlots - numSlotsAtCurrentLevel))) {
+        throw RuntimeException(std::format(
+            "Cannot load hash index {}: header requires more primary slots than are present. The "
+            "database file may be corrupted.",
+            indexPos));
+    }
 }
 
 template<typename T>
@@ -232,7 +270,7 @@ void HashIndex<T>::reserve(PageAllocator& pageAllocator, const Transaction* tran
     // Can be no fewer slots than the current level requires
     auto numRequiredSlots =
         std::max((numRequiredEntries + PERSISTENT_SLOT_CAPACITY - 1) / PERSISTENT_SLOT_CAPACITY,
-            static_cast<slot_id_t>(1ul << this->indexHeaderForWriteTrx.currentLevel));
+            static_cast<slot_id_t>(1ull << this->indexHeaderForWriteTrx.currentLevel));
     // Always start with at least one page worth of slots.
     // This guarantees that when splitting the source and destination slot are never on the same
     // page, which allows safe use of multiple disk array iterators.
@@ -242,8 +280,8 @@ void HashIndex<T>::reserve(PageAllocator& pageAllocator, const Transaction* tran
     if (this->indexHeaderForWriteTrx.numEntries == 0) {
         pSlots->resize(pageAllocator, transaction, numRequiredSlots);
 
-        auto numSlotsOfCurrentLevel = 1u << this->indexHeaderForWriteTrx.currentLevel;
-        while ((numSlotsOfCurrentLevel << 1) <= numRequiredSlots) {
+        auto numSlotsOfCurrentLevel = 1ull << this->indexHeaderForWriteTrx.currentLevel;
+        while (numSlotsOfCurrentLevel <= numRequiredSlots / 2) {
             this->indexHeaderForWriteTrx.incrementLevel();
             numSlotsOfCurrentLevel <<= 1;
         }
@@ -493,6 +531,8 @@ PrimaryKeyIndex::PrimaryKeyIndex(IndexInfo indexInfo, std::unique_ptr<IndexStora
     ShadowFile* shadowFile)
     : Index{std::move(indexInfo), std::move(storageInfo)}, shadowFile{*shadowFile} {
     auto& hashIndexStorageInfo = this->storageInfo->cast<PrimaryKeyIndexStorageInfo>();
+    auto* dataFH = pageAllocator.getDataFH();
+    const auto numPages = dataFH->getNumPages();
     if (hashIndexStorageInfo.firstHeaderPage == INVALID_PAGE_IDX) {
         DASSERT(hashIndexStorageInfo.overflowHeaderPage == INVALID_PAGE_IDX);
         hashIndexHeadersForReadTrx.resize(NUM_HASH_INDEXES);
@@ -504,6 +544,21 @@ PrimaryKeyIndex::PrimaryKeyIndex(IndexInfo indexInfo, std::unique_ptr<IndexStora
             hashIndexDiskArrays->addDiskArray();
         }
     } else {
+        if (numPages < INDEX_HEADER_PAGES || hashIndexStorageInfo.firstHeaderPage == 0 ||
+            hashIndexStorageInfo.firstHeaderPage > numPages - INDEX_HEADER_PAGES) {
+            throw RuntimeException(std::format(
+                "Cannot read primary key index header pages starting at {} from a database file "
+                "with {} pages. The database file may be corrupted.",
+                hashIndexStorageInfo.firstHeaderPage, numPages));
+        }
+        if (hashIndexStorageInfo.overflowHeaderPage != INVALID_PAGE_IDX &&
+            (hashIndexStorageInfo.overflowHeaderPage == 0 ||
+                hashIndexStorageInfo.overflowHeaderPage >= numPages)) {
+            throw RuntimeException(std::format(
+                "Cannot read primary key index overflow header page {} from a database file with "
+                "{} pages. The database file may be corrupted.",
+                hashIndexStorageInfo.overflowHeaderPage, numPages));
+        }
         for (size_t headerPageIdx = 0; headerPageIdx < INDEX_HEADER_PAGES; headerPageIdx++) {
             size_t startHeaderIdx = headerPageIdx * INDEX_HEADERS_PER_PAGE;
             pageAllocator.getDataFH()->optimisticReadPage(
@@ -511,6 +566,7 @@ PrimaryKeyIndex::PrimaryKeyIndex(IndexInfo indexInfo, std::unique_ptr<IndexStora
                     const auto onDiskHeaders = reinterpret_cast<HashIndexHeaderOnDisk*>(frame);
                     for (size_t i = 0;
                          i < INDEX_HEADERS_PER_PAGE && startHeaderIdx + i < NUM_HASH_INDEXES; i++) {
+                        HashIndexHeader::validateOnDisk(onDiskHeaders[i]);
                         hashIndexHeadersForReadTrx.emplace_back(onDiskHeaders[i]);
                     }
                 });
@@ -522,6 +578,12 @@ PrimaryKeyIndex::PrimaryKeyIndex(IndexInfo indexInfo, std::unique_ptr<IndexStora
             hashIndexStorageInfo.firstHeaderPage +
                 INDEX_HEADER_PAGES /*firstHeaderPage for the DAC follows the index header pages*/,
             true /*bypassShadowing*/);
+    }
+    if (hashIndexDiskArrays->getNumHeaders() != NUM_HASH_INDEXES * 2) {
+        throw RuntimeException(std::format(
+            "Cannot load primary key index: expected {} disk arrays, but found {}. The database "
+            "file may be corrupted.",
+            NUM_HASH_INDEXES * 2, hashIndexDiskArrays->getNumHeaders()));
     }
     initOverflowAndSubIndices(inMemMode, memoryManager, pageAllocator, hashIndexStorageInfo);
 }
@@ -640,6 +702,11 @@ void PrimaryKeyIndex::discardPrimaryKey(ValueVector* keyVector) {
 }
 
 void PrimaryKeyIndex::checkpointInMemory() {
+    // Publish the disk-array headers before the per-index slot state: updateLastPageOnDisk()
+    // derives lastPageOnDisk from the read headers, so slots must observe the new headers.
+    // Publishing them later leaves lastPageOnDisk stale, and the next checkpoint then treats
+    // existing slot pages as new (in-place writes flushed before the commit point).
+    hashIndexDiskArrays->checkpointInMemory();
     bool indexChanged = false;
     for (auto i = 0u; i < NUM_HASH_INDEXES; i++) {
         if (hashIndices[i]->checkpointInMemory()) {
@@ -650,7 +717,6 @@ void PrimaryKeyIndex::checkpointInMemory() {
         for (size_t i = 0; i < NUM_HASH_INDEXES; i++) {
             hashIndexHeadersForReadTrx[i] = hashIndexHeadersForWriteTrx[i];
         }
-        hashIndexDiskArrays->checkpointInMemory();
     }
     if (overflowFile) {
         overflowFile->checkpointInMemory();
@@ -681,6 +747,16 @@ void PrimaryKeyIndex::writeHeaders(PageAllocator& pageAllocator) const {
 }
 
 void PrimaryKeyIndex::rollbackCheckpoint() {
+    if (hasStagedCheckpoint) {
+        // The storage phase never published (publication waits for finalize), so restoring
+        // the entry header page IDs fully rewinds the in-memory state. Local storage is
+        // intact and read headers were never touched.
+        auto& hashIndexStorageInfo = storageInfo->cast<PrimaryKeyIndexStorageInfo>();
+        hashIndexStorageInfo.firstHeaderPage = stagedFirstHeaderPage;
+        hashIndexStorageInfo.overflowHeaderPage = stagedOverflowHeaderPage;
+        hasStagedCheckpoint = false;
+        stagedIndexChanged = false;
+    }
     for (idx_t i = 0; i < NUM_HASH_INDEXES; ++i) {
         hashIndices[i]->rollbackCheckpoint();
     }
@@ -689,6 +765,21 @@ void PrimaryKeyIndex::rollbackCheckpoint() {
         hashIndexHeadersForReadTrx.end());
     if (overflowFile) {
         overflowFile->rollbackInMemory();
+    }
+}
+
+void PrimaryKeyIndex::finalize(main::ClientContext*) {
+    if (!hasStagedCheckpoint) {
+        return;
+    }
+    hasStagedCheckpoint = false;
+    // Publish only when the storage phase staged changes. An unconditional publish would
+    // advance DiskArrayCollection::headerPagesOnDisk without writing anything, so a later
+    // checkpoint would skip writing new header pages, leaving zeroed pages behind that fail
+    // to load ("disk array header page 0").
+    if (stagedIndexChanged) {
+        stagedIndexChanged = false;
+        checkpointInMemory();
     }
 }
 
@@ -702,19 +793,24 @@ static void updateOverflowHeaderPageIfNeeded(IndexStorageInfo* storageInfo,
 
 void PrimaryKeyIndex::checkpoint(main::ClientContext*, storage::PageAllocator& pageAllocator,
     ShadowFile&) {
+    auto& hashIndexStorageInfo = storageInfo->cast<PrimaryKeyIndexStorageInfo>();
+    stagedFirstHeaderPage = hashIndexStorageInfo.firstHeaderPage;
+    stagedOverflowHeaderPage = hashIndexStorageInfo.overflowHeaderPage;
     bool indexChanged = false;
     for (auto i = 0u; i < NUM_HASH_INDEXES; i++) {
         if (hashIndices[i]->checkpoint(pageAllocator)) {
             indexChanged = true;
         }
     }
+    // Assign both header pages under one condition: the constructor rejects an overflow
+    // header page without index header pages.
     if (indexChanged) {
         writeHeaders(pageAllocator);
         hashIndexDiskArrays->checkpoint(getDiskArrayFirstHeaderPage(), pageAllocator);
-    }
-    if (overflowFile) {
-        overflowFile->checkpoint(pageAllocator);
-        updateOverflowHeaderPageIfNeeded(storageInfo.get(), overflowFile.get());
+        if (overflowFile) {
+            overflowFile->checkpoint(pageAllocator);
+            updateOverflowHeaderPageIfNeeded(storageInfo.get(), overflowFile.get());
+        }
     }
     // Make sure that changes which bypassed the WAL are written.
     // There is no other mechanism for enforcing that they are flushed
@@ -723,7 +819,12 @@ void PrimaryKeyIndex::checkpoint(main::ClientContext*, storage::PageAllocator& p
     // generally handle bypassing the WAL, but should only be run once per file, not once per
     // disk array
     pageAllocator.getDataFH()->flushAllDirtyPagesInFrames();
-    checkpointInMemory();
+    // Do NOT publish here. checkpointInMemory() swaps the read headers and clears the local
+    // storage; if a later checkpoint phase fails, rollback could not restore either (lost
+    // keys, accepted duplicates, unopenable DB). Publication waits for finalize(), which runs
+    // post-commit.
+    hasStagedCheckpoint = true;
+    stagedIndexChanged = indexChanged;
 }
 
 PrimaryKeyIndex::~PrimaryKeyIndex() = default;

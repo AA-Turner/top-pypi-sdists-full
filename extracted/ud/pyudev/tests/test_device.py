@@ -15,21 +15,20 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    pyudev.tests.test_device
-    ========================
+pyudev.tests.test_device
+========================
 
-    Test for devices.
+Test for devices.
 
-    .. moduleauthor::  mulhern <amulhern@redhat.com>
+.. moduleauthor::  mulhern <amulhern@redhat.com>
 """
 
-# isort: STDLIB
 import gc
 
-from ._device_tests._attributes_tests import TestAttributes
-from ._device_tests._device_tests import TestDevice
-from ._device_tests._devices_tests import TestDevices  # pylint: disable=unused-import
-from ._device_tests._tags_tests import TestTags  # pylint: disable=unused-import
+from ._device_tests._attributes_tests import TestAttributes  # noqa: F401
+from ._device_tests._device_tests import TestDevice  # noqa: F401
+from ._device_tests._devices_tests import TestDevices  # noqa: F401
+from ._device_tests._tags_tests import TestTags  # noqa: F401
 
 
 def test_garbage():

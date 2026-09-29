@@ -2,7 +2,16 @@
 
 import pytest
 
-from openevsehttp.commands import CommandsMixin
+from openevsehttp.commands import (
+    BaseCommandMixin,
+    CommandsMixin,
+    CoreCommandsMixin,
+    DiagnosticsCommandsMixin,
+    FirmwareCommandsMixin,
+    ScheduleCommandsMixin,
+    SecurityCommandsMixin,
+    TimeCommandsMixin,
+)
 from openevsehttp.managers import ManagersMixin
 from openevsehttp.properties import PropertiesMixin
 from openevsehttp.sensors import SensorsMixin
@@ -10,11 +19,32 @@ from openevsehttp.sensors import SensorsMixin
 pytestmark = pytest.mark.asyncio
 
 
+async def test_command_submixins_inheritance():
+    """Test that all command sub-mixins inherit from BaseCommandMixin and CommandsMixin subclasses them."""
+    submixins = [
+        CoreCommandsMixin,
+        DiagnosticsCommandsMixin,
+        FirmwareCommandsMixin,
+        ScheduleCommandsMixin,
+        SecurityCommandsMixin,
+        TimeCommandsMixin,
+    ]
+    for submixin in submixins:
+        assert issubclass(submixin, BaseCommandMixin)
+        assert issubclass(CommandsMixin, submixin)
+
+
 async def test_commands_mixin_not_implemented():
     """Test NotImplementedError in CommandsMixin."""
     mixin = CommandsMixin()
     with pytest.raises(NotImplementedError):
         mixin._version_check("1.0.0")
+    with pytest.raises(NotImplementedError):
+        mixin._controller_version_check("1.0.0")
+    with pytest.raises(NotImplementedError):
+        mixin._require_firmware("1.0.0", "test")
+    with pytest.raises(NotImplementedError):
+        mixin._require_controller_firmware("1.0.0", "test")
     with pytest.raises(NotImplementedError):
         await mixin.process_request("url")
     with pytest.raises(NotImplementedError):

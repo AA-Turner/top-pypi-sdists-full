@@ -8,9 +8,11 @@ from typing_extensions import TypedDict
 
 AnthropicWebFetchToolResultErrorErrorCode = Union[
     Literal[
+        "content_too_large",
         "invalid_tool_input",
         "url_too_long",
         "url_not_allowed",
+        "url_not_in_prior_context",
         "url_not_accessible",
         "unsupported_content_type",
         "too_many_requests",

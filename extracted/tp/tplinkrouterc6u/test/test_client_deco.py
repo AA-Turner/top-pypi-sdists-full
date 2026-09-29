@@ -459,7 +459,6 @@ class TestTPLinkDecoClient(TestCase):
         self.assertEqual(result.hardware_version, '2.0')
         self.assertEqual(result.model, 'M4R')
         self.assertEqual(result.firmware_version, '1.6.1 Build 20231227 Rel. 80438')
-        self.assertEqual(response_firmware['result']['device_list'], client.devices)
 
     def test_get_firmware_two_devices(self) -> None:
         response_firmware = '''
@@ -495,7 +494,6 @@ class TestTPLinkDecoClient(TestCase):
         self.assertEqual(result.hardware_version, '2.0')
         self.assertEqual(result.model, 'M4R')
         self.assertEqual(result.firmware_version, '1.6.1 Build 20231227')
-        self.assertEqual(response_firmware['result']['device_list'], client.devices)
 
     def test_set_wifi(self) -> None:
         check_url = ''
@@ -526,57 +524,34 @@ class TestTPLinkDecoClient(TestCase):
         client.set_wifi(Connection.GUEST_6G, True)
         self.assertEqual(check_data, '{"operation": "write", "params": {"band6": {"guest": {"enable": true}}}}')
 
-    def test_reboot_with_firmware(self) -> None:
+    def test_reboot_fetches_device_list(self) -> None:
+        response = loads('''
+{"result": {"device_list": [
+        {"role": "master", "mac": "84:a0:d0:37:c7:44", "device_model": "M4R",
+         "hardware_ver": "2.0", "software_ver": "1.6.1"}]},
+"error_code": 0}
+        ''')
         check_url = ''
         check_data = ''
+        calls = []
 
         class TPLinkRouterTest(TPLinkDecoClient):
             def request(self, path: str, data: str,
                         ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
                 nonlocal check_url, check_data
+                calls.append(path)
+                if path == 'admin/device?form=device_list':
+                    return response['result']
                 check_url = path
                 check_data = data
 
         client = TPLinkRouterTest('', '')
-        client.devices = [{'mac': 'mac1'}, {'mac': 'mac2'}, ]
         result = client.reboot()
         self.assertIsNone(result)
+        self.assertEqual(calls, ['admin/device?form=device_list', 'admin/device?form=system'])
         self.assertEqual(check_url, 'admin/device?form=system')
         self.assertEqual(check_data,
-                         '{"operation": "reboot", "params": {"mac_list": [{"mac": "mac1"}, {"mac": "mac2"}]}}')
-
-    def test_reboot_no_firmware(self) -> None:
-        response_firmware = '''
-        {"result": {"device_list": [
-                {"nand_flash": false, "hardware_ver": "2.0", "bssid_sta_2g": "",
-                "software_ver": "1.6.1 Build 20231227 Rel. 80438", "role": "master", "bssid_sta_5g": "",
-                "inet_status": "online", "nickname": "bedroom", "oversized_firmware": false,
-                "bssid_5g": "6b:3a:9b:93:f4:15", "set_gateway_support": true, "inet_error_msg": "well",
-                "group_status": "connected", "mac": "84:a0:d0:37:c7:44",  "bssid_2g": "5c:c6:06:e7:87:d9",
-                "support_plc": false, "oem_id": "fdfgdfgdgdfgdfg",
-                "signal_level": {"band5": "0", "band2_4": "0"}, "product_level": 100, "device_ip": "192.168.68.1",
-                "device_model": "M4R", "hw_id": "fgtrhxg43rgsdgbfdgbf", "device_type": "HOMEWIFISYSTEM"}]},
-        "error_code": 0}
-            '''
-        response_firmware = loads(response_firmware)
-        check_url = ''
-        check_data = ''
-
-        class TPLinkRouterTest(TPLinkDecoClient):
-            def request(self, path: str, data: str,
-                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
-                if path == 'admin/device?form=device_list':
-                    return response_firmware['result']
-                nonlocal check_url, check_data
-                check_url = path
-                check_data = data
-
-        client = TPLinkRouterTest('', '')
-        result = client.reboot()
-        self.assertIsNone(result)
-        self.assertEqual(check_url, 'admin/device?form=system')
-        self.assertEqual(check_data, '{"operation": "reboot", "params": {"mac_list": [{"mac": "84:a0:d0:37:c7:44"}]}}')
-        self.assertEqual(response_firmware['result']['device_list'], client.devices)
+                         '{"operation": "reboot", "params": {"mac_list": [{"mac": "84:a0:d0:37:c7:44"}]}}')
 
     def test_get_lte_status(self) -> None:
         response_internet = '''
@@ -852,6 +827,7 @@ class TestTPLinkDecoClient(TestCase):
         self.assertEqual(slave.firmware_version, '1.8.0 Build 25102213 Rel. 43970')
         self.assertEqual(slave.internet_status, 'online')
         self.assertEqual(slave.group_status, 'connected')
+        self.assertEqual(slave.status, 'connected')
         self.assertEqual(slave.signal_2g, -37)
         self.assertEqual(slave.signal_5g, -50)
         self.assertEqual(slave.rx_rate_2g, 412)
@@ -864,6 +840,7 @@ class TestTPLinkDecoClient(TestCase):
         self.assertEqual(master.name, 'Living Room')
         self.assertTrue(master.is_main_router)
         self.assertEqual(master.ipaddr, '192.168.68.1')
+        self.assertEqual(master.status, 'connected')
         # No uplink of its own, so no backhaul metrics and no parent.
         self.assertIsNone(master.signal_2g)
         self.assertIsNone(master.signal_5g)
@@ -873,15 +850,17 @@ class TestTPLinkDecoClient(TestCase):
         self.assertIsNone(master.parent_macaddress)
         self.assertIsNone(master.wired_ports)
 
-    def test_get_mesh_nodes_reuses_cached_device_list(self) -> None:
-        """get_firmware() already fetched the list; do not request it twice."""
-        response = loads('''
-{"result": {"device_list": [
-        {"role": "master", "nickname": "Living Room", "device_ip": "192.168.68.1",
-        "mac": "F0-09-0D-FA-29-7C", "device_model": "X50", "hardware_ver": "1.0",
-        "software_ver": "1.8.0 Build 25102213 Rel. 43970"}]},
-"error_code": 0}
-        ''')
+    def test_get_mesh_nodes_fetches_fresh_device_list(self) -> None:
+        """Consumers poll this; reusing the list get_firmware() cached would freeze every metric."""
+        def device_list(signal_5g: int) -> dict:
+            return {'device_list': [
+                {'role': 'master', 'nickname': 'Living Room', 'mac': 'F0-09-0D-FA-29-7C', 'device_model': 'X50',
+                 'hardware_ver': '1.0', 'software_ver': '1.8.0 Build 25102213 Rel. 43970', 'previous': ''},
+                {'role': 'slave', 'nickname': 'Kids', 'mac': 'F0-09-0D-FA-29-84', 'device_model': 'X50',
+                 'previous': 'F0-09-0D-FA-29-7C', 'signal_strength': {'band5': signal_5g}},
+            ]}
+
+        responses = iter([device_list(-47), device_list(-49)])
         calls = []
 
         class TPLinkRouterTest(TPLinkDecoClient):
@@ -889,16 +868,42 @@ class TestTPLinkDecoClient(TestCase):
                         ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
                 calls.append(path)
                 if path == 'admin/device?form=device_list':
-                    return response['result']
+                    return next(responses)
 
         client = TPLinkRouterTest('', '')
         client.get_firmware()
-        self.assertEqual(len(calls), 1)
+        kids = next(node for node in client.get_mesh_nodes() if node.name == 'Kids')
 
-        result = client.get_mesh_nodes()
-        self.assertEqual(len(calls), 1)
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0].name, 'Living Room')
+        self.assertEqual(calls, ['admin/device?form=device_list'] * 2)
+        self.assertEqual(kids.signal_5g, -49)
+
+    def test_get_mesh_nodes_refetches_on_every_call(self) -> None:
+        """Two consecutive polls must each hit the API; no firmware call in between."""
+        def device_list(signal_5g: int) -> dict:
+            return {'device_list': [
+                {'role': 'master', 'nickname': 'Living Room', 'mac': 'F0-09-0D-FA-29-7C', 'device_model': 'X50',
+                 'hardware_ver': '1.0', 'software_ver': '1.8.0 Build 25102213 Rel. 43970', 'previous': ''},
+                {'role': 'slave', 'nickname': 'Kids', 'mac': 'F0-09-0D-FA-29-84', 'device_model': 'X50',
+                 'previous': 'F0-09-0D-FA-29-7C', 'signal_strength': {'band5': signal_5g}},
+            ]}
+
+        responses = iter([device_list(-47), device_list(-49)])
+        calls = []
+
+        class TPLinkRouterTest(TPLinkDecoClient):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                calls.append(path)
+                if path == 'admin/device?form=device_list':
+                    return next(responses)
+
+        client = TPLinkRouterTest('', '')
+        first = next(node for node in client.get_mesh_nodes() if node.name == 'Kids')
+        second = next(node for node in client.get_mesh_nodes() if node.name == 'Kids')
+
+        self.assertEqual(calls, ['admin/device?form=device_list'] * 2)
+        self.assertEqual(first.signal_5g, -47)
+        self.assertEqual(second.signal_5g, -49)
 
 
 if __name__ == '__main__':

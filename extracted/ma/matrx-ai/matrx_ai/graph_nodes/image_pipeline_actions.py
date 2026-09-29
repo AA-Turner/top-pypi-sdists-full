@@ -138,10 +138,22 @@ async def image_concept_generate(
         else ""
     )
 
-    held = await hold_code_call(IMAGE_CONCEPT_MANDATE, consumer="ai.image.concept_generate")
     user_message = (
         f"Topic: {inputs.topic}\n"
         f"Generate exactly {inputs.num_concepts} visual concepts.{audience_clause}{style_clause}"
+    )
+    # Offered for mapping only (pass_by_name=False in the host's provision): the
+    # current default-pin Holder never receives these.
+    held = await hold_code_call(
+        IMAGE_CONCEPT_MANDATE,
+        consumer="ai.image.concept_generate",
+        variables={
+            "composed_message": user_message,
+            "topic_text": inputs.topic,
+            "concept_count": inputs.num_concepts,
+            **({"audience_text": inputs.audience} if inputs.audience else {}),
+            **({"style_hint_text": inputs.style_hint} if inputs.style_hint else {}),
+        },
     )
 
     try:
@@ -264,13 +276,32 @@ async def image_prompt_write(
         style_layers.append(preset_text)
     style_block = ", ".join(s for s in style_layers if s)
 
-    held = await hold_code_call(IMAGE_PROMPT_WRITE_MANDATE, consumer="ai.image.prompt_write")
     user_message = (
         f"Concept name: {inputs.concept.name}\n"
         f"Concept description: {inputs.concept.description}\n"
         f"Style guidance: {style_block or 'none'}\n"
         f"Aspect ratio: {inputs.aspect_ratio}\n"
         f"Write exactly {inputs.n_prompts} prompt(s)."
+    )
+    # Offered for mapping only (pass_by_name=False in the host's provision): the
+    # current default-pin Holder never receives these.
+    held = await hold_code_call(
+        IMAGE_PROMPT_WRITE_MANDATE,
+        consumer="ai.image.prompt_write",
+        variables={
+            "composed_message": user_message,
+            "concept_name": inputs.concept.name,
+            "concept_description": inputs.concept.description,
+            **(
+                {"concept_suggested_style": inputs.concept.suggested_style}
+                if inputs.concept.suggested_style
+                else {}
+            ),
+            **({"style_preset": inputs.style_preset} if inputs.style_preset else {}),
+            "style_guidance": style_block or "none",
+            "aspect_ratio_text": inputs.aspect_ratio,
+            "prompt_count": inputs.n_prompts,
+        },
     )
 
     try:
@@ -454,7 +485,21 @@ async def image_qc_judge(
             "undermine the pipeline."
         ),
     }
-    held = await hold_code_call(IMAGE_QC_JUDGE_MANDATE, consumer="ai.image.qc_judge")
+    # Offered for mapping only (pass_by_name=False in the host's provision): the
+    # current default-pin Holder never receives these.
+    concept = inputs.expected_concept
+    held = await hold_code_call(
+        IMAGE_QC_JUDGE_MANDATE,
+        consumer="ai.image.qc_judge",
+        variables={
+            "instruction_text": text_block["text"],
+            "rubric_text": rubric_text,
+            **({"expected_concept_name": concept.name} if concept else {}),
+            **({"expected_concept_description": concept.description} if concept else {}),
+            "extra_criteria": list(inputs.extra_criteria),
+            **({"image_url": inputs.image_url} if inputs.image_url else {}),
+        },
+    )
     try:
         verdict = await run_held_pydantic(
             held,

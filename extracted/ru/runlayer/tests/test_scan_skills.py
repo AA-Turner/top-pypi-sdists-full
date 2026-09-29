@@ -3,6 +3,7 @@
 import datetime
 import os
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 import uuid
 
@@ -11,6 +12,7 @@ import pytest
 import structlog
 
 from runlayer_cli.scan import file_collector, skill_scanner
+from runlayer_cli.scan import service as scan_service
 from runlayer_cli.scan.artifact_cache import (
     SKILL_RESUBMIT_WINDOW_SECONDS,
     ArtifactCache,
@@ -2361,6 +2363,16 @@ class TestSubmitDiscoveredSkills:
         assert client.submit_skill_fingerprint.call_count == 1
 
 
+def _batch_ok(_envelope, items):
+    """Batch route stub: every item confirmed with stored content."""
+    return {"results": [{"has_content": True} for _ in items]}
+
+
+def _batch_items(batch_mock: mock.MagicMock) -> list[dict]:
+    """Wire items across every batch call, in submit order."""
+    return [item for call in batch_mock.call_args_list for item in call.args[1]]
+
+
 class TestSkillResubmitThrottle:
     """Unchanged, server-confirmed skills wait out the re-submit window."""
 
@@ -2396,9 +2408,12 @@ class TestSkillResubmitThrottle:
 
     @staticmethod
     def _client() -> mock.MagicMock:
+        # A bare MagicMock ``submit_skills_batch`` reads as ``unsupported`` and
+        # would silently route every test through the per-item fallback.
         client = mock.MagicMock()
         client.submit_skill_fingerprints.return_value = {"results": []}
-        client.submit_skill.return_value = {"has_content": True}
+        client.submit_skills_batch.side_effect = _batch_ok
+        client.submit_skill.side_effect = AssertionError("per-item route used")
         return client
 
     @staticmethod
@@ -2414,7 +2429,11 @@ class TestSkillResubmitThrottle:
 
     @staticmethod
     def _submitted_paths(client) -> list[str]:
-        return [call.args[0]["path"] for call in client.submit_skill.call_args_list]
+        return [item["path"] for item in _batch_items(client.submit_skills_batch)]
+
+    @staticmethod
+    def _submitted_files(client) -> list[list[dict[str, str]]]:
+        return [item["files"] for item in _batch_items(client.submit_skills_batch)]
 
     def test_submission_key_is_deterministic_and_ignores_scan_stamps(self):
         skill = self._skill("/skills/a")
@@ -2433,12 +2452,12 @@ class TestSkillResubmitThrottle:
 
         assert self._scan(client, cache, [skill]) == ("success", set())
         assert self._submitted_paths(client) == ["/skills/a"]
-        assert client.submit_skill.call_args.args[0]["files"] != []
+        assert self._submitted_files(client) != [[]]
 
         clock[0] += self.WINDOW / 2
         client.reset_mock()
         assert self._scan(client, cache, [skill]) == ("success", {"host_static"})
-        client.submit_skill.assert_not_called()
+        client.submit_skills_batch.assert_not_called()
         client.submit_skill_fingerprints.assert_not_called()
 
         # The skipped scan did not refresh the timestamp: the window still ends
@@ -2447,12 +2466,12 @@ class TestSkillResubmitThrottle:
         client.reset_mock()
         assert self._scan(client, cache, [skill]) == ("success", set())
         assert self._submitted_paths(client) == ["/skills/a"]
-        assert client.submit_skill.call_args.args[0]["files"] == []
+        assert self._submitted_files(client) == [[]]
 
         clock[0] += self.WINDOW / 2
         client.reset_mock()
         assert self._scan(client, cache, [skill]) == ("success", {"host_static"})
-        client.submit_skill.assert_not_called()
+        client.submit_skills_batch.assert_not_called()
 
     def test_zero_window_disables_the_throttle(self, tmp_path):
         clock = [1_000.0]
@@ -2476,7 +2495,7 @@ class TestSkillResubmitThrottle:
         clock[0] += 59
         client.reset_mock()
         assert self._scan(client, cache, [skill]) == ("success", {"host_static"})
-        client.submit_skill.assert_not_called()
+        client.submit_skills_batch.assert_not_called()
 
         clock[0] += 1
         client.reset_mock()
@@ -2524,7 +2543,7 @@ class TestSkillResubmitThrottle:
         clock[0] += 1
         client.reset_mock()
         assert self._scan(client, cache, [skill_b]) == ("success", {"host_static"})
-        client.submit_skill.assert_not_called()
+        client.submit_skills_batch.assert_not_called()
 
         # Back at the same path with the same content: the server still holds
         # it as removed, so the surface resubmits instead of waiting.
@@ -2542,21 +2561,21 @@ class TestSkillResubmitThrottle:
 
         clock[0] += self.WINDOW
         client.reset_mock()
-        client.submit_skill.side_effect = [
-            {"has_content": False},
-            {"has_content": True},
+        client.submit_skills_batch.side_effect = [
+            {"results": [{"has_content": False}]},
+            {"results": [{"has_content": True}]},
         ]
         assert self._scan(client, cache, [skill]) == ("success", set())
-        payloads = [
-            call.args[0]["files"] for call in client.submit_skill.call_args_list
+        assert self._submitted_files(client) == [
+            [],
+            [{"title": "SKILL.md", "content": "# body"}],
         ]
-        assert payloads == [[], [{"title": "SKILL.md", "content": "# body"}]]
 
         clock[0] += 1
         client.reset_mock()
-        client.submit_skill.side_effect = None
+        client.submit_skills_batch.side_effect = _batch_ok
         assert self._scan(client, cache, [skill]) == ("success", {"host_static"})
-        client.submit_skill.assert_not_called()
+        client.submit_skills_batch.assert_not_called()
 
     def test_oversized_and_duplicate_copies_always_submit(self, tmp_path):
         clock = [1_000.0]
@@ -2595,7 +2614,7 @@ class TestSkillResubmitThrottle:
             assert status == "success"
             if throttled:
                 assert throttled == {"host_static"}
-                client.submit_skill.assert_not_called()
+                client.submit_skills_batch.assert_not_called()
             else:
                 assert self._submitted_paths(client) == ["/skills/a"]
                 complete_misses.append(step * scan_interval)
@@ -2606,7 +2625,524 @@ class TestSkillResubmitThrottle:
         ]
 
 
+class TestSkillBatchSubmit:
+    """Skills go out on ``submit-batch``; the per-item route is the fallback."""
+
+    @staticmethod
+    def _skill(index: int, *, content: str = "# body") -> DiscoveredSkillArtifact:
+        return DiscoveredSkillArtifact(
+            name=f"skill-{index}",
+            path=f"/skills/{index}",
+            artifact_type=ARTIFACT_SKILL_MD,
+            scope="project",
+            tool="multi",
+            identifier=f"id-{index}",
+            files=[SkillFile(title="SKILL.md", content=content)],
+        )
+
+    @staticmethod
+    def _client() -> mock.MagicMock:
+        client = mock.MagicMock()
+        client.submit_skill_fingerprints.return_value = {"unsupported": True}
+        client.submit_skill_fingerprint.return_value = {"known": False}
+        client.submit_skills_batch.side_effect = _batch_ok
+        client.submit_skill.return_value = {"has_content": True}
+        return client
+
+    @staticmethod
+    def _scan_result():
+        return SimpleNamespace(
+            device_id="device-1",
+            hostname="host-1",
+            os="darwin",
+            os_version="15.0",
+            username="alice",
+            org_device_id=None,
+            serial_number=None,
+            scan_session_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+            scan_started_at=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
+        )
+
+    def test_many_skills_ship_in_one_batch_with_one_envelope(self):
+        client = self._client()
+        skills = [self._skill(i) for i in range(3)]
+
+        status = submit_discovered_skills(
+            client, skills, scan_result=self._scan_result()
+        )
+
+        assert status == "success"
+        client.submit_skill.assert_not_called()
+        assert client.submit_skills_batch.call_count == 1
+        envelope, items = client.submit_skills_batch.call_args.args
+        assert envelope["device_id"] == "device-1"
+        assert envelope["scan_session_id"] == ("00000000-0000-0000-0000-000000000001")
+        assert [item["identifier"] for item in items] == ["id-0", "id-1", "id-2"]
+        assert all("device_id" not in item for item in items)
+        assert all("scan_session_id" not in item for item in items)
+        assert all(item["files"] for item in items)
+
+    def test_chunks_by_item_count(self):
+        client = self._client()
+        cap = scan_service._SUBMIT_BATCH_MAX_ITEMS
+        skills = [self._skill(i) for i in range(cap + 1)]
+
+        assert submit_discovered_skills(client, skills) == "success"
+
+        sizes = [
+            len(call.args[1]) for call in client.submit_skills_batch.call_args_list
+        ]
+        assert sizes == [cap, 1]
+
+    def test_chunks_by_serialized_bytes(self, monkeypatch):
+        monkeypatch.setattr(scan_service, "_SUBMIT_BATCH_MAX_BYTES", 600)
+        client = self._client()
+        # Two ~400-byte items exceed the budget together; the last item alone
+        # exceeds it and must still ship on its own.
+        skills = [self._skill(i, content="x" * 300) for i in range(2)]
+        skills.append(self._skill(2, content="x" * 1000))
+
+        assert submit_discovered_skills(client, skills) == "success"
+
+        sizes = [
+            len(call.args[1]) for call in client.submit_skills_batch.call_args_list
+        ]
+        assert sizes == [1, 1, 1]
+        assert [
+            item["identifier"] for item in _batch_items(client.submit_skills_batch)
+        ] == [
+            "id-0",
+            "id-1",
+            "id-2",
+        ]
+
+    def test_backstop_resubmits_full_payloads_as_one_more_batch(self, tmp_path):
+        clock = [1_000.0]
+        cache = ArtifactCache(
+            "https://example.runlayer.com",
+            "rl_org_test",
+            cache_path=tmp_path / "artifact-cache.json",
+            now=lambda: clock[0],
+        )
+        client = self._client()
+        skills = [self._skill(i) for i in range(3)]
+        submit_discovered_skills(client, skills, artifact_cache=cache)
+        assert all(cache.contains(f"id-{i}") for i in range(3))
+
+        # Every item now strips on the cache's word; the server has lost two.
+        clock[0] += SKILL_RESUBMIT_WINDOW_SECONDS
+        client.reset_mock()
+        client.submit_skills_batch.side_effect = [
+            {
+                "results": [
+                    {"has_content": True},
+                    {"has_content": False},
+                    {"has_content": False},
+                ]
+            },
+            {"results": [{"has_content": True}, {"has_content": True}]},
+        ]
+        with mock.patch("runlayer_cli.scan.service.logger.warning") as warning_mock:
+            status = submit_discovered_skills(client, skills, artifact_cache=cache)
+
+        assert status == "success"
+        calls = client.submit_skills_batch.call_args_list
+        assert [len(call.args[1]) for call in calls] == [3, 2]
+        assert [item["files"] for item in calls[0].args[1]] == [[], [], []]
+        assert [item["identifier"] for item in calls[1].args[1]] == ["id-1", "id-2"]
+        assert all(item["files"] for item in calls[1].args[1])
+        assert warning_mock.call_args_list == [
+            mock.call(
+                "artifact_cache_content_missing",
+                artifact_type="skill",
+                identifier=f"id-{i}",
+            )
+            for i in (1, 2)
+        ]
+        client.submit_skill.assert_not_called()
+        # The full resubmit was confirmed, so the hints are back.
+        assert all(cache.contains(f"id-{i}") for i in range(3))
+
+    def test_unsupported_batch_route_falls_back_to_per_item(self):
+        client = self._client()
+        client.submit_skills_batch.side_effect = None
+        client.submit_skills_batch.return_value = {"unsupported": True}
+        skills = [self._skill(i) for i in range(3)]
+
+        assert submit_discovered_skills(client, skills) == "success"
+
+        assert client.submit_skills_batch.call_count == 1
+        assert [
+            call.args[0]["identifier"] for call in client.submit_skill.call_args_list
+        ] == ["id-0", "id-1", "id-2"]
+
+    def test_unsupported_mid_run_carries_backstop_resubmits_to_per_item(self, tmp_path):
+        """A fleet flipping to an old backend mid-run: the batch that came back
+        unsupported still owes the previous chunk's backstop resubmits."""
+        cache = ArtifactCache(
+            "https://example.runlayer.com",
+            "rl_org_test",
+            cache_path=tmp_path / "artifact-cache.json",
+        )
+        client = self._client()
+        skills = [self._skill(i) for i in range(2)]
+        submit_discovered_skills(client, skills, artifact_cache=cache)
+
+        client.reset_mock()
+        client.submit_skills_batch.side_effect = [
+            {"results": [{"has_content": False}, {"has_content": True}]},
+            {"unsupported": True},
+        ]
+        assert submit_discovered_skills(client, skills, artifact_cache=cache) == (
+            "success"
+        )
+
+        per_item = [call.args[0] for call in client.submit_skill.call_args_list]
+        assert [item["identifier"] for item in per_item] == ["id-0"]
+        assert per_item[0]["files"]
+
+    def test_failed_chunk_marks_its_surfaces_and_continues(self):
+        client = self._client()
+        request = httpx.Request("POST", "https://example.com")
+        response = httpx.Response(500, request=request)
+        client.submit_skills_batch.side_effect = [
+            httpx.HTTPStatusError("boom", request=request, response=response),
+            {"results": [{"has_content": True}]},
+        ]
+        cap = scan_service._SUBMIT_BATCH_MAX_ITEMS
+        skills = [self._skill(i) for i in range(cap + 1)]
+        failed: set[str] = set()
+
+        with mock.patch("runlayer_cli.scan.service.logger.warning") as warning_mock:
+            status = submit_discovered_skills(client, skills, failed_surfaces=failed)
+
+        assert status == "success"
+        assert failed == {"host_static"}
+        assert client.submit_skills_batch.call_count == 2
+        warning_mock.assert_called_once_with(
+            "skill_submission_failed",
+            artifact_count=cap,
+            error="boom",
+            error_type="HTTPStatusError",
+            status_code=500,
+        )
+
+    def test_failed_chunk_without_surface_tracking_reports_failed(self):
+        client = self._client()
+        request = httpx.Request("POST", "https://example.com")
+        client.submit_skills_batch.side_effect = httpx.ConnectError(
+            "network", request=request
+        )
+
+        assert submit_discovered_skills(client, [self._skill(0)]) == "failed"
+
+    def test_transport_error_without_surface_tracking_stops_after_first_chunk(self):
+        """No surfaces to land the failure on: stop, do not spend the remaining
+        chunks against a server we cannot reach."""
+        client = self._client()
+        request = httpx.Request("POST", "https://example.com")
+        client.submit_skills_batch.side_effect = httpx.ConnectError(
+            "network", request=request
+        )
+        cap = scan_service._SUBMIT_BATCH_MAX_ITEMS
+        skills = [self._skill(i) for i in range(cap + 1)]
+
+        assert submit_discovered_skills(client, skills) == "failed"
+        assert client.submit_skills_batch.call_count == 1
+        client.submit_skill.assert_not_called()
+
+    def test_malformed_batch_response_marks_failed(self):
+        client = self._client()
+        client.submit_skills_batch.side_effect = None
+        client.submit_skills_batch.return_value = {"results": [{}]}
+        failed: set[str] = set()
+
+        status = submit_discovered_skills(
+            client, [self._skill(0), self._skill(1)], failed_surfaces=failed
+        )
+
+        assert status == "success"
+        assert failed == {"host_static"}
+
+    def test_auth_error_on_batch_reraises(self):
+        client = self._client()
+        request = httpx.Request("POST", "https://example.com")
+        response = httpx.Response(401, request=request)
+        client.submit_skills_batch.side_effect = httpx.HTTPStatusError(
+            "unauthorized", request=request, response=response
+        )
+
+        with pytest.raises(httpx.HTTPStatusError):
+            submit_discovered_skills(client, [self._skill(0)])
+
+    def test_rejected_item_marks_surface_and_neighbors_settle(self, tmp_path):
+        """The server drops one invalid item in place; the rest of the chunk
+        persisted, so only that item's surface is marked and nothing resubmits."""
+        cache = ArtifactCache(
+            "https://example.runlayer.com",
+            "rl_org_test",
+            cache_path=tmp_path / "artifact-cache.json",
+        )
+        client = self._client()
+        client.submit_skills_batch.side_effect = None
+        client.submit_skills_batch.return_value = {
+            "results": [
+                {"has_content": True},
+                {"rejected": True, "errors": ["author: too long"]},
+                {"has_content": True},
+            ]
+        }
+        skills = [self._skill(i) for i in range(3)]
+        failed: set[str] = set()
+
+        with mock.patch("runlayer_cli.scan.service.logger.warning") as warning_mock:
+            status = submit_discovered_skills(
+                client, skills, artifact_cache=cache, failed_surfaces=failed
+            )
+
+        assert status == "success"
+        assert failed == {"host_static"}
+        assert client.submit_skills_batch.call_count == 1
+        client.submit_skill.assert_not_called()
+        warning_mock.assert_called_once_with(
+            "skill_submit_item_rejected",
+            identifier="id-1",
+            errors=["author: too long"],
+        )
+        assert cache.contains("id-0") and cache.contains("id-2")
+        assert not cache.contains("id-1")
+
+    def test_rejected_item_without_surface_tracking_reports_failed(self):
+        client = self._client()
+        client.submit_skills_batch.side_effect = None
+        client.submit_skills_batch.return_value = {
+            "results": [{"rejected": True, "errors": ["bad"]}]
+        }
+
+        assert submit_discovered_skills(client, [self._skill(0)]) == "failed"
+
+
+class TestPluginResubmitThrottle:
+    """Plugins share the skill throttle: unchanged plugins wait out the
+    window, whether the server confirmed their content or they carried none
+    to confirm."""
+
+    WINDOW = SKILL_RESUBMIT_WINDOW_SECONDS
+
+    @staticmethod
+    def _plugin(
+        install_path: str, *, identifier: str = "plugin-id", with_files: bool = True
+    ) -> DiscoveredPluginArtifact:
+        return DiscoveredPluginArtifact(
+            name=Path(install_path).name,
+            plugin_type="cursor_plugin",
+            client="cursor",
+            install_path=install_path,
+            identifier=identifier,
+            files=[PluginFile(title="package.json", content="{}")]
+            if with_files
+            else [],
+        )
+
+    @staticmethod
+    def _cache(tmp_path: Path, clock: list[float]) -> ArtifactCache:
+        return ArtifactCache(
+            "https://example.runlayer.com",
+            "rl_org_test",
+            cache_path=tmp_path / "artifact-cache.json",
+            now=lambda: clock[0],
+        )
+
+    @staticmethod
+    def _client() -> mock.MagicMock:
+        client = mock.MagicMock()
+        client.submit_plugin_fingerprints.return_value = {"results": []}
+        client.submit_plugins_batch.side_effect = _batch_ok
+        client.submit_plugin.side_effect = AssertionError("per-item route used")
+        return client
+
+    @staticmethod
+    def _scan(client, cache, plugins) -> tuple[str, set[str]]:
+        throttled: set[str] = set()
+        status = submit_discovered_plugins(
+            client, plugins, artifact_cache=cache, throttled_surfaces=throttled
+        )
+        return status, throttled
+
+    @staticmethod
+    def _submitted(client) -> list[str]:
+        return [
+            item["install_path"] for item in _batch_items(client.submit_plugins_batch)
+        ]
+
+    def test_unchanged_plugin_waits_out_the_window_then_resubmits(self, tmp_path):
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock)
+        client = self._client()
+        plugin = self._plugin("/plugins/a")
+
+        assert self._scan(client, cache, [plugin]) == ("success", set())
+        assert self._submitted(client) == ["/plugins/a"]
+
+        clock[0] += self.WINDOW / 2
+        client.reset_mock()
+        assert self._scan(client, cache, [plugin]) == ("success", {"host_static"})
+        client.submit_plugins_batch.assert_not_called()
+        client.submit_plugin_fingerprints.assert_not_called()
+
+        clock[0] += self.WINDOW / 2
+        client.reset_mock()
+        assert self._scan(client, cache, [plugin]) == ("success", set())
+        assert self._submitted(client) == ["/plugins/a"]
+        assert _batch_items(client.submit_plugins_batch)[0]["files"] == []
+
+    def test_file_less_plugin_throttles_with_its_surface(self, tmp_path):
+        """A metadata-only plugin has no content for the server to confirm;
+        it still waits out the window, so it cannot force its neighbors on
+        the surface to resubmit every tick."""
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock)
+        client = self._client()
+        # Server holds content for ``full`` only; ``bare`` never sent any.
+        client.submit_plugins_batch.side_effect = lambda _envelope, items: {
+            "results": [
+                {"has_content": item["install_path"] == "/plugins/full"}
+                for item in items
+            ]
+        }
+        bare = self._plugin("/plugins/bare", identifier="bare", with_files=False)
+        full = self._plugin("/plugins/full", identifier="full")
+
+        assert self._scan(client, cache, [bare, full]) == ("success", set())
+        assert self._submitted(client) == ["/plugins/bare", "/plugins/full"]
+
+        clock[0] += self.WINDOW / 2
+        client.reset_mock()
+        assert self._scan(client, cache, [bare, full]) == ("success", {"host_static"})
+        client.submit_plugins_batch.assert_not_called()
+        client.submit_plugin_fingerprints.assert_not_called()
+
+        clock[0] += self.WINDOW / 2
+        client.reset_mock()
+        assert self._scan(client, cache, [bare, full]) == ("success", set())
+        assert self._submitted(client) == ["/plugins/bare", "/plugins/full"]
+
+    def test_changed_plugin_resubmits_its_whole_surface(self, tmp_path):
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock)
+        client = self._client()
+        unchanged = self._plugin("/plugins/a", identifier="a")
+        self._scan(client, cache, [unchanged])
+
+        clock[0] += 1
+        client.reset_mock()
+        new = self._plugin("/plugins/b", identifier="b")
+        assert self._scan(client, cache, [unchanged, new]) == ("success", set())
+        assert self._submitted(client) == ["/plugins/a", "/plugins/b"]
+
+    def test_without_throttled_surfaces_nothing_is_throttled(self, tmp_path):
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock)
+        client = self._client()
+        plugin = self._plugin("/plugins/a")
+        submit_discovered_plugins(client, [plugin], artifact_cache=cache)
+
+        clock[0] += 1
+        client.reset_mock()
+        assert (
+            submit_discovered_plugins(client, [plugin], artifact_cache=cache)
+            == "success"
+        )
+        assert self._submitted(client) == ["/plugins/a"]
+
+
 class TestSubmitDiscoveredPlugins:
+    def test_rejected_batch_item_marks_surface_and_neighbors_settle(self):
+        client = mock.MagicMock()
+        client.submit_plugin_fingerprints.return_value = {"results": []}
+        client.submit_plugins_batch.return_value = {
+            "results": [
+                {"rejected": True, "errors": ["author: too long"]},
+                {"plugin_id": "p2", "created": True, "has_content": True},
+            ]
+        }
+        client.submit_plugin.side_effect = AssertionError("per-item route used")
+        plugins = [
+            DiscoveredPluginArtifact(
+                name=f"plugin-{index}",
+                plugin_type="cursor_plugin",
+                client="cursor",
+                install_path=f"/plugins/{index}",
+                identifier=f"id-{index}",
+                files=[PluginFile(title="package.json", content="{}")],
+            )
+            for index in range(2)
+        ]
+        failed: set[str] = set()
+
+        with mock.patch("runlayer_cli.scan.service.logger.warning") as warning_mock:
+            status = submit_discovered_plugins(client, plugins, failed_surfaces=failed)
+
+        assert status == "success"
+        assert failed == {"host_static"}
+        assert client.submit_plugins_batch.call_count == 1
+        warning_mock.assert_called_once_with(
+            "plugin_submit_item_rejected",
+            identifier="id-0",
+            errors=["author: too long"],
+        )
+
+    def test_superseded_batch_slot_is_reported_not_cached_and_neighbor_settles(
+        self,
+    ):
+        """A sibling profile's newer scan owns one item's device scope: that
+        slot is reported superseded and never cached; its neighbor still
+        records normally and nothing goes back out on the per-item route."""
+        client = mock.MagicMock()
+        client.submit_plugin_fingerprints.return_value = {"results": []}
+        client.submit_plugins_batch.return_value = {
+            "results": [
+                {
+                    "plugin_id": None,
+                    "created": False,
+                    "has_content": False,
+                    "superseded": True,
+                },
+                {"plugin_id": "p2", "created": True, "has_content": True},
+            ]
+        }
+        client.submit_plugin.side_effect = AssertionError("per-item route used")
+        cache = mock.MagicMock()
+        cache.contains.return_value = False
+        plugins = [
+            DiscoveredPluginArtifact(
+                name=f"plugin-{index}",
+                plugin_type="cursor_plugin",
+                client="cursor",
+                install_path=f"/plugins/{index}",
+                identifier=f"id-{index}",
+                files=[PluginFile(title="package.json", content="{}")],
+            )
+            for index in range(2)
+        ]
+        superseded: list[tuple[str, str]] = []
+        failed: set[str] = set()
+
+        status = submit_discovered_plugins(
+            client,
+            plugins,
+            artifact_cache=cache,
+            failed_surfaces=failed,
+            superseded=superseded,
+        )
+
+        assert status == "success"
+        assert failed == set()
+        assert superseded == [("plugin", "id-0")]
+        assert client.submit_plugins_batch.call_count == 1
+        cache.evict.assert_not_called()
+        assert [call.args[0] for call in cache.record.call_args_list] == ["id-1"]
+
     def test_handles_api_error_without_traceback(self):
         client = mock.MagicMock()
         client.submit_plugin_fingerprints.return_value = {"unsupported": True}

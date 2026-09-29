@@ -41,6 +41,8 @@ class _ChargeMethodEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._E
     """Call the Stripe API to bill the customer for this charge."""
     CHARGE_METHOD_STRIPE_PAYMENT_INTENT: _ChargeMethod.ValueType  # 3
     """Record an already-succeeded Stripe charge without calling Stripe."""
+    CHARGE_METHOD_VERCEL: _ChargeMethod.ValueType  # 4
+    """Submit the invoice to Vercel for collection."""
 
 class ChargeMethod(_ChargeMethod, metaclass=_ChargeMethodEnumTypeWrapper):
     """How the charge should be executed against the payment provider."""
@@ -59,6 +61,8 @@ CHARGE_METHOD_STRIPE: ChargeMethod.ValueType  # 2
 """Call the Stripe API to bill the customer for this charge."""
 CHARGE_METHOD_STRIPE_PAYMENT_INTENT: ChargeMethod.ValueType  # 3
 """Record an already-succeeded Stripe charge without calling Stripe."""
+CHARGE_METHOD_VERCEL: ChargeMethod.ValueType  # 4
+"""Submit the invoice to Vercel for collection."""
 global___ChargeMethod = ChargeMethod
 
 @typing.final

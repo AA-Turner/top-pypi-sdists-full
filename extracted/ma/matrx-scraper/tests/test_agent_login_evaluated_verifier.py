@@ -55,6 +55,7 @@ def test_evaluated_receipt_matches_remote_for_unmet_expectation_and_recipe_prece
             otp_field_present_after=False,
             captcha_present_after=False,
             url_relation="changed",
+            url_flow_before="sign_in",
             url_flow="other",
         ),
         expect=expect,
@@ -85,6 +86,7 @@ def test_missing_structural_fact_cannot_turn_navigation_into_success():
             otp_field_present_after=None,
             captcha_present_after=False,
             url_relation="changed",
+            url_flow_before="sign_in",
             url_flow="other",
         )
     )

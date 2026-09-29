@@ -61,6 +61,14 @@ class CronQuery(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+    class EnvOverridesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     NAME_FIELD_NUMBER: _ClassVar[int]
     CRON_FIELD_NUMBER: _ClassVar[int]
     FILE_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -89,6 +97,8 @@ class CronQuery(_message.Message):
     OBSERVED_AT_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     OBSERVED_AT_UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
     DATA_QUALITY_CHECK_SPECS_FIELD_NUMBER: _ClassVar[int]
+    ENV_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
+    USE_METAPLANNER_FIELD_NUMBER: _ClassVar[int]
     name: str
     cron: str
     file_name: str
@@ -117,6 +127,8 @@ class CronQuery(_message.Message):
     observed_at_lower_bound: str
     observed_at_upper_bound: str
     data_quality_check_specs: _containers.RepeatedScalarFieldContainer[str]
+    env_overrides: _containers.ScalarMap[str, str]
+    use_metaplanner: bool
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -147,4 +159,6 @@ class CronQuery(_message.Message):
         observed_at_lower_bound: _Optional[str] = ...,
         observed_at_upper_bound: _Optional[str] = ...,
         data_quality_check_specs: _Optional[_Iterable[str]] = ...,
+        env_overrides: _Optional[_Mapping[str, str]] = ...,
+        use_metaplanner: bool = ...,
     ) -> None: ...

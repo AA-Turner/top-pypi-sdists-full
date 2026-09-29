@@ -147,6 +147,13 @@ def test_raw_html_tags_are_the_renderers_list() -> None:
     assert sorted(ALLOWED_RAW_HTML_TAGS) == _VECTORS["rawHtmlTags"]
 
 
+def test_island_tokenizer_raw_html_tags_are_the_renderers_list() -> None:
+    """The island tokenizer's twin list too (it lacked details/summary — RC-B4 round 16)."""
+    from matrx_ai.processing.blocks.source_islands import ALLOWED_RAW_HTML_TAGS as ISLAND_TAGS
+
+    assert sorted(ISLAND_TAGS) == _VECTORS["rawHtmlTags"]
+
+
 @pytest.mark.parametrize("vector", _VECTORS["htmlBlockTagNames"], ids=[v["name"] for v in _VECTORS["htmlBlockTagNames"]])
 def test_html_block_tag_names(vector: dict) -> None:
     """A tag CommonMark reads as an HTML block is HTML, never a custom XML container."""

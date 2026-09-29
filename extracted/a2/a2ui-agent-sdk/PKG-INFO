@@ -1,20 +1,23 @@
 Metadata-Version: 2.4
 Name: a2ui-agent-sdk
-Version: 0.6.0
+Version: 0.7.0
 Summary: A2UI Agent SDK
 Requires-Python: >=3.10
 Requires-Dist: a2a-sdk<0.4.0,>=0.3.0
-Requires-Dist: a2ui-core<0.2.0,>=0.1.1
+Requires-Dist: a2ui-core<0.3.0,>=0.2.0
 Requires-Dist: antlr4-python3-runtime<4.14.0,>=4.13.0
 Requires-Dist: google-adk>=1.28.1
 Requires-Dist: google-genai>=1.27.0
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: jsonschema>=4.0.0
+Requires-Dist: nest-asyncio>=1.6.0
+Requires-Dist: pydantic>=2.10.0
+Requires-Dist: pyyaml>=6.0
 Description-Content-Type: text/markdown
 
 # A2UI Agent implementation
 
-The `agent_sdks/python/a2ui_agent/src/a2ui` directory contains the Python implementation of
+The `python/a2ui_agent/src/a2ui` directory contains the Python implementation of
 the A2UI agent SDK.
 
 ## Core Components
@@ -25,10 +28,9 @@ The following directories contain the base protocol logic, parsing, and schema o
 
 - **`manager.py`**: The `A2uiSchemaManager` handles loading specification
   schemas, managing catalogs, and generating system prompts for LLMs.
-- **`validator.py`**: Implements `A2uiValidator` for validating A2UI messages
-  against JSON schemas and protocol rules.
 - **`catalog.py`**: Defines `A2uiCatalog` and `CatalogConfig` for handling
-  component libraries.
+  component libraries. `A2uiCatalog.validate_components` checks components
+  against the catalog schema with the `a2ui-core` `PayloadValidator`.
 
 ### Parser (`src/a2ui/parser`)
 
@@ -62,7 +64,7 @@ protocol.
 1. Navigate to the package directory:
 
    ```bash
-   cd agent_sdks/python/a2ui_agent
+   cd python/a2ui_agent
    ```
 
 2. Run the tests
@@ -77,7 +79,7 @@ Building from source regenerates the Express parser from
 `specification/inference_formats/express/Express.g4`. That step runs ANTLR, which
 requires a Java runtime (JRE 11 or newer) on the `PATH`.
 
-To build the SDK, run the following command from the `agent_sdks/python/a2ui_agent`
+To build the SDK, run the following command from the `python/a2ui_agent`
 directory:
 
 ```bash
@@ -86,7 +88,7 @@ uv build
 
 ## Formatting code
 
-To format the code, run the following command from the `agent_sdks/python`
+To format the code, run the following command from the `python`
 directory:
 
 ```bash

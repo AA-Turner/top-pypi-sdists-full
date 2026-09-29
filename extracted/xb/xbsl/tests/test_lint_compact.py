@@ -159,6 +159,29 @@ def test_compact_as_ci_full_keeps_the_whole_record(server, tmp_path):
 
 
 @pytest.mark.needs_data
+def test_a_question_about_a_few_rules_gets_the_line_of_the_ci_job(server, tmp_path):
+    """`select` asks about a few rules: the record of the job narrows to its line even without
+    `compact`, and `as_ci_full` keeps it whole."""
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "Первый.xbsl").write_text(_WARNING, encoding="utf-8")
+    (tmp_path / ".gitlab-ci.yml").write_text(
+        "xbsl-lint:\n  script:\n    - xbsl project --ignore structure/xbsl-pair"
+        + "".join(f" --enable code/rule-{n}" for n in range(12)) + "\n",
+        encoding="utf-8",
+    )
+
+    narrow = server.lint_paths([str(project)], as_ci=True, select=["whitespace/trailing"])
+    assert set(narrow["summary"]["as_ci"]) == {"adopted", "brief"}
+    assert "diagnostics" in narrow and "by_file" in narrow["summary"]
+    whole = server.lint_paths([str(project)], as_ci=True, select=["whitespace/trailing"],
+                              as_ci_full=True)
+    assert len(whole["summary"]["as_ci"]["enable"]) == 12
+    plain = server.lint_paths([str(project)], as_ci=True)
+    assert "flags" in plain["summary"]["as_ci"]
+
+
+@pytest.mark.needs_data
 def test_compact_as_ci_names_the_job_when_the_file_runs_several(server, tmp_path):
     project = tmp_path / "project"
     project.mkdir()
@@ -371,6 +394,64 @@ def test_compact_findings_hint_speaks_the_language_the_caller_chose():
     assert str(report.COMPACT_FINDINGS_LIMIT + 1) in ru["findings_hint"]
     assert any("а" <= c <= "я" for c in ru["findings_hint"].casefold())
     assert not any("а" <= c <= "я" for c in en["findings_hint"].casefold())
+
+
+def _infos(n: int, rule: str = "conventions/kept-on-purpose") -> list[Diagnostic]:
+    return [_diag(f"I{i}.xbsl", i + 1, rule, Severity.INFO) for i in range(n)]
+
+
+def test_compact_counts_the_info_findings_instead_of_listing_them():
+    """A project keeps a few info findings on purpose; every answer repeated their lines."""
+    answer = report.compact(report.report(_diags(2) + _infos(5), 7))
+    assert answer["findings"] == [
+        "F0.xbsl:1 whitespace/trailing – m", "F1.xbsl:2 whitespace/trailing – m",
+    ]
+    assert "5" in answer["info_hint"] and "conventions/kept-on-purpose ×5" in answer["info_hint"]
+    assert answer["summary"]["by_severity"]["info"] == 5  # the counts stay whole
+
+
+def test_compact_info_findings_do_not_count_towards_the_limit():
+    limit = report.COMPACT_FINDINGS_LIMIT
+    answer = report.compact(report.report(_diags(limit) + _infos(limit), 2 * limit))
+    assert len(answer["findings"]) == limit
+    assert "findings_hint" not in answer
+
+
+def test_compact_lists_the_info_findings_on_request():
+    answer = report.compact(report.report(_diags(1) + _infos(2), 3), list_info=True)
+    assert len(answer["findings"]) == 3
+    assert "info_hint" not in answer
+
+
+def test_compact_without_info_findings_has_no_info_hint():
+    assert "info_hint" not in report.compact(report.report(_diags(3), 3))
+
+
+def test_compact_info_hint_names_the_largest_rules_and_counts_the_rest():
+    diags = (_infos(4, "info/a") + _infos(1, "info/b") + _infos(2, "info/c")
+             + _infos(1, "info/d") + _infos(1, "info/e"))
+    from xbsl import i18n
+
+    try:
+        i18n.set_lang("en")
+        hint = report.compact(report.report(diags, 9))["info_hint"]
+    finally:
+        i18n.set_lang(None)
+    assert "info/a ×4, info/c ×2, info/b ×1, 2 more rules" in hint
+
+
+def test_compact_answer_passes_the_request_for_info_findings_on(server, tmp_path, monkeypatch):
+    seen = {}
+    real = report.compact
+
+    def spy(payload, **options):
+        seen.update(options)
+        return real(payload, **options)
+
+    monkeypatch.setattr(report, "compact", spy)
+    monkeypatch.setattr(server, "run", lambda *args, **kwargs: [])
+    server.lint_paths([str(tmp_path)], compact=True, list_info=True)
+    assert seen["list_info"] is True
 
 
 def test_full_report_is_unaffected_by_the_compact_changes():

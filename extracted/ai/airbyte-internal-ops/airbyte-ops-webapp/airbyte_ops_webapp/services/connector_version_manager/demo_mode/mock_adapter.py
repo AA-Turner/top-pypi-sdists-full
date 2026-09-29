@@ -1255,7 +1255,7 @@ class MockPinningAdapter(OpsMcpAdapter):
         *,
         tier: str = "",
         is_destination: bool,
-    ) -> RolloutSyncSummary:
+    ) -> RolloutSyncSummary | None:
         """Return a mock rollout health + population summary, keyed by rollout.
 
         Distinct values per rollout ID so the per-tier cards render realistic

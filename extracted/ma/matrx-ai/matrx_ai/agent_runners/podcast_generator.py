@@ -1596,6 +1596,9 @@ async def _apply_audience_adaptation(
                 target_audience=target_audience.strip(),
                 adaptation_guidance=guidance.strip(),
             ),
+            # Mapping-only (podcast.audience_adaptation mapped_offer): the
+            # default-pin Holder never receives it.
+            offered={"content_char_count": len(content)},
             label="Podcast Audience Adaptation",
             # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
             # parent stream — the /podcast/generate endpoint's emitter, or the
@@ -1655,6 +1658,12 @@ async def _apply_post_prep(content: str, option: PostPrepOption, *, language: st
     # request and the log line; a per-option key made STAGE_DONE name a stage no
     # client saw start, duplicating the live step (2026-09-17).
     stage = "post_prep"
+    # Mapping-only (podcast.post_prep mapped_offer): the default-pin Holder
+    # never receives these; a binding's consumption map may.
+    post_prep_offered: dict[str, object] = {
+        "post_prep_option": str(getattr(option, "value", option)),
+        "content_char_count": len(content),
+    }
     try:
         match option:
             case PostPrepOption.TRANSLATION:
@@ -1663,6 +1672,7 @@ async def _apply_post_prep(content: str, option: PostPrepOption, *, language: st
                     inputs=_PostPrepTranslationAgent.Inputs(
                         content=content, target_language=language
                     ),
+                    offered=post_prep_offered,
                     label="Podcast Post-Prep Translation",
                     # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
                     # parent stream — the /podcast/generate endpoint's emitter, or the
@@ -1678,6 +1688,7 @@ async def _apply_post_prep(content: str, option: PostPrepOption, *, language: st
                 result = await _run_mandated(
                     _PostPrepSummarizationAgent,
                     inputs=_PostPrepSummarizationAgent.Inputs(content=content),
+                    offered=post_prep_offered,
                     label="Podcast Post-Prep Summarization",
                     # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
                     # parent stream — the /podcast/generate endpoint's emitter, or the
@@ -1693,6 +1704,7 @@ async def _apply_post_prep(content: str, option: PostPrepOption, *, language: st
                 result = await _run_mandated(
                     _PostPrepExpansionAgent,
                     inputs=_PostPrepExpansionAgent.Inputs(content=content),
+                    offered=post_prep_offered,
                     label="Podcast Post-Prep Expansion",
                     # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
                     # parent stream — the /podcast/generate endpoint's emitter, or the
@@ -1708,6 +1720,7 @@ async def _apply_post_prep(content: str, option: PostPrepOption, *, language: st
                 result = await _run_mandated(
                     _PostPrepFactCheckingAgent,
                     inputs=_PostPrepFactCheckingAgent.Inputs(content=content),
+                    offered=post_prep_offered,
                     label="Podcast Post-Prep Fact Check",
                     # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
                     # parent stream — the /podcast/generate endpoint's emitter, or the
@@ -2689,6 +2702,8 @@ async def _generate_metadata(prepared_content: str) -> tuple[StageResult, Podcas
     result = await _run_mandated(
         _MetadataAgent,
         inputs=_MetadataAgent.Inputs(podcast_content=prepared_content),
+        # Mapping-only (podcast.metadata_stage mapped_offer).
+        offered={"podcast_content_char_count": len(prepared_content)},
         label="Podcast Metadata",
         # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
         # parent stream — the /podcast/generate endpoint's emitter, or the
@@ -2787,6 +2802,7 @@ async def _run_asset_with_fallback(
     make_inputs: Callable[[type[NamedAgent]], BaseModel],
     *,
     conversation_label: str | None = None,
+    offered: dict[str, object] | None = None,
 ) -> StageResult:
     """Run one image/video slot with a one-shot model fallback.
 
@@ -2803,11 +2819,16 @@ async def _run_asset_with_fallback(
 
     run_label = conversation_label or stage_key
 
-    async def _attempt(agent: type[NamedAgent], label: str) -> tuple[StageResult, str | None]:
+    async def _attempt(
+        agent: type[NamedAgent], label: str, *, is_fallback: bool = False
+    ) -> tuple[StageResult, str | None]:
         try:
             result = await _run_mandated(
                 agent,
                 inputs=make_inputs(agent),
+                # Mapping-only (podcast.image_render / video_render mapped_offer):
+                # the default-pin Holder never receives these.
+                offered={**(offered or {}), "is_fallback_render": is_fallback},
                 label=label,
                 # Media slots emit their own typed ASSET event. Their provider
                 # stream must never share the parent text accumulator with
@@ -2844,7 +2865,7 @@ async def _run_asset_with_fallback(
         f"({primary_error}) — retrying once with {fallback.name}",
         color="yellow",
     )
-    retry, retry_error = await _attempt(fallback, run_label)
+    retry, retry_error = await _attempt(fallback, run_label, is_fallback=True)
     if retry.success:
         retry.note = "The first model declined this one — rendered with a backup model."
         return retry
@@ -2877,6 +2898,7 @@ async def _generate_image(
             index,
             lambda agent: agent.Inputs(image_description=prompt),
             conversation_label=f"Podcast Image {index + 1}",
+            offered={"asset_slot": index},
         )
 
     # Per-asset checkpoint: a resumed run reuses an already-rendered (paid-for)
@@ -2977,6 +2999,12 @@ async def _generate_feature_image(
                     intent_or_content=transcript,
                     style=style_prompt,
                 ),
+                # Mapping-only (podcast.feature_image_prompt mapped_offer).
+                offered={
+                    "asset_slot": slot,
+                    "visual_style": style.value,
+                    "transcript_char_count": len(transcript),
+                },
                 label="Podcast Feature Image Prompt",
                 # ISOLATE this concurrent side-quest agent's stream. A
                 # child-agent fork ALIASES the parent's emitter
@@ -3031,6 +3059,12 @@ async def _generate_feature_image(
                 result = await _run_mandated(
                     _FeatureImageAgent,
                     inputs=_FeatureImageAgent.Inputs(image_description=image_prompt),
+                    # Mapping-only (podcast.image_render mapped_offer).
+                    offered={
+                        "asset_slot": slot,
+                        "is_fallback_render": False,
+                        "visual_style": style.value,
+                    },
                     label="Podcast Feature Image",
                     # Same emitter isolation as the prompt agent above (it forks
                     # with the shared emitter and runs concurrently with the other
@@ -3091,6 +3125,7 @@ async def _generate_video(
             index,
             lambda agent: agent.Inputs(video_description=prompt),
             conversation_label=f"Podcast Video {index + 1}",
+            offered={"asset_slot": index},
         )
 
     stage = await _checkpointed(ckpt, f"video_{index}", _run)

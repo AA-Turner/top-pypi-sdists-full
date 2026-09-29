@@ -91,3 +91,75 @@ async def test_an_undeclared_ceiling_falls_back_to_the_measured_floor(monkeypatc
     monkeypatch.setattr(resolve, "resolve_call_profile", fake)
     assert await provider_audio_limit_mb("stt-default") == DEFAULT_PROVIDER_AUDIO_LIMIT_MB
     assert DEFAULT_PROVIDER_AUDIO_LIMIT_MB == 25.0
+
+
+# ── a data URI names its container by its declared type (2026-09-28) ────────
+#
+# A file_id-only audio part resolves to bare base64. Handed on raw it was read
+# as a FILE NAME ("File name too long") and the texted voice memo was skipped;
+# as a data URI every container was named "audio.wav" whatever it held.
+
+
+@pytest.mark.asyncio
+async def test_a_flac_data_uri_is_sent_as_flac() -> None:
+    import base64
+
+    uri = "data:audio/flac;base64," + base64.b64encode(b"fLaC" + b"\x00" * 64).decode()
+    (name, data), _ = await prepare_audio_file(uri, max_file_size_mb=10.0)
+    assert name == "audio.flac" and data.startswith(b"fLaC")
+
+
+@pytest.mark.asyncio
+async def test_an_amr_data_uri_is_refused_by_name_not_mislabelled_wav() -> None:
+    import base64
+
+    uri = "data:audio/amr;base64," + base64.b64encode(b"#!AMR\n").decode()
+    with pytest.raises(ValueError, match="'.amr'"):
+        await prepare_audio_file(uri, max_file_size_mb=10.0)
+
+
+@pytest.mark.asyncio
+async def test_bare_base64_audio_is_transcribed_as_a_data_uri(monkeypatch) -> None:
+    import base64
+
+    from matrx_ai.config.media_config import AudioContent
+    from matrx_ai.processing.audio import stt
+
+    seen: dict[str, str] = {}
+
+    class _Result:
+        text = "call me back at five"
+        usage = None
+
+    async def fake_execute_stt(request):
+        seen["source"] = request.audio_source
+        return _Result()
+
+    monkeypatch.setattr(stt, "execute_stt", fake_execute_stt)
+    audio = AudioContent(
+        base64_data=base64.b64encode(b"fLaC").decode(), mime_type="audio/flac"
+    )
+    try:
+        await audio.get_transcription_async(force_refresh=True)
+    except Exception:
+        pass  # usage bookkeeping on the fake result is not what this proves
+    assert seen["source"].startswith("data:audio/flac;base64,")
+
+
+@pytest.mark.asyncio
+async def test_audio_that_cannot_be_transcribed_is_said_never_silently_removed(monkeypatch) -> None:
+    from matrx_ai.config import MessageList, TextContent, UnifiedMessage
+    from matrx_ai.config.media_config import AudioContent
+    from matrx_ai.processing.audio.audio_preprocessing import preprocess_audio_in_messages
+
+    async def broken(self, force_refresh: bool = False):
+        raise ValueError("Audio container '.amr' is not one the transcription provider accepts")
+
+    monkeypatch.setattr(AudioContent, "get_transcription_async", broken)
+    messages = MessageList(
+        [UnifiedMessage(role="user", content=[AudioContent(base64_data="AAAA", mime_type="audio/amr")])]
+    )
+    processed, _usage = await preprocess_audio_in_messages(messages, supports_audio_input=False)
+    content = list(processed)[0].content
+    assert len(content) == 1 and isinstance(content[0], TextContent)
+    assert "could not be transcribed" in content[0].text

@@ -52,10 +52,12 @@ import numpy as np
 
 _PASS = 0
 _FAILS: list = []
+_RESULTS: list = []          # (passed, message) in run order - the FAT/SAT protocol reads this
 
 
 def ok(cond: bool, msg: str) -> None:
     global _PASS
+    _RESULTS.append((bool(cond), msg))
     if cond:
         _PASS += 1
     else:
@@ -908,6 +910,414 @@ def section_z_rock_inventory() -> None:
        "dolomite = the H_0 integer over SO_5; dolomite/halite anchor "
        "cross-ratio = 20/13 = D_phys*SO_5/D_crit EXACT, unit-free")
 
+
+def section_aa_client_reports(tmp: str) -> None:
+    """Section AA - the client-facing report family: canonical
+    sample record + tag catalogue + the Gauge Drift & Reconciliation Report
+    in scope-of-work outline, free of the program's internal register."""
+    from . import production_live_stream, Reconciler, SimulatorConfig
+    from .sample_record import (TagCatalogue, records_from_stream, quality_summary,
+                                QUALITY_FLAGS)
+    from .client_reports import (gauge_drift_report, render_markdown, render_html,
+                                 forbidden_terms, write as write_report)
+    s, m = production_live_stream("volve_f12_f14_production_excerpt", "15/9-F-12", 10000)
+    cat = TagCatalogue.from_stream(s)
+    recs = records_from_stream(s, cat)
+    q = quality_summary(recs)["P_raw_psi_S1"]
+    ok(len(recs) == 157 and all(r.quality_flag in QUALITY_FLAGS for r in recs)
+       and recs[0].timestamp_utc == "2008-02-12T00:00:00Z",
+       "AA1 sample record: every Volve F-12 sample lands in the canonical record "
+       "with a flag from the fixed enumeration and a UTC timestamp from the "
+       "stream's own origin")
+    ok(q["counts"]["FLATLINE"] == 9 and q["pct_good"] < 95.0
+       and all(r.rule_fired for r in recs if r.quality_flag != "GOOD"),
+       "AA2 quality rules: the excerpt's genuine stuck-sensor run is flagged "
+       "FLATLINE (9 samples) and every flagged record names the rule that fired")
+    ev = Reconciler(SimulatorConfig(td_ft=10500)).reconcile(s, station_map=m)
+    doc = gauge_drift_report(ev, s, well_name="Volve 15/9-F-12", program_version="test")
+    md, ht = render_markdown(doc), render_html(doc)
+    ok(doc.data["drift_detected"] and "MODEL DRIFT DETECTED" in md
+       and "FALLBACK" in md and "Re-fit / redeploy due" in md,
+       "AA3 drift report: the Volve drawdown reports MODEL DRIFT DETECTED with "
+       "the FALLBACK action and the SLA clocks started")
+    ok([sec.number for sec in doc.sections] == [str(i) for i in range(1, 9)]
+       and "SOW 4.2.10" in md and "SOW 4.2.2" in md and "SOW 4.2.1.2" in md
+       and "SLA 1.0" in md,
+       "AA4 outline: eight numbered sections carrying the scope-of-work clause "
+       "numbers (4.2.1.2 tags, 4.2.2 data quality, 4.2.10 drift, SLA 1.0)")
+    ok(not forbidden_terms(md) and not forbidden_terms(ht),
+       "AA5 vocabulary gate: the rendered report contains none of the internal-"
+       "register terms")
+    paths = write_report(doc, Path(tmp, "cr"))
+    ok(all(Path(v).exists() and Path(v).stat().st_size > 200 for v in paths.values())
+       and len(Path(paths["records_csv"]).read_text().splitlines()) == 158,
+       "AA6 write: markdown, HTML, machine JSON, records CSV (157 rows + header) "
+       "and tag catalogue CSV all land")
+    r = _cli(["client-report", "--live-catalog", "volve_f12_f14_production_excerpt",
+              "--live-well", "15/9-F-12", "--station-md", "10000", "--td", "10500",
+              "--out", "cr_cli"], tmp)
+    ok(r.returncode == 0 and "MODEL DRIFT DETECTED" in r.stdout
+       and Path(tmp, "cr_cli", "gauge_drift_report.html").exists(),
+       "AA7 CLI client-report: the same report from the command line")
+    r = _cli(["telemetry", "--hours", "2", "--seed", "3", "--out", "tm_cr.csv"], tmp)
+    r = _cli(["client-report", "--file", "tm_cr.csv", "--out", "cr_tm"], tmp)
+    body = Path(tmp, "cr_tm", "gauge_drift_report.md").read_text() if Path(tmp, "cr_tm", "gauge_drift_report.md").exists() else ""
+    ok(r.returncode == 0 and "NO MODEL DRIFT DETECTED" in body and "2026-01-01T00:00:00Z" in body,
+       "AA8 CLI on the product's own historian export: no drift on the clean "
+       "leg, and the ISO time origin survives the port (no 1970 timestamps)")
+
+    # (3) datasheet-derived limits + the spike rule
+    from . import GAUGE_SPECS
+    cat_ds = TagCatalogue.from_stream(s, gauge_spec=GAUGE_SPECS["geoq177_16k"])
+    row = cat_ds.rows()[0]
+    ok(row["eng_range_hi"] == 16000.0 and "datasheet 'geoq177_16k'" in row["limits_basis"]
+       and "operations setting" in row["limits_basis"],
+       "AA9 datasheet limits: the engineering range comes from the GEOQ 177 full "
+       "scale and the basis names the datasheet; the rate-of-change limit is "
+       "printed as an operations setting, never invented from the datasheet")
+    q_ds = quality_summary(records_from_stream(s, cat_ds))["P_raw_psi_S1"]
+    ok(q_ds["counts"]["SPIKE"] == 5 and q_ds["counts"]["FLATLINE"] == 9
+       and "x MAD" in q_ds["rule_examples"]["SPIKE"],
+       "AA10 spike rule: the rolling-median/MAD rule fires on 5 Volve daily "
+       "excursions with the deviation printed, and the stuck run still reads FLATLINE")
+    r = _cli(["client-report", "--live-catalog", "volve_f12_f14_production_excerpt",
+              "--live-well", "15/9-F-12", "--station-md", "10000", "--td", "10500",
+              "--spec", "geoq177_16k", "--out", "cr_ds"], tmp)
+    body = Path(tmp, "cr_ds", "gauge_drift_report.md").read_text() if Path(tmp, "cr_ds", "gauge_drift_report.md").exists() else ""
+    ok(r.returncode == 0 and "Gauge datasheet in force: 'geoq177_16k'" in body
+       and "| Basis |" in body and "0 to 16,000 psi" in body,
+       "AA11 drift report with --spec: section 6 prints the datasheet citation "
+       "and the basis of every limit")
+
+    # (4) the accuracy statement engine
+    from .accuracy_statement import (library_backtest, statement_from_arrays,
+                                     band_for, MIN_TRIALS)
+    bt = library_backtest()
+    bt2 = library_backtest()
+    ok(bt["statements"] == bt2["statements"] and bt["n_ok"] == 14 and bt["n_pending"] == 4,
+       "AA12 accuracy engine: the library back-test scores 14 quantities, holds 4 "
+       "pending below the minimum, and regenerates identically (seeded bootstrap)")
+    st = bt["statements"]
+    ok(all(r["mape_ci_lo_pct"] <= r["mape_pct"] <= r["mape_ci_hi_pct"] for r in st)
+       and all(r["accuracy_conservative_pct"] <= r["accuracy_pct"] for r in st)
+       and all(r["band"] == band_for(r["accuracy_conservative_pct"]) for r in st),
+       "AA13 accuracy statistics: MAPE sits inside its 90 pct CI, the conservative "
+       "accuracy never exceeds the point accuracy, and the band is read at the "
+       "conservative end")
+    ok(bt["bands"].get("MEETS_TARGET", 0) == 8 and bt["bands"].get("NOT_ACCEPTABLE", 0) == 5
+       and bt["bands"].get("BAND_2", 0) == 1,
+       "AA14 the statement is not a marketing number: 8 of 14 meet the 95 pct "
+       "target, 1 is band 2, 5 are NOT ACCEPTABLE - printed, never hidden")
+    thin = statement_from_arrays([1.0] * (MIN_TRIALS - 1), [1.0] * (MIN_TRIALS - 1))
+    exact = statement_from_arrays([2.0] * 20, [2.0] * 20, [0.1] * 20)
+    ok(thin["status"] == "PENDING" and exact["status"] == "OK" and exact["mape_pct"] == 0.0
+       and exact["coverage_at_ci"] == 1.0 and exact["band"] == "MEETS_TARGET",
+       "AA15 statement_from_arrays: thin data is PENDING; a perfect predictor "
+       "reads MAPE 0, coverage 1, MEETS TARGET")
+    r = _cli(["client-report", "--report", "accuracy", "--out", "acc"], tmp)
+    body = Path(tmp, "acc", "accuracy_statement.md").read_text() if Path(tmp, "acc", "accuracy_statement.md").exists() else ""
+    ok(r.returncode == 0 and "8 of 14 MEET TARGET" in body and "NOT ACCEPTABLE" in body
+       and "SLA 4.0" in body and "SCC 5.0" in body and not forbidden_terms(body),
+       "AA16 CLI client-report --report accuracy: the Accuracy Statement lands in "
+       "the client outline (SLA 4.0 definitions, SCC 5.0 method), vocabulary clean")
+
+    # (5) the drift monitor - scheduled evaluation, log, staleness, re-fit, annual cap
+    import csv as _csv
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    from .drift_monitor import DriftMonitor, MonitorConfig
+    from . import ingest as _ingest_fn
+    _cli(["telemetry", "--hours", "6", "--seed", "3", "--out", "tm_dm.csv"], tmp)
+    rows = list(_csv.reader(open(Path(tmp, "tm_dm.csv"), newline="")))
+    jcol = rows[0].index("P_raw_psi_S1")
+    for r in rows[1:]:
+        if r[jcol]:
+            r[jcol] = str(round(float(r[jcol]) + 40.0, 2))
+    with open(Path(tmp, "tm_dm_off.csv"), "w", newline="") as f:
+        _csv.writer(f).writerows(rows)
+    T0 = _dt(2026, 10, 1, 8, 0, tzinfo=_tz.utc)
+    mon = DriftMonitor(SimulatorConfig(), str(Path(tmp, "mon")), well_name="acceptance well")
+    off = _ingest_fn(str(Path(tmp, "tm_dm_off.csv")))
+    r1 = mon.run_scheduled(off, now=T0)
+    ok(r1["action"] == "EVALUATED" and r1["drift_detected"]
+       and r1["proposals"][0]["type"] == "REFIT_OFFSET" and r1["proposals"][0]["status"] == "PROPOSED"
+       and abs(r1["proposals"][0]["after"] - 40.66) < 0.5 and r1["proposals"][0]["before"] == 0.0
+       and r1["sla_clocks"] == {"notify_due": "2026-10-02", "fallback_due": "2026-10-05", "refit_due": "2026-10-15"},
+       "AA17 drift monitor: a +40 psi injected offset is evaluated as CALIBRATION_OFFSET, "
+       "logged, proposed as a re-fit with before/after coefficients, and the SLA "
+       "clocks (1/2/10 business days) start at the evaluation timestamp")
+    r_skip = mon.run_scheduled(off, now=T0 + _td(hours=5))
+    st_stale = mon.staleness(T0 + _td(hours=30))
+    ok(r_skip["action"] == "SKIPPED_NOT_DUE" and st_stale["status"] == "STALE"
+       and st_stale["overdue_h"] == 6.0 and mon.staleness(T0 + _td(hours=23))["status"] == "CURRENT",
+       "AA18 scheduling: a run before the 24 h cadence is SKIPPED_NOT_DUE; the state "
+       "ages to STALE with the overdue hours counted")
+    ap = mon.approve(r1["proposals"][0]["entry_id"], "j.doe (production engineer)", now=T0 + _td(hours=25))
+    r2 = mon.run_scheduled(off, now=T0 + _td(hours=26))
+    ok(ap["status"] == "APPLIED" and mon.state["corrections_psi"]["P_raw_psi_S1"] == ap["after"]
+       and r2["action"] == "EVALUATED" and not r2["drift_detected"]
+       and r2["evaluation"]["stations"][0]["classification"] == "IN_FAMILY"
+       and abs(r2["evaluation"]["stations"][0]["bias_psi"]) < 2.0,
+       "AA19 re-fit closes the loop: the approved correction is applied to the live "
+       "leg and the next evaluation reads IN_FAMILY with the bias removed")
+    cap = DriftMonitor(SimulatorConfig(), str(Path(tmp, "mon_cap")), well_name="cap well")
+    statuses = []
+    for i in range(5):
+        pr = cap.propose_refit("P_raw_psi_S1", 10.0, "EVAL-test", now=T0 + _td(days=i))
+        statuses.append(pr["status"])
+        if pr["status"] == "PROPOSED":
+            cap.approve(pr["entry_id"], "a", now=T0 + _td(days=i))
+    ok(statuses == ["PROPOSED"] * 4 + ["BLOCKED_ANNUAL_LIMIT"]
+       and cap.state["corrections_psi"]["P_raw_psi_S1"] == 40.0,
+       "AA20 annual cap: the fifth re-fit in a calendar year is BLOCKED_ANNUAL_LIMIT "
+       "(logged, never applied); four are applied")
+    ok(len(mon.history()) == 12 and len(mon.change_log()) == 2 and mon.open_proposals() == []
+       and all(k in mon.status(T0 + _td(hours=27))["log_sha256"] for k in ("evaluations.jsonl", "change_log.jsonl")),
+       "AA21 the record: 12 evaluation lines (6 stations x 2), 2 change-log lines "
+       "(PROPOSED, APPLIED), no open proposal, log hashes reported")
+    r = _cli(["drift-monitor", "--file", "tm_dm_off.csv", "--log-dir", "mon_cli", "--now",
+              "2026-10-01T08:00:00Z", "--name", "cli well", "--report", "mon_cli_report"], tmp)
+    body = Path(tmp, "mon_cli_report", "gauge_drift_report.md").read_text() if Path(tmp, "mon_cli_report", "gauge_drift_report.md").exists() else ""
+    ok(r.returncode == 0 and '"action": "EVALUATED"' in r.stdout and "Evaluation ID" in body
+       and "Evaluations on record" in body and "Evaluation history" in body and not forbidden_terms(body),
+       "AA22 CLI drift-monitor: evaluates, records, and writes the drift report with "
+       "section 5 fed from the monitor's log")
+
+    # (6) well-test validation - config-file criteria, reason codes, approval trail
+    from .well_test_validation import (WellTestValidator, ApprovalTrail, load_criteria,
+                                       write_default_criteria, volve_channel_map, DEFAULT_CRITERIA)
+    from . import CATALOG as _CAT
+    cpath = write_default_criteria(str(Path(tmp, "criteria.json")))
+    crit = load_criteria(cpath)
+    src = _CAT["volve_f12_f14_production_excerpt"].stream()
+    det = WellTestValidator(crit, volve_channel_map("15/9-F-12")).detect(src)
+    det2 = WellTestValidator(load_criteria(cpath), volve_channel_map("15/9-F-12")).detect(src)
+    ok(det["n_accepted"] == 7 and det["n_rejected"] == 32 and det["eligible_samples"] == 131
+       and det["tests"] == det2["tests"] and crit["_sha256"] and crit["_source"].endswith("criteria.json"),
+       "AA23 well-test detection on Volve F-12: 7 stable periods accepted, 32 candidates "
+       "rejected, 131/158 eligible samples, deterministic, criteria file hashed")
+    wt = {t["test_id"]: t for t in det["tests"]}
+    ok("WT024" in wt and wt["WT024"]["n"] == 8 and abs(wt["WT024"]["virtual_rates"]["oil"] - 3177.5) < 1.0
+       and wt["WT024"]["statistics"]["rate:oil"]["cv_pct"] <= crit["rate_max_cv_pct"]
+       and all(t["statistics"]["pressure:downhole"]["cv_pct"] <= crit["pressure_max_cv_pct"] for t in det["tests"]),
+       "AA24 an accepted test carries its virtual rates (WT024 oil 3,177.5 Sm3/d over 8 days) "
+       "and every accepted window satisfies the printed criteria")
+    codes = {c for r in det["rejected"] for c in r["reason_codes"]}
+    ok({"ON_STREAM_BELOW_MIN", "INSUFFICIENT_DURATION", "RATE_UNSTABLE:gas", "OPERATING_POINT_CHANGED:choke",
+        "PRESSURE_UNSTABLE:wellhead", "MISSING_VALUE"} <= codes
+       and all(r["detail"] for r in det["rejected"]),
+       "AA25 reason codes: shut-in days, short runs, unstable gas, choke moves, wellhead "
+       "swings and the trailing missing row are each named with the value that failed")
+    tight = dict(DEFAULT_CRITERIA); tight["rate_max_cv_pct"] = 0.5
+    det_t = WellTestValidator(tight, volve_channel_map("15/9-F-12")).detect(src)
+    ok(det_t["n_accepted"] < det["n_accepted"],
+       "AA26 the criteria file is the logic: tightening rate CV to 0.5 pct accepts fewer tests")
+    trail = ApprovalTrail(str(Path(tmp, "wt_rec")))
+    trail.approve("WT024", "j.doe", 1, now=T0)
+    s1 = trail.status_of("WT024")["status"]
+    trail.approve("WT024", "a.smith", 2, now=T0 + _td(hours=1))
+    s2 = trail.status_of("WT024")["status"]
+    trail.approve("WT010", "j.doe", 1, decision="REJECTED", note="MPFM recalibration", now=T0)
+    ok(s1 == "PENDING_LEVEL_2" and s2 == "APPROVED_ALL_LEVELS"
+       and trail.status_of("WT010")["status"] == "REJECTED_ON_REVIEW" and len(trail.entries()) == 3,
+       "AA27 approval trail: two levels with timestamps; a level-1 rejection holds the test")
+    r = _cli(["well-test", "--live-catalog", "volve_f12_f14_production_excerpt", "--live-well", "15/9-F-12",
+              "--criteria", "criteria.json", "--record-dir", "wt_rec", "--out", "wt_report",
+              "--now", "2026-10-01T12:00:00Z"], tmp)
+    body = Path(tmp, "wt_report", "well_test_validation.md").read_text() if Path(tmp, "wt_report", "well_test_validation.md").exists() else ""
+    ok(r.returncode == 0 and "7 WELL TESTS ACCEPTED, 1 APPROVED" in body and "SOW 4.2.3.1" in body
+       and "sha256" in body and "REJECTED_ON_REVIEW" in body and "APPROVED_ALL_LEVELS" in body
+       and not forbidden_terms(body),
+       "AA28 CLI well-test: the Well Test Validation Report lands with criteria, hash, "
+       "accepted tests, reason codes and the approval trail, vocabulary clean")
+
+    # (7) the alarm engine
+    from .alarm_engine import (AlarmEngine, AlarmDefinition, defaults_from_catalogue,
+                               records_from_series, write_alarm_definitions, load_alarm_definitions)
+    ts = [(T0 + _td(seconds=60 * i)).strftime("%Y-%m-%dT%H:%M:%SZ") for i in range(12)]
+    vals = [100, 100, 105, 105, 105, 103, 101, 99, 98, 95, 100, 100]
+    d = AlarmDefinition("P.H", "P", "HIGH", "P2", setpoint=104, deadband=5, on_delay_s=60)
+    eng = AlarmEngine([d])
+    ev = eng.process(records_from_series("P", ts, vals, "psi"))
+    ok([(e["timestamp_utc"][11:16], e["event"]) for e in ev] == [("08:03", "ACTIVATED"), ("08:08", "RTN_UNACKED")],
+       "AA29 alarm state machine: HIGH at 104 with 60 s on-delay activates on the second "
+       "sample over setpoint (08:03), holds through the deadband (103, 101, 99), and "
+       "returns to normal only below 99 (08:08) - hysteresis and on-delay as defined")
+    eng2 = AlarmEngine([d]); rr = records_from_series("P", ts, vals, "psi")
+    eng2.process(rr[:4]); eng2.acknowledge("P.H", "op1", T0 + _td(seconds=200)); eng2.process(rr[4:])
+    ok([e["event"] for e in eng2.events] == ["ACTIVATED", "ACKNOWLEDGED", "CLEARED"]
+       and eng2.events[1]["operator"] == "op1" and eng2.active() == [],
+       "AA30 acknowledgement: ACTIVE_UNACKED -> ACTIVE_ACKED -> CLEARED with the operator on the record")
+    cat_al = TagCatalogue.from_stream(_ingest_fn(str(Path(tmp, "tm_dm.csv"))), gauge_spec=GAUGE_SPECS["template_generic"])
+    defs = defaults_from_catalogue(cat_al)
+    wpath = write_alarm_definitions(defs, str(Path(tmp, "alarms.json")))
+    defs2 = load_alarm_definitions(wpath)
+    ok(len(defs) == 3 * len(cat_al) and all(x.kind in ("HIGH_HIGH", "LOW_LOW", "QUALITY") for x in defs)
+       and all("datasheet" in x.basis or "record layer" in x.basis for x in defs)
+       and [x.row() for x in defs2] == [x.row() for x in defs],
+       "AA31 catalogue-derived definitions: over-range (datasheet basis) and quality "
+       "(record-layer basis) per tag, no invented process setpoint, JSON round-trip")
+    _cli(["telemetry", "--hours", "24", "--seed", "3", "--out", "tm_al.csv"], tmp)
+    r = _cli(["alarms", "--file", "tm_al.csv", "--spec", "template_generic", "--out", "alm"], tmp)
+    body = Path(tmp, "alm", "alarm_event_report.md").read_text() if Path(tmp, "alm", "alarm_event_report.md").exists() else ""
+    kp = json.loads(Path(tmp, "alm", "alarm_event_report.json").read_text())["kpis"] if body else {}
+    ok(r.returncode == 0 and kp.get("n_activations", 0) > 200 and kp.get("flood_10min_bins", 0) >= 1
+       and "exceeds the manageable target" in body and "ISA-18.2" in body and "T_raw_F_S6.HH_RANGE" in body
+       and not forbidden_terms(body),
+       "AA32 CLI alarms on the 24 h export: quality alarms flood (printed against the "
+       "ISA-18.2 targets with the remedy), and the deepest gauge's temperature reads "
+       "above the template datasheet rating - a real over-range alarm on the demo well")
+
+    # (8) model cards
+    from .model_card import build_cards, card_index
+    from .client_reports import model_card_report
+    cards = build_cards(monitor_log_dir=str(Path(tmp, "mon")))
+    ids = [c.model_id for c in cards]
+    ok(ids == ["well_baseline", "gauge_aging_envelope", "strata_property_estimator",
+               "rock_density_inventory", "quality_rules", "well_test_detector"]
+       and all(c.inputs and c.settings and c.calibration_data and c.evaluation and c.limitations and c.components for c in cards),
+       "AA33 model cards: six cards, each with inputs, settings, calibration data, "
+       "evaluation, limitations and component hashes")
+    wb = cards[0]
+    ok(len(wb.refit_history) == 1 and wb.refit_history[0]["status"] == "APPLIED"
+       and wb.refit_history[0]["after"] == 40.66,
+       "AA34 re-fit history: the well-baseline card carries the monitor's APPLIED "
+       "offset correction with before/after")
+    ge = cards[1]
+    ok(any(e["value"] == "NONE ON RECORD" for e in ge.evaluation)
+       and any("without field validation" in x["basis"] for x in ge.settings),
+       "AA35 the aging-envelope card states NONE ON RECORD for field validation and "
+       "labels the lower bound as an unvalidated engineering model")
+    se = cards[2]
+    ok(sum(1 for e in se.evaluation if "NOT_ACCEPTABLE" in e["value"]) == 5
+       and all(d["url"].startswith("http") for d in se.calibration_data if d["records"] != "-"),
+       "AA36 the estimator card prints the five NOT ACCEPTABLE quantities and a URL "
+       "for every calibration dataset")
+    rendered = [render_markdown(model_card_report(c)) for c in cards]
+    ok(all(not forbidden_terms(t) for t in rendered) and all("sha256" in t for t in rendered)
+       and "Telford" in rendered[3] and "primitive" not in rendered[3].lower(),
+       "AA37 every card renders vocabulary-clean with component hashes; the inventory "
+       "card carries the published citations only")
+    r = _cli(["model-cards", "--out", "mc"], tmp)
+    idx = json.loads(Path(tmp, "mc", "model_cards_index.json").read_text()) if Path(tmp, "mc", "model_cards_index.json").exists() else {}
+    ok(r.returncode == 0 and len(idx.get("cards", [])) == 6
+       and all(Path(tmp, "mc", f"model_card_{i}.html").exists() for i in ids),
+       "AA38 CLI model-cards: six HTML/markdown/JSON cards and an index")
+
+    # (9) store-and-forward
+    from .store_forward import simulate, parse_outages, BufferConfig
+    st24 = _ingest_fn(str(Path(tmp, "tm_al.csv")))
+    cat24 = TagCatalogue.from_stream(st24)
+    recs24 = [r for r in records_from_stream(st24, cat24) if r.tag_id.startswith("P_raw")]
+    sim = simulate(recs24, parse_outages(["2026-01-01T06:00:00Z,2026-01-01T09:30:00Z", "2026-01-01T15:00:00Z,2026-01-01T15:20:00Z"]),
+                   BufferConfig(cadence_s=60, replay_rate_per_s=5))
+    g1 = sim["gap_report"]["P_raw_psi_S1"]
+    ok(sim["stats"]["buffered"] == 1380 and sim["stats"]["replayed"] == 1380 and sim["stats"]["dropped_over_capacity"] == 0
+       and sim["stats"]["duplicates_suppressed"] == 0 and sim["final_backlog"] == 0
+       and all(v["not_delivered"] == 0 and v["duplicates_in_delivery"] == 0 and v["chronological_replay"] for v in sim["gap_report"].values()),
+       "AA39 store-and-forward: two outages (3.5 h + 20 min) buffer 1,380 samples at the edge "
+       "and replay every one in chronological order at 5/s - none lost, none duplicated")
+    ok(g1["delivered_live"] == 1210 and g1["delivered_by_replay"] == 230 and g1["latency_p50_s"] == 2.0
+       and g1["latency_max_s"] > 12000 and g1["pct_within_2min"] < 90 and g1["source_gaps_in_data"] == 27,
+       "AA40 gap report: replayed samples carry the outage as latency (max > 3.3 h), live "
+       "samples 2 s; the historian's own 27 GAP samples are delivered as gaps, never invented")
+    sim2 = simulate(recs24, parse_outages(["2026-01-01T06:00:00Z,2026-01-01T09:00:00Z"]), BufferConfig(cadence_s=60, capacity_hours=1.0))
+    ok(sim2["stats"]["dropped_over_capacity"] == 720 and sim2["gap_report"]["P_raw_psi_S1"]["not_delivered"] == 120,
+       "AA41 capacity: a 1 h buffer under a 3 h outage drops the oldest 2 h (720 records, 120 per tag), counted and reported")
+    r = _cli(["store-forward", "--file", "tm_al.csv", "--tags", "P_raw", "--outage", "2026-01-01T06:00:00Z,2026-01-01T09:30:00Z",
+              "--replay-rate", "5", "--out", "sf"], tmp)
+    body = Path(tmp, "sf", "data_resilience_report.md").read_text() if Path(tmp, "sf", "data_resilience_report.md").exists() else ""
+    ok(r.returncode == 0 and "ALL SAMPLES DELIVERED, NO DUPLICATES, CHRONOLOGICAL" in body and "SOW 4.2.1.6" in body
+       and "Live delivery only" in body and not forbidden_terms(body),
+       "AA42 CLI store-forward: the Data Resilience report prints latency for all records and "
+       "for live delivery only (SLA 7.0 exclusion), vocabulary clean")
+
+    # (10) configuration versioning, SBOM, SLA measurement, FAT/SAT
+    from .config_versioning import ConfigStore, diff as _cfg_diff
+    cs = ConfigStore(str(Path(tmp, "cfgs")))
+    v1 = cs.commit("well_test_criteria", json.loads(Path(cpath).read_text()), "j.doe", "initial", now=T0)
+    c2 = json.loads(Path(cpath).read_text()); c2["rate_max_cv_pct"] = 2.5
+    v2 = cs.commit("well_test_criteria", c2, "a.smith", "tighten CV", now=T0 + _td(days=4))
+    same = cs.commit("well_test_criteria", c2, "a.smith", "no change", now=T0 + _td(days=4, hours=1))
+    v3 = cs.rollback("well_test_criteria", 1, "a.smith", now=T0 + _td(days=5))
+    ok(v1["version"] == 1 and v2["version"] == 2 and same.get("unchanged") and v3["version"] == 3 and v3["rollback_of"] == 1
+       and v2["diff"]["changed"] == [{"key": "rate_max_cv_pct", "before": 3.0, "after": 2.5}]
+       and cs.get("well_test_criteria") == cs.get("well_test_criteria", 1) and len(cs.history("well_test_criteria")) == 3,
+       "AA43 configuration versioning: commit, key-level diff, unchanged content not re-versioned, "
+       "rollback as a new version equal to v1 with history intact")
+    exp = cs.export("well_test_criteria", str(Path(tmp, "crit_export.json")), 2)
+    ok(json.loads(Path(exp).read_text())["rate_max_cv_pct"] == 2.5 and cs.summary()[0]["rollbacks"] == 1,
+       "AA44 export a named version to a file; the store summary counts the rollback")
+    from .sbom import generate as _sbom_gen, write as _sbom_write
+    sb = _sbom_gen()
+    names = [c["name"] for c in sb["components"]]
+    ok(sb["n_components"] == 5 and names[0] == "Downhole Gauge Monitoring" and "numpy" in names and "Python" in names
+       and all(set(c) >= {"name", "version", "supplier", "licence", "hash", "identifier", "relationship", "generated_utc"} for c in sb["components"])
+       and next(c for c in sb["components"] if c["name"] == "numpy")["version"] not in ("", "not installed"),
+       "AA45 SBOM: five components with all eight fields, versions and licences read from "
+       "installed metadata, optional components listed whether installed or not")
+    pth = _sbom_write(sb, str(Path(tmp, "sbom")))
+    ok(Path(pth["json"]).exists() and len(Path(pth["csv"]).read_text().splitlines()) == 6, "AA46 SBOM written as JSON and CSV (header + 5 rows)")
+    from .sla_report import measure
+    m = measure("2026-10", monitor_log_dir=str(Path(tmp, "mon")), well_test_dir=str(Path(tmp, "wt_rec")), config_dir=str(Path(tmp, "cfgs")))
+    by = {l["metric"]: l for l in m["lines"]}
+    ok(by["Re-fit / redeploy within 10 business days of detection"]["status"] == "MET"
+       and by["Re-fits per station in 2026 (year to date)"]["measured"] == "max 1"
+       and by["Configuration versions committed in the month"]["measured"] == "3"
+       and by["End-to-end latency"]["status"] == "NOT MEASURED"
+       and by["Drift evaluation cadence (days with an evaluation / days due)"]["status"] == "NOT MET",
+       "AA47 monthly SLA: re-fit within 10 bd MET, cap MET, three config versions counted, "
+       "latency NOT MEASURED without a record, and the two-evaluation demo log reads NOT MET on cadence - "
+       "nothing unmeasured is reported as met")
+    r = _cli(["sla-report", "--month", "2026-01", "--store-forward-json", str(Path(tmp, "sf", "data_resilience_report.json")),
+              "--config-store", "cfgs", "--out", "sla"], tmp)
+    body = Path(tmp, "sla", "sla_report_2026-01.md").read_text() if Path(tmp, "sla", "sla_report_2026-01.md").exists() else ""
+    ok(r.returncode == 0 and "Software bill of materials" in body and "Link availability" in body and "NOT MEASURED" in body
+       and not forbidden_terms(body),
+       "AA48 CLI sla-report: the Monthly SLA Report lands with latency, availability, change & "
+       "continuity and the SBOM, vocabulary clean")
+    from . import fat_sat as FS
+    from . import acceptance_tests as _AT
+    snap = (_AT._PASS, list(_AT._FAILS), len(_AT._RESULTS))
+    proto = FS.run_protocol("FAT", sections=["F"])
+    del _AT._RESULTS[snap[2]:]
+    _AT._PASS = snap[0]; _AT._FAILS[:] = snap[1]
+    ok(proto["kind"] == "FAT" and proto["n_steps"] >= 2 and proto["internal_checks_excluded"] == 2 and proto["n_fail"] == 0 and proto["result"] == "ACCEPTED"
+       and all(r_["expected"] == "PASS" and r_["actual"] == "PASS" for r_ in proto["rows"]),
+       "AA49 FAT protocol: section F renders as numbered PASS steps (two internal-register checks excluded, counted) with the result ACCEPTED")
+
+    # (11) the web view
+    from .dashboard import orchestrate, collect
+    r = orchestrate(str(Path(tmp, "dash")),
+                    [{"entry": "volve_f12_f14_production_excerpt", "well": "15/9-F-12", "md_ft": 10000.0},
+                     {"entry": "volve_f12_f14_production_excerpt", "well": "15/9-F-14", "md_ft": 9500.0}],
+                    [{"path": str(Path(tmp, "tm_al.csv"))}], td_ft=10500.0, gauge_spec=GAUGE_SPECS["template_generic"],
+                    outages=["2026-01-01T06:00:00Z,2026-01-01T09:30:00Z"], month="2026-01", site_name="acceptance site")
+    page = Path(r["index"]).read_text(encoding="utf-8")
+    d = collect(str(Path(tmp, "dash")))
+    ok(Path(r["index"]).exists() and len(d["wells"]) == 3 and set(d["site"]) >= {"accuracy", "sla", "model_cards", "sbom"}
+       and sorted(r["reports"]["tm_al"]) == ["alarms", "drift", "resilience"]
+       and all(sorted(v) == ["drift", "well_tests"] for k, v in r["reports"].items() if k != "tm_al"),
+       "AA50 dashboard orchestration: three wells (two catalogue, one file) and the site "
+       "reports generated into one tree, index.html built")
+    by = {w["name"]: w for w in d["wells"]}
+    ok(by["15/9-F-12"]["drift"]["detected"] and by["15/9-F-12"]["well_tests"]["accepted"] == 7
+       and by["15/9-F-14"]["drift"]["worst"] == "UNEXPLAINED_OFFSET" and not by["tm_al"]["drift"]["detected"]
+       and by["tm_al"]["alarms"]["n_active"] >= 20 and by["tm_al"]["resilience"]["lost"] == 0,
+       "AA51 dashboard data: every tile figure is read from a report JSON - F-12 drift + 7 tests, "
+       "F-14 offset on thin data, the file well clean with its alarm flood and lossless replay")
+    ok("2 of 3" in page and "MODEL DRIFT DETECTED" in page and "Alarm wall" in page and "Well ranking" in page
+       and page.count('class="tile') >= 8 and "prefers-color-scheme" in page and 'href="wells/' in page
+       and not forbidden_terms(page),
+       "AA52 the page: hero tile reads 2 of 3 wells with drift, ranking and alarm wall present, "
+       "drill-down links relative, light and dark themes, vocabulary clean")
+    ok(all(f'<span class="ic">' in seg for seg in page.split('class="status ')[1:]),
+       "AA53 status is icon plus label on every status element, never colour alone")
+    r = _cli(["dashboard", "--catalog-well", "volve_f12_f14_production_excerpt:15/9-F-12:10000", "--td", "10500",
+              "--name", "cli site", "--out", "dash_cli"], tmp)
+    ok(r.returncode == 0 and Path(tmp, "dash_cli", "index.html").exists() and "site: accuracy" in r.stdout,
+       "AA54 CLI dashboard: one catalogue well to a complete index")
+
+
 def main() -> int:
     print("UQFF Downhole Simulator - ACCEPTANCE SUITE (product gate, "
           "independent of the physics corpus)")
@@ -938,6 +1348,7 @@ def main() -> int:
         section_x_do_all_three()
         section_y_survey()
         section_z_rock_inventory()
+        section_aa_client_reports(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

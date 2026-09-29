@@ -18,7 +18,7 @@ import copy
 import json
 import logging
 import re
-from typing import Any, List, Dict, Optional, Set, TYPE_CHECKING, Union
+from typing import Any, TYPE_CHECKING
 
 from a2ui.parser.constants import *
 from a2ui.schema.constants import (
@@ -29,16 +29,15 @@ from a2ui.schema.constants import (
     SURFACE_ID_KEY,
     CATALOG_COMPONENTS_KEY,
 )
-from a2ui.validation.validator import (
-    extract_component_ref_fields,
-    extract_component_required_fields,
-)
-from a2ui.validation.validator import A2uiValidator
-from a2ui.core.validating import analyze_topology
+from a2ui.core.validation import analyze_topology
 from a2ui.parser.response_part import ResponsePart
-from a2ui.core.validating.validator import RELAXED_VALIDATION, STRICT_VALIDATION, ValidationConfig
-from a2ui.core import A2uiParseError, A2uiIntegrityError
-
+from a2ui.schema.schema_helper import CatalogSchemaHelper
+from a2ui.core.validation import (
+    RELAXED_VALIDATION,
+    STRICT_VALIDATION,
+    ValidationConfig,
+)
+from a2ui.core import A2uiParseError, A2uiIntegrityError, A2uiValidationError
 
 if TYPE_CHECKING:
     from a2ui.schema.catalog import A2uiCatalog
@@ -69,11 +68,11 @@ class DirectJsonStreamParser:
         return super().__new__(cls)
 
     def __init__(self, catalog: A2uiCatalog):
+        self._catalog = catalog
+        self._validator = getattr(catalog, "validator", None)
         self._version = catalog.version
         self._cuttable_keys = catalog.cuttable_keys
-        self._ref_fields_map = extract_component_ref_fields(catalog)
-        self._required_fields_map = extract_component_required_fields(catalog)
-        self._validator = A2uiValidator(catalog)
+        self._schema_helper = CatalogSchemaHelper(catalog)
 
         self._found_delimiter = False
         self._buffer = ""
@@ -84,51 +83,51 @@ class DirectJsonStreamParser:
         self._in_string = False
         self._string_escaped = False
 
-        self._seen_components: Dict[str, Dict[str, Any]] = {}
+        self._components_by_surface: dict[str, dict[str, dict[str, Any]]] = {}
 
         # Track data model for path resolution
-        self._yielded_data_model: Dict[str, Any] = {}
-        self._deleted_surfaces: Set[str] = set()
+        self._yielded_data_model: dict[str, Any] = {}
+        self._deleted_surfaces: set[str] = set()
 
         # Set of unique component IDs yielded per surface to prevent duplicate yielding
         # surfaceId -> set of cids
-        self._yielded_ids: Dict[str, Set[str]] = {}
+        self._yielded_ids: dict[str, set[str]] = {}
         # (surfaceId, cid) -> hash of content for change detection
-        self._yielded_contents: Dict[Any, str] = {}
+        self._yielded_contents: dict[Any, str] = {}
 
-        self._root_ids: Dict[str, str] = {}  # The root component IDs mapped per surface
-        self._default_root_id: Optional[str] = (
+        self._root_ids: dict[str, str] = {}  # The root component IDs mapped per surface
+        self._default_root_id: str | None = (
             None  # Base default root ID for the protocol
         )
-        self._unbound_root_id: Optional[str] = (
+        self._unbound_root_id: str | None = (
             None  # Temporary holding variable for when root arrives before surfaceId
         )
-        self._surface_id: Optional[str] = (
+        self._surface_id: str | None = (
             None  # The active surface ID tracking the context
         )
-        self._msg_types: List[str] = (
+        self._msg_types: list[str] = (
             []
         )  # Running list of message types seen in the block
 
         # A set of surface ids for which we have already yielded a start message
         # Tracks if beginRendering or createSurface was emitted
-        self._yielded_start_messages: Set[str] = set()
+        self._yielded_start_messages: set[str] = set()
 
         # The current active message type for component grouping
-        self._active_msg_type: Optional[str] = None
+        self._active_msg_type: str | None = None
 
         # State for buffering updates until surface is ready
-        self._pending_messages: Dict[str, List[Dict[str, Any]]] = (
+        self._pending_messages: dict[str, list[dict[str, Any]]] = (
             {}
         )  # surfaceId -> list of msgs delayed until start message arrives
-        self._buffered_start_message: Optional[Dict[str, Any]] = (
+        self._buffered_start_message: dict[str, Any] | None = (
             None  # The start message to yield before any components
         )
         self._topology_dirty = False  # Set to true if components are added out of order
         self._found_valid_json_in_block = False
 
     @property
-    def _placeholder_component(self) -> Dict[str, Any]:
+    def _placeholder_component(self) -> dict[str, Any]:
         """Returns the version-specific placeholder component.
 
         This is used when a component references a child component that hasn't yet
@@ -138,18 +137,45 @@ class DirectJsonStreamParser:
         raise NotImplementedError("Subclasses must implement _placeholder_component")
 
     @property
-    def surface_id(self) -> Optional[str]:
+    def _seen_components(self) -> dict[str, dict[str, Any]]:
+        sid = self.surface_id or "default"
+        return self._components_by_surface.setdefault(sid, {})
+
+    def _can_use_placeholders(self) -> bool:
+        """Determines whether the active catalog supports placeholder components.
+
+        Inspects the catalog schema to verify that the configured placeholder
+        component type is declared in the catalog's component definitions.
+
+        Returns:
+            True if the catalog supports the configured placeholder type.
+        """
+        cat_schema = getattr(self._catalog, "catalog_schema", {}) or {}
+        components = (
+            cat_schema.get("components", {}) if isinstance(cat_schema, dict) else {}
+        )
+        ph = self._placeholder_component
+        if isinstance(ph.get("component"), str):
+            ph_type = ph.get("component")
+        elif isinstance(ph.get("component"), dict):
+            ph_type = next(iter(ph.get("component", {}).keys()), None)
+        else:
+            ph_type = None
+        return ph_type is not None and ph_type in components
+
+    @property
+    def surface_id(self) -> str | None:
         return self._surface_id
 
     @surface_id.setter
-    def surface_id(self, value: Optional[str]) -> None:
+    def surface_id(self, value: str | None) -> None:
         self._surface_id = value
         if value is not None and self._unbound_root_id is not None:
             self._root_ids[value] = self._unbound_root_id
             self._unbound_root_id = None
 
     @property
-    def root_id(self) -> Optional[str]:
+    def root_id(self) -> str | None:
         if self._surface_id:
             return self._root_ids.get(self._surface_id, self._default_root_id)
         # Return unbound root ID if explicitly sniffed, otherwise use protocol default
@@ -160,7 +186,7 @@ class DirectJsonStreamParser:
         )
 
     @root_id.setter
-    def root_id(self, value: Optional[str]) -> None:
+    def root_id(self, value: str | None) -> None:
         if self._surface_id:
             if value is not None:
                 self._root_ids[self._surface_id] = value
@@ -170,7 +196,7 @@ class DirectJsonStreamParser:
             self._unbound_root_id = value
 
     @property
-    def msg_types(self) -> List[str]:
+    def msg_types(self) -> list[str]:
         return self._msg_types
 
     def add_msg_type(self, msg_type: str) -> None:
@@ -184,11 +210,11 @@ class DirectJsonStreamParser:
             self._active_msg_type = msg_type
 
     @property
-    def _yielded_surfaces_set(self) -> Set[str]:
+    def _yielded_surfaces_set(self) -> set[str]:
         """Provides access to version-specific yielded surfaces set."""
         raise NotImplementedError("Subclasses must implement _yielded_surfaces_set")
 
-    def is_protocol_msg(self, obj: Dict[str, Any]) -> bool:
+    def is_protocol_msg(self, obj: dict[str, Any]) -> bool:
         """Checks if the object is a recognized A2UI message for this version."""
         raise NotImplementedError("Subclasses must implement is_protocol_msg")
 
@@ -197,28 +223,98 @@ class DirectJsonStreamParser:
         """Returns the message type identifier for data model updates."""
         raise NotImplementedError("Subclasses must implement _data_model_msg_type")
 
-    def _get_active_msg_type_for_components(self) -> Optional[str]:
+    def _get_active_msg_type_for_components(self) -> str | None:
         """Determines which msg_type to use when wrapping component updates."""
         raise NotImplementedError(
             "Subclasses must implement _get_active_msg_type_for_components"
         )
 
     def _construct_partial_message(
-        self, components: List[Dict[str, Any]], active_msg_type: str
-    ) -> Dict[str, Any]:
+        self, components: list[dict[str, Any]], active_msg_type: str
+    ) -> dict[str, Any]:
         """Constructs a partial message of the correct type. Subclasses must implement."""
         raise NotImplementedError(
             "Subclasses must implement _construct_partial_message"
         )
 
-    def _deduplicate_data_model(self, m: Dict[str, Any]) -> bool:
+    def _deduplicate_data_model(self, m: dict[str, Any]) -> bool:
         """Returns True if message should be yielded, False if skipped."""
         return True
 
+    def _get_s2c_validator(self) -> Any:
+        if not hasattr(self, "_s2c_validator_cached"):
+            if not self._catalog.s2c_schema:
+                self._s2c_validator_cached = None
+            else:
+                from jsonschema import Draft202012Validator
+                from referencing import Registry, Resource
+                import referencing.jsonschema
+
+                registry = Registry()
+                ver = f"v{self._version.removeprefix('v')}"
+                if self._catalog.common_types_schema:
+                    res_ct = Resource.from_contents(
+                        self._catalog.common_types_schema,
+                        default_specification=referencing.jsonschema.DRAFT202012,
+                    )
+                    registry = (
+                        registry.with_resource("common_types.json", res_ct)
+                        .with_resource(
+                            f"https://a2ui.org/specification/{ver}/common_types.json",
+                            res_ct,
+                        )
+                        .with_resource(
+                            "https://a2ui.org/specification/v0_9/common_types.json",
+                            res_ct,
+                        )
+                        .with_resource(
+                            "https://a2ui.org/specification/v0_8/common_types.json",
+                            res_ct,
+                        )
+                    )
+                if self._catalog.catalog_schema:
+                    import copy
+
+                    cat_schema_to_register = copy.deepcopy(
+                        dict(self._catalog.catalog_schema)
+                    )
+                    if "components" in cat_schema_to_register:
+                        defs = cat_schema_to_register.setdefault("$defs", {})
+                        if "anyComponent" not in defs:
+                            defs["anyComponent"] = {
+                                "oneOf": [
+                                    {"$ref": f"#/components/{comp_name}"}
+                                    for comp_name in cat_schema_to_register[
+                                        "components"
+                                    ]
+                                ]
+                            }
+                    res_cat = Resource.from_contents(
+                        cat_schema_to_register,
+                        default_specification=referencing.jsonschema.DRAFT202012,
+                    )
+                    registry = (
+                        registry.with_resource("catalog.json", res_cat)
+                        .with_resource(
+                            f"https://a2ui.org/specification/{ver}/catalog.json",
+                            res_cat,
+                        )
+                        .with_resource(
+                            "https://a2ui.org/specification/v0_9/catalog.json", res_cat
+                        )
+                        .with_resource(
+                            "https://a2ui.org/specification/v0_8/catalog.json", res_cat
+                        )
+                    )
+                self._s2c_validator_cached = Draft202012Validator(
+                    self._catalog.s2c_schema, registry=registry
+                )
+        return self._s2c_validator_cached
+
     def _yield_messages(
         self,
-        messages_to_yield: List[Dict[str, Any]],
-        messages: List[ResponsePart],
+        messages_to_yield: list[dict[str, Any]],
+        messages: list[ResponsePart],
         config: ValidationConfig = STRICT_VALIDATION,
     ) -> None:
         """Validates and appends messages to the final output list."""
@@ -226,18 +322,22 @@ class DirectJsonStreamParser:
             if not self._deduplicate_data_model(m):
                 continue
 
-            # Each surface update message must specify a surfaceId and satisfy catalog validation.
             if self._validator:
-                try:
-                    self._validator.validate(m, root_id=self.root_id, config=config)
-                except ValueError as e:
-                    if config == STRICT_VALIDATION:
-                        raise e
-                    else:
-                        logger.debug(
-                            f"Validation failed for partial/sniffed message: {e}"
-                        )
-                        continue
+                if not self.is_protocol_msg(m):
+                    raise A2uiValidationError(
+                        f"Validation failed: Invalid message payload {m}"
+                    )
+                if config == STRICT_VALIDATION:
+                    v = self._get_s2c_validator()
+                    if v:
+                        from jsonschema.exceptions import best_match
+
+                        errors = list(v.iter_errors(m))
+                        if errors:
+                            err = best_match(errors) or errors[0]
+                            raise A2uiValidationError(
+                                f"Validation failed: {err.message}"
+                            )
 
             # Consolidated appending logic
             if messages and messages[-1].a2ui_json is None:
@@ -251,6 +351,7 @@ class DirectJsonStreamParser:
         """Clears all state related to a specific surface."""
         self._pending_messages.pop(sid, None)
         self._yielded_ids.pop(sid, None)
+        self._components_by_surface.pop(sid, None)
 
         # Clear contents for this surface
         self._yielded_contents = {
@@ -261,7 +362,7 @@ class DirectJsonStreamParser:
 
         self._deleted_surfaces.add(sid)
 
-    def process_chunk(self, chunk: str) -> List[ResponsePart]:
+    def process_chunk(self, chunk: str) -> list[ResponsePart]:
         """Processes a chunk of text and returns any complete A2UI messages found.
 
         This is the primary entry point for the streaming parser. It handles the
@@ -457,7 +558,7 @@ class DirectJsonStreamParser:
 
         return fixed
 
-    def _process_json_chunk(self, chunk: str, messages: List[ResponsePart]) -> None:
+    def _process_json_chunk(self, chunk: str, messages: list[ResponsePart]) -> None:
         for char in chunk:
             char_handled = False
             if self._brace_count == 0:
@@ -522,7 +623,7 @@ class DirectJsonStreamParser:
                             obj_buffer = self._json_buffer[start_idx:]
                             if obj_buffer.startswith("{") and obj_buffer.endswith("}"):
                                 try:
-                                    obj = json.loads(obj_buffer)
+                                    obj = json.loads(obj_buffer, strict=False)
                                     if isinstance(obj, dict):
                                         self._found_valid_json_in_block = True
                                         logger.debug(
@@ -615,12 +716,12 @@ class DirectJsonStreamParser:
             self._topology_dirty = False
 
     def _construct_sniffed_data_model_message(
-        self, active_msg_type: str, delta_msg_payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, active_msg_type: str, delta_msg_payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """Returns the message to yield for a partial data model update."""
         return {active_msg_type: delta_msg_payload}
 
-    def _sniff_partial_data_model(self, messages: List[ResponsePart]) -> None:
+    def _sniff_partial_data_model(self, messages: list[ResponsePart]) -> None:
         msg_type = self._data_model_msg_type
         if f'"{msg_type}"' not in self._json_buffer:
             return
@@ -635,7 +736,7 @@ class DirectJsonStreamParser:
             fixed_fragment = self._fix_json(raw_fragment)
             obj = None
             try:
-                obj = json.loads(fixed_fragment)
+                obj = json.loads(fixed_fragment, strict=False)
             except json.JSONDecodeError:
                 # Fallback: iteratively strip from the last comma
                 # This handles cases where _fix_json produces invalid JSON
@@ -646,7 +747,7 @@ class DirectJsonStreamParser:
                     try:
                         fixed_trimmed = self._fix_json(trimmed)
                         if fixed_trimmed:
-                            obj = json.loads(fixed_trimmed)
+                            obj = json.loads(fixed_trimmed, strict=False)
                             break
                     except json.JSONDecodeError:
                         continue
@@ -677,11 +778,9 @@ class DirectJsonStreamParser:
                                     or "default"
                                 )
                                 # Deduplicate delta_contents by only keeping the LATEST entry for each dirty key
-                                delta_contents: Union[
-                                    List[Dict[str, Any]], Dict[str, Any]
-                                ]
+                                delta_contents: list[dict[str, Any]] | dict[str, Any]
                                 if isinstance(raw_contents, list):
-                                    list_contents: List[Dict[str, Any]] = []
+                                    list_contents: list[dict[str, Any]] = []
                                     seen_keys = set()
                                     for entry in reversed(raw_contents):
                                         if not isinstance(entry, dict):
@@ -721,7 +820,7 @@ class DirectJsonStreamParser:
                                 # Update internal model for path resolution
                                 self.update_data_model(dm_obj, messages)
 
-    def _sniff_partial_component(self, messages: List[ResponsePart]) -> None:
+    def _sniff_partial_component(self, messages: list[ResponsePart]) -> None:
         """Attempts to parse a partial component from the current buffer."""
         # We only care about components if we are inside a "components" array
         if f'"{CATALOG_COMPONENTS_KEY}"' not in self._json_buffer:
@@ -788,7 +887,7 @@ class DirectJsonStreamParser:
         return pruned
 
     def _handle_partial_component(
-        self, comp: Dict[str, Any], messages: List[ResponsePart]
+        self, comp: dict[str, Any], messages: list[ResponsePart]
     ) -> None:
         """Handles a component discovered before its parent message is finished.
 
@@ -816,21 +915,26 @@ class DirectJsonStreamParser:
                 return any(_has_empty_dict(v) for v in obj)
             return False
 
-        component_def = comp.get("component")
-        if isinstance(component_def, str):
-            # v0.9 flat style: check the whole component object for empty dicts
+        comp_type = comp.get("component")
+        if isinstance(comp_type, str):
+            # v0.9/v1.0 flat style: check the whole component object for empty dicts
             if _has_empty_dict(comp):
                 return
-        elif _has_empty_dict(component_def):
+            required_fields = self._schema_helper.get_component_required(comp_type)
+            for req in required_fields:
+                if req not in comp:
+                    return
+        elif isinstance(comp_type, dict):
             # v0.8 nested style: check properties inside component
-            return
-
-        if isinstance(component_def, dict) and hasattr(self, "_required_fields_map"):
-            comp_type = next(iter(component_def.keys())) if component_def else None
-            if comp_type:
-                props = component_def.get(comp_type, {})
+            if _has_empty_dict(comp_type):
+                return
+            type_name = next(iter(comp_type.keys())) if comp_type else None
+            if type_name:
+                props = comp_type.get(type_name, {})
                 if isinstance(props, dict):
-                    required_fields = self._required_fields_map.get(comp_type, set())
+                    required_fields = self._schema_helper.get_component_required(
+                        type_name
+                    )
                     for req in required_fields:
                         if req not in props:
                             return
@@ -838,7 +942,7 @@ class DirectJsonStreamParser:
         self._seen_components[comp_id] = comp
         self._topology_dirty = True
 
-    def _parse_contents_to_dict(self, raw_contents: Any) -> Dict[str, Any]:
+    def _parse_contents_to_dict(self, raw_contents: Any) -> dict[str, Any]:
         """Recursively parses a list of A2UI contents into a flat dictionary."""
         if isinstance(raw_contents, dict):
             return raw_contents
@@ -864,7 +968,7 @@ class DirectJsonStreamParser:
         return res
 
     def update_data_model(
-        self, update: Dict[str, Any], messages: List[ResponsePart]
+        self, update: dict[str, Any], messages: list[ResponsePart]
     ) -> None:
         """Updates the internal data model and marks affected components as dirty."""
         # Hook method to be overridden by subclasses to handle completed data model updates.
@@ -872,16 +976,16 @@ class DirectJsonStreamParser:
 
     def _handle_complete_object(
         self,
-        obj: Dict[str, Any],
-        sid: Optional[str],
-        messages: List[ResponsePart],
+        obj: dict[str, Any],
+        sid: str | None,
+        messages: list[ResponsePart],
     ) -> bool:
         """Handles an object that has been fully parsed. To be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement _handle_complete_object")
 
     def yield_reachable(
         self,
-        messages: List[ResponsePart],
+        messages: list[ResponsePart],
         check_root: bool = False,
         raise_on_orphans: bool = False,
     ) -> None:
@@ -909,34 +1013,107 @@ class DirectJsonStreamParser:
             return
 
         try:
-            # Analyze topology of current seen components
-            components_to_analyze = list(self._seen_components.values())
+            # Construct ComponentModels for topology analysis
+            from a2ui.core.state.component_model import ComponentModel
 
-            if check_root and self.root_id not in self._seen_components:
-                raise A2uiIntegrityError(
-                    f"No root component (id='{self.root_id}') found in"
-                    f" {active_msg_type}"
+            comp_models: dict[str, ComponentModel] = {}
+            for cid, cdef in self._seen_components.items():
+                c_component = cdef.get("component")
+                if isinstance(c_component, str):
+                    c_type = c_component
+                    props = {
+                        k: v
+                        for k, v in cdef.items()
+                        if k not in ("id", "component", "catalogId")
+                    }
+                elif isinstance(c_component, dict):
+                    c_type = next(iter(c_component.keys())) if c_component else ""
+                    props = c_component.get(c_type, {}) if c_type else {}
+                else:
+                    c_type = ""
+                    props = {}
+                comp_models[cid] = ComponentModel(
+                    cid,
+                    c_type,
+                    getattr(self._catalog, "core_catalog", None),
+                    props,
                 )
 
-            reachable_ids = analyze_topology(
-                components_to_analyze,
-                self._ref_fields_map,
-                root_id=self.root_id,
+            root = self.root_id or "root"
+            if check_root and root not in self._seen_components:
+                raise A2uiIntegrityError(
+                    f"No root component (id='{root}') found in {active_msg_type}"
+                )
+
+            topology_config = ValidationConfig(
                 allow_orphan_components=not raise_on_orphans,
+                allow_missing_root=False,
+                allow_dangling_references=True,
+            )
+            reachable_ids = analyze_topology(
+                comp_models,
+                root_id=root,
+                config=topology_config,
             )
 
-            # We only yield components we actually have in our "seen" cache
             available_reachable = reachable_ids & set(self._seen_components.keys())
 
-            if check_root and not available_reachable:
-                raise A2uiIntegrityError(
-                    f"No root component (id='{self.root_id}') found in"
-                    f" {active_msg_type}"
-                )
+            if not self._can_use_placeholders():
+
+                def _is_complete_subtree(node_id: str, path_seen: set[str]) -> bool:
+                    if node_id not in self._seen_components or node_id in path_seen:
+                        return False
+                    comp_m = comp_models.get(node_id)
+                    if not comp_m:
+                        return False
+                    path_seen.add(node_id)
+                    child_refs = [
+                        ref_id
+                        for ref_id, _ in comp_m.get_child_references(
+                            known_component_ids=set(self._seen_components.keys())
+                        )
+                    ]
+                    for child_id in child_refs:
+                        if not _is_complete_subtree(child_id, set(path_seen)):
+                            return False
+                    return True
+
+                complete_nodes: set[str] = set()
+                if root in self._seen_components and _is_complete_subtree(root, set()):
+
+                    def _collect_tree(node_id: str, collected: set[str]) -> None:
+                        if node_id in collected:
+                            return
+                        collected.add(node_id)
+                        comp_m = comp_models.get(node_id)
+                        if comp_m:
+                            for child_id, _ in comp_m.get_child_references(
+                                known_component_ids=set(self._seen_components.keys())
+                            ):
+                                _collect_tree(child_id, collected)
+
+                    _collect_tree(root, complete_nodes)
+                available_reachable = complete_nodes
+
+            if check_root and self._validator:
+                all_errors = []
+                for cid in available_reachable:
+                    comp_m = comp_models.get(cid)
+                    if comp_m:
+                        try:
+                            comp_m.validate(config=STRICT_VALIDATION)
+                        except A2uiValidationError as e:
+                            all_errors.extend(e.details)
+                if all_errors:
+                    raise A2uiValidationError(
+                        "Validation failed:"
+                        f" {[detail.message for detail in all_errors]}",
+                        details=all_errors,
+                    )
 
             # 1. Process placeholders and partial children
-            processed_components: List[Dict[str, Any]] = []
-            extra_components: List[Dict[str, Any]] = []
+            processed_components: list[dict[str, Any]] = []
+            extra_components: list[dict[str, Any]] = []
             surface_id = self.surface_id or "unknown"
             yielded_for_surface = self._yielded_ids.get(surface_id, set())
 
@@ -1017,8 +1194,8 @@ class DirectJsonStreamParser:
 
     def _process_component_topology(
         self,
-        comp: Dict[str, Any],
-        extra_components: List[Dict[str, Any]],
+        comp: dict[str, Any],
+        extra_components: list[dict[str, Any]],
     ) -> None:
         """Recursively processes path placeholders and child pruning in one pass."""
         comp_id = comp.get("id", "unknown")
@@ -1035,9 +1212,9 @@ class DirectJsonStreamParser:
     def _traverse_component_topology(
         self,
         obj: Any,
-        extra_components: List[Dict[str, Any]],
+        extra_components: list[dict[str, Any]],
         comp_id: str,
-        parent_key: Optional[str] = None,
+        parent_key: str | None = None,
     ) -> None:
         """Internal recursive helper to traverse and process component properties."""
         if isinstance(obj, dict):
@@ -1063,21 +1240,17 @@ class DirectJsonStreamParser:
                         obj["path"] = "/" + str(current_path)
 
             # 2. Handle Child Pruning (from _prune_unseen_children)
-            for field in (
-                "children",
-                "explicitList",
-                "child",
-                "contentChild",
-                "entryPointChild",
-                "componentId",
-            ):
+            child_fields = self._get_child_fields_for_obj(obj)
+            for field in child_fields:
                 if field in obj:
                     if isinstance(obj[field], list):
+                        if any(not isinstance(item, str) for item in obj[field]):
+                            continue
                         valid_children = []
                         for child_id in obj[field]:
                             if child_id in self._seen_components:
                                 valid_children.append(child_id)
-                            else:
+                            elif self._can_use_placeholders():
                                 # Individual placeholder for missing child
                                 placeholder_id = self._get_placeholder_id(child_id)
                                 valid_children.append(placeholder_id)
@@ -1092,14 +1265,14 @@ class DirectJsonStreamParser:
                                 ):
                                     extra_components.append(placeholder_comp)
 
-                        if not valid_children and field in (
-                            "children",
-                            "explicitList",
-                        ):
+                        if not valid_children:
                             # If list is empty, check if it was partial in the buffer
                             # (meaning it's a sequence that started but hasn't yielded items yet)
                             term = f'"{field}"'
-                            if term in self._json_buffer:
+                            if (
+                                term in self._json_buffer
+                                and self._can_use_placeholders()
+                            ):
                                 # Simple check: is there a [ after the field name in the buffer?
                                 after_field = self._json_buffer.split(term)[-1]
                                 if (
@@ -1117,10 +1290,14 @@ class DirectJsonStreamParser:
                                         for ec in extra_components
                                     ):
                                         extra_components.append(placeholder_comp)
-                        obj[field] = valid_children
+                        if self._can_use_placeholders() or valid_children:
+                            obj[field] = valid_children
                     elif isinstance(obj[field], str):
                         child_id = obj[field]
-                        if child_id not in self._seen_components:
+                        if (
+                            child_id not in self._seen_components
+                            and self._can_use_placeholders()
+                        ):
                             placeholder_id = self._get_placeholder_id(child_id)
                             obj[field] = placeholder_id
                             placeholder_comp = {
@@ -1142,3 +1319,33 @@ class DirectJsonStreamParser:
                 self._traverse_component_topology(
                     item, extra_components, comp_id, parent_key
                 )
+
+    def _get_child_fields_for_obj(self, obj: dict[str, Any]) -> set[str]:
+        """Discovers child reference property names for a component.
+
+        Consults the catalog reference map if available, falling back to
+        inspecting candidate non-scalar object properties.
+
+        Args:
+            obj: Component dictionary to inspect.
+
+        Returns:
+            Set of property names containing child component references or slots.
+        """
+        child_fields: set[str] = set()
+        comp_type = obj.get("component")
+        core_cat = getattr(self._catalog, "core_catalog", self._catalog)
+        if core_cat and comp_type and hasattr(core_cat, "reference_map"):
+            if comp_type in core_cat.reference_map:
+                ref_spec = core_cat.reference_map[comp_type]
+                child_fields.update(ref_spec.single_child_props)
+                child_fields.update(ref_spec.list_child_props)
+                child_fields.update(ref_spec.nested_child_slots.keys())
+                return child_fields
+
+        from a2ui.core.state.component_model import is_v0_8_heuristic_child_prop_key
+
+        for k, v in obj.items():
+            if is_v0_8_heuristic_child_prop_key(k, v):
+                child_fields.add(k)
+        return child_fields

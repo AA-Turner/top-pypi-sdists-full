@@ -32,6 +32,15 @@ VALID_MODEL_TRAINING_METRICS = {
     "recall",
     "rmse",
     "f1",
+    # Reinforcement learning
+    "reward",
+    "reward_std",
+    "pass_rate",
+    "kl",
+    "entropy",
+    "grad_norm",
+    "learning_rate",
+    "response_length",
 }
 
 

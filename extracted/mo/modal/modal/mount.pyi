@@ -51,7 +51,7 @@ class _MountFile(_MountEntry):
         ...
 
 class _MountDir(_MountEntry):
-    """_MountDir(local_dir: pathlib.Path, remote_path: pathlib.PurePosixPath, ignore: collections.abc.Callable[[pathlib.Path], bool] | modal.file_pattern_matcher._AbstractPatternMatcher, recursive: bool)"""
+    """_MountDir(local_dir: pathlib.Path, remote_path: pathlib.PurePosixPath, ignore: collections.abc.Callable[[pathlib.Path], bool] | modal.file_pattern_matcher._AbstractPatternMatcher, recursive: bool, filter_external_links: bool = False)"""
 
     local_dir: pathlib.Path
     remote_path: pathlib.PurePosixPath
@@ -59,6 +59,7 @@ class _MountDir(_MountEntry):
         collections.abc.Callable[[pathlib.Path], bool], modal.file_pattern_matcher._AbstractPatternMatcher
     ]
     recursive: bool
+    filter_external_links: bool
 
     def description(self): ...
     def _walk_and_prune(self, top_dir: pathlib.Path) -> collections.abc.Generator[str, None, None]:
@@ -80,6 +81,7 @@ class _MountDir(_MountEntry):
             collections.abc.Callable[[pathlib.Path], bool], modal.file_pattern_matcher._AbstractPatternMatcher
         ],
         recursive: bool,
+        filter_external_links: bool = False,
     ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
@@ -176,6 +178,7 @@ class _Mount(modal._object._Object):
         local_path: pathlib.Path,
         remote_path: pathlib.PurePosixPath,
         ignore: collections.abc.Callable[[pathlib.Path], bool] = modal.file_pattern_matcher._NOTHING,
+        filter_external_links: bool = False,
     ): ...
     def add_local_dir(
         self,
@@ -302,6 +305,7 @@ class Mount(modal.object.Object):
         local_path: pathlib.Path,
         remote_path: pathlib.PurePosixPath,
         ignore: collections.abc.Callable[[pathlib.Path], bool] = modal.file_pattern_matcher._NOTHING,
+        filter_external_links: bool = False,
     ): ...
     def add_local_dir(
         self,

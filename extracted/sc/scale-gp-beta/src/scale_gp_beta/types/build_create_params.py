@@ -10,12 +10,6 @@ __all__ = ["BuildCreateParams"]
 
 
 class BuildCreateParams(TypedDict, total=False):
-    context_archive: Required[FileTypes]
-    """
-    tar.gz archive containing the build context (Dockerfile and any files needed for
-    the build)
-    """
-
     image_name: Required[str]
     """Name for the built image"""
 
@@ -28,8 +22,17 @@ class BuildCreateParams(TypedDict, total=False):
     build_args: str
     """JSON string of build arguments"""
 
+    context_archive: FileTypes
+    """
+    tar.gz archive containing the build context (Dockerfile and any files needed for
+    the build)
+    """
+
     image_tag: str
     """Tag for the built image"""
+
+    image_url: str
+    """Existing tagged image to register instead of running a build"""
 
     platform: Literal["linux/amd64", "linux/arm64", "linux/arm/v7"]
     """Target platform for the Docker build.

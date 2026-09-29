@@ -304,7 +304,9 @@ async def _resolve_mcp_bundle_members(server_slug: str) -> list[tuple[str, str]]
     if not servers:
         return []
     server_id = str(servers[0].id)
-    rows = await definition_model.filter(managed_by_server_id=server_id, is_active=True).all()
+    rows = await definition_model.filter(
+        managed_by_server_id=server_id, is_active=True, deleted_at__isnull=True
+    ).all()
     names = sorted(str(row.name) for row in rows)
     if not names:
         return []

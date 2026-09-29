@@ -30,16 +30,19 @@ def test_non_object_root_rejected_for_all_providers() -> None:
     assert r.portable_schema is None
 
 
-def test_loose_object_flags_openai_and_anthropic() -> None:
+def test_loose_object_is_the_authors_schema_and_is_not_refused() -> None:
+    """An open object with an optional field is an AUTHORED schema, not an error:
+    every translator's first step (``make_portable``) closes it and widens the
+    optional field on the wire, and the answer is pruned back to it. Refusing it
+    forced authors to store the portable copy (SCHEMA-TRANSLATION.md §13). The
+    findings still say what the strict providers will receive."""
     schema = {"type": "object", "properties": {"a": {"type": "string"}, "b": {"type": "integer"}}}
     r = lint_output_schema(schema)
-    assert r.ok is False
-    providers = {f.provider for f in r.errors}
-    assert "openai" in providers
-    assert "anthropic" in providers
-    # additionalProperties:false missing + required missing both flagged.
-    assert any("additionalProperties" in f.message for f in r.errors)
-    assert any("required" in f.message for f in r.errors)
+    assert r.ok is True
+    assert not r.errors
+    assert any("additionalProperties" in f.message for f in r.findings)
+    assert any("Optional fields" in f.message for f in r.findings)
+    assert r.portable_schema is not None
 
 
 def test_portable_schema_is_clean_and_round_trips() -> None:
@@ -62,10 +65,30 @@ def test_portable_enforces_nested_objects() -> None:
         },
     }
     portable = lint_output_schema(schema).portable_schema
-    assert portable["properties"]["inner"]["additionalProperties"] is False
-    assert portable["properties"]["inner"]["required"] == ["z"]
-    assert portable["properties"]["list"]["items"]["additionalProperties"] is False
-    assert portable["properties"]["list"]["items"]["required"] == ["q"]
+
+    def shape_of(node: dict) -> dict:
+        """The real shape inside the nullable wrapper an OPTIONAL property carries.
+
+        The portable contract lists every property in `required` (every provider
+        demands that) and expresses the ones the author left optional as
+        `anyOf: [X, {"type": "null"}]`, so `null` can carry "absent" instead of the
+        model having to invent a value. The `anyOf` spelling rather than
+        `{"type": ["X","null"]}` is measured, not stylistic — every provider
+        refuses the type-array form in some combination (see
+        `rules.widen_to_nullable`). What this check is about is the nested
+        enforcement reaching inside, which it must.
+        """
+        branches = node.get("anyOf")
+        if isinstance(branches, list):
+            return next(b for b in branches if b.get("type") != "null")
+        return node
+
+    inner = shape_of(portable["properties"]["inner"])
+    assert inner["additionalProperties"] is False
+    assert inner["required"] == ["z"]
+    items = shape_of(portable["properties"]["list"])["items"]
+    assert items["additionalProperties"] is False
+    assert items["required"] == ["q"]
 
 
 def test_clean_schema_passes() -> None:

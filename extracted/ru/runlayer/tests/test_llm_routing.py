@@ -310,6 +310,60 @@ def test_current_key_refuses_symlink(
         llm_routing.current_key(scope=scope)
 
 
+@pytest.mark.skipif(os.name != "posix", reason="requires POSIX symlinks")
+def test_credential_refuses_in_home_symlink_under_mdm_anchor(
+    tmp_path: Path,
+    routing_paths: dict[str, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The credential is Runlayer-owned: an in-home link is refused, not
+    followed, even though third-party configs follow such links."""
+    home = tmp_path / "home"
+    path = routing_paths["credential"]
+    target = home / "dotfiles" / "llm-routing-credential"
+    target.parent.mkdir(parents=True)
+    target.write_text("rlk_abc\n")
+    path.parent.mkdir(parents=True)
+    path.symlink_to(target)
+    monkeypatch.setattr(
+        llm_routing, "_credential_target", lambda _scope: {"path": path, "home": home}
+    )
+
+    with pytest.raises(OSError):
+        llm_routing.current_key(scope=InstallScope.MDM)
+    with pytest.raises(OSError):
+        llm_routing.store_credential("rlk_new", scope=InstallScope.MDM)
+    assert target.read_text() == "rlk_abc\n"
+
+
+def test_credential_refuses_linked_runlayer_dir_under_mdm_anchor(
+    tmp_path: Path,
+    routing_paths: dict[str, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A linked ``~/.runlayer/aiwatch`` (dotfiles) must not receive the 0600
+    credential: in-home directory links are followed for client configs, never
+    under Runlayer's own tree."""
+    home = tmp_path / "home"
+    path = routing_paths["credential"]
+    target_dir = home / "dotfiles" / "aiwatch"
+    target_dir.mkdir(parents=True)
+    path.parent.parent.mkdir(parents=True)
+    path.parent.symlink_to(target_dir, target_is_directory=True)
+    monkeypatch.setattr(
+        llm_routing, "_credential_target", lambda _scope: {"path": path, "home": home}
+    )
+
+    with pytest.raises(OSError):
+        llm_routing.store_credential("rlk_new", scope=InstallScope.MDM)
+    assert list(target_dir.iterdir()) == []
+    assert path.parent.is_symlink()
+
+    (target_dir / path.name).write_text("rlk_abc\n")
+    with pytest.raises(OSError):
+        llm_routing.current_key(scope=InstallScope.MDM)
+
+
 @pytest.mark.parametrize(
     "content",
     [
@@ -688,8 +742,8 @@ def test_route_ignores_user_scope_mode_on_windows(
 ) -> None:
     real_read = llm_routing.maybe_safe_read_file
 
-    def windows_read(path: Path, *, home: Path | None, max_bytes: int | None = None):
-        existing = real_read(path, home=home, max_bytes=max_bytes)
+    def windows_read(path: Path, *, home: Path | None, **kwargs):
+        existing = real_read(path, home=home, **kwargs)
         if existing is not None:
             existing["mode"] = 0o666
         return existing
@@ -1092,7 +1146,9 @@ def test_windows_mdm_codex_route_shares_config_toml_with_hooks_feature(
             "args": [],
         },
     )
-    monkeypatch.setattr(llm_routing, "_reown_to_console_user", lambda _path: None)
+    monkeypatch.setattr(
+        llm_routing, "_reown_to_console_user", lambda _path, **_kw: None
+    )
     monkeypatch.setattr(
         llm_routing,
         "is_unsafe_windows_mdm_path",

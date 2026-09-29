@@ -1,3 +1,4 @@
+import base64
 import json
 import llm
 import llm_anthropic
@@ -550,9 +551,7 @@ def test_haiku_4_5_uses_structured_outputs():
     assert model.use_structured_outputs
     async_model = llm.get_async_model("claude-haiku-4.5")
     assert async_model.use_structured_outputs
-    prompt = llm.Prompt(
-        "Hi", model, options=model.Options(), schema={"type": "object"}
-    )
+    prompt = llm.Prompt("Hi", model, options=model.Options(), schema={"type": "object"})
     kwargs = model.build_kwargs(prompt, None)
     assert kwargs["output_config"]["format"]["type"] == "json_schema"
     assert "tool_choice" not in kwargs
@@ -801,6 +800,26 @@ def test_build_messages_skips_system_role():
     msgs = _build_messages_for({"messages": [system("be nice"), user("hi")]})
     # System does not appear in the messages list; it goes to kwargs["system"].
     assert msgs == [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
+
+
+def test_build_messages_skips_empty_assistant_turn():
+    # https://github.com/simonw/llm-anthropic/issues/37
+    # A refusal leaves an empty assistant turn in the conversation. Sending
+    # it as an empty text block makes every follow-up prompt fail with a 400.
+    from llm import assistant, user
+
+    msgs = _build_messages_for(
+        {"messages": [user("first"), assistant(""), user("second")]}
+    )
+    assert msgs == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "first"},
+                {"type": "text", "text": "second"},
+            ],
+        }
+    ]
 
 
 def test_build_messages_merges_tool_then_user():
@@ -1804,14 +1823,22 @@ FULL_USAGE = {
         (
             FULL_USAGE,
             True,
-            {k: v for k, v in FULL_USAGE.items() if k not in ("input_tokens", "output_tokens")},
+            {
+                k: v
+                for k, v in FULL_USAGE.items()
+                if k not in ("input_tokens", "output_tokens")
+            },
         ),
         # Server-side tool use: keep the whole usage dict
         (
             {**FULL_USAGE, "server_tool_use": {"web_search_requests": 2}},
             False,
             {
-                **{k: v for k, v in FULL_USAGE.items() if k not in ("input_tokens", "output_tokens")},
+                **{
+                    k: v
+                    for k, v in FULL_USAGE.items()
+                    if k not in ("input_tokens", "output_tokens")
+                },
                 "server_tool_use": {"web_search_requests": 2},
             },
         ),
@@ -2326,3 +2353,481 @@ def test_build_messages_plain_reasoning_not_invented_as_redacted():
         }
     )
     assert msgs[1]["content"] == [{"type": "thinking", "thinking": "thoughts"}]
+
+
+def test_anthropic_models_command(monkeypatch):
+    from click.testing import CliRunner
+    from llm.cli import cli
+
+    pages = [
+        {
+            "data": [
+                {
+                    "type": "model",
+                    "id": "claude-opus-5-5",
+                    "display_name": "Claude Opus 5.5",
+                    "created_at": "2026-09-21T16:24:00Z",
+                }
+            ],
+            "has_more": True,
+            "first_id": "claude-opus-5-5",
+            "last_id": "claude-opus-5-5",
+        },
+        {
+            "data": [
+                {
+                    "type": "model",
+                    "id": "claude-haiku-4-5-20251001",
+                    "display_name": "Claude Haiku 4.5",
+                    "created_at": "2025-10-15T00:00:00Z",
+                }
+            ],
+            "has_more": False,
+            "first_id": "claude-haiku-4-5-20251001",
+            "last_id": "claude-haiku-4-5-20251001",
+        },
+    ]
+    calls = []
+
+    class FakeAnthropic:
+        def __init__(self, api_key):
+            assert api_key == "sk-test"
+            self.models = self
+            self.with_raw_response = self
+
+        def list(self, **kwargs):
+            calls.append(kwargs)
+            self.http_response = self
+            return self
+
+        def json(self):
+            return pages[len(calls) - 1]
+
+    monkeypatch.setattr(llm_anthropic, "Anthropic", FakeAnthropic)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["anthropic", "models", "--key", "sk-test"])
+    assert result.exit_code == 0, result.output
+    assert result.output == (
+        "claude-opus-5-5: Claude Opus 5.5 (created 2026-09-21)\n"
+        "claude-haiku-4-5-20251001: Claude Haiku 4.5 (created 2025-10-15)\n"
+    )
+    assert calls == [{"limit": 1000}, {"limit": 1000, "after_id": "claude-opus-5-5"}]
+    calls.clear()
+    result = runner.invoke(cli, ["anthropic", "models", "--key", "sk-test", "--json"])
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert [m["id"] for m in data["data"]] == [
+        "claude-opus-5-5",
+        "claude-haiku-4-5-20251001",
+    ]
+    assert data["has_more"] is False
+
+
+def _capability_details(adaptive=True, enabled=False, pdf=True, effort=True):
+    "capabilities in the shape returned by the /v1/models API"
+
+    def support(value):
+        return {"supported": value}
+
+    return {
+        "batch": support(True),
+        "citations": support(True),
+        "code_execution": support(True),
+        "context_management": {"supported": True},
+        "effort": {
+            "supported": effort,
+            "low": support(effort),
+            "medium": support(effort),
+            "high": support(effort),
+            "max": support(effort),
+        },
+        "image_input": support(True),
+        "pdf_input": support(pdf),
+        "structured_outputs": support(True),
+        "thinking": {
+            "supported": True,
+            "types": {"adaptive": support(adaptive), "enabled": support(enabled)},
+        },
+    }
+
+
+@pytest.fixture
+def user_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("LLM_USER_PATH", str(tmp_path))
+    return tmp_path
+
+
+def _anthropic_models():
+    return {
+        model_with_aliases.model.claude_model_id: model_with_aliases
+        for model_with_aliases in llm.get_models_with_aliases()
+        if isinstance(model_with_aliases.model, llm_anthropic.ClaudeMessages)
+    }
+
+
+def test_sdk_models_do_not_duplicate_builtin_models(user_path):
+    # The SDK lists both claude-haiku-4-5 and claude-haiku-4-5-20251001,
+    # claude-sonnet-4-5 and claude-sonnet-4-5-20250929 etc
+    builtin = {}
+
+    def register(model, async_model=None, aliases=None):
+        builtin[model.claude_model_id] = tuple(aliases or ())
+
+    llm_anthropic.register_builtin_models(register)
+    builtin_bases = {llm_anthropic._base_model_id(model_id) for model_id in builtin}
+    extra_bases = [
+        llm_anthropic._base_model_id(model_id)
+        for model_id, _, _ in llm_anthropic.extra_models(builtin)
+    ]
+    assert not builtin_bases.intersection(extra_bases)
+    assert len(extra_bases) == len(set(extra_bases))
+    aliases = [
+        alias
+        for model_with_aliases in _anthropic_models().values()
+        for alias in model_with_aliases.aliases
+    ]
+    assert len(aliases) == len(set(aliases))
+
+
+def test_models_from_sdk(user_path, monkeypatch):
+    monkeypatch.setattr(
+        llm_anthropic,
+        "sdk_model_ids",
+        lambda: ["claude-opus-6-1", "claude-haiku-4-5", "claude-opus-5-5"],
+    )
+    models = _anthropic_models()
+    # Same model as the built-in claude-haiku-4-5-20251001
+    assert "claude-haiku-4-5" not in models
+    new = models["claude-opus-6-1"]
+    assert new.model.model_id == "anthropic/claude-opus-6-1"
+    assert new.async_model.model_id == "anthropic/claude-opus-6-1"
+    assert new.aliases == ["claude-opus-6-1", "claude-opus-6.1"]
+    model = llm.get_model("claude-opus-6.1")
+    assert model.model_id == "anthropic/claude-opus-6-1"
+    # Treated like the newest built-in models, with a safe max_tokens
+    assert model.always_thinks
+    assert model.supports_system_messages
+    assert model.default_max_tokens == 64000
+    kwargs = model.build_kwargs(llm.Prompt("Hi", model, options=model.Options()), None)
+    assert kwargs["model"] == "claude-opus-6-1"
+    assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
+    assert kwargs["max_tokens"] == 64000
+    # Built-in models keep their built-in settings
+    assert models["claude-opus-5-5"].model.default_max_tokens == 128000
+
+
+def test_models_from_refresh_cache(user_path, monkeypatch):
+    monkeypatch.setattr(llm_anthropic, "sdk_model_ids", lambda: ["claude-opus-6"])
+    (user_path / "anthropic_models.json").write_text(
+        json.dumps(
+            {
+                "data": [
+                    {
+                        "type": "model",
+                        "id": "claude-opus-6",
+                        "display_name": "Claude Opus 6",
+                        "max_tokens": 256000,
+                        "capabilities": _capability_details(),
+                    },
+                    {
+                        "type": "model",
+                        "id": "claude-haiku-6-20270101",
+                        "display_name": "Claude Haiku 6",
+                        "max_tokens": 32000,
+                        "capabilities": _capability_details(
+                            adaptive=False, enabled=True, pdf=False, effort=False
+                        ),
+                    },
+                    {
+                        "type": "model",
+                        "id": "claude-sonnet-5-5",
+                        "max_tokens": 1000,
+                        "capabilities": _capability_details(pdf=False),
+                    },
+                ]
+            }
+        )
+    )
+    models = _anthropic_models()
+    opus = models["claude-opus-6"].model
+    assert opus.default_max_tokens == 256000
+    assert opus.thinks_by_default and opus.always_thinks
+    assert "thinking_effort" in opus.Options.model_fields
+
+    haiku_with_aliases = models["claude-haiku-6-20270101"]
+    assert haiku_with_aliases.aliases == ["claude-haiku-6-20270101"]
+    haiku = haiku_with_aliases.model
+    assert haiku.default_max_tokens == 32000
+    assert haiku.supports_thinking
+    assert not haiku.supports_adaptive_thinking
+    # Can't think by default without adaptive thinking
+    assert not haiku.thinks_by_default and not haiku.always_thinks
+    assert "thinking_effort" not in haiku.Options.model_fields
+    assert "application/pdf" not in haiku.attachment_types
+    kwargs = haiku.build_kwargs(llm.Prompt("Hi", haiku, options=haiku.Options()), None)
+    assert "thinking" not in kwargs
+
+    # Built-in models ignore the cache
+    sonnet = models["claude-sonnet-5-5"].model
+    assert sonnet.default_max_tokens == 128000
+    assert "application/pdf" in sonnet.attachment_types
+
+
+def test_invalid_refresh_cache_is_ignored(user_path, monkeypatch):
+    monkeypatch.setattr(llm_anthropic, "sdk_model_ids", lambda: [])
+    path = user_path / "anthropic_models.json"
+    for bad in ("not JSON", "[]", '{"data": [1, {"id": null}]}'):
+        path.write_text(bad)
+        assert llm_anthropic.cached_models() == []
+        assert "claude-opus-5-5" in _anthropic_models()
+
+
+def test_anthropic_refresh_command(user_path, monkeypatch):
+    from click.testing import CliRunner
+    from llm.cli import cli
+
+    monkeypatch.setattr(llm_anthropic, "sdk_model_ids", lambda: [])
+    models = [
+        {
+            "type": "model",
+            "id": "claude-opus-6",
+            "display_name": "Claude Opus 6",
+            "created_at": "2027-01-01T00:00:00Z",
+            "max_tokens": 256000,
+            "capabilities": _capability_details(),
+        },
+        {
+            "type": "model",
+            "id": "claude-opus-5-5",
+            "display_name": "Claude Opus 5.5",
+            "created_at": "2026-09-21T16:24:00Z",
+        },
+    ]
+
+    class FakeAnthropic:
+        def __init__(self, api_key):
+            assert api_key == "sk-test"
+            self.models = self
+            self.with_raw_response = self
+
+        def list(self, **kwargs):
+            self.http_response = self
+            return self
+
+        def json(self):
+            return {"data": list(models), "has_more": False}
+
+    monkeypatch.setattr(llm_anthropic, "Anthropic", FakeAnthropic)
+    path = user_path / "anthropic_models.json"
+    runner = CliRunner()
+    result = runner.invoke(cli, ["anthropic", "refresh", "--key", "sk-test"])
+    assert result.exit_code == 0, result.output
+    assert result.output == (
+        f"Saved 2 models to {path}\n" "Added models: claude-opus-6\n"
+    )
+    assert [m["id"] for m in json.loads(path.read_text())["data"]] == [
+        "claude-opus-6",
+        "claude-opus-5-5",
+    ]
+    assert llm.get_model("claude-opus-6").default_max_tokens == 256000
+
+    # Nothing changed
+    result = runner.invoke(cli, ["anthropic", "refresh", "--key", "sk-test"])
+    assert result.output == f"Saved 2 models to {path}\n"
+
+    # Model no longer available
+    models.pop(0)
+    result = runner.invoke(cli, ["anthropic", "refresh", "--key", "sk-test"])
+    assert result.output == (
+        f"Saved 1 model to {path}\n" "Removed models: claude-opus-6\n"
+    )
+    with pytest.raises(llm.UnknownModelError):
+        llm.get_model("claude-opus-6")
+
+
+def test_dotted_alias():
+    assert llm_anthropic._dotted_alias("claude-opus-5-6") == "claude-opus-5.6"
+    assert llm_anthropic._dotted_alias("claude-opus-4-1-20250805") == "claude-opus-4.1"
+    assert llm_anthropic._dotted_alias("claude-sonnet-4-20250514") is None
+    assert llm_anthropic._dotted_alias("claude-opus-6") is None
+    assert llm_anthropic._dotted_alias("claude-mythos-preview") is None
+
+
+@pytest.mark.vcr
+def test_count_tokens():
+    model = llm.get_model("claude-opus-5")
+    model.key = model.key or ANTHROPIC_API_KEY
+    assert model.count_tokens("Hello there") == snapshot(10)
+    assert model.count_tokens(
+        "Hello there", system="You are a pirate", thinking_effort="high"
+    ) == snapshot(17)
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_async_count_tokens():
+    model = llm.get_async_model("claude-opus-5")
+    model.key = model.key or ANTHROPIC_API_KEY
+    assert await model.count_tokens("Hello there", system="You are a pirate") == (
+        snapshot(17)
+    )
+
+
+def test_count_tokens_request_kwargs():
+    model = llm.get_model("claude-opus-4.8")
+    calls = []
+
+    class FakeMessages:
+        def __init__(self, name):
+            self.name = name
+
+        def count_tokens(self, **kwargs):
+            calls.append((self.name, kwargs))
+
+    class FakeClient:
+        messages = FakeMessages("messages")
+
+        class beta:
+            messages = FakeMessages("beta")
+
+    prompt = llm.Prompt(
+        "Hi",
+        model,
+        system="Be brief",
+        options=model.Options(
+            temperature=0.5, stop_sequences=["x"], user_id="u", max_tokens=100
+        ),
+    )
+    model._count_tokens(FakeClient, prompt, None)
+    name, kwargs = calls[-1]
+    assert name == "messages"
+    # Parameters count_tokens does not accept are dropped
+    assert kwargs == {
+        "model": "claude-opus-4-8",
+        "messages": [{"role": "user", "content": [{"type": "text", "text": "Hi"}]}],
+        "system": "Be brief",
+    }
+    # Betas route to client.beta.messages
+    prompt = llm.Prompt("Hi", model, options=model.Options(fast=True))
+    model._count_tokens(FakeClient, prompt, None)
+    name, kwargs = calls[-1]
+    assert name == "beta"
+    assert kwargs["speed"] == "fast"
+    assert kwargs["betas"] == ["fast-mode-2026-02-01"]
+
+
+def test_count_tokens_inlines_url_attachments(monkeypatch):
+    # The count_tokens endpoint rejects URL image sources, so URL
+    # attachments are downloaded and sent as base64 instead
+    model = llm.get_model("claude-opus-4.8")
+    calls = []
+
+    class FakeClient:
+        class messages:
+            @staticmethod
+            def count_tokens(**kwargs):
+                calls.append(kwargs)
+
+    fetched = []
+
+    def fake_content_bytes(self):
+        fetched.append(self.url)
+        return TINY_PNG
+
+    monkeypatch.setattr(llm.Attachment, "content_bytes", fake_content_bytes)
+    url = "https://example.com/pelican.png"
+    prompt = llm.Prompt(
+        "Describe",
+        model,
+        attachments=[llm.Attachment(type="image/png", url=url)],
+        options=model.Options(),
+    )
+    model._count_tokens(FakeClient, prompt, None)
+    assert fetched == [url]
+    assert calls[-1]["messages"][0]["content"][1] == {
+        "type": "image",
+        "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data": base64.b64encode(TINY_PNG).decode("utf-8"),
+        },
+    }
+    # The request sent to messages.create still uses the URL
+    assert model.build_kwargs(prompt, None)["messages"][0]["content"][1] == {
+        "type": "image",
+        "source": {"type": "url", "url": url},
+    }
+
+
+def test_count_tokens_option_hidden():
+    model = llm.get_model("claude-opus-5")
+    assert "count_tokens" not in model.Options.model_json_schema()["properties"]
+
+
+@pytest.mark.vcr
+def test_anthropic_count_command(tmp_path, monkeypatch):
+    import sqlite_utils
+    from click.testing import CliRunner
+    from llm.cli import cli
+
+    monkeypatch.setenv("LLM_USER_PATH", str(tmp_path))
+    monkeypatch.setenv("ANTHROPIC_API_KEY", ANTHROPIC_API_KEY)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["anthropic", "count", "Hello there", "-m", "claude-opus-5"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot("10\n")
+    result = runner.invoke(
+        cli,
+        [
+            "anthropic",
+            "count",
+            "Hello there",
+            "-m",
+            "claude-opus-5",
+            "-s",
+            "You are a pirate",
+            "--schema",
+            "name, age int",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot("225\n")
+    # Using the hidden option directly with llm prompt errors instead of
+    # returning a response that would be logged
+    result = runner.invoke(
+        cli, ["-m", "claude-opus-5", "-o", "count_tokens", "1", "Hello there"]
+    )
+    assert result.exit_code == 1
+    assert "Token count: 10" in result.output
+    # Nothing should have been logged
+    db = sqlite_utils.Database(str(tmp_path / "logs.db"))
+    assert db["turns"].count == 0
+
+
+def test_anthropic_count_command_non_anthropic_model(tmp_path, monkeypatch):
+    from click.testing import CliRunner
+    from llm.cli import cli
+
+    monkeypatch.setenv("LLM_USER_PATH", str(tmp_path))
+    result = CliRunner().invoke(
+        cli, ["anthropic", "count", "Hello", "-m", "gpt-4o-mini"]
+    )
+    assert result.exit_code == 1
+    assert "Token counting only works with Anthropic models" in result.output
+
+
+def test_anthropic_count_command_unknown_model(tmp_path, monkeypatch):
+    from click.testing import CliRunner
+    from llm.cli import cli
+
+    monkeypatch.setenv("LLM_USER_PATH", str(tmp_path))
+    result = CliRunner().invoke(
+        cli, ["anthropic", "count", "hi", "-m", "claude-opus-3"]
+    )
+    assert result.exit_code == 1
+    assert result.output == "Error: 'Unknown model: claude-opus-3'\n"

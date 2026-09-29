@@ -70,6 +70,7 @@ What this function is NOT
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -115,6 +116,29 @@ CACHE_GATE_TTL_RATIO = 0.8
 # want to UNDER-estimate savings (which leans toward "not enough, skip") so
 # the gate is more cautious about breaking cache. Real ratios are ~3.5-4.
 CHARS_PER_TOKEN_ESTIMATE = 4.0
+
+# THE BUDGET ESTIMATE — "will this fit / how big is it", shown to a person or
+# checked against a model's window. The opposite direction from the savings
+# divisor above: here an UNDER-count is the dangerous error (it promises a fit
+# the provider then refuses), so the ratios are the MEASURED ones, set just
+# below the 2.98 chars/token a real 316,200-char research context was billed at
+# (105,969 input tokens, Context Builder Brand Profile run, 2026-07-25). The
+# measurement is recorded once, in matrx-frontend ``lib/tokens/estimate.ts``
+# (``CHARS_PER_TOKEN``); these values are its server twin and
+# ``aidream/services/conversation_context/tests/test_one_token_estimator.py``
+# fails when the two drift. Re-measure there; never restore a textbook 4.
+CHARS_PER_TOKEN_MEASURED: dict[str, float] = {
+    "prose": 2.9,  # ordinary prose with markup: articles, notes, documents
+    "structured": 2.4,  # JSON / structured payloads / URL and link lists
+}
+
+
+def estimate_budget_tokens(chars: int, shape: str = "prose") -> int:
+    """Estimated tokens for ``chars`` characters of ``shape`` content — the one
+    budget estimator, rounding up exactly like the client's ``estimateTokens``."""
+    if chars <= 0:
+        return 0
+    return math.ceil(chars / CHARS_PER_TOKEN_MEASURED[shape])
 
 
 @dataclass

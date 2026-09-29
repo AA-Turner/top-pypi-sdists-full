@@ -1,6 +1,7 @@
 # Copyright Modal Labs 2025
 import asyncio
 import base64
+import contextlib
 import io
 import json
 import socket
@@ -18,15 +19,23 @@ import grpclib.events
 from grpclib import GRPCError, Status
 from grpclib.exceptions import StreamTerminatedError
 
-from modal.config import logger
-from modal.exception import AuthError, ExecTimeoutError, InternalError, ServiceError, TimeoutError as ModalTimeoutError
+from modal.config import config, logger
+from modal.exception import (
+    AuthError,
+    ClientClosed,
+    ExecTimeoutError,
+    InternalError,
+    ServiceError,
+    TimeoutError as ModalTimeoutError,
+)
 from modal_proto import api_pb2, task_command_router_pb2 as sr_pb2
 from modal_proto.task_command_router_grpc import TaskCommandRouterStub
 
 from .._grpc_client import grpc_error_converter
-from .._utils.grpc_utils import ModalChannel, create_channel_config
+from .._utils.grpc_utils import ModalChannel, create_channel_config, listen_for_server_warnings
 from .async_utils import aclosing, retry
 from .grpc_utils import RETRYABLE_GRPC_STATUS_CODES
+from .idle_countdown import IdleCountdown
 
 STREAMING_STDIN_CHUNK_SIZE = 256 * 1024
 
@@ -80,6 +89,11 @@ def _parse_jwt_expiration(jwt_token: str) -> float | None:
     return None
 
 
+# Enough consecutive failures to distinguish a connection that keeps breaking from
+# an isolated blip, without leaving a stuck call silent for long.
+RETRY_WARNING_THRESHOLD = 3
+
+
 async def call_with_retries_on_transient_errors(
     func,
     *,
@@ -88,6 +102,9 @@ async def call_with_retries_on_transient_errors(
     max_retries: int | None = 10,
     exclude_status_codes: list[Status] | None = None,
     timeout_deadline: float | None = None,
+    rpc_name: str = "RPC",
+    exec_id: str | None = None,
+    warning_message: str | None = None,
 ):
     """Call func() with transient error retries and exponential backoff.
 
@@ -104,10 +121,18 @@ async def call_with_retries_on_transient_errors(
             exception (e.g., into a TimeoutError) based on the deadline check.
             The caller is also responsible for propagating the remaining budget
             into `func()` (typically as the per-call gRPC timeout).
+        rpc_name: RPC name to include in retry diagnostics.
+        exec_id: Execution ID to include in retry diagnostics, for correlating
+            the retries of concurrent executions.
+        warning_message: Optional warning to emit once after
+            RETRY_WARNING_THRESHOLD consecutive non-timeout failures.
     """
     delay_secs = base_delay_secs
     num_retries = 0
+    consecutive_failures = 0
+    warned = False
     exclude_status_codes = exclude_status_codes or []
+    called_for = f" for exec {exec_id}" if exec_id is not None else ""
 
     def is_retryable_status(status: Status) -> bool:
         return status in RETRYABLE_GRPC_STATUS_CODES and status not in exclude_status_codes
@@ -119,25 +144,41 @@ async def call_with_retries_on_transient_errors(
             return False
         return True
 
-    async def sleep_and_advance(e: Exception):
-        nonlocal delay_secs, num_retries
+    async def sleep_and_advance(e: Exception, *, count_failure: bool = True):
+        nonlocal delay_secs, num_retries, consecutive_failures, warned
         # Clamp the backoff sleep to the remaining deadline so we don't sleep
         # past it just to fail on the next iteration's deadline check.
         sleep_for = delay_secs
         if timeout_deadline is not None:
             sleep_for = min(sleep_for, max(0.0, timeout_deadline - time.monotonic()))
-        logger.debug(f"Retrying RPC with delay {sleep_for}s due to error: {e}")
+        elapsed = time.monotonic() - attempt_started_at
+        logger.debug(
+            f"{rpc_name}{called_for} attempt {num_retries + 1} failed after {elapsed:.3f}s, "
+            f"retrying in {sleep_for}s: {e!r}"
+        )
+        if count_failure:
+            consecutive_failures += 1
+            if warning_message is not None and consecutive_failures >= RETRY_WARNING_THRESHOLD and not warned:
+                logger.warning(
+                    f"{warning_message} Retrying after {consecutive_failures} consecutive failures. "
+                    "Set MODAL_LOGLEVEL=DEBUG for details."
+                )
+                warned = True
+        else:
+            consecutive_failures = 0
         await asyncio.sleep(sleep_for)
         delay_secs *= delay_factor
         num_retries += 1
 
     while True:
+        attempt_started_at = time.monotonic()
         try:
             return await func()
         except GRPCError as e:
             if not is_retryable_status(e.status) or not can_retry():
                 raise
-            await sleep_and_advance(e)
+            # Long-poll deadlines can expire while the process is still running on a healthy connection.
+            await sleep_and_advance(e, count_failure=e.status != Status.DEADLINE_EXCEEDED)
         except AttributeError as e:
             # StreamTerminatedError are not properly raised in grpclib<=0.4.7
             # fixed in https://github.com/vmagamedov/grpclib/issues/185
@@ -156,7 +197,9 @@ async def call_with_retries_on_transient_errors(
                 # `timeout_deadline` can further translate this based on
                 # whether the deadline has elapsed.
                 raise ConnectionError(str(e))
-            await sleep_and_advance(e)
+            # A client-side timeout says nothing about the connection's health, so it
+            # doesn't count toward the warning.
+            await sleep_and_advance(e, count_failure=not isinstance(e, asyncio.TimeoutError))
 
 
 _StdioReq = TypeVar("_StdioReq")
@@ -173,7 +216,7 @@ def _is_v2_task_id(task_id: str) -> bool:
 
 async def fetch_command_router_access(server_client, task_id: str) -> api_pb2.TaskGetCommandRouterAccessResponse:
     """Fetch direct command router access info from Modal server."""
-    return await server_client.stub.TaskGetCommandRouterAccess(
+    return await server_client._stub.TaskGetCommandRouterAccess(
         api_pb2.TaskGetCommandRouterAccessRequest(task_id=task_id),
     )
 
@@ -193,7 +236,7 @@ async def fetch_command_router_access_v2(
         raise ValueError("Either sandbox_id or task_id must be provided")
     assert server_client._auth_token_manager
     auth_token = await server_client._auth_token_manager.get_token()
-    return await server_client.stub.SandboxGetCommandRouterAccess(
+    return await server_client._stub.SandboxGetCommandRouterAccess(
         request,
         metadata=[("x-modal-auth-token", auth_token)],
     )
@@ -251,7 +294,7 @@ class TaskCommandRouterClient:
             host,
             port,
             ssl=ssl_context,
-            config=create_channel_config(),
+            config=create_channel_config(sustained_keepalive=True),
             closed_error_message="Unable to perform operation on a detached sandbox",
         )
 
@@ -263,6 +306,7 @@ class TaskCommandRouterClient:
                 logger.debug(f"Sending request to {event.method_name} ({idempotency_key[:8]})")
 
         grpclib.events.listen(channel, grpclib.events.SendRequest, send_request)
+        listen_for_server_warnings(channel)
 
         try:
             await _connect_channel(channel)
@@ -271,7 +315,10 @@ class TaskCommandRouterClient:
         loop = asyncio.get_running_loop()
         jwt_refresh_lock = asyncio.Lock()
 
-        return cls(server_client, task_id, url, jwt, channel, loop, jwt_refresh_lock, sandbox_id=sandbox_id)
+        client = cls(server_client, task_id, url, jwt, channel, loop, jwt_refresh_lock, sandbox_id=sandbox_id)
+        # An unused client releases its connection too.
+        client._arm_idle_release()
+        return client
 
     @classmethod
     async def init(
@@ -323,7 +370,7 @@ class TaskCommandRouterClient:
         task_id: str,
         server_url: str,
         jwt: str,
-        channel: grpclib.client.Channel,
+        channel: ModalChannel,
         loop: asyncio.AbstractEventLoop,
         jwt_refresh_lock: asyncio.Lock,
         *,
@@ -337,7 +384,7 @@ class TaskCommandRouterClient:
         # even if finalization happens from a different thread (e.g. via synchronicity).
         self._loop = loop
 
-        # Attach bearer token on all requests to the worker-side router service.
+        # Attach the bearer token to every request.
         self._server_client = server_client
         self._task_id = task_id
         self._sandbox_id = sandbox_id
@@ -356,6 +403,11 @@ class TaskCommandRouterClient:
 
         self._closed = False
 
+        self.idle_timeout_secs: float = config["sandbox_channel_idle_timeout"]
+        self._inflight = 0
+        self._idle = IdleCountdown(loop)
+        self._release_seq = 0
+
         self._channel_finalizer = weakref.finalize(
             self,
             _finalize_channel,
@@ -369,18 +421,96 @@ class TaskCommandRouterClient:
     def _is_v2_sandbox(self) -> bool:
         return self._sandbox_id is not None or _is_v2_task_id(self._task_id)
 
+    def _ensure_open(self) -> None:
+        if self._closed:
+            raise ClientClosed("Unable to perform operation on a detached sandbox")
+
     def _get_metadata(self):
+        self._ensure_open()
         return {"authorization": f"Bearer {self._jwt}"}
 
-    async def close(self) -> None:
-        """Close the client."""
-        if self._closed:
-            return
+    @contextlib.asynccontextmanager
+    async def _lease(self):
+        """Keep the connection active for the duration of an operation."""
+        self._ensure_open()
+        self._take_lease()
+        try:
+            yield
+        finally:
+            self._drop_lease()
 
+    def _assert_owning_loop(self) -> None:
+        assert asyncio.get_running_loop() is self._loop, "Channel bookkeeping must run on its owning event loop"
+
+    def _take_lease(self) -> None:
+        """Acquire a lease on the owning event loop without yielding control."""
+        self._idle.stop()
+        self._inflight += 1
+
+    def _drop_lease(self) -> None:
+        """Release a lease on the owning event loop without yielding control."""
+        self._assert_owning_loop()
+        self._inflight -= 1
+        if self._inflight == 0:
+            self._arm_idle_release()
+
+    def _arm_idle_release(self) -> None:
+        """Arm idle release on the owning event loop without yielding control."""
+        self._idle.arm(self.idle_timeout_secs, self._release_if_idle)
+
+    def _release_if_idle(self) -> None:
+        """Release the inactive connection, permanently if the client is closed.
+
+        Must run on the owning event loop without yielding control.
+        """
+        self._assert_owning_loop()
+        if self._inflight:
+            return
+        if self._closed:
+            self._close_channel()
+            return
+        if not self._channel._connected:
+            return
+        logger.debug(f"Releasing idle command router channel for task {self._task_id}")
+        self._release_seq += 1
+        self._channel.release_connection()
+
+    @contextlib.asynccontextmanager
+    async def _lease_suspended(self):
+        """Temporarily suspend the caller's lease."""
+        self._drop_lease()
+        try:
+            yield
+        finally:
+            self._take_lease()
+
+    def _was_released_since(self, release_seq: int) -> bool:
+        """Whether an idle release invalidated the current stream."""
+        return self._release_seq != release_seq
+
+    async def close_when_idle(self) -> None:
+        """Request the "close soon" behavior used by Sandbox.detach().
+
+        Reject new operations and close the channel as soon as active leases
+        finish, without waiting for or interrupting those operations.
+        """
+        self._assert_owning_loop()
         self._closed = True
-        self._channel.close()
+        self._idle.expire_when_idle()
+        self._release_if_idle()
+
+    async def close(self) -> None:
+        """Close the client permanently; later use raises `ClientClosed`."""
+        self._assert_owning_loop()
+        self._closed = True
+        self._idle.retire()
+        self._close_channel()
+
+    def _close_channel(self) -> None:
+        """Close on the owning event loop without yielding, including from an idle timer."""
+        self._assert_owning_loop()
         if self._channel_finalizer.alive:
-            # skip the finalizer if we've closed the channel anyway
+            self._channel.close()
             self._channel_finalizer.detach()
 
     async def exec_start(self, request: sr_pb2.TaskExecStartRequest) -> sr_pb2.TaskExecStartResponse:
@@ -435,6 +565,7 @@ class TaskCommandRouterClient:
         # Quotes around the type required for protobuf 3.19.
         file_descriptor: "api_pb2.FileDescriptor.ValueType",
         deadline: float | None = None,
+        start_offset: int = 0,
     ) -> AsyncGenerator[sr_pb2.TaskExecStdioReadResponse, None]:
         """Stream stdout/stderr batches from an exec'd command, retrying on transient errors.
 
@@ -445,6 +576,7 @@ class TaskCommandRouterClient:
             deadline: The deadline by which all output must be streamed. If
               None, wait forever. If the deadline is exceeded, raises an
               ExecTimeoutError.
+            start_offset: Byte offset into the output stream to start reading from.
         Returns:
             AsyncGenerator[sr_pb2.TaskExecStdioReadResponse, None]: A stream of stdout/stderr batches.
         Raises:
@@ -462,7 +594,7 @@ class TaskCommandRouterClient:
             raise ValueError(f"Invalid file descriptor: {file_descriptor}")
 
         with grpc_error_converter():
-            async with aclosing(self._stream_stdio(task_id, exec_id, sr_fd, deadline)) as stream:
+            async with aclosing(self._stream_stdio(task_id, exec_id, sr_fd, deadline, start_offset)) as stream:
                 async for item in stream:
                     yield item
 
@@ -471,6 +603,7 @@ class TaskCommandRouterClient:
         task_id: str,
         # Quotes around the type required for protobuf 3.19.
         file_descriptor: "api_pb2.FileDescriptor.ValueType",
+        start_offset: int = 0,
     ) -> AsyncGenerator[sr_pb2.SandboxStdioReadV2Response, None]:
         """Stream stdout/stderr batches from a V2 sandbox.
 
@@ -479,6 +612,7 @@ class TaskCommandRouterClient:
         Args:
             task_id: The task ID hosting the V2 sandbox.
             file_descriptor: The file descriptor to read from (stdout or stderr).
+            start_offset: Byte offset into the output stream to start reading from.
         Returns:
             AsyncGenerator[sr_pb2.SandboxStdioReadV2Response, None]: A stream of stdout/stderr batches.
         Raises:
@@ -495,7 +629,7 @@ class TaskCommandRouterClient:
             raise ValueError(f"Invalid file descriptor: {file_descriptor}")
 
         with grpc_error_converter():
-            async with aclosing(self._stream_sandbox_stdio(task_id, sr_fd)) as stream:
+            async with aclosing(self._stream_sandbox_stdio(task_id, sr_fd, start_offset)) as stream:
                 async for item in stream:
                     yield item
 
@@ -590,27 +724,28 @@ class TaskCommandRouterClient:
         Does not retry; `exec_stdin_write_stream` owns resume.
         """
         with grpc_error_converter():
-            stream = self._stub.TaskExecStdinWriteStream.open(metadata=self._get_metadata())
-            async with stream as s:
-                start = sr_pb2.TaskExecStdinWriteStreamRequest(
-                    start=sr_pb2.TaskExecStdinWriteStreamStart(
-                        task_id=task_id,
-                        exec_id=exec_id,
-                        offset=start_offset,
-                    ),
-                )
-                await s.send_message(start)
-                async for data in chunks:
-                    if not data:
-                        continue
-                    await s.send_message(sr_pb2.TaskExecStdinWriteStreamRequest(data=data))
-                # The server closes stdin only on this explicit End message. A
-                # stream that breaks before it leaves stdin open for resume.
-                await s.send_message(
-                    sr_pb2.TaskExecStdinWriteStreamRequest(end=sr_pb2.TaskExecStdinWriteStreamEnd()),
-                    end=True,
-                )
-                return await s.recv_message()
+            async with self._lease():
+                stream = self._stub.TaskExecStdinWriteStream.open(metadata=self._get_metadata())
+                async with stream as s:
+                    start = sr_pb2.TaskExecStdinWriteStreamRequest(
+                        start=sr_pb2.TaskExecStdinWriteStreamStart(
+                            task_id=task_id,
+                            exec_id=exec_id,
+                            offset=start_offset,
+                        ),
+                    )
+                    await s.send_message(start)
+                    async for data in chunks:
+                        if not data:
+                            continue
+                        await s.send_message(sr_pb2.TaskExecStdinWriteStreamRequest(data=data))
+                    # Only an explicit End marks stdin as closed. A failed write
+                    # stream remains resumable.
+                    await s.send_message(
+                        sr_pb2.TaskExecStdinWriteStreamRequest(end=sr_pb2.TaskExecStdinWriteStreamEnd()),
+                        end=True,
+                    )
+                    return await s.recv_message()
 
     async def exec_stdin_status(self, task_id: str, exec_id: str) -> sr_pb2.TaskExecStdinStatusResponse:
         """Read the current stdin write status for an exec'd command, to support retries from the right offset.
@@ -732,6 +867,12 @@ class TaskCommandRouterClient:
                         #   infinitely retry. For callers without an exec deadline, this
                         #   could hang indefinitely.
                         lambda: self._call_with_auth_retry(self._stub.TaskExecWait, request, timeout=60),
+                        rpc_name="TaskExecWait",
+                        exec_id=exec_id,
+                        warning_message=(
+                            f"Cannot retrieve the exit status for exec {exec_id} due to connection or service errors. "
+                            "The command may have already exited."
+                        ),
                         base_delay_secs=1,  # Retry after 1s since total time is expected to be long.
                         delay_factor=1,  # Fixed delay.
                         max_retries=None,  # Retry forever.
@@ -778,14 +919,15 @@ class TaskCommandRouterClient:
             self._jwt_exp = _parse_jwt_expiration(jwt)
 
     async def _call_with_auth_retry(self, func, *args, **kwargs):
-        try:
-            return await func(*args, **kwargs, metadata=self._get_metadata())
-        except GRPCError as exc:
-            if exc.status == Status.UNAUTHENTICATED:
-                await self._refresh_jwt()
-                # Retry with the original arguments preserved
+        async with self._lease():
+            try:
                 return await func(*args, **kwargs, metadata=self._get_metadata())
-            raise
+            except GRPCError as exc:
+                if exc.status == Status.UNAUTHENTICATED:
+                    await self._refresh_jwt()
+                    # Retry with the original arguments preserved
+                    return await func(*args, **kwargs, metadata=self._get_metadata())
+                raise
 
     async def _stream_stdio_with_retries(
         self,
@@ -794,18 +936,16 @@ class TaskCommandRouterClient:
         request_factory: Callable[[int], _StdioReq],
         deadline_label: str,
         deadline: float | None = None,
+        start_offset: int = 0,
     ) -> AsyncGenerator[_StdioResp, None]:
-        """Drive a streaming-stdio RPC with offset bookkeeping, transient-error
-        retries, and JWT-refresh auth retries.
+        """Read stdio with offset tracking, authentication, and transient retries.
 
-        Shared by [`_stream_stdio`] (exec stdio) and [`_stream_sandbox_stdio`]
-        (V2 sandbox top-level stdio); both response types have a ``bytes data``
-        field that this helper uses to advance the offset. For V2 sandbox
-        responses (which carry ``starting_offset``), the offset is rebased off
-        the first chunk of each attempt so transient reconnects don't miss
-        bytes.
+        The connection is kept active while waiting for output and may be
+        released while the caller holds a chunk.
         """
-        offset = 0
+        offset = start_offset
+        # Set when an idle release invalidates the stream while its lease is suspended.
+        reopen_after_release = False
         delay_secs = self.stream_stdio_retry_delay_secs
         delay_factor = self.stream_stdio_retry_delay_factor
         num_retries_remaining = self.stream_stdio_max_retries
@@ -815,6 +955,7 @@ class TaskCommandRouterClient:
 
         async def sleep_and_update_delay_and_num_retries_remaining(e: Exception):
             nonlocal delay_secs, num_retries_remaining
+            self._ensure_open()
             logger.debug(f"Retrying stdio read with delay {delay_secs}s due to error: {e}")
             if deadline is not None and deadline - time.monotonic() <= delay_secs:
                 raise ExecTimeoutError(f"Deadline exceeded while streaming stdio for {deadline_label}")
@@ -826,38 +967,54 @@ class TaskCommandRouterClient:
         while True:
             timeout = max(0, deadline - time.monotonic()) if deadline is not None else None
             try:
-                stream = stub_method.open(timeout=timeout, metadata=self._get_metadata())
-                async with stream as s:
-                    req = request_factory(offset)
+                async with self._lease():
+                    release_seq_at_open = self._release_seq
+                    stream = stub_method.open(timeout=timeout, metadata=self._get_metadata())
+                    async with stream as s:
+                        req = request_factory(offset)
 
-                    # Auth retry is scoped to a single refresh per streaming attempt. While auth metadata is
-                    # sent on request start, UNAUTHENTICATED may sometimes surface during iteration,
-                    # so we handle it at both send and receive boundaries.
-                    is_first_chunk_of_attempt = True
-                    try:
-                        await s.send_message(req, end=True)
-                        async for item in s:
-                            # We successfully authenticated after a JWT refresh, reset the auth retry flag.
-                            if did_auth_retry:
-                                did_auth_retry = False
-                            # Reset retry backoff after any successful chunk.
-                            delay_secs = self.stream_stdio_retry_delay_secs
-                            # Track it so transient reconnects request the
-                            # correct next byte.
-                            if is_first_chunk_of_attempt and isinstance(item, sr_pb2.SandboxStdioReadV2Response):
-                                offset = item.starting_offset
-                            is_first_chunk_of_attempt = False
-                            offset += len(item.data)
-                            yield item
-                    except GRPCError as exc:
-                        if exc.status == Status.UNAUTHENTICATED and not did_auth_retry:
-                            await self._refresh_jwt()
-                            # Mark that we've retried authentication for this streaming attempt, to
-                            # prevent subsequent retries.
-                            did_auth_retry = True
-                            continue
-                        raise
+                        # Auth retry is scoped to a single refresh per streaming attempt. While auth metadata is
+                        # sent on request start, UNAUTHENTICATED may sometimes surface during iteration,
+                        # so we handle it at both send and receive boundaries.
+                        is_first_chunk_of_attempt = True
+                        try:
+                            await s.send_message(req, end=True)
+                            async for item in s:
+                                # We successfully authenticated after a JWT refresh, reset the auth retry flag.
+                                if did_auth_retry:
+                                    did_auth_retry = False
+                                # A successful chunk ends the current run of transient failures.
+                                delay_secs = self.stream_stdio_retry_delay_secs
+                                num_retries_remaining = self.stream_stdio_max_retries
+                                # Track it so transient reconnects request the
+                                # correct next byte.
+                                if is_first_chunk_of_attempt and isinstance(item, sr_pb2.SandboxStdioReadV2Response):
+                                    offset = item.starting_offset
+                                is_first_chunk_of_attempt = False
+                                offset += len(item.data)
+                                async with self._lease_suspended():
+                                    yield item
+                                # Reject output buffered while the consumer held the chunk
+                                # if the Sandbox was detached during the yield.
+                                self._ensure_open()
+                                # Resume from the current offset if an idle release made
+                                # this stream stale while the lease was suspended.
+                                if self._was_released_since(release_seq_at_open):
+                                    reopen_after_release = True
+                                    break
+                        except GRPCError as exc:
+                            if exc.status == Status.UNAUTHENTICATED and not did_auth_retry:
+                                await self._refresh_jwt()
+                                # Mark that we've retried authentication for this streaming attempt, to
+                                # prevent subsequent retries.
+                                did_auth_retry = True
+                                continue
+                            raise
 
+                if reopen_after_release:
+                    # Idle release does not consume the transient-error retry budget.
+                    reopen_after_release = False
+                    continue
                 # We successfully streamed all output.
                 return
             except GRPCError as e:
@@ -869,7 +1026,9 @@ class TaskCommandRouterClient:
                 # StreamTerminatedError are not properly raised in grpclib<=0.4.7
                 # fixed in https://github.com/vmagamedov/grpclib/issues/185
                 # TODO: update to newer version (>=0.4.8) once stable
-                if num_retries_remaining > 0 and "_write_appdata" in str(e):
+                if "_write_appdata" not in str(e):
+                    raise e
+                if num_retries_remaining > 0:
                     await sleep_and_update_delay_and_num_retries_remaining(e)
                 else:
                     raise e
@@ -896,6 +1055,7 @@ class TaskCommandRouterClient:
         # Quotes around the type required for protobuf 3.19.
         file_descriptor: "sr_pb2.TaskExecStdioFileDescriptor.ValueType",
         deadline: float | None = None,
+        start_offset: int = 0,
     ) -> AsyncGenerator[sr_pb2.TaskExecStdioReadResponse, None]:
         """Stream exec stdio from the task, retrying on transient errors.
         Raises ExecTimeoutError if the deadline is exceeded.
@@ -915,6 +1075,7 @@ class TaskCommandRouterClient:
                 request_factory=request_factory,
                 deadline_label=f"exec {exec_id}",
                 deadline=deadline,
+                start_offset=start_offset,
             )
         ) as stream:
             async for item in stream:
@@ -925,6 +1086,7 @@ class TaskCommandRouterClient:
         task_id: str,
         # Quotes around the type required for protobuf 3.19.
         file_descriptor: "sr_pb2.SandboxStdioFileDescriptor.ValueType",
+        start_offset: int = 0,
     ) -> AsyncGenerator[sr_pb2.SandboxStdioReadV2Response, None]:
         """Stream V2 sandbox top-level stdio from the task, retrying on transient errors."""
 
@@ -941,6 +1103,7 @@ class TaskCommandRouterClient:
                 request_factory=request_factory,
                 deadline_label=f"sandbox {task_id}",
                 deadline=None,
+                start_offset=start_offset,
             )
         ) as stream:
             async for item in stream:
@@ -962,6 +1125,12 @@ class TaskCommandRouterClient:
         with grpc_error_converter():
             return await call_with_retries_on_transient_errors(
                 lambda: self._call_with_auth_retry(self._stub.TaskSetNetworkAccess, request)
+            )
+
+    async def set_outbound_policy(self, request: sr_pb2.TaskSetOutboundPolicyRequest):
+        with grpc_error_converter():
+            return await call_with_retries_on_transient_errors(
+                lambda: self._call_with_auth_retry(self._stub.TaskSetOutboundPolicy, request)
             )
 
     async def reload_volumes(

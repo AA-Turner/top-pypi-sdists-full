@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro
-Version: 1.6.0
+Version: 1.7.0
 Summary: Kedro helps you build production-ready data and analytics pipelines
 Author: Kedro
 License: Apache Software License (Apache 2.0)

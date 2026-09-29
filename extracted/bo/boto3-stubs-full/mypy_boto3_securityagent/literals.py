@@ -78,6 +78,7 @@ __all__ = (
     "ResourceTypeType",
     "RiskLevelType",
     "RiskTypeType",
+    "ScopeDecisionType",
     "SecurityAgentServiceName",
     "SecurityRequirementArtifactFormatType",
     "SecurityRequirementPackImportStatusType",
@@ -115,7 +116,7 @@ FindingStatusType = Literal["ACCEPTED", "ACTIVE", "FALSE_POSITIVE", "RESOLVED"]
 GitLabTokenTypeType = Literal["GROUP", "PERSONAL"]
 IpAddressTypeType = Literal["DUAL_STACK", "IPV4", "IPV6"]
 JobStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "STOPPED", "STOPPING"]
-JobTypeType = Literal["FULL", "REVALIDATION"]
+JobTypeType = Literal["CICD", "FULL", "REVALIDATION"]
 ListActorMessagesPaginatorName = Literal["list_actor_messages"]
 ListAgentSpacesPaginatorName = Literal["list_agent_spaces"]
 ListApplicationsPaginatorName = Literal["list_applications"]
@@ -184,6 +185,7 @@ RiskTypeType = Literal[
     "UNKNOWN",
     "XML_EXTERNAL_ENTITY",
 ]
+ScopeDecisionType = Literal["IN_SCOPE", "SCOPED_OUT", "SCOPE_CONFLICT"]
 SecurityRequirementArtifactFormatType = Literal["DOC", "DOCX", "MD", "PDF", "TXT"]
 SecurityRequirementPackImportStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PENDING"]
 SecurityRequirementPackStatusType = Literal["DISABLED", "ENABLED"]

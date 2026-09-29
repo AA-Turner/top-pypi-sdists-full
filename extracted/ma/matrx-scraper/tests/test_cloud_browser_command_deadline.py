@@ -191,8 +191,10 @@ async def test_a_runaway_humanised_type_is_ended_by_the_command_deadline(monkeyp
     # The caller is told WHAT was running, not merely that time passed.
     assert response.error.stage == "humanize_type"
     assert elapsed < 4.0, f"the ceiling did not fire: the command ran {elapsed:.1f}s"
-    # It really was typing: the loop got some way into the sentence and stopped.
-    assert 0 < len(page.keyboard.typed) < len(CLAIM_NOTE)
+    # The ceiling also covers aiming and focusing the field, so a very short
+    # test deadline can end before the first keystroke. It must never finish
+    # the whole input after the deadline.
+    assert len(page.keyboard.typed) < len(CLAIM_NOTE)
 
 
 @pytest.mark.asyncio

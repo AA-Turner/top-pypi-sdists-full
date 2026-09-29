@@ -6,6 +6,7 @@
 #include "common/string_utils.h"
 #include "main/client_context.h"
 #include "parser/copy.h"
+#include "parser/ddl/create_table.h"
 #include "parser/parser.h"
 #include "parser/port_db.h"
 #include <format>
@@ -83,6 +84,73 @@ static std::string getCopyFilePath(const std::string& boundFilePath, const std::
     return path;
 }
 
+// Removes the `WITH (storage = '<dir>', format = 'icebug-disk')` clauses that EXPORT DATABASE
+// attaches to CREATE TABLE statements in schema.cypher, so that IMPORT DATABASE (without an
+// explicit `storage_format = 'icebug-disk'` override) creates native tables instead of mounting
+// the exported parquet files in place.
+static std::string stripIcebugStorageClauses(const std::string& schema) {
+    std::string result = schema;
+    size_t searchFrom = 0;
+    size_t pos;
+    while ((pos = result.find(" WITH (", searchFrom)) != std::string::npos) {
+        auto end = result.find(')', pos);
+        if (end == std::string::npos) {
+            break;
+        }
+        auto clause = result.substr(pos, end - pos);
+        if (clause.find("format = 'icebug-disk'") != std::string::npos &&
+            clause.find("storage = '") != std::string::npos) {
+            result.erase(pos, end - pos + 1);
+            searchFrom = pos;
+        } else {
+            searchFrom = end;
+        }
+    }
+    return result;
+}
+
+// Generates COPY statements that ingest the exported parquet data files into the native
+// tables created by the (stripped) schema.cypher statements. The exported layout is
+// nodes_<table>.parquet for node tables and rels_<rel>.parquet (from/to primary-key
+// columns + edge properties) for relationship tables.
+static std::string getNativeCopyStatements(VirtualFileSystem* vfs, const std::string& boundFilePath,
+    const std::string& schemaQuery, main::ClientContext* context) {
+    std::string copies;
+    if (schemaQuery.empty()) {
+        return copies;
+    }
+    for (auto& parsedStatement : Parser::parseQuery(schemaQuery)) {
+        if (parsedStatement->getStatementType() != StatementType::CREATE_TABLE) {
+            continue;
+        }
+        auto& createTable = parsedStatement->constCast<CreateTable>();
+        const auto& info = *createTable.getInfo();
+        auto isRel = info.type == TableType::REL;
+        auto dataFile = isRel ? std::format("rels_{}.parquet", info.tableName) :
+                                std::format("nodes_{}.parquet", info.tableName);
+        auto filePath = getCopyFilePath(boundFilePath, dataFile);
+        if (!vfs->fileOrPathExists(vfs->joinPath(boundFilePath, dataFile), context)) {
+            continue;
+        }
+        // Explicit column list for node tables (covers SERIAL pk values, which COPY FROM
+        // would otherwise auto-generate). Rel tables rely on positional binding: the flat
+        // file already stores from/to key columns followed by properties in schema order.
+        std::string columns;
+        if (!isRel) {
+            std::vector<std::string> columnList;
+            for (auto& property : info.propertyDefinitions) {
+                columnList.push_back(StringUtils::quoteIdentifier(property.getName()));
+            }
+            if (!columnList.empty()) {
+                columns = std::format(" ({})", StringUtils::join(columnList, ", "));
+            }
+        }
+        copies += std::format("COPY {}{} FROM \"{}\";\n",
+            StringUtils::quoteIdentifier(info.tableName), columns, filePath);
+    }
+    return copies;
+}
+
 std::unique_ptr<BoundStatement> Binder::bindImportDatabaseClause(const Statement& statement) {
     auto& importDB = statement.constCast<ImportDB>();
     auto fs = VirtualFileSystem::GetUnsafe(*clientContext);
@@ -90,9 +158,40 @@ std::unique_ptr<BoundStatement> Binder::bindImportDatabaseClause(const Statement
     if (!fs->fileOrPathExists(boundFilePath, clientContext)) {
         throw BinderException(std::format("Directory {} does not exist.", boundFilePath));
     }
+    // By default the exported icebug-disk data files are ingested into native tables.
+    // An explicit `storage_format = 'icebug-disk'` override mounts the parquet files in
+    // place (i.e. the database is opened directly against the exported directory).
+    bool mountIcebug = false;
+    auto parsingOptions = bindParsingOptions(importDB.getParsingOptionsRef());
+    if (parsingOptions.contains(PortDBConstants::IMPORT_STORAGE_FORMAT_OPTION)) {
+        auto& value = parsingOptions.at(PortDBConstants::IMPORT_STORAGE_FORMAT_OPTION);
+        if (value.getDataType().getLogicalTypeID() != LogicalTypeID::STRING) {
+            throw BinderException("The type of storage_format option must be a string.");
+        }
+        auto valueStr = StringUtils::getUpper(value.getValue<std::string>());
+        if (valueStr != "ICEBUG-DISK") {
+            throw BinderException(std::format(
+                "Unsupported import database storage format '{}'. Valid options are: icebug-disk.",
+                value.getValue<std::string>()));
+        }
+        mountIcebug = true;
+        parsingOptions.erase(PortDBConstants::IMPORT_STORAGE_FORMAT_OPTION);
+    }
+    if (!parsingOptions.empty()) {
+        throw BinderException(
+            std::format("Unrecognized import database option: {}.", parsingOptions.begin()->first));
+    }
     std::string finalQueryStatements;
-    finalQueryStatements +=
+    auto schemaQuery =
         getQueryFromFile(fs, boundFilePath, PortDBConstants::SCHEMA_FILE_NAME, clientContext);
+    if (!mountIcebug) {
+        schemaQuery = stripIcebugStorageClauses(schemaQuery);
+        finalQueryStatements += schemaQuery;
+        finalQueryStatements +=
+            getNativeCopyStatements(fs, boundFilePath, schemaQuery, clientContext);
+    } else {
+        finalQueryStatements += schemaQuery;
+    }
     // replace the path in copy from statements with the bound path
     auto copyQuery =
         getQueryFromFile(fs, boundFilePath, PortDBConstants::COPY_FILE_NAME, clientContext);

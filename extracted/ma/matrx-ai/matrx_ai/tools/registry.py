@@ -884,7 +884,7 @@ class ToolRegistry:
     @staticmethod
     async def _fetch_tools_async() -> list[dict[str, Any]]:
         try:
-            items = await get_tool_def_manager().filter_items(is_active=True)
+            items = await get_tool_def_manager().filter_items(is_active=True, deleted_at__isnull=True)
             # ORM serialization recursively walks arbitrary tool JSON schemas.
             # A registry refresh is triggered by an async LISTEN callback, so
             # doing that CPU-bound walk on the request loop freezes the whole
@@ -904,7 +904,7 @@ class ToolRegistry:
     @staticmethod
     def _fetch_tools_via_orm_sync() -> list[dict[str, Any]]:
         try:
-            items = get_tool_def_manager().filter_items_sync(is_active=True)
+            items = get_tool_def_manager().filter_items_sync(is_active=True, deleted_at__isnull=True)
             return [item.to_dict() if hasattr(item, "to_dict") else item for item in items]
         except Exception as exc:
             vcprint(
@@ -935,7 +935,7 @@ class ToolRegistry:
         except Exception:
             return
         try:
-            items = await bindings_manager.filter_items(is_active=True)
+            items = await bindings_manager.filter_items(is_active=True, deleted_at__isnull=True)
         except Exception as exc:
             vcprint(
                 f"[ToolRegistry] tool_binding fetch failed: {exc!r} — "
@@ -953,7 +953,7 @@ class ToolRegistry:
         except Exception:
             return
         try:
-            items = bindings_manager.filter_items_sync(is_active=True)
+            items = bindings_manager.filter_items_sync(is_active=True, deleted_at__isnull=True)
         except Exception as exc:
             vcprint(
                 f"[ToolRegistry] tool_binding sync fetch failed: {exc!r} — "

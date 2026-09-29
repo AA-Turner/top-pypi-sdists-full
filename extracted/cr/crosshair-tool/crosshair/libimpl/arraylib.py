@@ -1,30 +1,30 @@
+import numbers
 import sys
 from array import array
-from typing import BinaryIO, Dict, Iterable, List, Sequence, Tuple
+from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import z3  # type: ignore
 
 from crosshair import SymbolicFactory, realize, register_patch
 from crosshair.core import register_type
 from crosshair.libimpl.builtinslib import SymbolicArrayBasedUniformTuple
-from crosshair.simplestructs import ShellMutableSequence
+from crosshair.simplestructs import ShellMutableSequence, check_idx
 from crosshair.statespace import StateSpace
 from crosshair.tracers import NoTracing
-from crosshair.util import CrossHairValue
+from crosshair.util import CrossHairValue, name_of_type
 
+
+def _int_bounds(typecode: str) -> Tuple[int, int]:
+    """Return the (inclusive min, exclusive max) values for an integer typecode."""
+    bits = array(typecode).itemsize * 8
+    if typecode.isupper():
+        return (0, 1 << bits)
+    return (-(1 << (bits - 1)), 1 << (bits - 1))
+
+
+# Order is significant - we choose earlier codes more readily.
 INT_TYPE_BOUNDS: Dict[str, Tuple[int, int]] = {
-    # (min, max) ranges - inclusive on min, exclusive on max.
-    # Order is significant - we choose earlier codes more readily.
-    "L": (0, 1 << 32),
-    "B": (0, 1 << 8),
-    "l": (-(1 << 31), (1 << 31)),
-    "b": (-(1 << 7), (1 << 7)),
-    "Q": (0, 1 << 64),
-    "q": (-(1 << 63), (1 << 63)),
-    "I": (0, 1 << 16),
-    "i": (-(1 << 15), (1 << 15)),
-    "H": (0, 1 << 16),
-    "h": (-(1 << 15), (1 << 15)),
+    code: _int_bounds(code) for code in "LBlbQqIiHh"
 }
 
 INT_TYPE_SIZE = {c: array(c).itemsize for c in INT_TYPE_BOUNDS.keys()}
@@ -98,10 +98,46 @@ class SymbolicArray(
     def __ch_pytype__(self):
         return array
 
-    def __eq__(self, other):
+    def __repr__(self):
+        return repr(realize(self))
+
+    def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
+        """See :func:`~crosshair.core.smt_for_unification`"""
+        if getattr(other_value, "typecode", None) != self.typecode:
+            return None
+        return super()._smt_for_unification(other_value)
+
+    def __add__(self, other):
         if not isinstance(other, array):
-            return False
-        return ShellMutableSequence.__eq__(self, other)
+            raise TypeError(
+                f'can only append array (not "{name_of_type(type(other))}") to array'
+            )
+        if self.typecode != other.typecode:
+            raise TypeError("bad argument type for built-in operation")
+        return super().__add__(other)
+
+    def __radd__(self, other):
+        if isinstance(other, array) and self.typecode != other.typecode:
+            raise TypeError("bad argument type for built-in operation")
+        return super().__radd__(other)
+
+    def __iadd__(self, other):
+        if not isinstance(other, array):
+            raise TypeError(
+                f'can only extend array with array (not "{name_of_type(type(other))}")'
+            )
+        self.extend(other)
+        return self
+
+    def __setitem__(self, k, v):
+        bounds = INT_TYPE_BOUNDS.get(self.typecode)
+        if bounds is not None:
+            if isinstance(k, slice):
+                v = self._iter_checker(v)
+            elif isinstance(k, numbers.Integral):
+                k = check_idx(k, len(self))
+                check_int(v, *bounds)
+        return super().__setitem__(k, v)
 
     def _spawn(self, items: Sequence) -> ShellMutableSequence:
         return SymbolicArray(self.typecode, items)
@@ -121,10 +157,23 @@ class SymbolicArray(
     # count() handled by superclass
 
     def extend(self, nums: Iterable) -> None:
+        if isinstance(nums, array) and nums.typecode != self.typecode:
+            raise TypeError("can only extend with array of same kind")
         super().extend(self._iter_checker(nums))
 
-    def from_bytes(self, b: Sequence) -> None:
-        self.extend(b)
+    def frombytes(self, b: bytes) -> None:
+        if not isinstance(b, (bytes, bytearray, memoryview)):
+            raise TypeError(
+                f"a bytes-like object is required, not '{type(b).__name__}'"
+            )
+        itemsize = self.itemsize
+        if len(b) % itemsize != 0:
+            raise ValueError("bytes length not a multiple of item size")
+        signed = INT_TYPE_BOUNDS[self.typecode][0] < 0
+        self.extend(
+            int.from_bytes(b[i : i + itemsize], sys.byteorder, signed=signed)
+            for i in range(0, len(b), itemsize)
+        )
 
     def fromfile(self, fd: BinaryIO, num_bytes: int) -> None:
         self._realized_inner().fromfile(fd, num_bytes)

@@ -42,6 +42,7 @@ SERVICE_ROUTES = [
     ("scrape", "/api/scraper/page-capture", {"url": "https://example.com/"}),
     ("external", "/api/scraper/batch", {"urls": ["https://example.com/"]}),
     ("browser", "/api/scraper/browser/sessions", {}),
+    ("press_clip", "/api/scraper/press-clips/render", {"url": "https://example.com/"}),
     ("preview", "/api/scraper/preview", {"url": "https://example.com/"}),
 ]
 

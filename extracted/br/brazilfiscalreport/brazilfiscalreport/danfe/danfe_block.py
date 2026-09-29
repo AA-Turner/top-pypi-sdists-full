@@ -1,5 +1,3 @@
-from typing import List
-
 from fpdf import FPDF
 
 from .danfe_basic_field import DanfeBasicField
@@ -111,7 +109,7 @@ class DanfeBlock:
 
         return new_pos_x, new_pos_y
 
-    def calculate_fields_width(self, fields: List[BaseFieldInfo]):
+    def calculate_fields_width(self, fields: list[BaseFieldInfo]):
         all_adjusted_fields = []
 
         fixed_width = sum(f.w for f in fields if f.w > 0)

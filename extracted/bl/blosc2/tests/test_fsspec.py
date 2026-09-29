@@ -7,13 +7,17 @@
 #######################################################################
 
 import contextlib
+import dataclasses
 import functools
+import gc
 import hashlib
 import http.server
 import os
 import pathlib
+import subprocess
 import sys
 import threading
+import time
 
 import numpy as np
 import pytest
@@ -664,6 +668,38 @@ def test_http_url_is_read_through_fsspec(tmp_path):
 
 
 @_http_server_skip
+@pytest.mark.skipif(blosc2.IS_WASM, reason="no listening sockets on wasm32")
+def test_http_shared_b2nd_cache_across_processes(tmp_path):
+    pytest.importorskip("aiohttp")
+    blosc2.asarray(
+        np.arange(20000, dtype="i4"),
+        chunks=(10000,),
+        blocks=(10000,),
+        urlpath=tmp_path / "array.b2nd",
+    )
+    script = """
+import sys
+import blosc2
+import numpy as np
+with blosc2.open(sys.argv[1], cache_dir=sys.argv[2], shared_cache=True) as array:
+    assert not array.schunk.contiguous
+    array.traffic.reset()
+    np.testing.assert_array_equal(array[:10000], np.arange(10000))
+    print(array.traffic.requests)
+"""
+    with _ranged_server(tmp_path) as (urlbase, _):
+        for repeat in range(2):
+            result = subprocess.run(
+                [sys.executable, "-c", script, f"{urlbase}/array.b2nd", str(tmp_path / "cache")],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert result.returncode == 0, result.stderr
+            assert int(result.stdout) == 0 if repeat else int(result.stdout) > 0
+
+
+@_http_server_skip
 def test_http_lazy_cache_rebuilt_when_remote_changes(tmp_path):
     pytest.importorskip("aiohttp")
     path = tmp_path / "www"
@@ -722,7 +758,7 @@ def test_http_stamp_prefers_etag_and_falls_back_to_modified_size():
 
 
 @contextlib.contextmanager
-def _ranged_server(root):
+def _ranged_server(root, *, head_requests=None):
     """A web server over *root* that honours `Range`, which the stock one does not."""
 
     class Ranged(http.server.SimpleHTTPRequestHandler):
@@ -738,7 +774,10 @@ def _ranged_server(root):
                 return super().do_GET()
             body = (root / self.path.lstrip("/")).read_bytes()
             first, _, last = span.removeprefix("bytes=").partition("-")
-            first, last = int(first), int(last) if last else len(body) - 1
+            if not first:
+                first, last = max(0, len(body) - int(last)), len(body) - 1
+            else:
+                first, last = int(first), int(last) if last else len(body) - 1
             part = body[first : last + 1]
             self.send_response(206)
             self.send_header("Content-Range", f"bytes {first}-{last}/{len(body)}")
@@ -750,6 +789,7 @@ def _ranged_server(root):
             return None
 
         def do_HEAD(self):
+            self.server.head_requests.append(self.path)
             body = (root / self.path.lstrip("/")).read_bytes()
             self.send_response(200)
             self.send_header("Accept-Ranges", "bytes")
@@ -760,7 +800,9 @@ def _ranged_server(root):
     handler = functools.partial(Ranged, directory=str(root))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     server.requests = []
-    threading.Thread(target=server.serve_forever, daemon=True).start()
+    server.head_requests = [] if head_requests is None else head_requests
+    # shutdown() waits for the next poll; the default adds up to 0.5 s per test.
+    threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
     try:
         yield f"http://127.0.0.1:{server.server_address[1]}", server.requests
     finally:
@@ -770,8 +812,6 @@ def _ranged_server(root):
 
 def test_http_hdf5_scan_and_warm_slice(tmp_path):
     h5py = pytest.importorskip("h5py")
-    pytest.importorskip("kerchunk")
-    pytest.importorskip("zarr")
     data = np.arange(10_000, dtype="int32")
     path = tmp_path / "seekable.h5"
     with h5py.File(path, "w") as file:
@@ -779,17 +819,178 @@ def test_http_hdf5_scan_and_warm_slice(tmp_path):
     with _ranged_server(tmp_path) as (urlbase, requests):
         remote = blosc2.open(f"{urlbase}/{path.name}", lazy=True, dataset="data")
         np.testing.assert_array_equal(remote[:10], data[:10])
-        assert requests
-        assert all(requests)  # Metadata and payload both use bounded ranges.
+        assert requests == [None]  # The small source is retained by one full GET.
         count = len(requests)
         np.testing.assert_array_equal(remote[:10], data[:10])
         assert len(requests) == count
 
 
+@pytest.mark.parametrize("format", ["hdf5", "b2z"])
+def test_http_source_cache_across_processes(tmp_path, format):
+    data = np.zeros(100, dtype=[("id", "i4"), ("value", "f8")])
+    data["id"] = np.arange(len(data))
+    if format == "hdf5":
+        h5py = pytest.importorskip("h5py")
+        path = tmp_path / "table.h5"
+        with h5py.File(path, "w") as file:
+            table = file.create_dataset("table", data=data, chunks=(10,))
+            table.attrs["CLASS"] = np.bytes_(b"TABLE")
+    else:
+        path = tmp_path / "table.b2z"
+        schema = dataclasses.make_dataclass(
+            "Row", [("id", int), ("value", float), ("note", str, blosc2.field(blosc2.utf8()))]
+        )
+        rng = np.random.default_rng(42)
+        rows = [(i, 0.0, rng.bytes(1500).hex()) for i in range(100)]
+        blosc2.CTable(schema, rows, create_summary_index=False).to_b2z(path)
+        assert path.stat().st_size > 64 * 1024
+    cache = tmp_path / "cache"
+    head_requests = []
+    with _ranged_server(tmp_path, head_requests=head_requests) as (urlbase, requests):
+        script = (
+            "import blosc2, sys; "
+            "t=blosc2.open(sys.argv[1], cache_dir=sys.argv[2]); "
+            "print(t.info if sys.argv[3] == 'info' else t); "
+            "print('requests', t.traffic.requests); t.close()"
+        )
+        url = f"{urlbase}/{path.name}" + ("::table" if format == "hdf5" else "")
+        result = subprocess.run(
+            [sys.executable, "-c", script, url, str(cache), "info"], capture_output=True, text=True
+        )
+        assert result.returncode == 0, result.stderr
+        assert requests == (
+            [None] if format == "hdf5" else ["bytes=-8192", f"bytes=0-{path.stat().st_size - 1}"]
+        )
+        requests.clear()
+        head_requests.clear()
+        # Observe HTTP requests instead of blocking socket.connect: Windows asyncio
+        # needs internal loopback connections to create its wakeup socket pair.
+        result = subprocess.run(
+            [sys.executable, "-c", script, url, str(cache), "table"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "requests 0" in result.stdout
+        assert "100 rows" in result.stdout
+        assert requests == []
+        assert head_requests == []
+
+
+def test_http_large_hdf5_keeps_range_reads(tmp_path):
+    h5py = pytest.importorskip("h5py")
+    path = tmp_path / "large-seekable.h5"
+    with h5py.File(path, "w") as file:
+        file.create_dataset("data", data=np.zeros(9 << 20, dtype="u1"), chunks=(1 << 20,))
+    with _ranged_server(tmp_path) as (urlbase, requests):
+        remote = blosc2.open(f"{urlbase}/{path.name}", lazy=True, dataset="data")
+        assert remote[0] == 0
+        assert requests
+        assert all(request is not None for request in requests)
+
+
+def test_http_hdf5_source_close_closes_session(tmp_path):
+    h5py = pytest.importorskip("h5py")
+    data = np.arange(10_000, dtype="int32")
+    path = tmp_path / "standalone.h5"
+    with h5py.File(path, "w") as file:
+        file.create_dataset("data", data=data, chunks=(1000,))
+        file.create_dataset("sparse", shape=(100,), chunks=(10,), dtype="int32")
+    with _ranged_server(tmp_path) as (urlbase, _requests):
+        source = blosc2.HDF5NDSource(
+            f"{urlbase}/{path.name}",
+            "data",
+            storage_options={"skip_instance_cache": False},
+        )
+        filesystem = source._filesystem
+        cached, _ = fsspec.core.url_to_fs(f"{urlbase}/{path.name}")
+        assert filesystem is not cached  # Sources own a private filesystem.
+        session = filesystem._session
+        assert not session.closed
+        source.close()
+        assert session.closed
+        with pytest.raises(RuntimeError, match="closed"):
+            source.get_chunk(0)
+        # Sparse fill chunks obey the same closed contract as allocated chunks.
+        sparse = blosc2.HDF5NDSource(f"{urlbase}/{path.name}", "sparse")
+        assert sparse._metadata["direct"] is True
+        sparse.close()
+        with pytest.raises(RuntimeError, match="closed"):
+            sparse.get_chunk(0)
+
+
+def test_http_hdf5_scan_closes_owned_session(tmp_path, monkeypatch):
+    h5py = pytest.importorskip("h5py")
+    import blosc2.hdf5_source as hdf5_source
+
+    data = np.arange(10_000, dtype="int32")
+    path = tmp_path / "scanned.h5"
+    with h5py.File(path, "w") as file:
+        file.create_dataset("data", data=data, chunks=(1000,))
+    created = []
+    original = hdf5_source._filesystem_and_path
+
+    def tracking(urlpath, storage_options=None, filesystem=None):
+        fs, path = original(urlpath, storage_options, filesystem)
+        created.append(fs)
+        return fs, path
+
+    monkeypatch.setattr(hdf5_source, "_filesystem_and_path", tracking)
+    with _ranged_server(tmp_path) as (urlbase, _requests):
+        hdf5_source.scan_hdf5_index(f"{urlbase}/{path.name}")
+        assert created
+        assert created[0]._session is not None
+        assert created[0]._session.closed
+
+
+def test_http_hdf5_failed_init_closes_owned_session(tmp_path, monkeypatch):
+    h5py = pytest.importorskip("h5py")
+    import blosc2.hdf5_source as hdf5_source
+
+    data = np.arange(10_000, dtype="int32")
+    path = tmp_path / "failed-init.h5"
+    with h5py.File(path, "w") as file:
+        file.create_dataset("data", data=data, chunks=(1000,))
+    created = []
+    original = hdf5_source._filesystem_and_path
+
+    def tracking(urlpath, storage_options=None, filesystem=None):
+        fs, path = original(urlpath, storage_options, filesystem)
+        if filesystem is None:  # record only filesystems created by the source
+            created.append(fs)
+        return fs, path
+
+    monkeypatch.setattr(hdf5_source, "_filesystem_and_path", tracking)
+    with _ranged_server(tmp_path) as (urlbase, _requests):
+        url = f"{urlbase}/{path.name}"
+        with pytest.raises(ValueError, match="Invalid HDF5 index"):
+            blosc2.HDF5NDSource(url, "data", hdf5_index={"format": "bad"})
+        with pytest.raises(ValueError, match="not found"):
+            blosc2.HDF5NDSource(url, "missing")
+        assert len(created) == 2
+        assert all(fs._session is None or fs._session.closed for fs in created)
+        # The scan in the second attempt did open a session, and it must be closed.
+        assert created[1]._session is not None
+        assert created[1]._session.closed
+
+
+def test_http_hdf5_source_finalizer_closes_session(tmp_path):
+    h5py = pytest.importorskip("h5py")
+    data = np.arange(10_000, dtype="int32")
+    path = tmp_path / "finalizer.h5"
+    with h5py.File(path, "w") as file:
+        file.create_dataset("data", data=data, chunks=(1000,))
+    with _ranged_server(tmp_path) as (urlbase, _requests):
+        source = blosc2.HDF5NDSource(f"{urlbase}/{path.name}", "data")
+        session = source._filesystem._session
+        assert not session.closed
+        del source
+        gc.collect()
+        assert session.closed
+
+
 def test_http_store_disk_reopen_and_transport_close(tmp_path):
     h5py = pytest.importorskip("h5py")
-    pytest.importorskip("kerchunk")
-    pytest.importorskip("zarr")
     data = np.arange(10_000, dtype="int32")
     path = tmp_path / "store.h5"
     with h5py.File(path, "w") as file:
@@ -809,17 +1010,17 @@ def test_http_store_disk_reopen_and_transport_close(tmp_path):
         assert len(requests) == count
 
 
-def test_zip_store_needs_cache(tmp_path):
-    # A .b2z store is a zip archive, not a cframe, so there is nothing for the
-    # in-memory read to rebuild
+def test_zip_store_lazy_default_and_explicit_localization(tmp_path):
     localpath = str(tmp_path / "t.b2z")
     with blosc2.TreeStore(localpath, mode="w") as tstore:
         tstore["/a"] = blosc2.arange(10, dtype="i4")
     fsspec.filesystem("memory").pipe_file("/t.b2z", pathlib.Path(localpath).read_bytes())
 
-    with pytest.raises(RuntimeError):
-        blosc2.open("memory://t.b2z")
-    with blosc2.open("memory://t.b2z", cache_dir=tmp_path / "cache") as tstore:
+    with blosc2.open("memory://t.b2z") as tstore:
+        assert isinstance(tstore, blosc2.RemoteStore)
+        np.testing.assert_array_equal(tstore["/a"][:], np.arange(10, dtype="i4"))
+    with blosc2.open("memory://t.b2z", cache_dir=tmp_path / "cache", lazy=False) as tstore:
+        assert isinstance(tstore, blosc2.TreeStore)
         assert np.array_equal(tstore["/a"][:], np.arange(10, dtype="i4"))
 
 
@@ -891,6 +1092,9 @@ def test_cached_dir_refetches_on_same_size_change(tmp_path):
     localdir = blosc2.core.localize_fsspec_url("memory://samesize.b2d", tmp_path)
     assert pathlib.Path(localdir, "a.bin").read_bytes() == b"A" * 100
 
+    # MemoryFileSystem's identity uses a creation timestamp; Windows clocks can
+    # return the same timestamp for consecutive writes.
+    time.sleep(0.05)
     memfs.pipe_file("/samesize.b2d/a.bin", b"B" * 100)
     localdir = blosc2.core.localize_fsspec_url("memory://samesize.b2d", tmp_path)
     assert pathlib.Path(localdir, "a.bin").read_bytes() == b"B" * 100
@@ -1573,6 +1777,26 @@ def test_fsspec_ndsource_and_remote_array_storage_options():
     assert np.array_equal(proxy[:], a[:])
 
 
+def test_fsspec_hdf5_index_selects_hdf5_without_suffix(tmp_path):
+    import h5py
+
+    from blosc2.hdf5_source import scan_hdf5_index
+
+    path = tmp_path / "indexed.h5"
+    with h5py.File(path, "w") as file:
+        file.create_dataset("data", data=np.arange(10, dtype="i4"), chunks=(5,))
+    fsspec.filesystem("memory").pipe_file("hdf5-index/container", path.read_bytes())
+    url = "memory://hdf5-index/container"
+    index = scan_hdf5_index(url)
+
+    proxy = blosc2.open(url, dataset="data", hdf5_index=index)
+    assert isinstance(proxy, blosc2.RemoteArray)
+    np.testing.assert_array_equal(proxy[:], np.arange(10, dtype="i4"))
+
+    with pytest.raises(ValueError, match="hdf5_index"):
+        blosc2.open("memory://hdf5-index/other.zarr", lazy=True, hdf5_index=index)
+
+
 def test_non_lazy_cache_dir_preserves_explicit_b2z(tmp_path):
     archive = tmp_path / "hierarchy.b2z"
     with blosc2.TreeStore(archive, mode="w", threshold=0) as root:
@@ -1587,9 +1811,23 @@ def test_non_lazy_cache_dir_preserves_explicit_b2z(tmp_path):
     np.testing.assert_array_equal(store["/group/a"][:], np.arange(10, dtype="i4"))
 
 
-def test_non_lazy_cache_dir_rejects_refs(tmp_path):
-    fsspec.filesystem("memory").pipe_file("nonlazy-refs/data", b"whatever")
-    with pytest.raises(NotImplementedError, match="refs"):
+def test_non_lazy_cache_dir_rejects_hdf5_index(tmp_path):
+    fsspec.filesystem("memory").pipe_file("nonlazy-index/data", b"whatever")
+    with pytest.raises(NotImplementedError, match="hdf5_index"):
         blosc2.open(
-            "memory://nonlazy-refs/data", lazy=False, cache_dir=tmp_path / "cache", refs={"refs": {}}
+            "memory://nonlazy-index/data",
+            lazy=False,
+            cache_dir=tmp_path / "cache",
+            hdf5_index={"format": "invalid"},
         )
+    # The rejection must not depend on the cache options that follow it.
+    with pytest.raises(NotImplementedError, match="hdf5_index"):
+        blosc2.open(
+            "memory://nonlazy-index/data",
+            lazy=False,
+            cache_dir=tmp_path / "cache",
+            cache_policy=blosc2.CachePolicy.DISK,
+            hdf5_index={"format": "invalid"},
+        )
+    with pytest.raises(NotImplementedError, match="hdf5_index"):
+        blosc2.open("memory://nonlazy-index/data", lazy=False, hdf5_index={"format": "invalid"})

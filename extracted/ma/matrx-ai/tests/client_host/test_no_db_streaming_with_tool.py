@@ -103,20 +103,6 @@ def poisoned_db_registry(monkeypatch):
 # Same mechanism as the CLI: `uv run python scripts/engine_boundary_census.py`.
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AD182 / agent-engine-extraction Phase 3. In a cold process the engine "
-        "reaches the ORM registry 27 times from exactly TWO modules — "
-        "db/_cx_managers_impl.py (24) and db/_conversation_rebuild_impl.py (3) — "
-        "both of which materialise ORM classes at MODULE SCOPE, so importing them "
-        "at all IS the reach. With no registry (a real client host) the first one "
-        "RAISES DBNotConfiguredError, so this path has never actually run ORM-free; "
-        "the suite passes only because conftest registers stub models process-wide. "
-        "Flips to a real pass the moment the ConversationSink port displaces those "
-        "two modules. strict=True so it screams in either direction."
-    ),
-)
 def test_engine_touches_no_orm_in_a_cold_process():
     """THE client-host invariant. Cold subprocess — immune to test ordering."""
     import importlib.util

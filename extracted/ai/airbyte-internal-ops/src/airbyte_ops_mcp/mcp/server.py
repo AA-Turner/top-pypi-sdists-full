@@ -96,7 +96,11 @@ from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from airbyte_ops_mcp._sentry import _SENTRY_DSN, init_sentry_tracking
+from airbyte_ops_mcp._sentry import (
+    _SENTRY_DSN,
+    get_sentry_environment,
+    init_sentry_tracking,
+)
 from airbyte_ops_mcp.constants import (
     HEADER_AIRBYTE_CLOUD_CLIENT_ID,
     HEADER_AIRBYTE_CLOUD_CLIENT_SECRET,
@@ -535,11 +539,25 @@ def register_server_assets(app: FastMCP) -> None:
     register_prompts(app)
 
 
+def _load_env() -> None:
+    """Load environment variables from .env file if present."""
+    env_file = Path.cwd() / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+        print(f"Loaded environment from: {env_file}", flush=True, file=sys.stderr)
+
+
 register_server_assets(app)
+# Env must be loaded and Sentry initialized before the telemetry middleware
+# below, which otherwise calls `sentry_sdk.init` itself with default
+# integrations (Starlette included); a later `disabled_integrations` cannot
+# undo an already-installed one.
+_load_env()
+init_sentry_tracking(mode="mcp")
 app.add_middleware(
     ToolCallTelemetryMiddleware(
         package_name="airbyte-internal-ops",
-        sentry_dsn=_SENTRY_DSN,
+        sentry_dsn=_SENTRY_DSN if get_sentry_environment() is not None else None,
         segment_write_key=_DEFAULT_SEGMENT_WRITE_KEY,
     )
 )
@@ -551,22 +569,12 @@ async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
-def _load_env() -> None:
-    """Load environment variables from .env file if present."""
-    env_file = Path.cwd() / ".env"
-    if env_file.exists():
-        load_dotenv(env_file)
-        print(f"Loaded environment from: {env_file}", flush=True, file=sys.stderr)
-
-
 def main() -> None:
     """Main entry point for the Airbyte Admin MCP server (stdio mode).
 
     This is the default entry point that runs the server in stdio mode,
     suitable for direct MCP client connections.
     """
-    _load_env()
-    init_sentry_tracking()
 
     print("=" * 60, flush=True, file=sys.stderr)
     print("Starting Airbyte Admin MCP server (stdio mode).", file=sys.stderr)
@@ -617,8 +625,6 @@ def main_http() -> None:
     Runs the server in HTTP mode. When OIDC env vars are configured,
     Keycloak authentication is enabled automatically.
     """
-    _load_env()
-    init_sentry_tracking()
     set_hosted_mcp_mode()
 
     host = DEFAULT_HTTP_HOST

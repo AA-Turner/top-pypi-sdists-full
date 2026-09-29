@@ -22,13 +22,7 @@ def register_plugin_models():
 
 def worker_function(options_json: str) -> str:
     """Worker function that deserializes OcrOptions from JSON and returns a result."""
-    # Register plugin models in worker process
-    from ocrmypdf._options import OcrOptions
-    from ocrmypdf.builtin_plugins.tesseract_ocr import TesseractOptions
-
-    OcrOptions.register_plugin_models({'tesseract': TesseractOptions})
-
-    # Reconstruct OcrOptions from JSON in worker process
+    # The plugin models needed for options.tesseract travel with the JSON
     options = OcrOptions.model_validate_json_safe(options_json)
 
     # Verify we can access various option types
@@ -90,8 +84,10 @@ def test_json_serialization_multiprocessing():
     }
     assert reconstructed_attrs == user_attrs
 
-    # Test multiprocessing with JSON serialization
-    with multiprocessing.Pool(processes=2) as pool:
+    # Test multiprocessing with JSON serialization. Spawn, rather than fork,
+    # since forking a process with threads (such as a pytest-xdist worker)
+    # can deadlock the child.
+    with multiprocessing.get_context('spawn').Pool(processes=2) as pool:
         # Send the JSON string to worker processes
         results = pool.map(worker_function, [options_json, options_json])
 
@@ -161,3 +157,43 @@ def test_json_serialization_with_none_values():
     assert reconstructed.input_file == options.input_file
     assert reconstructed.output_file == options.output_file
     assert reconstructed.languages == options.languages
+
+
+def _clear_plugin_registry(monkeypatch):
+    """Simulate a fresh worker process whose plugin model registry is empty."""
+    import ocrmypdf._options
+
+    monkeypatch.setattr(ocrmypdf._options, '_plugin_option_models', {})
+
+
+def test_pickle_carries_plugin_models(monkeypatch):
+    """Unpickling OcrOptions registers the plugin models it was built with.
+
+    Spawned or forkserver workers start with an empty registry (#1757).
+    """
+    import pickle
+
+    options = OcrOptions(
+        input_file='test.pdf', output_file='out.pdf', tesseract_timeout=42.0
+    )
+    data = pickle.dumps(options)
+
+    _clear_plugin_registry(monkeypatch)
+    restored = pickle.loads(data)
+
+    assert restored.tesseract.timeout == 42.0
+    assert isinstance(restored.tesseract, TesseractOptions)
+
+
+def test_json_safe_carries_plugin_models(monkeypatch):
+    """JSON round trip (used by PageContext) restores plugin models (#1757)."""
+    options = OcrOptions(
+        input_file='test.pdf', output_file='out.pdf', tesseract_timeout=42.0
+    )
+    options_json = options.model_dump_json_safe()
+
+    _clear_plugin_registry(monkeypatch)
+    restored = OcrOptions.model_validate_json_safe(options_json)
+
+    assert restored.tesseract.timeout == 42.0
+    assert isinstance(restored.tesseract, TesseractOptions)

@@ -23,7 +23,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from xbsl import cli, freshness, mcpjournal, plugins
+from xbsl import cli, freshness, mcpcli, mcpjournal, plugins
 
 
 class _Dist:
@@ -90,7 +90,7 @@ def site(tmp_path, monkeypatch):
     monkeypatch.setattr(plugins, "entry_points", installed)
     monkeypatch.setattr(freshness.sysconfig, "get_paths", lambda: {
         "purelib": str(environment), "platlib": str(environment)})
-    for name in ("_started", "_checked", "_noted", "_marks", "_plugins_found"):
+    for name in ("_started", "_checked", "_engine", "_noted", "_marks", "_plugins_found"):
         monkeypatch.setattr(freshness, name, None)
     monkeypatch.setattr(freshness, "_unsettled", False)
     monkeypatch.setattr(freshness, "_SOURCES_TTL", 0.0)
@@ -294,12 +294,48 @@ def test_a_tool_runs_on_the_loaded_plugins_and_says_so_first(site, mcp_module):
     assert event["reason"] == "plugins" and event["on_disk"] == "acme-rules 2.0.0"
 
 
+def test_the_warning_of_a_tool_with_a_command_carries_the_command(
+        site, mcp_module, monkeypatch, tmp_path):
+    """The answer by the plugins on disk is one command away, as it is on a refusal."""
+    # On Python 3.10 the command stands in the folder of the staged data: the test's own.
+    monkeypatch.setattr(mcpcli, "_staged_in", str(tmp_path))
+    freshness.remember()
+    _upgrade(site, "2.0.0")
+
+    def list_rules(select=None, ignore=None, rules_filter=""):
+        return {"rules": []}
+
+    answer = mcp_module._stale_guard(list_rules)()
+
+    assert list(answer) == ["stale", "rules"]
+    assert "--list-rules" in answer["stale"]["cli"]
+    assert "cli" in answer["stale"]["message"]
+
+
 def test_an_answer_that_is_a_list_stays_a_list(site, mcp_module):
     freshness.remember()
     _upgrade(site, "2.0.0")
     assert mcp_module._stale_guard(lambda: [{"id": "code/missing-return"}])() == [
         {"id": "code/missing-return"}]
     assert [event["reason"] for event in _stale_events()] == ["plugins"]
+
+
+def test_the_code_of_a_plugin_changed_on_disk_does_not_refuse_a_call(
+        site, mcp_module, monkeypatch, tmp_path):
+    """The check before a call judges the engine's own files: a plugin is loaded whole at start
+    and answers consistently, so its change is told by the plugins check, not refused."""
+    module = tmp_path / "acme_rules.py"
+    module.write_text("levels = {}\n", encoding="utf-8")
+    monkeypatch.setitem(sys.modules, "acme_rules", SimpleNamespace(__file__=str(module)))
+    freshness.remember()
+    module.unlink()
+    module.write_text("levels = {'code/missing-return': 'off'}\n", encoding="utf-8")
+    stat = module.stat()
+    os.utime(module, ns=(stat.st_atime_ns, stat.st_mtime_ns + 2_000_000_000))
+    assert freshness.sources_state()["reason"] == "sources"  # the whole fingerprint moved
+
+    assert freshness.call_state() is None
+    assert mcp_module._stale_guard(lambda: {"ok": True})() == {"ok": True}
 
 
 def test_a_tool_on_the_plugins_it_loaded_carries_no_stale_record(site, mcp_module):
@@ -368,10 +404,17 @@ def test_the_language_server_tells_the_editor_once_per_state(tmp_path, monkeypat
     monkeypatch.setattr(freshness, "state", lambda sources=False: next(states))
     server = lsp._make_server()
     server.lsp._workspace = Workspace(uris.from_fs_path(str(tmp_path)))
-    shown, logged = [], []
+    shown, logged, asked, notified = [], [], [], []
     monkeypatch.setattr(server, "show_message", lambda text, kind=None: shown.append((text, kind)))
     monkeypatch.setattr(server, "show_message_log", lambda text, *args: logged.append(text))
     monkeypatch.setattr(server, "publish_diagnostics", lambda *args, **kwargs: None)
+    monkeypatch.setattr(server, "send_notification", lambda method, *args: notified.append(method))
+
+    def request(method, params=None, callback=None):
+        asked.append((method, params, callback))
+        shown.append((params.message, params.type))
+
+    monkeypatch.setattr(server.lsp, "send_request", request)
     fm = getattr(server.lsp, "fm", None) or getattr(server.lsp, "_features", None)
     features = getattr(fm, "features", fm)
     path = tmp_path / "Задачи.yaml"
@@ -392,6 +435,14 @@ def test_the_language_server_tells_the_editor_once_per_state(tmp_path, monkeypat
     assert all(text.startswith("xbsl-lsp: ") and "Перезапустите сервер языка" in text
                for text, _kind in shown)
     assert logged == [text for text, _kind in shown]
+    # The message carries a button, and a click asks the client for the restart.
+    method, params, callback = asked[0]
+    assert method == lsp.lsp.WINDOW_SHOW_MESSAGE_REQUEST
+    assert [action.title for action in params.actions] == ["Перезапустить"]
+    callback(None)  # the message closed without a click
+    assert notified == []
+    callback({"title": "Перезапустить"})
+    assert notified == ["xbsl/restartRequested"]
 
 
 def test_the_language_server_takes_the_start_before_it_serves(monkeypatch):

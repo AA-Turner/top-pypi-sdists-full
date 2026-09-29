@@ -94,6 +94,11 @@ from ..utils import (  # noqa: E402
     match_results_structure,
 )
 from ..utils.format_utils import face_landmarks  # noqa: E402
+from ..utils.geometry_utils import (  # noqa: E402
+    bbox_is_normalized,
+    bbox_xyxy_pixels,
+    resolve_frame_dims,
+)
 from ..utils.location_name_cache import LocationNameCache  # noqa: E402
 from .embedding_manager import EmbeddingConfig, EmbeddingManager  # noqa: E402
 from .face_recognition_client import FacialRecognitionClient  # noqa: E402
@@ -1818,6 +1823,8 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
         # Store config for async initialization
         self._default_config = config
         self._initialized = False
+        # Once-per-process notice: normalized boxes with no frame size to scale them by.
+        self._norm_bbox_no_dims_logged = False
 
         if config is not None:
             self._apply_recognition_profile(config)
@@ -1849,13 +1856,36 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
             self.temporal_identity_manager.sticky_min_votes = max(1, int(getattr(config, "sticky_min_votes", 3)))
 
     @staticmethod
-    def _detection_bbox_area(detection: Dict[str, Any]) -> int:
-        bbox = detection.get("bounding_box", {}) or {}
-        x1 = int(bbox.get("xmin", bbox.get("x1", 0)))
-        y1 = int(bbox.get("ymin", bbox.get("y1", 0)))
-        x2 = int(bbox.get("xmax", bbox.get("x2", 0)))
-        y2 = int(bbox.get("ymax", bbox.get("y2", 0)))
-        return max(1, x2 - x1) * max(1, y2 - y1)
+    def _detection_bbox_area(detection: Dict[str, Any]) -> float:
+        # Only compared against other faces in the same frame, so the space does not matter -- but
+        # it must not be truncated: int() of a normalized [0, 1] box made every area 1, and
+        # single_face_mode could then not tell the largest face from the smallest.
+        x1, y1, x2, y2 = bbox_xyxy_pixels(detection.get("bounding_box"), 0, 0)
+        return max(0.0, x2 - x1) * max(0.0, y2 - y1)
+
+    def _recognition_box_size(
+        self, bbox: Dict[str, Any], frame_dims: Tuple[int, int]
+    ) -> Tuple[int, int]:
+        """Face box ``(width, height)`` in PIXELS, for the ``min_face_w/h`` recognition gate.
+
+        The gate thresholds are pixels. New-flow boxes arrive normalized ``[0, 1]``, and ``int()``
+        of those is 0, which made every face ineligible: nothing was ever matched, every face came
+        back "unknown" with score 0.0, and nothing was logged. So a normalized box is scaled by
+        ``frame_dims`` (native ``(width, height)``) first; a pixel box is unchanged. With no frame
+        size known, a normalized box cannot be gated, and that is logged once per process.
+        """
+        fx1, fy1, fx2, fy2 = bbox_xyxy_pixels(bbox, frame_dims[0], frame_dims[1])
+        if frame_dims == (0, 0) and bbox_is_normalized(bbox) and not self._norm_bbox_no_dims_logged:
+            # Benign race across camera threads: at worst the line appears twice.
+            self._norm_bbox_no_dims_logged = True
+            self.logger.warning(
+                "face recognition: detections are normalized [0, 1] but no frame size is known "
+                "(stream_info has no stream_resolution and no frame was decoded), so the %dx%d px "
+                "recognition gate cannot be applied and these faces will not be matched.",
+                self._min_face_w,
+                self._min_face_h,
+            )
+        return max(1, int(fx2) - int(fx1)), max(1, int(fy2) - int(fy1))
 
     def _select_detections_for_recognition(
         self,
@@ -2825,6 +2855,13 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
         # Generate current timestamp
         current_timestamp = datetime.now(timezone.utc).isoformat()
 
+        # Native frame size, for the pixel-space recognition gate. New-flow boxes arrive
+        # normalized [0, 1]; stream_resolution is backfilled from the payload's coordinate_frame
+        # by PostProcessor before this runs. The decoded frame is the fallback.
+        frame_dims = resolve_frame_dims(stream_info)
+        if frame_dims == (0, 0) and current_frame is not None:
+            frame_dims = (int(current_frame.shape[1]), int(current_frame.shape[0]))
+
         final_detections = []
         # Process detections sequentially to preserve order
         for detection in detections:
@@ -2843,6 +2880,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                 camera_id=camera_id,
                 rtp_number=rtp_number,
                 application_id=application_id,
+                frame_dims=frame_dims,
             )
             # print("------------------WHOLE FACE RECOG PROCESSING DETECTION----------------------------")
             # print("LATENCY:",(time.time() - st1)*1000,"| Throughput fps:",(1.0 / (time.time() - st1)) if (time.time() - st1) > 0 else None)
@@ -2884,6 +2922,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
         camera_id: str = "",
         rtp_number: str = "",
         application_id: str = "",
+        frame_dims: Tuple[int, int] = (0, 0),
     ) -> Dict:
         # Extract and validate embedding using EmbeddingManager
         _ = (
@@ -2903,13 +2942,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
         # print("------------------FACE RECOG EMBEDDING EXTRACTION----------------------------")
 
         # Determine if detection is eligible for recognition (similar to compare_similarity gating)
-        bbox = detection.get("bounding_box", {}) or {}
-        x1 = int(bbox.get("xmin", bbox.get("x1", 0)))
-        y1 = int(bbox.get("ymin", bbox.get("y1", 0)))
-        x2 = int(bbox.get("xmax", bbox.get("x2", 0)))
-        y2 = int(bbox.get("ymax", bbox.get("y2", 0)))
-        w_box = max(1, x2 - x1)
-        h_box = max(1, y2 - y1)
+        w_box, h_box = self._recognition_box_size(detection.get("bounding_box", {}) or {}, frame_dims)
         frame_id = detection.get("frame_id", None)  # TODO: Maybe replace this with stream_info frame_id
 
         track_key = track_id if track_id is not None else f"no_track_{id(detection)}"

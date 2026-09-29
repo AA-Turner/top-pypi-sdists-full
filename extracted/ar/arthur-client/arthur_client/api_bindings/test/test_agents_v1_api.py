@@ -26,6 +26,13 @@ class TestAgentsV1Api(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
+    def test_get_agent_registration(self) -> None:
+        """Test case for get_agent_registration
+
+        Get An Agent Registration.
+        """
+        pass
+
     def test_get_registered_agent_by_id(self) -> None:
         """Test case for get_registered_agent_by_id
 
@@ -82,6 +89,13 @@ class TestAgentsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_list_unregistered_agent_actions(self) -> None:
+        """Test case for list_unregistered_agent_actions
+
+        List Mute And Unmute Actions On A Workspace'S Unregistered Agents.
+        """
+        pass
+
     def test_list_unregistered_agents_for_organization(self) -> None:
         """Test case for list_unregistered_agents_for_organization
 
@@ -96,10 +110,31 @@ class TestAgentsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_mute_unregistered_agents(self) -> None:
+        """Test case for mute_unregistered_agents
+
+        Mute Unregistered Agents.
+        """
+        pass
+
     def test_put_agents(self) -> None:
         """Test case for put_agents
 
         Upsert Agents.
+        """
+        pass
+
+    def test_register_unregistered_agent(self) -> None:
+        """Test case for register_unregistered_agent
+
+        Register An Unregistered Agent As An Application.
+        """
+        pass
+
+    def test_unmute_unregistered_agents(self) -> None:
+        """Test case for unmute_unregistered_agents
+
+        Unmute Unregistered Agents.
         """
         pass
 

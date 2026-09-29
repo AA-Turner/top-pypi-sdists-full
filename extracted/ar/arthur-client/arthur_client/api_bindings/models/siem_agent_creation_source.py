@@ -30,7 +30,7 @@ class SIEMAgentCreationSource(BaseModel):
     """ # noqa: E501
     vendor: StrictStr = Field(description="Upstream product this came from, e.g. 'splunk_enterprise', 'jamf_pro', 'aws_bedrock'. FREE TEXT, and deliberately not enumerated here: nothing in this package branches on the vendor -- capability and evidence ceilings are declared per source class -- so enumerating it would make every new vendor a release of this package plus a repin in three services. The registry is app_plane's discovery source type catalog, which is also where the display name lives. Values are `<platform>_<product>`, always, so a vendor shipping a second product that could be a source does not force a rename of the first.")
     address: SourceAddress = Field(description="Where to find this agent again upstream. Required: a discovered agent that cannot be located again is not actionable.")
-    observations: Optional[AgentObservations] = Field(default=None, description="What the sensor could see. Only fields in `observable_fields()` are ever populated by this category.")
+    observations: Optional[AgentObservations] = Field(default=None, description="What the source could see. Only fields in `observable_fields()` are ever populated by this category.")
     type: Optional[StrictStr] = 'SIEM'
     __properties: ClassVar[List[str]] = ["vendor", "address", "observations", "type"]
 

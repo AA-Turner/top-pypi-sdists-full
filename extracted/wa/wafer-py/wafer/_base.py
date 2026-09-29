@@ -22,16 +22,19 @@ from wafer import _psl
 from wafer._cookies import CookieCache, _default_cookie_path
 from wafer._dart import DartIdentity
 from wafer._fingerprint import (
+    HIGH_ENTROPY_HINTS,
     ROTATION_LADDER,
     FingerprintManager,
     build_fingerprint_envelope,
     chrome_version_from_ua,
+    chromium_navigation_order,
     embed_header_family,
     embed_header_order,
     embed_priority,
     embed_storage_access,
     emulation_family,
     emulation_is_mobile,
+    emulation_major_version,
     emulation_user_agent,
     family_headers,
     wreq_emulation,
@@ -41,6 +44,20 @@ from wafer._kasada import get_session as get_kasada_session  # noqa: F401
 from wafer._opera_mini import OperaMiniIdentity
 from wafer._profiles import Profile
 from wafer._ratelimit import RateLimiter
+from wafer._reddit_app import (
+    REDDIT_APP_API_HOST,
+    REDDIT_APP_BACKOFF_SECONDS,
+    REDDIT_APP_IDENTITY,
+    REDDIT_APP_OUTCOME_SERVED,
+    REDDIT_APP_TOKEN_URL,
+    RedditAppDevice,
+    RedditAppToken,
+    load_state,
+    parse_token_response,
+    ratelimit_reset,
+    reddit_app_api_url,
+    save_state,
+)
 from wafer._safari import SafariIdentity
 from wafer._solvers import (
     REDDIT_BROWSER_OUTCOME_ESTABLISHED,
@@ -116,6 +133,11 @@ def _new_reddit_bootstrap_stats() -> dict[str, Any]:
         "browser_attempts": 0,
         "last_browser_outcome": None,
         "last_browser_budget": None,
+        "app_reads": 0,
+        "app_token_mints": 0,
+        "app_fallbacks": 0,
+        "app_last_outcome": None,
+        "app_last_status": None,
     }
 
 
@@ -391,7 +413,6 @@ DEFAULT_HEADERS = {
     ),
     "Accept-Language": "en-US,en;q=0.9",
     "Accept-Encoding": "gzip, deflate, br, zstd",
-    "Cache-Control": "max-age=0",
     "Upgrade-Insecure-Requests": "1",
 }
 
@@ -689,6 +710,7 @@ class BaseSession:
         fingerprint_pool: list | None = None,
         max_response_size: int | None = None,
         resolve: dict[str, list[str]] | None = None,
+        reddit_app: bool = True,
     ):
         self._profile = profile
         # Optional byte cap on response bodies. None (default) = no cap,
@@ -844,9 +866,25 @@ class BaseSession:
         # parent-domain cookies without leaking host-only cookies to siblings.
         # Keyed by the RFC cookie identity (name, normalized domain, path).
         self._cookie_scopes: dict[tuple[str, str, str], bool] = {}
+        # High-entropy Client Hints each origin asked for with Accept-CH.
+        self._accept_ch: dict[str, frozenset[str]] = {}
 
         # Reddit anonymous-bootstrap diagnostics (see reddit_bootstrap_state).
         self._reddit_bootstrap_stats = _new_reddit_bootstrap_stats()
+        # Reddit JSON reads through the Android app API (see _reddit_app.py).
+        # The install and its token load lazily from cache_dir on first use.
+        self._reddit_app_enabled = (
+            bool(reddit_app) and profile is not Profile.OPERA_MINI
+        )
+        self._reddit_app_client = None
+        self._reddit_app_device: RedditAppDevice | None = None
+        self._reddit_app_token: RedditAppToken | None = None
+        # monotonic() before which reads skip the app route (it failed), and
+        # before which the API's rate-limit window is spent.
+        self._reddit_app_backoff_until = 0.0
+        self._reddit_app_ratelimit_until = 0.0
+        # AsyncSession: one token mint at a time (created on first use).
+        self._reddit_app_mint_lock = None
 
         # Referer chain tracking: last URL fetched per hostname
         self._last_url: dict[str, str] = {}
@@ -869,6 +907,23 @@ class BaseSession:
                 "Embed mode is not supported with Profile.DART "
                 "(Dart apps don't send Sec-Fetch-* headers)"
             )
+        if embed and self._fingerprint is not None:
+            # wafer sends an embed request's whole header set itself, which it
+            # can only do for the shapes captured from real browsers. Any
+            # other emulation would send its navigation headers
+            # (Sec-Fetch-User, Upgrade-Insecure-Requests) beside
+            # Sec-Fetch-Mode: cors, which no browser does.
+            unshaped = [
+                repr(e)
+                for e in [self._fingerprint.current, *(self._fingerprint_pool or [])]
+                if embed_header_family(e) is None
+            ]
+            if unshaped:
+                raise ValueError(
+                    "Embed mode needs desktop Chrome, Edge or Firefox emulations"
+                    f" (got {', '.join(unshaped)}); use profile=Profile.SAFARI"
+                    " for Safari"
+                )
         self._embed = embed
         self._embed_origin = embed_origin
         self._embed_referers = embed_referers or []
@@ -1324,9 +1379,9 @@ class BaseSession:
         fingerprint rotation (_build_client_kwargs does this).
 
         Embed mode adjustments happen here (not in _build_headers) because
-        wreq's header model is additive: per-request headers cannot remove
-        or replace client-level headers, they only add. Setting a header
-        at both levels creates HTTP/2 duplicates that WAFs detect.
+        a per-request header cannot remove a client-level one (it can only
+        replace or add), and older wreq builds duplicated a header set at
+        both levels on the HTTP/2 wire.
         """
         headers = dict(self.headers)
         if self._fingerprint is not None:
@@ -1344,7 +1399,9 @@ class BaseSession:
                 ua = ua_override or self._desktop_emulation_ua()
                 if ua:
                     headers["User-Agent"] = ua
-            headers.update(self._fingerprint.sec_ch_ua_headers())
+            # Low-entropy only; the high-entropy hints go per request to the
+            # origins that asked for them (_build_headers).
+            headers.update(self._fingerprint.sec_ch_ua_headers(high_entropy=False))
 
         if self._embed:
             # Strip Sec-Fetch-* from client level. _build_headers sets
@@ -1435,6 +1492,79 @@ class BaseSession:
         """
         return {k: v for k, v in self._client_headers.items() if v != ""}
 
+    @staticmethod
+    def _set_default(headers: dict[str, str], name: str, value: str) -> None:
+        """Set ``name`` unless present under any casing (a "" suppresses)."""
+        if not any(k.lower() == name.lower() for k in headers):
+            headers[name] = value
+
+    def _is_chromium_navigation(self) -> bool:
+        """A desktop Chrome/Edge emulation making top-level navigations."""
+        if self._embed or self._fingerprint is None:
+            return False
+        if (
+            self._dart_identity is not None
+            or self._ios_safari_identity is not None
+            or self._safari_identity is not None
+        ):
+            return False
+        current = self._fingerprint.current
+        return not emulation_is_mobile(current) and emulation_family(current) in (
+            "chrome",
+            "edge",
+        )
+
+    @staticmethod
+    def _hint_origin(url: str) -> str | None:
+        """Origin key for Accept-CH, or None outside a secure context, where
+        Chrome ignores Accept-CH."""
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower().rstrip(".")
+        if parsed.scheme != "https" and host not in ("localhost", "127.0.0.1", "::1"):
+            return None
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        return f"{parsed.scheme}://{host}:{port}"
+
+    @staticmethod
+    def _header_tokens(headers, name: str) -> frozenset[str] | None:
+        """Lower-cased comma-separated tokens of a response header, or None."""
+        try:
+            values = list(headers.get_all(name))
+        except Exception:
+            return None
+        if not values:
+            return None
+        text = ",".join(
+            v.decode("latin-1") if isinstance(v, bytes) else str(v) for v in values
+        )
+        return frozenset(t.strip().lower() for t in text.split(",") if t.strip())
+
+    def _record_accept_ch(self, url: str, headers) -> None:
+        """Remember which high-entropy hints a navigation response asks for.
+
+        A response with Accept-CH replaces the origin's set; one without it
+        leaves the set alone.
+        """
+        if not self._is_chromium_navigation():
+            return
+        origin = self._hint_origin(url)
+        tokens = self._header_tokens(headers, "accept-ch")
+        if origin is None or tokens is None:
+            return
+        self._accept_ch[origin] = tokens & HIGH_ENTROPY_HINTS
+
+    def _critical_ch_missing(self, url: str, headers, sent: dict[str, str]) -> bool:
+        """Whether Critical-CH names a requested hint this request lacked,
+        which makes Chrome retry the request once with it."""
+        if not self._is_chromium_navigation():
+            return False
+        origin = self._hint_origin(url)
+        critical = self._header_tokens(headers, "critical-ch")
+        if origin is None or critical is None:
+            return False
+        wanted = critical & self._accept_ch.get(origin, frozenset())
+        return bool(wanted - {k.lower() for k in sent})
+
     def _embed_header_kind(self) -> str | None:
         """The verified embed request shape wafer supplies itself, or None.
 
@@ -1467,8 +1597,13 @@ class BaseSession:
         """
         if not self._embed_origin:
             return "cross-site"
+        return self._sec_fetch_relation(self._embed_origin, url)
 
-        origin = urlparse(self._embed_origin)
+    @staticmethod
+    def _sec_fetch_relation(initiator: str, url: str) -> str:
+        """``same-origin``, ``same-site`` or ``cross-site`` for a request to
+        ``url`` made from a page at ``initiator``."""
+        origin = urlparse(initiator)
         request = urlparse(url)
         origin_host = origin.hostname or ""
         request_host = request.hostname or ""
@@ -1537,8 +1672,14 @@ class BaseSession:
             # _compute_client_headers. The Sec-Fetch-* / Origin / Referer
             # behavior is identical for fetch() and jQuery XHR -- both are CORS
             # requests issued from the embed_origin page.
-            merged["Origin"] = self._embed_origin or ""
             merged["Sec-Fetch-Site"] = self._compute_sec_fetch_site(url)
+            # Fetch spec: a same-origin GET/HEAD carries no Origin (captured:
+            # Chrome 153 same-origin fetch() GET has none, POST has one).
+            if merged["Sec-Fetch-Site"] != "same-origin" or method.upper() not in (
+                "GET",
+                "HEAD",
+            ):
+                merged["Origin"] = self._embed_origin or ""
             merged["Sec-Fetch-Mode"] = "cors"
             merged["Sec-Fetch-Dest"] = "empty"
             if self._embed_referers:
@@ -1564,6 +1705,9 @@ class BaseSession:
             # GET/HEAD navigations do not.
             if method.upper() not in ("GET", "HEAD"):
                 merged["Origin"] = self._embed_origin or ""
+                # Chrome also revalidates a form-POST navigation.
+                if kind == "chromium":
+                    self._set_default(merged, "Cache-Control", "max-age=0")
             if self._embed_referers:
                 merged["Referer"] = random.choice(self._embed_referers)
             logger.debug(
@@ -1576,6 +1720,17 @@ class BaseSession:
             if "Referer" not in merged and domain in self._last_url:
                 merged["Referer"] = self._last_url[domain]
                 logger.debug("Auto-Referer: %s", self._last_url[domain])
+            if self._is_chromium_navigation():
+                # High-entropy hints only to an origin that asked for them
+                # with Accept-CH, as Chrome does.
+                requested = self._accept_ch.get(self._hint_origin(url) or "")
+                if requested:
+                    for name, value in self._fingerprint.sec_ch_ua_headers().items():
+                        if name in requested:
+                            merged[name] = value
+                # A form-POST navigation revalidates; a plain one does not.
+                if method.upper() not in ("GET", "HEAD"):
+                    self._set_default(merged, "Cache-Control", "max-age=0")
 
         # Kasada: CT+CD headers require x-kpsdk-h HMAC to be valid.
         # Without H, sending CT+CD causes server rejection (worse
@@ -1600,6 +1755,9 @@ class BaseSession:
                         del merged[existing]
                 merged[key] = value
 
+        if not self._embed:
+            self._align_sec_fetch_site(merged, url, extra)
+
         # Return only the delta: headers not already at client level, or with
         # a different value (e.g. user per-request override). The client-level
         # comparison is also case-insensitive, so an override that differs
@@ -1613,12 +1771,88 @@ class BaseSession:
             canonical, existing = folded_client.get(k.lower(), (k, _MISSING))
             if existing is _MISSING or existing != v:
                 # Emit under the CLIENT's spelling when the header already
-                # exists there. wreq overrides a same-named per-request header
-                # but treats a differently-cased one as a separate field, so
-                # sending "accept" beside the client's "Accept" duplicates it
-                # on the HTTP/2 wire.
+                # exists there, so each name is one field whatever wreq's merge
+                # does. (0.12.3 replaces in any case; older builds sent a
+                # differently-cased copy as a second HTTP/2 field.)
                 delta[canonical] = v
         return delta
+
+    def _reddit_leg_headers(
+        self, url: str, page_url: str | None = None
+    ) -> tuple[dict[str, str], dict]:
+        """Headers (and extra wreq kwargs) for a Reddit bootstrap leg.
+
+        Without ``page_url``: the verification page, fetched like a typed URL.
+        With it: the form submission, which the page's script sends. Chrome
+        sends that as a same-origin navigation from the page with no user
+        activation, so no Sec-Fetch-User (captured, Chrome 153), and removing
+        a header wreq's emulation adds takes the full set with its defaults
+        off. Other profiles get the same Referer and Sec-Fetch-Site.
+        """
+        if page_url is None:
+            return self._build_headers(url, {"Referer": ""}), {}
+        if not self._is_chromium_navigation():
+            return self._build_headers(url, {"Referer": page_url}), {}
+        headers = dict(self._client_headers)
+        requested = self._accept_ch.get(self._hint_origin(url) or "")
+        if requested:
+            for name, value in self._fingerprint.sec_ch_ua_headers().items():
+                if name in requested:
+                    headers[name] = value
+        headers.update(
+            {
+                "Sec-Fetch-Site": self._sec_fetch_relation(page_url, url),
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Dest": "document",
+                "Referer": page_url,
+                "Priority": "u=0, i",
+            }
+        )
+        return {k: v for k, v in headers.items() if v != ""}, {
+            "default_headers": False
+        }
+
+    def _align_sec_fetch_site(
+        self, merged: dict[str, str], url: str, extra: dict[str, str] | None
+    ) -> None:
+        """Make a navigation's Sec-Fetch-Site agree with its Referer.
+
+        A browser sends ``Sec-Fetch-Site: none`` only for a navigation no page
+        started (typed URL, bookmark), and such a navigation has no Referer.
+        One that carries a Referer came from that page, so the site relation
+        follows it (a link click: ``same-origin`` for wafer's own referer
+        chain). A Sec-Fetch-Site the caller set, per request or on the
+        session, is left alone.
+        """
+        if extra and any(k.lower() == "sec-fetch-site" for k in extra):
+            return
+        if self._user_headers and any(
+            k.lower() == "sec-fetch-site" for k in self.headers
+        ):
+            return
+        referer = next(
+            (v for k, v in merged.items() if k.lower() == "referer" and v), None
+        )
+        if referer is None or not self._navigation_sends_sec_fetch(merged):
+            return
+        key = next((k for k in merged if k.lower() == "sec-fetch-site"), None)
+        merged[key or "Sec-Fetch-Site"] = self._sec_fetch_relation(referer, url)
+
+    def _navigation_sends_sec_fetch(self, merged: dict[str, str]) -> bool:
+        """Whether this session's navigations carry Sec-Fetch-* at all."""
+        if any(k.lower() == "sec-fetch-site" for k in merged):
+            return True  # set at client level (the Safari identities)
+        if self._fingerprint is None:
+            return False
+        current = self._fingerprint.current
+        family = emulation_family(current)
+        if family in ("chrome", "edge", "opera", "firefox"):
+            return True
+        # Safari sends Fetch Metadata from 16.4.
+        return family == "safari" and (
+            (emulation_major_version(current) or 0) >= 17
+            or repr(current).endswith("16_5")
+        )
 
     def _record_url(self, url: str) -> None:
         """Record the URL for referer chain tracking."""
@@ -1855,6 +2089,15 @@ class BaseSession:
             if strikes:
                 penalty = min(1.0 * (2**strikes), 15.0)
         return base + penalty
+
+    @staticmethod
+    def _enforce_final_cap(content: bytes, url: str, cap: int | None) -> None:
+        """A Reddit gate is read past the caller's cap as challenge overhead;
+        handed back to the caller, it must fit the cap like any response."""
+        if cap is not None and len(content) > cap:
+            from wafer._errors import ResponseTooLarge
+
+            raise ResponseTooLarge(url, len(content), cap)
 
     @staticmethod
     def _clamp_delay(delay: float, deadline: float | None) -> float:
@@ -2342,6 +2585,10 @@ class BaseSession:
             }
             if kind is not None:
                 kwargs["orig_headers"] = embed_header_order(kind, self._embed)
+            elif self._is_chromium_navigation():
+                # Chrome's navigation order, which places requested
+                # high-entropy hints inside the sec-ch-ua block.
+                kwargs["orig_headers"] = chromium_navigation_order()
         store = self._cert_store()
         if store is not None:
             kwargs["tls_verify"] = store
@@ -2584,7 +2831,7 @@ class BaseSession:
             content_type
         ):
             text = body_bytes.decode("utf-8", errors="replace")
-            detected = detect_challenge(status, headers, text)
+            detected = detect_challenge(status, headers, text, url=final_url)
             challenge_type = detected.value if detected else None
         return WaferResponse(
             status_code=status,
@@ -3101,6 +3348,225 @@ class BaseSession:
         if outcome == REDDIT_BROWSER_OUTCOME_ESTABLISHED:
             stats["successes"] = stats["successes"] + 1
 
+    # -- Reddit app route (no I/O; the sessions send the requests) --------
+
+    def _reddit_app_target(self, method, url: str, extra_headers, kwargs) -> str | None:
+        """The app-API URL to read ``url`` from, or None to use the web path.
+
+        Only a plain GET of a Reddit JSON read qualifies. A request that
+        speaks for an account goes out as asked: an ``Authorization`` or
+        ``Cookie`` header (per request or on the session), or a logged-in
+        ``reddit_session`` cookie in the jar. With ``resolve=`` pins, both app
+        hosts must be pinned: the route must not connect anywhere real DNS
+        chose.
+        """
+        if not self._reddit_app_enabled:
+            return None
+        verb = method.upper() if isinstance(method, str) else method
+        if verb not in ("GET", Method.GET):
+            return None
+        if any(key in kwargs for key in ("body", "form", "json")):
+            return None
+        if time.monotonic() < self._reddit_app_backoff_until:
+            return None
+        if self._resolve and not all(
+            _canonical_host(host) in self._resolve
+            for host in (REDDIT_APP_API_HOST, urlparse(REDDIT_APP_TOKEN_URL).hostname)
+        ):
+            return None
+        api_url = reddit_app_api_url(url)
+        if api_url is None:
+            return None
+        account_headers = ("authorization", "cookie")
+        if extra_headers and any(
+            str(k).lower() in account_headers for k in extra_headers
+        ):
+            return None
+        if self._user_headers and any(
+            str(k).lower() in account_headers and v for k, v in self.headers.items()
+        ):
+            return None
+        if "reddit_session" in self._reddit_jar_cookie_names():
+            return None
+        return api_url
+
+    def _reddit_app_cache_dir(self):
+        cache = getattr(self, "_cookie_cache", None)
+        return None if cache is None else cache._cache_dir
+
+    def _reddit_app_install(self) -> RedditAppDevice:
+        """This session's app install, loaded or created on first use."""
+        if self._reddit_app_device is None:
+            state = load_state(self._reddit_app_cache_dir())
+            if state is None:
+                self._reddit_app_device = RedditAppDevice.new()
+                save_state(self._reddit_app_cache_dir(), self._reddit_app_device, None)
+            else:
+                self._reddit_app_device, self._reddit_app_token = state
+        return self._reddit_app_device
+
+    def _reddit_app_fresh_token(self) -> RedditAppToken | None:
+        """A usable token without minting: ours, or one another session with
+        the same cache minted since."""
+        self._reddit_app_install()
+        token = self._reddit_app_token
+        if token is not None and token.fresh():
+            return token
+        state = load_state(self._reddit_app_cache_dir())
+        if state is not None:
+            device, stored = state
+            if device.device_id == self._reddit_app_device.device_id and stored:
+                self._reddit_app_token = stored
+                return stored
+        self._reddit_app_token = None
+        return None
+
+    def _reddit_app_accept_token(
+        self, status: int, headers: dict[str, str], body: bytes
+    ) -> RedditAppToken | None:
+        """Adopt the token a mint returned, or None if it is not a grant."""
+        token = parse_token_response(status, headers, body)
+        stats = self._reddit_stats()
+        stats["app_last_status"] = status
+        if token is None:
+            return None
+        stats["app_token_mints"] = stats["app_token_mints"] + 1
+        self._reddit_app_token = token
+        save_state(self._reddit_app_cache_dir(), self._reddit_app_install(), token)
+        return token
+
+    def _reddit_app_drop_token(self) -> None:
+        """Forget a token the API refused, here and on disk."""
+        self._reddit_app_token = None
+        save_state(self._reddit_app_cache_dir(), self._reddit_app_install(), None)
+
+    def _reddit_app_read_headers(self, token: RedditAppToken) -> dict[str, str]:
+        return {**self._reddit_app_install().headers(), **token.headers()}
+
+    def _reddit_app_note_ratelimit(self, headers: dict[str, str]) -> None:
+        reset = ratelimit_reset(headers)
+        if reset is not None:
+            self._reddit_app_ratelimit_until = time.monotonic() + reset
+
+    def _reddit_app_ratelimit_wait(self) -> float:
+        return max(0.0, self._reddit_app_ratelimit_until - time.monotonic())
+
+    def _reddit_app_fall_back(
+        self,
+        outcome: str,
+        *,
+        status: int | None = None,
+        backoff: float = REDDIT_APP_BACKOFF_SECONDS,
+    ) -> None:
+        """Hand this read to the web path, and for ``backoff`` seconds later
+        ones too (0 for this read only)."""
+        stats = self._reddit_stats()
+        stats["app_fallbacks"] = stats["app_fallbacks"] + 1
+        stats["app_last_outcome"] = outcome
+        stats["app_last_status"] = status
+        if backoff > 0:
+            self._reddit_app_backoff_until = time.monotonic() + backoff
+            logger.info(
+                "Reddit app route unavailable (%s); reading through the web"
+                " path for %.0fs",
+                outcome,
+                backoff,
+            )
+        else:
+            logger.debug("Reddit app route declined this read (%s)", outcome)
+
+    def _reddit_app_served(self, status: int) -> None:
+        stats = self._reddit_stats()
+        stats["app_reads"] = stats["app_reads"] + 1
+        stats["app_last_outcome"] = REDDIT_APP_OUTCOME_SERVED
+        stats["app_last_status"] = status
+
+    def _reddit_app_client_kwargs(self) -> dict:
+        """kwargs for the app route's own wreq client: the TLS and HTTP/2 of
+        Chromium's network stack on Android and no browser headers, with the
+        session's proxy, trust store, pins and timeouts."""
+        from wreq import Platform
+
+        kwargs = {
+            "emulation": Emulation(
+                profile=DEFAULT_EMULATION,
+                platform=Platform.Android,
+                headers=False,
+            ),
+            "connect_timeout": self.connect_timeout,
+            "timeout": self.timeout,
+            "cookie_store": False,
+        }
+        store = self._cert_store()
+        if store is not None:
+            kwargs["tls_verify"] = store
+        if self._proxy is not None:
+            kwargs["proxies"] = [self._proxy]
+        if self._resolve:
+            from ipaddress import ip_address
+
+            from wreq import DnsOptions
+
+            opts = DnsOptions()
+            for host, addrs in self._resolve.items():
+                opts.add_resolve(host, [ip_address(a) for a in addrs])
+            kwargs["dns_options"] = opts
+        return kwargs
+
+    @staticmethod
+    def _reddit_app_retry_delay(
+        status: int, headers: dict[str, str], retries: int
+    ) -> float:
+        """Wait before retrying a 429 (the API's own reset) or a 5xx."""
+        from wafer._retry import calculate_backoff, parse_retry_after
+
+        if status != 429:
+            return calculate_backoff(retries)
+        lower = {k.lower(): v for k, v in headers.items()}
+        waits = [parse_retry_after(lower.get("retry-after", "")) or 0.0]
+        try:
+            waits.append(float(lower.get("x-ratelimit-reset", "")))
+        except ValueError:
+            pass
+        return max(1.0, *waits)
+
+    @staticmethod
+    def _reddit_app_attempt_limit(
+        deadline: float, attempt_secs: float | None, timeout_secs: float, url: str
+    ) -> float:
+        from wafer._errors import WaferTimeout
+
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise WaferTimeout(url, timeout_secs)
+        return remaining if attempt_secs is None else min(attempt_secs, remaining)
+
+    def _reddit_app_response(
+        self,
+        *,
+        status: int,
+        content: bytes,
+        headers: dict[str, str],
+        url: str,
+        history: list,
+        start_time: float,
+        retries: int,
+    ):
+        from wafer._response import WaferResponse
+
+        self._reddit_app_served(status)
+        return WaferResponse(
+            status_code=status,
+            content=content,
+            headers=headers,
+            url=url,
+            history=history,
+            elapsed=time.monotonic() - start_time,
+            was_retried=retries > 0,
+            retries=retries,
+            emulation=REDDIT_APP_IDENTITY,
+        )
+
     def _reddit_jar_cookie_names(self) -> frozenset[str]:
         """Cookie names currently in the wreq jar for the reddit.com space."""
         client = getattr(self, "_client", None)
@@ -3168,6 +3634,19 @@ class BaseSession:
             has_cookie_evidence: whether ``cookie_names`` proves anonymous
                 setup (``loid`` plus ``token_v2`` or ``csv``). This is the
                 hydration-aware answer to "is this session set up for Reddit".
+            app_reads: JSON reads the Android app route served.
+            app_token_mints: anonymous app tokens minted this session.
+            app_fallbacks: reads the app route handed to the web path.
+            app_last_outcome: how the last app-route read ended --
+                ``"served"``, ``"token"`` (no token could be minted),
+                ``"gate"`` (Reddit's edge turned the app client away: a
+                non-JSON answer), ``"unauthorized"`` (a fresh token got 401:
+                an endpoint that needs an account), ``"ratelimit"`` (the
+                API's window would not reset within the deadline),
+                ``"transport"``, ``"redirect"`` (to something the app route
+                does not read) -- or ``None``. All but ``"served"`` sent the
+                read through the web path.
+            app_last_status: HTTP status behind ``app_last_outcome``.
         """
         stats = self._reddit_stats()
         jar_names = self._reddit_jar_cookie_names()
@@ -3182,4 +3661,9 @@ class BaseSession:
             "last_browser_budget": stats["last_browser_budget"],
             "cookie_names": list(reddit_cookie_name_summary(jar_names)),
             "has_cookie_evidence": reddit_has_cookie_evidence(jar_names),
+            "app_reads": stats["app_reads"],
+            "app_token_mints": stats["app_token_mints"],
+            "app_fallbacks": stats["app_fallbacks"],
+            "app_last_outcome": stats["app_last_outcome"],
+            "app_last_status": stats["app_last_status"],
         }

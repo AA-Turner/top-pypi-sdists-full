@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.11,<3.13"
 dependencies = [
-    "airbyte>=0.56,<1.0.0",
+    "airbyte>=1.0.0rc6,<2.0",
     "airbyte-cdk>=7.3.9,<8.0",
     "airbyte-connector-models>=0.1.11,<0.2.0",
     "airbyte-protocol-models-pdv2>=0.13.0",
@@ -20,8 +20,8 @@ dependencies = [
     "deepdiff>=6.3.0,<7.0",
     "docker>=6.0,<7.0",
     "dpath>=2.1.5,<3.0",
-    "fastmcp>=3.0,<4.0",
-    "fastmcp-extensions[cli]>=0.19.1,<1.0",
+    "fastmcp>=4.0.9,<5.0",
+    "fastmcp-extensions[cli]>=0.27.2,<1.0",
     "py-key-value-aio[firestore]>=0.4.4,<0.5.0",
     "fsspec>=2024.0.0",
     "gcsfs>=2024.0.0",
@@ -100,7 +100,7 @@ live-tests = [
     "google-cloud-logging>=3.9.0,<4.0",
     "google-cloud-secret-manager>=2.18.0,<3.0",
     "jsonschema",
-    "mitmproxy",
+    "mitmproxy>=12.2,<13; python_version >= '3.12'",
     "pandas",
     "pydash",
     "pytest",
@@ -147,6 +147,11 @@ orchestrator = [
     "pygithub>=2.7.0,<3.0",
     "python-dateutil>=2.8.2,<3.0",
 ]
+
+[tool.uv]
+# mitmproxy caps `typing-extensions<=4.14` defensively; fastmcp 4's
+# `py-key-value-aio` needs `>=4.15`. The cap is not a real API constraint.
+override-dependencies = ["typing-extensions>=4.15"]
 
 [tool.uv.workspace]
 members = [".", "airbyte-cloud-cli"]

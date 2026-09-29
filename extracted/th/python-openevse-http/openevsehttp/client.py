@@ -21,13 +21,16 @@ from .const import (
     ERROR_SESSION_REQUIRED,
     ERROR_TIMEOUT,
     UPDATE_TRIGGERS,
+    USER_AGENT,
 )
 from .exceptions import (
     AlreadyListening,
     AuthenticationError,
+    CommandFailedError,
     MissingMethod,
     MissingSerial,
     ParseJSONError,
+    UnsupportedFeature,
 )
 from .managers import ManagersMixin
 from .properties import PropertiesMixin
@@ -55,6 +58,7 @@ class OpenEVSE(CommandsMixin, ManagersMixin, SensorsMixin, PropertiesMixin):
         session: aiohttp.ClientSession | None = None,
         ssl: bool = False,
         ssl_verify: bool = True,
+        github_token: str | None = None,
     ) -> None:
         """Connect to an OpenEVSE charger equipped with wifi or ethernet."""
         self._user = user or ""
@@ -75,6 +79,11 @@ class OpenEVSE(CommandsMixin, ManagersMixin, SensorsMixin, PropertiesMixin):
         self._owns_loop = False
         self._loop_thread: threading.Thread | None = None
         self._session = session
+        self._github_token = (
+            github_token.strip()
+            if isinstance(github_token, str) and github_token.strip()
+            else None
+        )
 
     def _get_session(self) -> aiohttp.ClientSession:
         """Return the configured HTTP session or fail fast."""
@@ -93,6 +102,7 @@ class OpenEVSE(CommandsMixin, ManagersMixin, SensorsMixin, PropertiesMixin):
         method: str = "",
         data: Any = None,
         rapi: Any = None,
+        headers: dict[str, str] | None = None,
     ) -> Mapping[str, Any] | list[Any] | str | bool:
         """Return result of processed HTTP request."""
         auth = None
@@ -105,7 +115,7 @@ class OpenEVSE(CommandsMixin, ManagersMixin, SensorsMixin, PropertiesMixin):
 
         session = self._get_session()
         return await self._process_request_with_session(
-            session, url, method, data, rapi, auth
+            session, url, method, data, rapi, auth, headers
         )
 
     def _normalize_response(self, response: Any) -> dict[str, Any] | list[Any]:
@@ -123,6 +133,7 @@ class OpenEVSE(CommandsMixin, ManagersMixin, SensorsMixin, PropertiesMixin):
         data: Any,
         rapi: Any,
         auth: Any,
+        headers: dict[str, str] | None = None,
     ) -> Mapping[str, Any] | list[Any] | str | bool:
         """Process a request with a given session."""
         if not hasattr(session, method):
@@ -136,7 +147,17 @@ class OpenEVSE(CommandsMixin, ManagersMixin, SensorsMixin, PropertiesMixin):
             method,
         )
         try:
-            kwargs = {"data": rapi, "auth": auth}
+            req_headers: dict[str, str] = {
+                "User-Agent": USER_AGENT,
+                "X-Requested-With": "OpenEVSE",
+            }
+            if headers:
+                req_headers.update(headers)
+            kwargs: dict[str, Any] = {
+                "data": rapi,
+                "auth": auth,
+                "headers": req_headers,
+            }
             if data is not None:
                 kwargs["json"] = data
             if url.startswith("https://") and not self.ssl_verify:
@@ -166,15 +187,16 @@ class OpenEVSE(CommandsMixin, ManagersMixin, SensorsMixin, PropertiesMixin):
 
                 if resp.status == 400:
                     if isinstance(response_content, dict) and "msg" in response_content:
-                        _LOGGER.error("Error 400: %s", response_content["msg"])
+                        msg = str(response_content["msg"])
                     elif (
                         isinstance(response_content, dict)
                         and "error" in response_content
                     ):
-                        _LOGGER.error("Error 400: %s", response_content["error"])
+                        msg = str(response_content["error"])
                     else:
-                        _LOGGER.error("Error 400: %s", response_content)
-                    raise ParseJSONError
+                        msg = str(response_content)
+                    _LOGGER.error("Error 400: %s", msg)
+                    raise CommandFailedError(msg)
                 if resp.status == 401:
                     _LOGGER.error("Authentication error: %s", response_content)
                     raise AuthenticationError
@@ -517,3 +539,66 @@ class OpenEVSE(CommandsMixin, ManagersMixin, SensorsMixin, PropertiesMixin):
     def version_check(self, min_version: str, max_version: str = "") -> bool:
         """Unprotected function call for version checking."""
         return self._version_check(min_version=min_version, max_version=max_version)
+
+    def _controller_version_check(
+        self, min_version: str, max_version: str = ""
+    ) -> bool:
+        """Return bool if minimum controller (open_evse) version is met."""
+        if "firmware" not in self._config:
+            _LOGGER.debug("Unable to find controller firmware version.")
+            return False
+        cutoff = AwesomeVersion(min_version)
+        limit = ""
+        if max_version != "":
+            limit = AwesomeVersion(max_version)
+
+        current = get_awesome_version(self._config["firmware"])
+        if current.strategy == "unknown":
+            _LOGGER.debug(
+                "Non-semver controller firmware version detected: %s",
+                self._config["firmware"],
+            )
+            return False
+
+        if limit:
+            try:
+                if cutoff <= current < limit:
+                    return True
+            except AwesomeVersionCompareException:
+                _LOGGER.debug("Non-semver controller firmware version detected.")
+            return False
+
+        try:
+            if current >= cutoff:
+                return True
+        except AwesomeVersionCompareException:
+            _LOGGER.debug("Non-semver controller firmware version detected.")
+        return False
+
+    def controller_version_check(self, min_version: str, max_version: str = "") -> bool:
+        """Unprotected function call for controller version checking."""
+        return self._controller_version_check(
+            min_version=min_version, max_version=max_version
+        )
+
+    def _require_firmware(
+        self, min_version: str, feature: str, max_version: str = ""
+    ) -> None:
+        """Verify minimum gateway firmware version or log and raise UnsupportedFeature."""
+        if not self._version_check(min_version, max_version):
+            err = UnsupportedFeature(
+                feature, min_version=min_version, component="gateway"
+            )
+            _LOGGER.debug("%s", err)
+            raise err
+
+    def _require_controller_firmware(
+        self, min_version: str, feature: str, max_version: str = ""
+    ) -> None:
+        """Verify minimum OpenEVSE controller firmware version or log and raise UnsupportedFeature."""
+        if not self._controller_version_check(min_version, max_version):
+            err = UnsupportedFeature(
+                feature, min_version=min_version, component="OpenEVSE controller"
+            )
+            _LOGGER.debug("%s", err)
+            raise err

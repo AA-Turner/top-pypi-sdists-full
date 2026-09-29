@@ -69,6 +69,16 @@ class CmsAssetResult(KindModel):
     #: `delete` receipt (service-authored).
     success: bool | None = None
     deleted_id: str | None = None
+    #: archive receipts (CMS 0041 — delete ARCHIVES, never destroys) and the
+    #: `restore` door. `notices` is the migration's list of what a restore had
+    #: to change (suffixed name/route, deactivated, left archived), verbatim.
+    archived: bool | None = None
+    archived_id: str | None = None
+    archive: dict | None = None
+    restore_with: str | None = None
+    restored_id: str | None = None
+    restore: dict | None = None
+    notices: list[dict] | None = None
     forced: bool | None = None
     was_in_use: bool | None = None
     #: dry-run stubs.
@@ -150,6 +160,16 @@ class CmsComponentResult(KindModel):
     #: `delete` receipt.
     success: bool | None = None
     deleted_id: str | None = None
+    #: archive receipts (CMS 0041 — delete ARCHIVES, never destroys) and the
+    #: `restore` door. `notices` is the migration's list of what a restore had
+    #: to change (suffixed name/route, deactivated, left archived), verbatim.
+    archived: bool | None = None
+    archived_id: str | None = None
+    archive: dict | None = None
+    restore_with: str | None = None
+    restored_id: str | None = None
+    restore: dict | None = None
+    notices: list[dict] | None = None
     #: dry-run stubs.
     dry_run: bool | None = None
     would_create: bool | None = None
@@ -269,6 +289,16 @@ class CmsPageResult(KindModel):
     #: `delete` receipt.
     success: bool | None = None
     deleted_id: str | None = None
+    #: archive receipts (CMS 0041 — delete ARCHIVES, never destroys) and the
+    #: `restore` door. `notices` is the migration's list of what a restore had
+    #: to change (suffixed name/route, deactivated, left archived), verbatim.
+    archived: bool | None = None
+    archived_id: str | None = None
+    archive: dict | None = None
+    restore_with: str | None = None
+    restored_id: str | None = None
+    restore: dict | None = None
+    notices: list[dict] | None = None
     #: `submit_exception` — the PENDING approvals-queue row.
     exception: dict | None = None
     note: str | None = None
@@ -321,6 +351,17 @@ class CmsSiteResult(KindModel):
     #: `delete` receipt — pages are deleted with the site.
     success: bool | None = None
     deleted_id: str | None = None
+    #: archive receipts (CMS 0041 — delete ARCHIVES, never destroys) and the
+    #: `restore` door. `notices` is the migration's list of what a restore had
+    #: to change (suffixed name/route, deactivated, left archived), verbatim.
+    archived: bool | None = None
+    archived_id: str | None = None
+    archive: dict | None = None
+    restore_with: str | None = None
+    restored_id: str | None = None
+    restore: dict | None = None
+    notices: list[dict] | None = None
+    archived_pages: int | None = None
     deleted_pages: int | None = None
     #: `starter_kit` (StarterKitResult dump; components are summarized to
     #: char counts + nav-token presence rather than full markup).
@@ -399,6 +440,15 @@ class CmsHtmlPageResult(KindModel):
     versions: list[dict] | None = None
     #: `delete`.
     deleted: bool | None = None
+    success: bool | None = None
+    deleted_id: str | None = None
+    #: archive receipts (CMS 0041 — delete ARCHIVES, never destroys) and the
+    #: `restore` door. `notices` is always empty for html pages (no unique name).
+    archived: bool | None = None
+    archived_id: str | None = None
+    restore_with: str | None = None
+    restored_id: str | None = None
+    notices: list[dict] | None = None
 
 
 #: tool name → model, merged into ``TOOL_RESULT_KINDS`` by the package init.

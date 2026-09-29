@@ -40,6 +40,19 @@ class _Agent:
         self.bound.update(variables)
         return self
 
+    # The real Agent's async door: set → the pre-substitution step → apply.
+    def set_variables(self, **variables: Any) -> _Agent:
+        self.bound.update(variables)
+        return self
+
+    async def prepare_variables(self) -> _Agent:
+        self.prepared = True
+        return self
+
+    def apply_variables(self) -> _Agent:
+        assert getattr(self, "prepared", False), "substituted before the pre-substitution step"
+        return self
+
 
 class _Source:
     agent_id = "11111111-1111-1111-1111-111111111111"

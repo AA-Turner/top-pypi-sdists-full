@@ -18,8 +18,9 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,7 +29,8 @@ class PatchUnregisteredAgentRequest(BaseModel):
     Request body for partially updating an unregistered agent.
     """ # noqa: E501
     muted_until: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["muted_until"]
+    mute_reason: Optional[Annotated[str, Field(strict=True, max_length=1000)]] = None
+    __properties: ClassVar[List[str]] = ["muted_until", "mute_reason"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -74,6 +76,11 @@ class PatchUnregisteredAgentRequest(BaseModel):
         if self.muted_until is None and "muted_until" in self.model_fields_set:
             _dict['muted_until'] = None
 
+        # set to None if mute_reason (nullable) is None
+        # and model_fields_set contains the field
+        if self.mute_reason is None and "mute_reason" in self.model_fields_set:
+            _dict['mute_reason'] = None
+
         return _dict
 
     @classmethod
@@ -86,7 +93,8 @@ class PatchUnregisteredAgentRequest(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "muted_until": obj.get("muted_until")
+            "muted_until": obj.get("muted_until"),
+            "mute_reason": obj.get("mute_reason")
         })
         return _obj
 

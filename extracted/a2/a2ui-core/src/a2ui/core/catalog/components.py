@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Type
 from pydantic import BaseModel, TypeAdapter
 from pydantic_core import PydanticUndefined
 
@@ -20,9 +20,17 @@ from pydantic_core import PydanticUndefined
 class ComponentApi:
     """The framework-agnostic definition of a UI component's API (schema-only)."""
 
-    def __init__(self, name: str, schema: Dict[str, Any]):
+    def __init__(
+        self,
+        name: str,
+        schema: dict[str, Any],
+        allowed_parents: list[str] | None = None,
+        allowed_children: list[str] | None = None,
+    ):
         self.name = name
         self.schema = schema
+        self.allowed_parents = allowed_parents
+        self.allowed_children = allowed_children
 
     @property
     def comp_type(self) -> str:
@@ -35,12 +43,19 @@ class ComponentImplementation(ComponentApi):
     def __init__(
         self,
         name: str,
-        schema: Dict[str, Any],
+        schema: dict[str, Any],
         model_class: Type[BaseModel],
+        allowed_parents: list[str] | None = None,
+        allowed_children: list[str] | None = None,
     ):
-        super().__init__(name, schema)
+        super().__init__(
+            name=name,
+            schema=schema,
+            allowed_parents=allowed_parents,
+            allowed_children=allowed_children,
+        )
         self.model_class = model_class
-        self._type_adapter: Optional[TypeAdapter[Any]] = None
+        self._type_adapter: TypeAdapter[Any] | None = None
 
     @property
     def type_adapter(self) -> TypeAdapter[Any]:
@@ -55,7 +70,9 @@ class ModelComponentApi(ComponentImplementation):
     def __init__(
         self,
         model_class: Type[BaseModel],
-        name: Optional[str] = None,
+        name: str | None = None,
+        allowed_parents: list[str] | None = None,
+        allowed_children: list[str] | None = None,
     ):
         if not (isinstance(model_class, type) and issubclass(model_class, BaseModel)):
             raise ValueError(f"Expected a Pydantic BaseModel class, got {model_class}")
@@ -66,7 +83,13 @@ class ModelComponentApi(ComponentImplementation):
             if hasattr(model_class, "model_json_schema")
             else {}
         )
-        super().__init__(extracted_name, schema, model_class)
+        super().__init__(
+            name=extracted_name,
+            schema=schema,
+            model_class=model_class,
+            allowed_parents=allowed_parents,
+            allowed_children=allowed_children,
+        )
 
     @staticmethod
     def _extract_name(model_class: Type[BaseModel]) -> str:

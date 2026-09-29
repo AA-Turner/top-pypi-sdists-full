@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qcodes
-Version: 0.59.0
+Version: 0.60.0
 Summary: Python-based data acquisition framework developed by the Copenhagen / Delft / Sydney / Microsoft quantum computing consortium
 Maintainer-email: QCoDeS Core Developers <qcodes-support@microsoft.com>
 License-Expression: MIT
@@ -85,7 +85,7 @@ Requires-Dist: sphinx-issues>=3.0.1; extra == "docs"
 Requires-Dist: sphinx-jsonschema>=1.19.1; extra == "docs"
 Requires-Dist: furo>=2024.8.6; extra == "docs"
 Requires-Dist: sphinxcontrib-towncrier>=0.5.0a0; extra == "docs"
-Requires-Dist: towncrier<26.0.0,>=24.8.0; extra == "docs"
+Requires-Dist: towncrier<27.0.0,>=24.8.0; extra == "docs"
 Requires-Dist: scipy>=1.12.0; extra == "docs"
 Requires-Dist: qcodes_loop>=0.1.1; extra == "docs"
 Requires-Dist: intersphinx_registry>=0.2603.16; extra == "docs"

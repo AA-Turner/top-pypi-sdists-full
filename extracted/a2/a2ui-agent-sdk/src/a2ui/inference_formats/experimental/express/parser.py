@@ -14,15 +14,43 @@
 
 """Parser utilities to extract and compile A2UI Express DSL from LLM responses."""
 
-from typing import Any, List, Union
+from typing import Any, Type
 from a2ui.core.catalog import Catalog
 from a2ui.schema.catalog import A2uiCatalog
+from a2ui.parser.errors import (
+    A2uiCompilationError,
+    A2uiCompilationParseError,
+    A2uiCompilationValidationError,
+)
 from a2ui.parser.response_part import ResponsePart
 from a2ui.parser.parser import Parser
 from google.adk.utils.feature_decorator import experimental
 from a2ui.schema.constants import A2UI_INFERENCE_OPEN_TAG, A2UI_INFERENCE_CLOSE_TAG
 from .compiler import ExpressCompiler
 from .decompiler import _ExpressDecompiler
+from .errors import ExpressParseError, ExpressValidationError
+
+
+def _compilation_error_class(error: BaseException) -> Type[A2uiCompilationError]:
+    """Picks the compilation error the compiler's failure belongs under.
+
+    The compiler sorts its own failures into two families, so the choice is a
+    type test rather than a reading of the message. A failure in neither family
+    has no category to carry, and is reported as a plain compilation error.
+
+    Args:
+        error: The exception the compiler raised.
+
+    Returns:
+        The A2uiCompilationError subclass to raise in its place.
+    """
+    if isinstance(error, ExpressValidationError):
+        return A2uiCompilationValidationError
+    if isinstance(error, (SyntaxError, ExpressParseError)) or isinstance(
+        error.__cause__, SyntaxError
+    ):
+        return A2uiCompilationParseError
+    return A2uiCompilationError
 
 
 @experimental
@@ -31,7 +59,7 @@ class ExpressParser(Parser):
 
     def __init__(
         self,
-        catalog: Union[Catalog[Any, Any], A2uiCatalog],
+        catalog: Catalog[Any, Any] | A2uiCatalog,
         surface_id: str = "main",
         version: str = "v1.0",
     ):
@@ -63,7 +91,7 @@ class ExpressParser(Parser):
             )
         return A2UI_INFERENCE_OPEN_TAG[:-1] in content
 
-    def unwrap(self, content: str) -> List[ResponsePart]:
+    def unwrap(self, content: str) -> list[ResponsePart]:
         """Unwraps/tokenizes the response content into raw Express DSL parts."""
         from a2ui.parser.lexer import BlockLexer
 
@@ -77,10 +105,8 @@ class ExpressParser(Parser):
 
     def compile(
         self, format_content: str, *, is_final: bool = True
-    ) -> List[dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Compiles raw Express DSL to structured A2UI messages."""
-        from a2ui.parser.errors import A2uiCompilationError
-
         compiler = ExpressCompiler(self.catalog, version=self.version)
         try:
             return compiler.compile(
@@ -96,18 +122,20 @@ class ExpressParser(Parser):
                 getattr(e, "help_message", None)
                 or "Please correct the syntax error in your Express DSL."
             )
-            raise A2uiCompilationError(
+            details = getattr(e, "details", None)
+            raise _compilation_error_class(e)(
                 message=str(e),
                 raw_content=format_content,
                 line=line,
                 column=column,
                 help_message=help_msg,
+                details=details,
             ) from e
 
-    def decompile(self, val: Union[dict[str, Any], List[dict[str, Any]]]) -> str:
+    def decompile(self, val: dict[str, Any] | list[dict[str, Any]]) -> str:
         """Decompiles a structured A2UI payload into this format's raw notation."""
         return _ExpressDecompiler(self.catalog).decompile(val)
 
-    def wrap_decompiled_blocks(self, blocks: List[str]) -> str:
+    def wrap_decompiled_blocks(self, blocks: list[str]) -> str:
         """Wraps multiple decompiled blocks with the format's enclosing tags/markers."""
         return _ExpressDecompiler(self.catalog).wrap_decompiled_blocks(blocks)

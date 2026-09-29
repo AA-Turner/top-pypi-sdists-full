@@ -140,7 +140,33 @@ def _build_provider_wire_config(config: Any, profile: Any) -> Any:
     wire_config = copy(config)
     wire_config.model = profile.provider_model_id
     wire_config.matrx_model_name = profile.model_name
+    # 🚨 THE WIRE GETS ITS OWN MESSAGE LIST — the live one is the executor's ledger.
+    # ``BaseTranslator.build_request`` runs ``MessageList.sanitize()`` on the config
+    # it is handed, and sanitize REMOVES and INSERTS messages (orphan tool_results,
+    # emptied rows, W49 synthetic results). A shallow ``copy`` shared the executor's
+    # MessageList, so an old broken message in a conversation's history was deleted
+    # from the live list mid-turn — and the executor's bookkeeping is positional
+    # (trigger = pre_count - 1, barrier writes positions above committed). One drop
+    # lost the person's message; two dropped the whole turn. That is how
+    # admin@admin.com's permanent staff thread wrote no chat.message from
+    # 2026-09-26 16:03Z (Lane AZ). The message OBJECTS stay shared (no deep copy on
+    # the hot path); only the list and its per-turn side channels are the wire's.
+    # Guard: tests/test_wire_sanitize_never_moves_the_persisted_history.py.
+    wire_config.messages = _wire_message_list(getattr(config, "messages", None))
     return wire_config
+
+
+def _wire_message_list(messages: Any) -> Any:
+    """A list-level copy of ``messages`` the provider path may sanitize freely."""
+    from matrx_ai.config.message_config import MessageList
+
+    if not isinstance(messages, MessageList):
+        return messages
+    wire = copy(messages)
+    wire._messages = list(messages._messages)
+    wire._deferred_empty_messages = list(messages._deferred_empty_messages)
+    wire._turn_context_blocks = dict(messages._turn_context_blocks)
+    return wire
 
 
 def _downgrade_response_format(
@@ -182,11 +208,15 @@ def _downgrade_response_format(
     from matrx_ai.providers.structured_output_findings import (
         ENFORCEMENT_DROPPED,
         record_structured_output_finding_sync,
-        schema_fingerprint,
+        response_format_identity,
     )
     from matrx_ai.schema.answer_contract import attach_json_text_contract, declared_schema_of
 
-    schema, schema_name = declared_schema_of(rf)
+    schema, _ = declared_schema_of(rf)
+    # `response_format_identity` names a schema that arrived WITHOUT a name from
+    # its `__kind` const or its title — a finding has to name the shape as well as
+    # the agent or nobody can act on it.
+    shape = response_format_identity(rf)
     # The schema is about to be discarded, so the contract goes where the model
     # can still see it. This is the "prompt-guided" half the findings promise —
     # the same words Google has used in production since 2026-08.
@@ -222,8 +252,7 @@ def _downgrade_response_format(
         provider=str(getattr(caps, "vendor", None) or str(wire_format).split("_")[0]),
         model=caps.model_name,
         detail={
-            "schema_name": schema_name,
-            "schema_fingerprint": schema_fingerprint(schema),
+            **shape,
             "action": (
                 f"response_format {rf_type} → {target}: this model's capabilities do not "
                 f"declare {rf_type}, so the schema was discarded before any translator ran"
@@ -234,7 +263,10 @@ def _downgrade_response_format(
                 "otherwise the shape is only guided by the prompt and checked afterwards"
             ),
         },
-        was_recovered=guided,
+        # Not known until the call has run: held, and written by the dispatch
+        # seam's flush with the real outcome (R11). With no schema to guide the
+        # answer there is nothing to recover to.
+        was_recovered=None if guided else False,
     )
     config.response_format = {"type": target}
 
@@ -410,7 +442,7 @@ def _resolve_tool_structured_output_conflict(
                 "output, or drop the output contract if the tools are what the run needs"
             ),
         },
-        was_recovered=True,
+        was_recovered=None,  # the outcome is written by the dispatch seam (R11)
     )
 
 
@@ -610,6 +642,11 @@ def apply_capability_gates(
     that wants the declared contract preserved for post-validation must read it
     BEFORE calling this (``batch_lane.render_mandate_request`` does exactly that).
     """
+    from matrx_ai.providers.structured_output_findings import open_gate_findings
+
+    # A gate finding's "recovered" is only known once the call has run — held for
+    # the dispatch seam's flush (R11).
+    open_gate_findings()
     _downgrade_response_format(config, caps, wire_format)
     _warn_and_strip_unsupported_search(config, caps, wire_format)
     _resolve_web_search_json_mode_conflict(config, caps, wire_format)
@@ -1320,9 +1357,17 @@ class UnifiedAIClient:
         # buffered and recorded when the call ends — the one seam all providers
         # share, so no translator can compromise a contract silently.
         findings_token = begin_translation_findings()
+        succeeded = False
+        # What the answer check below actually found, so every finding's
+        # ``was_recovered`` is decided from it instead of defaulting to True (F2).
+        # ``None`` means no contract was bound on this call — which is NOT the same
+        # claim as "the answer met the contract", and ``translation_outcome`` says
+        # which of the two it is.
+        answer_off_contract: bool | None = None
         async with admit_provider_call(profile):
             try:
                 result = await dispatch()
+                succeeded = True
                 # THE OTHER HALF OF "platform-side validation still enforces it".
                 # Eight docstrings in schema/rules.py and the enforcement_dropped
                 # finding itself excused a provider-side loss with a platform check
@@ -1332,13 +1377,37 @@ class UnifiedAIClient:
                 # contract check. Now the answer of every call that declared a
                 # contract is judged against THAT contract, here, in the one seam
                 # every provider passes through — never raising into the turn.
-                from matrx_ai.schema.answer_contract import verify_answer_and_record
+                from matrx_ai.schema.answer_contract import (
+                    conform_answer_to_contract,
+                    declared_output_contract,
+                    verify_answer_and_record,
+                )
 
-                await verify_answer_and_record(
+                # THE ANSWER EVERY CONSUMER RECEIVES is the author's shape: a null
+                # the boundary asked for (required + nullable on the wire) becomes
+                # the absence the author declared, HERE — before the kind
+                # validator, a Pydantic output model, the persisted message or the
+                # STRUCTURED_OUTPUT event can read it — so the check below judges
+                # exactly the object they get.
+                try:
+                    conform_answer_to_contract(result)
+                except Exception as exc:  # noqa: BLE001 — never fail a paid turn on this
+                    vcprint(
+                        f"🚨 [answer_contract] could not conform the answer to the declared "
+                        f"contract ({type(exc).__name__}: {exc}); consumers receive it "
+                        "unpruned and the contract check below will say so.",
+                        color="red",
+                    )
+                answer_problems = await verify_answer_and_record(
                     result,
                     provider=str(getattr(profile, "vendor", "unknown")),
                     model=getattr(profile, "model_name", None),
                 )
+                # A bound contract means the answer WAS judged, so `[]` is a real
+                # "on contract" verdict; no contract means nothing was judged and
+                # the finding must not claim a verdict it does not have.
+                if declared_output_contract():
+                    answer_off_contract = bool(answer_problems)
                 return result
             except BaseException as exc:  # noqa: BLE001 — re-raised untouched below
                 billing_gap = report_unbilled_provider_failure(
@@ -1367,9 +1436,21 @@ class UnifiedAIClient:
                 raise
             finally:
                 try:
-                    await flush_translation_findings(model=getattr(profile, "model_name", None))
-                except Exception:  # noqa: BLE001 — a finding sink never replaces the call's outcome
-                    pass
+                    await flush_translation_findings(
+                        model=getattr(profile, "model_name", None),
+                        succeeded=succeeded,
+                        answer_off_contract=answer_off_contract,
+                    )
+                except Exception as flush_exc:  # noqa: BLE001 — a finding sink never replaces the call's outcome
+                    # Never silent: this was `except Exception: pass`, so a broken
+                    # sink lost every structured-output finding of the call with no
+                    # trace (SCHEMA-TRANSLATION-VERIFY.md, D8/R11).
+                    vcprint(
+                        f"🚨 [structured_output_findings] the findings of this call were NOT "
+                        f"recorded ({type(flush_exc).__name__}: {flush_exc}). model="
+                        f"{getattr(profile, 'model_name', None)}",
+                        color="red",
+                    )
                 end_translation_findings(findings_token)
 
     @staticmethod
@@ -1622,8 +1703,14 @@ class UnifiedAIClient:
     async def translate_request(
         self,
         request: AIMatrixRequest,
+        *,
+        batch: bool = False,
     ) -> dict[str, Any]:
-        """Translate unified request to provider-specific format"""
+        """Translate unified request to provider-specific format.
+
+        ``batch=True`` spells the body for the provider's BATCH endpoint through the
+        same translator (``BaseTranslator.to_batch_request``) — the transport
+        (``matrx_batch``) then sends it untouched and never rewrites a schema."""
         from matrx_ai.catalog.resolve import resolve_call_profile
         from matrx_ai.providers import (
             AnthropicTranslator,
@@ -1713,14 +1800,25 @@ class UnifiedAIClient:
 
         findings_token = begin_translation_findings()
         try:
-            return translator_cls().build_request(wire_config, profile)
+            translator = translator_cls()
+            payload = translator.build_request(wire_config, profile)
+            if batch:
+                payload = translator.to_batch_request(
+                    payload, response_format=getattr(wire_config, "response_format", None)
+                )
+            return payload
         finally:
             try:
                 await flush_translation_findings(
-                    model=getattr(profile, "model_name", None)
+                    model=getattr(profile, "model_name", None), succeeded=None
                 )
-            except Exception:  # noqa: BLE001 — a finding sink never breaks a build
-                pass
+            except Exception as flush_exc:  # noqa: BLE001 — a finding sink never breaks a build
+                vcprint(
+                    f"🚨 [structured_output_findings] the findings of this build were NOT "
+                    f"recorded ({type(flush_exc).__name__}: {flush_exc}). model="
+                    f"{getattr(profile, 'model_name', None)}",
+                    color="red",
+                )
             end_translation_findings(findings_token)
 
     # ------------------------------------------------------------------

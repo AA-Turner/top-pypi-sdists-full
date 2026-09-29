@@ -147,13 +147,29 @@ def retag_source_tags(previous_version: str, version: str) -> list[str]:
 PREFETCH_TIMEOUT_S = 1800
 
 
+# A cold prefetch can miss VM scheduling ("Demand TTL expired - job was never
+# matched to a VM") under load; that is transient, so the gate retries before
+# failing the publish.
+PREFETCH_ATTEMPTS = 3
+
+
 def prefetch_image(image_url: str, short_name: str) -> bool:
     """Boot one throwaway VM from ``image_url`` so its rootfs lands in the snapshot store.
 
-    Returns True only if the VM actually came up. This is the gate for promoting
-    the image to ``:latest`` and for uploading the wheel: a digest that has never
-    booted must not become the tag every launch resolves.
+    Returns True only if the VM actually came up, trying up to
+    :data:`PREFETCH_ATTEMPTS` times. This is the gate for promoting the image
+    to ``:latest`` and for uploading the wheel: a digest that has never booted
+    must not become the tag every launch resolves.
     """
+    for attempt in range(1, PREFETCH_ATTEMPTS + 1):
+        if _prefetch_once(image_url, short_name):
+            return True
+        if attempt < PREFETCH_ATTEMPTS:
+            console.print(f"[yellow]Retrying prefetch (attempt {attempt + 1}/{PREFETCH_ATTEMPTS})...[/yellow]")
+    return False
+
+
+def _prefetch_once(image_url: str, short_name: str) -> bool:
     console.print(f"[cyan]Starting VM to prefetch {image_url}...[/cyan]")
 
     try:
@@ -161,6 +177,10 @@ def prefetch_image(image_url: str, short_name: str) -> bool:
         from plato.v2.types import SimConfigCompute
 
         plato = Plato()
+    except Exception as e:
+        console.print(f"[red]Prefetch failed: {e}[/red]")
+        return False
+    try:
         env = Env.resource(
             simulator=f"prefetch-{short_name}",
             sim_config=SimConfigCompute(),
@@ -176,11 +196,12 @@ def prefetch_image(image_url: str, short_name: str) -> bool:
         )
         console.print("[green]Prefetch complete - rootfs cached[/green]")
         session.close()
-        plato.close()
         return True
     except Exception as e:
         console.print(f"[red]Prefetch failed: {e}[/red]")
         return False
+    finally:
+        plato.close()
 
 
 def image_digest(kind: PublishKind, package_name: str, tag: str, api_key: str | None) -> str | None:

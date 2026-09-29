@@ -201,6 +201,7 @@ def _parse_and_sort_dataset_items(
 
 def _construct_marine_data_store_product(
     stac_tuple: tuple[pystac.Collection, list[DatasetItem]],
+    force_dataset_id: str | None,
     raise_on_error: bool,
 ) -> CopernicusMarineProduct | None:
     stac_product, dataset_items = stac_tuple
@@ -238,6 +239,10 @@ def _construct_marine_data_store_product(
                 raise_on_error=raise_on_error,
             )
         )
+        and (
+            not force_dataset_id
+            or dataset_metadata.dataset_id == force_dataset_id
+        )
     ]
 
     production_center = [
@@ -253,6 +258,19 @@ def _construct_marine_data_store_product(
         thumbnail = stac_product.assets.get("thumbnail")
         if thumbnail:
             thumbnail_url = thumbnail.get_absolute_href()
+
+    product_user_manual = _get_stac_product_link_href_by_title(
+        stac_product,
+        "Product User Manual",
+    )
+    quality_information_document = _get_stac_product_link_href_by_title(
+        stac_product,
+        "Quality Information Document",
+    )
+    synthesis_quality_overview = _get_stac_product_link_href_by_title(
+        stac_product,
+        "Synthesis Quality Overview",
+    )
 
     sources = _get_stac_product_property(stac_product, "sources") or []
     processing_level = _get_stac_product_property(
@@ -271,6 +289,9 @@ def _construct_marine_data_store_product(
             production_center=production_center_name,
             keywords=stac_product.keywords,
             datasets=datasets,
+            product_user_manual=product_user_manual,
+            quality_information_document=quality_information_document,
+            synthesis_quality_overview=synthesis_quality_overview,
         )
     except Exception as e:
         logger.debug(
@@ -291,6 +312,16 @@ def _get_stac_product_property(
         else {}
     )
     return properties.get(property_key)
+
+
+def _get_stac_product_link_href_by_title(
+    stac_product: pystac.Collection,
+    *titles: str,
+) -> str | None:
+    for link in stac_product.links:
+        if link.title in titles:
+            return link.target
+    return None
 
 
 def fetch_dataset_items(
@@ -373,7 +404,7 @@ def fetch_product_items(
     root_url: str,
     connection: JsonParserConnection,
     child_links: list[pystac.Link],
-    force_product_id: str | None,
+    force_product_ids: list[str] | None,
     force_dataset_id: str | None,
     max_concurrent_requests: int,
     disable_progress_bar: bool,
@@ -381,7 +412,9 @@ def fetch_product_items(
 ) -> list[tuple[pystac.Collection, list[DatasetItem]] | None]:
     tasks = []
     for link in child_links:
-        if force_product_id and force_product_id not in link.href:
+        if force_product_ids and not any(
+            product_id in link.href for product_id in force_product_ids
+        ):
             continue
         tasks.append(
             (
@@ -411,7 +444,7 @@ def fetch_product_items(
 
 def fetch_all_products_items(
     connection: JsonParserConnection,
-    force_product_id: str | None,
+    force_product_ids: list[str] | None,
     force_dataset_id: str | None,
     max_concurrent_requests: int,
     catalogue_config: CatalogueConfig,
@@ -428,7 +461,7 @@ def fetch_all_products_items(
         root_url,
         connection,
         child_links,
-        force_product_id,
+        force_product_ids,
         force_dataset_id,
         max_concurrent_requests,
         disable_progress_bar,
@@ -453,6 +486,9 @@ def parse_catalogue(
         disable=disable_progress_bar,
     )
     dataset_product_mapping_url = catalogue_config.dataset_product_mapping_url
+    product_ids_to_search: list[str] | None = (
+        [force_product_id] if force_product_id else None
+    )
     with JsonParserConnection() as connection:
         if force_dataset_id:
             product_id_from_mapping = connection.get_json_file(
@@ -460,17 +496,17 @@ def parse_catalogue(
             ).get(force_dataset_id)
             if not product_id_from_mapping:
                 raise DatasetNotFound(force_dataset_id)
-            if (
-                force_product_id
-                and product_id_from_mapping != force_product_id
-            ):
+            product_ids = product_id_from_mapping.split(",")
+            if force_product_id and force_product_id not in product_ids:
                 raise DatasetIsNotPartOfTheProduct(
                     force_dataset_id, force_product_id
                 )
-            force_product_id = product_id_from_mapping
+            elif force_product_id:
+                product_ids = [force_product_id]
+            product_ids_to_search = product_ids
         marine_data_store_root_collections = fetch_all_products_items(
             connection=connection,
-            force_product_id=force_product_id,
+            force_product_ids=product_ids_to_search,
             force_dataset_id=force_dataset_id,
             max_concurrent_requests=max_concurrent_requests,
             catalogue_config=catalogue_config,
@@ -483,9 +519,11 @@ def parse_catalogue(
     for product_item in marine_data_store_root_collections:
         if product_item:
             if product_metadata := _construct_marine_data_store_product(
-                product_item, raise_on_error
+                product_item,
+                force_dataset_id,
+                raise_on_error,
             ):
-                if product_metadata.datasets:
+                if _check_product(product_metadata, product_ids_to_search):
                     products_metadata.append(product_metadata)
     if not products_metadata:
         return None
@@ -502,6 +540,20 @@ def parse_catalogue(
 # ---------------------------------------
 # --- Utils functions
 # ---------------------------------------
+
+
+def _check_product(
+    product: CopernicusMarineProduct,
+    force_product_ids: list[str] | None,
+) -> bool:
+    """
+    Enforce exact ID matching and that the product has datasets.
+
+    Avoid cases like: force_product_id = "product_id" and product_id = "product_id_obs".
+    """  # noqa: E501
+    if force_product_ids and product.product_id not in force_product_ids:
+        return False
+    return bool(product.datasets)
 
 
 def search_and_filter(

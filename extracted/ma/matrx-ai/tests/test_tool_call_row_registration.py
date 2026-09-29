@@ -19,8 +19,9 @@ Two layers:
 
 from __future__ import annotations
 
+from matrx_utils.source_guard import stable_source
+
 import ast
-import inspect
 import textwrap
 from types import SimpleNamespace
 
@@ -132,7 +133,7 @@ def _called_names(fn_node: ast.AST) -> set[str]:
 
 
 def test_every_tool_call_insert_path_registers_its_row():
-    tree = ast.parse(textwrap.dedent(inspect.getsource(ToolExecutionLogger)))
+    tree = ast.parse(textwrap.dedent(stable_source(ToolExecutionLogger)))
     inserting: list[str] = []
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

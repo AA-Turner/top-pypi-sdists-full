@@ -2,6 +2,7 @@
 
 from . import (
     get_artifact,
+    set_artifact_additional_metadata,
     set_artifact_credentials,
     set_artifact_flows,
     set_artifact_mcp_config,
@@ -10,6 +11,7 @@ from . import (
 
 __all__ = [
     "get_artifact",
+    "set_artifact_additional_metadata",
     "set_artifact_credentials",
     "set_artifact_mcp_config",
     "set_artifact_ui_available",

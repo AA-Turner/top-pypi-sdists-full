@@ -413,7 +413,9 @@ def get_bbox_area(bbox: Dict[str, float]) -> float:
     return 0.0
 
 
-def normalize_bbox(bbox: Dict[str, float], image_width: float, image_height: float) -> Dict[str, float]:
+def normalize_bbox(
+    bbox: Dict[str, float], image_width: float, image_height: float
+) -> Dict[str, float]:
     """
     Normalize bounding box coordinates to [0, 1] range.
 
@@ -449,10 +451,13 @@ def normalize_bbox(bbox: Dict[str, float], image_width: float, image_height: flo
             values[2] / image_width,
             values[3] / image_height,
         ]
-        return dict(zip(keys, normalized_values))
+        # By index, not zip(): same 4 entries, and zip(strict=) would break the Python 3.8 floor.
+        return {key: normalized_values[i] for i, key in enumerate(keys[:4])}
 
 
-def denormalize_bbox(bbox: Dict[str, float], image_width: float, image_height: float) -> Dict[str, float]:
+def denormalize_bbox(
+    bbox: Dict[str, float], image_width: float, image_height: float
+) -> Dict[str, float]:
     """
     Denormalize bounding box coordinates from [0, 1] range to pixel coordinates.
 
@@ -488,7 +493,50 @@ def denormalize_bbox(bbox: Dict[str, float], image_width: float, image_height: f
             values[2] * image_width,
             values[3] * image_height,
         ]
-        return dict(zip(keys, denormalized_values))
+        # By index, not zip(): same 4 entries, and zip(strict=) would break the Python 3.8 floor.
+        return {key: denormalized_values[i] for i, key in enumerate(keys[:4])}
+
+
+def _bbox_xyxy(bbox: Optional[Dict[str, Any]]) -> Tuple[float, float, float, float]:
+    """``(x1, y1, x2, y2)`` read from an ``xmin``/``x1``-keyed box, missing values as 0."""
+    b = bbox if isinstance(bbox, dict) else {}
+
+    def _get(primary: str, alias: str) -> float:
+        value = b.get(primary, b.get(alias, 0))
+        try:
+            return float(value or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    return _get("xmin", "x1"), _get("ymin", "y1"), _get("xmax", "x2"), _get("ymax", "y2")
+
+
+def bbox_is_normalized(bbox: Optional[Dict[str, Any]]) -> bool:
+    """True when all four coordinates lie in ``[0, 1]`` and the box is not empty.
+
+    The same rule the config client applies to zone polygons
+    (``PostProcessingConfigClient._is_normalized_points``). An all-zero box is not called
+    normalized: it carries no geometry to scale.
+    """
+    coords = _bbox_xyxy(bbox)
+    return any(coords) and all(0.0 <= v <= 1.0 for v in coords)
+
+
+def bbox_xyxy_pixels(
+    bbox: Optional[Dict[str, Any]], image_width: float, image_height: float
+) -> Tuple[float, float, float, float]:
+    """``(x1, y1, x2, y2)`` of ``bbox`` in PIXELS, whether it arrived normalized or in pixels.
+
+    New-flow detections arrive normalized ``[0, 1]`` (see ``post_processor._backfill_stream_resolution``),
+    so anything that gates or crops in pixels has to scale first. A normalized box is scaled by
+    ``image_width`` / ``image_height``. A pixel box is returned unchanged, so pixel inputs behave
+    exactly as before. A normalized box with no known size (either dimension ``<= 0``) is also
+    returned unchanged; callers that care check :func:`bbox_is_normalized` and say so.
+    """
+    x1, y1, x2, y2 = _bbox_xyxy(bbox)
+    if image_width > 0 and image_height > 0 and bbox_is_normalized(bbox):
+        return x1 * image_width, y1 * image_height, x2 * image_width, y2 * image_height
+    return x1, y1, x2, y2
 
 
 def line_segments_intersect(

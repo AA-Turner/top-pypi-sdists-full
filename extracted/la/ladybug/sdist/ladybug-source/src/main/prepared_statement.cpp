@@ -1,6 +1,8 @@
 #include "main/prepared_statement.h"
 
-#include "binder/expression/expression.h" // IWYU pragma: keep
+#include "binder/expression/expression.h"           // IWYU pragma: keep
+#include "binder/expression/parameter_expression.h" // IWYU pragma: keep
+#include "common/arrow/arrow_converter.h"
 #include "common/exception/binder.h"
 #include "common/types/value/value.h"
 #include "main/prepared_statement_manager.h"
@@ -49,6 +51,29 @@ bool PreparedStatement::isReadOnly() const {
 
 StatementType PreparedStatement::getStatementType() const {
     return preparedSummary.statementType;
+}
+
+std::vector<std::string> PreparedStatement::getColumnNames() const {
+    if (auto manager = ownerManager.lock()) {
+        if (auto* cached = manager->getCachedStatement(cachedPreparedStatementName)) {
+            return cached->getColumnNames();
+        }
+    }
+    return {};
+}
+
+std::vector<LogicalType> PreparedStatement::getColumnTypes() const {
+    if (auto manager = ownerManager.lock()) {
+        if (auto* cached = manager->getCachedStatement(cachedPreparedStatementName)) {
+            return cached->getColumnTypes();
+        }
+    }
+    return {};
+}
+
+std::unique_ptr<ArrowSchema> PreparedStatement::getArrowSchema() const {
+    return ArrowConverter::toArrowSchema(getColumnTypes(), getColumnNames(),
+        false /* fallbackExtensionTypes */);
 }
 
 bool PreparedStatement::canReuseCachedPlanWith(

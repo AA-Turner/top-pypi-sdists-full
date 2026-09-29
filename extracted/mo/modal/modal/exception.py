@@ -195,7 +195,7 @@ class SandboxTimeoutError(TimeoutError):
 
 
 class SnapshotCreationError(Error):
-    """Raised when a Sandbox fails to create an exit snapshot."""
+    """Snapshot operation is done and failed. Polling again will not produce an Image; filesystem state is gone."""
 
 
 class ExecTimeoutError(TimeoutError):
@@ -266,6 +266,10 @@ class ServerWarning(UserWarning):
 
 class AsyncUsageWarning(UserWarning):
     """Warning emitted when a blocking Modal interface is used in an async context."""
+
+
+class InternalAPIWarning(UserWarning):
+    """Warning emitted when user code directly accesses Modal's internal gRPC API."""
 
 
 class InternalFailure(Error):
@@ -341,10 +345,6 @@ class ModuleNotMountable(Exception):
 
 class ClientClosed(Error):
     pass
-
-
-class FilesystemExecutionError(Error):
-    """Raised when an unknown error is thrown during a container filesystem operation."""
 
 
 class SandboxFilesystemError(Error):

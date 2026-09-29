@@ -23,6 +23,8 @@ enum class LogicalOperatorType : uint8_t {
     ATTACH_DATABASE,
     COPY_FROM,
     COPY_TO,
+    COUNT_ANTI_EDGE_CHAIN,
+    COUNT_EXTEND_CHAIN,
     COUNT_REL_TABLE,
     CREATE_GRAPH,
     CREATE_INDEX,

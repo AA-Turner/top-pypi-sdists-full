@@ -1,15 +1,26 @@
-configure_file(output: 'cysignals_config.h', configuration: config, install_dir: py.get_install_dir(pure: false) / 'cysignals', install: true)
+pkgconf = configuration_data()
+pkgconf.set('VERSION', meson.project_version())
+
+configure_file(
+    output: 'cysignals_config.h',
+    configuration: config,
+    install_dir: py.get_install_dir(pure: false) / 'cysignals',
+    install: true,
+)
+
+pc_config = configuration_data()
+pc_config.set('VERSION', meson.project_version())
+configure_file(input: 'cysignals.pc.in', output: 'cysignals.pc', configuration: pc_config, install_dir: py.get_install_dir(pure: false) / 'cysignals', install: true)
 
 py.install_sources(
     '__init__.py',
-    'cysignals.pc',
     'cysignals-CSI-helper.py',
     'memory.pxd',
     'pysignals.pxd',
     'signals.pxd',
     'struct_signals.h',
     'macros.h',
-    subdir: 'cysignals'
+    subdir: 'cysignals',
 )
 
 extensions = {
@@ -26,12 +37,16 @@ foreach name, pyx : extensions
         continue
     endif
 
-    py.extension_module(name,
+    py.extension_module(
+        name,
         pyx,
         include_directories: [include_directories('.'), src],
         cython_args: ['-Wextra'],
         dependencies: [py_dep, threads_dep],
         install: true,
-        subdir: 'cysignals'
+        subdir: 'cysignals',
+        # Disable sanity checking in GNU libc
+        # This is required because of false positives in the longjmp() check
+        c_args: name == 'signals' ? ['-U_FORTIFY_SOURCE'] : [],
     )
 endforeach

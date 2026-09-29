@@ -59,6 +59,7 @@ from matrx_ai.tools.implementations.kind_shared import (
     PLATFORM_COMPONENT_CONTRACTS,
     PROPS_CONTRACT,
     RESERVED_KIND_SLUGS,
+    WriteRefused,
     collect_child_kind_fields,
     component_summary,
     ctx_is_admin,
@@ -74,11 +75,14 @@ from matrx_ai.tools.implementations.kind_shared import (
     inject_kind_markers_into_schema,
     kind_summary,
     normalize_kind_slug,
+    refused,
     resolve_kind,
     schema_fingerprint,
     system_organization_id,
+    update_as_the_person,
     validate_against_schema,
     validate_kind_slug_format,
+    writing_as_the_person,
 )
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 
@@ -333,7 +337,14 @@ async def _create_single_kind(
             "explicitly. Fix the caller — nothing here picks a tenant."
         )
     payload["organization_id"] = org_id
-    kd = await KindDefinition.create_item(**payload)
+    # content_ir.kind_definition is certified: written AS THE PERSON (RLS +
+    # governance decide). The example / input component / edges below are
+    # KIND_TABLES_PENDING_CANONICAL_RLS and stay on the privileged connection.
+    try:
+        async with writing_as_the_person(None):
+            kd = await KindDefinition.create_item(**payload)
+    except WriteRefused as exc:
+        return None, None, None, refused("a new kind in organization", str(org_id), exc)
 
     KindExample = get_db_model("KindExample")
     example = await KindExample.create_item(
@@ -993,7 +1004,10 @@ async def kind_update_schema(args: dict[str, Any], ctx: ToolContext) -> ToolResu
         }
         if change_note:
             updates["metadata"] = {**(kd.metadata or {}), "last_change_note": change_note}
-        await KindDefinition.update_where({"id": str(kd.id)}, **updates)
+        try:
+            await update_as_the_person(KindDefinition, str(kd.id), ctx, **updates)
+        except WriteRefused as exc:
+            return refused("kind", str(kd.id), exc)
         fresh = await KindDefinition.get_or_none(use_cache=False, id=str(kd.id))
 
         KindExample = get_db_model("KindExample")
@@ -1272,24 +1286,29 @@ async def kind_create_skill(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         body = body_override or _default_skill_body(
             kd, canonical.data if canonical else None, extra_guidance
         )
-        created = await SklDefinition.create_item(
-            skill_id=skill_id,
-            label=f"{kd.label} (structured)",
-            description=(
-                f"How and when to emit a {kd.kind} render block as canonical "
-                f'{{"__kind": "{kd.kind}"}} JSON: the exact shape, required fields, '
-                "and JSON syntax rules."
-            ),
-            skill_type="render_block",
-            body=body,
-            icon_name="Shapes",
-            category_id=await _render_block_category_id(),
-            is_active=True,
-            is_system=False,
-            organization_id=str(kd.organization_id),
-            created_by=ctx_user_id(ctx),
-            metadata={"kind_definition_id": str(kd.id), "created_via": "kind_create_skill"},
-        )
+        # skill.definition is certified: written AS THE PERSON (RLS decides).
+        try:
+            async with writing_as_the_person(ctx):
+                created = await SklDefinition.create_item(
+                    skill_id=skill_id,
+                    label=f"{kd.label} (structured)",
+                    description=(
+                        f"How and when to emit a {kd.kind} render block as canonical "
+                        f'{{"__kind": "{kd.kind}"}} JSON: the exact shape, required fields, '
+                        "and JSON syntax rules."
+                    ),
+                    skill_type="render_block",
+                    body=body,
+                    icon_name="Shapes",
+                    category_id=await _render_block_category_id(),
+                    is_active=True,
+                    is_system=False,
+                    organization_id=str(kd.organization_id),
+                    created_by=ctx_user_id(ctx),
+                    metadata={"kind_definition_id": str(kd.id), "created_via": "kind_create_skill"},
+                )
+        except WriteRefused as exc:
+            return refused("the skill for kind", str(kd.id), exc)
         from matrx_ai.tools.kinds.kind_authoring import KindSkillResult
 
         return ToolResult(
@@ -1384,23 +1403,28 @@ async def kind_create_content_block(args: dict[str, Any], ctx: ToolContext) -> T
             None,
         )
 
-        created = await RenderDefinition.create_item(
-            block_id=block_id,
-            label=label or kd.label,
-            description=f"Render block teaching an agent to emit the {kd.kind} kind.",
-            icon_name="Shapes",
-            template=template,
-            is_active=True,
-            category_id=await _content_block_category_id(),
-            skill_id=str(skill_row.id) if skill_row else None,
-            organization_id=str(kd.organization_id),
-            created_by=ctx_user_id(ctx),
-            # Serialize the enum by VALUE — str(member) on a (str, Enum) mixin
-            # yields the repr 'Visibility.INTERNAL', which the RenderDefinition
-            # EnumField rejects (this killed every wave-4 content-block write).
-            visibility=_visibility_value(getattr(kd, "visibility", None)),
-            metadata={"kind_definition_id": str(kd.id), "created_via": "kind_create_content_block"},
-        )
+        # skill.render_definition is certified: written AS THE PERSON (RLS decides).
+        try:
+            async with writing_as_the_person(ctx):
+                created = await RenderDefinition.create_item(
+                    block_id=block_id,
+                    label=label or kd.label,
+                    description=f"Render block teaching an agent to emit the {kd.kind} kind.",
+                    icon_name="Shapes",
+                    template=template,
+                    is_active=True,
+                    category_id=await _content_block_category_id(),
+                    skill_id=str(skill_row.id) if skill_row else None,
+                    organization_id=str(kd.organization_id),
+                    created_by=ctx_user_id(ctx),
+                    # Serialize the enum by VALUE — str(member) on a (str, Enum) mixin
+                    # yields the repr 'Visibility.INTERNAL', which the RenderDefinition
+                    # EnumField rejects (this killed every wave-4 content-block write).
+                    visibility=_visibility_value(getattr(kd, "visibility", None)),
+                    metadata={"kind_definition_id": str(kd.id), "created_via": "kind_create_content_block"},
+                )
+        except WriteRefused as exc:
+            return refused("the content block for kind", str(kd.id), exc)
         from matrx_ai.tools.kinds.kind_authoring import KindContentBlockResult
 
         return ToolResult(

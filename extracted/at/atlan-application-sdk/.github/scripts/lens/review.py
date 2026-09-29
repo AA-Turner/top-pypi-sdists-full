@@ -20,7 +20,9 @@ The round rules that make the loop converge are here, in code:
 from __future__ import annotations
 
 import json
+import re
 import time
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,9 +32,16 @@ from . import holistic, prompts, trace
 from .agent import BundleResult, review_bundle
 from .bundle import Bundle, group
 from .config import Config
-from .diff import FileDiff, Hunk, Line, parse_unified_diff, snippet_in_text
+from .diff import (
+    FileDiff,
+    Hunk,
+    Line,
+    locate_in_text,
+    parse_unified_diff,
+    snippet_in_text,
+)
 from .findings import BLOCKING, BODY_KEEP, SEVERITIES, Finding, PRState, merge_new
-from .github import GitHub, GitHubError, bot_login
+from .github import GitHub, bot_login
 from .index import build_index
 from .llm import BudgetExhausted, Client, Ledger, LLMError
 from .rules import RuleSet
@@ -66,11 +75,16 @@ class RunResult:
     # What kind of run this is, in words, with the reason: "first review",
     # "re-review · only commits since abc1234", "re-review · full, because …", "retry · …".
     mode_label: str = ""
+    # Files drawing new blocking findings round after round (see spiral_paths).
+    spiral: list[tuple[str, list[int]]] = field(default_factory=list)
     run_url: str = (
         ""  # the Actions run doing this review (linked from the verdict and history)
     )
     # This run creates the sticky summary, so it is already at the bottom.
     summary_is_new: bool = False
+    blob_base: str = (
+        ""  # https://github.com/<repo>/blob/<head>: finding locations link here
+    )
     # Observability: per-request records from the client and per-phase wall time.
     calls: list[dict[str, Any]] = field(default_factory=list)
     timings_ms: dict[str, int] = field(default_factory=dict)
@@ -95,7 +109,6 @@ def describe_mode(
     pending: int,
     force: bool,
     model_changed: bool,
-    config_changed: bool,
     ancestry: str,
 ) -> str:
     """The kind of run, in plain words, with the reason for a full re-review."""
@@ -109,8 +122,6 @@ def describe_mode(
         why = "requested with force"
     elif model_changed:
         why = "the model changed since the last review"
-    elif config_changed:
-        why = "the lens config changed since the last review"
     elif ancestry and ancestry != "ahead":
         why = "the branch was force-pushed or rebased"
     else:
@@ -183,6 +194,48 @@ def _sev_at_least(sev: str, floor: str) -> bool:
     )
 
 
+def head_side_text(
+    gh: GitHub, files: list[FileDiff], head: str, max_files: int
+) -> dict[str, str]:
+    """The PR-head text of each changed file, "" for a path the PR removes.
+
+    The checkout is the base branch, and this map overlays it (reads, file
+    listing, search, the index), so anything missing here reads as the base
+    branch's copy. A renamed file's old path is removed by the PR just like a
+    deletion. Without it the old file stays visible, and a finding that says
+    "this file is still here" can never be verified fixed. Old paths cost no
+    request, so every rename in the diff is covered, not only the first
+    `max_files` changed files. An old path the PR puts a file back at is never
+    marked removed, wherever that file sits in the diff: inside the cap it has
+    its head text, and past it it reads as any uncapped file does.
+    """
+    head_text: dict[str, str] = {}
+    for fd in files[:max_files]:
+        if fd.status == "deleted":
+            head_text[fd.path] = ""
+        elif not fd.is_binary:
+            head_text[fd.path] = gh.file_at(fd.path, head) or ""
+    for fd in renamed_away(files):
+        head_text[str(fd.old_path)] = ""
+    return head_text
+
+
+def renamed_away(files: list[FileDiff]) -> list[FileDiff]:
+    """The renames whose old path no file occupies at the PR head.
+
+    A path the PR puts a file back at (anywhere in the diff) is not removed,
+    so it is left out."""
+    at_head = {fd.path for fd in files if fd.status != "deleted"}
+    return [
+        fd
+        for fd in files
+        if fd.status == "renamed"
+        and fd.old_path
+        and fd.old_path != fd.path
+        and fd.old_path not in at_head
+    ]
+
+
 def find_state(gh: GitHub, number: int) -> tuple[PRState | None, str]:
     for c in gh.issue_comments(number):
         body = c.get("body") or ""
@@ -227,7 +280,13 @@ def run(
         )
 
     # ---- admission (0 model calls) --------------------------------------
-    same_reviewer = state.model == cfg.model and state.config_hash == cfg.raw_hash
+    # Only a different MODEL is a different reviewer. A lens config change (cards,
+    # prompts, limits) does not re-open code an earlier round already passed: that
+    # moved the goalposts on reviewed code. It applies from the next new commits.
+    # `/lens force` only lifts the skip and round-cap rules: after new commits it
+    # reviews just those (the cheap way to get an approval back after a small push);
+    # on an unchanged head it re-reviews the whole PR under the current config.
+    same_reviewer = state.model == cfg.model
     # A head already reviewed is skipped — unless part of it was left unreviewed by a
     # failure, in which case only those files are retried (never the whole PR again).
     retry_only = (
@@ -288,7 +347,6 @@ def run(
         pending=len(state.pending_files),
         force=force,
         model_changed=bool(state.model) and state.model != cfg.model,
-        config_changed=bool(state.config_hash) and state.config_hash != cfg.raw_hash,
         ancestry=ancestry,
     )
     if retry_only:
@@ -329,6 +387,7 @@ def run(
         ledger=ledger,
         mode_label=mode_label,
         run_url=run_url,
+        blob_base=f"https://github.com/{gh.repo}/blob/{head}",
     )
     if post:
         # Pending while it runs: the checks box links straight to the live log.
@@ -341,12 +400,7 @@ def run(
     )
 
     # ---- head text for changed files (data only; never executed) -----------
-    head_text: dict[str, str] = {}
-    for fd in full_files[: cfg.max_changed_files]:
-        if fd.status == "deleted":
-            head_text[fd.path] = ""
-        elif not fd.is_binary:
-            head_text[fd.path] = gh.file_at(fd.path, head) or ""
+    head_text = head_side_text(gh, full_files, head, cfg.max_changed_files)
 
     # ---- free resolution: the quoted code is gone ------------------------
     touched = {fd.path for fd in all_files}
@@ -425,7 +479,11 @@ def run(
     will_call = (
         bool(res.triage.reviewed)
         or (cfg.approach and not state.approach)
-        or (cfg.verify and round_no > 1 and state.open_findings())
+        or (
+            cfg.verify
+            and round_no > 1
+            and (state.open_findings() or open_concerns(state))
+        )
     )
     if cfg.preflight and will_call:
         with trace.group("3 · preflight (zero tokens)"):
@@ -449,15 +507,42 @@ def run(
                 gh.set_status(head, *verdict_status(res), url)
             return res
 
-    # ---- verify still-open findings in touched files (1 call) -------------
+    # ---- verify still-open findings (1 call) -------------------------------
+    # Every open finding, not only those whose own file changed: a fix often lands
+    # in another file (a data file's finding fixed in the code that reads it). The
+    # model also sees what changed this round, since the fix may not be at the quote.
     if cfg.verify and round_no > 1:
-        to_verify = [f for f in state.open_findings() if f.path in touched]
-        with trace.group(f"4 · verify {len(to_verify)} still-open finding(s)"):
-            res.resolved_verified = _verify(client, ws, to_verify)
+        to_verify = state.open_findings() if touched else []
+        # The approach check runs once per PR, so without this a concern the author
+        # has since addressed would stay on the PR forever. It rides the same call.
+        concerns = open_concerns(state) if touched else []
+        with trace.group(
+            f"4 · verify {len(to_verify)} still-open finding(s), {len(concerns)} approach concern(s)"
+        ):
+            fixed = (
+                _verify(
+                    client,
+                    ws,
+                    to_verify,
+                    round_diff(all_files, to_verify),
+                    concerns,
+                    removed=removed_paths(full_files),
+                )
+                if to_verify or concerns
+                else []
+            )
+            res.resolved_verified = [i for i in fixed if not _CONCERN_ID.match(i)]
             for f in to_verify:
                 if f.id in res.resolved_verified:
                     f.fixed_round, f.fixed_by = round_no, "verified"
-            trace.line(f"verified fixed: {', '.join(res.resolved_verified) or 'none'}")
+            addressed = {i for i in fixed if _CONCERN_ID.match(i)}
+            for cid, c in concerns:
+                if cid in addressed:
+                    c["status"], c["addressed_round"] = "addressed", round_no
+            trace.line(
+                f"verified fixed: {', '.join(res.resolved_verified) or 'none'}; "
+                f"concerns addressed: {', '.join(sorted(addressed)) or 'none'}"
+            )
 
     res.timings_ms["index"] = int((time.monotonic() - t_phase) * 1000)
     t_phase = time.monotonic()
@@ -525,9 +610,9 @@ def run(
     res.calls = list(getattr(client, "calls", []))
     fresh: list[Finding] = []
     for br in res.bundles:
-        # A finding that is not on a diff line (unchanged code, or a line GitHub will not
-        # take a comment on) is still a finding: it is stored, counted and re-verified like
-        # any other. Only its delivery differs: the summary carries it, not an inline comment.
+        # A finding that is not on a diff line (unchanged code) is still a finding: it is
+        # stored, counted and re-verified like any other. Every finding is delivered in the
+        # summary and the verdict; lens opens no inline review threads.
         fresh.extend(br.findings)
         fresh.extend(br.unplaced)
     if round_no > 1:
@@ -541,6 +626,9 @@ def run(
         ]
     res.new_findings = merge_new(state, fresh, round_no=round_no)
     res.unplaced = [f for f in res.new_findings if not f.line]
+    res.spiral = spiral_paths(state, res.new_findings, round_no)
+    for path, rounds in res.spiral:
+        trace.line(f"spiral: {path} drew new findings in rounds {rounds}")
     with trace.group("7 · verdict"):
         for b in res.bundles:
             trace.line(
@@ -672,6 +760,11 @@ def dismiss(
         mode_label=label,
         state=state,
         run_url=run_url,
+        blob_base=(
+            f"https://github.com/{gh.repo}/blob/{state.reviewed_head}"
+            if state.reviewed_head
+            else ""
+        ),
     )
     trace.line(
         f"dismiss by @{actor}: closed {closed or 'none'}; refused {refused or 'none'}"
@@ -754,24 +847,133 @@ def plan_bundles(files: list, cfg: Config, res: RunResult) -> list[Bundle]:  # n
     return bundles[: cfg.max_bundles]
 
 
-def _verify(client: Client, ws: Workspace, open_: list[Finding]) -> list[str]:
-    if not open_:
+ROUND_DIFF_CHARS = 12_000  # this round's changes shown to the verify call
+
+
+def removed_paths(files: list[FileDiff]) -> str:
+    """Every path the whole PR deletes or renames away, one per line, for the
+    verify call.
+
+    Verify sees the site of each finding and this round's diff, never the
+    repository, so a finding that says another file "is still present" could
+    not be judged at all and stayed open for good. The list is the whole PR's,
+    not this round's: a rename made in an earlier round is still in effect. A
+    path the PR puts a file back at is not removed and is left out
+    (`renamed_away`, the same rule the head-text overlay uses).
+    """
+    lines = [f"deleted: {fd.path}" for fd in files if fd.status == "deleted"]
+    lines += [f"renamed: {fd.old_path} -> {fd.path}" for fd in renamed_away(files)]
+    return "\n".join(sorted(lines, key=lambda line: line.split(": ", 1)[1]))
+
+
+def round_diff(files: list[FileDiff], open_: list[Finding]) -> str:
+    """What changed this round, for the verify call: files holding an open finding
+    first, then the rest, within a fixed budget (a cached, bounded prompt)."""
+    owners = {f.path for f in open_}
+    out, used = [], 0
+    for fd in sorted(files, key=lambda d: (d.path not in owners, d.path)):
+        if fd.is_binary or not fd.hunks:
+            continue
+        block = f"--- {fd.path}\n{fd.render(max_lines=200)}"
+        if used + len(block) > ROUND_DIFF_CHARS:
+            out.append(f"--- {fd.path} (diff omitted: budget)")
+            continue
+        out.append(block)
+        used += len(block)
+    return "\n".join(out)
+
+
+def _current_line(ws: Workspace, f: Finding, text: str) -> int:
+    """Where the finding's quoted code is NOW. Stored line numbers are from an
+    earlier head and drift as commits land; the quote is what identifies the site,
+    so when it is gone the model is told so instead of shown unrelated code."""
+    return locate_in_text(text, f.evidence)  # 0 = the quote is gone; never guess a line
+
+
+VERIFY_BATCH = 20  # findings per verify call; every open finding is checked
+
+
+_CONCERN_ID = re.compile(r"^A\d+$")
+
+
+def open_concerns(state: PRState) -> list[tuple[str, dict[str, Any]]]:
+    """The approach check's concerns not yet addressed, with stable ids A1, A2, …
+    (the concern list is fixed once per PR, so its order is the id)."""
+    ap = state.approach or {}
+    if ap.get("verdict") != "concerns":
         return []
-    items = []
-    for f in open_[:20]:
+    return [
+        (f"A{i}", c)
+        for i, c in enumerate(ap.get("concerns") or [], 1)
+        if c.get("status", "open") == "open"
+    ]
+
+
+def _verify(
+    client: Client,
+    ws: Workspace,
+    open_: list[Finding],
+    changes: str = "",
+    concerns: list[tuple[str, dict[str, Any]]] | None = None,
+    *,
+    removed: str = "",
+) -> list[str]:
+    """Every open finding, VERIFY_BATCH at a time, and the open approach concerns
+    (with the first batch). The paths the PR removes, then the round's changes,
+    lead each call, so the batches share one cached prefix. Returns the ids
+    judged fixed: F-… and A…."""
+    batches = [
+        open_[i : i + VERIFY_BATCH] for i in range(0, len(open_), VERIFY_BATCH)
+    ] or [[]]
+    fixed: list[str] = []
+    for n, batch in enumerate(batches):
+        fixed += _verify_batch(
+            client, ws, batch, changes, concerns if n == 0 else None, removed=removed
+        )
+    return fixed
+
+
+def _verify_batch(
+    client: Client,
+    ws: Workspace,
+    open_: list[Finding],
+    changes: str,
+    concerns: list[tuple[str, dict[str, Any]]] | None = None,
+    *,
+    removed: str = "",
+) -> list[str]:
+    items = (
+        [f"<paths_removed_by_this_pr>\n{removed}\n</paths_removed_by_this_pr>"]
+        if removed
+        else []
+    )
+    if changes:
+        items.append(f"<changes_this_round>\n{changes}\n</changes_this_round>")
+    for cid, c in concerns or []:
+        items.append(
+            f'<concern id="{cid}">\n{c.get("title", "")}. {c.get("why", "")}\n</concern>'
+        )
+    for f in open_:
         text = ws.text(f.path) or ""
         lines = text.splitlines()
-        sym = ws.index.enclosing(f.path, f.line) if f.line else None
+        at = _current_line(ws, f, text)
+        sym = ws.index.enclosing(f.path, at) if at else None
         lo, hi = (
             (sym.start, sym.end)
             if sym and sym.end - sym.start < 120
-            else (max(f.line - 15, 1), f.line + 15)
+            else (max(at - 15, 1), at + 15)
         )
-        code = "\n".join(
-            f"{i:>5} {lines[i - 1]}" for i in range(lo, min(hi, len(lines)) + 1)
+        code = (
+            "\n".join(
+                f"{i:>5} {lines[i - 1]}" for i in range(lo, min(hi, len(lines)) + 1)
+            )
+            if at
+            else "(the quoted code is not in this file any more)"
         )
         items.append(
-            f'<finding id="{f.id}" path="{f.path}">\n{f.title}. {f.body}\n<code_now>\n{code}\n</code_now>\n</finding>'
+            f'<finding id="{f.id}" path="{f.path}">\n{f.title}. {f.body}\n'
+            f"<quoted_when_raised>\n{f.evidence}\n</quoted_when_raised>\n"
+            f"<code_now>\n{code}\n</code_now>\n</finding>"
         )
     messages = [
         {"role": "system", "content": prompts.VERIFY_SYSTEM},
@@ -790,15 +992,19 @@ def _verify(client: Client, ws: Workspace, open_: list[Finding]) -> list[str]:
         return []
     fixed: list[str] = []
     by_id = {f.id: f for f in open_}
+    concern_ids = {cid for cid, _ in concerns or []}
     for tc in comp.tool_calls:
         for it in (
             parse_args((tc.get("function") or {}).get("arguments") or "").get("items")
             or []
         ):
-            f = by_id.get(str(it.get("id")))
-            if f and it.get("status") == "fixed":
+            iid, ok = str(it.get("id")), it.get("status") == "fixed"
+            f = by_id.get(iid)
+            if f and ok:
                 f.status = "fixed"
                 fixed.append(f.id)
+            elif iid in concern_ids and ok:
+                fixed.append(iid)
     return fixed
 
 
@@ -811,13 +1017,6 @@ _SEV_LABEL = {
     "medium": "medium",
     "low": "low (nit)",
 }
-
-
-def inline_body(f: Finding) -> str:
-    out = f"{_SEV_ICON[f.severity]} **{f.severity} · {f.category}** — {f.title}\n\n{f.body}"
-    if f.suggestion and f.end_line:
-        out += f"\n\n```suggestion\n{f.suggestion.rstrip()}\n```"
-    return out + f"\n\n<sub>lens {f.id}</sub>"
 
 
 _FIXED_BY = {
@@ -886,11 +1085,138 @@ def _history_section(st: PRState) -> list[str]:
             run_kind += " · ⚠️ incomplete"
         log = f"[run]({h['run']})" if h.get("run") else "—"
         out.append(
-            f"| {h['round']} | {run_kind} | {span} | {h.get('new', 0)} | {h.get('resolved', 0)} "
+            f"| {'after ' if h.get('mode') == 'dismiss' else ''}{h['round']} | {run_kind} | {span} | {h.get('new', 0)} | {h.get('resolved', 0)} "
             f"| {h.get('blocking', '—')} | ${float(h.get('usd', 0)):.3f} | {log} |"
         )
     out.append("\n</details>")
     return out
+
+
+def _run_title(res: RunResult, round_no: int) -> str:
+    """ "round 2 · re-review · …", or for a dismissal (which is not a review round)
+    "dismissal after round 2 · F-… by @…"."""
+    label = res.mode_label or res.mode
+    if res.mode == "dismiss":
+        return f"dismissal after round {round_no} · {label.removeprefix('dismiss · ')}"
+    return f"round {round_no} · {label}"
+
+
+SPIRAL_ROUNDS = (
+    3  # a file drawing new findings in this many rounds is worth stepping back from
+)
+
+
+def spiral_paths(
+    state: PRState, new: list[Finding], round_no: int
+) -> list[tuple[str, list[int]]]:
+    """Files where this round's new BLOCKING findings continue a run: the same file
+    has drawn new findings in SPIRAL_ROUNDS or more rounds. Each fix uncovering the
+    next corner case is a sign the approach, not the latest patch, needs another look."""
+    if round_no < SPIRAL_ROUNDS:
+        return []
+    out = []
+    for path in sorted({f.path for f in new if f.severity in BLOCKING}):
+        rounds = sorted(
+            {
+                f.round
+                for f in state.findings
+                if f.path == path and f.severity in BLOCKING
+            }
+        )
+        if len(rounds) >= SPIRAL_ROUNDS:
+            out.append((path, rounds))
+    return out
+
+
+def _spiral_lines(res: RunResult) -> list[str]:
+    return [
+        f"\n🔁 **Worth stepping back:** `{path}` has drawn new blocking findings in rounds "
+        f"{', '.join(map(str, rounds))}. Each fix is uncovering another case; consider simplifying "
+        "the approach instead of patching case by case."
+        for path, rounds in res.spiral
+    ]
+
+
+def _concern_lines(ap: dict[str, Any], *, brief: bool) -> list[str]:
+    """Open concerns in full; addressed ones as one line, so the PR shows what is
+    still worth a look and not a concern the author has since dealt with."""
+    cs = ap.get("concerns") or []
+    still = [(i, c) for i, c in enumerate(cs, 1) if c.get("status", "open") == "open"]
+    done = [(i, c) for i, c in enumerate(cs, 1) if c.get("status") == "addressed"]
+    out = []
+    if not brief:
+        out.append(
+            "**Approach check** — worth a second look (advisory, does not block):"
+            if still
+            else "**Approach check** — ✅ every concern has been addressed."
+        )
+    for i, c in still:
+        alt = f" *Instead:* {c['alternative']}" if c.get("alternative") else ""
+        mark = "⚠️ " if brief else ""
+        out.append(f"- {mark}**{c.get('title', '')}** (A{i}) — {c.get('why', '')}{alt}")
+    for i, c in done:
+        out.append(
+            f"- ✔️ ~~{c.get('title', '')}~~ (A{i}) — addressed in round {c.get('addressed_round', '?')}"
+        )
+    return out
+
+
+_FENCE = {
+    ".py": "python",
+    ".toml": "toml",
+    ".yml": "yaml",
+    ".yaml": "yaml",
+    ".md": "markdown",
+    ".pkl": "",
+}
+
+
+def _where(f: Finding, blob_base: str) -> str:
+    """The finding's location, linked to the file at the reviewed commit."""
+    line = f.line or f.head_line
+    label = f"{f.path}:{line}" if line else f.path
+    if blob_base:
+        url = f"{blob_base}/{urllib.parse.quote(f.path, safe='/')}"
+        where = f"[`{label}`]({url}" + (f"#L{line}" if line else "") + ")"
+    else:
+        where = f"`{label}`"
+    if f.scope == "unchanged":
+        where += " (unchanged code: same pattern)"
+    return where
+
+
+def _details(f: Finding, blob_base: str, chars: int | None = None) -> str:
+    """One finding in full, collapsed: where, what goes wrong, and the suggested change
+    (what used to be an inline comment; lens opens no review threads). `chars` caps the
+    text for a PR too large to show every finding in full."""
+    ext = "." + f.path.rsplit(".", 1)[-1] if "." in f.path else ""
+
+    def cap(text: str) -> str:
+        return (
+            text
+            if chars is None or len(text) <= chars
+            else text[:chars].rstrip() + " …"
+        )
+
+    out = [
+        f"<details><summary>{_SEV_ICON[f.severity]} {f.id} · {f.severity} · {f.category} — "
+        f"{f.title}</summary>\n",
+        f"**Where:** {_where(f, blob_base)}\n",
+        cap(f.body.strip()),
+    ]
+    if f.scenario.strip():
+        out.append(f"\n**When it fails:** {cap(f.scenario.strip())}")
+    if f.suggestion.strip() and chars != 0:
+        # Longer than any backtick run inside, so a suggestion that itself holds a
+        # fenced example (a Markdown doc) cannot close the block early.
+        runs = [len(m) for m in re.findall(r"`+", f.suggestion)]
+        fence = "`" * max(3, max(runs, default=0) + 1)
+        out.append(
+            f"\n**Suggested change:**\n\n{fence}{_FENCE.get(ext, '')}\n"
+            f"{f.suggestion.rstrip()}\n{fence}"
+        )
+    out.append("\n</details>")
+    return "\n".join(out)
 
 
 def render_summary(res: RunResult) -> str:
@@ -917,8 +1243,9 @@ def render_summary(res: RunResult) -> str:
         verdict = "✅ **Ready to merge** — every finding is resolved"
     lines = [
         SUMMARY_MARKER,
-        f"### lens · round {st.round} · {res.mode_label or res.mode}",
+        f"### lens summary · updated after round {st.round} ({res.mode_label or res.mode})",
         verdict,
+        *_spiral_lines(res),
         "",
         f"**Open findings:** {counts}",
         "",
@@ -930,12 +1257,7 @@ def render_summary(res: RunResult) -> str:
             f"**lens reads this PR as** — {ap['problem']} *How:* {ap.get('approach', '')}\n"
         )
     if ap.get("verdict") == "concerns":
-        lines.append(
-            "**Approach check** — worth a second look (advisory, does not block):"
-        )
-        for c in ap.get("concerns", []):
-            alt = f" *Instead:* {c['alternative']}" if c.get("alternative") else ""
-            lines.append(f"- **{c.get('title', '')}** — {c.get('why', '')}{alt}")
+        lines.extend(_concern_lines(ap, brief=False))
         lines.append("")
     elif ap.get("verdict") == "sound":
         lines.append("**Approach check** — sound.\n")
@@ -949,28 +1271,12 @@ def render_summary(res: RunResult) -> str:
         )
         lines.append("| id | where | finding |\n|---|---|---|")
         for f in items:
-            where = (
-                f"`{f.path}:{f.line or f.head_line}`"
-                if (f.line or f.head_line)
-                else f"`{f.path}`"
-            )
-            if f.scope == "unchanged":
-                where += " (unchanged code: same pattern)"
-            elif not f.line:
-                where += " (not on a diff line)"
-            lines.append(f"| {f.id} | {where} | {f.title} |")
+            lines.append(f"| {f.id} | {_where(f, res.blob_base)} | {f.title} |")
         lines.append("")
+    opened = st.open_findings()
+    details_at = len(lines)  # the details block is sized last (see the size backstop)
     lines.extend(_resolved_section(st))
     lines.extend(_history_section(st))
-    if res.unplaced:
-        lines.append(
-            f"\n<details><summary>{len(res.unplaced)} finding(s) not posted inline — "
-            "details (counted above)</summary>\n"
-        )
-        for f in res.unplaced:
-            loc = f"{f.path}:{f.head_line}" if f.head_line else f.path
-            lines.append(f"- **{f.severity}** `{loc}` — {f.title}: {f.body}")
-        lines.append("\n</details>")
     t = res.triage
     mech_files = {p for ps in t.mechanical.values() for p in ps} | set(t.duplicate_of)
     if mech_files:
@@ -1009,17 +1315,31 @@ def render_summary(res: RunResult) -> str:
         f"{led.get('calls', 0)} model calls · {failed} failed requests · "
         f"{hit:.0%} prompt cache hits · {st.model}</sub>"
     )
-    head = "\n".join(lines) + "\n"
     # GitHub refuses a comment over 65,536 characters, and a refused edit would lose
-    # the state. Only a very large PR gets here: open findings' stored bodies are then
-    # shortened (the verify call still sees the code itself), then the Resolved table
-    # is dropped from view. The findings, their ids and the quoted code always stay.
-    for keep in (BODY_KEEP, 200, 0):
-        body = head + st.encode(body_keep=keep)
-        if len(body) <= COMMENT_LIMIT:
-            return body
-    lean = "\n".join(line for line in _without_resolved(lines)) + "\n"
+    # the state. Only a very large PR gets past the first try: each finding's details
+    # are shortened, then the stored bodies, then the details and the Resolved table
+    # are dropped from view. The findings, their ids and the quoted code always stay.
+    for detail_chars in (None, 600, 200):
+        block = _details_block(opened, res.blob_base, detail_chars)
+        head = "\n".join(lines[:details_at] + block + lines[details_at:]) + "\n"
+        for keep in (BODY_KEEP, 200, 0):
+            body = head + st.encode(body_keep=keep)
+            if len(body) <= COMMENT_LIMIT:
+                return body
+    lean = "\n".join(_without_resolved(lines)) + "\n"
     return lean + st.encode(body_keep=0)
+
+
+def _details_block(
+    opened: list[Finding], blob_base: str, chars: int | None
+) -> list[str]:
+    if not opened:
+        return []
+    return [
+        "**Details** — each finding, what goes wrong, and a suggested change:\n",
+        *(_details(f, blob_base, chars) for f in opened),
+        "",
+    ]
 
 
 def _without_resolved(lines: list[str]) -> list[str]:
@@ -1038,19 +1358,17 @@ def _without_resolved(lines: list[str]) -> list[str]:
     return out
 
 
-def _inline(f: Finding) -> dict[str, Any]:
-    c: dict[str, Any] = {
-        "path": f.path,
-        "line": f.end_line or f.line,
-        "side": "RIGHT",
-        "body": inline_body(f),
-    }
-    if f.end_line and f.end_line != f.line:
-        c["start_line"], c["start_side"] = f.line, "RIGHT"
-    return c
-
-
 def verdict_brief(res: RunResult, summary_url: str) -> str:
+    """The verdict, kept within GitHub's comment limit: this round's new findings are
+    shown in full, then shortened, then listed by title (the summary has them all)."""
+    for chars in (None, 600, 200, 0):
+        body = _verdict_brief(res, summary_url, chars)
+        if len(body) <= COMMENT_LIMIT:
+            return body
+    return body[: COMMENT_LIMIT - 200] + "\n\n… (truncated: see the full summary)"
+
+
+def _verdict_brief(res: RunResult, summary_url: str, detail_chars: int | None) -> str:
     """This run's verdict, posted at the BOTTOM of the conversation.
 
     The sticky summary is edited in place, so it stays wherever the PR's first
@@ -1067,18 +1385,25 @@ def verdict_brief(res: RunResult, summary_url: str) -> str:
     if state == "failure" and not st.open_findings(BLOCKING):
         icon = "🟡"
     lines = [
-        f"{icon} **lens · round {st.round} · {res.mode_label or res.mode}** — {description}",
+        f"{icon} **lens · {_run_title(res, st.round)}** — {description}",
+        *_spiral_lines(res),
         "",
         f"**Open findings:** {counts}",
     ]
     if res.new_findings:
-        inline = sum(1 for f in res.new_findings if f.line)
-        where = (
-            "inline below"
-            if inline == len(res.new_findings)
-            else f"{inline} inline, the rest in the summary"
-        )
-        lines.append(f"**New this round:** {len(res.new_findings)} ({where})")
+        lines.append(f"**New this round:** {len(res.new_findings)}\n")
+        if detail_chars == 0:
+            lines.extend(
+                f"- {_SEV_ICON[f.severity]} {f.id} — {f.title} ({_where(f, res.blob_base)})"
+                for f in res.new_findings
+            )
+            lines.append(
+                "\nToo many to show here in full: the summary has every finding's details."
+            )
+        else:
+            lines.extend(
+                _details(f, res.blob_base, detail_chars) for f in res.new_findings
+            )
     if state == "failure" and not st.open_findings(BLOCKING):
         lines.append(_CLOSE_HINT)
     fixed = len(res.resolved_free) + len(res.resolved_verified)
@@ -1089,16 +1414,24 @@ def verdict_brief(res: RunResult, summary_url: str) -> str:
         # The holistic review, in full: how lens reads the change, and whether the
         # approach is the right one — not just a one-word verdict.
         lines.append("")
-        lines.append(
-            f"**Approach check — {'⚠️ concerns (advisory)' if ap['verdict'] == 'concerns' else '✅ sound'}**"
+        concerns = ap.get("verdict") == "concerns"
+        still = [
+            c for c in ap.get("concerns") or [] if c.get("status", "open") == "open"
+        ]
+        label = (
+            "⚠️ concerns (advisory)"
+            if concerns and still
+            else "✅ concerns addressed"
+            if concerns
+            else "✅ sound"
         )
+        lines.append(f"**Approach check — {label}**")
         if ap.get("problem"):
             lines.append(f"- *Problem:* {ap['problem']}")
         if ap.get("approach"):
             lines.append(f"- *How the PR solves it:* {ap['approach']}")
-        for c in ap.get("concerns") or []:
-            alt = f" *Instead:* {c['alternative']}" if c.get("alternative") else ""
-            lines.append(f"- ⚠️ **{c.get('title', '')}** — {c.get('why', '')}{alt}")
+        if concerns:
+            lines.extend(_concern_lines(ap, brief=True))
         lines.append("")
     led = st.ledger or {}
     lines.append(
@@ -1114,57 +1447,24 @@ def verdict_brief(res: RunResult, summary_url: str) -> str:
 
 
 def publish(gh: GitHub, number: int, head: str, res: RunResult) -> None:
-    """Summary, then inline comments carrying this run's verdict, then status.
+    """Summary, then the verdict at the bottom, then the status.
 
-    A comment GitHub refuses (a 422 on a line it does not consider part of the
-    diff) is moved to the summary instead of being lost, and one bad line never
-    sinks the rest. The verdict always lands at the bottom of the conversation:
-    as the review body when there are new findings, as a comment otherwise."""
+    lens opens no inline review threads: every finding, with its explanation and
+    suggested change, is in the summary and (for this round's new ones) in the
+    verdict. Threads had to be resolved by hand to merge, and resolving them needs
+    a token with write access to the repository contents, which the step that reads
+    PR text must never hold. A summary created by this run is already the bottom
+    comment and carries the verdict, so the verdict is not repeated under it."""
     url = gh.upsert_comment(number, SUMMARY_MARKER, render_summary(res))
-    # A summary created by this run is already at the bottom and carries the verdict,
-    # so the verdict is not repeated under it: no extra comment, and a review with
-    # inline comments gets a one-line pointer. Later runs edit the summary in place,
-    # far above, so they post the verdict at the bottom again.
-    body = (
-        f"lens: {len(res.new_findings)} new finding(s) — the verdict is in the summary above."
-        if res.summary_is_new
-        else verdict_brief(res, url)
-    )
-    todo = [
-        f for f in res.new_findings if f.line
-    ]  # the rest are carried by the summary
-    posted = False
-    refused = False
-    for i in range(0, len(todo), 50):
-        batch = todo[i : i + 50]
-        try:
-            gh.review(number, head, body, [_inline(f) for f in batch])
-            posted = True
-        except GitHubError:
-            for f in batch:
-                try:
-                    gh.review(number, head, body, [_inline(f)])
-                    posted = True
-                except GitHubError:
-                    res.unplaced.append(f)
-                    refused = True
-    if refused:
-        url = gh.upsert_comment(number, SUMMARY_MARKER, render_summary(res))
-    if not posted and not res.summary_is_new:
+    if not res.summary_is_new:
         gh.comment(number, verdict_brief(res, url))
     state, description = verdict_status(res)
     gh.set_status(head, state, description, url)
     trace.line(f"sticky summary: {url or '(url unavailable)'}")
     trace.line(
-        f"inline comments: {len(todo) - sum(1 for f in res.unplaced if f in todo)} posted"
-        + (", some refused by GitHub (moved to the summary)" if refused else "")
-        + (
-            "; verdict in the new summary"
-            if res.summary_is_new
-            else "; verdict carried by the review"
-            if posted
-            else "; verdict posted as a comment"
-        )
+        "verdict in the new summary"
+        if res.summary_is_new
+        else "verdict posted at the bottom"
     )
     trace.line(f"status 'lens' on {head[:9]}: {state} — {description}")
 

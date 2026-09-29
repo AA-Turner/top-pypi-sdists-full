@@ -9,6 +9,7 @@ import synchronicity.combined_types
 import typing
 import typing_extensions
 
+def _warn_network_file_system_deprecated() -> None: ...
 def network_file_system_mount_protos(
     validated_network_file_systems: list[tuple[str, _NetworkFileSystem]],
 ) -> list[modal_proto.api_pb2.SharedVolumeMount]:

@@ -56,6 +56,23 @@ GOOGLE_GENERATE_CONTENT_URL = (
 )
 #: Cerebras speaks the OpenAI Chat Completions shape at its own host.
 CEREBRAS_CHAT_COMPLETIONS_URL = "https://api.cerebras.ai/v1/chat/completions"
+#: The other three OpenAI-compatible chat hosts. All four reach the wire through
+#: the SAME translator (``BaseTranslator.build_openai_chat_response_format`` /
+#: ``translate_openai_compatible_output_schema``), so a change to it could only
+#: ever be proven on one of the four endpoints it feeds until these existed —
+#: and it feeds all four, which is the whole reason it is shared.
+GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions"
+XAI_CHAT_COMPLETIONS_URL = "https://api.x.ai/v1/chat/completions"
+TOGETHER_CHAT_COMPLETIONS_URL = "https://api.together.xyz/v1/chat/completions"
+
+#: provider → (url, name of the env var holding its key). ONE table, so a caller
+#: cannot quietly probe the wrong host with the wrong key.
+OPENAI_COMPATIBLE_CHAT_ENDPOINTS: dict[str, tuple[str, str]] = {
+    "cerebras": (CEREBRAS_CHAT_COMPLETIONS_URL, "CEREBRAS_API_KEY"),
+    "groq": (GROQ_CHAT_COMPLETIONS_URL, "GROQ_API_KEY"),
+    "xai": (XAI_CHAT_COMPLETIONS_URL, "XAI_API_KEY"),
+    "together": (TOGETHER_CHAT_COMPLETIONS_URL, "TOGETHER_API_KEY"),
+}
 
 PROBE_PROMPT = "Reply with the smallest valid answer."
 _TIMEOUT_SECONDS = 400.0
@@ -234,14 +251,28 @@ async def probe_google_response_schema(
     )
 
 
-async def probe_cerebras_response_format(
+async def probe_openai_compatible_response_format(
+    provider: str,
     model: str,
     response_format: dict[str, Any] | None,
     *,
     max_tokens: int = 64,
     prompt: str = PROBE_PROMPT,
 ) -> ProbeResult:
-    """Minimal Cerebras Chat Completions request carrying ``response_format``."""
+    """Minimal Chat Completions request carrying ``response_format``, at whichever
+    of the four OpenAI-compatible hosts ``provider`` names.
+
+    One function for all four because ONE translator builds the body for all four;
+    a per-provider copy is how four endpoints ended up with one endpoint's worth
+    of evidence.
+    """
+    endpoint = OPENAI_COMPATIBLE_CHAT_ENDPOINTS.get(provider)
+    if endpoint is None:
+        raise RuntimeError(
+            f"{provider!r} is not an OpenAI-compatible chat provider this probe knows; "
+            f"known: {sorted(OPENAI_COMPATIBLE_CHAT_ENDPOINTS)}"
+        )
+    url, key_name = endpoint
     body: dict[str, Any] = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -251,9 +282,9 @@ async def probe_cerebras_response_format(
         body["response_format"] = response_format
     try:
         response = await _post(
-            CEREBRAS_CHAT_COMPLETIONS_URL,
+            url,
             headers={
-                "authorization": f"Bearer {_key('CEREBRAS_API_KEY')}",
+                "authorization": f"Bearer {_key(key_name)}",
                 "content-type": "application/json",
             },
             body=body,
@@ -273,11 +304,15 @@ async def probe_cerebras_response_format(
 __all__ = [
     "CEREBRAS_CHAT_COMPLETIONS_URL",
     "GOOGLE_GENERATE_CONTENT_URL",
+    "GROQ_CHAT_COMPLETIONS_URL",
+    "OPENAI_COMPATIBLE_CHAT_ENDPOINTS",
     "PROBE_PROMPT",
+    "TOGETHER_CHAT_COMPLETIONS_URL",
+    "XAI_CHAT_COMPLETIONS_URL",
     "ProbeResult",
     "probe_anthropic_messages",
     "probe_anthropic_output_format",
-    "probe_cerebras_response_format",
     "probe_google_response_schema",
+    "probe_openai_compatible_response_format",
     "probe_openai_text_format",
 ]

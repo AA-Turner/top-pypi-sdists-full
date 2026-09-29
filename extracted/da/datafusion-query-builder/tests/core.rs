@@ -143,6 +143,26 @@ fn slo_burn_rate_ctes_cross_join() {
 }
 
 #[test]
+fn recursive_cte() {
+    let seed = Query::empty()
+        .select(vec![Expr::lit(Scalar::Int(1)).alias("n")])
+        .unwrap();
+    let step = Query::table("numbers")
+        .select(vec![
+            Expr::column("n")
+                .binary(BinaryOp::Plus, Expr::lit(Scalar::Int(1)))
+                .alias("n"),
+        ])
+        .unwrap()
+        .filter(Expr::column("n").binary(BinaryOp::Lt, Expr::lit(Scalar::Int(3))))
+        .unwrap();
+    let recursive = seed.set_op(SetOp::Union, true, step);
+    let q = Query::table("numbers").with_recursive_cte("numbers", recursive);
+
+    assert_snapshot!(validate(&q).unwrap(), @"WITH RECURSIVE numbers AS (SELECT 1 AS n UNION ALL SELECT n + 1 AS n FROM numbers WHERE n < 3) SELECT * FROM numbers");
+}
+
+#[test]
 fn union_all_distinct_keys() {
     let attr = Query::table("metrics")
         .select(vec![
@@ -328,4 +348,147 @@ fn string_literals_escape_quotes_and_keep_backslashes() {
         validate(&q).unwrap(),
         @"SELECT * FROM records WHERE service_name = 'O''Brien' AND path = 'C:\\logs'"
     );
+}
+
+#[test]
+fn raw_fragments_keep_their_grouping_when_combined() {
+    // A `raw(...)` fragment is opaque until parsed, so it used to be treated as an atom and never
+    // wrapped: `raw("a = 1 OR b = 2") & c` rendered `a = 1 OR b = 2 AND c`, which means
+    // `a = 1 OR (b = 2 AND c)`. Callers had to wrap the text themselves as `({fragment})`, which
+    // breaks on a trailing `-- comment` and lets a fragment like `1=1) OR (1=1` close the bracket.
+    let or_fragment = || Expr::raw("a = 1 OR b = 2");
+    let c = || Expr::column("c");
+    let q = Query::table("t")
+        .select(vec![
+            or_fragment().binary(BinaryOp::And, c()).alias("and_right"),
+            c().binary(BinaryOp::And, or_fragment()).alias("and_left"),
+            Expr::unary(UnaryOp::Not, or_fragment()).alias("not_or"),
+            Expr::lit(Scalar::Bool(true))
+                .binary(BinaryOp::Eq, Expr::raw("x = 1"))
+                .alias("cmp_in_cmp"),
+            Expr::unary(UnaryOp::Neg, Expr::raw("x + 1")).alias("neg_sum"),
+            Expr::unary(UnaryOp::Neg, Expr::raw("-x")).alias("neg_neg"),
+            Expr::raw("x IS NULL")
+                .binary(BinaryOp::Eq, Expr::lit(Scalar::Bool(false)))
+                .alias("is_null_in_cmp"),
+        ])
+        .unwrap();
+    assert_snapshot!(
+        validate(&q).unwrap(),
+        @"SELECT (a = 1 OR b = 2) AND c AS and_right, c AND (a = 1 OR b = 2) AS and_left, NOT (a = 1 OR b = 2) AS not_or, true = (x = 1) AS cmp_in_cmp, -(x + 1) AS neg_sum, -(-x) AS neg_neg, (x IS NULL) = false AS is_null_in_cmp FROM t"
+    );
+}
+
+#[test]
+fn raw_fragments_that_bind_tightly_stay_unwrapped() {
+    // Output compatibility: a fragment that already binds tighter than its parent renders exactly
+    // as before, so existing callers see no change in the common shapes.
+    let q = Query::table("t")
+        .filter(Expr::raw("attributes ->> 'k'").binary(BinaryOp::Eq, lit_str("v")))
+        .unwrap()
+        .filter(Expr::raw("x IS NULL"))
+        .unwrap()
+        .filter(Expr::raw("(a OR b)"))
+        .unwrap()
+        .filter(Expr::column("ts").binary(BinaryOp::Gt, Expr::raw("now() - INTERVAL '1 hour'")))
+        .unwrap()
+        .select(vec![
+            Expr::raw("attributes ->> 'n'")
+                .binary(BinaryOp::Plus, Expr::lit(Scalar::Int(1)))
+                .alias("n"),
+        ])
+        .unwrap();
+    assert_snapshot!(
+        validate(&q).unwrap(),
+        @"SELECT (attributes ->> 'n') + 1 AS n FROM t WHERE attributes ->> 'k' = 'v' AND x IS NULL AND (a OR b) AND ts > now() - INTERVAL '1 hour'"
+    );
+}
+
+#[test]
+fn raw_fragment_with_trailing_line_comment_combines_safely() {
+    // The fragment is parsed on its own, so a trailing `-- comment` ends at the end of the
+    // fragment and is dropped. It can no longer swallow a bracket or operator that follows it.
+    let q = Query::table("t")
+        .filter(Expr::column("service_name").binary(BinaryOp::Eq, lit_str("svc")))
+        .unwrap()
+        .filter(Expr::raw("a = 1 OR b = 2 -- either marker"))
+        .unwrap()
+        .select(vec![count_star().alias("n")])
+        .unwrap();
+    assert_snapshot!(
+        validate(&q).unwrap(),
+        @"SELECT count(*) AS n FROM t WHERE service_name = 'svc' AND (a = 1 OR b = 2)"
+    );
+}
+
+#[test]
+fn chained_filters_keep_disjunctions_grouped() {
+    // `filter()` calls are AND-combined. A disjunction passed to one of them used to render bare:
+    // `.filter(a | b).filter(c)` became `a OR b AND c`.
+    let a_or_b = || eq("a", "1").binary(BinaryOp::Or, eq("b", "1"));
+    let q = Query::table("t")
+        .filter(a_or_b())
+        .unwrap()
+        .filter(eq("c", "1"))
+        .unwrap()
+        .filter(a_or_b())
+        .unwrap()
+        .select(vec![Expr::column("x")])
+        .unwrap();
+    assert_snapshot!(
+        validate(&q).unwrap(),
+        @"SELECT x FROM t WHERE (a = '1' OR b = '1') AND c = '1' AND (a = '1' OR b = '1')"
+    );
+
+    // A single filter is the whole `WHERE` clause and needs no brackets.
+    let single = Query::table("t")
+        .filter(a_or_b())
+        .unwrap()
+        .select(vec![Expr::column("x")])
+        .unwrap();
+    assert_snapshot!(
+        validate(&single).unwrap(),
+        @"SELECT x FROM t WHERE a = '1' OR b = '1'"
+    );
+}
+
+#[test]
+fn predicate_operands_keep_their_grouping() {
+    // `IS NULL`, `IN` and `BETWEEN` bind tighter than `AND` / `OR` and, in some dialects, looser
+    // than comparisons, so a boolean operand must be wrapped.
+    let a_or_b = || Expr::column("a").binary(BinaryOp::Or, Expr::column("b"));
+    let q = Query::table("t")
+        .select(vec![
+            a_or_b().is_null(false).alias("n"),
+            Expr::raw("x = 1")
+                .in_list(vec![Expr::lit(Scalar::Bool(true))], false)
+                .alias("i"),
+            Expr::column("x")
+                .between(
+                    Expr::raw("lo OR hi"),
+                    Expr::column("y").binary(BinaryOp::Plus, Expr::lit(Scalar::Int(1))),
+                    false,
+                )
+                .alias("b"),
+            Expr::raw("attributes ->> 'k'")
+                .is_null(true)
+                .alias("unchanged"),
+        ])
+        .unwrap();
+    assert_snapshot!(
+        validate(&q).unwrap(),
+        @"SELECT (a OR b) IS NULL AS n, (x = 1) IN (true) AS i, x BETWEEN (lo OR hi) AND y + 1 AS b, attributes ->> 'k' IS NOT NULL AS unchanged FROM t"
+    );
+}
+
+#[test]
+fn raw_fragment_cannot_close_a_bracket_it_did_not_open() {
+    // Without text wrapping there is no caller bracket to close, so an unbalanced fragment is a
+    // parse error instead of an expression that escapes its scope.
+    let q = Query::table("t")
+        .filter(eq("service_name", "svc"))
+        .unwrap()
+        .filter(Expr::raw("1=1) OR (1=1"))
+        .unwrap();
+    assert!(matches!(to_sql(&q), Err(BuildError::UnparsableSql(_))));
 }

@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .message_processor import MessageProcessor
+"""Message processing engine, execution contexts, and internal operation definitions."""
+
+from .execution_context import ExecutionContext as ExecutionContext
+from .message_processor import (
+    CapabilitiesOptions,
+    MessageProcessor,
+    MessageProcessorOptions,
+)
+from .operations import (
+    InternalCreateSurfaceOp,
+    InternalDeleteSurfaceOp,
+    InternalOperation,
+    InternalUpdateComponentsOp,
+    InternalUpdateDataModelOp,
+)
+from .adapters import VersionAdapter, VersionAdapterFactory
+from .format_pydantic_error import (
+    format_pydantic_issue,
+    format_validation_error,
+    format_validation_error_summary,
+)
 
 __all__ = [
+    "CapabilitiesOptions",
+    "ExecutionContext",
     "MessageProcessor",
+    "MessageProcessorOptions",
+    "InternalOperation",
+    "InternalCreateSurfaceOp",
+    "InternalUpdateComponentsOp",
+    "InternalUpdateDataModelOp",
+    "InternalDeleteSurfaceOp",
+    "VersionAdapter",
+    "VersionAdapterFactory",
+    "format_pydantic_issue",
+    "format_validation_error",
+    "format_validation_error_summary",
 ]

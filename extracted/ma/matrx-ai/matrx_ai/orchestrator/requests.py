@@ -6,6 +6,7 @@ Preserves ALL content types and metadata from all providers
 from __future__ import annotations
 
 import uuid
+from copy import copy
 from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any, ClassVar
@@ -190,8 +191,39 @@ class AIMatrixRequest:
             # Use role='tool' to distinguish from actual user messages
             updated_messages.append(UnifiedMessage(role="tool", content=tool_results))
 
-        # Create new request with updated messages (everything else stays the same)
-        new_config = replace(original_request.config, messages=updated_messages)
+        # Create new request with updated messages (everything else stays the same).
+        #
+        # 🚨 NEVER ``dataclasses.replace(config, messages=…)`` here. ``replace``
+        # re-runs ``UnifiedConfig.__post_init__``, whose hydration pass calls
+        # ``MessageList.sanitize()`` — and sanitize REMOVES and INSERTS messages
+        # (orphan tool_results, emptied rows, W49 synthetic results) IN PLACE on
+        # the list it is handed. That list is the executor's LEDGER: every
+        # persistence cursor (trigger position, pre-execution count,
+        # committed_position) is an index into it, and chat.message.position is
+        # that index. On a thread whose history carries one old broken row, the
+        # first loop step deleted it mid-turn, the person's message slid below
+        # the high-water mark, and the barrier wrote the wrong rows or nothing:
+        # admin@admin.com's permanent staff thread 3af9e95c saved no chat.message
+        # from 2026-09-26 16:03Z to 2026-09-28 (Lane AZ2 — the wire-copy fix in
+        # ``_build_provider_wire_config`` was right but this second mutator
+        # remained; ops.system_error kind ``persisted_history_shifted`` fired 419×
+        # after it shipped). The config is already normalized; only the message
+        # list is new, so a shallow copy with the new list is the whole update.
+        # Provider hygiene still runs on every call, on the WIRE copy.
+        # Guard: tests/test_the_loop_step_never_sanitizes_the_ledger.py.
+        # The per-turn context channel belongs to the TURN, not to one provider
+        # call: the executor clears it when the turn ends. A fresh MessageList
+        # started empty, so every block attached at resolve (live date, skills,
+        # sandbox briefing, context engine…) reached the FIRST call only and was
+        # gone from every call after a tool round (Lane AZ2, 2026-09-28).
+        updated_messages._turn_context_blocks = dict(
+            getattr(original_request.config.messages, "_turn_context_blocks", {}) or {}
+        )
+        new_config = copy(original_request.config)
+        new_config.messages = updated_messages
+        # Kept from the replace() era: <<MATRX>> patterns in newly added text
+        # are resolved exactly as before (idempotent on already-resolved text).
+        new_config._resolve_message_patterns()
         return replace(original_request, config=new_config)
 
     def to_dict(self) -> dict[str, Any]:

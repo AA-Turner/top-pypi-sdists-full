@@ -29,8 +29,6 @@ IMAGE_NAMES_HISTORY_PAGE_SIZE = 100
 IMAGE_NAMES_HISTORY_PAGE_DELAY_SECONDS = 1.0
 
 image_cli = ModalGroup(name="image", help="Manage Images.")
-image_names_cli = ModalGroup(name="names", help="Manage Modal Image names.")
-image_cli.add_command(image_names_cli)
 
 
 def _print_result_summary(count: int) -> None:
@@ -58,7 +56,7 @@ async def logs(image_id: str, layers: int | None, all_layers: bool) -> None:
     effective_layers = None if all_layers else layers or 1
     image = Image.from_id(image_id)
     output_mgr = OutputManager.get()
-    last_message = ""
+    last_message: str | None = None
     async for entry in image.logs.fetch.aio(layers=effective_layers):
         last_message = entry.message
         await output_mgr.put_fetched_log(
@@ -69,7 +67,9 @@ async def logs(image_id: str, layers: int | None, all_layers: bool) -> None:
             )
         )
     output_mgr.flush_lines()
-    if last_message and not last_message.endswith("\n"):
+    if last_message is None:
+        output_mgr.print(f"No build logs found for Image {image_id}.")
+    elif not last_message.endswith("\n"):
         output_mgr.print("")
 
 
@@ -109,7 +109,7 @@ async def _iter_tag_pages(
     environment_name = env
 
     while True:
-        response = await client.stub.ImageListTags(
+        response = await client._stub.ImageListTags(
             api_pb2.ImageListTagsRequest(
                 environment_name=env,
                 tag_prefix=prefix,
@@ -131,7 +131,7 @@ async def _fetch_history_page(
     name_tag: str,
     page_token: str,
 ) -> api_pb2.ImageTagRevisionsResponse:
-    return await client.stub.ImageTagRevisions(
+    return await client._stub.ImageTagRevisions(
         api_pb2.ImageTagRevisionsRequest(
             tag=name_tag,
             max_objects=IMAGE_NAMES_HISTORY_PAGE_SIZE,
@@ -152,6 +152,10 @@ async def _iter_history_pages(
             return
         await asyncio.sleep(IMAGE_NAMES_HISTORY_PAGE_DELAY_SECONDS)
         response = await _fetch_history_page(client, name_tag, response.next_page_token)
+
+
+image_names_cli = ModalGroup(name="names", help="Manage Modal Image names.")
+image_cli.add_command(image_names_cli)
 
 
 @image_names_cli.command("list", help="List named Images.")

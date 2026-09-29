@@ -758,7 +758,9 @@ def _audit_housekeeping_sweep(swept: dict) -> None:
             f"notification(s), {swept.get('archived_merge_queue', 0)} "
             "merge_queue entry(ies), removed "
             f"{swept.get('removed_confirm_worktrees', 0)} stale "
-            "confirm-worktree(s) (#2974)"
+            "confirm-worktree(s) (#2974), deleted "
+            f"{swept.get('audit_operational_deleted', 0)} stale operational "
+            "audit_log row(s) (#3469)"
         ),
         details=swept,
     )
@@ -5653,7 +5655,7 @@ def openapi_spec() -> dict:
                     {"name": "since", "in": "query", "schema": {"type": "string"}, "description": "issue-activity: window length, e.g. 13h"},
                     {"name": "until", "in": "query", "schema": {"type": "string"}, "description": "issue-activity: epoch or ISO-8601 window end; empty = now"},
                     {"name": "repo", "in": "query", "schema": {"type": "string"}, "description": "issue-activity: restrict to one repo"},
-                    {"name": "format", "in": "query", "schema": {"type": "string", "enum": ["json", "csv"]}, "description": "#1765: response encoding. Absent/`json` returns the ReportResult unchanged; `csv` returns text/csv (raw values, `#`-prefixed notes) with a Content-Disposition filename."},
+                    {"name": "format", "in": "query", "schema": {"type": "string", "enum": ["json", "csv", "ndjson", "md", "xlsx"]}, "description": "#1765/#3472: response encoding. Absent/`json` returns the ReportResult unchanged; `csv` returns text/csv (raw values, `#`-prefixed notes); `ndjson` returns one JSON object per line; `md` returns a markdown table plus notes; `xlsx` returns a typed-cell workbook (needs the `reports-xlsx` extra server-side — a 400 names it if missing). Every non-JSON format ships a Content-Disposition filename."},
                 ],
                 "responses": {
                     "200": {
@@ -5693,9 +5695,21 @@ def openapi_spec() -> dict:
                                 "schema": {"type": "string"},
                                 "description": "#1765: `?format=csv`. Header row labelled from `column_meta`, one row per `rows` entry with raw values, `notes` as leading `#` lines.",
                             },
+                            "application/x-ndjson": {
+                                "schema": {"type": "string"},
+                                "description": "#3472: `?format=ndjson`. One JSON object per line — a leading `_meta` line, one `_note` line per note, one line per data row, and a trailing `_totals` line when the report has one.",
+                            },
+                            "text/markdown": {
+                                "schema": {"type": "string"},
+                                "description": "#3472: `?format=md`. A pipe table labelled from `column_meta` plus a trailing `## Notes` list — for pasting into an issue/PR comment.",
+                            },
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                                "schema": {"type": "string", "format": "binary"},
+                                "description": "#3472: `?format=xlsx`. A `Report` sheet (typed cells: numbers/datetimes, not strings, plus a totals row) and a `Notes` sheet. Needs the server-side `reports-xlsx` extra (`openpyxl`); a 400 names it if missing.",
+                            },
                         },
                     },
-                    "400": {"description": "Unknown parameter / bad parameter value / unknown format"},
+                    "400": {"description": "Unknown parameter / bad parameter value / unknown format / format=xlsx without the reports-xlsx extra installed"},
                     "404": {"description": "Unknown report id"},
                 },
             }
@@ -10228,14 +10242,18 @@ def build_app(
 
         report_id = request.path_params["report_id"]
         params = dict(request.query_params)
-        # #1765: `format` is a *rendering* choice, not a report parameter —
-        # pop it before validation or `resolve_params` rejects it as an
-        # unknown parameter. Absent means JSON, byte-identical to what this
-        # route returned before #1765 (the merged #1741 panel depends on it).
+        # #1765 / #3472: `format` is a *rendering* choice, not a report
+        # parameter — pop it before validation or `resolve_params` rejects
+        # it as an unknown parameter. Absent means JSON, byte-identical to
+        # what this route returned before #1765 (the merged #1741 panel
+        # depends on it). `EXPORT_FORMATS` is the single table every
+        # surface (CLI, this route, coord/dashboard/server.py) dispatches
+        # through, so "what formats exist" is answered exactly once.
         fmt = (params.pop("format", "") or "json").strip().lower()
-        if fmt not in ("json", "csv"):
+        if fmt != "json" and fmt not in _reports.EXPORT_FORMATS:
+            allowed = ", ".join(["json", *sorted(_reports.EXPORT_FORMATS)])
             return JSONResponse(
-                {"error": f"unknown format {fmt!r} — allowed values: json, csv"},
+                {"error": f"unknown format {fmt!r} — allowed values: {allowed}"},
                 status_code=400,
             )
         try:
@@ -10248,15 +10266,23 @@ def build_app(
             return JSONResponse(
                 {"error": "report run failed", "detail": str(e)}, status_code=503
             )
-        if fmt == "csv":
+        if fmt != "json":
             # Same serializer the CLI calls, so `coord report run --format
-            # csv` and this route emit identical bytes for identical params.
+            # <fmt>` and this route emit identical bytes for identical
+            # params. `format=xlsx` without the optional `reports-xlsx`
+            # extra installed raises XlsxExtraMissingError (a ReportError)
+            # rather than crashing — surfaced as a 400 naming the extra.
+            export = _reports.EXPORT_FORMATS[fmt]
+            try:
+                body = await run_in_threadpool(export.serialize, result)
+            except _reports.XlsxExtraMissingError as e:
+                return JSONResponse({"error": str(e)}, status_code=400)
             return Response(
-                _reports.result_to_csv(result),
-                media_type="text/csv; charset=utf-8",
+                body,
+                media_type=export.media_type,
                 headers={
                     "Content-Disposition": (
-                        f'attachment; filename="{_reports.csv_filename(result)}"'
+                        f'attachment; filename="{export.filename(result)}"'
                     )
                 },
             )
@@ -10689,13 +10715,33 @@ def build_app(
         except Exception:  # noqa: BLE001
             body = {}
         dry_run = bool(body.get("dry_run", False))
+        reclaim = bool(body.get("reclaim", False))
+        # Save/restore rather than set-and-forget: every sibling re-route
+        # guard in this module (COORD_MERGE_ON_DAEMON, COORD_RECONCILE_ON_
+        # DAEMON, COORD_DIAGNOSE_ON_DAEMON, COORD_NOTIFY_ON_DAEMON, ...) is
+        # scoped to the request with a `finally`; this one alone leaked, so
+        # a single POST left `COORD_HOUSEKEEPING_ON_DAEMON=1` set for the
+        # remaining life of the process. `os.environ` is process-global, so
+        # in-process that permanently turned every later `coord
+        # housekeeping` invocation into "I AM the daemon, run locally" — it
+        # is what made `tests/test_board_cap_762.py` (which POSTs here) able
+        # to break a later file's CLI-routing test in the same pytest
+        # process.
+        prev = os.environ.get("COORD_HOUSEKEEPING_ON_DAEMON")
         os.environ["COORD_HOUSEKEEPING_ON_DAEMON"] = "1"
         try:
-            result = await run_in_threadpool(housekeeping.sweep, dry_run=dry_run)
+            result = await run_in_threadpool(
+                housekeeping.sweep, dry_run=dry_run, reclaim=reclaim
+            )
         except Exception as e:  # noqa: BLE001
             return JSONResponse(
                 {"error": "housekeeping failed", "detail": str(e)}, status_code=503
             )
+        finally:
+            if prev is None:
+                os.environ.pop("COORD_HOUSEKEEPING_ON_DAEMON", None)
+            else:
+                os.environ["COORD_HOUSEKEEPING_ON_DAEMON"] = prev
         return JSONResponse(result)
 
     async def post_reap_merged_sessions(request: Request) -> Response:
@@ -11539,22 +11585,42 @@ def build_app(
                     try:
                         from coord import housekeeping as _hk  # noqa: PLC0415
 
+                        # Scoped to this tick, not set-and-forget — see
+                        # `post_housekeeping` above for why leaking a
+                        # process-global re-route guard is a real defect
+                        # rather than a harmless no-op.
+                        _prev_hk = os.environ.get("COORD_HOUSEKEEPING_ON_DAEMON")
                         os.environ["COORD_HOUSEKEEPING_ON_DAEMON"] = "1"
-                        swept = await run_in_threadpool(_hk.sweep)
+                        try:
+                            swept = await run_in_threadpool(_hk.sweep)
+                        finally:
+                            if _prev_hk is None:
+                                os.environ.pop("COORD_HOUSEKEEPING_ON_DAEMON", None)
+                            else:
+                                os.environ["COORD_HOUSEKEEPING_ON_DAEMON"] = _prev_hk
                         if (
                             swept.get("archived_assignments")
                             or swept.get("archived_notifications")
                             or swept.get("archived_merge_queue")
                             or swept.get("removed_confirm_worktrees")
+                            # #3469: the operational-tier audit retention sweep
+                            # runs unconditionally, independent of everything
+                            # above — once `audit.operational_retention_days`
+                            # is turned on, a tick that *only* deletes stale
+                            # operational rows will be the common case, and
+                            # this must not go silent / leave zero audit trail.
+                            or swept.get("audit_operational_deleted")
                         ):
                             log.info(
                                 "housekeeping: archived %d assignment(s), "
                                 "%d notification(s), %d merge_queue entry(ies), "
-                                "removed %d stale confirm-worktree(s)",
+                                "removed %d stale confirm-worktree(s), deleted "
+                                "%d stale operational audit_log row(s)",
                                 swept["archived_assignments"],
                                 swept["archived_notifications"],
                                 swept.get("archived_merge_queue", 0),
                                 swept.get("removed_confirm_worktrees", 0),
+                                swept.get("audit_operational_deleted", 0),
                             )
                             _audit_housekeeping_sweep(swept)
                     except Exception:  # noqa: BLE001

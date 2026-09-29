@@ -190,6 +190,60 @@ def test_for_symbol_ignores_a_qualifier_borrowed_by_a_topic(tmp_path):
         dataset.set_data_root(None)
 
 
+def test_for_symbol_never_answers_with_a_property_reference(tmp_path):
+    """A property reference repeats the names of the types and carries no qualified name.
+
+    Ranked with the rest, the empty qualifier won the tie: `Array` would open the keys of a
+    yaml description instead of the page of the type. A name only such a page carries is left
+    unanswered too - the callers then look it up as a member, and search still finds the page.
+    """
+    root = "stdlib/element/InterfaceComponents"
+    props = f"{root}/Std/InterfaceComponents"
+    only_prop = "stdlib/element/IntegrationProcessSchema/Std/Schema/Nodes/FtpSource_ru"
+    pages = list(_PAGES) + [
+        (f"{props}/Array_ru", "member", "Массив", "", "", "https://host/p/", "<h1>Массив</h1>", "массив"),
+        (f"{props}/Selection_ru", "member", "Выборка", "", "", "https://host/s/", "<h1>Выборка</h1>", "выборка"),
+        (only_prop, "member", "FtpИсточник", "", "", "https://host/f/", "<h1>FtpИсточник</h1>", "ftp"),
+        ("stdlib/element/xbsl/Std/Database/QueryResult_ru", "type", "Результат запроса",
+         "Стд::БазаДанных::Выборка", "Сервер", "https://host/r/", "<h1>Результат</h1>", "результат"),
+        # The root page of a section is a property reference too, though its id has no slash after it.
+        (root, "member", "Интерфейс", "", "", "https://host/i/", "<h1>Интерфейс</h1>", "интерфейс"),
+        ("topics/interface", "topic", "Интерфейс", "", "", "https://host/t/", "<h1>Интерфейс</h1>", "интерфейс"),
+    ]
+    _write_docs(tmp_path, pages)
+    dataset.set_data_root(tmp_path)
+    try:
+        assert docs.for_symbol("Массив") == _ARRAY          # the type, not its namesake property page
+        assert docs.for_symbol("Выборка") == "stdlib/element/xbsl/Std/Database/QueryResult_ru"  # qualifier first
+        assert docs.for_symbol("Интерфейс") == "topics/interface"
+        assert docs.for_symbol("FtpИсточник") is None
+        assert docs.search("ftp")[0]["id"] == only_prop
+    finally:
+        dataset.set_data_root(None)
+
+
+def test_for_symbol_never_answers_with_a_glossary_term(tmp_path):
+    """A glossary term is titled with an ordinary word of the platform, and code names variables
+    and members that way: the Russian word for "value" would open the term instead of the member
+    it names.
+
+    The control is the same page outside the glossary, which answers - the path keeps the term
+    out, not its title. Search still reaches the term.
+    """
+    term = f"{docs.GLOSSARY}/value"
+    page = ("member", "Значение", "", "", "https://host/v/", "<h1>Значение</h1>", "значение термин")
+    ver_dir = _write_docs(tmp_path, list(_PAGES) + [(term, *page)])
+    dataset.set_data_root(tmp_path)
+    try:
+        assert docs.for_symbol("Значение") is None
+        assert docs.search("термин")[0]["id"] == term
+        (ver_dir / "docs.sqlite").unlink()
+        _write_db(ver_dir, list(_PAGES) + [("topics/value", *page)])
+        assert docs.for_symbol("Значение") == "topics/value"
+    finally:
+        dataset.set_data_root(None)
+
+
 def test_type_pages(docs_root):
     # the bulk read for extract_uischema: type pages only, ordered by id
     pages = docs.type_pages()

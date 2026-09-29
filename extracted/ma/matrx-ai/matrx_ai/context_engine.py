@@ -186,7 +186,7 @@ async def person_timezone(user_id: str | None, organization_id: str | None) -> s
             ZoneInfo(str(candidate))
             tz = str(candidate)
     except Exception as exc:  # noqa: BLE001 — announced; the turn is answered in UTC
-        logger.warning(
+        logger.error(
             "[context_engine] could not read the timezone of person %s (%r); the date and time "
             "this turn carries are in UTC and say so.",
             user_id,
@@ -311,7 +311,7 @@ async def platform_default_system_item_keys() -> tuple[str, ...]:
     try:
         raw = await _defaults_reader()
     except Exception as exc:  # noqa: BLE001 — announced; the registered default answers
-        logger.error(
+        logger.warning(
             "[context_engine] the knob %s/%s could not be read (%r); every agent is handed the "
             "registered default list %s until it can.",
             *SYSTEM_ITEM_DEFAULTS_KNOB,

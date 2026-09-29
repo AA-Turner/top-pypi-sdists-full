@@ -14,4 +14,4 @@ class EvaluationGroupRetrieveParams(TypedDict, total=False):
     include_deleted: bool
 
     views: List[EvaluationGroupViews]
-    """Optional relationships to include: 'members', 'row_identifiers'"""
+    """Additional relationships to include; 'members' is always returned"""

@@ -3,7 +3,6 @@
 
 import re
 import xml.etree.ElementTree as ET
-from typing import Optional, Tuple
 from xml.etree.ElementTree import Element
 
 from fpdf import FontFace
@@ -546,7 +545,7 @@ class Danfe(xFPDF):
                     addit_data_next_pages = []
         return addit_data, addit_data_next_pages
 
-    def _product_col_widths(self, cst_width: float) -> Tuple[Optional[float], ...]:
+    def _product_col_widths(self, cst_width: float) -> tuple[float | None, ...]:
         if self.default_font_factor is FontSize.SMALL.value:
             return (15, None, 11, cst_width, 7, 6, 12, 13, 13, 13, 10, 10, 9, 8)
         elif self.default_font_factor is FontSize.BIG.value:

@@ -13,28 +13,26 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    pyudev.pyqt5
-    ============
+pyudev.pyqt5
+============
 
-    PyQt5 integration.
+PyQt5 integration.
 
-    :class:`MonitorObserver` integrates device monitoring into the PyQt5_
-    mainloop by turning device events into Qt signals.
+:class:`MonitorObserver` integrates device monitoring into the PyQt5_
+mainloop by turning device events into Qt signals.
 
-    :mod:`PyQt5.QtCore` from PyQt5_ must be available when importing this
-    module.
+:mod:`PyQt5.QtCore` from PyQt5_ must be available when importing this
+module.
 
-    .. _gPyQt5: http://riverbankcomputing.co.uk/software/pyqt/intro
+.. _gPyQt5: http://riverbankcomputing.co.uk/software/pyqt/intro
 
-    .. moduleauthor::  Tobias Gehring  <mail@tobiasgehring.de>
+.. moduleauthor::  Tobias Gehring  <mail@tobiasgehring.de>
 """
 
-# isort: THIRDPARTY
-from PyQt5 import QtCore  # pylint: disable=import-error
+from PyQt5 import QtCore
 
 from ._qt_base import MonitorObserverGenerator
 
-# pylint: disable=invalid-name
 MonitorObserver = MonitorObserverGenerator.make_monitor_observer(
     QtCore.QObject, QtCore.pyqtSignal, QtCore.QSocketNotifier
 )

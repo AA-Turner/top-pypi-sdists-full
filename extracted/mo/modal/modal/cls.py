@@ -1,4 +1,5 @@
 # Copyright Modal Labs 2022
+import copy
 import inspect
 import typing
 from collections.abc import Callable, Collection, Sequence
@@ -25,9 +26,7 @@ from ._traceback import print_server_warnings
 from ._type_manager import parameter_serde_registry
 from ._utils.async_utils import synchronize_api, synchronizer
 from ._utils.deprecation import (
-    deprecation_warning,
     handle_deprecated_parameters,
-    with_deprecation_warning,
 )
 from .client import _Client
 from .cloud_bucket_mount import _CloudBucketMount
@@ -86,10 +85,13 @@ def _bind_instance_method(cls: "_Cls", service_function: _Function, method_name:
         assert service_function._is_hydrated
         assert cls._is_hydrated
 
+        assert service_function._method_handle_metadata
         method_metadata = service_function._method_handle_metadata[method_name]
         new_function._hydrate(service_function.object_id, service_function.client, method_metadata)
         if not new_function._app_id:
             new_function._app_id = service_function._app_id
+        if service_function._function_info is not None:
+            new_function._function_info = copy.deepcopy(service_function._function_info)
 
     async def _load(fun: "_Function", resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
         # there is currently no actual loading logic executed to create each method on
@@ -138,6 +140,9 @@ def _bind_instance_method(cls: "_Cls", service_function: _Function, method_name:
     fun._is_method = True
     fun._app = service_function._app
     fun._spec = service_function._spec
+    if service_function._function_info is not None:
+        fun._function_info = copy.deepcopy(service_function._function_info)
+
     return fun
 
 
@@ -233,7 +238,12 @@ class _Obj:
                 ):
                     if not parent._is_hydrated:
                         await parent.hydrate(load_context.client)
+
+                    assert parent._is_hydrated
+
                     function._hydrate_from_other(parent)
+                    if parent._function_info is not None:
+                        function._function_info = copy.deepcopy(parent._function_info)
 
                 fun = _Function._from_loader(
                     _load,
@@ -244,6 +254,8 @@ class _Obj:
                 fun._obj = self
                 fun._source_info = parent._source_info
                 fun._spec = parent._spec
+                if parent._function_info is not None:
+                    fun._function_info = copy.deepcopy(parent._function_info)
 
             self._instance_service_function = fun
 
@@ -436,6 +448,8 @@ class _Obj:
             await resolver.load(method_function, load_context)  # get the appropriate method handle (lazy)
             fun._hydrate_from_other(method_function)
             fun._app_id = method_function._app_id
+            if method_function._function_info is not None:
+                fun._function_info = copy.deepcopy(method_function._function_info)
 
         # The reason we don't *always* use this lazy loader is because it precludes attribute access
         # on local classes.
@@ -567,27 +581,20 @@ class _Cls(_Object, type_prefix="cs"):
     def _validate_construction_mechanism(user_cls):
         """mdmd:hidden"""
         params = {k: v for k, v in user_cls.__dict__.items() if is_parameter(v)}
-        has_custom_constructor = user_cls.__init__ != object.__init__
-        if params and has_custom_constructor:
+        # This also rejects constructors inherited from a base class
+        if user_cls.__init__ != object.__init__:
             raise InvalidError(
-                "A class can't have both a custom __init__ constructor "
-                "and dataclass-style modal.parameter() annotations"
-            )
-        elif has_custom_constructor:
-            deprecation_warning(
-                (2025, 4, 15),
                 f"""
-{user_cls} uses a non-default constructor (__init__) method.
-Custom constructors will not be supported in a a future version of Modal.
+Modal class {user_cls.__name__} cannot have a custom constructor (__init__) method.
 
-To parameterize classes, use dataclass-style modal.parameter() declarations instead,
-e.g.:\n
+Use @modal.enter() for initialization logic, and parameterize classes with
+dataclass-style modal.parameter() declarations, e.g.:
 
 class {user_cls.__name__}:
     model_name: str = modal.parameter()
 
 More information on class parameterization can be found here: https://modal.com/docs/guide/parametrized-functions
-""",
+"""
             )
         annotations = inspect.get_annotations(user_cls)
         missing_annotations = params.keys() - annotations.keys()
@@ -600,12 +607,6 @@ More information on class parameterization can be found here: https://modal.com/
                 parameter_serde_registry.validate_parameter_type(t)
             except TypeError as exc:
                 raise InvalidError(f"Class parameter '{k}': {exc}")
-
-    validate_construction_mechanism = with_deprecation_warning(
-        (2026, 8, 26),
-        "`Cls.validate_construction_mechanism` is deprecated and will be removed in `modal` version 1.6.0",
-    )(_validate_construction_mechanism)
-    """mdmd:hidden"""
 
     @staticmethod
     def _from_local(user_cls, app: "modal.app._App", class_service_function: _Function) -> "_Cls":
@@ -633,7 +634,7 @@ More information on class parameterization can be found here: https://modal.com/
             req = api_pb2.ClassCreateRequest(
                 app_id=load_context.app_id, existing_class_id=existing_object_id, only_class_function=True
             )
-            resp = await load_context.client.stub.ClassCreate(req)
+            resp = await load_context.client._stub.ClassCreate(req)
             self._hydrate(resp.class_id, load_context.client, resp.handle_metadata)
 
         rep = f"Cls({user_cls.__name__})"
@@ -648,12 +649,6 @@ More information on class parameterization can be found here: https://modal.com/
         cls._callables = callables
         cls._name = user_cls.__name__
         return cls
-
-    from_local = with_deprecation_warning(
-        (2026, 8, 26),
-        "`Cls.from_local` is deprecated and will be removed in `modal` version 1.6.0",
-    )(_from_local)
-    """mdmd:hidden"""
 
     @classmethod
     def from_name(
@@ -702,7 +697,7 @@ More information on class parameterization can be found here: https://modal.com/
                 only_class_function=True,
             )
             try:
-                response = await load_context.client.stub.ClassGet(request)
+                response = await load_context.client._stub.ClassGet(request)
             except NotFoundError as exc:
                 env_context = (
                     f" (in the '{load_context.environment_name}' environment)" if load_context.environment_name else ""

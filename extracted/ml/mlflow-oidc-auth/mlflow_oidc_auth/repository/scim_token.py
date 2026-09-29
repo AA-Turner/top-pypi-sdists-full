@@ -8,10 +8,9 @@ Plaintext format: ``scim_<prefix>_<secret>``.
 * ``secret`` is ``secrets.token_urlsafe(32)`` — 256 bits.
 
 Only a Werkzeug hash of the full plaintext is stored, using the same method as user tokens
-(:data:`mlflow_oidc_auth.repository.user.TOKEN_HASH_METHOD`). That method is a deliberately
+(:data:`mlflow_oidc_auth.repository.user_token.TOKEN_HASH_METHOD`). That method is a deliberately
 cheap PBKDF2 because the input is a high-entropy random value, not a human password; the
-justification recorded next to the constant applies here with more margin (256 bits against
-143). ``check_password_hash`` compares in constant time.
+justification recorded next to the constant applies here unchanged. ``check_password_hash`` compares in constant time.
 
 The plaintext is returned exactly once, from :meth:`create` and :meth:`rotate`, and never again.
 """
@@ -29,7 +28,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from mlflow_oidc_auth.db.models import SqlScimToken
 from mlflow_oidc_auth.logger import get_logger
-from mlflow_oidc_auth.repository.user import TOKEN_HASH_METHOD
+from mlflow_oidc_auth.repository.user_token import TOKEN_HASH_METHOD
 
 logger = get_logger()
 
@@ -146,7 +145,7 @@ class ScimTokenRepository:
             try:
                 session.flush()
             except IntegrityError as e:
-                raise MlflowException(f"could not issue SCIM token '{name}': {e.orig}", RESOURCE_ALREADY_EXISTS) from e
+                raise MlflowException(f"could not issue SCIM token '{name}'", RESOURCE_ALREADY_EXISTS) from e
             return row, plaintext
         raise MlflowException("could not allocate a unique SCIM token prefix", INVALID_STATE)
 

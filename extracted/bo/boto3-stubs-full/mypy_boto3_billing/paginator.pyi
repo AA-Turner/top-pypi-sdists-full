@@ -15,6 +15,8 @@ Usage::
         GetCreditAllocationHistoryPaginator,
         ListBillingViewSegmentsPaginator,
         ListBillingViewsPaginator,
+        ListBusinessSupportAccountChargesPaginator,
+        ListBusinessSupportSubscriptionHistoryPaginator,
         ListEnterpriseSupportLinkedAccountChargesPaginator,
         ListSourceViewsForBillingViewPaginator,
     )
@@ -25,6 +27,8 @@ Usage::
     get_credit_allocation_history_paginator: GetCreditAllocationHistoryPaginator = client.get_paginator("get_credit_allocation_history")
     list_billing_view_segments_paginator: ListBillingViewSegmentsPaginator = client.get_paginator("list_billing_view_segments")
     list_billing_views_paginator: ListBillingViewsPaginator = client.get_paginator("list_billing_views")
+    list_business_support_account_charges_paginator: ListBusinessSupportAccountChargesPaginator = client.get_paginator("list_business_support_account_charges")
+    list_business_support_subscription_history_paginator: ListBusinessSupportSubscriptionHistoryPaginator = client.get_paginator("list_business_support_subscription_history")
     list_enterprise_support_linked_account_charges_paginator: ListEnterpriseSupportLinkedAccountChargesPaginator = client.get_paginator("list_enterprise_support_linked_account_charges")
     list_source_views_for_billing_view_paginator: ListSourceViewsForBillingViewPaginator = client.get_paginator("list_source_views_for_billing_view")
     ```
@@ -44,6 +48,10 @@ from .type_defs import (
     ListBillingViewSegmentsResponseTypeDef,
     ListBillingViewsRequestPaginateTypeDef,
     ListBillingViewsResponseTypeDef,
+    ListBusinessSupportAccountChargesRequestPaginateTypeDef,
+    ListBusinessSupportAccountChargesResponseTypeDef,
+    ListBusinessSupportSubscriptionHistoryRequestPaginateTypeDef,
+    ListBusinessSupportSubscriptionHistoryResponseTypeDef,
     ListEnterpriseSupportLinkedAccountChargesRequestPaginateTypeDef,
     ListEnterpriseSupportLinkedAccountChargesResponseTypeDef,
     ListSourceViewsForBillingViewRequestPaginateTypeDef,
@@ -59,6 +67,8 @@ __all__ = (
     "GetCreditAllocationHistoryPaginator",
     "ListBillingViewSegmentsPaginator",
     "ListBillingViewsPaginator",
+    "ListBusinessSupportAccountChargesPaginator",
+    "ListBusinessSupportSubscriptionHistoryPaginator",
     "ListEnterpriseSupportLinkedAccountChargesPaginator",
     "ListSourceViewsForBillingViewPaginator",
 )
@@ -115,6 +125,48 @@ class ListBillingViewsPaginator(_ListBillingViewsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListBillingViews.html#Billing.Paginator.ListBillingViews.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/paginators/#listbillingviewspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListBusinessSupportAccountChargesPaginatorBase = Paginator[
+        ListBusinessSupportAccountChargesResponseTypeDef
+    ]
+else:
+    _ListBusinessSupportAccountChargesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListBusinessSupportAccountChargesPaginator(_ListBusinessSupportAccountChargesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListBusinessSupportAccountCharges.html#Billing.Paginator.ListBusinessSupportAccountCharges)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/paginators/#listbusinesssupportaccountchargespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListBusinessSupportAccountChargesRequestPaginateTypeDef]
+    ) -> PageIterator[ListBusinessSupportAccountChargesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListBusinessSupportAccountCharges.html#Billing.Paginator.ListBusinessSupportAccountCharges.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/paginators/#listbusinesssupportaccountchargespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListBusinessSupportSubscriptionHistoryPaginatorBase = Paginator[
+        ListBusinessSupportSubscriptionHistoryResponseTypeDef
+    ]
+else:
+    _ListBusinessSupportSubscriptionHistoryPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListBusinessSupportSubscriptionHistoryPaginator(
+    _ListBusinessSupportSubscriptionHistoryPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListBusinessSupportSubscriptionHistory.html#Billing.Paginator.ListBusinessSupportSubscriptionHistory)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/paginators/#listbusinesssupportsubscriptionhistorypaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListBusinessSupportSubscriptionHistoryRequestPaginateTypeDef]
+    ) -> PageIterator[ListBusinessSupportSubscriptionHistoryResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListBusinessSupportSubscriptionHistory.html#Billing.Paginator.ListBusinessSupportSubscriptionHistory.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/paginators/#listbusinesssupportsubscriptionhistorypaginator)
         """
 
 if TYPE_CHECKING:

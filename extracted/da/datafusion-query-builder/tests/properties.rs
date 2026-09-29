@@ -176,6 +176,56 @@ fn known_nasty_scalars_round_trip() {
     }
 }
 
+#[test]
+fn recursive_cte_executes_in_datafusion() {
+    let seed = Query::empty()
+        .select(vec![Expr::lit(Scalar::Int(1)).alias("n")])
+        .expect("select seed");
+    let step = Query::table("numbers")
+        .select(vec![
+            Expr::column("n")
+                .binary(BinaryOp::Plus, Expr::lit(Scalar::Int(1)))
+                .alias("n"),
+        ])
+        .expect("select recursive step")
+        .filter(Expr::column("n").binary(BinaryOp::Lt, Expr::lit(Scalar::Int(3))))
+        .expect("filter recursive step");
+    let query = Query::table("numbers").with_recursive_cte(
+        "numbers",
+        seed.set_op(datafusion_query_builder::query::SetOp::Union, true, step),
+    );
+    let sql = to_sql(&query).expect("render recursive query");
+
+    let values = runtime().block_on(async move {
+        let ctx = SessionContext::new();
+        let batches = ctx
+            .sql(&sql)
+            .await
+            .expect("plan recursive query")
+            .collect()
+            .await
+            .expect("execute recursive query");
+        batches
+            .iter()
+            .flat_map(|batch| {
+                (0..batch.num_rows()).map(|row| {
+                    ScalarValue::try_from_array(batch.column(0), row)
+                        .expect("extract recursive value")
+                })
+            })
+            .collect::<Vec<_>>()
+    });
+
+    assert_eq!(
+        values,
+        vec![
+            ScalarValue::Int64(Some(1)),
+            ScalarValue::Int64(Some(2)),
+            ScalarValue::Int64(Some(3)),
+        ]
+    );
+}
+
 // ---- Arithmetic precedence, checked by execution -----------------------------------------------
 
 fn arb_arith_op() -> impl Strategy<Value = BinaryOp> {
@@ -307,5 +357,122 @@ proptest! {
             to_sql(&q)
         };
         prop_assert_eq!(build(), build());
+    }
+}
+
+// ---- Raw-fragment grouping, checked by execution -----------------------------------------------
+
+/// Render one expression on its own, as the text a caller would hand to `raw(...)`.
+fn render_expr(expr: &Expr) -> String {
+    let query = Query::empty()
+        .select(vec![expr.clone()])
+        .expect("select on empty query");
+    let sql = to_sql(&query).expect("boolean trees always render");
+    sql.strip_prefix("SELECT ")
+        .expect("a bare projection renders as `SELECT <expr>`")
+        .to_string()
+}
+
+fn arb_bool_op() -> impl Strategy<Value = BinaryOp> {
+    prop_oneof![
+        Just(BinaryOp::And),
+        Just(BinaryOp::Or),
+        Just(BinaryOp::Eq),
+        Just(BinaryOp::NotEq),
+    ]
+}
+
+/// A boolean tree paired with an equivalent tree in which random subtrees were replaced by
+/// `raw(<their rendered SQL>)`. The first is evaluated in Rust; the second is executed.
+fn arb_bool_with_raw() -> impl Strategy<Value = (Expr, Expr)> {
+    let leaf = any::<bool>().prop_map(|b| {
+        let e = Expr::lit(Scalar::Bool(b));
+        (e.clone(), e)
+    });
+    leaf.prop_recursive(5, 40, 2, |inner| {
+        let node = prop_oneof![
+            3 => (inner.clone(), arb_bool_op(), inner.clone())
+                .prop_map(|((ln, lm), op, (rn, rm))| (ln.binary(op, rn), lm.binary(op, rm))),
+            1 => inner.prop_map(|(n, m)| (Expr::unary(UnaryOp::Not, n), Expr::unary(UnaryOp::Not, m))),
+        ];
+        (node, any::<bool>()).prop_map(|((native, mixed), as_raw)| {
+            if as_raw {
+                let raw = Expr::raw(render_expr(&mixed));
+                (native, raw)
+            } else {
+                (native, mixed)
+            }
+        })
+    })
+}
+
+fn eval_bool(expr: &Expr) -> bool {
+    match expr {
+        Expr::Literal(Scalar::Bool(b)) => *b,
+        Expr::Unary {
+            op: UnaryOp::Not,
+            expr,
+        } => !eval_bool(expr),
+        Expr::Binary { left, op, right } => {
+            let (l, r) = (eval_bool(left), eval_bool(right));
+            match op {
+                BinaryOp::And => l && r,
+                BinaryOp::Or => l || r,
+                BinaryOp::Eq => l == r,
+                BinaryOp::NotEq => l != r,
+                _ => unreachable!("arb_bool_op only emits AND, OR, =, <>"),
+            }
+        }
+        _ => unreachable!("the native tree holds only bool leaves, NOT, and arb_bool_op"),
+    }
+}
+
+/// Execute `SELECT 1 WHERE <f1> AND <f2> …` built from chained `filter()` calls, and report whether
+/// the row survived.
+fn row_survives(filters: Vec<Expr>) -> Result<bool, String> {
+    let mut query = Query::empty()
+        .select(vec![Expr::lit(Scalar::Int(1))])
+        .expect("select on empty query");
+    for f in filters {
+        query = query.filter(f).expect("filter on a select");
+    }
+    let sql = to_sql(&query).map_err(|e| format!("render: {e}"))?;
+    runtime().block_on(async move {
+        let ctx = SessionContext::new();
+        let frame = ctx
+            .sql(&sql)
+            .await
+            .map_err(|e| format!("plan: {e}\n  sql: {sql}"))?;
+        let batches = frame
+            .collect()
+            .await
+            .map_err(|e| format!("exec: {e}\n  sql: {sql}"))?;
+        Ok(batches.iter().map(|b| b.num_rows()).sum::<usize>() == 1)
+    })
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig { cases: 96, ..ProptestConfig::default() })]
+
+    /// Replacing any subtree with `raw(<its SQL>)` must not change the computed value. This is the
+    /// guarantee a caller relies on when it passes a user-written predicate through `raw(...)`
+    /// without wrapping it in brackets itself.
+    #[test]
+    fn raw_subtrees_evaluate_like_the_tree_they_replace((native, mixed) in arb_bool_with_raw()) {
+        let want = eval_bool(&native);
+        let actual = eval_one(mixed).map_err(TestCaseError::fail)?;
+        prop_assert_eq!(actual, ScalarValue::Boolean(Some(want)));
+    }
+
+    /// Chained `filter()` calls mean the conjunction of every predicate, whatever each one's own
+    /// top-level operator is.
+    #[test]
+    fn chained_filters_mean_their_conjunction(
+        trees in proptest::collection::vec(arb_bool_with_raw(), 1..4),
+    ) {
+        let want = trees.iter().all(|(native, _)| eval_bool(native));
+        let mixed = trees.into_iter().map(|(_, mixed)| mixed).collect();
+        let got = row_survives(mixed).map_err(TestCaseError::fail)?;
+        prop_assert_eq!(got, want);
     }
 }

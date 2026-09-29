@@ -307,9 +307,10 @@ def response_format_for_schema(
     from matrx_ai.schema.lint import lint_output_schema
 
     report = lint_output_schema(schema)
-    portable_schema = report.portable_schema
-    if portable_schema is None and report.ok:
-        portable_schema = schema
+    # The envelope carries the AUTHOR's schema: every provider translator derives
+    # its own wire copy from it, and the answer is checked against — and pruned
+    # back to — exactly this. The lint report only decides bindability.
+    portable_schema = schema if (report.portable_schema is not None or report.ok) else None
     if portable_schema is None:
         errors = "; ".join(
             f"{finding.provider} {finding.path}: {finding.message}" for finding in report.errors

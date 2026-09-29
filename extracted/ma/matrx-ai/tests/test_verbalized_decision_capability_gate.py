@@ -20,6 +20,8 @@ ai.model_definition, 2026-09-20), so the test moves the day the catalog does.
 
 from __future__ import annotations
 
+from matrx_utils.source_guard import stable_source
+
 from types import SimpleNamespace
 
 import pytest
@@ -93,11 +95,10 @@ def test_the_guessed_attribute_names_do_not_exist_and_must_never_be_asked_for():
 
 
 def test_the_client_no_longer_gates_the_decision_overlay_on_a_missing_attribute():
-    import inspect
 
     from matrx_ai.providers import unified_client
 
-    source = inspect.getsource(unified_client.UnifiedAIClient._execute_dispatch)
+    source = stable_source(unified_client.UnifiedAIClient._execute_dispatch)
     _head, _, tail = source.partition("prepare_verbalized_decision(")
     assert tail, "the verbalized overlay call moved — re-point this guard"
     call = tail.split("supports_structured_output=", 1)[1][:300]

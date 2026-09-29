@@ -20,8 +20,6 @@ geodatasets = pytest.importorskip("geodatasets")
 from branca.colormap import StepColormap
 from matplotlib import cm, colors
 
-BRANCA_05 = Version(branca.__version__) > Version("0.4.2")
-FOLIUM_G_014 = Version(folium.__version__) > Version("0.14.0")
 FOLIUM_GE_019 = Version(folium.__version__) >= Version("0.19.0")
 
 
@@ -273,7 +271,7 @@ class TestExplore:
         for c in cmap:
             assert f'"fillColor":"{c}"' in out_str
 
-        with pytest.raises(ValueError, match="'cmap' is invalid."):
+        with pytest.raises(ValueError, match="'cmap' is invalid"):
             self.nybb.explore(column="BoroName", cmap="nonsense")
 
     def test_categories(self):
@@ -607,14 +605,10 @@ class TestExplore:
         df2["values"] = df2["BoroCode"] * 10.0
         m = df2[df2["values"] >= 30].explore("values", vmin=0)
         out_str = self._fetch_map_string(m)
-        if FOLIUM_G_014:
-            assert 'case"0":return{"color":"#fde725","fillColor":"#fde725"' in out_str
-            assert 'case"1":return{"color":"#7ad151","fillColor":"#7ad151"' in out_str
-            assert 'default:return{"color":"#22a884","fillColor":"#22a884"' in out_str
-        else:
-            assert 'case"1":return{"color":"#7ad151","fillColor":"#7ad151"' in out_str
-            assert 'case"2":return{"color":"#22a884","fillColor":"#22a884"' in out_str
-            assert 'default:return{"color":"#fde725","fillColor":"#fde725"' in out_str
+
+        assert 'case"0":return{"color":"#fde725","fillColor":"#fde725"' in out_str
+        assert 'case"1":return{"color":"#7ad151","fillColor":"#7ad151"' in out_str
+        assert 'default:return{"color":"#22a884","fillColor":"#22a884"' in out_str
 
         df2["values_negative"] = df2["BoroCode"] * -10.0
         m = df2[df2["values_negative"] <= 30].explore("values_negative", vmax=0)
@@ -762,7 +756,6 @@ class TestExplore:
         assert out_str.count("f1e2ccff") == 62
         assert out_str.count("ccccccff") == 63
 
-    @pytest.mark.skipif(not BRANCA_05, reason="requires branca >= 0.5.0")
     def test_colorbar_max_labels(self):
         import re
 
@@ -796,43 +789,35 @@ class TestExplore:
     def test_xyzservices_providers(self):
         xyzservices = pytest.importorskip("xyzservices")
 
-        m = self.nybb.explore(tiles=xyzservices.providers.CartoDB.PositronNoLabels)
+        m = self.nybb.explore(tiles=xyzservices.providers.OpenStreetMap.DE)
         out_str = self._fetch_map_string(m)
 
-        assert (
-            '"https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"'
-            in out_str
-        )
+        assert '"https://tile.openstreetmap.de/{z}/{x}/{y}.png"' in out_str
         assert (
             'attribution":"\\u0026copy;\\u003cahref=\\"https://www.openstreetmap.org'
             in out_str
         )
-        assert '"maxZoom":20' in out_str
+        assert '"maxZoom":18' in out_str
 
     @pytest.mark.skipif(not HAS_PYPROJ, reason="requires pyproj")
     def test_xyzservices_query_name(self):
         pytest.importorskip("xyzservices")
 
-        m = self.nybb.explore(tiles="CartoDB Positron No Labels")
+        m = self.nybb.explore(tiles="OpenStreetMap DE")
         out_str = self._fetch_map_string(m)
 
-        assert (
-            '"https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"'
-            in out_str
-        )
+        assert '"https://tile.openstreetmap.de/{z}/{x}/{y}.png"' in out_str
         assert (
             'attribution":"\\u0026copy;\\u003cahref=\\"https://www.openstreetmap.org'
             in out_str
         )
-        assert '"maxZoom":20' in out_str
+        assert '"maxZoom":18' in out_str
 
     @pytest.mark.skipif(not HAS_PYPROJ, reason="requires pyproj")
     def test_xyzservices_providers_min_zoom_override(self):
         xyzservices = pytest.importorskip("xyzservices")
 
-        m = self.nybb.explore(
-            tiles=xyzservices.providers.CartoDB.PositronNoLabels, min_zoom=3
-        )
+        m = self.nybb.explore(tiles=xyzservices.providers.OpenStreetMap.DE, min_zoom=3)
         out_str = self._fetch_map_string(m)
 
         assert '"minZoom":3' in out_str
@@ -841,9 +826,7 @@ class TestExplore:
     def test_xyzservices_providers_max_zoom_override(self):
         xyzservices = pytest.importorskip("xyzservices")
 
-        m = self.nybb.explore(
-            tiles=xyzservices.providers.CartoDB.PositronNoLabels, max_zoom=12
-        )
+        m = self.nybb.explore(tiles=xyzservices.providers.OpenStreetMap.DE, max_zoom=12)
         out_str = self._fetch_map_string(m)
 
         assert '"maxZoom":12' in out_str
@@ -853,7 +836,7 @@ class TestExplore:
         xyzservices = pytest.importorskip("xyzservices")
 
         m = self.nybb.explore(
-            tiles=xyzservices.providers.CartoDB.PositronNoLabels,
+            tiles=xyzservices.providers.OpenStreetMap.DE,
             min_zoom=3,
             max_zoom=12,
         )

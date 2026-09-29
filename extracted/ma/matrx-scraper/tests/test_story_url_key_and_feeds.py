@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import traceback
 
 import pytest
 
@@ -95,6 +96,20 @@ def test_hostile_or_broken_documents_are_refused_loudly() -> None:
         parse_feed(b"<rss><channel>", "u")
     with pytest.raises(FeedParseError, match="not RSS or Atom"):
         parse_feed(b"<html><body>hi</body></html>", "u")
+
+
+def test_malformed_feed_error_redacts_the_exception_chain() -> None:
+    """Parser diagnostics stay useful without preserving a signed feed URL in a traceback."""
+    secret = "feed-traceback-secret"
+    feed_url = f"https://example.test/feed?api_key={secret}"
+
+    with pytest.raises(FeedParseError) as caught:
+        parse_feed(b"<rss><channel>", feed_url)
+
+    rendered = "".join(traceback.format_exception(caught.type, caught.value, caught.tb))
+    assert "not well-formed XML" in rendered
+    assert "line" in rendered and "column" in rendered
+    assert secret not in rendered
 
 
 def test_relative_dates_resolve_only_against_a_given_clock() -> None:

@@ -708,6 +708,25 @@ def _parse_b2z_url(urlpath, dataset):
     return None
 
 
+def resolve_dataset_path(dataset, path):
+    """Resolve the public path alias without changing persisted dataset names.
+
+    None means unspecified. Empty strings and slash-only strings select the
+    root; retain them until URL parsing so duplicate URL selectors still fail.
+    """
+    if dataset is not None and not isinstance(dataset, str):
+        raise TypeError("dataset must be a string or None")
+    if path is None:
+        return dataset
+    if not isinstance(path, str):
+        raise TypeError("path must be a string or None")
+    if dataset is not None:
+        if dataset.strip("/") != path.strip("/"):
+            raise ValueError("Conflicting dataset and path parameters")
+        return dataset
+    return path
+
+
 def parse_container_url(
     urlpath: object,
     dataset: str | None = None,
@@ -750,6 +769,8 @@ def parse_container_url(
         return urlpath, dataset, "hdf5"
     if any(part.endswith(".zarr") for part in parts):
         return urlpath, dataset, "zarr"
+    if parsed.path.lower().endswith(".parquet"):
+        return urlpath, dataset, "parquet"
 
     return urlpath, dataset, None
 
@@ -792,8 +813,11 @@ def cache_path_component(value: str) -> str:
 
 def cache_directory_name(urlpath: str, identity: bytes) -> str:
     """A recognizable source basename and a 48-bit cache identity."""
-    parsed = urllib.parse.urlsplit(urlpath)
-    name = pathlib.PurePosixPath(parsed.path.rstrip("/")).name or parsed.hostname or "remote"
+    if pathlib.PureWindowsPath(urlpath).drive and not is_fsspec_url(urlpath):
+        name = pathlib.PureWindowsPath(urlpath).name
+    else:
+        parsed = urllib.parse.urlsplit(urlpath)
+        name = pathlib.PurePosixPath(parsed.path.rstrip("/")).name or parsed.hostname or "remote"
     name = cache_path_component(urllib.parse.unquote(name))
     return name + "--" + hashlib.sha256(identity).hexdigest()[:12]
 
@@ -805,6 +829,7 @@ def fsspec_cache_path(
     *,
     dataset: str | None = None,
     storage_options: dict | None = None,
+    create_parent: bool = True,
 ) -> str:
     """Readable source directory and optional dataset path, creating parent directories."""
     identity = urlpath
@@ -822,7 +847,8 @@ def fsspec_cache_path(
         path = directory.joinpath(*parts)
     else:
         path = directory
-    path.parent.mkdir(parents=True, exist_ok=True)
+    if create_parent:
+        path.parent.mkdir(parents=True, exist_ok=True)
     return str(path)
 
 

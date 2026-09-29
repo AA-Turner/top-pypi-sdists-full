@@ -1828,6 +1828,7 @@ class ToProtoConverter:
             update_cadence=update_cadence_str,
             observation_sampling_strategy=observation_sampling_strategy,
             background_compaction=view.background_compaction,
+            plannable=view.plannable,
         )
         if view.features is not None:
             kwargs["features"] = list(view.features)

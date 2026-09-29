@@ -3628,6 +3628,7 @@ class ChalkClient:
         workflow_id: Optional[str] = None,
         environment: Optional[EnvironmentId] = None,
         wait: bool = False,
+        task_queue: Optional[str] = None,
     ) -> Union[WorkflowRunHandle, Any]:
         """Start a `@workflow` on this environment's workflow orchestrator.
 
@@ -3650,6 +3651,11 @@ class ChalkClient:
             The environment under which to run the workflow.
         wait
             If `True`, block until the workflow completes and return its result.
+        task_queue
+            The orchestrator task queue to start the workflow on. Defaults to the
+            queue served by the environment's active deployment; pass a queue polled
+            by a worker you run yourself, such as one deployed with
+            `chalkcompute.deploy_workflow_worker`, to have that worker execute it.
 
         Returns
         -------

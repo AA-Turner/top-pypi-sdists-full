@@ -10,6 +10,7 @@ import json
 import os
 import re
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -18,6 +19,7 @@ from keyring.errors import NoKeyringError, PasswordDeleteError
 from rich.console import Console
 from rich.markup import escape
 
+from src.cli.utils.archive import archive_stamp, prune_archive
 from src.cli.utils.presentation import make_console
 from src.cli.utils.project_context import (
     LegacyProjectFileError,
@@ -166,6 +168,82 @@ _PROFILE_DEFAULTS: Dict[str, Any] = {
 # it actively misinformed.
 _DEAD_PROFILE_KEYS = ("session",)
 _DEAD_TOP_LEVEL_KEYS = ("platform_server",)
+
+
+def _still_unparseable(path: Path, seen: os.stat_result) -> bool:
+    """Whether the file we read is *still* the same unparseable file.
+
+    Two guards before anything is moved: an older CLI that writes in place may
+    be mid-write (so re-read once after a moment), and another process may
+    already have set it aside and written a fresh one (so it must be the same
+    file -- inode and mtime -- that was read).
+    """
+    time.sleep(0.1)
+    try:
+        now = path.stat()
+        if (now.st_ino, now.st_mtime_ns) != (seen.st_ino, seen.st_mtime_ns):
+            return False
+        with open(path, "r") as f:
+            json.load(f)
+        return False
+    except json.JSONDecodeError:
+        return True
+    except OSError:
+        return False
+
+
+def _set_aside(path: Path) -> Optional[Path]:
+    """Move an unparseable config into `<dir>/archive/<name>.<UTC stamp>`.
+
+    Archived rather than left beside the config, owner-only (it can hold the
+    team secret), and pruned after 30 days like a workspace archive (PF-467).
+    Never overwrites: a same-second collision gets a "-N" suffix. None if the
+    move fails, in which case the caller keeps refusing to save.
+    """
+    archive_dir = path.parent / "archive"
+    try:
+        archive_dir.mkdir(mode=0o700, exist_ok=True)
+    except OSError:
+        return None
+    stamp = archive_stamp()
+    target = archive_dir / f"{path.name}.{stamp}"
+    n = 1
+    while target.exists():
+        target = archive_dir / f"{path.name}.{stamp}-{n}"
+        n += 1
+    try:
+        path.rename(target)
+    except OSError:
+        return None
+    try:
+        target.chmod(0o600)
+    except OSError:
+        pass
+    return target
+
+
+def _tidy_archive(path: Path) -> None:
+    """Sweep copies 0.1.372 left beside the config into the archive, then prune.
+
+    Best-effort: a tidy that fails must never stop a command.
+    """
+    try:
+        for stray in path.parent.glob(f"{path.name}.broken-*"):
+            _set_aside_named(stray, path.name)
+        prune_archive(path.parent / "archive")
+    except OSError:
+        pass
+
+
+def _set_aside_named(stray: Path, name: str) -> None:
+    archive_dir = stray.parent / "archive"
+    archive_dir.mkdir(mode=0o700, exist_ok=True)
+    # Keep the moment it was set aside: "<name>.broken-YYYYmmdd-HHMMSS".
+    stamp = stray.name.split(".broken-", 1)[-1]
+    target = archive_dir / f"{name}.{stamp}"
+    if not target.exists():
+        stray.rename(target)
+        target.chmod(0o600)
 
 
 def _describe_unreadable(path: Path, error: Exception) -> str:
@@ -321,7 +399,7 @@ class CLIConfig:
     # Load / save
     # ------------------------------------------------------------------
 
-    def _load_raw(self) -> Dict[str, Any]:
+    def _load_raw(self, _retried: bool = False) -> Dict[str, Any]:
         """Load and migrate the full config file.
 
         Sets `self._load_degraded` when a file that EXISTS could not be read or
@@ -330,11 +408,14 @@ class CLIConfig:
         answer.
         """
         self._load_degraded = False
+        if not _retried:
+            _tidy_archive(self.config_path)
 
         if not self.config_path.exists():
             return copy.deepcopy(self.DEFAULT_CONFIG)
 
         try:
+            seen = self.config_path.stat()
             with open(self.config_path, "r") as f:
                 raw = json.load(f)
         except (json.JSONDecodeError, IOError) as e:
@@ -344,8 +425,41 @@ class CLIConfig:
             # (api_url, identity, orgs) was destroyed by an unrelated
             # `config set team-secret`. The warning below was the only signal,
             # and it is invisible the moment output is redirected.
-            self._load_degraded = True
+            # Set it aside rather than block every command (PF-466). Refusing
+            # all saves kept the file safe but left login, upgrade and init
+            # failing until someone hand-edited the JSON. A backup keeps it just
+            # as safe and lets the CLI carry on. Only a parse error is set
+            # aside; an unreadable file (permissions, I/O) is left where it is.
             self._load_error = _describe_unreadable(self.config_path, e)
+            was_link = self.config_path.is_symlink()
+            if (
+                isinstance(e, json.JSONDecodeError)
+                and not _retried
+                and not _still_unparseable(self.config_path, seen)
+            ):
+                # Someone was mid-write or already replaced it: read again, once.
+                return self._load_raw(_retried=True)
+            backup = (
+                _set_aside(self.config_path)
+                if isinstance(e, json.JSONDecodeError)
+                else None
+            )
+            if backup:
+                link_note = (
+                    " It was a symlink: the link was set aside, so the new file "
+                    "is a regular file and your dotfiles copy is unchanged."
+                    if was_link
+                    else ""
+                )
+                _notices.print(
+                    f"[yellow]Warning: {escape(self._load_error.splitlines()[0])}\n"
+                    f"Moved it to {escape(str(backup))} (kept for 30 days) and "
+                    f"started fresh."
+                    f"{link_note} Run `innoday login` to sign in again.[/yellow]",
+                    soft_wrap=True,
+                )
+                return copy.deepcopy(self.DEFAULT_CONFIG)
+            self._load_degraded = True
             _notices.print(
                 f"[yellow]Warning: {escape(self._load_error)}\nUsing defaults for "
                 f"this command; nothing will be saved until the file is fixed.[/yellow]",
@@ -605,9 +719,9 @@ class CLIConfig:
         indefinitely and re-warn on every command forever, which is the state
         this purge exists to end; the honest form is to do it and say so.
 
-        **Hard links are severed.** `save()` writes through `open(path, "w")`
-        and so keeps every name pointing at one inode; `os.replace` swaps the
-        name and leaves the other names on the old inode. Atomicity is
+        **Hard links are severed.** `os.replace` swaps the name and leaves any
+        other hard-linked names on the old inode -- and since PF-466 `save()`
+        writes the same way, so this is no longer peculiar to the purge. Atomicity is
         load-bearing here (there is no `.bak`, by design), so the write stays as
         it is -- but the other name keeps a copy of the file whose pointer now
         dangles. No secret survives in it; the keyring value really is gone.
@@ -860,10 +974,8 @@ class CLIConfig:
         it is given, so on a `~/.innoday/config.json` symlinked into a
         dotfiles repo an unresolved write replaced the *link* with a regular
         file: the secret survived untouched in the link's target, the keyring
-        value was deleted anyway, and the purge reported success. `save()` has
-        always written *through* the link (`open(path, "w")`), so an
-        unresolved write here would also be a behaviour change in the same
-        file. Resolving keeps the temp file in the target's own directory,
+        value was deleted anyway, and the purge reported success. `save()`
+        uses this helper too (since PF-466), so both write through the link. Resolving keeps the temp file in the target's own directory,
         which is also what keeps `os.replace` on one filesystem.
 
         Atomicity is the property the "no `.bak`" decision rests on: a
@@ -1171,8 +1283,13 @@ class CLIConfig:
             from src.version import get_version
 
             self._raw["written_by_version"] = stamp_version or get_version()
-            with open(self.config_path, "w") as f:
-                json.dump(self._raw, f, indent=2)
+            # Atomic, via the same helper the secret purge uses: writing in
+            # place truncated the file first, so another innoday process (the
+            # MCP server, a second terminal) reading mid-save saw a half-written
+            # file and reported it as corrupt (PF-466). The helper also keeps the
+            # file's permissions, or 0600 for a new one -- it can hold the team
+            # secret.
+            self._write_raw_atomically()
             console.print(f"[green]Configuration saved to {self.config_path}[/green]")
         except IOError as e:
             console.print(f"[red]Error saving configuration: {e}[/red]")

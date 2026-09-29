@@ -907,6 +907,7 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
         suppress_stream: bool = False,
         variable_mapping: dict[str, ValueMapping | dict[str, Any]] | None = None,
         spill_variables: set[str] | None = None,
+        consumed_variables: dict[str, Any] | None = None,
     ) -> AgentRunResult:
         """Load -> apply variables -> apply overrides -> execute.
 
@@ -981,6 +982,17 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
         # Custom preparation is already expressed in agent-variable names.
         if cls.prepare_variables.__func__ is not NamedAgent.prepare_variables.__func__:  # type: ignore[attr-defined]
             code_values = cls.prepare_variables(inputs_obj)
+        if consumed_variables is not None:
+            # 🚨 A BOUND CONSUMPTION MAP ALREADY DECIDED (``run_mandated`` →
+            # the host's ONE consumption pipeline). Its output is keyed by the
+            # HOLDER's own variable names, so the class's ``variable_map`` /
+            # ``prepare_variables`` renames (call-site → template names) must
+            # not be applied a second time — only the binding's own
+            # ``variable_mapping`` still rides, exactly as ``hold_code_call``
+            # applies it after ``materialize``. ``None`` = no map: the typed
+            # ``Inputs`` flow above is untouched, byte for byte.
+            code_values = dict(consumed_variables)
+            effective_mapping = dict(variable_mapping or {})
         resolution = resolve_variable_mapping(
             code_values,
             getattr(agent, "variable_defaults", {}) or {},

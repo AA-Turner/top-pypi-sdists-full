@@ -44,6 +44,10 @@ class ModalClientStub:
         modal_proto.api_pb2.AppGetByDeploymentNameRequest,
         modal_proto.api_pb2.AppGetByDeploymentNameResponse,
     ]
+    AppGetInfo: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AppGetInfoRequest,
+        modal_proto.api_pb2.AppGetInfoResponse,
+    ]
     AppGetLayout: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AppGetLayoutRequest,
         modal_proto.api_pb2.AppGetLayoutResponse,
@@ -287,6 +291,10 @@ class ModalClientStub:
         modal_proto.api_pb2.EndpointGetByNameRequest,
         modal_proto.api_pb2.EndpointGetByNameResponse,
     ]
+    EndpointGetInfo: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EndpointGetInfoRequest,
+        modal_proto.api_pb2.EndpointGetInfoResponse,
+    ]
     EndpointGetLifecycle: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EndpointGetLifecycleRequest,
         modal_proto.api_pb2.EndpointGetLifecycleResponse,
@@ -382,6 +390,10 @@ class ModalClientStub:
         modal_proto.api_pb2.FunctionCallCancelRequest,
         google.protobuf.empty_pb2.Empty,
     ]
+    FunctionCallFetch: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FunctionCallFetchRequest,
+        modal_proto.api_pb2.FunctionCallFetchResponse,
+    ]
     FunctionCallFromId: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionCallFromIdRequest,
         modal_proto.api_pb2.FunctionCallFromIdResponse,
@@ -419,6 +431,10 @@ class ModalClientStub:
         modal_proto.api_pb2.FunctionGetRequest,
         modal_proto.api_pb2.FunctionGetResponse,
     ]
+    FunctionGetById: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FunctionGetByIdRequest,
+        modal_proto.api_pb2.FunctionGetByIdResponse,
+    ]
     FunctionGetCallGraph: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionGetCallGraphRequest,
         modal_proto.api_pb2.FunctionGetCallGraphResponse,
@@ -431,6 +447,10 @@ class ModalClientStub:
         modal_proto.api_pb2.FunctionGetDynamicConcurrencyRequest,
         modal_proto.api_pb2.FunctionGetDynamicConcurrencyResponse,
     ]
+    FunctionGetFlashAuthToken: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FunctionGetFlashAuthTokenRequest,
+        modal_proto.api_pb2.FunctionGetFlashAuthTokenResponse,
+    ]
     FunctionGetInputs: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionGetInputsRequest,
         modal_proto.api_pb2.FunctionGetInputsResponse,
@@ -441,6 +461,10 @@ class ModalClientStub:
         modal_proto.api_pb2.FunctionGetOutputsResponse,
     ]
     """Returns the next result(s) for an entire function call (FunctionMap)"""
+    FunctionGetSchedulingParams: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FunctionGetSchedulingParamsRequest,
+        modal_proto.api_pb2.FunctionGetSchedulingParamsResponse,
+    ]
     FunctionGetSerialized: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionGetSerializedRequest,
         modal_proto.api_pb2.FunctionGetSerializedResponse,
@@ -448,6 +472,10 @@ class ModalClientStub:
     FunctionGetTimeRangeStats: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionGetTimeRangeStatsRequest,
         modal_proto.api_pb2.FunctionGetTimeRangeStatsResponse,
+    ]
+    FunctionListVariants: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FunctionListVariantsRequest,
+        modal_proto.api_pb2.FunctionListVariantsResponse,
     ]
     FunctionMap: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionMapRequest,
@@ -616,11 +644,15 @@ class ModalClientStub:
         modal_proto.api_pb2.QueuePutRequest,
         google.protobuf.empty_pb2.Empty,
     ]
+    SandboxContainerCreateV2: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxContainerCreateV2Request,
+        modal_proto.api_pb2.SandboxContainerCreateV2Response,
+    ]
+    """Sandboxes"""
     SandboxCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxCreateRequest,
         modal_proto.api_pb2.SandboxCreateResponse,
     ]
-    """Sandboxes"""
     SandboxCreateConnectToken: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxCreateConnectTokenRequest,
         modal_proto.api_pb2.SandboxCreateConnectTokenResponse,
@@ -767,6 +799,10 @@ class ModalClientStub:
         google.protobuf.empty_pb2.Empty,
     ]
     """Secrets"""
+    SecretGetInfo: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SecretGetInfoRequest,
+        modal_proto.api_pb2.SecretGetInfoResponse,
+    ]
     SecretGetOrCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SecretGetOrCreateRequest,
         modal_proto.api_pb2.SecretGetOrCreateResponse,
@@ -778,6 +814,15 @@ class ModalClientStub:
     SecretUpdate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SecretUpdateRequest,
         google.protobuf.empty_pb2.Empty,
+    ]
+    ServerGetTimeRangeStats: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ServerGetTimeRangeStatsRequest,
+        modal_proto.api_pb2.ServerGetTimeRangeStatsResponse,
+    ]
+    """Servers"""
+    ServerRequestFetch: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ServerRequestFetchRequest,
+        modal_proto.api_pb2.ServerRequestFetchResponse,
     ]
     ServiceUserList: grpc.UnaryUnaryMultiCallable[
         google.protobuf.empty_pb2.Empty,
@@ -980,6 +1025,10 @@ class ModalClientStub:
         modal_proto.api_pb2.WebhookTokenListForEnvironmentRequest,
         modal_proto.api_pb2.WebhookTokenListResponse,
     ]
+    WebhookTokenUpdate: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.WebhookTokenUpdateRequest,
+        modal_proto.api_pb2.WebhookToken,
+    ]
     WorkspaceBillingRates: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.WorkspaceBillingRatesRequest,
         modal_proto.api_pb2.WorkspaceBillingRatesResponse,
@@ -1008,6 +1057,10 @@ class ModalClientStub:
     WorkspaceSetDefaultEnvironment: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.WorkspaceSetDefaultEnvironmentRequest,
         google.protobuf.empty_pb2.Empty,
+    ]
+    WorkspaceSetDefaultEnvironmentSettings: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.WorkspaceSetDefaultEnvironmentSettingsRequest,
+        modal_proto.api_pb2.WorkspaceSetDefaultEnvironmentSettingsResponse,
     ]
     WorkspaceSetImageBuilderVersion: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.WorkspaceSetImageBuilderVersionRequest,
@@ -1062,6 +1115,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.AppGetByDeploymentNameRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.AppGetByDeploymentNameResponse: ...
+    @abc.abstractmethod
+    def AppGetInfo(
+        self,
+        request: modal_proto.api_pb2.AppGetInfoRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AppGetInfoResponse: ...
     @abc.abstractmethod
     def AppGetLayout(
         self,
@@ -1422,6 +1481,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.EndpointGetByNameResponse: ...
     @abc.abstractmethod
+    def EndpointGetInfo(
+        self,
+        request: modal_proto.api_pb2.EndpointGetInfoRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.EndpointGetInfoResponse: ...
+    @abc.abstractmethod
     def EndpointGetLifecycle(
         self,
         request: modal_proto.api_pb2.EndpointGetLifecycleRequest,
@@ -1563,6 +1628,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
+    def FunctionCallFetch(
+        self,
+        request: modal_proto.api_pb2.FunctionCallFetchRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FunctionCallFetchResponse: ...
+    @abc.abstractmethod
     def FunctionCallFromId(
         self,
         request: modal_proto.api_pb2.FunctionCallFromIdRequest,
@@ -1618,6 +1689,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.FunctionGetResponse: ...
     @abc.abstractmethod
+    def FunctionGetById(
+        self,
+        request: modal_proto.api_pb2.FunctionGetByIdRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FunctionGetByIdResponse: ...
+    @abc.abstractmethod
     def FunctionGetCallGraph(
         self,
         request: modal_proto.api_pb2.FunctionGetCallGraphRequest,
@@ -1636,6 +1713,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.FunctionGetDynamicConcurrencyResponse: ...
     @abc.abstractmethod
+    def FunctionGetFlashAuthToken(
+        self,
+        request: modal_proto.api_pb2.FunctionGetFlashAuthTokenRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FunctionGetFlashAuthTokenResponse: ...
+    @abc.abstractmethod
     def FunctionGetInputs(
         self,
         request: modal_proto.api_pb2.FunctionGetInputsRequest,
@@ -1650,6 +1733,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     ) -> modal_proto.api_pb2.FunctionGetOutputsResponse:
         """Returns the next result(s) for an entire function call (FunctionMap)"""
     @abc.abstractmethod
+    def FunctionGetSchedulingParams(
+        self,
+        request: modal_proto.api_pb2.FunctionGetSchedulingParamsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FunctionGetSchedulingParamsResponse: ...
+    @abc.abstractmethod
     def FunctionGetSerialized(
         self,
         request: modal_proto.api_pb2.FunctionGetSerializedRequest,
@@ -1661,6 +1750,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.FunctionGetTimeRangeStatsRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.FunctionGetTimeRangeStatsResponse: ...
+    @abc.abstractmethod
+    def FunctionListVariants(
+        self,
+        request: modal_proto.api_pb2.FunctionListVariantsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FunctionListVariantsResponse: ...
     @abc.abstractmethod
     def FunctionMap(
         self,
@@ -1909,12 +2004,18 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
+    def SandboxContainerCreateV2(
+        self,
+        request: modal_proto.api_pb2.SandboxContainerCreateV2Request,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxContainerCreateV2Response:
+        """Sandboxes"""
+    @abc.abstractmethod
     def SandboxCreate(
         self,
         request: modal_proto.api_pb2.SandboxCreateRequest,
         context: grpc.ServicerContext,
-    ) -> modal_proto.api_pb2.SandboxCreateResponse:
-        """Sandboxes"""
+    ) -> modal_proto.api_pb2.SandboxCreateResponse: ...
     @abc.abstractmethod
     def SandboxCreateConnectToken(
         self,
@@ -2134,6 +2235,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     ) -> google.protobuf.empty_pb2.Empty:
         """Secrets"""
     @abc.abstractmethod
+    def SecretGetInfo(
+        self,
+        request: modal_proto.api_pb2.SecretGetInfoRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SecretGetInfoResponse: ...
+    @abc.abstractmethod
     def SecretGetOrCreate(
         self,
         request: modal_proto.api_pb2.SecretGetOrCreateRequest,
@@ -2151,6 +2258,19 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.SecretUpdateRequest,
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def ServerGetTimeRangeStats(
+        self,
+        request: modal_proto.api_pb2.ServerGetTimeRangeStatsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ServerGetTimeRangeStatsResponse:
+        """Servers"""
+    @abc.abstractmethod
+    def ServerRequestFetch(
+        self,
+        request: modal_proto.api_pb2.ServerRequestFetchRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ServerRequestFetchResponse: ...
     @abc.abstractmethod
     def ServiceUserList(
         self,
@@ -2449,6 +2569,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.WebhookTokenListResponse: ...
     @abc.abstractmethod
+    def WebhookTokenUpdate(
+        self,
+        request: modal_proto.api_pb2.WebhookTokenUpdateRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.WebhookToken: ...
+    @abc.abstractmethod
     def WorkspaceBillingRates(
         self,
         request: modal_proto.api_pb2.WorkspaceBillingRatesRequest,
@@ -2491,6 +2617,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.WorkspaceSetDefaultEnvironmentRequest,
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def WorkspaceSetDefaultEnvironmentSettings(
+        self,
+        request: modal_proto.api_pb2.WorkspaceSetDefaultEnvironmentSettingsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.WorkspaceSetDefaultEnvironmentSettingsResponse: ...
     @abc.abstractmethod
     def WorkspaceSetImageBuilderVersion(
         self,

@@ -143,14 +143,14 @@ ALLOWED_RAW_HTML_TAGS: frozenset[str] = frozenset(
         "img", "a", "br", "hr", "span", "p", "strong", "b", "em", "i", "u", "s", "del", "ins", "sup",
         "sub", "mark", "kbd", "abbr", "small", "code", "pre", "ul", "ol", "li", "blockquote", "h1",
         "h2", "h3", "h4", "h5", "h6", "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption",
-        "colgroup", "col", "figure", "figcaption",
+        "colgroup", "col", "figure", "figcaption", "details", "summary",
     }
 )
 HTML_BLOCK_LEVEL_TAGS: frozenset[str] = frozenset(
     {
         "p", "hr", "ul", "ol", "li", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6", "table",
         "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col", "figure",
-        "figcaption",
+        "figcaption", "details", "summary",
     }
 )
 TYPED_JSON_ROOT_KEYS: frozenset[str] = frozenset(

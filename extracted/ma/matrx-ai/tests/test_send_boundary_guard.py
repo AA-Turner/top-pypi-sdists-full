@@ -60,6 +60,18 @@ SEAMS: tuple[Seam, ...] = (
         ),
     ),
     Seam(
+        name="perishable-state marking",
+        pattern=r"\bmark_perishable_state\s*\(",
+        allowed=(
+            "packages/matrx-ai/matrx_ai/config/perishable_state.py",
+            CONTROLLER,
+        ),
+        remedy=(
+            "mark_perishable_state rewrites tool-result content — a send-boundary step. "
+            "It has ONE caller: send_boundary._mark_perishable_state."
+        ),
+    ),
+    Seam(
         name="reference-fence staging",
         pattern=r"\bget_reference_fence_stager\s*\(",
         allowed=("packages/matrx-ai/matrx_ai/_ext.py", CONTROLLER),

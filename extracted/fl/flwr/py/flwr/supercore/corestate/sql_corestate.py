@@ -647,95 +647,96 @@ class SqlCoreState(CoreState, SqlMixin):  # pylint: disable=R0904
             )
             return deleted_app_id is not None
 
-    def upsert_connector(
+    def create_connector(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
-        flwr_aid: str,
+        federation_id: str,
         connector_ref: str,
         credentials_json: str,
         config_json: str,
-    ) -> bool:
-        """Create or update a connector for an account."""
-        if not flwr_aid or not connector_ref:
-            return False
-        stmt = self.dialect_insert(ConnectorModel).values(
-            flwr_aid=flwr_aid,
-            connector_ref=connector_ref,
-            credentials_json=credentials_json,
-            config_json=config_json,
-        )
-        stmt = stmt.on_conflict_do_update(
-            index_elements=[ConnectorModel.flwr_aid, ConnectorModel.connector_ref],
-            set_={
-                "credentials_json": stmt.excluded.credentials_json,
-                "config_json": stmt.excluded.config_json,
-            },
+        created_by: str,
+    ) -> int | None:
+        """Create a connector for a federation."""
+        if not federation_id or not connector_ref or not created_by:
+            return None
+        stmt = (
+            insert(ConnectorModel)
+            .values(
+                federation_id=federation_id,
+                connector_ref=connector_ref,
+                credentials_json=credentials_json,
+                config_json=config_json,
+                created_at=now(),
+                created_by=created_by,
+            )
+            .returning(ConnectorModel.connector_id)
         )
         with self.session() as session:
-            session.execute(stmt)
-        return True
+            return session.scalar(stmt)
 
-    def get_connector(
-        self, flwr_aid: str, connector_ref: str
-    ) -> ConnectorRecord | None:
-        """Return an account's connector, if present."""
-        if not flwr_aid or not connector_ref:
+    def get_connectors_by_ref(
+        self, federation_id: str, connector_ref: str
+    ) -> Sequence[ConnectorRecord]:
+        """Return a federation's connectors for one provider."""
+        if not federation_id or not connector_ref:
+            return []
+        stmt = select(ConnectorModel).where(
+            ConnectorModel.federation_id == federation_id,
+            ConnectorModel.connector_ref == connector_ref,
+        )
+        stmt = stmt.execution_options(populate_existing=True)
+        with self.session() as session:
+            rows = session.scalars(stmt.order_by(ConnectorModel.connector_id)).all()
+            return [_connector_from_model(row) for row in rows]
+
+    def get_connector_by_id(self, connector_id: int) -> ConnectorRecord | None:
+        """Return a connector by ID, if present."""
+        if connector_id <= 0:
             return None
         with self.session() as session:
-            row = session.get(
-                ConnectorModel,
-                (flwr_aid, connector_ref),
-                populate_existing=True,
-            )
+            row = session.get(ConnectorModel, connector_id)
             if row is None:
                 return None
-            return ConnectorRecord(
-                flwr_aid=row.flwr_aid,
-                connector_ref=row.connector_ref,
-                credentials_json=row.credentials_json,
-                config_json=row.config_json,
-            )
+            return _connector_from_model(row)
 
-    def delete_connector(self, flwr_aid: str, connector_ref: str) -> bool:
-        """Delete an account's connector if it exists."""
-        if not flwr_aid or not connector_ref:
+    def delete_connector(self, federation_id: str, connector_id: int) -> bool:
+        """Delete a federation's connector if it exists."""
+        if not federation_id or connector_id <= 0:
             return False
         with self.session() as session:
-            deleted_connector_ref = session.scalar(
+            deleted_connector_id = session.scalar(
                 delete(ConnectorModel)
                 .where(
-                    ConnectorModel.flwr_aid == flwr_aid,
-                    ConnectorModel.connector_ref == connector_ref,
+                    ConnectorModel.federation_id == federation_id,
+                    ConnectorModel.connector_id == connector_id,
                 )
-                .returning(ConnectorModel.connector_ref)
+                .returning(ConnectorModel.connector_id)
             )
-            return deleted_connector_ref is not None
+            return deleted_connector_id is not None
 
-    def bind_connectors_to_run(
-        self, run_id: int, connector_refs: Sequence[str]
-    ) -> bool:
-        """Associate connector references with a run."""
-        if isinstance(connector_refs, str):
+    def bind_connectors_to_run(self, run_id: int, connector_ids: Sequence[int]) -> bool:
+        """Associate connector IDs with a run."""
+        if isinstance(connector_ids, (str, bytes)):
             return False
         stored_run_id = uint64_to_int64(run_id)
-        bound_refs = set(self.get_run_connector_refs(run_id))
+        bound_ids = set(self.get_run_connector_ids(run_id))
         run_connectors = [
-            RunConnectorModel(run_id=stored_run_id, connector_ref=connector_ref)
-            for connector_ref in dict.fromkeys(connector_refs)
-            if connector_ref not in bound_refs
+            RunConnectorModel(run_id=stored_run_id, connector_id=connector_id)
+            for connector_id in dict.fromkeys(connector_ids)
+            if connector_id not in bound_ids
         ]
         if run_connectors:
             with self.session() as session:
                 session.add_all(run_connectors)
         return True
 
-    def get_run_connector_refs(self, run_id: int) -> Sequence[str]:
-        """Return connector references associated with a run."""
+    def get_run_connector_ids(self, run_id: int) -> Sequence[int]:
+        """Return connector IDs associated with a run."""
         with self.session() as session:
             return list(
                 session.scalars(
-                    select(RunConnectorModel.connector_ref)
+                    select(RunConnectorModel.connector_id)
                     .where(RunConnectorModel.run_id == uint64_to_int64(run_id))
-                    .order_by(RunConnectorModel.connector_ref)
+                    .order_by(RunConnectorModel.connector_id)
                 )
             )
 
@@ -743,6 +744,7 @@ class SqlCoreState(CoreState, SqlMixin):  # pylint: disable=R0904
         self,
         oauth_session_id: str,
         flwr_aid: str,
+        federation_id: str,
         connector_ref: str,
         state: str,
         redirect_uri: str,
@@ -753,6 +755,7 @@ class SqlCoreState(CoreState, SqlMixin):  # pylint: disable=R0904
         if (
             not oauth_session_id
             or not flwr_aid
+            or not federation_id
             or not connector_ref
             or expires_at.utcoffset() is None
         ):
@@ -762,6 +765,7 @@ class SqlCoreState(CoreState, SqlMixin):  # pylint: disable=R0904
         model = ConnectorOAuthSessionModel(
             oauth_session_id=oauth_session_id,
             flwr_aid=flwr_aid,
+            federation_id=federation_id,
             connector_ref=connector_ref,
             state=state,
             redirect_uri=redirect_uri,
@@ -1274,6 +1278,7 @@ class SqlCoreState(CoreState, SqlMixin):  # pylint: disable=R0904
         fab_hash: str | None = None,
         model_ref: str | None = None,
         connector_ref: str | None = None,
+        connector_id: int | None = None,
         requesting_task_id: int | None = None,
     ) -> int | None:
         """Create a task and return its ID."""
@@ -1287,6 +1292,7 @@ class SqlCoreState(CoreState, SqlMixin):  # pylint: disable=R0904
             literal(fab_hash, type_=TaskModel.fab_hash.type),
             literal(model_ref, type_=TaskModel.model_ref.type),
             literal(connector_ref, type_=TaskModel.connector_ref.type),
+            literal(connector_id, type_=TaskModel.connector_id.type),
             literal(now(), type_=TaskModel.pending_at.type),
         )
         if requesting_task_id is not None:
@@ -1310,6 +1316,7 @@ class SqlCoreState(CoreState, SqlMixin):  # pylint: disable=R0904
                     TaskModel.fab_hash,
                     TaskModel.model_ref,
                     TaskModel.connector_ref,
+                    TaskModel.connector_id,
                     TaskModel.pending_at,
                 ],
                 task_values,
@@ -1883,6 +1890,7 @@ def _connector_oauth_session_from_model(
     return ConnectorOAuthSessionRecord(
         oauth_session_id=model.oauth_session_id,
         flwr_aid=model.flwr_aid,
+        federation_id=model.federation_id,
         connector_ref=model.connector_ref,
         state=model.state,
         redirect_uri=model.redirect_uri,
@@ -1890,6 +1898,17 @@ def _connector_oauth_session_from_model(
         created_at=_timestamp_to_iso_assuming_utc(model.created_at),
         expires_at=_timestamp_to_iso_assuming_utc(model.expires_at),
         completed_at=_timestamp_to_iso_assuming_utc(model.completed_at) or None,
+    )
+
+
+def _connector_from_model(model: ConnectorModel) -> ConnectorRecord:
+    """Convert a connector ORM model to a connector record."""
+    return ConnectorRecord(
+        connector_id=model.connector_id,
+        federation_id=model.federation_id,
+        connector_ref=model.connector_ref,
+        credentials_json=model.credentials_json,
+        config_json=model.config_json,
     )
 
 
@@ -1967,6 +1986,7 @@ def task_from_row(row: dict[str, Any]) -> Task:
         fab_hash=row["fab_hash"],
         model_ref=row["model_ref"],
         connector_ref=row["connector_ref"],
+        connector_id=row["connector_id"],
     )
 
 
@@ -1984,6 +2004,7 @@ def task_from_model(model: TaskModel) -> Task:
         fab_hash=model.fab_hash,
         model_ref=model.model_ref,
         connector_ref=model.connector_ref,
+        connector_id=model.connector_id,
     )
 
 

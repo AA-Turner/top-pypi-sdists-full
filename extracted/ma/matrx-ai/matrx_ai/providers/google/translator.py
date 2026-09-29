@@ -32,7 +32,13 @@ from matrx_ai.config import (
 from matrx_ai.config.citations import normalize_google_grounding
 from matrx_ai.providers.base_translator import BaseTranslator
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
-from matrx_ai.schema.rules import rewrite_const_as_enum
+from matrx_ai.schema.rules import (
+    gemini_ref_loop_violations,
+    hoist_nested_defs,
+    hoist_root_recursion,
+    open_ref_loops,
+    unresolvable_refs,
+)
 
 # ============================================================================
 # SAFETY SETTINGS — lowest possible, applied to every text/image generate_content
@@ -367,6 +373,17 @@ class GoogleTranslator(BaseTranslator):
                         ),
                         response_format=config.response_format,
                     )
+                    # The provider is NOT holding the contract on this call — say so
+                    # on the contract itself, or the answer check's finding claims
+                    # `provider_enforced: true` and blames a wire/declared divergence
+                    # that does not exist (SCHEMA-TRANSLATION-VERIFY.md, R10).
+                    from matrx_ai.schema.answer_contract import mark_enforcement_dropped
+
+                    mark_enforcement_dropped(
+                        "Gemini's native schema switch was left off because of a tool "
+                        f"conflict ({tool_conflict['reason']}); the schema travelled as a "
+                        "JSON text contract in the system instruction"
+                    )
                     contract = self._tool_json_text_contract(google_schema)
                     existing_system = generation_config_kwargs.get("system_instruction")
                     generation_config_kwargs["system_instruction"] = (
@@ -390,6 +407,15 @@ class GoogleTranslator(BaseTranslator):
                                 "JSON (9/96 measured) — schema sent as a text contract"
                             ),
                             response_format=config.response_format,
+                        )
+                        from matrx_ai.schema.answer_contract import (
+                            mark_enforcement_dropped,
+                        )
+
+                        mark_enforcement_dropped(
+                            "Google Search grounding + a native schema corrupts streamed "
+                            "JSON, so the schema travelled as a JSON text contract in the "
+                            "system instruction"
                         )
                         grounded_json_contract = self._grounded_json_text_contract(
                             google_schema
@@ -501,6 +527,53 @@ class GoogleTranslator(BaseTranslator):
             "contents": contents,
             "config": generated_config,
         }
+
+    def to_batch_request(self, payload: Any, *, response_format: Any = None) -> Any:
+        """This translator's request, spelled for the Gemini BATCH endpoint.
+
+        The Batch API accepts ``response_json_schema`` and silently ignores it
+        (0/26 conforming on 2026-09-27 across gemini-3.6/3.8-flash, the same
+        failure that dead-lettered 12 CRM items on 2026-08-15); it enforces only
+        ``response_schema``, the OpenAPI ``Schema`` message. So the schema this
+        translator built moves onto that field, converted by
+        ``batch_schema.to_gemini_batch_schema`` — lossless where the message can
+        say it, and every path it cannot say RECORDED through the findings buffer
+        the caller (``UnifiedAIClient.translate_request``) has open, naming the
+        agent and the schema. The transport sends the result untouched."""
+        if not isinstance(payload, dict):
+            return payload
+        config = payload.get("config")
+        raw = getattr(config, "response_json_schema", None)
+        if not isinstance(raw, dict):
+            return payload
+        from matrx_ai.providers.google.batch_schema import to_gemini_batch_schema
+
+        narrowed: list[str] = []
+        relaxed: list[str] = []
+        batch_schema = to_gemini_batch_schema(raw, narrowed=narrowed, relaxed=relaxed)
+        if narrowed or relaxed:
+            from matrx_ai.providers.structured_output_findings import note_translation
+
+            vcprint(
+                data={"provider": "google", "narrowed": narrowed, "relaxed": relaxed},
+                title=(
+                    "⚠️  GOOGLE BATCH ADJUSTMENT: the batch endpoint enforces only the "
+                    "OpenAPI Schema message — what it cannot say is listed; the answer "
+                    "is still checked against the stored schema."
+                ),
+                color="yellow",
+                verbose=True,
+            )
+            note_translation(
+                "google",
+                narrowed=narrowed,
+                relaxed=relaxed,
+                response_format=response_format,
+            )
+        updated = config.model_copy(
+            update={"response_json_schema": None, "response_schema": batch_schema}
+        )
+        return {**payload, "config": updated}
 
     # Google's constrained decoder (switched on by response_json_schema) refuses a
     # request whose function declaration names too many parameters, with a bare
@@ -714,6 +787,80 @@ JSON Schema:
             )
             return None
 
+        # A `$ref` CYCLE. Gemini supports one only when the loop can TERMINATE —
+        # "ref loops are only supported if they include optional or nullable
+        # property values, or a potentially-zero-length array items, but a ref loop
+        # of required fields was found at
+        # $defs.MapTopicNode.properties.children.items". `seo.map_author`'s topic
+        # map was refused by that rule on 09-17 and the refusal was written down as
+        # a rule of Gemini's and a job for the kind's author. It is neither: the
+        # author left `children` OPTIONAL, which Gemini accepts, and the platform's
+        # own portable step listed every property in `required` — closing the only
+        # escape the cycle had. Our transformation created the refusal, so our
+        # translator fixes it (Arman, 2026-09-27: fix it at the core, no
+        # workarounds). `open_ref_loops` re-spells a type-array nullable as the
+        # `anyOf` form Gemini's check recognises, lifts a minimum-length floor off
+        # a loop-carrying array, and, only if a cycle still cannot terminate,
+        # unrolls it with the SAME shared primitive the Anthropic translator uses.
+        # THE FITTED WIDENING. Widening an optional field to required-and-nullable
+        # is lossless for the contract but NOT free on the wire: each one is
+        # another branch Gemini's constraint compiler has to turn into states, and
+        # past its ceiling it answers "The specified schema produces a constraint
+        # that has too many states for serving". Measured live 2026-09-28: the
+        # live tool schema `data_patterns` is ACCEPTED at 976 bytes with its
+        # optional fields forced and REFUSED at 1,348 once every one of them is
+        # widened — the platform's own transformation turning a request Gemini
+        # takes into one it refuses (SCHEMA-TRANSLATION-VERIFY.md, F1; the R5 class
+        # Anthropic already fits inside a measured ceiling and Google did not).
+        #
+        # So: build the fully widened wire, measure it, and when it does not fit,
+        # find the LARGEST number of widened fields that does — never fewer, never
+        # a silent all-or-nothing drop. Every field the budget cannot widen is
+        # FORCED and named in the notes, which become a `narrowed` finding below.
+        return GoogleTranslator._fit_google_wire_schema(schema, response_format)
+
+    @staticmethod
+    def _google_wire_schema(
+        schema: dict[str, Any],
+        response_format: Any,
+        *,
+        budget: Any = None,
+        notes: list[str] | None = None,
+        relaxed: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """The Gemini wire copy of an object-root schema, with NO findings written
+        and no state kept — so the fitting loop above may call it many times.
+
+        ``budget`` (a :class:`~matrx_ai.schema.rules.WideningBudget`) decides how
+        many optional fields may be expressed as required-and-nullable; the rest
+        are forced and named in ``notes``.
+        """
+        loop_narrowed: list[str] = notes if notes is not None else []
+        loop_relaxed: list[str] = relaxed if relaxed is not None else []
+        from matrx_ai.schema.lint import make_portable
+
+        # THE SHARED FIRST STEP every translator runs on the author's schema
+        # (which is what the wire envelope carries): closed, all-required, each
+        # optional field widened to nullable WHERE THE BUDGET ALLOWS, `__kind`
+        # first — the exact shape Gemini received before the envelope carried the
+        # author's schema.
+        schema = make_portable(schema, budget=budget, notes=loop_narrowed)
+        # A `$ref` resolves from the document ROOT, so a schema embedded whole
+        # under a parent's `properties` brings its own `$defs` down with it and
+        # every pointer inside it names nothing — Gemini: "reference to undefined
+        # schema at properties.draft.properties.sections…". The Anthropic, OpenAI
+        # and compatible translators have lifted them since 2026-09-27; this one
+        # never did, so 44 live bodies across 24 kinds still 400'd on Gemini, the
+        # platform's largest structured-output provider
+        # (SCHEMA-TRANSLATION-VERIFY.md, R7). Lossless; it must precede the
+        # cycle pass, which reads the definitions it hoists.
+        schema = hoist_nested_defs(schema)
+        # A cycle through the ROOT (`{"$ref": "#"}` — `decision_node`,
+        # `decision_tree`) re-expressed through `$defs`, losslessly, so the
+        # cycle rules below can see it at all.
+        schema = hoist_root_recursion(schema)
+        schema = open_ref_loops(schema, narrowed=loop_narrowed, relaxed=loop_relaxed)
+
         # Route through the shared per-provider seam for consistency with every
         # other structured-output boundary. Gemini's response_json_schema is
         # permissive — it accepts minItems/maxItems/pattern verbatim (the exact
@@ -722,15 +869,174 @@ JSON Schema:
         # surfaces, one entry in unsupported_structured_output_keywords fixes it.
         sanitized = GoogleTranslator.sanitize_structured_output_schema(schema, "google")
 
-        # THE ONE demonstrated Gemini quirk (2026-08-11): it does not honour
-        # `const`. Measured on gemini-3.6-flash, 12 runs per cell against a
-        # single-valued discriminator — `const` came back correct 1/12 (0/12
-        # with Search grounding), `enum: [value]` 12/12. It is not a keyword to
-        # STRIP (that would drop the constraint entirely) but one to REWRITE
-        # into its identical-meaning form, so the constraint survives AND Gemini
-        # enforces it. Request-boundary only: the stored schema keeps `const`,
-        # which is the more precise keyword and is honoured as-is elsewhere.
-        return rewrite_const_as_enum(sanitized)
+        # `const` → `enum: [value]` used to be rewritten HERE, and ONLY here.
+        # Gemini does not honour `const` (measured 2026-08-11 on
+        # gemini-3.6-flash, 12 runs per cell against a single-valued
+        # discriminator: `const` correct 1/12, 0/12 with Search grounding,
+        # `enum: [value]` 12/12) — and OpenAI hard-400s a `const` node carrying
+        # no `type`, which is the `__kind` marker the platform's own law puts on
+        # every schema: 78 live bound contracts were unbindable there
+        # (SCHEMA-TRANSLATION-VERIFY.md, F5). One provider's boundary owning a
+        # rewrite every provider needs is exactly how that happened, so it moved
+        # into `make_portable` above — THE shared first step of all seven
+        # translators. It has already run, on this very schema; nothing re-applies
+        # it, and the stored schema still keeps `const`.
+        return sanitized
+
+    @staticmethod
+    def _record_google_subset_violations(final: dict[str, Any], response_format: Any) -> None:
+        """THE FORCING FUNCTION for this provider, which it did not have. Anything
+        Gemini's cycle rule still forbids is named HERE, with the definition, so a
+        new recursive shape shows up as an actionable line in our own logs instead
+        of an opaque 400 nobody can act on.
+
+        Called ONCE, on the wire copy that is actually sent — never from inside the
+        fitting loop, which builds several candidates and would otherwise file a
+        finding for each one it discarded.
+        """
+        violations = gemini_ref_loop_violations(final) + [
+            f"unresolvable $ref {ref} — it names nothing from the document root"
+            for ref in unresolvable_refs(final)
+        ]
+        if violations:
+            from matrx_ai.providers.structured_output_findings import (
+                RELAXED,
+                record_structured_output_finding_sync,
+                response_format_identity,
+            )
+
+            vcprint(
+                data={"provider": "google", "violations": violations},
+                title="🚨 GOOGLE SCHEMA STILL OUT OF SUBSET",
+                color="red",
+                verbose=False,
+            )
+            vcprint(
+                "🚨 CAPABILITY LEAK [google]: a `$ref` cycle survived translation that "
+                "Gemini cannot compile; this request will 400. Extend "
+                "matrx_ai.schema.rules.open_ref_loops — the normalization boundary is "
+                "the ONE place this is fixed.",
+                color="red",
+            )
+            record_structured_output_finding_sync(
+                RELAXED,
+                provider="google",
+                model=None,
+                detail={
+                    **response_format_identity(response_format),
+                    "action": (
+                        f"{len(violations)} `$ref` cycle(s) Gemini cannot compile survived "
+                        "translation — this request is expected to 400"
+                    ),
+                    "violations": violations[:10],
+                    "remedy": (
+                        "extend matrx_ai.schema.rules.open_ref_loops — the normalization "
+                        "boundary is the ONE place this class is fixed"
+                    ),
+                },
+                was_recovered=False,
+            )
+
+    #: How much of Gemini's constraint budget the LOSSLESS widening may spend
+    #: inside BOUNDED arrays, in "widened field × maxItems" units. A widening at
+    #: the root costs nothing here; one inside ``{"maxItems": 40}`` spends 40,
+    #: because Gemini unrolls the array and compiles the item schema 40 times.
+    #:
+    #: CALIBRATED live against ``gemini-2.5-flash``, 2026-09-28. Gemini's real
+    #: frontier depends on the whole schema, not on this spend alone, so the budget
+    #: is set to the LOWEST ACCEPTED multiplied widening measured rather than the
+    #: highest — forcing one optional field costs the author a value they were
+    #: allowed to omit, a 400 costs the entire call:
+    #:
+    #:   * ``data_patterns`` (the F1 schema, ``fields: {maxItems: 40}``) — ONE
+    #:     widened item field (1×40 = 40) ACCEPTED, two (80) REFUSED;
+    #:   * a synthetic ``maxItems: 40`` array of nullable-only item fields — 5
+    #:     widened (200) accepted, 6 (240) refused, which is why 40 is a floor and
+    #:     not the frontier;
+    #:   * the same item under ``maxItems: 100`` — 4 widened (400) refused;
+    #:   * 80 widened fields at the ROOT of a flat object — accepted, which is why
+    #:     an unmultiplied widening spends nothing at all.
+    #:
+    #: Blast radius, measured over every distinct live object-root schema in the
+    #: nine schema-bearing columns (3,264 of them, 2026-09-28): at 40, SIX schemas
+    #: force exactly one optional field each; every other one is untouched, because
+    #: a bounded array with several optional item fields is rare.
+    GEMINI_UNROLLED_WIDENING_BUDGET: float = 40.0
+
+    @staticmethod
+    def _fit_google_wire_schema(
+        schema: dict[str, Any], response_format: Any
+    ) -> dict[str, Any] | None:
+        """The Gemini wire copy, with the lossless widening METERED where Gemini
+        actually pays for it, and every compromise recorded exactly once.
+
+        Widening an optional field to required-and-nullable is lossless for the
+        contract and is what the platform prefers — and at the root of an object it
+        is free on Gemini (80 of them measured accepted). Inside a BOUNDED array it
+        is not: Gemini unrolls ``maxItems: n`` and compiles the item schema n times,
+        so each widening there costs n, and past its ceiling the request comes back
+
+            400 The specified schema produces a constraint that has too many states
+                for serving.
+
+        That is F1: the live tool schema ``data_patterns`` is accepted by Gemini and
+        the platform's own unconditional widening made it refused — one extra
+        nullable union inside ``fields: {maxItems: 40}``. Anthropic's translator has
+        fitted its widening inside a measured ceiling since 2026-09-27; this one
+        widened with no measure and no fallback.
+
+        So: widen freely where it is free, meter it where Gemini multiplies it, and
+        FORCE the rest — each forced field named in a ``narrowed`` finding, never
+        dropped quietly.
+        """
+        from matrx_ai.schema.rules import WideningBudget
+
+        budget = WideningBudget(
+            unroll_budget=GoogleTranslator.GEMINI_UNROLLED_WIDENING_BUDGET
+        )
+        notes: list[str] = []
+        relaxed: list[str] = []
+        wire = GoogleTranslator._google_wire_schema(
+            schema, response_format, budget=budget, notes=notes, relaxed=relaxed
+        )
+
+        if notes or relaxed:
+            from matrx_ai.providers.structured_output_findings import note_translation
+
+            vcprint(
+                data={
+                    "provider": "google",
+                    "narrowed": notes,
+                    "relaxed": relaxed,
+                    "unrolled_widening_spent": budget.spent_unroll,
+                    "unrolled_widening_budget": (
+                        GoogleTranslator.GEMINI_UNROLLED_WIDENING_BUDGET
+                    ),
+                },
+                title=(
+                    "⚠️  GOOGLE ADJUSTMENT: the wire copy gave something up so Gemini can "
+                    "compile it. The stored schema is unchanged, and the answer is checked "
+                    "against it when the call ends."
+                    + (
+                        " A field below is sent REQUIRED where the author left it optional "
+                        "because Gemini unrolls the bounded array it sits in and would refuse "
+                        "the widened form."
+                        if budget.forced
+                        else ""
+                    )
+                ),
+                color="yellow",
+                verbose=True,
+            )
+            note_translation(
+                "google",
+                narrowed=notes,
+                relaxed=relaxed,
+                response_format=response_format,
+            )
+
+        GoogleTranslator._record_google_subset_violations(wire, response_format)
+        return wire
 
     # ------------------------------------------------------------------
     # Image generation: Imagen 4 (dedicated text-only endpoint)

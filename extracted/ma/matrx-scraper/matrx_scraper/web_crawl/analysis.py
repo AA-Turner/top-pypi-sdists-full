@@ -442,6 +442,10 @@ class PageLinkStats:
 
     checked: int = 0
     broken: list[str] = field(default_factory=list)
+    #: Internal targets that answered with a wall (bot challenge, 401/403) or
+    #: that rate limiting kept us from fetching. We never SAW them fail, so they
+    #: are never broken links — but they are said, never silently dropped.
+    blocked: list[str] = field(default_factory=list)
     redirecting: list[str] = field(default_factory=list)
     external_checked: int = 0
     external_broken: list[str] = field(default_factory=list)
@@ -615,16 +619,30 @@ def _check_broken_internal_links(facts: PageFacts, site: SiteAggregates) -> Chec
             "We haven't checked this page's links yet.",
             remediation=CHECK_SITE_LINKS,
         )
+    blocked_note = (
+        f" {len(stats.blocked)} more target(s) blocked our crawler or were rate limited, "
+        "so they were not checked and are not counted as broken."
+        if stats.blocked
+        else ""
+    )
     if not stats.broken:
-        return CheckOutcome("pass", 100, f"All {stats.checked} verified internal links resolve.")
+        return CheckOutcome(
+            "pass",
+            100,
+            f"All {stats.checked} verified internal links resolve.{blocked_note}",
+            evidence={"blocked_targets": sample_urls(stats.blocked)} if stats.blocked else None,
+        )
     n = len(stats.broken)
+    evidence: dict[str, Any] = {"broken_targets": sample_urls(stats.broken)}
+    if stats.blocked:
+        evidence["blocked_targets"] = sample_urls(stats.blocked)
     return CheckOutcome(
         "fail",
         clamp_score(60 - 15 * n),
         f"{n} internal link(s) on this page point at broken targets (4xx/5xx/no "
-        "response) — dead ends for users and crawlers.",
+        f"response) — dead ends for users and crawlers.{blocked_note}",
         issue_count=n,
-        evidence={"broken_targets": sample_urls(stats.broken)},
+        evidence=evidence,
     )
 
 
@@ -1953,6 +1971,22 @@ SITE_CHECKS: dict[str, Callable[[SiteFacts], CheckOutcome]] = {
 }
 
 
+def _near_duplicate_indexable(page: PageFacts) -> bool | None:
+    """Whether ONE page belongs in the near-duplicate population.
+
+    A URL that answered a non-2xx status (a 404, a 5xx, a loop) is not
+    indexable by definition, even though it carries no robots evidence. Leaving
+    it `None` told the report the site's indexability was unknown, and every
+    site with a single broken URL answered `n_a` for `near_duplicate_content`
+    (caught by the audit fixture site, which has a /gone and a /server-error).
+    """
+
+    status = page.http_status
+    if status is not None and not 200 <= status < 300:
+        return False
+    return None if page.noindex is None else not page.noindex
+
+
 def _build_site_facts(site_id: str, facts_list: list[PageFacts]) -> SiteFacts:
     """Fold the per-page evidence into the site's own evidence. Pure."""
     facts = SiteFacts(site_id=site_id)
@@ -1975,7 +2009,7 @@ def _build_site_facts(site_id: str, facts_list: list[PageFacts]) -> SiteFacts:
                 fingerprint_version=page.fingerprint_version,
                 simhash64=page.simhash64,
                 canonical_url=page.canonical_url,
-                indexable=None if page.noindex is None else not page.noindex,
+                indexable=_near_duplicate_indexable(page),
             )
             for page in facts_list
         ]
@@ -2261,12 +2295,16 @@ def _extract_transport_facts(page: WebPage, crawl_url: dict[str, Any]) -> PageFa
     chain = metadata.get("redirect_chain") if isinstance(metadata, dict) else None
     link_score, target_keyword = _page_link_facts(page)
     http_status = crawl_url.get("http_status")
+    reason_code = crawl_url.get("reason_code")
     return PageFacts(
         page_id=str(page.id),
         url=str(page.url),
         link_score=link_score,
         target_keyword=target_keyword,
         http_status=int(http_status) if http_status is not None else None,
+        fetch_blocked_reason=(
+            str(reason_code) if reason_code in BLOCKED_TARGET_REASON_CODES else None
+        ),
         redirect_chain=[hop for hop in chain if isinstance(hop, dict)]
         if isinstance(chain, list)
         else [],
@@ -2319,6 +2357,7 @@ async def _load_transport_only_facts(
                 "id",
                 "page_id",
                 "http_status",
+                "reason_code",
                 "metadata",
                 "completed_at",
                 "discovered_at",
@@ -2697,6 +2736,96 @@ def _build_orphan_census(registry: _PageRegistry, aggregates: SiteAggregates) ->
     return census
 
 
+#: `web.crawl_url.reason_code` values meaning "we were kept out", never "the page
+#: is broken": a bot wall, a 401/403 refusal, rate-limit exhaustion, or a URL the
+#: crawl never fetched because it stopped on rate limits (OPENSEO-TOOLS-SPEC §8.1).
+BLOCKED_TARGET_REASON_CODES = frozenset(
+    {"cloudflare_block", "blocked", "RateLimited", "RateLimitTimeout"}
+)
+_FETCH_VERDICT_OUTCOMES = ("captured", "redirected", "failed")
+
+
+def _split_blocked_targets(stats: PageLinkStats, blocked_hashes: set[str]) -> None:
+    """Move targets whose latest fetch verdict was a wall out of ``broken``."""
+    keep: list[str] = []
+    for target in stats.broken:
+        if url_hash(_normalise_url(target)) in blocked_hashes:
+            stats.blocked.append(target)
+            stats.checked -= 1
+        else:
+            keep.append(target)
+    stats.broken = keep
+
+
+#: A target whose latest fetch verdict is a redirect LOOP never arrives anywhere:
+#: a link to it is a dead end (broken), not a harmless redirect.
+LOOP_TARGET_REASON_CODES = frozenset({"redirect_loop"})
+
+
+def _promote_loop_targets(stats: PageLinkStats, loop_hashes: set[str]) -> None:
+    """Move targets that redirect in a loop from ``redirecting`` to ``broken``."""
+    keep: list[str] = []
+    for target in stats.redirecting:
+        if url_hash(_normalise_url(target)) in loop_hashes:
+            stats.broken.append(target)
+        else:
+            keep.append(target)
+    stats.redirecting = keep
+
+
+def apply_target_fetch_verdicts(
+    link_stats: dict[str, PageLinkStats], latest_reason_by_hash: dict[str, Any]
+) -> None:
+    """ONE rule for what a link target's latest fetch verdict means for its links.
+
+    Pure, so the fixture harness runs exactly this over its in-memory ledger:
+    a wall / rate-limit give-up is never a broken link; a redirect loop always is.
+    """
+    blocked = {h for h, r in latest_reason_by_hash.items() if r in BLOCKED_TARGET_REASON_CODES}
+    loops = {h for h, r in latest_reason_by_hash.items() if r in LOOP_TARGET_REASON_CODES}
+    for stats in link_stats.values():
+        if blocked:
+            _split_blocked_targets(stats, blocked)
+        if loops:
+            _promote_loop_targets(stats, loops)
+
+
+async def _exclude_blocked_link_targets(site_id: str, aggregates: SiteAggregates) -> None:
+    """Broken internal links only for targets fetched and SEEN failing.
+
+    ``link_check`` copies a target's transport status onto the edge, so a page
+    that answered 403 to our bot, or a challenge wall, reads as a 4xx "broken"
+    link, and a redirect loop reads as a harmless 3xx. The target's LATEST fetch
+    verdict in ``web.crawl_url`` decides (:func:`apply_target_fetch_verdicts`).
+    """
+
+    targets = {
+        t
+        for stats in aggregates.link_stats.values()
+        for t in (*stats.broken, *stats.redirecting)
+    }
+    if not targets:
+        return
+    hashes = sorted({url_hash(_normalise_url(t)) for t in targets})
+    latest: dict[str, Any] = {}
+    for start in range(0, len(hashes), 500):
+        chunk = hashes[start : start + 500]
+        rows = await (
+            WebCrawlUrl.filter(
+                site_id=site_id,
+                url_hash__in=chunk,
+                outcome__in=list(_FETCH_VERDICT_OUTCOMES),
+                completed_at__isnull=False,
+                deleted_at__isnull=True,
+            )
+            .order_by("-completed_at", "-id")
+            .values("url_hash", "reason_code")
+        )
+        for row in rows:
+            latest.setdefault(str(row["url_hash"]), row["reason_code"])
+    apply_target_fetch_verdicts(aggregates.link_stats, latest)
+
+
 async def _load_link_stats(
     site_id: str,
     facts_list: list[PageFacts],
@@ -2768,6 +2897,8 @@ async def _load_link_stats(
                 _accumulate_edge(row, stats, graph, aggregates, adjacency)
             if len(rows) < _EDGE_BATCH_SIZE:
                 break
+
+    await _exclude_blocked_link_targets(site_id, aggregates)
 
     aggregates.homepage_page_id = graph.canonical_by_hash.get(url_hash(_normalise_url(root_url)))
     if aggregates.homepage_page_id is not None:

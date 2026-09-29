@@ -279,3 +279,117 @@ def test_cli_errors_when_no_db_matches(tmp_path, monkeypatch):
     with pytest.raises(SystemExit, match="no databases matched"):
         px.main(["--config", "geocif.txt", "--db", "nothing_here*.db",
                  "--out", str(tmp_path / "x.csv")])
+
+
+# --------------------------------------------------------------------------
+# min_observed_years / nullify_negative_predictions
+# --------------------------------------------------------------------------
+
+def _two_region_rows():
+    """'good' has reported yield; 'bare' has none and a negative prediction."""
+    rows = []
+    for region, obs, pred in [("Mato Grosso Sorriso", 3.5, 3.1),
+                              ("Mato Grosso Barra", None, -1.4)]:
+        for year in (2023, 2024):
+            for swd in ("Sep 1-Sep 30", "Sep 1-Oct 31"):
+                rows.append({
+                    "Experiment Name": "default", "Region": region,
+                    "Harvest Year": str(year), "Stage Name": swd,
+                    "Stage Window Display": swd, "Model": "catboost",
+                    "Date": "September_06_2026",
+                    "Time": "September-06-2026 11:31:05",
+                    "Area (ha)": 1000.0, PRED_DB: pred, OBS_DB: obs,
+                })
+    return rows
+
+
+@pytest.fixture
+def two_region_lookup(monkeypatch):
+    monkeypatch.setattr(px, "_region_id_lookup", lambda parser, country: (
+        {"mato grosso sorriso": 5107925, "mato grosso barra": 5101803}, "num_ID"))
+
+
+def test_min_observed_years_drops_zero_history_regions(tmp_path, two_region_lookup):
+    db = tmp_path / "geocif_inf2024.db"
+    _write_db(db, _two_region_rows())
+    df = pd.read_csv(px.export_predictions(
+        _make_parser(), [db], tmp_path / "out.csv",
+        min_observed_years=1, verbose=False))
+    assert set(df["num_ID"]) == {5107925}          # the bare region is gone
+    assert (df["predicted_yield_t_ha"] > 0).all()  # ...and so are its negatives
+
+
+def test_min_observed_years_counts_years_not_rows(tmp_path, two_region_lookup):
+    """Observed is repeated across leads; counting rows would overstate history.
+
+    The good region has 2 distinct years x 2 leads = 4 observed ROWS. Asking
+    for 3 years must drop it; a row-counting implementation would keep it.
+    """
+    db = tmp_path / "geocif_inf2024.db"
+    _write_db(db, _two_region_rows())
+    with pytest.raises(ValueError, match="removed every region"):
+        px.export_predictions(_make_parser(), [db], tmp_path / "out.csv",
+                              min_observed_years=3, verbose=False)
+
+
+def test_nullify_negative_keeps_row_and_observed(tmp_path, two_region_lookup):
+    """A negative prediction is blanked, not dropped; observed must survive."""
+    rows = _two_region_rows()
+    for r in rows:                      # give the bare region a truth value
+        if r["Region"] == "Mato Grosso Barra":
+            r[OBS_DB] = 2.2
+    db = tmp_path / "geocif_inf2024.db"
+    _write_db(db, rows)
+    df = pd.read_csv(px.export_predictions(
+        _make_parser(), [db], tmp_path / "out.csv",
+        nullify_negative_predictions=True, verbose=False))
+
+    assert len(df) == 8                               # nothing dropped
+    bare = df[df["num_ID"] == 5101803]
+    assert len(bare) == 4
+    assert bare["predicted_yield_t_ha"].isna().all()  # prediction blanked
+    assert (bare["observed_yield_t_ha"] == 2.2).all() # observed kept
+    assert (df[df["num_ID"] == 5107925]["predicted_yield_t_ha"] == 3.1).all()
+
+
+def test_both_filters_together(tmp_path, two_region_lookup):
+    db = tmp_path / "geocif_inf2024.db"
+    _write_db(db, _two_region_rows())
+    df = pd.read_csv(px.export_predictions(
+        _make_parser(), [db], tmp_path / "out.csv",
+        min_observed_years=1, nullify_negative_predictions=True, verbose=False))
+    assert set(df["num_ID"]) == {5107925}
+    assert df["predicted_yield_t_ha"].notna().all()
+
+
+def test_filters_are_off_by_default(tmp_path, two_region_lookup):
+    db = tmp_path / "geocif_inf2024.db"
+    _write_db(db, _two_region_rows())
+    df = pd.read_csv(px.export_predictions(_make_parser(), [db],
+                                           tmp_path / "out.csv", verbose=False))
+    assert set(df["num_ID"]) == {5107925, 5101803}
+    assert (df["predicted_yield_t_ha"] < 0).any()
+
+
+def test_cli_accepts_an_absolute_glob(tmp_path, monkeypatch, patched_lookup):
+    """Path().glob raises NotImplementedError on absolute patterns.
+
+    The earlier CLI test chdir'd into tmp_path, so the pattern was relative
+    and this never surfaced -- but every real invocation passes a full
+    /gpfs/... path.
+    """
+    for year in (2023, 2024):
+        _write_db(tmp_path / f"geocif_inf{year}.db",
+                  [r for r in _rows() if r["Harvest Year"] == str(year)])
+
+    import geocif.logger as log
+    monkeypatch.setattr(log, "setup_logger_parser",
+                        lambda cfgs: (None, _make_parser()))
+    monkeypatch.chdir(tmp_path.parent)        # NOT the db directory
+
+    out = tmp_path / "abs.csv"
+    rc = px.main(["--config", "geocif.txt",
+                  "--db", str(tmp_path / "geocif_inf*.db"),   # absolute
+                  "--model", "catboost", "--out", str(out)])
+    assert rc == 0
+    assert sorted(pd.read_csv(out)["year"].unique()) == [2023, 2024]

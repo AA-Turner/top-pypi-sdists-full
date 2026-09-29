@@ -56,6 +56,7 @@ from .retries import Retries
 from .running_app import RunningApp
 from .schedule import Schedule
 from .secret import _Secret
+from .types import AppInfo
 from .volume import _Volume
 
 _default_image: _Image = _Image.debian_slim()
@@ -182,6 +183,7 @@ class _App:
     # Metadata for loading objects within this app
     # passed by reference to functions and classes so it can be updated by run()/deploy()
     _root_load_context: LoadContext
+    _info: AppInfo | None
 
     @property
     def _local_state(self) -> _LocalAppState:
@@ -261,6 +263,11 @@ class _App:
         # Register this app. This is used to look up the app in the container, when we can't get it from the function
         _App._all_apps.setdefault(self._name, []).append(self)
 
+    def __repr__(self) -> str:
+        if self._name is not None or self._description is not None:
+            return f"App({(self._name or self._description)!r})"
+        return super().__repr__()
+
     @property
     def name(self) -> str | None:
         """The user-provided name of the App.
@@ -269,15 +276,6 @@ class _App:
             The configured app name, if any.
         """
         return self._name
-
-    @property
-    @with_deprecation_warning(
-        (2026, 8, 26),
-        "`App.is_interactive` is deprecated and will be removed in `modal` version 1.6.0",
-    )
-    def is_interactive(self) -> bool:
-        """mdmd:hidden"""
-        return self._is_interactive_
 
     @property
     def _is_interactive_(self) -> bool:
@@ -315,6 +313,28 @@ class _App:
     def description(self, value):
         """mdmd:hidden"""
         self._description = value
+
+    @staticmethod
+    def _new_remote(
+        name: str | None,
+        app_id: str,
+        environment_name: str,
+        client: _Client,
+        info: AppInfo | None = None,
+        description: str | None = None,
+    ) -> "_App":
+        """Construct a handle for an existing remote App without making an RPC."""
+        # Skip registration in _all_apps
+        app = object.__new__(_App)
+        app._name = name
+        app._description = description if description is not None else name
+        app._local_state_attr = None
+        app._app_id = app_id
+        app._client = client
+        app._root_load_context = LoadContext(client=client, environment_name=environment_name, app_id=app_id)
+        app._running_app = RunningApp(app_id, interactive=False)
+        app._info = info
+        return app
 
     @staticmethod
     async def lookup(
@@ -358,15 +378,15 @@ class _App:
             object_creation_type=(api_pb2.OBJECT_CREATION_TYPE_CREATE_IF_MISSING if create_if_missing else None),
         )
 
-        response = await client.stub.AppGetOrCreate(request)
+        response = await client._stub.AppGetOrCreate(request)
 
-        app = _App(name)  # TODO: this should probably be a distinct constructor, possibly even a distinct type
-        app._local_state_attr = None  # this is not a locally defined App, so no local state
-        app._app_id = response.app_id
-        app._client = client
-        app._root_load_context = LoadContext(client=client, environment_name=environment_name, app_id=response.app_id)
-        app._running_app = RunningApp(response.app_id, interactive=False)
-        return app
+        return _App._new_remote(
+            name,
+            response.app_id,
+            environment_name,
+            client,
+            AppInfo._from_proto(response.handle_metadata, response.app_id),
+        )
 
     async def get_dashboard_url(self) -> str:
         """Get the dashboard URL for the App.
@@ -384,42 +404,9 @@ class _App:
             raise InvalidError("App is not running")
         return f"https://modal.com/id/{self._app_id}"
 
-    @with_deprecation_warning(
-        (2026, 8, 26),
-        "`App.set_description` is deprecated and will be removed in `modal` version 1.6.0. "
-        "Set `App.description` directly instead",
-    )
-    def set_description(self, description: str):
-        """mdmd:hidden
-        Set the description of the App before it starts running.
-
-        Note: we don't recommend using the method and may deprecate it in the future.
-        """
-        self.description = description
-
     def _validate_blueprint_value(self, key: str, value: Any):
         if not isinstance(value, _Object):
             raise InvalidError(f"App attribute `{key}` with value {value!r} is not a valid Modal object")
-
-    @property
-    @with_deprecation_warning(
-        (2026, 8, 26),
-        "`App.image` is deprecated and will be removed in `modal` version 1.6.0",
-    )
-    def image(self) -> _Image:
-        """mdmd:hidden
-        Retrieve the Image that will be used as the default for any Functions registered to the App.
-
-        Note: This property is only relevant in the build phase and won't be populated on a deployed
-        App that is retrieved via `modal.App.lookup`. It is likely to be deprecated in the future.
-
-        """
-        return self._local_state.image_default
-
-    @image.setter
-    def image(self, value):
-        """mdmd:hidden"""
-        self._local_state.image_default = value
 
     def _uncreate_all_objects(self):
         # TODO(erikbern): this doesn't unhydrate objects that aren't tagged
@@ -680,7 +667,7 @@ class _App:
     @property
     @with_deprecation_warning(
         (2026, 8, 26),
-        "`App.registered_functions` is deprecated and will be removed in `modal` version 1.6.0",
+        "`App.registered_functions` is deprecated and will be removed in `modal` version 1.7.0",
     )
     def registered_functions(self) -> dict[str, _Function]:
         """mdmd:hidden
@@ -696,7 +683,7 @@ class _App:
     @property
     @with_deprecation_warning(
         (2026, 8, 26),
-        "`App.registered_classes` is deprecated and will be removed in `modal` version 1.6.0",
+        "`App.registered_classes` is deprecated and will be removed in `modal` version 1.7.0",
     )
     def registered_classes(self) -> dict[str, _Cls]:
         """mdmd:hidden
@@ -712,7 +699,7 @@ class _App:
     @property
     @with_deprecation_warning(
         (2026, 8, 26),
-        "`App.registered_entrypoints` is deprecated and will be removed in `modal` version 1.6.0",
+        "`App.registered_entrypoints` is deprecated and will be removed in `modal` version 1.7.0",
     )
     def registered_entrypoints(self) -> dict[str, _LocalEntrypoint]:
         """mdmd:hidden
@@ -727,7 +714,7 @@ class _App:
     @property
     @with_deprecation_warning(
         (2026, 8, 26),
-        "`App.registered_web_endpoints` is deprecated and will be removed in `modal` version 1.6.0",
+        "`App.registered_web_endpoints` is deprecated and will be removed in `modal` version 1.7.0",
     )
     def registered_web_endpoints(self) -> list[str]:
         """mdmd:hidden
@@ -740,9 +727,7 @@ class _App:
         """
         return self._local_state.web_endpoints
 
-    def local_entrypoint(
-        self, _warn_parentheses_missing: Any = None, *, name: str | None = None
-    ) -> Callable[[Callable[..., Any]], _LocalEntrypoint]:
+    def local_entrypoint(self, *, name: str | None = None) -> Callable[[Callable[..., Any]], _LocalEntrypoint]:
         """Decorate a function to be used as a CLI entrypoint for a Modal App.
 
         These functions can be used to define code that runs locally to set up the app,
@@ -797,8 +782,6 @@ class _App:
             Currently, `str`, `int`, `float`, `bool`, and `datetime.datetime` are supported.
             Use `modal run app_module.py --help` for more information on usage.
         """
-        if _warn_parentheses_missing:
-            raise InvalidError("Did you forget parentheses? Suggestion: `@app.local_entrypoint()`.")
         if name is not None and not isinstance(name, str):
             raise InvalidError("Invalid value for `name`: Must be string.")
 
@@ -817,7 +800,6 @@ class _App:
     @handle_deprecated_parameters
     def function(
         self,
-        _warn_parentheses_missing=None,  # mdmd:line-hidden
         *,
         image: _Image | None = None,
         schedule: Schedule | None = None,
@@ -903,11 +885,6 @@ class _App:
         Returns:
             A decorator that registers the wrapped callable or partial as a Modal `Function`.
         """
-        if isinstance(_warn_parentheses_missing, _Image):
-            # Handle edge case where maybe (?) some users passed image as a positional arg
-            raise InvalidError("`image` needs to be a keyword argument: `@app.function(image=image)`.")
-        if _warn_parentheses_missing:
-            raise InvalidError("Did you forget parentheses? Suggestion: `@app.function()`.")
 
         if image is None:
             image = self._get_default_image()
@@ -943,6 +920,8 @@ class _App:
                 )
 
             if isinstance(f, _PartialFunction):
+                if f.flags & _PartialFunctionFlags.SESSIONED:
+                    raise InvalidError("`@modal.sessioned()` can only be used with `@app.server()`.")
                 if is_method_fn(f.raw_f.__qualname__):
                     raise InvalidError(
                         "The `@app.function` decorator cannot be used on class methods. "
@@ -1074,7 +1053,6 @@ class _App:
     @handle_deprecated_parameters
     def cls(
         self,
-        _warn_parentheses_missing=None,  # mdmd:line-hidden
         *,
         image: _Image | None = None,
         env: dict[str, str | None] | None = None,
@@ -1107,7 +1085,7 @@ class _App:
         experimental_options: dict[str, Any] | None = None,
         _experimental_restrict_output: bool = False,
         max_inputs: int | None = None,
-    ) -> Callable[[CLS_T | _PartialFunction], CLS_T]:
+    ) -> Callable[[CLS_T | _PartialFunction[..., Any, Any]], CLS_T]:
         """
         Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/Cls) with this App.
 
@@ -1152,8 +1130,6 @@ class _App:
         Returns:
             A decorator that registers the wrapped class or partial as a Modal `Cls`.
         """
-        if _warn_parentheses_missing:
-            raise InvalidError("Did you forget parentheses? Suggestion: `@app.cls()`.")
 
         if max_inputs is not None:
             if not isinstance(max_inputs, int):
@@ -1172,11 +1148,13 @@ class _App:
         if env:
             secrets = [*secrets, _Secret.from_dict(env)]
 
-        def wrapper(wrapped_cls: CLS_T | _PartialFunction) -> CLS_T:
+        def wrapper(wrapped_cls: CLS_T | _PartialFunction[..., Any, Any]) -> CLS_T:
             local_state = self._local_state
             # Check if the decorated object is a class
             http_config = None
             if isinstance(wrapped_cls, _PartialFunction):
+                if wrapped_cls.flags & _PartialFunctionFlags.SESSIONED:
+                    raise InvalidError("`@modal.sessioned()` can only be used with `@app.server()`.")
                 user_cls = wrapped_cls.user_cls
                 if wrapped_cls.flags & _PartialFunctionFlags.HTTP_WEB_INTERFACE:
                     http_config = wrapped_cls.params.http_config
@@ -1315,7 +1293,6 @@ class _App:
 
     def server(
         self,
-        _warn_parentheses_missing=None,  # mdmd:line-hidden
         *,
         image: _Image | None = None,  # The image to run as the container for the server
         env: dict[str, str | None] | None = None,  # Environment variables to set in the container
@@ -1329,6 +1306,7 @@ class _App:
         memory: int | tuple[int, int] | None = None,  # Memory in MiB to request
         ephemeral_disk: int | None = None,  # Ephemeral disk size in MiB
         target_concurrency: float | None = None,  # Target concurrency for the server; 0 disables autoscaling
+        max_concurrency: int | None = None,  # Maximum concurrent requests per container
         min_containers: int | None = None,  # Minimum number of containers to keep warm
         max_containers: int | None = None,  # Maximum number of containers
         buffer_containers: int | None = None,  # Additional idle containers under active load
@@ -1350,7 +1328,7 @@ class _App:
         include_source: bool | None = None,  # Whether to add source to container
         # Experimental options
         experimental_options: dict[str, Any] | None = None,
-    ) -> Callable[[type[Any] | _PartialFunction], _Server]:
+    ) -> Callable[[type[Any] | _PartialFunction[..., Any, Any]], _Server]:
         """
         Decorator to register a new Modal Server with this App.
 
@@ -1378,6 +1356,9 @@ class _App:
             target_concurrency:
                 Target number of concurrent requests per container; 0 disables autoscaling. May be
                 fractional, e.g. 1.5 to target three concurrent requests per two containers.
+            max_concurrency:
+                Maximum number of concurrent requests per container. Requests above this limit
+                receive a 503 response. If set to 0 or unset, request concurrency is unlimited.
             min_containers: Minimum number of containers to keep running regardless of demand.
             max_containers: Limit on the number of containers that can be concurrently running.
             buffer_containers: Extra containers to scale up beyond current demand.
@@ -1412,8 +1393,6 @@ class _App:
                     self.proc.terminate()
             ```
         """
-        if _warn_parentheses_missing:
-            raise InvalidError("Did you forget parentheses? Suggestion: `@app.server()`.")
 
         # Validate HTTP server config
         validate_http_server_config(
@@ -1426,6 +1405,22 @@ class _App:
 
         if target_concurrency is not None:
             validate_target_concurrency(target_concurrency, "target_concurrency", allow_fractional=True)
+
+        if max_concurrency is not None:
+            if experimental_options is not None and "max_concurrency" in experimental_options:
+                raise InvalidError(
+                    "`max_concurrency` cannot be set both as an app.server parameter and an experimental option."
+                )
+            if isinstance(max_concurrency, bool) or not isinstance(max_concurrency, (int, float)):
+                raise InvalidError(
+                    f"The `max_concurrency` argument must be a number, not {type(max_concurrency).__name__}."
+                )
+            if not isinstance(max_concurrency, int):
+                raise InvalidError("The `max_concurrency` argument must be an integer.")
+            if max_concurrency < 0:
+                raise InvalidError("The `max_concurrency` argument must be non-negative.")
+            if max_concurrency and target_concurrency is not None and target_concurrency > max_concurrency:
+                raise InvalidError("The `target_concurrency` argument cannot be greater than `max_concurrency`.")
 
         if scaleup_window is not None and scaleup_window <= 0:
             raise InvalidError("`scaleup_window` must be > 0")
@@ -1444,7 +1439,7 @@ class _App:
         if env:
             secrets_list.append(_Secret.from_dict(env))
 
-        def wrapper(wrapped_user_cls: type[Any] | _PartialFunction | Callable) -> _Server:
+        def wrapper(wrapped_user_cls: type[Any] | _PartialFunction[..., Any, Any] | Callable[..., Any]) -> _Server:
             _Server._validate_wrapped_user_cls_decorators(wrapped_user_cls, enable_memory_snapshot)
 
             # Validate the server class
@@ -1454,10 +1449,12 @@ class _App:
             cluster_size = None
             rdma = None
             fabric_size = None
+            is_sessioned = False
             user_cls = wrapped_user_cls
 
             if isinstance(wrapped_user_cls, _PartialFunction):
                 user_cls = wrapped_user_cls.user_cls
+                is_sessioned = bool(wrapped_user_cls.flags & _PartialFunctionFlags.SESSIONED)
                 if wrapped_user_cls.flags & _PartialFunctionFlags.CLUSTERED:
                     cluster_size = wrapped_user_cls.params.cluster_size
                     rdma = wrapped_user_cls.params.rdma
@@ -1488,8 +1485,8 @@ class _App:
                 scaledown_window=scaledown_window,
                 proxy=proxy,
                 retries=None,  # No support for Server level retries
-                max_concurrent_inputs=None,  # No support for Server level concurrent inputs
-                target_concurrent_inputs=target_concurrency,  # No support for Server level concurrent inputs
+                max_concurrent_inputs=max_concurrency,
+                target_concurrent_inputs=target_concurrency,
                 batch_max_size=None,  # No support for Server level batching
                 batch_wait_ms=None,  # No support for Server level batching
                 startup_timeout=startup_timeout,
@@ -1500,6 +1497,7 @@ class _App:
                 single_use_containers=False,  # No support for single-use server containers
                 http_config=http_config,
                 is_server=True,
+                is_sessioned=is_sessioned,
                 i6pn_enabled=i6pn or (cluster_size is not None),
                 cluster_size=cluster_size,
                 rdma=rdma,
@@ -1510,7 +1508,12 @@ class _App:
             )
 
             self._add_function(service_function, is_web_endpoint=False)
-            server: _Server = _Server._from_local(wrapped_user_cls, self, service_function)
+            server: _Server = _Server._from_local(
+                wrapped_user_cls,
+                self,
+                service_function,
+                is_sessioned=is_sessioned,
+            )
             return server
 
         return wrapper
@@ -1599,7 +1602,7 @@ class _App:
         req = api_pb2.AppSetTagsRequest(app_id=self._app_id, tags=tags)
 
         client = client or self._client or await _Client.from_env()
-        await client.stub.AppSetTags(req)
+        await client._stub.AppSetTags(req)
 
     async def get_tags(self, *, client: _Client | None = None) -> dict[str, str]:
         """Get the tags that are currently attached to the App.
@@ -1614,7 +1617,7 @@ class _App:
             raise InvalidError("`App.get_tags` cannot be called before the App is running.")
         req = api_pb2.AppGetTagsRequest(app_id=self._app_id)
         client = client or self._client or await _Client.from_env()
-        resp = await client.stub.AppGetTags(req)
+        resp = await client._stub.AppGetTags(req)
         return dict(resp.tags)
 
     @classmethod
@@ -1654,6 +1657,38 @@ class _App:
             raise InvalidError("`app.logs` requires a running/stopped app.")
 
         return _AppLogsManager(self)
+
+    async def info(self, refresh: bool = False) -> AppInfo:
+        """Return information for a modal `App`.
+
+        The information returned includes the App's ID, member functions and servers,
+        as well as basic lifecycle information, e.g. who created the app and when.
+
+        Args:
+            refresh: Whether to fetch the latest info. By default, false, so
+                the info corresponds the App state at the time of the previous lookup.
+
+        See also:
+            - [`AppInfo`](https://modal.com/docs/sdk/py/latest/types#appinfo)
+
+        Returns:
+            `AppInfo` object.
+        """
+        if hasattr(self, "_info") and self._info and not refresh:
+            return AppInfo(
+                app_id=self._info.app_id,
+                description=self._info.description,
+                functions=self._info.functions,
+                servers=self._info.servers,
+                lifecycle=self._info.lifecycle,
+            )
+        if not self._app_id:
+            raise InvalidError("`app.info` requires a running or stopped app.")
+        request = api_pb2.AppGetInfoRequest(app_id=self._app_id)
+        client = self._client or await _Client.from_env()
+        resp = await client._stub.AppGetInfo(request)
+        self._info = AppInfo._from_proto(resp.info, self._app_id)
+        return self._info
 
 
 App = synchronize_api(_App)

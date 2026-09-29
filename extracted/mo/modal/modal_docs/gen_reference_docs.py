@@ -76,7 +76,6 @@ def run(output_dir: str | None = None):
         "config",
         "container_process",
         "exception",
-        "file_io",
         "io_streams",
         "types",
     ]
@@ -88,7 +87,12 @@ def run(output_dir: str | None = None):
         module = importlib.import_module(f"modal.{name}")
         document = module_str(name, module, title_level=base_title_level, filter_items=default_filter)
         if document:
-            document = f"<script>\n    import Parameter from '$lib/ui/docs/Parameter.svelte';\n</script>\n\n{document}"
+            document = (
+                "<script>\n"
+                "    import Parameter from '$lib/surfaces/docs/Parameter.svelte';\n"
+                "    import Collapsible from '$lib/surfaces/docs/Collapsible.svelte';\n"
+                f"</script>\n\n{document}"
+            )
             ordered_doc_items.append(
                 validate_doc_item(
                     DocItem(
@@ -113,7 +117,12 @@ def run(output_dir: str | None = None):
         else:
             warnings.warn(f"Not sure how to document: {qual_name} ({item})")
             continue
-        content = f"<script>\n    import Parameter from '$lib/ui/docs/Parameter.svelte';\n</script>\n\n{content}"
+        content = (
+            "<script>\n"
+            "    import Parameter from '$lib/surfaces/docs/Parameter.svelte';\n"
+            "    import Collapsible from '$lib/surfaces/docs/Collapsible.svelte';\n"
+            f"</script>\n\n{content}"
+        )
         ordered_doc_items.append(
             validate_doc_item(
                 DocItem(

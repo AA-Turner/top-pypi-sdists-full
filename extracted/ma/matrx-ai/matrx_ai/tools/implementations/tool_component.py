@@ -367,7 +367,7 @@ async def _fetch_components_by_tool_id(
     surface_name: str | None = None,
 ) -> list[dict]:
     ToolUi = get_db_model("ToolUi")
-    filters: dict[str, Any] = {"tool_id": tool_id}
+    filters: dict[str, Any] = {"tool_id": tool_id, "deleted_at__isnull": True}
     if surface_name:
         filters["surface_name"] = surface_name
     rows = await ToolUi.filter(**filters).all()
@@ -379,7 +379,9 @@ async def _fetch_components_by_name_surface(
     surface_name: str,
 ) -> list[dict]:
     ToolUi = get_db_model("ToolUi")
-    rows = await ToolUi.filter(tool_name=tool_name, surface_name=surface_name).all()
+    rows = await ToolUi.filter(
+        tool_name=tool_name, surface_name=surface_name, deleted_at__isnull=True
+    ).all()
     return [_row_dict(r) for r in rows]
 
 
@@ -1226,7 +1228,7 @@ async def toolcomp_list_tools(args: dict[str, Any], ctx: ToolContext) -> ToolRes
             tools = [t for t in tools if tag in (t.get("tags") or [])]
 
         if has_component is not None:
-            comp_rows = await ToolUi.filter().all()
+            comp_rows = await ToolUi.filter(deleted_at__isnull=True).all()
             tool_ids_with_comp = {str(c.tool_id) for c in comp_rows if c.tool_id is not None}
             if has_component:
                 tools = [t for t in tools if t["id"] in tool_ids_with_comp]
@@ -1404,11 +1406,18 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
             tool_name = derived_name
 
         # Uniqueness is (tool_name, surface_name) in the DB — check that exact key
-        # (works for both real-tool rows and tool_id=NULL workflow rows).
+        # (works for both real-tool rows and tool_id=NULL workflow rows). The
+        # key covers rows in Trash too: an archived component is revived with
+        # the new content below instead of colliding (delete means archive).
         existing_rows = (
             await ToolUi.filter(tool_name=tool_name, surface_name=surface_name).limit(1).all()
         )
-        if existing_rows:
+        archived_row = (
+            existing_rows[0]
+            if existing_rows and getattr(existing_rows[0], "deleted_at", None) is not None
+            else None
+        )
+        if existing_rows and archived_row is None:
             return ToolResult(
                 success=False,
                 error=ToolError(
@@ -1459,7 +1468,11 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
         if notes:
             payload["notes"] = notes
 
-        created_row = await ToolUi.create_item(**payload)
+        if archived_row is not None:
+            await ToolUi.update_where({"id": archived_row.id}, **payload, deleted_at=None)
+            created_row = await ToolUi.get_or_none(id=archived_row.id)
+        else:
+            created_row = await ToolUi.create_item(**payload)
         created = _row_dict(created_row, ("id", "created_at"))
 
         return ToolResult(

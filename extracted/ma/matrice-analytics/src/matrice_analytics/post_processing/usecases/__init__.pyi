@@ -86,6 +86,7 @@ from ..utils.post_processing_config_client import GEOMETRY_RETRY_INTERVAL
 from ..utils.post_processing_config_client import GEOMETRY_RETRY_INTERVAL, PostProcessingConfigClient
 from ..utils.post_processing_config_client import PostProcessingConfigClient
 from ..utils.public_ip import resolve_public_ip_once
+from ..utils.speed_box3d_utils import Box3DFallback
 from ..utils.speed_fit_utils import baseline_slope, over_limit_pct, severity_for, uncertainty_pct
 from ..utils.speed_geometry_utils import RoadPlane
 from ..utils.speed_paint_calibration_utils import SelfCalibrator
@@ -5877,7 +5878,7 @@ class VehicleSpeedEstimationUseCase:
 class VehicleSpeedEstimationConfig:
     # Configuration for self-calibrating vehicle speed estimation.
 
-    def __init__(self: Any, usecase: str = 'vehicle_speed_estimation', category: str = 'traffic', confidence_threshold: float = 0.5, target_categories: Optional[List[str]] = None, camera_height_m: float = 8.0, speed_limit: float = 50.0, units: str = 'kmh', tolerance: float = 0.1, window_samples: int = 40, min_samples: int = 12, min_baseline_seconds: float = 0.4, max_plausible_speed: float = 200.0, edge_margin_px: float = 6.0, jitter_px: float = 2.0, calibration_min_frames: int = 150, calibration_min_tracks: int = 25, calibration_retry_frames: int = 300, calibration_max_attempts: int = 5, max_vp2_diagonals: float = 20.0, max_f_sensitivity_pct: float = 2.0, **kwargs: Any) -> None: ...
+    def __init__(self: Any, usecase: str = 'vehicle_speed_estimation', category: str = 'traffic', confidence_threshold: float = 0.5, target_categories: Optional[List[str]] = None, camera_height_m: float = 8.0, speed_limit: float = 50.0, units: str = 'kmh', tolerance: float = 0.1, window_samples: int = 40, min_samples: int = 12, min_baseline_seconds: float = 0.4, max_plausible_speed: float = 200.0, edge_margin_px: float = 6.0, jitter_px: float = 2.0, calibration_min_frames: int = 150, calibration_min_tracks: int = 25, calibration_retry_frames: int = 300, calibration_max_attempts: int = 5, max_vp2_diagonals: float = 20.0, max_f_sensitivity_pct: float = 2.0, box3d_fallback_enabled: bool = True, box3d_fallback_after_seconds: float = 60.0, box3d_ground_indices: Optional[List[int]] = None, box3d_calibration_categories: Optional[List[str]] = None, box3d_car_length_m: float = 4.5, box3d_car_width_m: float = 1.8, box3d_min_footprints: int = 300, box3d_min_tracks: int = 20, box3d_min_corner_conf: float = 0.5, box3d_min_footprint_px: float = 12.0, **kwargs: Any) -> None: ...
 
     def to_dict(self: Any) -> Dict[str, Any]:
         """

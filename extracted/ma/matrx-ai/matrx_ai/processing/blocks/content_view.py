@@ -37,6 +37,7 @@ from matrx_ai.processing.blocks.stream_processor import process_complete_to_bloc
 __all__ = ["content_from_text", "MARKDOWN_KIND"]
 
 MARKDOWN_KIND = "markdown"
+_PLAIN_PROSE_FAST_PATH_BYTES = 1_000_000
 
 
 def _markdown_instance(text: str) -> dict[str, Any]:
@@ -110,6 +111,21 @@ def content_from_text(text: str) -> list[dict[str, Any]]:
     """Parse a COMPLETE final text into the ordered kind-instance list."""
     if not text or not text.strip():
         return []
+
+    # Multi-megabyte prose has no block boundary to discover. Keep structural
+    # markers on the full parser path; this narrow shortcut returns the same
+    # single markdown instance without scanning every line through it.
+    if (
+        len(text) >= _PLAIN_PROSE_FAST_PATH_BYTES
+        and "```" not in text
+        and "~~~" not in text
+        and "<" not in text
+        # JSON can be a kind sentinel after ordinary prose, not only at the
+        # root.  The detector owns every JSON-shaped response; this shortcut
+        # is strictly for prose with no structural opening marker at all.
+        and "{" not in text
+    ):
+        return [_markdown_instance(text.rstrip())]
 
     instances: list[dict[str, Any]] = []
     prose: list[str] = []

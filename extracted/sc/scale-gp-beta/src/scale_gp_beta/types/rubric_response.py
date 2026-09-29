@@ -22,7 +22,7 @@ class RubricResponse(BaseModel):
     created_by: Identity
     """The identity that created the entity."""
 
-    tags: List[str]
+    tags: Optional[List[str]] = None
     """The tags associated with the entity"""
 
     title: str

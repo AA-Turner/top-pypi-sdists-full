@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pybamm
-Version: 26.8.0.0
+Version: 26.9.0.0
 Summary: Python Battery Mathematical Modelling
 Project-URL: Homepage, https://pybamm.org
 Project-URL: Documentation, https://docs.pybamm.org
@@ -58,7 +58,7 @@ Requires-Dist: pandas>=1.5.0
 Requires-Dist: platformdirs
 Requires-Dist: pooch>=1.8.1
 Requires-Dist: posthog
-Requires-Dist: pybammsolvers<0.10.0,>=0.9.0
+Requires-Dist: pybammsolvers<0.11.0,>=0.10.0
 Requires-Dist: pyyaml
 Requires-Dist: scipy!=1.18.0,>=1.11.4
 Requires-Dist: sympy>=1.12
@@ -69,9 +69,11 @@ Requires-Dist: bpx<1.2.0,>=1.1.1; extra == 'all'
 Requires-Dist: jupyter; extra == 'all'
 Requires-Dist: matplotlib>=3.6.0; extra == 'all'
 Requires-Dist: meshio>=5.3.0; extra == 'all'
+Requires-Dist: pillow; extra == 'all'
 Requires-Dist: pybtex>=0.25.0; extra == 'all'
 Requires-Dist: scikit-fem>=12.0.2; extra == 'all'
 Requires-Dist: tqdm; extra == 'all'
+Requires-Dist: vtk>=9.3.1; extra == 'all'
 Provides-Extra: bpx
 Requires-Dist: bpx<1.2.0,>=1.1.1; extra == 'bpx'
 Provides-Extra: cite
@@ -86,6 +88,9 @@ Provides-Extra: pydiffsol
 Requires-Dist: pydiffsol>=0.6.2; extra == 'pydiffsol'
 Provides-Extra: tqdm
 Requires-Dist: tqdm; extra == 'tqdm'
+Provides-Extra: vtk
+Requires-Dist: pillow; extra == 'vtk'
+Requires-Dist: vtk>=9.3.1; extra == 'vtk'
 Description-Content-Type: text/markdown
 
 ![PyBaMM_logo](https://user-images.githubusercontent.com/20817509/107091287-8ad46a80-67cf-11eb-86f5-7ebef7c72a1e.png)

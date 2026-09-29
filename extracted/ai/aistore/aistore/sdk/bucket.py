@@ -196,7 +196,7 @@ class Bucket(AISSource):
             aistore.sdk.errors.AISError: All other types of errors with AIStore
             aistore.sdk.errors.InvalidBckProvider: Invalid bucket provider for requested operation
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.exceptions.HTTPError: Service unavailable
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ReadTimeout: Timed out receiving response from AIStore
@@ -223,7 +223,7 @@ class Bucket(AISSource):
             aistore.sdk.errors.AISError: All other types of errors with AIStore
             aistore.sdk.errors.InvalidBckProvider: Invalid bucket provider for requested operation
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.exceptions.HTTPError: Service unavailable
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ReadTimeout: Timed out receiving response from AIStore
@@ -251,7 +251,7 @@ class Bucket(AISSource):
             aistore.sdk.errors.AISError: All other types of errors with AIStore
             aistore.sdk.errors.InvalidBckProvider: Invalid bucket provider for requested operation
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.exceptions.HTTPError: Service unavailable
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ReadTimeout: Timed out receiving response from AIStore
@@ -278,7 +278,7 @@ class Bucket(AISSource):
             aistore.sdk.errors.AISError: All other types of errors with AIStore
             aistore.sdk.errors.InvalidBckProvider: Invalid bucket provider for requested operation
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.exceptions.HTTPError: Service unavailable
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ReadTimeout: Timed out receiving response from AIStore
@@ -298,7 +298,7 @@ class Bucket(AISSource):
         Raises:
             aistore.sdk.errors.AISError: All other types of errors with AIStore
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.exceptions.HTTPError: Service unavailable
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ReadTimeout: Timed out receiving response from AIStore
@@ -330,7 +330,7 @@ class Bucket(AISSource):
         Raises:
             UnexpectedHTTPStatusCode: If the response status code is not as expected
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.exceptions.HTTPError: Service unavailable
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ReadTimeout: Timed out receiving response from AIStore
@@ -415,7 +415,7 @@ class Bucket(AISSource):
         Raises:
             UnexpectedHTTPStatusCode: If the response status code is not as expected
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.exceptions.HTTPError: Service unavailable
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ReadTimeout: Timed out receiving response from AIStore
@@ -522,7 +522,7 @@ class Bucket(AISSource):
         Raises:
             aistore.sdk.errors.AISError: All other types of errors with AIStore
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.exceptions.HTTPError: Service unavailable
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ReadTimeout: Timed out receiving response from AIStore
@@ -596,7 +596,7 @@ class Bucket(AISSource):
             aistore.sdk.errors.AISError: All other types of errors with AIStore
             NotImplementedError: If `start_after` is set on a remote (non-AIS) bucket
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.exceptions.HTTPError: Service unavailable
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ReadTimeout: Timed out receiving response from AIStore
@@ -673,7 +673,7 @@ class Bucket(AISSource):
             aistore.sdk.errors.AISError: All other types of errors with AIStore
             NotImplementedError: If `start_after` is set on a remote (non-AIS) bucket
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.exceptions.HTTPError: Service unavailable
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ReadTimeout: Timed out receiving response from AIStore
@@ -735,7 +735,7 @@ class Bucket(AISSource):
             aistore.sdk.errors.AISError: All other types of errors with AIStore
             NotImplementedError: If `start_after` is set on a remote (non-AIS) bucket
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.exceptions.HTTPError: Service unavailable
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ReadTimeout: Timed out receiving response from AIStore
@@ -743,7 +743,7 @@ class Bucket(AISSource):
         self._verify_start_after(start_after)
         uuid = ""
         continuation_token = ""
-        obj_list = None
+        obj_list = []
 
         while True:
             resp = self.list_objects(
@@ -758,9 +758,7 @@ class Bucket(AISSource):
                 # `start_after` seeds the first page only; later pages resume via the token.
                 start_after=start_after if continuation_token == "" else "",
             )
-            if obj_list:
-                obj_list = obj_list + resp.entries
-            obj_list = obj_list or resp.entries
+            obj_list.extend(resp.entries)
             if resp.continuation_token == "":
                 break
             continuation_token = resp.continuation_token
@@ -1018,7 +1016,7 @@ class Bucket(AISSource):
         Raises:
             requests.RequestException: "There was an ambiguous exception that occurred while handling..."
             requests.ConnectionError: Connection error
-            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ConnectTimeout: Timed out connecting to AIStore
             requests.ReadTimeout: Timed out waiting response from AIStore
             ValueError: The path provided is not a valid directory
         """
@@ -1030,27 +1028,29 @@ class Bucket(AISSource):
         dry_run_prefix = "Dry-run enabled. Proposed action:" if dry_run else ""
 
         logger = logging.getLogger(f"{__name__}.put_files")
-        logger.disabled = not verbose
+        log_uploads = verbose and logger.isEnabledFor(logging.INFO)
         for file in file_iterator:
             if not file.is_file() or not str(file.name).startswith(prefix_filter):
                 continue
             obj_name = self._get_uploaded_obj_name(file, path, basename, prepend)
             if not dry_run:
                 self.object(obj_name).get_writer().put_file(str(file))
-            logger.info(
-                "%s File '%s' uploaded as object '%s' with size %s",
-                dry_run_prefix,
-                file,
-                obj_name,
-                get_file_size(file),
-            )
+            if log_uploads:
+                logger.info(
+                    "%s File '%s' uploaded as object '%s' with size %s",
+                    dry_run_prefix,
+                    file,
+                    obj_name,
+                    get_file_size(file),
+                )
             obj_names.append(obj_name)
-        logger.info(
-            "%s Specified files from %s uploaded to bucket %s",
-            dry_run_prefix,
-            path,
-            f"{self.provider}://{self.name}",
-        )
+        if log_uploads:
+            logger.info(
+                "%s Specified files from %s uploaded to bucket %s",
+                dry_run_prefix,
+                path,
+                f"{self.provider}://{self.name}",
+            )
         return obj_names
 
     @staticmethod
@@ -1071,7 +1071,7 @@ class Bucket(AISSource):
 
         Args:
             obj_name (str): Name of object
-            props (ObjectProps, optional): Properties of the object, as updated by head(), optionally pre-initialized.
+            props (ObjectProps, optional): Properties of the object, optionally pre-initialized.
 
         Returns:
             The object created.

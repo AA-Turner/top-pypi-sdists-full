@@ -48,18 +48,26 @@ def _two_profile_config():
     }
 
 
+def _backups(config_path):
+    """Set-aside copies live in <dir>/archive/ (PF-467), not beside the config."""
+    return sorted((config_path.parent / "archive").glob(config_path.name + ".*"))
+
+
 class TestAnUnreadableConfigIsNotOverwritten:
-    def test_save_refuses_when_the_file_could_not_be_parsed(self, config_path):
+    """The unreadable file is never destroyed -- it is set aside intact, and
+    the CLI carries on (PF-466). It used to be kept by refusing every save,
+    which left login, upgrade and init all failing until someone hand-edited
+    the JSON."""
+
+    def test_the_unreadable_file_is_set_aside_byte_for_byte(self, config_path):
         original = "{ this is not json"
         _write(config_path, original)
 
-        cfg = CLIConfig(config_path=str(config_path))
+        CLIConfig(config_path=str(config_path))
 
-        with pytest.raises(RuntimeError, match="Refusing to overwrite"):
-            cfg.save()
-
-        # The unreadable file is still byte-for-byte intact -- the whole point.
-        assert config_path.read_text() == original
+        [backup] = _backups(config_path)
+        assert backup.read_text() == original
+        assert not config_path.exists()
 
     def test_a_real_profile_survives_a_set_on_a_corrupt_file(self, config_path):
         # The exact shape of the incident: a file holding several profiles that
@@ -69,17 +77,70 @@ class TestAnUnreadableConfigIsNotOverwritten:
 
         cfg = CLIConfig(config_path=str(config_path))
         cfg.set_team_secret("a-secret")
+        cfg.save()  # no longer refused: the original is safe in the backup
 
-        with pytest.raises(RuntimeError):
+        [backup] = _backups(config_path)
+        assert backup.read_text() == corrupt
+        assert json.loads(config_path.read_text())["profiles"]
+
+    def test_a_second_bad_file_does_not_overwrite_the_first_backup(self, config_path):
+        _write(config_path, "{ first")
+        CLIConfig(config_path=str(config_path))
+        _write(config_path, "{ second")
+        CLIConfig(config_path=str(config_path))
+
+        assert sorted(b.read_text() for b in _backups(config_path)) == [
+            "{ first",
+            "{ second",
+        ]
+
+    def test_if_it_cannot_be_moved_saving_is_still_refused(
+        self, config_path, monkeypatch
+    ):
+        """The old guarantee stays as the fallback."""
+        from pathlib import Path
+
+        original = "{ not json"
+        _write(config_path, original)
+
+        def no_move(self, target):
+            raise PermissionError("read-only")
+
+        monkeypatch.setattr(Path, "rename", no_move)
+        cfg = CLIConfig(config_path=str(config_path))
+        with pytest.raises(RuntimeError, match="Refusing to overwrite"):
             cfg.save()
-        assert config_path.read_text() == corrupt
+        assert config_path.read_text() == original
 
     def test_reading_still_degrades_gracefully(self, config_path):
-        """The fallback itself is kept -- only the write is blocked."""
         _write(config_path, "{ not json")
         cfg = CLIConfig(config_path=str(config_path))
-        # Usable defaults, no exception on construction.
         assert cfg.get_current_profile() == "default"
+
+
+class TestSavesAreAtomic:
+    def test_a_save_never_leaves_a_half_written_file(self, config_path, monkeypatch):
+        """Another innoday process (the MCP server, a second terminal) reading
+        mid-save used to see a truncated file -- the same 'Expecting ,' error."""
+        import json as _json
+
+        _write(config_path, _json.dumps(_two_profile_config()))
+        cfg = CLIConfig(config_path=str(config_path))
+        cfg.set_team_secret("x")
+
+        real_dump = _json.dump
+
+        def dump_then_fail(obj, f, **kw):
+            f.write('{"half": ')
+            raise OSError("disk full")
+
+        monkeypatch.setattr("src.cli.config.json.dump", dump_then_fail)
+        with pytest.raises(Exception):
+            cfg.save()
+        monkeypatch.setattr("src.cli.config.json.dump", real_dump)
+
+        # The file on disk is still the complete old one.
+        assert _json.loads(config_path.read_text())["current_profile"] == "dev"
 
 
 class TestNormalWritesAreUnaffected:
@@ -107,3 +168,71 @@ class TestNormalWritesAreUnaffected:
             written["profiles"]["default"]["platform"]["api_url"]
             == "http://localhost:9999"
         )
+
+
+class TestTheFreshFileIsPrivate:
+    def test_a_config_rebuilt_after_set_aside_is_owner_only(self, config_path):
+        """It can hold the team secret; the rebuilt file was world-readable."""
+        _write(config_path, "{ not json")
+        config_path.chmod(0o600)
+        cfg = CLIConfig(config_path=str(config_path))
+        cfg.set_team_secret("s")
+        cfg.save()
+        assert config_path.stat().st_mode & 0o777 == 0o600
+
+    def test_a_file_that_becomes_valid_is_not_set_aside(self, config_path, monkeypatch):
+        """An older CLI writing in place can be caught mid-write: re-read once."""
+        import src.cli.config as mod
+
+        _write(config_path, "{ half")
+
+        def finish_writing(_path, _seen):
+            _write(config_path, json.dumps(_two_profile_config()))
+            return False
+
+        monkeypatch.setattr(mod, "_still_unparseable", finish_writing)
+        cfg = CLIConfig(config_path=str(config_path))
+        assert cfg.get_current_profile() == "dev"
+        assert not _backups(config_path)
+
+
+class TestTheArchiveIsTidy:
+    def test_nothing_is_left_beside_the_config(self, config_path):
+        _write(config_path, "{ not json")
+        CLIConfig(config_path=str(config_path))
+        assert sorted(p.name for p in config_path.parent.iterdir()) == ["archive"]
+
+    def test_the_archived_copy_is_owner_only(self, config_path):
+        _write(config_path, "{ not json")
+        config_path.chmod(0o644)
+        CLIConfig(config_path=str(config_path))
+        [backup] = _backups(config_path)
+        assert backup.stat().st_mode & 0o777 == 0o600
+
+    def test_copies_older_than_30_days_are_pruned(self, config_path):
+        archive = config_path.parent / "archive"
+        archive.mkdir()
+        old = archive / "config.json.20200101-000000"
+        recent_name = "config.json." + __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc
+        ).strftime("%Y%m%d-%H%M%S")
+        old.write_text("old")
+        (archive / recent_name).write_text("recent")
+        _write(config_path, json.dumps(_two_profile_config()))
+
+        CLIConfig(config_path=str(config_path))
+
+        assert not old.exists()
+        assert (archive / recent_name).exists()
+
+    def test_copies_left_beside_it_by_0_1_372_are_swept_in(self, config_path):
+        """PF-466 wrote config.json.broken-<time> next to the config."""
+        stray = config_path.parent / "config.json.broken-20260928-090605"
+        stray.write_text("{ old broken")
+        _write(config_path, json.dumps(_two_profile_config()))
+
+        CLIConfig(config_path=str(config_path))
+
+        assert not stray.exists()
+        [moved] = _backups(config_path)
+        assert moved.read_text() == "{ old broken"

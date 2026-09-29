@@ -139,7 +139,7 @@ class AsyncForksConnection:
         self._extra_headers = extra_headers
         self._intentionally_closed = False
         self._is_reconnecting = False
-        self._send_queue = send_queue or SendQueue()
+        self._send_queue = send_queue if send_queue is not None else SendQueue()
         self._event_handler_registry = EventHandlerRegistry(use_lock=False)
 
         self.session = AsyncForksSessionResource(self)
@@ -215,11 +215,7 @@ class AsyncForksConnection:
         if self._is_reconnecting:
             self._send_queue.enqueue(data)
             return
-        try:
-            await self._connection.send(data)
-        except Exception:
-            self._send_queue.enqueue(data)
-            raise
+        await self._connection.send(data)
 
     async def send_raw(self, data: bytes | str) -> None:
         if self._is_reconnecting:
@@ -324,7 +320,7 @@ class AsyncForksConnection:
             await self._connection.send(data)
 
         try:
-            await self._send_queue.flush_async(_send)
+            await self._send_queue.flush_async(_send, requeue_failed=False)
         except Exception:
             log.warning("Failed to flush send queue after reconnect")
 
@@ -594,9 +590,9 @@ class AsyncForksConnectionManager:
             ws_scheme = "ws" if scheme == "http" else "wss"
             base_url = self.__client._base_url.copy_with(scheme=ws_scheme)
 
-        merge_raw_path = base_url.raw_path.rstrip(b"/") + path_template(
-            "/live/sessions/{session_id}/fork", session_id=self.__session_id
-        ).encode("utf-8")
+        path, separator, query = base_url.raw_path.partition(b"?")
+        endpoint = path_template("/live/sessions/{session_id}/fork", session_id=self.__session_id).encode("utf-8")
+        merge_raw_path = path.rstrip(b"/") + endpoint + separator + query
         return base_url.copy_with(raw_path=merge_raw_path)
 
     async def __aexit__(
@@ -638,7 +634,7 @@ class ForksConnection:
         self._extra_headers = extra_headers
         self._intentionally_closed = False
         self._is_reconnecting = False
-        self._send_queue = send_queue or SendQueue()
+        self._send_queue = send_queue if send_queue is not None else SendQueue()
         self._event_handler_registry = EventHandlerRegistry(use_lock=True)
 
         self.session = ForksSessionResource(self)
@@ -714,11 +710,7 @@ class ForksConnection:
         if self._is_reconnecting:
             self._send_queue.enqueue(data)
             return
-        try:
-            self._connection.send(data)
-        except Exception:
-            self._send_queue.enqueue(data)
-            raise
+        self._connection.send(data)
 
     def send_raw(self, data: bytes | str) -> None:
         if self._is_reconnecting:
@@ -817,7 +809,7 @@ class ForksConnection:
     def _flush_send_queue(self) -> None:
         """Send all queued messages over the current connection."""
         try:
-            self._send_queue.flush_sync(lambda data: self._connection.send(data))
+            self._send_queue.flush_sync(lambda data: self._connection.send(data), requeue_failed=False)
         except Exception:
             log.warning("Failed to flush send queue after reconnect")
 
@@ -1081,9 +1073,9 @@ class ForksConnectionManager:
             ws_scheme = "ws" if scheme == "http" else "wss"
             base_url = self.__client._base_url.copy_with(scheme=ws_scheme)
 
-        merge_raw_path = base_url.raw_path.rstrip(b"/") + path_template(
-            "/live/sessions/{session_id}/fork", session_id=self.__session_id
-        ).encode("utf-8")
+        path, separator, query = base_url.raw_path.partition(b"?")
+        endpoint = path_template("/live/sessions/{session_id}/fork", session_id=self.__session_id).encode("utf-8")
+        merge_raw_path = path.rstrip(b"/") + endpoint + separator + query
         return base_url.copy_with(raw_path=merge_raw_path)
 
     def __exit__(

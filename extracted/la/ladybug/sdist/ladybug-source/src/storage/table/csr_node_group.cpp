@@ -1,7 +1,12 @@
 #include "storage/table/csr_node_group.h"
 
 #include "common/constants.h"
+#include "common/serializer/buffer_reader.h"
+#include "common/serializer/buffer_writer.h"
+#include "common/serializer/deserializer.h"
+#include "common/serializer/serializer.h"
 #include "storage/buffer_manager/memory_manager.h"
+#include "storage/shadow_file.h"
 #include "storage/storage_utils.h"
 #include "storage/table/column_chunk_data.h"
 #include "storage/table/csr_chunked_node_group.h"
@@ -55,6 +60,96 @@ bool CSRNodeGroupScanState::tryScanCachedTuples(RelTableScanState& tableScanStat
         tableScanState.currBoundNodeIdx++;
         nextCachedRowToScan = 0;
     }
+    return true;
+}
+
+bool CSRNodeGroupScanState::tryScanCachedTuplesPacked(RelTableScanState& tableScanState) {
+    if (numCachedRows == 0 ||
+        tableScanState.currBoundNodeIdx >= tableScanState.cachedBoundNodeSelVector.getSelSize()) {
+        return false;
+    }
+    auto& outSelVector = tableScanState.outState->getSelVectorUnsafe();
+    outSelVector.setToFiltered();
+    auto& boundSelVector = tableScanState.nodeIDVector->state->getSelVectorUnsafe();
+    boundSelVector.setToFiltered();
+    auto& packedChildOffsets = tableScanState.packedChildOffsets;
+    packedChildOffsets.clear();
+    packedChildOffsets.push_back(0);
+    sel_t numSelected = 0;
+    sel_t numServedParents = 0;
+    while (tableScanState.currBoundNodeIdx < tableScanState.cachedBoundNodeSelVector.getSelSize()) {
+        const auto boundNodePos =
+            tableScanState.cachedBoundNodeSelVector[tableScanState.currBoundNodeIdx];
+        const auto boundNodeOffset = tableScanState.nodeIDVector->readNodeOffset(boundNodePos);
+        const auto boundNodeOffsetInGroup = boundNodeOffset % StorageConfig::NODE_GROUP_SIZE;
+        const auto startCSROffset = header->getStartCSROffset(boundNodeOffsetInGroup);
+        const auto csrLength = header->getCSRLength(boundNodeOffsetInGroup);
+        if (startCSROffset > nextCachedRowToScan) {
+            // Jump forward to this parent's list. Parents are visited in CSR order, so this
+            // only skips over rows of parents already fully consumed.
+            nextCachedRowToScan = startCSROffset;
+        }
+        if (nextCachedRowToScan >= nextRowToScan ||
+            nextCachedRowToScan < nextRowToScan - numCachedRows) {
+            // This parent's list is outside the cached window. Return the batch accumulated so
+            // far; the outer scan loop refreshes the cache and resumes with this parent.
+            break;
+        }
+        const auto numRowsToScan =
+            std::min(nextRowToScan, startCSROffset + csrLength) - nextCachedRowToScan;
+        const auto numToScan =
+            std::min<sel_t>(numRowsToScan, DEFAULT_VECTOR_CAPACITY - numSelected);
+        const auto startCachedRow = nextCachedRowToScan - (nextRowToScan - numCachedRows);
+        sel_t numSelectedForParent = 0;
+        if (cachedScannedVectorsSelBitset.has_value()) {
+            const auto& cachedScannedVectorsSelBitset = *this->cachedScannedVectorsSelBitset;
+            for (auto i = 0u; i < numToScan; i++) {
+                const auto rowIdx = startCachedRow + i;
+                outSelVector[numSelected] = rowIdx;
+                numSelected += cachedScannedVectorsSelBitset[rowIdx];
+                numSelectedForParent += cachedScannedVectorsSelBitset[rowIdx];
+            }
+        } else {
+            for (auto i = 0u; i < numToScan; i++) {
+                outSelVector[numSelected++] = startCachedRow + i;
+            }
+            numSelectedForParent = numToScan;
+        }
+        nextCachedRowToScan += numToScan;
+        if (numSelectedForParent > 0) {
+            boundSelVector[numServedParents++] = boundNodePos;
+            packedChildOffsets.push_back(numSelected);
+        }
+        if (numToScan < numRowsToScan) {
+            // Output capacity reached mid-list (numToScan == 0 with rows remaining also lands
+            // here): return the batch and let the next one continue with this parent.
+            break;
+        }
+        if ((startCSROffset + csrLength) <= nextCachedRowToScan) {
+            // Parent's list fully consumed (also covers zero-length lists); move on to the next
+            // parent within this batch.
+            tableScanState.currBoundNodeIdx++;
+            nextCachedRowToScan = 0;
+            continue;
+        }
+        // The parent's list continues beyond the cached window; return the batch and resume
+        // this parent after the cache is refreshed.
+        break;
+    }
+    if (numServedParents == 0) {
+        packedChildOffsets.clear();
+        return false;
+    }
+    if (numServedParents == 1) {
+        // Preserve the one-parent-per-batch contract when only a single parent was served.
+        tableScanState.setNodeIDVectorToFlat(boundSelVector[0]);
+    } else {
+        tableScanState.nodeIDVector->state->setToUnflat();
+        boundSelVector.setSelSize(numServedParents);
+    }
+    outSelVector.setSelSize(numSelected);
+    DASSERT(packedChildOffsets.size() == size_t(numServedParents) + 1);
+    DASSERT(packedChildOffsets.back() == numSelected);
     return true;
 }
 
@@ -181,7 +276,9 @@ NodeGroupScanResult CSRNodeGroup::scanCommittedPersistent(const Transaction* tra
 NodeGroupScanResult CSRNodeGroup::scanCommittedPersistentWithCache(const Transaction* transaction,
     RelTableScanState& tableState, CSRNodeGroupScanState& nodeGroupScanState) const {
     while (true) {
-        while (nodeGroupScanState.tryScanCachedTuples(tableState)) {
+        while (tableState.packedMultiParentScan ?
+                   nodeGroupScanState.tryScanCachedTuplesPacked(tableState) :
+                   nodeGroupScanState.tryScanCachedTuples(tableState)) {
             if (tableState.outState->getSelVector().getSelSize() > 0) {
                 // Note: This is a dummy return value.
                 return NodeGroupScanResult{nodeGroupScanState.nextRowToScan,
@@ -489,12 +586,61 @@ void CSRNodeGroup::serialize(Serializer& serializer) {
 
 void CSRNodeGroup::checkpoint(MemoryManager&, NodeGroupCheckpointState& state) {
     const auto lock = chunkedGroups.lock();
-    if (!persistentChunkGroup) {
-        checkpointInMemOnly(lock, state);
-    } else {
-        checkpointInMemAndOnDisk(lock, state);
+    // A checkpoint that throws mid-group, after the rel data columns were checkpointed but
+    // before the CSR header, would otherwise leave the live persistent chunks describing the
+    // new data layout under the old header. Reads then return rels attached to the wrong
+    // source nodes, and the next checkpoint persists the corruption (see #1051). Snapshot
+    // the persistent group (chunk metadata only; the group version info is transplanted on
+    // restore) and the shadow file so the group's work can be undone if any step below
+    // throws. Page allocations are rewound separately by PageManager::rollbackCheckpoint,
+    // and the in-memory CSR index and chunked groups are only consumed on success (see
+    // finalizeCheckpoint), so they need no restore.
+    std::shared_ptr<common::BufferWriter> persistentSnapshot;
+    if (persistentChunkGroup != nullptr) {
+        persistentSnapshot = std::make_shared<common::BufferWriter>();
+        common::Serializer serializer{persistentSnapshot};
+        persistentChunkGroup->cast<ChunkedCSRNodeGroup>().serializeForCheckpointRollback(
+            serializer);
     }
-    checkpointDataTypesNoLock(state);
+    auto* shadowFile = state.columns.empty() ? nullptr : state.columns[0]->getShadowFile();
+    const auto shadowSavepoint =
+        shadowFile == nullptr ? ShadowFile::ShadowSavepoint{0} : shadowFile->createSavepoint();
+    try {
+        if (!persistentChunkGroup) {
+            checkpointInMemOnly(lock, state);
+        } else {
+            checkpointInMemAndOnDisk(lock, state);
+        }
+        checkpointDataTypesNoLock(state);
+    } catch (...) {
+        // Restore the pre-checkpoint persistent chunks, then drop this group's shadow pages,
+        // so both reads and a retried checkpoint see the old data under the old header.
+        if (persistentSnapshot != nullptr) {
+            common::Deserializer deserializer{std::make_unique<common::BufferReader>(
+                persistentSnapshot->getBlobData(), persistentSnapshot->getSize())};
+            auto restoredGroup =
+                ChunkedCSRNodeGroup::deserializeForCheckpointRollback(*state.mm, deserializer);
+            // Serialization covers chunk metadata but neither the group version info (whose
+            // serialization only supports clean post-checkpoint state) nor the per-chunk
+            // pending updates. Checkpoint only reads both (they are reset on success), so
+            // the live chunks still hold the pre-checkpoint state: move them into the
+            // restored chunks so a retry re-applies them. The column set only changes on
+            // success, so the chunk counts must match here.
+            restoredGroup->setVersionInfo(persistentChunkGroup->moveVersionInfo());
+            DASSERT(restoredGroup->getNumColumns() == persistentChunkGroup->getNumColumns());
+            if (restoredGroup->getNumColumns() == persistentChunkGroup->getNumColumns()) {
+                for (auto i = 0u; i < restoredGroup->getNumColumns(); i++) {
+                    restoredGroup->getColumnChunk(i).adoptUpdateInfo(
+                        persistentChunkGroup->getColumnChunk(i));
+                }
+            }
+            persistentChunkGroup = std::move(restoredGroup);
+        }
+        if (shadowFile != nullptr) {
+            shadowFile->rollbackToSavepoint(shadowSavepoint);
+        }
+        throw;
+    }
 }
 
 void CSRNodeGroup::reclaimStorage(PageAllocator& pageAllocator, const UniqLock& lock) const {

@@ -47,6 +47,8 @@ class TestSpans:
             group_id="group_id",
             input={"foo": "bar"},
             metadata={"foo": "bar"},
+            obs_span_id="obs_span_id",
+            obs_trace_id="obs_trace_id",
             output={"foo": "bar"},
             parent_id="parent_id",
             status="SUCCESS",
@@ -232,6 +234,7 @@ class TestSpans:
     @parametrize
     def test_method_search_with_all_params(self, client: SGPClient) -> None:
         span = client.spans.search(
+            allow_short_pages=True,
             ending_before="ending_before",
             from_ts=parse_datetime("2019-12-27T18:11:19.117Z"),
             limit=1,
@@ -257,6 +260,8 @@ class TestSpans:
             max_duration_ms=0,
             min_duration_ms=0,
             names=["string"],
+            obs_span_ids=["string"],
+            obs_trace_ids=["string"],
             parent_ids=["string"],
             parents_only=True,
             search_texts=["string"],
@@ -270,6 +275,7 @@ class TestSpans:
             statuses=["SUCCESS"],
             trace_ids=["string"],
             types=["TEXT_INPUT"],
+            x_project_id="x-project-id",
         )
         assert_matches_type(SyncCursorPage[Span], span, path=["response"])
 
@@ -371,6 +377,8 @@ class TestAsyncSpans:
             group_id="group_id",
             input={"foo": "bar"},
             metadata={"foo": "bar"},
+            obs_span_id="obs_span_id",
+            obs_trace_id="obs_trace_id",
             output={"foo": "bar"},
             parent_id="parent_id",
             status="SUCCESS",
@@ -556,6 +564,7 @@ class TestAsyncSpans:
     @parametrize
     async def test_method_search_with_all_params(self, async_client: AsyncSGPClient) -> None:
         span = await async_client.spans.search(
+            allow_short_pages=True,
             ending_before="ending_before",
             from_ts=parse_datetime("2019-12-27T18:11:19.117Z"),
             limit=1,
@@ -581,6 +590,8 @@ class TestAsyncSpans:
             max_duration_ms=0,
             min_duration_ms=0,
             names=["string"],
+            obs_span_ids=["string"],
+            obs_trace_ids=["string"],
             parent_ids=["string"],
             parents_only=True,
             search_texts=["string"],
@@ -594,6 +605,7 @@ class TestAsyncSpans:
             statuses=["SUCCESS"],
             trace_ids=["string"],
             types=["TEXT_INPUT"],
+            x_project_id="x-project-id",
         )
         assert_matches_type(AsyncCursorPage[Span], span, path=["response"])
 

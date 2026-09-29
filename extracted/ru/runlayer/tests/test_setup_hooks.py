@@ -5563,6 +5563,50 @@ def test_setup_hooks_install_claude_code_mdm():
             assert not (claude_dir / "managed-settings.json").exists()
 
 
+def test_operator_mdm_claude_linked_dir_relocates_backup_and_reowns_it(
+    tmp_path, monkeypatch
+):
+    """``~/.claude -> ~/dotfiles/claude``: the operator backup moves to
+    ``~/.runlayer/config-backups/.claude/`` and root hands every component it
+    created there back to the console user (ENG-6814)."""
+    console_home = tmp_path / "console_user"
+    target_dir = console_home / "dotfiles" / "claude"
+    target_dir.mkdir(parents=True)
+    (target_dir / "settings.json").write_text('{"permissions": {"allow": ["Bash"]}}\n')
+    (console_home / ".claude").symlink_to(target_dir, target_is_directory=True)
+    chowned: list[int] = []
+    real_fchown = os.fchown
+
+    def spy(fd: int, uid: int, gid: int) -> None:
+        chowned.append(os.fstat(fd).st_ino)
+        real_fchown(fd, uid, gid)
+
+    monkeypatch.setattr(
+        "runlayer_cli.hook_install.console_user.find_console_user_home",
+        lambda: console_home,
+    )
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(os, "fchown", spy)
+
+    result = runner.invoke(
+        app,
+        ["setup", "hooks", "--client", "claude_code", "--install", "--mdm", "--yes"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (console_home / ".claude").is_symlink()
+    assert list(target_dir.glob("settings.backup_*.json")) == []
+    relocated = console_home / ".runlayer" / "config-backups" / ".claude"
+    [backup] = list(relocated.glob("settings.backup_*.json"))
+    assert set(chowned) >= {
+        (console_home / ".runlayer").stat().st_ino,
+        (console_home / ".runlayer" / "config-backups").stat().st_ino,
+        relocated.stat().st_ino,
+        backup.stat().st_ino,
+    }
+    assert console_home.stat().st_ino not in chowned
+
+
 def test_setup_hooks_install_claude_code_mdm_skips_config_check():
     """Test that --mdm skips config.yaml check for Claude Code (runs as root)."""
     with tempfile.TemporaryDirectory() as temp_dir:

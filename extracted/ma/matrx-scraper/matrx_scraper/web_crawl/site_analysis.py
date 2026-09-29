@@ -670,7 +670,23 @@ def _is_indexable(facts: object) -> bool:
     status = getattr(facts, "http_status", None)
     if status is None or not (200 <= int(status) < 300):
         return False
-    return getattr(facts, "noindex", None) is not True
+    if getattr(facts, "noindex", None) is True:
+        return False
+    # A page that declares ANOTHER URL as its canonical is asking for that URL
+    # to be indexed instead ("Canonicalised" — non-indexable, as Screaming Frog
+    # reports it). Since the fetched URL is the page's identity (ruling
+    # 2026-09-28), a canonicalized page is its own row and must be read here.
+    canonical = getattr(facts, "canonical_url", None)
+    url = getattr(facts, "url", None)
+    if isinstance(canonical, str) and canonical.strip() and isinstance(url, str):
+        from matrx_scraper.utils.url import normalize_url
+
+        try:
+            if normalize_url(canonical.strip()) != normalize_url(url):
+                return False
+        except Exception:  # noqa: BLE001 — an unparseable canonical is canonical_presence's finding
+            return True
+    return True
 
 
 async def load_site_evidence(
@@ -753,15 +769,49 @@ async def _load_sitemap_evidence(evidence: SiteEvidence, facts_by_page: dict) ->
         if len(rows) < _SITEMAP_MEMBERSHIP_BATCH:
             break
 
-    evidence.sitemap_entries_total = len(member_page_ids)
-    evidence.entries_missing_lastmod = len(member_page_ids - pages_with_lastmod)
     if not member_page_ids:
+        evidence.sitemap_entries_total = 0
+        evidence.entries_missing_lastmod = 0
         return
 
     # The page rows behind those memberships. Only these are loaded — a sitemap
     # URL that is an alias must credit the page it resolves to, and only the
     # page row knows that.
+    member_pages: list[object] = []
     ordered = sorted(member_page_ids)
+    for start in range(0, len(ordered), _PAGE_LOOKUP_BATCH):
+        chunk = ordered[start : start + _PAGE_LOOKUP_BATCH]
+        member_pages.extend(await WebPage.filter(id__in=chunk, deleted_at__isnull=True).all())
+    fold_sitemap_members(
+        evidence,
+        member_page_ids=member_page_ids,
+        pages_with_lastmod=pages_with_lastmod,
+        member_pages=member_pages,
+        facts_by_page=facts_by_page,
+    )
+
+
+def fold_sitemap_members(
+    evidence: SiteEvidence,
+    *,
+    member_page_ids: set[str],
+    pages_with_lastmod: set[str],
+    member_pages: list[object],
+    facts_by_page: dict,
+) -> None:
+    """Classify every advertised sitemap URL into the evidence. Pure.
+
+    ``member_page_ids`` are the pages with a live ``web.page_sitemap``
+    membership, ``pages_with_lastmod`` the subset whose membership carries a
+    ``lastmod``, and ``member_pages`` their ``web.page`` rows. The DB loader
+    above and the audit fixture harness both call this, so the junk rules a
+    test exercises are the ones production runs.
+    """
+
+    evidence.sitemap_entries_total = len(member_page_ids)
+    evidence.entries_missing_lastmod = len(member_page_ids - pages_with_lastmod)
+    if not member_page_ids:
+        return
     junk: dict[str, list[str]] = {
         "not_found_or_error": [],
         "redirecting": [],
@@ -769,51 +819,44 @@ async def _load_sitemap_evidence(evidence: SiteEvidence, facts_by_page: dict) ->
         "non_canonical": [],
         "robots_blocked": [],
     }
-    for start in range(0, len(ordered), _PAGE_LOOKUP_BATCH):
-        chunk = ordered[start : start + _PAGE_LOOKUP_BATCH]
-        pages = await WebPage.filter(id__in=chunk, deleted_at__isnull=True).all()
-        for page in pages:
-            page_id = str(page.id)
-            url = str(page.url)
-            canonical_id = str(page.canonical_page_id or page.id)
-            evidence.sitemap_page_ids.add(canonical_id)
-            facts = facts_by_page.get(canonical_id) or facts_by_page.get(page_id)
-            status = page.http_status_last
-            if status is None and facts is not None:
-                status = facts.http_status
-            verification = (page.metadata or {}).get(VERIFICATION_METADATA_KEY) or {}
-            # "Undiscovered" means we have NO answer about this URL — not "we
-            # have no snapshot". The verification sweep answers status without
-            # capturing a body, and keying this on `latest_snapshot_id` alone
-            # sent every verified URL back into "we haven't looked", discarding
-            # the exact evidence this check exists to score.
-            if (
-                status is None
-                and page.latest_snapshot_id is None
-                and canonical_id not in facts_by_page
-            ):
-                evidence.undiscovered_count += 1
-                evidence.undiscovered_urls.append(url)
-                continue
-            if status is not None and int(status) >= 400:
-                junk["not_found_or_error"].append(url)
-            elif status is not None and 300 <= int(status) < 400:
-                junk["redirecting"].append(url)
-            elif verification.get("redirect_material") is True:
-                # The sweep follows redirects and records the FINAL status (the
-                # crawler's meaning for this column), so a redirecting sitemap
-                # entry reads as 200 here; the hop lives in the evidence.
-                # `redirect_material`, NOT `redirected` — our stored identity
-                # strips the trailing slash, so on a slash-serving site every
-                # URL "redirects" to itself and reporting that would tell the
-                # customer their entire sitemap is broken when nothing is.
-                junk["redirecting"].append(url)
-            elif canonical_id != page_id:
-                junk["non_canonical"].append(url)
-            elif facts is not None and getattr(facts, "noindex", None) is True:
-                junk["noindexed"].append(url)
-            elif evidence.robots is not None and not evidence.robots.is_allowed(url):
-                junk["robots_blocked"].append(url)
+    for page in member_pages:
+        page_id = str(page.id)
+        url = str(page.url)
+        canonical_id = str(page.canonical_page_id or page.id)
+        evidence.sitemap_page_ids.add(canonical_id)
+        facts = facts_by_page.get(canonical_id) or facts_by_page.get(page_id)
+        status = page.http_status_last
+        if status is None and facts is not None:
+            status = facts.http_status
+        verification = (page.metadata or {}).get(VERIFICATION_METADATA_KEY) or {}
+        # "Undiscovered" means we have NO answer about this URL — not "we
+        # have no snapshot". The verification sweep answers status without
+        # capturing a body, and keying this on `latest_snapshot_id` alone
+        # sent every verified URL back into "we haven't looked", discarding
+        # the exact evidence this check exists to score.
+        if status is None and page.latest_snapshot_id is None and canonical_id not in facts_by_page:
+            evidence.undiscovered_count += 1
+            evidence.undiscovered_urls.append(url)
+            continue
+        if status is not None and int(status) >= 400:
+            junk["not_found_or_error"].append(url)
+        elif status is not None and 300 <= int(status) < 400:
+            junk["redirecting"].append(url)
+        elif verification.get("redirect_material") is True:
+            # The sweep follows redirects and records the FINAL status (the
+            # crawler's meaning for this column), so a redirecting sitemap
+            # entry reads as 200 here; the hop lives in the evidence.
+            # `redirect_material`, NOT `redirected` — our stored identity
+            # strips the trailing slash, so on a slash-serving site every
+            # URL "redirects" to itself and reporting that would tell the
+            # customer their entire sitemap is broken when nothing is.
+            junk["redirecting"].append(url)
+        elif canonical_id != page_id:
+            junk["non_canonical"].append(url)
+        elif facts is not None and getattr(facts, "noindex", None) is True:
+            junk["noindexed"].append(url)
+        elif evidence.robots is not None and not evidence.robots.is_allowed(url):
+            junk["robots_blocked"].append(url)
 
     evidence.junk_by_class = {label: urls for label, urls in junk.items() if urls}
     evidence.junk_entry_count = sum(len(urls) for urls in evidence.junk_by_class.values())

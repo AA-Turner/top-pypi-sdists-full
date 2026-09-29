@@ -33,8 +33,6 @@ Usage Example:
 """
 
 import logging
-from typing import Optional
-
 
 from a2a import types as a2a_types
 from a2ui.a2a.parts import create_a2ui_part, parse_content_to_parts
@@ -68,17 +66,15 @@ class A2uiPartConverter:
         self,
         a2ui_catalog: A2uiCatalog,
         bypass_tool_check: bool = False,
-        fallback_text: Optional[str] = None,
+        fallback_text: str | None = None,
         version: str = constants.VERSION_0_8,
-        parser: Optional[Parser] = None,
+        parser: Parser | None = None,
     ):
         self._catalog = a2ui_catalog
         self._bypass_tool_check = bypass_tool_check
         self._fallback_text = fallback_text
         self._version = version
-        self._parser = parser or DirectJsonParser(
-            a2ui_catalog, validator=a2ui_catalog.validator
-        )
+        self._parser = parser or DirectJsonParser(a2ui_catalog)
 
     def convert(self, part: genai_types.Part) -> list[a2a_types.Part]:
         """Converts a GenAI part to A2A parts, with A2UI validation.

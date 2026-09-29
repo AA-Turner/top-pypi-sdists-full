@@ -22,20 +22,18 @@ import unittest
 import tempfile
 from unittest.mock import patch, MagicMock
 
-# Add express proposals directory to sys.path to import run_* scripts
-EXPRESS_DIR = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "..",
-        "..",
-        "..",
-        "specification",
-        "proposals",
-        "express",
-        "scripts",
-    )
+from a2ui.schema.utils import (
+    find_repo_root,
+    get_basic_catalog_path,
+    get_basic_examples_dir,
+    get_spec_dir,
+)
+
+REPO_ROOT = find_repo_root() or os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../../..")
+)
+EXPRESS_DIR = os.path.join(
+    REPO_ROOT, "specification", "proposals", "express", "scripts"
 )
 sys.path.insert(0, EXPRESS_DIR)
 
@@ -46,20 +44,10 @@ import run_prompt_generator
 import run_inference
 
 # Reference paths to real basic catalog and schemas
-SPEC_DIR = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "..",
-        "..",
-        "..",
-        "specification",
-        "v1_0",
-    )
-)
-CATALOG_PATH = os.path.join(SPEC_DIR, "catalogs", "basic", "catalog.json")
-EXAMPLES_DIR = os.path.join(SPEC_DIR, "catalogs", "basic", "examples")
+SPEC_DIR = get_spec_dir("v1_0")
+CATALOGS_DIR = os.path.join(REPO_ROOT, "catalogs", "basic")
+CATALOG_PATH = os.path.join(CATALOGS_DIR, "v1", "catalog.json")
+EXAMPLES_DIR = os.path.join(CATALOGS_DIR, "v1", "examples")
 
 
 class TestCliTools(unittest.TestCase):

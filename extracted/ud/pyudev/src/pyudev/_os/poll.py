@@ -15,18 +15,16 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    pyudev._os.poll
-    ===============
+pyudev._os.poll
+===============
 
-    Operating system interface for pyudev.
+Operating system interface for pyudev.
 
-    .. moduleauthor:: Sebastian Wiesner  <lunaryorn@gmail.com>
+.. moduleauthor:: Sebastian Wiesner  <lunaryorn@gmail.com>
 """
 
-# isort: STDLIB
 import select
 
-# isort: LOCAL
 from pyudev._util import eintr_retry_call
 
 
@@ -55,7 +53,7 @@ class Poll:
 
         """
         notifier = eintr_retry_call(select.poll)
-        for fd, event in events:  # pylint: disable=invalid-name
+        for fd, event in events:
             mask = cls._EVENT_TO_MASK.get(event)
             if not mask:
                 raise ValueError(f"Unknown event type: {repr(event)}")
@@ -99,11 +97,11 @@ class Poll:
         Yield all parsed events.
 
         """
-        for fd, event_mask in events:  # pylint: disable=invalid-name
+        for fd, event_mask in events:
             if self._has_event(event_mask, select.POLLNVAL):
-                raise IOError(f"File descriptor not open: {repr(fd)}")
+                raise OSError(f"File descriptor not open: {repr(fd)}")
             if self._has_event(event_mask, select.POLLERR):
-                raise IOError(f"Error while polling fd: {repr(fd)}")
+                raise OSError(f"Error while polling fd: {repr(fd)}")
 
             if self._has_event(event_mask, select.POLLIN):
                 yield fd, "r"

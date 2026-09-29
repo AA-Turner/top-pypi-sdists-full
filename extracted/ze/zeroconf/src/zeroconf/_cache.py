@@ -77,7 +77,7 @@ class DNSCache:
         return new
 
     def async_all_by_details(self, name: _str, type_: _int, class_: _int) -> list[DNSRecord]:
-        """Gets all matching entries by details.
+        """Return every cached record carrying this name, type and class.
 
         This function is not thread-safe and must be called from
         the event loop.
@@ -206,7 +206,7 @@ class DNSCache:
         return [entry for entry in list(records.values()) if type_ == entry.type and class_ == entry.class_]
 
     def get_by_details(self, name: str, type_: _int, class_: _int) -> DNSRecord | None:
-        """Gets the first matching entry by details. Returns None if no entries match.
+        """Return the first cached record carrying this name, type and class, or None.
 
         Calling this function is not recommended as it will only
         return one record even if there are multiple entries.

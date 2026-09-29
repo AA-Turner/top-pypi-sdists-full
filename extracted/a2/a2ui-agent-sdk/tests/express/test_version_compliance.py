@@ -23,22 +23,12 @@ class TestVersionCompliance(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        spec_dir = os.path.abspath(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "..",
-                "..",
-                "..",
-                "..",
-                "specification",
-                "v0_9",
-            )
-        )
-        catalog_path = os.path.join(spec_dir, "catalogs", "basic", "catalog.json")
+        from a2ui.schema.utils import get_basic_catalog_path
+
+        catalog_path = get_basic_catalog_path("v0_9")
         with open(catalog_path, "r", encoding="utf-8") as f:
             catalog_dict = json.load(f)
-        cls.catalog = Catalog.from_json(catalog_dict, spec_version="0.9.1")
+        cls.catalog = Catalog.from_json(catalog_dict, protocol_version="0.9.1")
 
     def test_compile_v1_0_unified(self):
         compiler = ExpressCompiler(self.catalog, version="v1.0")

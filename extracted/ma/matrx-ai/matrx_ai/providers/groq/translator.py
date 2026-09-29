@@ -180,6 +180,41 @@ class GroqTranslator(BaseTranslator):
                 color="yellow",
                 verbose=True,
             )
+            # ``tools_shed`` is the class built for exactly this outcome, and
+            # Anthropic's ladder writes it plus a user-facing warning. Groq did the
+            # same shed on EVERY such request and told only a console — which is
+            # why that class showed zero rows while it was happening all along.
+            from matrx_ai.providers.structured_output_findings import (
+                TOOLS_SHED,
+                record_structured_output_finding_sync,
+                response_format_identity,
+            )
+
+            record_structured_output_finding_sync(
+                TOOLS_SHED,
+                provider="groq",
+                model=str(getattr(config, "matrx_model_name", None) or config.model),
+                detail={
+                    **response_format_identity(config.response_format),
+                    "action": (
+                        f"Groq forbids json mode combined with tools, so all {len(all_tools)} "
+                        "tool schemas were dropped and the output contract was kept"
+                    ),
+                    "dropped_tools": [
+                        str(t.get("function", {}).get("name", t.get("type", "?")))
+                        for t in all_tools
+                    ][:30],
+                    "remedy": (
+                        "request JSON mode without tools, or tools without JSON mode — or "
+                        "bind this run to a provider that accepts the combination"
+                    ),
+                },
+                # HELD, not asserted: this runs while the request is still being
+                # BUILT, so whether shedding the tools recovered anything is not a
+                # fact yet. The dispatch seam's flush writes it once the call and
+                # its answer check have resolved (F2 — same rule as the gates).
+                was_recovered=None,
+            )
         elif all_tools:
             groq_request["tools"] = all_tools
             tool_choice = resolve_structural_setting(

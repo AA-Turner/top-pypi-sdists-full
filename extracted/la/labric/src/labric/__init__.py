@@ -21,6 +21,7 @@ if typing.TYPE_CHECKING:
         FileInfoSchema,
         FileUploadSchema,
         FileUploadUrlSchema,
+        JobTriggerCategory,
         JobTriggerSchema,
         MlModelTaskType,
         MlProblemType,
@@ -60,11 +61,7 @@ if typing.TYPE_CHECKING:
     from ._default_clients import DefaultAioHttpClient, DefaultAsyncHttpxClient
     from .client import AsyncLabric, Labric
     from .environment import LabricEnvironment
-    from .jobs import (
-        ToolsCreateJobSchemaTriggerCategory,
-        ToolsUpdateJobSchemaTriggerCategory,
-        UpdateJobExecutionStatusSchemaStatus,
-    )
+    from .jobs import UpdateJobExecutionStatusSchemaStatus
     from .tools import (
         LabricReadSchemaMode,
         LabricReadSchemaTargetType,
@@ -94,6 +91,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FileUploadUrlSchema": ".types",
     "ForbiddenError": ".errors",
     "InternalServerError": ".errors",
+    "JobTriggerCategory": ".types",
     "JobTriggerSchema": ".types",
     "Labric": ".client",
     "LabricEnvironment": ".environment",
@@ -121,10 +119,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "StartJobExecutionSchema": ".types",
     "TableSummary": ".types",
     "TooManyRequestsError": ".errors",
-    "ToolsCreateJobSchemaTriggerCategory": ".jobs",
     "ToolsJobSchema": ".types",
     "ToolsMlModelDetailSchema": ".types",
-    "ToolsUpdateJobSchemaTriggerCategory": ".jobs",
     "UnauthorizedError": ".errors",
     "UnprocessableEntityError": ".errors",
     "UpdateJobExecutionStatusSchemaStatus": ".jobs",
@@ -184,6 +180,7 @@ __all__ = [
     "FileUploadUrlSchema",
     "ForbiddenError",
     "InternalServerError",
+    "JobTriggerCategory",
     "JobTriggerSchema",
     "Labric",
     "LabricEnvironment",
@@ -211,10 +208,8 @@ __all__ = [
     "StartJobExecutionSchema",
     "TableSummary",
     "TooManyRequestsError",
-    "ToolsCreateJobSchemaTriggerCategory",
     "ToolsJobSchema",
     "ToolsMlModelDetailSchema",
-    "ToolsUpdateJobSchemaTriggerCategory",
     "UnauthorizedError",
     "UnprocessableEntityError",
     "UpdateJobExecutionStatusSchemaStatus",

@@ -89,6 +89,10 @@ class TaskCommandRouterBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def TaskSetOutboundPolicy(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskSetOutboundPolicyRequest, modal_proto.task_command_router_pb2.TaskSetOutboundPolicyResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def TaskSnapshotDirectory(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskSnapshotDirectoryRequest, modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse]') -> None:
         pass
 
@@ -213,6 +217,12 @@ class TaskCommandRouterBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.task_command_router_pb2.TaskSetNetworkAccessRequest,
                 modal_proto.task_command_router_pb2.TaskSetNetworkAccessResponse,
+            ),
+            '/modal.task_command_router.TaskCommandRouter/TaskSetOutboundPolicy': grpclib.const.Handler(
+                self.TaskSetOutboundPolicy,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskSetOutboundPolicyRequest,
+                modal_proto.task_command_router_pb2.TaskSetOutboundPolicyResponse,
             ),
             '/modal.task_command_router.TaskCommandRouter/TaskSnapshotDirectory': grpclib.const.Handler(
                 self.TaskSnapshotDirectory,
@@ -351,6 +361,12 @@ class TaskCommandRouterStub:
             '/modal.task_command_router.TaskCommandRouter/TaskSetNetworkAccess',
             modal_proto.task_command_router_pb2.TaskSetNetworkAccessRequest,
             modal_proto.task_command_router_pb2.TaskSetNetworkAccessResponse,
+        )
+        self.TaskSetOutboundPolicy = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskSetOutboundPolicy',
+            modal_proto.task_command_router_pb2.TaskSetOutboundPolicyRequest,
+            modal_proto.task_command_router_pb2.TaskSetOutboundPolicyResponse,
         )
         self.TaskSnapshotDirectory = grpclib.client.UnaryUnaryMethod(
             channel,

@@ -119,6 +119,33 @@ PROVIDER_ACCEPTED_AUDIO_SUFFIXES: frozenset[str] = frozenset({
 })
 
 
+_AUDIO_SUFFIX_BY_MIME: dict[str, str] = {
+    "audio/flac": ".flac",
+    "audio/x-flac": ".flac",
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/mp4": ".m4a",
+    "audio/m4a": ".m4a",
+    "audio/x-m4a": ".m4a",
+    "audio/ogg": ".ogg",
+    "audio/opus": ".opus",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/wave": ".wav",
+    "audio/webm": ".webm",
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
+}
+
+
+def _suffix_for_unknown_mime(mime: str) -> str:
+    """No declared type keeps the historical ``.wav``; an unknown one keeps its own name."""
+    if not mime:
+        return ".wav"
+    subtype = mime.split("/", 1)[-1].split("+", 1)[0]
+    return f".{subtype}" if subtype else ".wav"
+
+
 def provider_accepts_audio_container(filename: str) -> bool:
     """Would an STT provider accept a file under this NAME?
 
@@ -166,8 +193,14 @@ async def prepare_audio_file(
             )
             filename = "audio.wav"
         elif audio_source.startswith("data:"):
-            audio_data = base64.b64decode(audio_source.split(",", 1)[1])
-            filename = "audio.wav"
+            header, _, encoded = audio_source.partition(",")
+            audio_data = base64.b64decode(encoded)
+            # The container is the data URI's declared type, never a guess: a
+            # FLAC or an AMR voice memo named "audio.wav" is sent to the
+            # provider under a lie, and an unaccepted container must be refused
+            # here, by name, so the caller transcodes it.
+            mime = header[5:].split(";", 1)[0].strip().lower()
+            filename = f"audio{_AUDIO_SUFFIX_BY_MIME.get(mime, _suffix_for_unknown_mime(mime))}"
         else:
             path = Path(audio_source)
             if not path.exists():

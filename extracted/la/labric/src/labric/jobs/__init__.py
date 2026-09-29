@@ -6,16 +6,8 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .types import (
-        ToolsCreateJobSchemaTriggerCategory,
-        ToolsUpdateJobSchemaTriggerCategory,
-        UpdateJobExecutionStatusSchemaStatus,
-    )
-_dynamic_imports: typing.Dict[str, str] = {
-    "ToolsCreateJobSchemaTriggerCategory": ".types",
-    "ToolsUpdateJobSchemaTriggerCategory": ".types",
-    "UpdateJobExecutionStatusSchemaStatus": ".types",
-}
+    from .types import UpdateJobExecutionStatusSchemaStatus
+_dynamic_imports: typing.Dict[str, str] = {"UpdateJobExecutionStatusSchemaStatus": ".types"}
 
 
 def __getattr__(attr_name: str) -> typing.Any:
@@ -39,8 +31,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = [
-    "ToolsCreateJobSchemaTriggerCategory",
-    "ToolsUpdateJobSchemaTriggerCategory",
-    "UpdateJobExecutionStatusSchemaStatus",
-]
+__all__ = ["UpdateJobExecutionStatusSchemaStatus"]

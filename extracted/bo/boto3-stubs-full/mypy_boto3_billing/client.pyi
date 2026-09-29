@@ -30,6 +30,8 @@ from .paginator import (
     GetCreditAllocationHistoryPaginator,
     ListBillingViewSegmentsPaginator,
     ListBillingViewsPaginator,
+    ListBusinessSupportAccountChargesPaginator,
+    ListBusinessSupportSubscriptionHistoryPaginator,
     ListEnterpriseSupportLinkedAccountChargesPaginator,
     ListSourceViewsForBillingViewPaginator,
 )
@@ -60,6 +62,10 @@ from .type_defs import (
     ListBillingViewSegmentsResponseTypeDef,
     ListBillingViewsRequestTypeDef,
     ListBillingViewsResponseTypeDef,
+    ListBusinessSupportAccountChargesRequestTypeDef,
+    ListBusinessSupportAccountChargesResponseTypeDef,
+    ListBusinessSupportSubscriptionHistoryRequestTypeDef,
+    ListBusinessSupportSubscriptionHistoryResponseTypeDef,
     ListEnterpriseSupportLinkedAccountChargesRequestTypeDef,
     ListEnterpriseSupportLinkedAccountChargesResponseTypeDef,
     ListSourceViewsForBillingViewRequestTypeDef,
@@ -260,6 +266,27 @@ class BillingClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/client/#list_billing_views)
         """
 
+    def list_business_support_account_charges(
+        self, **kwargs: Unpack[ListBusinessSupportAccountChargesRequestTypeDef]
+    ) -> ListBusinessSupportAccountChargesResponseTypeDef:
+        """
+        Returns Business Support charges broken down at the linked account level for a
+        given billing month.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_business_support_account_charges.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/client/#list_business_support_account_charges)
+        """
+
+    def list_business_support_subscription_history(
+        self, **kwargs: Unpack[ListBusinessSupportSubscriptionHistoryRequestTypeDef]
+    ) -> ListBusinessSupportSubscriptionHistoryResponseTypeDef:
+        """
+        Returns the history of Business Support subscription contracts across accounts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_business_support_subscription_history.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/client/#list_business_support_subscription_history)
+        """
+
     def list_enterprise_support_linked_account_charges(
         self, **kwargs: Unpack[ListEnterpriseSupportLinkedAccountChargesRequestTypeDef]
     ) -> ListEnterpriseSupportLinkedAccountChargesResponseTypeDef:
@@ -362,6 +389,28 @@ class BillingClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_billing_views"]
     ) -> ListBillingViewsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_business_support_account_charges"]
+    ) -> ListBusinessSupportAccountChargesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_business_support_subscription_history"]
+    ) -> ListBusinessSupportSubscriptionHistoryPaginator:
         """
         Create a paginator for an operation.
 

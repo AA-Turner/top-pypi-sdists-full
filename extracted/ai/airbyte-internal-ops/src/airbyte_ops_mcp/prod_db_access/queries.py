@@ -17,6 +17,7 @@ import sqlalchemy
 from airbyte.exceptions import PyAirbyteInputError
 from google.cloud import secretmanager
 
+from airbyte_ops_mcp._sentry import operation_span
 from airbyte_ops_mcp.gcp_auth import get_secret_manager_client
 from airbyte_ops_mcp.prod_db_access.db_engine import (
     get_pool,
@@ -129,6 +130,121 @@ def _without_limit_clause(
     return sqlalchemy.text(sql_str)
 
 
+QUERY_SPAN_OP = "db.prod_replica.query"
+
+_RECORDED_PARAMETERS = frozenset(
+    {
+        # Internal identifiers — UUIDs and UUID lists with no customer content.
+        "actor_definition_id",
+        "actor_definition_ids",
+        "actor_definition_version_id",
+        "actor_id",
+        "connection_id",
+        "connection_ids",
+        "connector_definition_id",
+        "organization_id",
+        "organization_ids",
+        "pinned_version_id",
+        "release_candidate_version_id",
+        "release_candidate_version_ids",
+        "rollout_id",
+        "target_version_id",
+        "version_id",
+        "workspace_id",
+        # Time windows.
+        "cutoff_date",
+        "end_at",
+        "rollout_created_at",
+        "start_at",
+        # Query shaping.
+        "connection_ids_is_empty",
+        "limit",
+        "status_filter",
+        # Airbyte artifact names, not customer data.
+        "docker_image_tag",
+        "docker_repository",
+    }
+)
+"""Placeholders whose *values* may be recorded on a span.
+
+An allowlist, not a denylist: anything absent is redacted. Deliberately absent
+are the customer-identifying ones — `name_contains` (an operator's search
+string), `email_domain`, and `stream_name` (sometimes a customer-defined object
+name).
+"""
+
+_REDACTED_VALUE = "<redacted>"
+"""Stands in for a withheld value; the key is kept so redaction stays visible."""
+
+_UNBOUND_VALUE = "<unbound>"
+_MAX_ATTRIBUTE_CHARS = 200
+
+_COLLECTION_TYPES = (list, tuple, set, frozenset)
+"""Bind values recorded by size rather than content.
+
+`str` and `bytes` are deliberately excluded despite being `Sized`: including
+them would render `docker_repository` as a length.
+"""
+
+
+def _sql_placeholder_names(
+    statement: sqlalchemy.sql.elements.TextClause,
+) -> list[str]:
+    """Return the bind placeholder names the statement declares."""
+    return sorted(statement.compile().params.keys())
+
+
+def _format_parameter_value(value: Any) -> str:
+    """Render a bound scalar as a bounded, span-safe string."""
+    rendered = str(value)
+    if len(rendered) > _MAX_ATTRIBUTE_CHARS:
+        return rendered[:_MAX_ATTRIBUTE_CHARS] + "..."
+    return rendered
+
+
+def _query_span_attributes(
+    statement: sqlalchemy.sql.elements.TextClause,
+    parameters: Mapping[str, Any] | None,
+    *,
+    query_name: str,
+) -> dict[str, object]:
+    """Build span attributes for one query execution.
+
+    Keys are `db.query_name`, one `db.param.<name>` per placeholder, and
+    `db.unbound_params.count` when any placeholder went unbound.
+    Only names in `_RECORDED_PARAMETERS` contribute their value, to avoid
+    leaking sensitive data. Other names are mapped to `<redacted>`.
+    A name declared in SQL but absent from parameters is reported as `<unbound>`.
+    A collection lands under `db.param.<name>.count` as an `int`.
+    """
+    parameters = parameters or {}
+    attributes: dict[str, object] = {"db.query_name": query_name}
+    unbound = 0
+
+    for placeholder in _sql_placeholder_names(statement):
+        # unbound: set value to <unbound> and increment count
+        if placeholder not in parameters:
+            attributes[f"db.param.{placeholder}"] = _UNBOUND_VALUE
+            unbound += 1
+            continue
+        value = parameters[placeholder]
+        # collection: use count instead
+        if isinstance(value, _COLLECTION_TYPES):
+            attributes[f"db.param.{placeholder}.count"] = len(value)
+            continue
+        # redacted: set value to <redacted>
+        if placeholder not in _RECORDED_PARAMETERS:
+            attributes[f"db.param.{placeholder}"] = _REDACTED_VALUE
+            continue
+        # base case: record the value as-is
+        attributes[f"db.param.{placeholder}"] = _format_parameter_value(value)
+
+    if unbound:
+        attributes["db.unbound_params.count"] = unbound
+
+    return attributes
+
+
 def _run_sql_query(
     statement: sqlalchemy.sql.elements.TextClause,
     parameters: Mapping[str, Any] | None = None,
@@ -147,18 +263,31 @@ def _run_sql_query(
 
     Returns:
         List of row dicts from the query result
+
+    Raises:
+        SQLAlchemyError: If the query fails for any reason.
     """
     if gsm_client is None:
         gsm_client = get_secret_manager_client()
     pool = get_pool(gsm_client)
-    start = perf_counter()
-    with pool.connect() as conn:
-        result = conn.execute(statement, parameters or {})
-        rows = [dict(row._mapping) for row in result]
-    elapsed = perf_counter() - start
-
     name = query_name or "SQL query"
-    logger.info("Prod DB query %s returned %d rows in %.3f s", name, len(rows), elapsed)
+    span_attributes = _query_span_attributes(
+        statement,
+        parameters,
+        query_name=name,
+    )
+    start = perf_counter()
+    # `SqlalchemyIntegration` nests its own span inside this one with the query
+    # name and its parameters.
+    with operation_span(name, op=QUERY_SPAN_OP, attributes=span_attributes):
+        with pool.connect() as conn:
+            result = conn.execute(statement, parameters or {})
+            rows = [dict(row._mapping) for row in result]
+
+        elapsed = perf_counter() - start
+        logger.info(
+            "Prod DB query %s returned %d rows in %.3f s", name, len(rows), elapsed
+        )
 
     return rows
 

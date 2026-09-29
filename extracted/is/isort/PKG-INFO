@@ -1,12 +1,12 @@
 Metadata-Version: 2.5
 Name: isort
-Version: 9.0.1
+Version: 9.0.2
 Summary: A Python utility / library to sort Python imports.
 Project-URL: Homepage, https://isort.readthedocs.io/
 Project-URL: Documentation, https://isort.readthedocs.io/
 Project-URL: Repository, https://github.com/PyCQA/isort
 Project-URL: Changelog, https://github.com/PyCQA/isort/releases
-Author-email: Timothy Crosley <timothy.crosley@gmail.com>, staticdev <staticdev-support@proton.me>
+Author-email: Daniël van Noord <13665637+DanielNoord@users.noreply.github.com>, Timothy Crosley <timothy.crosley@gmail.com>, staticdev <staticdev-support@proton.me>
 License-Expression: MIT
 License-File: LICENSE
 Keywords: Clean,Imports,Lint,Refactor,Sort

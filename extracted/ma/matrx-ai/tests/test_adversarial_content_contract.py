@@ -88,6 +88,31 @@ def test_held_five_megabyte_input_finishes_quickly_with_one_instance() -> None:
     elapsed = time.monotonic() - start
     assert elapsed < 30, f"pathological runtime: {elapsed:.1f}s"
     assert len(out) == 1 and out[0][WIRE_KEY] == "markdown"
+    assert out[0]["text"] == text.rstrip(), "the plain-prose fast path must not lose source bytes"
+
+
+@pytest.mark.parametrize("padding", [100, 1_000_000], ids=["below_fast_path", "above_fast_path"])
+def test_embedded_bare_kind_keeps_its_detector_semantics_at_the_plain_prose_threshold(padding: int) -> None:
+    """A large response with prose around a JSON kind must retain all three blocks."""
+    prefix = "before the website " * (padding // 20)
+    suffix = "after the website " * (padding // 20)
+    text = f"{prefix}\n{{\"__kind\":\"website\",\"url\":\"https://example.test\"}}\n{suffix}"
+    out = content_from_text(text)
+    assert [item[WIRE_KEY] for item in out] == ["markdown", "website", "markdown"]
+    assert out[0]["text"] == prefix.rstrip()
+    assert out[1] == {WIRE_KEY: "website", "url": "https://example.test"}
+    assert out[2]["text"] == suffix.rstrip()
+
+
+@pytest.mark.parametrize("padding", [100, 1_000_000], ids=["below_fast_path", "above_fast_path"])
+def test_tilde_fence_keeps_its_detector_semantics_at_the_plain_prose_threshold(padding: int) -> None:
+    """The fast path must preserve a tilde-fenced source island byte-for-byte."""
+    prefix = "before code " * (padding // 20)
+    suffix = "after code " * (padding // 20)
+    text = f"{prefix}\n~~~python\nprint('kept')\n~~~\n{suffix}"
+    out = content_from_text(text)
+    assert [item[WIRE_KEY] for item in out] == ["markdown"]
+    assert out[0]["text"] == text.rstrip()
 
 
 def test_held_structured_dict_without_marker_yields_empty_content() -> None:

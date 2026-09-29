@@ -13,6 +13,24 @@ if TYPE_CHECKING:
     from splink.internals.settings import ColumnInfoSettings
 
 
+_VALID_COLUMN_SIGNATURES: Optional[set[str]] = None
+
+
+def _valid_column_signatures() -> set[str]:
+    """Return the constant set of signatures accepted as plain column references."""
+    global _VALID_COLUMN_SIGNATURES
+    if _VALID_COLUMN_SIGNATURES is None:
+        _VALID_COLUMN_SIGNATURES = {
+            sqlglot_tree_signature(sqlglot.parse_one("col_name")),
+            # negative indices are valid in certain contexts (postgres custom indexing,
+            # duckdb), and are treated separately in newer sqlglot versions (28.7.0+)
+            sqlglot_tree_signature(sqlglot.parse_one("col_name[-1]")),
+            sqlglot_tree_signature(sqlglot.parse_one("col_name[1]")),
+            sqlglot_tree_signature(sqlglot.parse_one("col_name['lat']")),
+        }
+    return _VALID_COLUMN_SIGNATURES
+
+
 @dataclass(frozen=True)
 class SqlglotColumnTreeBuilder:
     """
@@ -101,14 +119,7 @@ class SqlglotColumnTreeBuilder:
             else:
                 return f"{q_s}{input_str}{q_e}"
 
-        valid_signatures = {
-            sqlglot_tree_signature(sqlglot.parse_one("col_name")),
-            # negative indices are valid in certain contexts (postgres custom indexing,
-            # duckdb), and are treated separately in newer sqlglot versions (28.7.0+)
-            sqlglot_tree_signature(sqlglot.parse_one("col_name[-1]")),
-            sqlglot_tree_signature(sqlglot.parse_one("col_name[1]")),
-            sqlglot_tree_signature(sqlglot.parse_one("col_name['lat']")),
-        }
+        valid_signatures = _valid_column_signatures()
 
         # If the raw string parses to a valid signature, use it
         try:
@@ -174,7 +185,7 @@ class InputColumn:
         self,
         raw_column_name_or_column_reference: str,
         *,
-        column_info_settings: ColumnInfoSettings = None,
+        column_info_settings: ColumnInfoSettings | None = None,
         sqlglot_dialect_str: str,
     ):
         # TODO: the sql_dialect is the sqlglot name.
@@ -264,11 +275,6 @@ class InputColumn:
     @property
     def l_r_names_as_l_r(self) -> list[str]:
         return [self.l_name_as_l, self.r_name_as_r]
-
-    @property
-    def bf_name(self) -> str:
-        new_column_name = self._bf_prefix + self.col_builder.column_name
-        return replace(self.col_builder, column_name=new_column_name).sql
 
     @property
     def tf_name(self) -> str:
@@ -371,6 +377,6 @@ def _get_sqlglot_dialect_quotes(
         end = sqlglot_dialect_obj.IDENTIFIER_END
     except AttributeError:
         # For sqlglot < 16.0.0
-        start = sqlglot_dialect_obj.identifier_start  # type: ignore [attr-defined]
-        end = sqlglot_dialect_obj.identifier_end  # type: ignore [attr-defined]
+        start = sqlglot_dialect_obj.identifier_start  # type: ignore [attr-defined]  # ty: ignore[unresolved-attribute]
+        end = sqlglot_dialect_obj.identifier_end  # type: ignore [attr-defined]  # ty: ignore[unresolved-attribute]
     return start, end

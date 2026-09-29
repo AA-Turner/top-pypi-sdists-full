@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(Lbug VERSION 0.20.4 LANGUAGES CXX C)
+project(Lbug VERSION 0.21.0 LANGUAGES CXX C)
 
 option(SINGLE_THREADED "Single-threaded mode" FALSE)
 if(SINGLE_THREADED)
@@ -339,7 +339,12 @@ if(${ENABLE_UBSAN})
     if(MSVC)
         message(FATAL_ERROR "Undefined behavior sanitizer is not supported on MSVC")
     else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-omit-frame-pointer")
+        # Alignment checks are disabled: factorized-table tuples and overflow buffers pack
+        # data without padding, so misaligned accesses are pervasive by design and are
+        # handled via memcpy where it matters. Append -fno-sanitize=alignment after
+        # -fsanitize=undefined so it takes effect regardless of CFLAGS/CXXFLAGS ordering.
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment -fno-omit-frame-pointer")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined -fno-sanitize=alignment -fno-omit-frame-pointer")
     endif()
 endif()
 
@@ -455,7 +460,10 @@ function(add_lbug_api_test TEST_NAME)
     endif()
     target_include_directories(${TEST_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/test/include)
     include(GoogleTest)
-    gtest_discover_tests(${TEST_NAME})
+    gtest_discover_tests(${TEST_NAME}
+        DISCOVERY_TIMEOUT 600
+        DISCOVERY_MODE PRE_TEST
+    )
 endfunction()
 
 # Windows doesn't support dynamic lookup, so we have to link extensions against lbug.
@@ -522,7 +530,7 @@ unset(LBUG_LINK_LIBRARIES)
 
 add_definitions(-DLBUG_ROOT_DIRECTORY="${PROJECT_SOURCE_DIR}")
 add_definitions(-DLBUG_CMAKE_VERSION="${CMAKE_PROJECT_VERSION}")
-add_definitions(-DLBUG_EXTENSION_VERSION="0.20.0")
+add_definitions(-DLBUG_EXTENSION_VERSION="0.21.0")
 
 if(BUILD_LBUG OR LBUG_API_USE_PRECOMPILED_LIB)
 include_directories(
@@ -575,4 +583,5 @@ endif ()
 if (${BUILD_EXAMPLES})
     add_subdirectory(examples/c)
     add_subdirectory(examples/cpp)
+    add_subdirectory(examples/cpp-partition-routing)
 endif()

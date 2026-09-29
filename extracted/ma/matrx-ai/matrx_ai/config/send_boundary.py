@@ -38,6 +38,9 @@ What it owns
      cacheable system prefix never wobbles across midnight / reload,
   2. relax a fulfilled persisted structured-output contract for a natural
      follow-up (with an explicit INFO audit),
+  2a. on host-enabled permanent threads, mark earlier turns' live-machine
+     readings (fs_list, shell_execute, browser reads) stale with their own
+     timestamp (``config/perishable_state.py``),
   3. the cache-gated context trim,
   4. record the audit as ``AppContext.metadata["last_trim_report"]`` (which
      persistence lands on iteration 1's ``cx_request.trim_summary``).
@@ -110,6 +113,9 @@ class SendPrep:
     # declared window). ``None`` = not measurable (no declared window) or
     # disabled; an over-window prompt never gets here — it raises.
     preflight: dict[str, Any] | None = None
+    # What the perishable-state step marked stale on this pass (resolve stage,
+    # host-enabled conversations only). ``None`` = the step did not run.
+    perishable_report: dict[str, Any] | None = None
 
 
 async def prepare_for_send(
@@ -159,6 +165,10 @@ async def prepare_for_send(
         _run_step(prep, "pin_system_date", lambda: _pin_system_date(config, conversation_row))
 
     if stage == STAGE_RESOLVE:
+        # AFTER the pin: it reads the anchor the pin just set.
+        _run_step(prep, "announce_live_date", lambda: _announce_live_date(config))
+
+    if stage == STAGE_RESOLVE:
         _run_step(
             prep,
             "response_format_followup",
@@ -169,6 +179,11 @@ async def prepare_for_send(
                 prior_request_status=getattr(conversation_row, "last_request_status", None),
             ),
         )
+
+    if stage == STAGE_RESOLVE:
+        # BEFORE the trim: a result the trim later clears carries no content to
+        # recite, and marking first keeps the trim's own idempotence key intact.
+        await _mark_perishable_state(prep, config, conversation_id=conversation_id)
 
     if stage == STAGE_LOOP:
         await _stage_reference_fences(prep, config)
@@ -525,6 +540,53 @@ def _pin_system_date(config: Any, conversation_row: Any) -> None:
         si.date_anchor = anchor
 
 
+#: The turn-context slot the live date travels in (its own slot, so no other
+#: contributor's block can delete it — see ``MessageList.attach_turn_context``).
+LIVE_DATE_SLOT = "live_date"
+
+
+def _announce_live_date(config: Any, *, now: datetime | None = None) -> None:
+    """Tell the model today's date whenever the pinned system date is not today.
+
+    The system prefix's ``Current date`` is pinned to the conversation's
+    ``created_at`` so the cached prefix stays byte-stable (``_pin_system_date``).
+    That is right for one day and a lie on every day after it: a permanent
+    thread — the Personal Staff thread lives for months — kept telling its model
+    "Current date: 2026-09-22" on 09-28. On 2026-09-28 22:59Z test@test.com's
+    Chief of Staff, whose own profile said "Monday, September 28", answered
+    "Saturday, September 26" (Lane AZ2): the prefix said the 22nd, the thread
+    said the 26th, and the model trusted the history.
+
+    The fix keeps the cache: the prefix is untouched, and TODAY travels in the
+    per-turn context channel (an uncached second system block), naming the
+    pinned line for what it is. The date and time an agent states must always
+    be the live ones.
+    """
+
+    si = getattr(config, "system_instruction", None)
+    if si is None or not getattr(si, "include_date", False):
+        return
+    messages = getattr(config, "messages", None)
+    attach = getattr(messages, "attach_turn_context", None)
+    if attach is None:
+        return
+    moment = (now or datetime.now(UTC)).astimezone(UTC)
+    today = moment.strftime("%Y-%m-%d")
+    pinned = si.effective_date() if hasattr(si, "effective_date") else None
+    if not pinned or pinned == today:
+        attach("", slot=LIVE_DATE_SLOT)
+        return
+    attach(
+        f"Today is {moment:%A}, {moment:%B} {moment.day}, {moment.year} — "
+        f'{moment:%Y-%m-%dT%H:%MZ} in UTC. The "Current date: {pinned}" line in your '
+        f"instructions is the day this conversation BEGAN, not today; never state it, "
+        f"or a date remembered from earlier in this conversation, as the current date. "
+        f"When your instructions give the person's own local time, that is the one to "
+        f"say to them.",
+        slot=LIVE_DATE_SLOT,
+    )
+
+
 async def _resolve_org_trim_policy(prep: SendPrep, organization_id: str | None) -> TrimPolicy:
     """The organization's trim policy (``agents.context_trim`` knobs via the host).
 
@@ -554,6 +616,44 @@ async def _resolve_org_trim_policy(prep: SendPrep, organization_id: str | None) 
         return TrimPolicy(source="package_default:resolver_failed")
     prep.steps.append("trim_policy")
     return policy
+
+
+async def _mark_perishable_state(
+    prep: SendPrep, config: Any, *, conversation_id: str | None
+) -> None:
+    """Mark earlier turns' live-machine readings stale — host-enabled threads only.
+
+    See ``config/perishable_state.py``. The host decides which conversations are
+    permanent (``_ext.get_perishable_state_marker``); unconfigured or False →
+    nothing happens. A failure is announced and skipped, never fatal.
+    """
+    from matrx_ai._ext import get_perishable_state_marker
+    from matrx_ai.config.perishable_state import mark_perishable_state
+
+    decider = get_perishable_state_marker()
+    if decider is None or not conversation_id or not getattr(config, "messages", None):
+        return
+    try:
+        if not await decider(conversation_id=str(conversation_id)):
+            return
+        report = mark_perishable_state(config.messages)
+    except Exception as exc:  # noqa: BLE001 — shaping never costs a send
+        vcprint(
+            f"[send_boundary/{prep.stage}] step 'perishable_state' failed (ignored): "
+            f"{type(exc).__name__}: {exc} — earlier workspace readings replay unmarked "
+            "this turn.",
+            color="yellow",
+        )
+        return
+    prep.perishable_report = report.to_dict()
+    prep.steps.append("perishable_state")
+    if report.blocks_marked:
+        vcprint(
+            f"[send_boundary/{prep.stage}] {conversation_id}: marked "
+            f"{report.blocks_marked} earlier-turn workspace reading(s) stale "
+            f"({', '.join(sorted(set(report.tools)))}).",
+            color="cyan",
+        )
 
 
 def _run_step(prep: SendPrep, name: str, fn: Any) -> None:

@@ -7,54 +7,62 @@ using namespace SimpleBLE::Dongl::Serial;
 
 #include <fmt/core.h>
 
+#include "LoggingInternal.h"
+
 ProtocolBase::ProtocolBase(const std::string& device_path) : _wire(std::make_unique<Wire>(device_path)) {
     // Set up the Wire packet callback to handle incoming packets
     _wire->set_packet_callback([this](const std::vector<uint8_t>& packet) {
-        dongl_D2H d2h;
+        dongl_D2H d2h = dongl_D2H_init_zero;
         pb_istream_t stream = pb_istream_from_buffer(packet.data(), packet.size());
         if (!pb_decode(&stream, dongl_D2H_fields, &d2h)) {
-            // TODO: Handle decoding failure
-            fmt::print("Failed to decode D2H: {}\n", PB_GET_ERROR(&stream));
+            SIMPLEBLE_LOG_ERROR(fmt::format("Failed to decode Dongl packet: {}", PB_GET_ERROR(&stream)));
             return;
         }
 
         if (d2h.which_type == dongl_D2H_rsp_tag) {
-            // First, try to fulfill any pending sync request
-            {
-                std::lock_guard<std::mutex> lock(_pending_mutex);
-                if (!_pending_response.has_value()) {
-                    _pending_response = d2h.type.rsp;
-                    _response_cv.notify_one();
-                }
+            std::lock_guard<std::mutex> lock(_pending_mutex);
+            if (_expected_id != d2h.type.rsp.id || _pending_response.has_value()) {
+                SIMPLEBLE_LOG_WARN("Discarding a Dongl response to an earlier command");
+                return;
             }
+            _pending_response = d2h.type.rsp;
+            _response_cv.notify_one();
 
         } else if (d2h.which_type == dongl_D2H_evt_tag) {
+            std::lock_guard<std::mutex> lock(_event_mutex);
             if (_event_callback) {
-                _event_callback(d2h.type.evt);
+                try {
+                    _event_callback(d2h.type.evt);
+                } catch (const std::exception& e) {
+                    SIMPLEBLE_LOG_ERROR(fmt::format("Dongl event handler failed: {}", e.what()));
+                } catch (...) {
+                    SIMPLEBLE_LOG_ERROR("Dongl event handler failed with an unknown exception");
+                }
             }
         }
     });
 
     _wire->set_error_callback([this](const Wire::Error& error) {
-        fmt::print("Error: {}\n", (int)error);
+        SIMPLEBLE_LOG_WARN(fmt::format("Dongl wire error: {}", static_cast<int>(error)));
     });
 }
 
-ProtocolBase::~ProtocolBase() {}
+ProtocolBase::~ProtocolBase() {
+    // The reader callback captures this object, so stop and join its thread
+    // before the callback state and mutexes are destroyed.
+    _wire.reset();
+}
 
-dongl_Response ProtocolBase::exchange(const dongl_Command& command) {
-    // Check if there's already a pending sync operation
-    {
-        std::lock_guard<std::mutex> lock(_pending_mutex);
-        if (_pending_response.has_value()) {
-            throw std::runtime_error("Another sync command is already pending");
-        }
-    }
+dongl_Response ProtocolBase::exchange(dongl_Command command, std::chrono::milliseconds timeout) {
+    // Serialize exchanges. Responses to earlier, timed-out commands carry a different id and are discarded.
+    std::lock_guard<std::mutex> exchange_lock(_exchange_mutex);
+    command.id = ++_last_id;
 
     // Clear any previous response and send the command
     {
         std::unique_lock<std::mutex> lock(_pending_mutex);
         _pending_response.reset();  // Ensure it's empty to indicate we're waiting
+        _expected_id = command.id;
     }
 
     try {
@@ -75,10 +83,12 @@ dongl_Response ProtocolBase::exchange(const dongl_Command& command) {
         throw;
     }
 
-    // Wait for the response with 1 second timeout
+    // Wait for the response
     {
         std::unique_lock<std::mutex> lock(_pending_mutex);
-        if (_response_cv.wait_for(lock, std::chrono::seconds(1), [this]() { return _pending_response.has_value(); })) {
+        const bool received = _response_cv.wait_for(lock, timeout, [this]() { return _pending_response.has_value(); });
+        _expected_id.reset();
+        if (received) {
             dongl_Response response = *_pending_response;
             _pending_response.reset();
             return response;
@@ -91,5 +101,6 @@ dongl_Response ProtocolBase::exchange(const dongl_Command& command) {
 }
 
 void ProtocolBase::set_event_callback(std::function<void(const dongl_Event&)> callback) {
+    std::lock_guard<std::mutex> lock(_event_mutex);
     _event_callback = std::move(callback);
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nautobot
-Version: 3.2.5
+Version: 3.2.6
 Summary: Source of truth and network automation platform.
 License: Apache-2.0
 Keywords: Nautobot
@@ -53,7 +53,7 @@ Requires-Dist: django-webserver (>=1.2.0,<1.3)
 Requires-Dist: djangorestframework (>=3.17.1,<3.18)
 Requires-Dist: drf-spectacular[sidecar] (>=0.29.0,<0.30)
 Requires-Dist: emoji (>=2.15.0,<2.16)
-Requires-Dist: gitpython (>=3.1.61,<3.2)
+Requires-Dist: gitpython (>=3.1.62,<3.2)
 Requires-Dist: graphene-django (>=3.2.3,<3.3)
 Requires-Dist: graphene-django-optimizer (>=0.10.0,<0.11)
 Requires-Dist: jsonschema (>=4.7.0,<5)
@@ -79,13 +79,13 @@ Requires-Dist: opentelemetry-sdk (>=1.43.0,<1.44)
 Requires-Dist: packaging (>=23.2)
 Requires-Dist: pillow (>=12.3.0,<13)
 Requires-Dist: prometheus-client (>=0.25.0,<0.26)
-Requires-Dist: psycopg2-binary (>=2.9.12,<2.10)
+Requires-Dist: psycopg2-binary (>=2.9.13,<2.10)
 Requires-Dist: python-slugify (>=8.0.4,<8.1)
 Requires-Dist: pyuwsgi (>=2.0.30.post1,<2.1)
-Requires-Dist: regex (>=2026.7.19)
-Requires-Dist: social-auth-app-django (>=5.9.0,<5.10)
-Requires-Dist: social-auth-core[saml] (>=4.9.1,<4.10) ; extra == "all"
-Requires-Dist: social-auth-core[saml] (>=4.9.1,<4.10) ; extra == "sso"
+Requires-Dist: regex (>=2026.9.10)
+Requires-Dist: social-auth-app-django (>=6.0.1,<6.1)
+Requires-Dist: social-auth-core[saml] (>=5.1.1,<5.2) ; extra == "all"
+Requires-Dist: social-auth-core[saml] (>=5.1.1,<5.2) ; extra == "sso"
 Requires-Dist: svgwrite (>=1.4.3,<1.5)
 Requires-Dist: urllib3 (>=2.7.0,<3.0.0)
 Project-URL: Documentation, https://docs.nautobot.com
@@ -113,7 +113,7 @@ Try Nautobot at [demo.nautobot.com](https://demo.nautobot.com), a live instance 
 
 ### Network Source of Truth
 
-Nautobot's data models define the *intended state* of your network: locations and racks, devices and interfaces, IP address space, VLANs, circuits, cables, and more.
+Nautobot's data models define the _intended state_ of your network: locations and racks, devices and interfaces, IP address space, VLANs, circuits, cables, and more.
 
 Beyond the out-of-the-box data models, Nautobot provides flexible ways to extend and validate the source of truth. Custom fields, user-defined relationships, and data validation rules allow teams to represent their own network standards, processes, and requirements directly in Nautobot.
 

@@ -72,6 +72,87 @@ class ToolOutputContractError(ValueError):
 _GOOGLE_MISSING_ITEMS_WARNED: set[str] = set()
 
 
+def _choice_text(values: list[Any]) -> str:
+    return ", ".join(v if isinstance(v, str) else json.dumps(v) for v in values)
+
+
+def _union_action_choices(
+    key: str, chosen: dict[str, Any], per_action: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    """A field several actions share carries every action's allowed values and defaults.
+
+    Flattening ``$variants`` into one provider schema used to keep whichever
+    action came first: seo_keywords ``mode`` reached the model as
+    ``["append", "replace"]`` (tag) and research's ``auto``/``related``/
+    ``suggestions``/``ideas`` were unsendable. When the actions' choices differ
+    (``enum``, or an array's ``items.enum``), the flattened field offers their
+    union — or no list at all when some action leaves the field open — and its
+    description states each action's own subset. The executor still validates
+    the chosen action's real choices.
+    """
+    if len(per_action) < 2:
+        return chosen
+    for path in ("enum", "items"):
+        choices: dict[str, list[Any] | None] = {}
+        for action, spec in per_action.items():
+            node = spec.get("items") if path == "items" else spec
+            enum = node.get("enum") if isinstance(node, dict) else None
+            choices[action] = enum if isinstance(enum, list) else None
+        if all(c is None for c in choices.values()):
+            continue
+        if len({json.dumps(c) for c in choices.values()}) == 1:
+            continue
+        union: list[Any] | None = []
+        for c in choices.values():
+            if c is None:
+                union = None
+                break
+            for v in c:
+                if v not in union:
+                    union.append(v)
+        chosen = dict(chosen)
+        if path == "enum":
+            if union is None:
+                chosen.pop("enum", None)
+            elif "type" in chosen or "anyOf" in chosen:
+                chosen["enum"] = union
+        else:
+            items = chosen.get("items")
+            if isinstance(items, dict):
+                items = dict(items)
+                if union is None:
+                    items.pop("enum", None)
+                else:
+                    items["enum"] = union
+                chosen["items"] = items
+        per_action_text = "; ".join(
+            f"{action}: {_choice_text(c) if c is not None else 'any value'}"
+            for action, c in choices.items()
+        )
+        base = chosen.get("description")
+        base = base.rstrip() if isinstance(base, str) else ""
+        label = "Allowed values by action" if path == "enum" else "Allowed items by action"
+        chosen["description"] = f"{base} {label} — {per_action_text}.".lstrip()
+
+    # Defaults, the same class: the first action's default used to go out for
+    # every action (seo_keywords mode defaulted to tag's "append" for research
+    # too). When the actions disagree — a null default counts as none — the
+    # flattened field has no default and its description states each one.
+    defaults = {action: spec.get("default") for action, spec in per_action.items()}
+    if len({json.dumps(v) for v in defaults.values()}) > 1:
+        chosen = dict(chosen)
+        chosen.pop("default", None)
+        stated = "; ".join(
+            f"{action}: {_choice_text([v]) if v != '' else json.dumps(v)}"
+            for action, v in defaults.items()
+            if v is not None
+        )
+        base = chosen.get("description")
+        base = base.rstrip() if isinstance(base, str) else ""
+        chosen["description"] = f"{base} Default by action — {stated}.".lstrip()
+    return chosen
+
+
 def _normalize_google_schema(
     node: dict[str, Any] | str, *, missing_items: list[str], path: str
 ) -> dict[str, Any]:
@@ -101,7 +182,16 @@ def _normalize_google_schema(
     if node.get("description"):
         s["description"] = node["description"]
     if "enum" in node:
-        s["enum"] = node["enum"]
+        enum = node["enum"]
+        if isinstance(enum, list) and all(isinstance(v, str) for v in enum):
+            s["enum"] = enum
+        elif isinstance(enum, list):
+            # Gemini's schema allows an enum of STRINGS only (an integer enum
+            # such as seo_local's grid_size [3, 5] fails the SDK's validation
+            # and kills the whole request). Keep the real type and tell the
+            # model the allowed values in words; the executor still enforces them.
+            allowed = ", ".join(json.dumps(v) for v in enum)
+            s["description"] = f"{s.get('description', '').rstrip()} Allowed values: {allowed}.".lstrip()
 
     if ptype == "array":
         items = node.get("items")
@@ -121,7 +211,11 @@ def _normalize_google_schema(
             k: _normalize_google_schema(v, missing_items=missing_items, path=f"{path}.{k}")
             for k, v in node["properties"].items()
         }
-        if "required" in node:
+        # Only a JSON-Schema required LIST belongs here. The internal notation's
+        # per-property ``required: bool`` (a flattened $variants argument that is
+        # itself an object carries one) is the parent's concern, and a boolean
+        # ``required`` 400s Gemini.
+        if isinstance(node.get("required"), list):
             s["required"] = node["required"]
 
     return s
@@ -570,14 +664,28 @@ class ToolError(BaseModel):
         )
 
     def to_agent_message(self) -> str:
-        parts = [f"TOOL ERROR [{self.error_type}]: {self.message}"]
+        return "\n".join(
+            [f"TOOL ERROR [{self.error_type}]: {self.message}", *self._instruction_lines()]
+        )
+
+    def _instruction_lines(self) -> list[str]:
+        parts: list[str] = []
         if self.suggested_action:
             parts.append(f"Suggested action: {self.suggested_action}")
         if self.recovery is not None:
             parts.append(self.recovery.to_agent_line())
         if self.traceback:
             parts.append(f"Technical details:\n{self.traceback}")
-        return "\n".join(parts)
+        return parts
+
+    def persisted_message(self) -> str:
+        """What ``cx_tool_call.error_message`` stores: the message PLUS the same
+        instruction lines the live turn rendered (suggested action, recovery,
+        technical details). A rebuilt conversation replays an error row from
+        ``error_type: error_message`` (``_synthesise_error_content``), so storing
+        the bare message made a later turn's model lose the remedy and the
+        resume handle it was shown live (OPENSEO-TOOLS-SPEC §7)."""
+        return "\n".join([self.message, *self._instruction_lines()])
 
 
 class HandoffOutcome(BaseModel):
@@ -1196,6 +1304,14 @@ _FORWARDED_CONSTRAINT_KEYS: tuple[str, ...] = (
 class ToolDefinition(BaseModel):
     name: str = Field(description="Unique tool identifier")
     tool_id: str | None = Field(default=None, description="Database UUID for this tool")
+    display_name: str | None = Field(
+        default=None,
+        description=(
+            "The human name a tool card shows when ``name`` is opaque — a projected agent tool is "
+            "``custom_tool_N``, so its card reads the agent's name (an Orchestra member: '<role title> · "
+            "<agent name>'). None = clients derive a label from ``name``."
+        ),
+    )
     description: str = ""
     parameters: dict[str, Any] = Field(
         default_factory=dict,
@@ -1362,20 +1478,28 @@ class ToolDefinition(BaseModel):
     # JSON Schema helpers (ported from mcp_server/core/definitions.py)
     # ------------------------------------------------------------------
 
-    def _provider_parameters(self) -> dict[str, Any]:
+    def _variant_discriminator(self) -> str | None:
+        """The top-level parameter whose enum names exactly the ``$variants`` actions."""
         variants = self.parameters.get("$variants")
         if not isinstance(variants, dict) or not variants:
-            return self.parameters
-
+            return None
         variant_names = set(variants)
-        discriminator: str | None = None
         for key, raw_spec in self.parameters.items():
             if key.startswith("$") or not isinstance(raw_spec, dict):
                 continue
             enum = raw_spec.get("enum")
             if isinstance(enum, list) and set(enum) == variant_names:
-                discriminator = key
-                break
+                return key
+        return None
+
+    def _provider_parameters(self, *, union_keys: set[str] | None = None) -> dict[str, Any]:
+        """The flattened per-action contract. ``union_keys`` (when given)
+        collects the fields whose allowed values differ across actions."""
+        variants = self.parameters.get("$variants")
+        if not isinstance(variants, dict) or not variants:
+            return self.parameters
+
+        discriminator = self._variant_discriminator()
         if discriminator is None:
             return self.parameters
 
@@ -1406,7 +1530,7 @@ class ToolDefinition(BaseModel):
             return self.parameters
 
         flattened: dict[str, Any] = {
-            discriminator: self.parameters[discriminator],
+            discriminator: self._with_action_guide(discriminator, variants),
         }
         all_fields = {key for variant in variant_maps for key in variant}
         required_in_all = set.intersection(*variant_required)
@@ -1454,9 +1578,63 @@ class ToolDefinition(BaseModel):
                     if isinstance(root_spec, dict)
                     else first_variant_spec
                 )
+            before = chosen
+            chosen = _union_action_choices(
+                key,
+                chosen,
+                {
+                    action: variant[key]
+                    for action, variant in zip(variants, variant_maps, strict=True)
+                    if key in variant and isinstance(variant[key], dict)
+                },
+            )
+            if union_keys is not None and chosen is not before:
+                union_keys.add(key)
             flattened[key] = {**chosen, "required": key in required_in_all}
 
         return flattened
+
+    def _with_action_guide(self, discriminator: str, variants: dict[str, Any]) -> dict[str, Any]:
+        """The discriminator's spec with each action's own description rendered in.
+
+        A ``$variants`` entry in the standalone JSON-Schema shape (one with a
+        ``properties`` map) carries its action's guidance — cost class, what to
+        call first, approval, reuse — in its own ``description``. Flattening the
+        variants into one provider schema has no place for per-action text, so
+        without this the model never reads it (OSP-24). It is rendered as an
+        ``Actions:`` list in the discriminator's description: plain text, which
+        every provider dialect accepts. A line whose text the model already
+        reads — in the tool description or the discriminator's own description
+        — is not repeated, so rows that copied the text there do not grow.
+
+        An older property-map variant has no action description (a
+        ``description`` key there is a parameter named ``description``), which
+        is why only the ``properties`` shape contributes.
+        """
+        spec = self.parameters[discriminator]
+        if not isinstance(spec, dict):
+            return spec
+        base = spec.get("description")
+        base = base if isinstance(base, str) else ""
+        already_read = f"{self.description or ''}\n{base}"
+        enum = spec.get("enum")
+        order = [a for a in enum if a in variants] if isinstance(enum, list) else list(variants)
+        lines: list[str] = []
+        for action in order:
+            variant = variants.get(action)
+            if not isinstance(variant, dict) or not isinstance(variant.get("properties"), dict):
+                continue
+            text = variant.get("description")
+            if not isinstance(text, str) or not text.strip():
+                continue
+            text = text.strip()
+            if text in already_read:
+                continue
+            lines.append(f"- {action}: {text}")
+        if not lines:
+            return spec
+        guide = "Actions:\n" + "\n".join(lines)
+        return {**spec, "description": f"{base.rstrip()}\n{guide}" if base.strip() else guide}
 
     def _build_json_schema(self, *, strip_openai_unsupported: bool = False) -> dict[str, Any]:
         properties: dict[str, Any] = {}
@@ -1671,7 +1849,23 @@ class ToolDefinition(BaseModel):
         properties: dict[str, Any] = {}
         required: list[str] = []
         missing_items: list[str] = []
-        for key, param in self.parameters.items():
+        # Gemini keeps the row's own top-level properties (its union contract),
+        # but takes three things from the flattened per-action contract every
+        # other provider gets: the discriminator carrying each action's own
+        # description, every field whose allowed values differ across actions
+        # (their union), and any argument that exists only inside $variants — a
+        # row may carry just the discriminator at the top (seo_local did), which
+        # left Gemini seeing one argument and no per-action guidance.
+        google_params = dict(self.parameters)
+        union_keys: set[str] = set()
+        for key, param in self._provider_parameters(union_keys=union_keys).items():
+            if (
+                key not in self.parameters
+                or key == self._variant_discriminator()
+                or key in union_keys  # a stale root enum would hide an action's choices
+            ):
+                google_params[key] = param
+        for key, param in google_params.items():
             if key.startswith("$"):
                 continue  # internal meta ($variants, …) — not a tool parameter
             properties[key] = _normalize_google_schema(param, missing_items=missing_items, path=key)
@@ -1720,6 +1914,9 @@ class ToolDefinition(BaseModel):
 
     def format_user_message(self, arguments: dict[str, Any]) -> str:
         if not self.on_call_message_template:
+            if self.display_name:
+                # An opaque as-called name (``custom_tool_N``) must never reach a person.
+                return f"Asking {self.display_name}"
             return f"Executing {' '.join(self.name.split('_')).title()}"
         from matrx_ai.config.template_substitution import substitute_authored
 

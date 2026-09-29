@@ -2,6 +2,7 @@
 
 #include "catalog/catalog.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
+#include "common/constants.h"
 #include "common/enums/join_type.h"
 #include "planner/join_order/cost_model.h"
 #include "planner/operator/extend/logical_extend.h"
@@ -83,12 +84,17 @@ void Planner::appendNonRecursiveExtend(const std::shared_ptr<NodeExpression>& bo
     auto extend = make_shared<LogicalExtend>(boundNode, nbrNode, rel, direction, extendFromSource,
         properties_, plan.getLastOperator());
     extend->computeFactorizedSchema();
-    // Update cost & cardinality. Note that extend does not change factorized cardinality.
+    // Update cost & cardinality. The factorized groups stay nested (hence the multiplier
+    // below), but the flat output estimate must model fan-out or the DP enumerator ties
+    // every extend at its input cardinality and always prefers the smallest seed (e.g. a
+    // 1-row PK anchor over a SIP-prunable filtered start whose forward fan-out is huge).
     auto transaction = Transaction::Get(*clientContext);
     const auto extensionRate =
         cardinalityEstimator.getExtensionRate(*rel, *boundNode, direction, transaction);
-    extend->setCardinality(plan.getLastOperator()->getCardinality());
-    plan.setCost(CostModel::computeExtendCost(plan));
+    const auto outputCardinality =
+        cardinalityEstimator.multiply(extensionRate, plan.getLastOperator()->getCardinality());
+    extend->setCardinality(outputCardinality);
+    plan.setCost(CostModel::computeExtendCost(plan, outputCardinality));
     auto group = extend->getSchema()->getGroup(nbrNode->getInternalID());
     group->setMultiplier(extensionRate);
     plan.setLastOperator(std::move(extend));
@@ -112,8 +118,10 @@ void Planner::appendPackedExtend(const std::shared_ptr<NodeExpression>& boundNod
     auto transaction = Transaction::Get(*clientContext);
     const auto extensionRate =
         cardinalityEstimator.getExtensionRate(*rel, *boundNode, direction, transaction);
-    extend->setCardinality(plan.getLastOperator()->getCardinality());
-    plan.setCost(CostModel::computeExtendCost(plan));
+    const auto outputCardinality =
+        cardinalityEstimator.multiply(extensionRate, plan.getLastOperator()->getCardinality());
+    extend->setCardinality(outputCardinality);
+    plan.setCost(CostModel::computeExtendCost(plan, outputCardinality));
     auto group = extend->getSchema()->getGroup(nbrNode->getInternalID());
     group->setMultiplier(extensionRate);
     plan.setLastOperator(std::move(extend));
@@ -159,7 +167,14 @@ void Planner::appendRecursiveExtend(const std::shared_ptr<NodeExpression>& bound
     if (!recursiveInfo->relProjectionList.empty()) {
         auto pathRelPropertyScanPlan = LogicalPlan();
         auto relProperties = recursiveInfo->relProjectionList;
-        relProperties.push_back(recursiveInfo->rel->getInternalID());
+        // Foreign-backed rels expose only the foreign columns and carry no
+        // internal _ID property expression; look it up defensively so
+        // planning a variable-length pattern over attached tables does not
+        // throw (local execution still reports the unsupported scan later,
+        // and the push-down optimizer replaces the whole subtree anyway).
+        if (recursiveInfo->rel->hasPropertyExpression(InternalKeyword::ID)) {
+            relProperties.push_back(recursiveInfo->rel->getInternalID());
+        }
         bool extendFromSource = *boundNode == *rel->getSrcNode();
         createPathRelPropertyScanPlan(recursiveInfo->node, recursiveInfo->nodeCopy,
             recursiveInfo->rel, direction, extendFromSource, relProperties,
@@ -182,7 +197,13 @@ void Planner::appendRecursiveExtend(const std::shared_ptr<NodeExpression>& bound
         cardinalityEstimator.multiply(extensionRate, plan.getLastOperator()->getCardinality());
     pathPropertyProbe->setCardinality(resultCard);
     probePlan.setLastOperator(pathPropertyProbe);
-    probePlan.setCost(plan.getCardinality());
+    // Recursive execution runs one graph search per bound source node (see
+    // RecursiveExtend::executeInternal), so its cost grows with the number of sources, not
+    // just the input/output cardinalities. Without a per-source term, seeding from 16k tags
+    // looks as cheap as seeding from 70 tag classes whenever the (direction-independent)
+    // output estimates tie, even though the former does ~200x more per-source GDS setup
+    // work (measured ~0.5ms/source vs ~0.5us/output pair on LDBC SNB SF1, hence the factor).
+    probePlan.setCost(plan.getCardinality() * PlannerKnobs::RECURSIVE_EXTEND_SOURCE_COST);
 
     // Join with input node
     auto joinConditions = expression_vector{boundNode->getInternalID()};

@@ -43,6 +43,9 @@ def test_connection_info_uses_cloud_connection_api() -> None:
         name="Connection",
         configurations={},
         prefix=None,
+        namespace_definition=None,
+        namespace_format=None,
+        schedule=None,
         status="active",
     )
 

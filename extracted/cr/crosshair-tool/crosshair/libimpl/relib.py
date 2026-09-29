@@ -30,7 +30,7 @@ from crosshair.libimpl.builtinslib import (
 )
 from crosshair.statespace import IgnoreAttempt, context_statespace
 from crosshair.tracers import NoTracing, ResumedTracing, is_tracing
-from crosshair.unicode_categories import CharMask, get_unicode_categories
+from crosshair.unicode_categories import CharMask, get_char_set, get_unicode_categories
 from crosshair.util import (
     CrossHairInternal,
     CrossHairValue,
@@ -197,10 +197,10 @@ def single_char_mask(
             ws = _ASCII_WHITESPACE_CHAR if isascii else _UNICODE_WHITESPACE_CHAR
             return ws.invert()
         elif arg == CATEGORY_WORD:
-            word = cats["word"]
+            word = get_char_set("word")
             return word.intersect(_ASCII_CHAR) if isascii else word
         elif arg == CATEGORY_NOT_WORD:
-            word = cats["word"]
+            word = get_char_set("word")
             if isascii:
                 word = word.intersect(_ASCII_CHAR)
             return word.invert()
@@ -351,17 +351,20 @@ class _Match(_MatchPart):
             raise re.error
         return prefix + replacement + self.expand(suffix)
 
-    def group(self, *nums):
+    def group(
+        self, *nums: Union[int, str]
+    ) -> Union[Optional[str], Tuple[Optional[str], ...]]:
         if not nums:
             nums = (0,)
-        ret: List[str] = []
+        ret: List[Optional[str]] = []
         for num in nums:
             if isinstance(num, str):
                 num = self.re.groupindex[num]
-            if self._groups[num] is None:
+            group = self._groups[num]
+            if group is None:
                 ret.append(None)
             else:
-                start, end = self._groups[num]
+                start, end = group
                 ret.append(self.string[start:end])
         if len(nums) == 1:
             return ret[0]
@@ -419,7 +422,7 @@ _END_GROUP_MARKER = object()
 def _internal_match_patterns(
     top_patterns: List[Any],  # (A parsed regex from sre_parse)
     flags: int,
-    string: AnySymbolicStr,
+    string: Union[AnySymbolicStr, BytesLike],
     offset: int,
     allow_empty: bool = True,
     ord=ord,
@@ -458,8 +461,6 @@ def _internal_match_patterns(
     (1, 3)
     """
     space = context_statespace()
-    with ResumedTracing():
-        matchablestr = string[offset:] if offset > 0 else string
 
     if len(top_patterns) == 0:
         return _MatchPart([(offset, offset)]) if allow_empty else None
@@ -594,9 +595,9 @@ def _internal_match_patterns(
                 )
             return None
         with ResumedTracing():
-            matchable_len = len(matchablestr)
+            remaining_len = len(string) - offset
         ends_string = space.smt_fork(
-            SymbolicInt._coerce_to_smt_sort(matchable_len) == 0
+            SymbolicInt._coerce_to_smt_sort(remaining_len) <= 0
         )
         if arg in (AT_END, AT_END_STRING):
             if ends_string:
@@ -618,7 +619,7 @@ def _internal_match_patterns(
             with ResumedTracing():
                 left = ord(string[offset - 1])
                 right = ord(string[offset])
-            wordmask = get_unicode_categories()["word"]
+            wordmask = get_char_set("word")
             left_expr = wordmask.smt_matches(SymbolicInt._coerce_to_smt_sort(left))
             right_expr = wordmask.smt_matches(SymbolicInt._coerce_to_smt_sort(right))
             at_boundary_expr = z3.Xor(left_expr, right_expr)
@@ -686,7 +687,16 @@ def _match_pattern(
     if subpattern is None:
         subpattern = cast(List, parse(compiled_regex.pattern, compiled_regex.flags))
     with ResumedTracing():
-        trimmed_str = orig_str[:endpos]
+        if pos < 0:
+            pos = 0
+        if endpos is None:
+            trimmed_str = orig_str
+        else:
+            if endpos < 0:
+                endpos = 0
+            trimmed_str = orig_str[:endpos]
+            if pos > endpos and endpos < len(orig_str):
+                return None
     matchpart = _internal_match_patterns(
         subpattern,
         compiled_regex.flags,

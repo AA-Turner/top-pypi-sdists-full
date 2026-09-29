@@ -17,6 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.source_address import SourceAddress
@@ -26,13 +27,14 @@ from typing_extensions import Self
 
 class ProvenanceSource(BaseModel):
     """
-    One sensor's contribution to a task's provenance.  Provenance holds a list of these rather than scalars beside a list of sensor classes: with scalars, an agent corroborated by two sensors has two entries in found_by but one address, and nothing says which sensor it belongs to.
+    One source's contribution to a task's provenance.  Provenance holds a list of these rather than scalars beside a list of source classes: with scalars, an agent corroborated by two sources has two entries in found_by but one address, and nothing says which source it belongs to.
     """ # noqa: E501
     source_class: SourceClass = Field(description="Where this contribution was observed from.")
     source_id: Optional[StrictStr] = None
     vendor: Optional[StrictStr] = None
     address: Optional[SourceAddress] = None
-    __properties: ClassVar[List[str]] = ["source_class", "source_id", "vendor", "address"]
+    last_seen: Optional[datetime] = None
+    __properties: ClassVar[List[str]] = ["source_class", "source_id", "vendor", "address", "last_seen"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -91,6 +93,11 @@ class ProvenanceSource(BaseModel):
         if self.address is None and "address" in self.model_fields_set:
             _dict['address'] = None
 
+        # set to None if last_seen (nullable) is None
+        # and model_fields_set contains the field
+        if self.last_seen is None and "last_seen" in self.model_fields_set:
+            _dict['last_seen'] = None
+
         return _dict
 
     @classmethod
@@ -106,7 +113,8 @@ class ProvenanceSource(BaseModel):
             "source_class": obj.get("source_class"),
             "source_id": obj.get("source_id"),
             "vendor": obj.get("vendor"),
-            "address": SourceAddress.from_dict(obj["address"]) if obj.get("address") is not None else None
+            "address": SourceAddress.from_dict(obj["address"]) if obj.get("address") is not None else None,
+            "last_seen": obj.get("last_seen")
         })
         return _obj
 

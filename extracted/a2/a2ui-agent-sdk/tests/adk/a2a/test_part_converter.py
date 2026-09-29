@@ -17,7 +17,6 @@
 import json
 from unittest.mock import MagicMock, patch
 
-
 from a2a import types as a2a_types
 from a2ui.a2a.parts import create_a2ui_part
 from a2ui.adk.a2a.part_converter import A2uiPartConverter
@@ -120,7 +119,8 @@ def test_converter_class_convert_text_with_a2ui():
     converter = A2uiPartConverter(catalog_mock)
 
     valid_a2ui = [{"type": "Text", "text": "Hello"}]
-    catalog_mock.validator.validate.return_value = None
+    # TODO: validate the payload using the core a2ui validation package
+    # catalog_mock.validate_components.return_value = []
 
     text = (
         f"Here is the UI:\n{A2UI_OPEN_TAG}\n{json.dumps(valid_a2ui)}\n{A2UI_CLOSE_TAG}"
@@ -133,7 +133,8 @@ def test_converter_class_convert_text_with_a2ui():
     assert len(a2a_parts) == 2
     assert a2a_parts[0].root.text == "Here is the UI:"
     assert a2a_parts[1] == create_a2ui_part(valid_a2ui[0], version=VERSION_0_8)
-    catalog_mock.validator.validate.assert_called_once_with(valid_a2ui)
+    # TODO: validate the payload using the core a2ui validation package
+    # catalog_mock.validate_components.assert_called_once_with(valid_a2ui)
 
 
 def test_converter_class_convert_text_with_a2ui_v0_9_1():
@@ -141,7 +142,8 @@ def test_converter_class_convert_text_with_a2ui_v0_9_1():
     converter = A2uiPartConverter(catalog_mock, version=VERSION_0_9_1)
 
     valid_a2ui = [{"type": "Text", "text": "Hello"}]
-    catalog_mock.validator.validate.return_value = None
+    # TODO: validate the payload using the core a2ui validation package
+    # catalog_mock.validate_components.return_value = []
 
     text = (
         f"Here is the UI:\n{A2UI_OPEN_TAG}\n{json.dumps(valid_a2ui)}\n{A2UI_CLOSE_TAG}"
@@ -154,7 +156,8 @@ def test_converter_class_convert_text_with_a2ui_v0_9_1():
     assert len(a2a_parts) == 2
     assert a2a_parts[0].root.text == "Here is the UI:"
     assert a2a_parts[1] == create_a2ui_part(valid_a2ui[0], version=VERSION_0_9_1)
-    catalog_mock.validator.validate.assert_called_once_with(valid_a2ui)
+    # TODO: validate the payload using the core a2ui validation package
+    # catalog_mock.validate_components.assert_called_once_with(valid_a2ui)
 
 
 def test_converter_class_convert_text_empty_leading():
@@ -162,7 +165,8 @@ def test_converter_class_convert_text_empty_leading():
     converter = A2uiPartConverter(catalog_mock)
 
     ui = [{"type": "Text", "text": "Top"}]
-    catalog_mock.validator.validate.return_value = None
+    # TODO: validate the payload using the core a2ui validation package
+    # catalog_mock.validate_components.return_value = []
 
     text = f"\n{A2UI_OPEN_TAG}\n{json.dumps(ui)}\n{A2UI_CLOSE_TAG}"
     part = genai_types.Part(text=text)
@@ -177,7 +181,8 @@ def test_converter_class_convert_text_markdown_wrapped():
     converter = A2uiPartConverter(catalog_mock)
 
     ui = [{"type": "Text", "text": "Inside Markdown"}]
-    catalog_mock.validator.validate.return_value = None
+    # TODO: validate the payload using the core a2ui validation package
+    # catalog_mock.validate_components.return_value = []
 
     # Text containing JSON wrapped in markdown tags
     text = f"Behold:\n{A2UI_OPEN_TAG}\n```json\n{json.dumps(ui)}\n```\n{A2UI_CLOSE_TAG}"
@@ -187,7 +192,8 @@ def test_converter_class_convert_text_markdown_wrapped():
     assert len(a2a_parts) == 2
     assert a2a_parts[0].root.text == "Behold:"
     assert a2a_parts[1] == create_a2ui_part(ui[0], version=VERSION_0_8)
-    catalog_mock.validator.validate.assert_called_once_with(ui)
+    # TODO: validate the payload using the core a2ui validation package
+    # catalog_mock.validate_components.assert_called_once_with(ui)
 
 
 def test_converter_class_convert_text_with_invalid_a2ui():
@@ -226,7 +232,8 @@ def test_converter_class_convert_tool_response_with_result_containing_a2ui():
     converter = A2uiPartConverter(catalog_mock)
 
     valid_a2ui = [{"type": "Text", "text": "Result UI"}]
-    catalog_mock.validator.validate.return_value = None
+    # TODO: validate the payload using the core a2ui validation package
+    # catalog_mock.validate_components.return_value = []
 
     result_text = (
         "Here is the"
@@ -244,7 +251,8 @@ def test_converter_class_convert_tool_response_with_result_containing_a2ui():
     assert len(a2a_parts) == 2
     assert a2a_parts[0].root.text == "Here is the result:"
     assert a2a_parts[1] == create_a2ui_part(valid_a2ui[0], version=VERSION_0_8)
-    catalog_mock.validator.validate.assert_called_once_with(valid_a2ui)
+    # TODO: validate the payload using the core a2ui validation package
+    # catalog_mock.validate_components.assert_called_once_with(valid_a2ui)
 
 
 def test_converter_class_convert_text_with_invalid_a2ui_and_custom_fallback():

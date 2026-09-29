@@ -18,15 +18,15 @@ Compiles A2UI catalog schemas into compact plain-text signatures and
 instruction blocks.
 """
 
+from collections.abc import Mapping, Sequence
 import json
 import re
-from typing import Any, Optional, TYPE_CHECKING, Union
+from typing import Any, TYPE_CHECKING
 from a2ui.prompt import PromptGenerator
-from a2ui.core.schema.client_capabilities import V09Capabilities
+from a2ui.core.schema.v0_9.client_capabilities import V09Capabilities
 
 from .parser import ExpressParser
 from .schema_helper import CatalogSchemaHelper
-
 
 if TYPE_CHECKING:
     from .format import ExpressFormat
@@ -113,7 +113,7 @@ def _schema_allows_databinding(prop_schema: Any) -> bool:
     return False
 
 
-def _get_schema_enum(prop_schema: Any) -> Optional[list[str]]:
+def _get_schema_enum(prop_schema: Any) -> list[str] | None:
     """Helper to recursively find enum definitions inside a JSON schema."""
     if not isinstance(prop_schema, dict):
         return None
@@ -144,7 +144,7 @@ class ExpressPromptGenerator(PromptGenerator):
         self._format = format_inst
         self.catalog = format_inst.catalog
         self.helper = CatalogSchemaHelper(format_inst.catalog)
-        self.parser: Optional[ExpressParser] = None
+        self.parser: ExpressParser | None = None
 
     def generate_base_rules(self) -> str:
         """Returns the core syntax contract and grammar rules for A2UI Express."""
@@ -153,7 +153,7 @@ class ExpressPromptGenerator(PromptGenerator):
     def generate_catalog_instructions(
         self,
         include_schema: bool = True,
-        catalog: Optional[Any] = None,
+        catalog: Any | None = None,
     ) -> str:
         """Assembles positional signatures and instructions for a catalog."""
         if not include_schema:
@@ -162,7 +162,7 @@ class ExpressPromptGenerator(PromptGenerator):
 
     def generate_examples(
         self,
-        catalog: Optional[Any] = None,
+        catalog: Any | None = None,
         validate: bool = False,
     ) -> str:
         """Loads and formats few-shot Express DSL examples."""
@@ -177,7 +177,7 @@ class ExpressPromptGenerator(PromptGenerator):
         return self.transform_examples(raw_examples)
 
     def _generate_component_signatures(
-        self, helper: Optional[CatalogSchemaHelper] = None
+        self, helper: CatalogSchemaHelper | None = None
     ) -> str:
         """Compiles component definitions into clean function-like signatures.
 
@@ -286,7 +286,7 @@ class ExpressPromptGenerator(PromptGenerator):
         return "\n".join(signatures)
 
     def _generate_function_signatures(
-        self, helper: Optional[CatalogSchemaHelper] = None
+        self, helper: CatalogSchemaHelper | None = None
     ) -> str:
         """Compiles function definitions into clean signatures.
 
@@ -337,7 +337,7 @@ class ExpressPromptGenerator(PromptGenerator):
         return self._catalog_description(include_schema=True)
 
     def _catalog_description(
-        self, include_schema: bool = True, catalog: Optional[Any] = None
+        self, include_schema: bool = True, catalog: Any | None = None
     ) -> str:
         """Assembles the system prompt component catalog signatures block.
 
@@ -497,9 +497,9 @@ class ExpressPromptGenerator(PromptGenerator):
         role_description: str,
         workflow_description: str = "",
         ui_description: str = "",
-        client_ui_capabilities: Optional[Union[dict[str, Any], V09Capabilities]] = None,
-        allowed_components: Optional[list[str]] = None,
-        allowed_messages: Optional[list[str]] = None,
+        client_ui_capabilities: Mapping[str, Any] | V09Capabilities | None = None,
+        allowed_components: Sequence[str] | None = None,
+        allowed_messages: Sequence[str] | None = None,
         include_schema: bool = False,
         include_examples: bool = False,
         validate_examples: bool = False,

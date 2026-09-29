@@ -8,7 +8,7 @@ import sqlglot
 from sqlglot.errors import ParseError
 from sqlglot.expressions import Table
 
-from splink.internals.misc import ensure_is_list
+from splink.internals.misc import ensure_is_list, indent_sql, normalise_sql
 
 from .splink_dataframe import SplinkDataFrame
 
@@ -80,14 +80,16 @@ class CTEPipeline:
     def _replace_templated_identifier_with_physical_name(
         sql: str, templated_name: str, physical_name: str
     ) -> str:
-        # Replace only whole SQL identifiers, preserving optional matching quotes.
+        # Replace only whole SQL identifiers, preserving matching quotes.
         # This matches cases like:
         #   from __splink__df_concat_with_tf)
         #   from __splink__df_concat_with_tf,
         #   from "__splink__df_concat_with_tf" as l
         # but not longer identifiers like:
         #   __splink__df_concat_with_tf_left
-        pattern = rf'(?<!\w)(?P<quote>["`]?){re.escape(templated_name)}(?P=quote)(?!\w)'
+        pattern = (
+            rf'(?<!\w)(?P<quote>["`]?){re.escape(templated_name)}' rf"(?P=quote)(?!\w)"
+        )
 
         def _replacement(match: re.Match[str]) -> str:
             quote = match.group("quote")
@@ -111,7 +113,7 @@ class CTEPipeline:
             )
         return sql
 
-    def _resolved_queue(self) -> List[CTE]:
+    def _resolved_queue(self):
         return [
             CTE(
                 self._replace_templated_references_with_physical_names(cte.sql),
@@ -130,7 +132,7 @@ class CTEPipeline:
             )
 
             for i, part in enumerate(parts):
-                logger.log(7, f"    Pipeline part {i+1}: {part.cte_description}")
+                logger.log(7, f"    Pipeline part {i + 1}: {part.cte_description}")
 
     def ctes_pipeline(self) -> List[CTE]:
         """Common table expressions"""
@@ -146,12 +148,15 @@ class CTEPipeline:
         with_ctes_pipeline = pipeline[:-1]
         final_query = pipeline[-1]
 
-        with_ctes = [f"{p.output_table_name} as ({p.sql})" for p in with_ctes_pipeline]
+        with_ctes = [
+            f"{p.output_table_name} as (\n{indent_sql(p.sql)}\n)"
+            for p in with_ctes_pipeline
+        ]
         with_ctes_str = ", \n\n".join(with_ctes)
         if with_ctes_str:
-            with_ctes_str = f"\nWITH\n\n{with_ctes_str} "
+            with_ctes_str = f"WITH\n\n{with_ctes_str}\n"
 
-        final_sql = with_ctes_str + "\n" + final_query.sql
+        final_sql = with_ctes_str + normalise_sql(final_query.sql)
 
         return final_sql
 

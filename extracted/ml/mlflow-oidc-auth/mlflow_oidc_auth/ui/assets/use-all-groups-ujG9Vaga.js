@@ -1,1 +1,0 @@
-import{t as e}from"./use-api-D9LSyZZj.js";import{i as t}from"./entity-service-ySBhCR9m.js";function n(){let{data:n,isLoading:r,error:i,refetch:a}=e(t);return{allGroups:n,isLoading:r,error:i,refresh:a}}export{n as t};

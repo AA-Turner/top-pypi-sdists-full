@@ -44,10 +44,10 @@ class TestGCPAgentCreationSourceOutput(unittest.TestCase):
                     ],
                 vendor = '',
                 address = arthur_client.api_bindings.models.source_address.SourceAddress(
-                    instance = '', 
+                    instance = '0', 
                     scope = '', 
                     resource_kind = '', 
-                    resource_id = '', 
+                    resource_id = '0', 
                     query = '', ),
                 observations = arthur_client.api_bindings.models.agent_observations.AgentObservations(
                     install_path = '', 
@@ -71,10 +71,10 @@ class TestGCPAgentCreationSourceOutput(unittest.TestCase):
                 gcp_reasoning_engine_id = '',
                 vendor = '',
                 address = arthur_client.api_bindings.models.source_address.SourceAddress(
-                    instance = '', 
+                    instance = '0', 
                     scope = '', 
                     resource_kind = '', 
-                    resource_id = '', 
+                    resource_id = '0', 
                     query = '', ),
                 observations = arthur_client.api_bindings.models.agent_observations.AgentObservations(
                     install_path = '', 

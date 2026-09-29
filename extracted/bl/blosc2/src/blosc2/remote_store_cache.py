@@ -25,26 +25,35 @@ def validate_generation(generation):
         raise ValueError("Invalid RemoteStore generation")
 
 
+def lock_cache_file(file, *, blocking=False):
+    """Lock an open cache lockfile until it is closed."""
+    if os.name == "nt":
+        import msvcrt
+
+        if not file.tell():
+            file.write(b"\0")
+            file.flush()
+        file.seek(0)
+        msvcrt.locking(file.fileno(), msvcrt.LK_LOCK if blocking else msvcrt.LK_NBLCK, 1)
+    else:
+        import fcntl
+
+        fcntl.flock(file.fileno(), fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+
+
 class StoreDiskCache:
+    @staticmethod
+    def path_for(parent, source):
+        identity = msgpack.packb(source, use_bin_type=True)
+        return Path(parent) / cache_directory_name(source["urlpath"], identity)
+
     def __init__(self, parent, source, *, blocking=False):
         self.source = source
-        identity = msgpack.packb(source, use_bin_type=True)
-        self.path = Path(parent) / cache_directory_name(source["urlpath"], identity)
+        self.path = self.path_for(parent, source)
         self.path.mkdir(parents=True, exist_ok=True)
         self.file = (self.path / "owner.lock").open("a+b")
         try:
-            if os.name == "nt":
-                import msvcrt
-
-                if not self.file.tell():
-                    self.file.write(b"\0")
-                    self.file.flush()
-                self.file.seek(0)
-                msvcrt.locking(self.file.fileno(), msvcrt.LK_LOCK if blocking else msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-
-                fcntl.flock(self.file, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+            lock_cache_file(self.file, blocking=blocking)
 
             if (self.path / "manifest.msgpack").exists():
                 raise ValueError(
@@ -134,6 +143,15 @@ class StoreDiskCache:
         leaf_path.parent.mkdir(parents=True, exist_ok=True)
         return leaf_path
 
+    def batch_payload_path(self, generation, key):
+        from blosc2.remote_store import RemoteDiscovery
+
+        validate_generation(generation)
+        RemoteDiscovery._validate(key)
+        path = self.path / f"{generation}.b2d" / f"{key}.b2b.cache"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
     def discard_old_generations(self, active):
         active_name = f"{active}.b2d"
         for path in self.path.iterdir():
@@ -199,7 +217,7 @@ class SharedStoreCache(StoreDiskCache):
         if dirty.exists():
             # ponytail: discard the interrupted generation; salvage leaves if recovery cost matters.
             if manifest is not None:
-                manifest = dict(manifest, generation=uuid.uuid4().hex, caches=[])
+                manifest = dict(manifest, generation=uuid.uuid4().hex, caches=[], batch_caches=[])
                 self.publish(manifest)
             dirty.unlink()
         return manifest
@@ -228,13 +246,27 @@ class SharedStoreOperation:
                 if manifest is not None:
                     if owner.generation != manifest["generation"]:
                         # Child handles fail their generation check before using these resources.
+                        for store in owner.linked_stores.values():
+                            store.close()
+                        owner.linked_stores.clear()
                         if owner.archive is not None:
                             owner.archive.close()
                             owner.archive = None
                         if owner.zstore is not None:
                             owner.zstore.close()
                             owner.zstore = None
+                        if owner.parquet_cache is not None:
+                            owner.parquet_cache.close()
+                            owner.parquet_cache = None
+                        if owner.parquet_file is not None:
+                            owner.parquet_file.close()
+                            owner.parquet_file = None
+                        if owner.parquet_handle is not None:
+                            owner.parquet_handle.close()
+                            owner.parquet_handle = None
                         owner.sources.clear()
+                        owner.source_descriptors.clear()
+                        owner.batch_caches.clear()
                     owner.generation = manifest["generation"]
                     owner.metadata = manifest["metadata"]
                     owner.nodes.clear()

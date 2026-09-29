@@ -77,6 +77,27 @@ class OfferedValueSpec:
     #: provision. An ILLUSTRATION for whoever is choosing where it should land,
     #: never a default and never a fallback: nothing reads it at run time.
     example: str = ""
+    #: False = offered FOR MAPPING ONLY: with no bound consumption map (the
+    #: default pin) an agent Holder never receives it by name — silently. A
+    #: binding whose map names it receives it. Mirrors the host declaration's
+    #: ``pass_by_name`` (aidream ``mandates.provisions.OfferedValue``).
+    pass_by_name: bool = True
+
+
+def default_pin_offer(
+    offered: dict[str, Any], specs: tuple[OfferedValueSpec, ...]
+) -> dict[str, Any]:
+    """The site's offered values an agent Holder receives BY NAME on the default pin.
+
+    Everything except the values the provision offers for mapping only
+    (``pass_by_name=False``): those were added beside a message the site
+    already composes, and the current Holder's payload must stay byte-identical.
+    Not receiving them is a normal state — nothing is logged.
+    """
+    mapping_only = {spec.name for spec in specs if not spec.pass_by_name}
+    if not mapping_only:
+        return dict(offered)
+    return {name: value for name, value in offered.items() if name not in mapping_only}
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +263,9 @@ def _coerce_inputs(agent_cls: type[NamedAgent], kwargs: dict[str, Any]) -> BaseM
 
 
 def _run_variables(agent_cls: type[NamedAgent], kwargs: dict[str, Any]) -> dict[str, Any]:
+    consumed = kwargs.get("consumed_variables")
+    if consumed is not None:
+        return {key: to_template_value(value) for key, value in dict(consumed).items()}
     inputs_obj = _coerce_inputs(agent_cls, kwargs)
     if inputs_obj is None:
         return {}
@@ -374,6 +398,7 @@ def _assert_offer_complete(
     mandate_key: str,
     resolution: MandateResolution,
     kwargs: dict[str, Any],
+    offered: dict[str, Any] | None = None,
 ) -> None:
     """🚨 THE SAME RULE THE HOST FUNNEL ENFORCES — see aidream
     ``services/mandates/named_agents.py::_assert_offer_complete_for_named``.
@@ -385,7 +410,7 @@ def _assert_offer_complete(
     """
     if not resolution.offered_values or kwargs.get("inputs") is None:
         return
-    supplied = _offer_view(agent_cls, kwargs)
+    supplied = {**_offer_view(agent_cls, kwargs), **dict(offered or {})}
     missing = [
         value.name
         for value in resolution.offered_values
@@ -395,7 +420,65 @@ def _assert_offer_complete(
         raise BrokenOfferPromise(mandate_key, agent_cls.__name__, missing)
 
 
-async def run_mandated(agent_cls: type[NamedAgent], **kwargs: Any) -> AgentRunResult:
+async def named_consumption(
+    agent_cls: type[NamedAgent],
+    mandate_key: str,
+    resolution: MandateResolution,
+    offer: dict[str, Any],
+    offered: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """THE NAMEDAGENT FUNNEL'S CONSUMPTION MAP — the rule ``hold_code_call`` applies.
+
+    Until 2026-09-28 this funnel applied no consumption map at all: a binding
+    that carried one on a ``research.*`` / ``ner.*`` / podcast-runner mandate
+    was stored, validated, shown — and ignored at run time, so values declared
+    for mapping (``mapped_offer``) could never reach any Holder. Now:
+
+    * **No map (the default pin)** — returns ``None`` and the typed ``Inputs``
+      flow runs byte-for-byte as before. ``offered`` values are the site's
+      mapping-only extras, filtered by :func:`default_pin_offer` exactly as the
+      code-call door filters them; an extra that would survive the filter (a
+      by-name value, or one the Provision does not declare) has no channel on
+      this funnel — ``Inputs`` is the by-name channel — so it REFUSES in words
+      rather than being silently dropped.
+    * **A bound map** — the call site's whole offer (the ``Inputs`` in the
+      call-site vocabulary, :func:`matrx_ai.agents.named.offer_view`, plus the
+      extras) goes through the host's ONE consumption pipeline
+      (``resolution.materialize``); its output is what the Holder runs on
+      (``NamedAgent.run(consumed_variables=…)``). A host that offers no
+      pipeline refuses: a map that would be silently ignored is the defect this
+      closes.
+    """
+    extras = dict(offered or {})
+    if not resolution.consumption_map:
+        if extras:
+            declared = {spec.name for spec in resolution.offered_values}
+            by_name = sorted(default_pin_offer(extras, resolution.offered_values))
+            undeclared = sorted(name for name in extras if name not in declared)
+            if by_name or undeclared:
+                raise ValueError(
+                    f"Mandate {mandate_key!r} ({agent_cls.__name__}): offered= carries "
+                    f"{sorted(set(by_name) | set(undeclared))}, which the Provision does not "
+                    "declare for mapping only (mapped_offer). A by-name value belongs on the "
+                    "class's typed Inputs; declare the rest with mapped_offer."
+                )
+        return None
+    if resolution.materialize is None:
+        raise MandateResolutionUnavailable(
+            mandate_key,
+            agent_cls.__name__,
+            "the binding carries a consumption map and this host offers no pipeline to "
+            "apply it — the map would be silently ignored, so the run refuses",
+        )
+    return dict(await resolution.materialize({**offer, **extras}))
+
+
+async def run_mandated(
+    agent_cls: type[NamedAgent],
+    *,
+    offered: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> AgentRunResult:
     """Run a ``NamedAgent`` through its DB-managed mandate when a resolver is installed.
 
     Resolves ``agent_cls.mandate_key`` to the mandate's current agent and passes it as
@@ -416,6 +499,10 @@ async def run_mandated(agent_cls: type[NamedAgent], **kwargs: Any) -> AgentRunRe
     Hosts use that callback for structural checking and exemplar capture
     without the package importing host code. Legacy two-tuples remain accepted
     for third-party compatibility but cannot provide host post-run behavior.
+
+    ``offered`` — values the call site holds BESIDE its typed ``Inputs``,
+    declared on the mandate's Provision for mapping only (``mapped_offer``,
+    ``pass_by_name=False``). See :func:`named_consumption` for the rule.
     """
     mandate_key = getattr(agent_cls, "mandate_key", None)
     if not mandate_key:
@@ -446,7 +533,12 @@ async def run_mandated(agent_cls: type[NamedAgent], **kwargs: Any) -> AgentRunRe
     kwargs["source_override"] = source
     if merged:
         kwargs["config_overrides"] = merged
-    _assert_offer_complete(agent_cls, mandate_key, resolution, kwargs)
+    _assert_offer_complete(agent_cls, mandate_key, resolution, kwargs, offered)
+    consumed = await named_consumption(
+        agent_cls, mandate_key, resolution, _offer_view(agent_cls, kwargs), offered
+    )
+    if consumed is not None:
+        kwargs["consumed_variables"] = consumed
     result = await agent_cls.run(**kwargs)
     if complete is not None:
         try:
@@ -813,6 +905,10 @@ async def hold_code_call(
         agent.apply_config_overrides(**dict(resolution.config_overrides))
 
     offered = dict(variables or {})
+    if not resolution.consumption_map:
+        # The default pin: values offered for mapping only never reach the
+        # agent by name (and never trip the "does not consume" line below).
+        offered = default_pin_offer(offered, resolution.offered_values)
     # A binding that carries a consumption map re-routes the site's offered
     # values, so the host's ONE pipeline decides what the Holder receives (and
     # refuses a context/media route this call site cannot deliver). With no map
@@ -857,7 +953,10 @@ async def hold_code_call(
             color="yellow",
         )
     held_variables = {k: to_template_value(v) for k, v in bound.variables.items()}
-    agent.with_variables(**held_variables)
+    agent.set_variables(**held_variables)
+    # The pre-substitution step before substituting (a ``sources`` value becomes text).
+    await agent.prepare_variables()
+    agent.apply_variables()
     holder_values: dict[str, str] = {}
     for name, declared in (getattr(agent, "variable_defaults", None) or {}).items():
         if name in held_variables:

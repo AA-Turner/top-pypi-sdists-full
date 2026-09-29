@@ -127,6 +127,8 @@ jobs:
               - 'infra/agent-message-bus/**'
             ops-webapp:
               - 'infra/ops-webapp/**'
+            agent-chat-internal:
+              - 'infra/agent-chat-internal/**'
             internal-mcp-servers:
               - 'infra/internal-mcp-servers/**'
             workflow:
@@ -151,6 +153,8 @@ jobs:
               - 'infra/agent-message-bus/**'
             ops-webapp:
               - 'infra/ops-webapp/**'
+            agent-chat-internal:
+              - 'infra/agent-chat-internal/**'
             internal-mcp-servers:
               - 'infra/internal-mcp-servers/**'
             workflow:
@@ -164,6 +168,7 @@ jobs:
           SENTRY_CHANGED: ${{ steps['changes-push'].outputs.sentry || steps['changes-pr'].outputs.sentry || 'false' }}
           AGENT_MESSAGE_BUS_CHANGED: ${{ steps['changes-push'].outputs['agent-message-bus'] || steps['changes-pr'].outputs['agent-message-bus'] || 'false' }}
           OPS_WEBAPP_CHANGED: ${{ steps['changes-push'].outputs['ops-webapp'] || steps['changes-pr'].outputs['ops-webapp'] || 'false' }}
+          AGENT_CHAT_INTERNAL_CHANGED: ${{ steps['changes-push'].outputs['agent-chat-internal'] || steps['changes-pr'].outputs['agent-chat-internal'] || 'false' }}
           INTERNAL_MCP_SERVERS_CHANGED: ${{ steps['changes-push'].outputs['internal-mcp-servers'] || steps['changes-pr'].outputs['internal-mcp-servers'] || 'false' }}
           WORKFLOW_CHANGED: ${{ steps['changes-push'].outputs.workflow || steps['changes-pr'].outputs.workflow || 'false' }}
         run: |
@@ -177,12 +182,14 @@ jobs:
               --arg sentry "$SENTRY_CHANGED" \
               --arg agent_message_bus "$AGENT_MESSAGE_BUS_CHANGED" \
               --arg ops_webapp "$OPS_WEBAPP_CHANGED" \
+              --arg agent_chat_internal "$AGENT_CHAT_INTERNAL_CHANGED" \
               --arg internal_mcp_servers "$INTERNAL_MCP_SERVERS_CHANGED" \
               --arg workflow "$WORKFLOW_CHANGED" \
               '[
                 {name: "sentry", dir: "infra/sentry", changed: ($sentry == "true" or $workflow == "true")},
                 {name: "agent-message-bus", dir: "infra/agent-message-bus", changed: ($agent_message_bus == "true" or $workflow == "true")},
                 {name: "ops-webapp", dir: "infra/ops-webapp", changed: ($ops_webapp == "true" or $workflow == "true")},
+                {name: "agent-chat-internal", dir: "infra/agent-chat-internal", changed: ($agent_chat_internal == "true" or $workflow == "true")},
                 {name: "internal-mcp-servers", dir: "infra/internal-mcp-servers", changed: ($internal_mcp_servers == "true" or $workflow == "true")}
               ] | map(select(.changed)) | map(del(.changed))'
           )"

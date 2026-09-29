@@ -353,16 +353,19 @@ class AnthropicChat:
             # other half, in `UnifiedAIClient._dispatch_with_billing_net`.
             from matrx_ai.schema.answer_contract import (
                 append_json_text_contract_to_system,
-                mark_enforcement_dropped,
+                declared_output_contract,
             )
 
             prompt_guided = with_format(config_data, None)
             guided = isinstance(schema, dict)
             if guided:
-                append_json_text_contract_to_system(prompt_guided, schema)
-                mark_enforcement_dropped(
-                    "Anthropic refused the compiled grammar at every smaller shape; "
-                    "output_config.format dropped and the schema sent as a prompt contract"
+                # The AUTHOR's contract goes in the prompt when there is one — the
+                # wire copy is Anthropic's compromise, and the answer is judged
+                # against the declared one.
+                declared = declared_output_contract() or {}
+                prompt_schema = declared.get("schema")
+                append_json_text_contract_to_system(
+                    prompt_guided, prompt_schema if isinstance(prompt_schema, dict) else schema
                 )
             rungs.append(
                 (
@@ -401,11 +404,36 @@ class AnthropicChat:
                 if is_grammar_too_large(exc):
                     continue
                 raise
+            if key == ENFORCEMENT_DROPPED:
+                # Marked only once THIS rung is the one that served. Marking while
+                # the rungs were being BUILT told the answer check "not enforced"
+                # even when the narrowed rung served under full enforcement
+                # (SCHEMA-TRANSLATION-VERIFY.md, R10).
+                from matrx_ai.schema.answer_contract import mark_enforcement_dropped
+
+                mark_enforcement_dropped(
+                    "Anthropic refused the compiled grammar at every smaller shape; "
+                    "output_config.format dropped and the schema sent as a prompt contract"
+                )
             await record_structured_output_finding(
                 key,
                 provider="anthropic",
                 model=matrx_model_name,
-                detail={**identity, "action": detail, "gave_up": gave_up[:40]},
+                detail={
+                    **identity,
+                    "action": detail,
+                    "gave_up": gave_up[:40],
+                    # This write happens AFTER `send(payload)` RETURNED, so the
+                    # recovery it claims measurably happened — but it is a recovery
+                    # of the REQUEST, not a verdict on the answer, which the
+                    # dispatch seam judges later. Saying which one it is, is the
+                    # difference between a true log and a flattering one (F2).
+                    "recovered_means": (
+                        "the retried request was accepted and served by Anthropic; whether the "
+                        "answer then met the declared contract is recorded separately, as a "
+                        "structured_output.answer_off_contract finding on the same request"
+                    ),
+                },
                 was_recovered=True,
             )
             if key != NARROWED:

@@ -1,3 +1,4 @@
+from typing import TYPE_CHECKING, Literal
 from warnings import warn
 
 import numpy as np
@@ -10,6 +11,9 @@ from shapely.geometry.base import BaseGeometry
 
 from . import _compat as compat
 from .array import GeometryArray, GeometryDtype
+
+if TYPE_CHECKING:
+    from .geoseries import GeoSeries
 
 
 def is_geometry_type(data):
@@ -231,7 +235,7 @@ class GeoPandasBase:
         0         Point
         1       Polygon
         2    LineString
-        dtype: object
+        dtype: str
         """
         return _delegate_property("geom_type", self)
 
@@ -362,11 +366,11 @@ GeometryCollection
         dtype: geometry
 
         >>> s.is_valid_reason()
-        0    Valid Geometry
+        0                Valid Geometry
         1    Self-intersection[0.5 0.5]
-        2    Valid Geometry
-        3    None
-        dtype: object
+        2                Valid Geometry
+        3                           NaN
+        dtype: str
 
         See Also
         --------
@@ -388,7 +392,7 @@ GeometryCollection
         it might be desirable to detect narrow gaps as invalidities in the coverage. The
         ``gap_width`` parameter allows to specify the maximum width of gaps to detect.
         When gaps are detected, this method will return ``False`` and the
-        :meth:`coverage_invalid_edges` method can be used to find the edges of those
+        :meth:`invalid_coverage_edges` method can be used to find the edges of those
         gaps.
 
         Geometries that are not Polygon or MultiPolygon are ignored and an empty
@@ -2996,7 +3000,7 @@ GeometryCollection
            :align: center
 
         >>> polygon = Polygon([(0, 0), (2, 2), (0, 2)])
-        >>> s.geom_equals(polygon)
+        >>> s.geom_equals(polygon, align=True)
         0     True
         1    False
         2    False
@@ -3572,7 +3576,7 @@ GeometryCollection
            :align: center
 
         >>> polygon = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
-        >>> s.overlaps(polygon)
+        >>> s.overlaps(polygon, align=True)
         0     True
         1     True
         2    False
@@ -3800,7 +3804,7 @@ GeometryCollection
            :align: center
 
         >>> polygon = Polygon([(0, 0), (2, 2), (0, 2)])
-        >>> s.within(polygon)
+        >>> s.within(polygon, align=True)
         0     True
         1     True
         2    False
@@ -4402,7 +4406,7 @@ GeometryCollection
     # Binary operations that return a GeoSeries
     #
 
-    def difference(self, other, align=None):
+    def difference(self, other, align=None, grid_size=None):
         """Return a ``GeoSeries`` of the points in each aligned geometry that
         are not in `other`.
 
@@ -4422,6 +4426,11 @@ GeometryCollection
         align : bool | None (default None)
             If True, automatically aligns GeoSeries based on their indices.
             If False, the order of elements is preserved. None defaults to True.
+        grid_size : float | None (default None)
+            The cell size of the precision grid to use. All the vertices of the
+            output geometry will fall on the grid defined by the grid size.
+            If None, the highest precision (smallest grid size) of the inputs
+            is used.
 
         Returns
         -------
@@ -4511,9 +4520,9 @@ GeometryCollection
         GeoSeries.union
         GeoSeries.intersection
         """
-        return _binary_geo("difference", self, other, align)
+        return _binary_geo("difference", self, other, align, grid_size=grid_size)
 
-    def symmetric_difference(self, other, align=None):
+    def symmetric_difference(self, other, align=None, grid_size=None):
         """Return a ``GeoSeries`` of the symmetric difference of points in
         each aligned geometry with `other`.
 
@@ -4537,6 +4546,11 @@ GeometryCollection
         align : bool | None (default None)
             If True, automatically aligns GeoSeries based on their indices.
             If False, the order of elements is preserved. None defaults to True.
+        grid_size : float | None (default None)
+            The cell size of the precision grid to use. All the vertices of the
+            output geometry will fall on the grid defined by the grid size.
+            If None, the highest precision (smallest grid size) of the inputs
+            is used.
 
         Returns
         -------
@@ -4626,9 +4640,11 @@ GeometryCollection
         GeoSeries.union
         GeoSeries.intersection
         """
-        return _binary_geo("symmetric_difference", self, other, align)
+        return _binary_geo(
+            "symmetric_difference", self, other, align, grid_size=grid_size
+        )
 
-    def union(self, other, align=None):
+    def union(self, other, align=None, grid_size=None):
         """Return a ``GeoSeries`` of the union of points in each aligned geometry with
         `other`.
 
@@ -4649,6 +4665,11 @@ GeometryCollection
         align : bool | None (default None)
             If True, automatically aligns GeoSeries based on their indices.
             If False, the order of elements is preserved. None defaults to True.
+        grid_size : float | None (default None)
+            The cell size of the precision grid to use. All the vertices of the
+            output geometry will fall on the grid defined by the grid size.
+            If None, the highest precision (smallest grid size) of the inputs
+            is used.
 
         Returns
         -------
@@ -4740,9 +4761,9 @@ GeometryCollection
         GeoSeries.difference
         GeoSeries.intersection
         """
-        return _binary_geo("union", self, other, align)
+        return _binary_geo("union", self, other, align, grid_size=grid_size)
 
-    def intersection(self, other, align=None):
+    def intersection(self, other, align=None, grid_size=None):
         """Return a ``GeoSeries`` of the intersection of points in each
         aligned geometry with `other`.
 
@@ -4763,6 +4784,11 @@ GeometryCollection
         align : bool | None (default None)
             If True, automatically aligns GeoSeries based on their indices.
             If False, the order of elements is preserved. None defaults to True.
+        grid_size : float | None (default None)
+            The cell size of the precision grid to use. All the vertices of the
+            output geometry will fall on the grid defined by the grid size.
+            If None, the highest precision (smallest grid size) of the inputs
+            is used.
 
         Returns
         -------
@@ -4853,7 +4879,7 @@ GeometryCollection
         GeoSeries.symmetric_difference
         GeoSeries.union
         """
-        return _binary_geo("intersection", self, other, align)
+        return _binary_geo("intersection", self, other, align, grid_size=grid_size)
 
     def clip_by_rect(self, xmin, ymin, xmax, ymax):
         """Return a ``GeoSeries`` of the portions of geometry within the given
@@ -5367,7 +5393,7 @@ GeometryCollection
     def buffer(
         self,
         distance,
-        resolution=16,
+        quad_segs=None,
         cap_style="round",
         join_style="round",
         mitre_limit=5.0,
@@ -5391,12 +5417,12 @@ GeometryCollection
         distance : float, np.array, pd.Series
             The radius of the buffer in the Minkowski sum (or difference). If np.array
             or pd.Series are used then it must have same length as the GeoSeries.
-        resolution : int (optional, default 16)
+        quad_segs : int (optional, default 16)
             The resolution of the buffer around each vertex. Specifies the number of
             linear segments in a quarter circle in the approximation of circular arcs.
         cap_style : {'round', 'square', 'flat'}, default 'round'
             Specifies the shape of buffered line endings. ``'round'`` results in
-            circular line endings (see ``resolution``). Both ``'square'`` and ``'flat'``
+            circular line endings (see ``quad_segs``). Both ``'square'`` and ``'flat'``
             result in rectangular line endings, ``'flat'`` will end at the original
             vertex, while ``'square'`` involves adding the buffer width.
         join_style : {'round', 'mitre', 'bevel'}, default 'round'
@@ -5432,7 +5458,7 @@ GeometryCollection
         2    POLYGON ((2.8 -1, 2.8 1, 2.80096 1.0196, 2.803...
         dtype: geometry
 
-        ``Further specification as ``join_style`` and ``cap_style`` are shown in the
+        Further specification as ``join_style`` and ``cap_style`` are shown in the
         following illustration:
 
         .. plot:: _static/code/buffer.py
@@ -5442,7 +5468,7 @@ GeometryCollection
             "buffer",
             self,
             distance=distance,
-            resolution=resolution,
+            quad_segs=quad_segs,
             cap_style=cap_style,
             join_style=join_style,
             mitre_limit=mitre_limit,
@@ -5661,7 +5687,7 @@ GeometryCollection
         2    F11F00212
         3    F01FF0212
         4    F0FFFF212
-        dtype: object
+        dtype: str
 
         We can also check two GeoSeries against each other, row by row.
         The GeoSeries above have different indices. We can either align both GeoSeries
@@ -5672,13 +5698,13 @@ GeometryCollection
         .. image:: ../../../_static/binary_op-02.svg
 
         >>> s.relate(s2, align=True)
-        0         None
+        0          NaN
         1    212F11FF2
         2    0F1FF0102
         3    1FFF0FFF2
         4    FF0FFF0F2
-        5         None
-        dtype: object
+        5          NaN
+        dtype: str
 
         >>> s.relate(s2, align=False)
         0    212F11FF2
@@ -5686,7 +5712,7 @@ GeometryCollection
         2    0F1FF0102
         3    0F1FF0FF2
         4    0FFFFFFF2
-        dtype: object
+        dtype: str
 
         """
         return _binary_op("relate", self, other, align)
@@ -6293,9 +6319,6 @@ GeometryCollection
           3  3.0 -1.0
         """
         if include_m:
-            if not compat.SHAPELY_GE_21:
-                raise ImportError("Shapely >= 2.1 is required for include_m=True.")
-
             # can be merged with the one below once min requirement is shapely 2.1
             coords, outer_idx = shapely.get_coordinates(
                 self.geometry.values._data,
@@ -6357,7 +6380,7 @@ GeometryCollection
 
         return pd.Series(distances, index=self.index, name="hilbert_distance")
 
-    def sample_points(self, size, method="uniform", seed=None, rng=None, **kwargs):
+    def sample_points(self, size, method="uniform", rng=None, **kwargs):
         """
         Sample points from each geometry.
 
@@ -6416,14 +6439,6 @@ GeometryCollection
         """  # noqa: E501
         from .geoseries import GeoSeries
         from .tools._random import uniform
-
-        if seed is not None:
-            warn(
-                "The 'seed' keyword is deprecated. Use 'rng' instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-            rng = seed
 
         if method == "uniform":
             if pd.api.types.is_list_like(size):
@@ -6618,6 +6633,132 @@ GeometryCollection
             ignore_index=True
         )
 
+    def make_grid(
+        self,
+        cell_size: float,
+        grid_type: Literal["square", "hexagon"] = "square",
+        feature_type: Literal["centers", "corners", "polygons"] = "polygons",
+        offset: tuple[float, float] | None = None,
+        intersect: bool = True,
+        flat_topped: bool = False,
+    ) -> "GeoSeries":
+        """Provide the centers, corners, or polygons of a square or hexagonal grid.
+
+        The grid covers the area of the GeoSeries' total bounds. By default, only
+        grid elements that spatially overlap with the GeoSeries geometries
+        are returned. This filtering can be disabled by setting the
+        ``intersect`` parameter to ``False``.
+
+        The origin of the grid is at the lower left corner of the bounding box
+        of the GeoSeries.
+
+        .. versionadded:: 1.2
+
+        Parameters
+        ----------
+        cell_size : float
+            Side length of the square. For hexagonal cells the distance between
+            opposite edges (edge length is ``cellsize/sqrt(3)``).
+        grid_type : str, one of "square", "hexagon", default "square"
+            Grid type that is returned. All cell types reflect naive tiling of a
+            plane, not a tiling of the globe (like H3 or S2).
+        feature_type : str, one of "centers", "corners", "polygons", default "polygons"
+            Grid feature that is returned. ``"centers"`` returns points at the
+            center of each grid cell. ``"corners"`` returns points at all unique
+            vertices of the grid cells (i.e., the points where cell edges meet).
+            ``"polygons"`` returns the grid cell polygons.
+        offset : tuple, optional
+            Lower left corner coordinates (x, y) of the grid. By default uses
+            the lower left corner of the bounding box of the input geometry.
+        intersect : bool, default True
+            If False, the grid is not filtered by the geometries and the
+            full grid covering the bounding box is returned.
+        flat_topped : bool, default False
+            If True, generate flat topped hexagons. By default (False), the
+            orientation of the hexagonal cells is such that a corner points upwards.
+
+        Returns
+        -------
+        GeoSeries
+            The returned GeoSeries contains the grid-cell centers, corners, or
+            polygons.
+
+        See Also
+        --------
+        make_grid : equivalent top-level function
+
+        Notes
+        -----
+        When ``intersect=True``, the grid is filtered using the ``"intersects"``
+        spatial predicate. The filtering behavior depends on ``feature_type``:
+
+        - ``"polygons"``: All grid cell polygons that share any area or boundary
+          with the input geometries are returned.
+        - ``"centers"``: Only center points that fall within or on the boundary of
+          the input geometries are returned.
+        - ``"corners"``: Only corner points that fall within or on the boundary of
+          the input geometries are returned.
+
+        As a result, the set of corners returned when ``feature_type="corners"``
+        may not correspond exactly to the vertices of the polygons returned when
+        ``feature_type="polygons"``.
+
+        Examples
+        --------
+        >>> import geopandas
+        >>> import geodatasets
+        >>> world = geopandas.read_file(
+        ...     geodatasets.get_path('naturalearth land'))
+        >>> madagascar = world.cx[45:50, -25:-15]
+        >>> sq_grid = madagascar.geometry.make_grid(cell_size=1)
+        >>> sq_grid.head(3)
+        0    POLYGON ((43.25419 -25.60143, 44.25419 -25.601...
+        1    POLYGON ((43.25419 -24.60143, 44.25419 -24.601...
+        2    POLYGON ((43.25419 -23.60143, 44.25419 -23.601...
+        dtype: geometry
+
+        By default, grid is aligned with the bounding box of the input geometries.
+        If instead you want to a fixed grid aligning with specific coordinates,
+        use the ``offset`` keyword. For example, to have a grid of round degrees:
+
+        >>> sq_grid2 = madagascar.geometry.make_grid(cell_size=1, offset=(30, -30))
+        >>> sq_grid2.head(3)
+        0    POLYGON ((43 -25, 44 -25, 44 -24, 43 -24, 43 -...
+        1    POLYGON ((43 -24, 44 -24, 44 -23, 43 -23, 43 -...
+        2    POLYGON ((43 -23, 44 -23, 44 -22, 43 -22, 43 -...
+        dtype: geometry
+
+        .. plot:: _static/code/make_grid.py
+
+        Specify the ``feature_type`` keyword to get the centers or corners of the grid
+        cells, instead of the polygons:
+
+        >>> sq_grid_centers = madagascar.geometry.make_grid(
+        ...     cell_size=1, feature_type="centers"
+        ... )
+        >>> sq_grid_centers.head(3)
+        0    POINT (43.75419 -24.10143)
+        1    POINT (43.75419 -23.10143)
+        2    POINT (43.75419 -22.10143)
+        dtype: geometry
+
+        Specify the ``grid_type="hexagon`` keyword to get hexagons instead of the
+        default squares.
+
+        .. plot:: _static/code/make_grid_types.py
+        """
+        from .tools.make_grid import make_grid
+
+        return make_grid(
+            self.geometry,
+            cell_size=cell_size,
+            grid_type=grid_type,
+            feature_type=feature_type,
+            offset=offset,
+            intersect=intersect,
+            flat_topped=flat_topped,
+        )
+
 
 def _get_index_for_parts(orig_idx, outer_idx, ignore_index, index_parts):
     """Handle index when geometries get exploded to parts.
@@ -6649,7 +6790,7 @@ def _get_index_for_parts(orig_idx, outer_idx, ignore_index, index_parts):
             #    starting at 0 in each run
             run_start = np.r_[True, outer_idx[:-1] != outer_idx[1:]]
             counts = np.diff(np.r_[np.nonzero(run_start)[0], len(outer_idx)])
-            inner_index = (~run_start).cumsum(dtype=outer_idx.dtype)
+            inner_index = (~run_start).cumsum(dtype=np.int64)
             inner_index -= np.repeat(inner_index[run_start], counts)
 
         else:

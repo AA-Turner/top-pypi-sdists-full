@@ -14,9 +14,10 @@
 
 """Abstract prompt generator interface for inference formats."""
 
+from collections.abc import Mapping, Sequence
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Union
-from a2ui.core.schema.client_capabilities import V09Capabilities
+from typing import Any
+from a2ui.core.schema.v0_9.client_capabilities import V09Capabilities
 
 
 class PromptGenerator(ABC):
@@ -33,7 +34,7 @@ class PromptGenerator(ABC):
     def generate_catalog_instructions(
         self,
         include_schema: bool = True,
-        catalog: Optional[Any] = None,
+        catalog: Any | None = None,
     ) -> str:
         """Returns component and function signatures or JSON schemas for a catalog.
 
@@ -48,7 +49,7 @@ class PromptGenerator(ABC):
 
     def generate_examples(
         self,
-        catalog: Optional[Any] = None,
+        catalog: Any | None = None,
         validate: bool = False,
     ) -> str:
         """Returns formatted few-shot examples for a catalog.
@@ -67,9 +68,9 @@ class PromptGenerator(ABC):
         role_description: str,
         workflow_description: str = "",
         ui_description: str = "",
-        client_ui_capabilities: Optional[Union[dict[str, Any], V09Capabilities]] = None,
-        allowed_components: Optional[list[str]] = None,
-        allowed_messages: Optional[list[str]] = None,
+        client_ui_capabilities: Mapping[str, Any] | V09Capabilities | None = None,
+        allowed_components: Sequence[str] | None = None,
+        allowed_messages: Sequence[str] | None = None,
         include_schema: bool = True,
         include_examples: bool = False,
         validate_examples: bool = False,

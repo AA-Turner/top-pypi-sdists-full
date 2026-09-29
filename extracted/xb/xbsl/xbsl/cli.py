@@ -395,7 +395,26 @@ def _fold_parser() -> argparse.ArgumentParser:
                         help=i18n.t("cli.help.fold-all"))
     parser.add_argument("--format", choices=("text", "json"), default="text",
                         help=i18n.t("cli.help.fold-format"))
+    parser.add_argument("--compact", action="store_true", help=i18n.t("cli.help.fold-compact"))
     return parser
+
+
+def _fold_compact_text(short: dict) -> None:
+    """The short report of a fold in words: the files with the most moves, the moves worth a
+    look, the files the audit stopped - what a dry run over a whole tree is read for."""
+    for rel, counted in short["by_file"].items():
+        said = ", ".join(f"{i18n.t(f'fold.action.{action}')} {count}"
+                         for action, count in counted.items() if count)
+        print(f"{rel}: {said}")
+    if short.get("by_file_hint"):
+        print(short["by_file_hint"])
+    for line in short["review"]:
+        print(f"  {line}")
+    if short.get("review_hint"):
+        print(short["review_hint"])
+    for stopped in short["audit"]:
+        for problem in stopped["audit"]:
+            print(f"  ! {stopped['file']}: {problem}")
 
 
 def _fold_main(argv: list[str]) -> int:
@@ -412,10 +431,13 @@ def _fold_main(argv: list[str]) -> int:
         (move.kind, move.action) for fold in folds for move in fold.moves
     )
     if args.format == "json":
-        # The MCP tool meta_fold_comments answers with the same report.
-        print(json.dumps(commentfold.report(folds, written), ensure_ascii=False, indent=1))
+        # The MCP tool meta_fold_comments answers with the same report, `compact` included.
+        full = (commentfold.compact_report if args.compact else commentfold.report)(folds, written)
+        print(json.dumps(full, ensure_ascii=False, indent=1))
         return 0
-    for fold in folds:
+    if args.compact:
+        _fold_compact_text(commentfold.compact_report(folds, written))
+    for fold in [] if args.compact else folds:
         print(fold.rel)
         for move in fold.moves:
             where = f" -> {move.target_line}" if move.target_line else ""
@@ -486,6 +508,20 @@ def _mcplog_line(event: dict) -> str:
                       tool=event.get("tool", "?"), changes=changes)
         if error:
             text += "; " + i18n.t("mcplog.stale.error", error=error)
+    elif kind == "restart":
+        # Written by the supervisor (xbsl/mcp_supervisor.py): the worker it retires and why.
+        reason = event.get("reason")
+        if reason in ("version", "sources", "plugins", "exited"):
+            cause = i18n.t(f"mcplog.restart.{reason}", loaded=event.get("loaded", "?"),
+                           on_disk=event.get("on_disk", "?"), code=event.get("code", "?"))
+            text = i18n.t("mcplog.restart", target=event.get("target", "?"), cause=cause)
+        else:
+            text = i18n.t("mcplog.unknown", event=f"restart {reason}")
+    elif kind == "protocol":
+        # Written by the supervisor: a new worker agreed on another protocol version than the
+        # one the client was answered at the start of its session.
+        text = i18n.t("mcplog.protocol", target=event.get("target", "?"),
+                      worker=event.get("worker", "?"), client=event.get("client", "?"))
     else:
         text = i18n.t("mcplog.unknown", event=kind)
     return f"{event.get('time', '?')}  pid {event.get('pid', '?')}  {text}"
@@ -717,6 +753,10 @@ def _templates_main(argv: list[str]) -> int:
 
 
 def _scaffold_parser() -> argparse.ArgumentParser:
+    # The field kinds the help lists are the operations' own tables; _scaffold_main imports
+    # the module before it parses anything, so the help costs no extra import.
+    from xbsl import scaffold
+
     parser = i18n.ArgumentParser(
         prog="xbsl", description=i18n.t("cli.help.scaf.description")
     )
@@ -756,23 +796,24 @@ def _scaffold_parser() -> argparse.ArgumentParser:
 
     p = command("add-field")
     p.add_argument("yaml_path", help=i18n.t("cli.help.scaf.af-yaml"))
-    # field_kind help lists the literal accepted kind names - Russian XBSL values, not prose.
-    p.add_argument("field_kind", help=", ".join(("реквизит", "измерение", "ресурс", "значение",
-                                                 "параметр", "поле", "табличная-часть")))
+    # field_kind help lists the literal accepted kind names - the tool's words, each with its
+    # English twin, not prose - taken from the operation itself, so the help names exactly what
+    # it takes.
+    p.add_argument("field_kind", help=scaffold.field_kinds_named(scaffold.ADD_FIELD_KINDS))
     p.add_argument("name", help=i18n.t("cli.help.scaf.af-name"))
     p.add_argument("--type", help=i18n.t("cli.help.scaf.af-type"))
     p.add_argument("--tabular", help=i18n.t("cli.help.scaf.add-field-tabular"))
     p.add_argument("--prop", action="append", metavar="КЛЮЧ=ЗНАЧЕНИЕ",
                    help=i18n.t("cli.help.scaf.field-prop"))
+    p.add_argument("--doc", help=i18n.t("cli.help.scaf.af-doc"))
 
     p = command("set-field-property")
-    p.add_argument("yaml_path", help=i18n.t("cli.help.scaf.af-yaml"))
-    p.add_argument("field_kind", help=", ".join(("реквизит", "измерение", "ресурс", "значение",
-                                                 "параметр", "поле", "константа")))
+    p.add_argument("yaml_path", help=i18n.t("cli.help.scaf.sfp-yaml"))
+    p.add_argument("field_kind", help=scaffold.field_kinds_named(scaffold.SET_PROPERTY_KINDS))
     p.add_argument("name", help=i18n.t("cli.help.scaf.sfp-name"))
     p.add_argument("--prop", action="append", required=True, metavar="КЛЮЧ=ЗНАЧЕНИЕ",
                    help=i18n.t("cli.help.scaf.field-prop"))
-    p.add_argument("--tabular", help=i18n.t("cli.help.scaf.add-field-tabular"))
+    p.add_argument("--tabular", help=i18n.t("cli.help.scaf.sfp-tabular"))
 
     p = command("add-route")
     p.add_argument("yaml_path", help=i18n.t("cli.help.scaf.ar-yaml"))
@@ -888,6 +929,8 @@ def _scaffold_parser() -> argparse.ArgumentParser:
     p = command("resource-references")
     p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
     p.add_argument("resource_path", help=i18n.t("cli.help.scaf.mr-path"))
+    p.add_argument("--limit", type=int, default=100,
+                   help=i18n.t("cli.help.scaf.resource-references-limit"))
 
     p = command("unused-resources")
     p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
@@ -1167,7 +1210,7 @@ def _scaffold_main(argv: list[str]) -> int:
         elif args.command == "add-field":
             result = scaffold.op_add_field(
                 Path(args.yaml_path), args.field_kind, args.name,
-                type_=args.type, tabular=args.tabular, props=_props(args.prop),
+                type_=args.type, tabular=args.tabular, props=_props(args.prop), doc=args.doc,
             )
         elif args.command == "set-field-property":
             result = scaffold.op_set_field_property(
@@ -1310,7 +1353,11 @@ def _scaffold_main(argv: list[str]) -> int:
                     node = formmodel.get_node(form, args.node)
                     payload = {"root": as_dict(node)}
                 else:
-                    payload = {"root": as_dict(form.root)}
+                    # The whole form carries the records of its own `Properties` section, as
+                    # meta_component_tree and xbsl/formTree answer it: they belong to the
+                    # element, not to a node.
+                    payload = {"root": as_dict(form.root),
+                               "componentProperties": formmodel.component_properties_dicts(form)}
             print(json.dumps(payload, ensure_ascii=False))
             return 0
         elif args.command == "form-edit":
@@ -1407,7 +1454,8 @@ def _scaffold_main(argv: list[str]) -> int:
             return 0
         elif args.command == "resource-references":
             print(json.dumps(
-                scaffold.resource_references(Path(args.root), Path(args.resource_path)),
+                scaffold.resource_references(Path(args.root), Path(args.resource_path),
+                                             limit=args.limit),
                 ensure_ascii=False,
             ))
             return 0

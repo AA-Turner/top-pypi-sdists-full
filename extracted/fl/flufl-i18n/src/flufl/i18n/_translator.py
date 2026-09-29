@@ -10,6 +10,7 @@ from public import public
 from flufl.i18n._expand import expand
 from flufl.i18n._substitute import Template, attrdict
 
+
 if TYPE_CHECKING:  # pragma: no cover
     from gettext import NullTranslations
 

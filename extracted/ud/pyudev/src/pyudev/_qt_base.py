@@ -15,15 +15,14 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 """
-    pyudev._qt_base
-    ===============
+pyudev._qt_base
+===============
 
-    Base mixin class for Qt4,Qt5 support.
+Base mixin class for Qt5 support.
 
-    .. moduleauthor::  Sebastian Wiesner  <lunaryorn@gmail.com>
+.. moduleauthor::  Sebastian Wiesner  <lunaryorn@gmail.com>
 """
 
-# isort: LOCAL
 from pyudev.device import Device
 
 
@@ -31,8 +30,6 @@ class MonitorObserverMixin:
     """
     Base mixin for pyqt monitor observers.
     """
-
-    # pylint: disable=too-few-public-methods
 
     def _setup_notifier(self, monitor, notifier_class):
         self.monitor = monitor
@@ -78,8 +75,6 @@ class QUDevMonitorObserverMixin(MonitorObserverMixin):
     Obsolete monitor observer mixin.
     """
 
-    # pylint: disable=too-few-public-methods
-
     def _setup_notifier(self, monitor, notifier_class):
         MonitorObserverMixin._setup_notifier(self, monitor, notifier_class)
         self._action_signal_map = {
@@ -88,12 +83,13 @@ class QUDevMonitorObserverMixin(MonitorObserverMixin):
             "change": self.deviceChanged,
             "move": self.deviceMoved,
         }
-        # isort: STDLIB
-        import warnings  # pylint: disable=import-outside-toplevel
+
+        import warnings  # noqa: PLC0415
 
         warnings.warn(
-            "Will be removed in 1.0. Use pyudev.pyqt4.MonitorObserver instead.",
+            "Will be removed in 1.0. Use pyudev.pyqt5.MonitorObserver instead.",
             DeprecationWarning,
+            stacklevel=2,
         )
 
     def _emit_event(self, device):
@@ -108,14 +104,14 @@ def make_init(qobject, socket_notifier):
     Generates an initializer to observer the given ``monitor``
     (a :class:`~pyudev.Monitor`):
 
-    ``parent`` is the parent :class:`~PyQt{4,5}.QtCore.QObject` of this
+    ``parent`` is the parent :class:`~PyQt5.QtCore.QObject` of this
     object.  It is passed unchanged to the inherited constructor of
-    :class:`~PyQt{4,5}.QtCore.QObject`.
+    :class:`~PyQt5.QtCore.QObject`.
     """
 
     def __init__(self, monitor, parent=None):
         qobject.__init__(self, parent)
-        # pylint: disable=protected-access
+
         self._setup_notifier(monitor, socket_notifier)
 
     return __init__
@@ -126,18 +122,16 @@ class MonitorObserverGenerator:
     Class to generate a MonitorObserver class.
     """
 
-    # pylint: disable=too-few-public-methods
-
     @staticmethod
     def make_monitor_observer(qobject, signal, socket_notifier):
         """Generates an observer for device events integrating into the
-        PyQt{4,5} mainloop.
+        PyQt5 mainloop.
 
-        This class inherits :class:`~PyQt{4,5}.QtCore.QObject` to turn device
+        This class inherits :class:`~PyQt5.QtCore.QObject` to turn device
         events into Qt signals:
 
         >>> from pyudev import Context, Monitor
-        >>> from pyudev.pyqt4 import MonitorObserver
+        >>> from pyudev.pyqt5 import MonitorObserver
         >>> context = Context()
         >>> monitor = Monitor.from_netlink(context)
         >>> monitor.filter_by(subsystem='input')
@@ -147,7 +141,7 @@ class MonitorObserverGenerator:
         >>> observer.deviceEvent.connect(device_event)
         >>> monitor.start()
 
-        This class is a child of :class:`~{PySide, PyQt{4,5}}.QtCore.QObject`.
+        This class is a child of :class:`~{PySide, PyQt5}.QtCore.QObject`.
 
         """
         return type(
@@ -165,18 +159,16 @@ class QUDevMonitorObserverGenerator:
     Class to generate a MonitorObserver class.
     """
 
-    # pylint: disable=too-few-public-methods
-
     @staticmethod
     def make_monitor_observer(qobject, signal, socket_notifier):
         """Generates an observer for device events integrating into the
-        PyQt{4,5} mainloop.
+        PyQt5 mainloop.
 
-        This class inherits :class:`~PyQt{4,5}.QtCore.QObject` to turn device
+        This class inherits :class:`~PyQt5.QtCore.QObject` to turn device
         events into Qt signals:
 
         >>> from pyudev import Context, Monitor
-        >>> from pyudev.pyqt4 import MonitorObserver
+        >>> from pyudev.pyqt5 import MonitorObserver
         >>> context = Context()
         >>> monitor = Monitor.from_netlink(context)
         >>> monitor.filter_by(subsystem='input')
@@ -186,7 +178,7 @@ class QUDevMonitorObserverGenerator:
         >>> observer.deviceEvent.connect(device_event)
         >>> monitor.start()
 
-        This class is a child of :class:`~{PyQt{4,5}, PySide}.QtCore.QObject`.
+        This class is a child of :class:`~{PyQt5, PySide}.QtCore.QObject`.
 
         """
         return type(

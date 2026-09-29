@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datafusion-query-builder
-Version: 0.2.0
+Version: 0.3.1
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -63,6 +63,12 @@ Bare Python scalars auto-promote to literals (so `col("x") == "prod"` works), an
 literals are escaped — values are injection-safe by construction. Reach for `raw(...)` (a SQL
 fragment), `f.call("name", ...)` (any function), or `param("name")` (a `${name}` placeholder) when
 you step outside the v1 grammar.
+
+A `raw(...)` fragment must be one complete SQL expression. The builder parses it on its own, drops
+any comments, and adds brackets where its top-level operator binds looser than the surrounding
+one, as it does for native expressions. Pass a user-written predicate as `raw(predicate)`, not
+`raw(f"({predicate})")`. Text wrapping breaks on a trailing `-- comment`, and a predicate such as
+`1=1) OR (1=1` can close the bracket.
 
 The JSONB key-exists operators are first-class: `col("attributes").has_key("gen_ai.input.messages")`
 renders `attributes ? 'gen_ai.input.messages'` — a cheap presence check that never extracts the

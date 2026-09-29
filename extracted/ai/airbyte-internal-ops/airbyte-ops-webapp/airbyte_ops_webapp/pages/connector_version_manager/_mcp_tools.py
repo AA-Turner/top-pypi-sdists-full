@@ -427,11 +427,15 @@ def _build_context_result(
             # so live counts are lower (the platform behavior is believed to
             # be a bug).
             if rollout.get("tier_is_explicit", False):
-                tier_summaries[tier] = adapter.get_rollout_sync_summary(
+                summary = adapter.get_rollout_sync_summary(
                     rollout_id,
                     tier=tier,
                     is_destination=is_destination,
                 )
+                # Omit rather than store `None`, so an unavailable summary reads
+                # as a missing key here just as it does on the by-tier path.
+                if summary is not None:
+                    tier_summaries[tier] = summary
             else:
                 tier_summaries.update(
                     adapter.get_rollout_sync_summaries_by_tier(

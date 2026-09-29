@@ -14,14 +14,14 @@ class CustomSipHeaderWithDynamicVariable(UncheckedBaseModel):
     Value is not validated here since it will be substituted with actual value later.
     """
 
-    key: str = pydantic.Field()
-    """
-    The SIP header name (e.g., 'X-Customer-ID')
-    """
-
     value: str = pydantic.Field()
     """
     The dynamic variable name to resolve
+    """
+
+    key: str = pydantic.Field()
+    """
+    The SIP header name (e.g., 'X-Customer-ID')
     """
 
     if IS_PYDANTIC_V2:

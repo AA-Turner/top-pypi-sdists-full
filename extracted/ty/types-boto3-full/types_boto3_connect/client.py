@@ -47,6 +47,7 @@ from .paginator import (
     ListDataTableValuesPaginator,
     ListDefaultVocabulariesPaginator,
     ListEntitySecurityProfilesPaginator,
+    ListEvaluationFormAIVersionsPaginator,
     ListEvaluationFormsPaginator,
     ListEvaluationFormVersionsPaginator,
     ListExtractionDefinitionsPaginator,
@@ -5107,6 +5108,17 @@ class ConnectClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_entity_security_profiles"]
     ) -> ListEntitySecurityProfilesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_evaluation_form_ai_versions"]
+    ) -> ListEvaluationFormAIVersionsPaginator:
         """
         Create a paginator for an operation.
 

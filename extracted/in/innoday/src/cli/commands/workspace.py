@@ -34,7 +34,7 @@ import argparse
 import os
 import shutil
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -43,6 +43,7 @@ import yaml
 
 from src.cli.client import InnoDayAPIClient
 from src.cli.config import CLIConfig
+from src.cli.utils.archive import archive_stamp, prune_archive
 from src.cli.utils.formatters import format_error, format_success, format_warning
 from src.cli.utils.presentation import (
     make_console,
@@ -354,7 +355,7 @@ def _archive_prior_context(workspace: Path) -> None:
     if not yml_path.exists() and not claude_path.exists():
         return
 
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    ts = archive_stamp()
     archive_dir = workspace / ".innoday" / "archive"
     archive_dir.mkdir(parents=True, exist_ok=True)
 
@@ -363,17 +364,7 @@ def _archive_prior_context(workspace: Path) -> None:
     if claude_path.exists():
         shutil.copy2(claude_path, archive_dir / f"CLAUDE.md.{ts}")
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=_ARCHIVE_RETENTION_DAYS)
-    for entry in archive_dir.iterdir():
-        stamp = entry.name.rsplit(".", 1)[-1]
-        try:
-            when = datetime.strptime(stamp, "%Y%m%d-%H%M%S").replace(
-                tzinfo=timezone.utc
-            )
-        except ValueError:
-            continue
-        if when < cutoff:
-            entry.unlink(missing_ok=True)
+    prune_archive(archive_dir, _ARCHIVE_RETENTION_DAYS)
 
 
 def _load_existing_yml(workspace: Path) -> dict:

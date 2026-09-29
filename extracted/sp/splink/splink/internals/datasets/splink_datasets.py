@@ -4,8 +4,6 @@ import io
 from pathlib import Path
 from urllib.request import urlopen
 
-import pandas as pd
-
 from .metadata import dataset_labels, datasets
 
 DATASETDIR = Path(__file__).parent
@@ -24,6 +22,10 @@ def dataset_property(metadata_method):
     data_format = ds_meta.data_format
 
     def lazyload_data(self):
+        # TODO: nice message for users if pyarrow not installed
+        import pyarrow.csv as pa_csv
+        import pyarrow.parquet as pq
+
         if dataset_name in self._in_memory_data:
             return self._in_memory_data[dataset_name]
 
@@ -45,18 +47,20 @@ def dataset_property(metadata_method):
         else:
             data_source = file_loc
 
-        read_function = {
-            "csv": pd.read_csv,
-            "parquet": pd.read_parquet,
-        }.get(data_format, None)
-
-        # just in case we have an invalid format
-        if read_function is None:
+        if data_format == "csv":
+            df = pa_csv.read_csv(
+                data_source,
+                convert_options=pa_csv.ConvertOptions(strings_can_be_null=True),
+            )
+        elif data_format == "parquet":
+            df = pq.read_table(data_source)
+        else:
             raise ValueError(
                 f"Error retrieving dataset {dataset_name} - invalid format!"
             )
-        df = read_function(data_source)
+
         self._in_memory_data[dataset_name] = df
+
         return df
 
     return lazyload_data

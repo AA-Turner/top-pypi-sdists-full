@@ -108,6 +108,27 @@ def _status_filters(
     return filters
 
 
+def material_redirect_status(
+    requested_url: str, final_url: str | None, redirect_chain: object
+) -> int | None:
+    """The first hop's status when fetching ``requested_url`` MATERIALLY redirected.
+
+    Material means the address changed under our URL identity: a hop that only
+    adds or drops a trailing slash normalizes to the same page (the stored
+    identity strips it), so it is not a redirect a link author can fix — the
+    OpenSEO F-TS regression trap. ``None`` when there was no material redirect.
+    Shared by ``_check_internal_edges`` and the audit fixture harness.
+    """
+
+    if not isinstance(redirect_chain, list) or not redirect_chain or not final_url:
+        return None
+    if _normalise_url(requested_url) == _normalise_url(final_url):
+        return None
+    first = redirect_chain[0]
+    status = first.get("status") if isinstance(first, dict) else None
+    return int(status) if isinstance(status, int) and 300 <= status < 400 else None
+
+
 def _select_internal_status(
     *,
     source_snapshot_id: str,
@@ -118,10 +139,24 @@ def _select_internal_status(
     crawl_status_by_session_hash: dict[tuple[str, str], int],
     snapshot_by_page: dict[str, str],
     statuses_by_snapshot: dict[str, int],
+    redirect_status_by_session_hash: dict[tuple[str, str], int] | None = None,
 ) -> int | None:
-    """Choose same-session transport truth before historical snapshot truth."""
+    """Choose same-session transport truth before historical snapshot truth.
+
+    A link whose OWN address redirects is answered with that redirect's status
+    first: the target page's 200 describes where the link lands, not the hop
+    every visitor and crawler pays to get there — and reporting the 200 left
+    `internal_redirect_links` unable to fire for any followed redirect (caught
+    by the audit fixture site, `/redirect-links`).
+    """
 
     session_id = session_by_snapshot.get(source_snapshot_id)
+    if session_id is not None and redirect_status_by_session_hash:
+        redirect_status = redirect_status_by_session_hash.get(
+            (session_id, url_hash(_normalise_url(target_url)))
+        )
+        if redirect_status is not None:
+            return redirect_status
     if session_id is not None:
         if target_page_id is not None:
             accepted_status = same_session_status_by_page.get((session_id, target_page_id))
@@ -219,6 +254,7 @@ async def _check_internal_edges(
                 same_session_status_by_page.setdefault(key, int(row["http_status"]))
         target_hashes = list({url_hash(_normalise_url(str(edge.target_url))) for edge in edges})
         crawl_status_by_session_hash: dict[tuple[str, str], int] = {}
+        redirect_status_by_session_hash: dict[tuple[str, str], int] = {}
         if session_ids and target_hashes:
             crawl_rows = await (
                 WebCrawlUrl.filter(
@@ -229,11 +265,28 @@ async def _check_internal_edges(
                     deleted_at__isnull=True,
                 )
                 .order_by("-completed_at", "-id")
-                .values("session_id", "url_hash", "http_status")
+                .values(
+                    "session_id",
+                    "url_hash",
+                    "http_status",
+                    "normalized_url",
+                    "final_url",
+                    "metadata",
+                )
             )
             for row in crawl_rows:
                 key = (str(row["session_id"]), str(row["url_hash"]))
-                crawl_status_by_session_hash.setdefault(key, int(row["http_status"]))
+                if key in crawl_status_by_session_hash:
+                    continue
+                crawl_status_by_session_hash[key] = int(row["http_status"])
+                metadata = row.get("metadata") or {}
+                redirect_status = material_redirect_status(
+                    str(row["normalized_url"]),
+                    row.get("final_url"),
+                    metadata.get("redirect_chain") if isinstance(metadata, dict) else None,
+                )
+                if redirect_status is not None:
+                    redirect_status_by_session_hash[key] = redirect_status
 
         pages = await WebPage.filter(id__in=target_page_ids, deleted_at__isnull=True).all()
         snapshot_by_page: dict[str, str] = {
@@ -264,6 +317,7 @@ async def _check_internal_edges(
                 crawl_status_by_session_hash=crawl_status_by_session_hash,
                 snapshot_by_page=snapshot_by_page,
                 statuses_by_snapshot=statuses_by_snapshot,
+                redirect_status_by_session_hash=redirect_status_by_session_hash,
             )
             if status is None:
                 if edge.target_page_id is None:

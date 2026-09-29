@@ -16,6 +16,20 @@ namespace storage {
 class LocalWAL;
 class WAL {
 public:
+    // Recovery only: adopt the frozen WAL for one checkpoint, clearing the request on exit even
+    // if the checkpoint fails before rotation.
+    class FrozenWALAdoptionGuard {
+    public:
+        explicit FrozenWALAdoptionGuard(WAL& wal);
+        ~FrozenWALAdoptionGuard();
+
+        FrozenWALAdoptionGuard(const FrozenWALAdoptionGuard&) = delete;
+        FrozenWALAdoptionGuard& operator=(const FrozenWALAdoptionGuard&) = delete;
+
+    private:
+        WAL& wal;
+    };
+
     WAL(const std::string& dbPath, bool readOnly, bool enableChecksums,
         common::VirtualFileSystem* vfs);
     ~WAL();
@@ -24,8 +38,15 @@ public:
         uint64_t& commitSequence);
     void logAndFlushCheckpoint(main::ClientContext* context);
 
+    // Renames the active WAL to the frozen checkpoint WAL. Returns false if there is nothing to
+    // rotate. Throws if a frozen WAL from an earlier checkpoint is still on disk, since
+    // overwriting it would drop records that recovery still needs.
     bool rotateForCheckpoint(main::ClientContext* context);
     void logAndFlushCheckpointToFrozen(main::ClientContext* context);
+    // Undoes rotateForCheckpoint() for a checkpoint that failed before its CHECKPOINT record was
+    // written, so the records it froze become part of the active WAL again. Never throws; on
+    // failure the frozen WAL is left for recovery.
+    void undoRotationForCheckpoint() noexcept;
     void clearFrozenWAL();
 
     // Clear any buffer in the WAL writer. Also truncate the WAL file to 0 bytes.
@@ -58,9 +79,13 @@ private:
     std::condition_variable groupCommitCV;
     uint64_t appendedCommitSequence = 0;
     uint64_t durableCommitSequence = 0;
+    bool adoptFrozenWAL = false;
     bool syncInProgress = false;
     bool poisoned = false;
     std::string poisonReason;
+    // Set once a CHECKPOINT record may have reached the frozen WAL. From then on, the frozen WAL
+    // is the checkpoint's commit record and must be left for recovery.
+    bool frozenWALHasCheckpointRecord = false;
 
     // Since most writes to the shared WAL will be flushing local WAL (which has its own checksums),
     // these writes can go through the normal writer. We do still need a checksum writer though for

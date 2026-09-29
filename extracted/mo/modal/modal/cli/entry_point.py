@@ -11,9 +11,7 @@ from . import run, shell as shell_module
 from ._help import ModalCommand, ModalGroup, ModalProfileOption
 from .app import app_cli
 from .billing import billing_cli
-from .bootstrap import bootstrap
 from .changelog import changelog
-from .cluster import cluster_cli
 from .config import config_cli
 from .container import container_cli
 from .curl import curl
@@ -21,13 +19,14 @@ from .dashboard import dashboard
 from .dict import dict_cli
 from .endpoint import endpoint_cli
 from .environment import environment_cli
+from .function import function_cli
 from .image import image_cli
-from .launch import launch_cli
 from .logo import print_logo
 from .network_file_system import nfs_cli
 from .profile import profile_cli
 from .queues import queue_cli
 from .secret import secret_cli
+from .server import server_cli
 from .skills import skills_cli
 from .token import _new_token, token_cli
 from .volume import volume_cli
@@ -106,19 +105,16 @@ async def setup():
     output.print("[green]→[/green] Run [bold]modal skills install[/bold] to install agent skills")
 
 
-entrypoint_cli.add_command(curl, "curl", panel="Commands")
-entrypoint_cli.add_command(run.deploy, "deploy", panel="Commands")
-entrypoint_cli.add_command(run.serve, "serve", panel="Commands")
-entrypoint_cli.add_command(shell_module.shell, "shell", panel="Commands")
 entrypoint_cli.add_command(run.run, "run", panel="Commands")
-# launch is hidden as it's experimental and we're tracking towards removing it
-entrypoint_cli.add_command(launch_cli, hidden=True)
-
-entrypoint_cli.add_command(app_cli, panel="Deployments")
-entrypoint_cli.add_command(container_cli, panel="Deployments")
-entrypoint_cli.add_command(endpoint_cli, panel="Deployments")
-# cluster is hidden while multi-node is in beta/experimental
-entrypoint_cli.add_command(cluster_cli, panel="Deployments", hidden=True)
+entrypoint_cli.add_command(run.serve, "serve", panel="Commands")
+entrypoint_cli.add_command(run.deploy, "deploy", panel="Commands")
+entrypoint_cli.add_command(shell_module.shell, "shell", panel="Commands")
+entrypoint_cli.add_command(curl, "curl", panel="Commands")
+entrypoint_cli.add_command(app_cli, panel="Compute")
+entrypoint_cli.add_command(container_cli, panel="Compute")
+entrypoint_cli.add_command(endpoint_cli, panel="Compute")
+entrypoint_cli.add_command(function_cli, panel="Compute")
+entrypoint_cli.add_command(server_cli, panel="Compute")
 
 entrypoint_cli.add_command(image_cli, panel="Storage")
 entrypoint_cli.add_command(dict_cli, panel="Storage")
@@ -127,8 +123,6 @@ entrypoint_cli.add_command(secret_cli, panel="Storage")
 entrypoint_cli.add_command(queue_cli, panel="Storage")
 entrypoint_cli.add_command(volume_cli, panel="Storage")
 
-entrypoint_cli.add_command(setup, panel="Onboarding")
-entrypoint_cli.add_command(bootstrap, panel="Onboarding")
 
 entrypoint_cli.add_command(workspace_cli, panel="Configuration")
 entrypoint_cli.add_command(environment_cli, panel="Configuration")
@@ -136,6 +130,7 @@ entrypoint_cli.add_command(profile_cli, panel="Configuration")
 entrypoint_cli.add_command(config_cli, panel="Configuration")
 entrypoint_cli.add_command(token_cli, panel="Configuration")
 entrypoint_cli.add_command(skills_cli, panel="Configuration")
+entrypoint_cli.add_command(setup, panel="Configuration")
 
 entrypoint_cli.add_command(billing_cli, panel="Observability")
 entrypoint_cli.add_command(changelog, panel="Observability")

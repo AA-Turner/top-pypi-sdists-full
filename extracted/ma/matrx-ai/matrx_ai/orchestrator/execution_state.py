@@ -114,6 +114,13 @@ class ExecutionState:
     current_request: Any | None = None
     trigger_position: int = 0
     pre_execution_message_count: int = 0
+    # The trigger message OBJECT at execution start. Every position above is an
+    # index into the live list, so the list may only GROW during a turn. The
+    # barrier checks this object is still at ``trigger_position`` and screams
+    # (``persisted_history_shifted``) when anything removed or inserted history
+    # mid-turn — the class that silently stopped admin@admin.com's staff thread
+    # from writing chat.message (Lane AZ, 2026-09-28).
+    trigger_message: Any | None = None
     # cx_message.id of every message ALREADY persisted (loaded from the DB)
     # before this execution started. Persistence must never re-INSERT these —
     # on a retry (user_input=None) the conversation's existing messages are

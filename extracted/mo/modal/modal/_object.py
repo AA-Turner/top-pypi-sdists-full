@@ -13,7 +13,6 @@ from ._load_context import LoadContext
 from ._resolver import Resolver
 from ._traceback import suppress_tb_frame
 from ._utils.async_utils import TaskContext, aclosing
-from ._utils.deprecation import deprecation_warning
 from .client import _Client
 from .config import config, logger
 from .exception import ExecutionError, InvalidError
@@ -294,16 +293,6 @@ class _Object:
         return self.__class__.__name__.removeprefix("_")
 
     @property
-    def local_uuid(self):
-        """mdmd:hidden"""
-        deprecation_warning(
-            (2026, 8, 26),
-            f"`{self._class_name}.local_uuid` is deprecated and will be removed in `modal` version 1.6.0",
-        )
-
-        return self._local_uuid
-
-    @property
     def object_id(self) -> str:
         """mdmd:hidden"""
         if self._object_id is None:
@@ -323,26 +312,6 @@ class _Object:
         return self._client
 
     @property
-    def is_hydrated(self) -> bool:
-        """mdmd:hidden"""
-        deprecation_warning(
-            (2026, 8, 26),
-            f"`{self._class_name}.is_hydrated` is deprecated and will be removed in `modal` version 1.6.0",
-        )
-
-        return self._is_hydrated
-
-    @property
-    def deps(self) -> Callable[..., Sequence["_Object"]]:
-        """mdmd:hidden"""
-        deprecation_warning(
-            (2026, 8, 26),
-            f"`{self._class_name}.deps` is deprecated and will be removed in `modal` version 1.6.0",
-        )
-
-        return self._deps_
-
-    @property
     def _deps_(self) -> Callable[..., Sequence["_Object"]]:
         def default_deps(*args, **kwargs) -> Sequence["_Object"]:
             return []
@@ -358,6 +327,7 @@ class _Object:
 
         *Added in v0.72.39*: This method replaces the deprecated `.resolve()` method.
         """
+
         # TODO: add deprecation for the client argument here - should be added in constructors instead
         if self._is_hydrated:
             if self.client._snapshotted and not self._is_rehydrated:
@@ -388,4 +358,5 @@ class _Object:
                 root_load_context = LoadContext(client=client, task_context=tc)
                 with suppress_tb_frame():  # skip this frame by default
                     await resolver.load(self, root_load_context)
+
         return self

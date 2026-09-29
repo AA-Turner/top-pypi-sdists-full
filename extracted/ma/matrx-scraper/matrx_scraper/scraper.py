@@ -70,6 +70,7 @@ def _curl_cffi_get_sync(
         # quietly wrong number, and the check must answer n_a instead.
         ttfb_us: int | None = 0
         max_redirects = 10
+        redirect_loop = False
         for redirect_count in range(max_redirects + 1):
             resp = session.get(
                 current_url,
@@ -90,9 +91,19 @@ def _curl_cffi_get_sync(
             redirect_chain.append(
                 {"status": int(resp.status_code), "url": response_url or current_url}
             )
+            next_url = urljoin(response_url or current_url, location)
+            if any(hop.get("url") == next_url for hop in redirect_chain):
+                # A LOOP is an answer, not a transport failure: the server
+                # responded every time, it just never arrives anywhere. Record
+                # the revisit as the chain's last hop (so the loop is visible in
+                # the evidence) and stop; the caller names it `redirect_loop`.
+                # Raising here used to turn it into "status 0, never responded".
+                redirect_chain.append({"status": None, "url": next_url, "revisit": True})
+                redirect_loop = True
+                break
             if redirect_count >= max_redirects:
                 raise RuntimeError(f"redirect limit exceeded for {redact_url_secrets(url)!r} ({max_redirects})")
-            current_url = urljoin(response_url or current_url, location)
+            current_url = next_url
 
         status_code = resp.status_code
         resp_headers = dict(resp.headers)
@@ -114,6 +125,7 @@ def _curl_cffi_get_sync(
             "content": content,
             "content_bytes": content_bytes,
             "ttfb_ms": round(ttfb_us / 1000) if ttfb_us is not None else None,
+            "redirect_loop": redirect_loop,
         }
 
 
@@ -246,6 +258,9 @@ class FailureReason(enum.StrEnum):
     PARSE_ERROR = "parse_error"
     CLOUDFLARE_BLOCK = "cloudflare_block"
     BLOCKED = "blocked"
+    #: The redirect chain came back to a URL it already visited. Persisted as
+    #: `web.crawl_url.reason_code='redirect_loop'` with the chain (revisit last).
+    REDIRECT_LOOP = "redirect_loop"
     REQUEST_ERROR = "request_error"
     PROXY_ERROR = "proxy_error"
 
@@ -383,6 +398,36 @@ def detect_challenge_reasons(
                 if widget:
                     reasons.append({FailureReason.BLOCKED: f"Short page is a captcha: {widget}"})
     return reasons
+
+
+def wall_reason_from_status(
+    status_code: int | None, headers: dict[str, str] | None
+) -> tuple[FailureReason, str] | None:
+    """A wall the response HEADERS and STATUS declare, with no body marker needed.
+
+    Order (OPENSEO-TOOLS-SPEC §8.1): 429 first — the origin throttling us is the
+    crawler's rate-limit path, never a block — then Cloudflare's own
+    ``cf-mitigated`` header (its challenge, whatever the status), then 401/403
+    (the origin refusing us). A 503 with a challenge marker is already caught by
+    :func:`detect_challenge_reasons`. A blocked URL was never seen failing, so
+    the audit must never count it as a broken link.
+    """
+    status = int(status_code or 0)
+    if status == 429:
+        return None
+    mitigated = None
+    for key, value in (headers or {}).items():
+        if str(key).lower() == "cf-mitigated":
+            mitigated = str(value)
+            break
+    if mitigated:
+        return (
+            FailureReason.CLOUDFLARE_BLOCK,
+            f"Cloudflare mitigated the request (cf-mitigated: {mitigated}, HTTP {status})",
+        )
+    if status in (401, 403):
+        return (FailureReason.BLOCKED, f"The site refused the request (HTTP {status})")
+    return None
 
 
 def primary_failure_reason(fatal_reasons: list[dict]) -> FailureReason:
@@ -762,7 +807,10 @@ async def fetch(
     try:
         if request_type == RequestType.BROWSER:
             async with async_playwright() as p:
-                launch_kwargs = {"headless": False}
+                # This is the server-side capture rung, never an interactive
+                # handoff browser. It must not create a visible Chromium window
+                # on a worker or during an offline crawl.
+                launch_kwargs = {"headless": True}
                 if proxy:
                     # Note: The proxy string must include the protocol, e.g., "http://127.0.0.1:8080"
                     launch_kwargs["proxy"] = playwright_proxy(proxy)
@@ -851,6 +899,16 @@ async def fetch(
                 # measured", which is a first-class state everywhere
                 # downstream. It must never become a fetch failure.
                 ttfb_ms = fetched.get("ttfb_ms")
+                if fetched.get("redirect_loop"):
+                    failed = True
+                    failed_reasons.append(
+                        {
+                            FailureReason.REDIRECT_LOOP: (
+                                f"Redirect loop: {redirect_chain[-1].get('url')} redirects back "
+                                "to a URL already in its chain"
+                            )
+                        }
+                    )
             else:
                 # Fallback to httpx
                 timeout_config = Timeout(15.0, connect=60.0)
@@ -995,6 +1053,10 @@ async def fetch(
     if challenge_reasons:
         failed = True
         failed_reasons.extend(challenge_reasons)
+    wall_reason = wall_reason_from_status(status_code, headers)
+    if wall_reason is not None and not any(wall_reason[0] in r for r in failed_reasons):
+        failed = True
+        failed_reasons.append({wall_reason[0]: wall_reason[1]})
 
     # CMS detection
     if is_html and selectolax_soup:

@@ -2790,8 +2790,15 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 is_explicit,
                 ..
             } => {
-                let (annot, ty) =
-                    self.name_assign_infer(name, annot_key.as_ref(), None, expr, None, errors);
+                let (annot, ty) = self.name_assign_infer(
+                    name,
+                    annot_key.as_ref(),
+                    None,
+                    expr,
+                    None,
+                    None,
+                    errors,
+                );
                 if let Some(annot) = &annot
                     && let Some((AnnotationStyle::Forwarded, _)) = annot_key
                 {
@@ -3710,6 +3717,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         receiver_idx: Option<Idx<Key>>,
         expr: &Expr,
         attrs_field_specifier: Option<AttrsSpecifier>,
+        last_value_or_narrow: Option<Idx<Key>>,
         errors: &ErrorCollector,
     ) -> (Option<&AnnotationWithTarget>, Type) {
         // Receiver-constrained class assignment: a same-scope rebind of a
@@ -3742,9 +3750,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 let tcc: &dyn Fn() -> TypeCheckContext = &|| {
                     TypeCheckContext::of_kind(match style {
                         AnnotationStyle::Direct => TypeCheckKind::AnnAssign,
-                        AnnotationStyle::ForwardedInitial | AnnotationStyle::Forwarded => {
-                            TypeCheckKind::AnnotatedName(name.clone())
-                        }
+                        AnnotationStyle::Forwarded => TypeCheckKind::AnnotatedName(name.clone()),
                     })
                     .with_annotation(annot_range, "declared type".to_owned())
                 };
@@ -3798,30 +3804,36 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     let hint = annot_ty.as_ref().map(|t| (t, tcc));
                     self.expr_check(expr, hint, errors)
                 };
-                let ty = if style == &AnnotationStyle::Direct {
-                    if attrs_field_specifier.is_some() {
-                        self.heap.mk_any_implicit()
-                    } else {
-                        // For direct assignments, user-provided annotation takes
-                        // precedence over inferred expr type.
-                        annot_ty.unwrap_or(expr_ty)
+                let ty = match style {
+                    AnnotationStyle::Direct => {
+                        if attrs_field_specifier.is_some() {
+                            self.heap.mk_any_implicit()
+                        } else {
+                            // For direct assignments, user-provided annotation takes
+                            // precedence over inferred expr type.
+                            annot_ty.unwrap_or(expr_ty)
+                        }
                     }
-                } else if matches!(
-                    style,
-                    AnnotationStyle::ForwardedInitial | AnnotationStyle::Forwarded
-                ) && expr_ty.is_any()
-                    && let Some(annot) = annot_ty
-                {
-                    // Assigning `Any` to a variable with a declared type keeps the
-                    // declared type: `Any` carries no information to narrow with, so
-                    // taking it would only discard the annotation. This holds both for
-                    // the first assignment after a bare annotation and for later
-                    // reassignments of an already-initialized variable.
-                    annot
-                } else {
-                    // For reassignment or non-Any expressions, the expression
-                    // type takes precedence (narrowing behavior).
-                    expr_ty
+                    AnnotationStyle::Forwarded => {
+                        let contains_any = |t: &Type| match t {
+                            Type::Any(_) => true,
+                            Type::Union(u) => u.members.iter().any(Type::is_any),
+                            _ => false,
+                        };
+                        if let Some(annot) = annot_ty
+                        // Usually, if we reassign a name with an annotation, we use the type of the
+                        // expression going forward. We have an exception to prevent an `Any`
+                        // expression from overwriting an annotation it is less informative than: if
+                        // the expression is `Any` and the annotation is not `Any` or a union containing `Any`,
+                        // and the name's flow-sensitive type still matches the annotation, then we use the annotation.
+                        && expr_ty.is_any() && !contains_any(&annot)
+                        && last_value_or_narrow.is_none_or(|prev_idx| self.get_idx(prev_idx).ty() == &annot)
+                        {
+                            annot
+                        } else {
+                            expr_ty
+                        }
+                    }
                 };
                 (Some(annot), ty)
             }
@@ -3858,6 +3870,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         is_in_function_scope: bool,
         is_class_body_assignment: bool,
         attrs_field_specifier: Option<AttrsSpecifier>,
+        last_value_or_narrow: Option<Idx<Key>>,
         errors: &ErrorCollector,
     ) -> Type {
         let (annot, ty) = self.name_assign_infer(
@@ -3866,6 +3879,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             receiver_idx,
             expr,
             attrs_field_specifier,
+            last_value_or_narrow,
             errors,
         );
         // Flag unannotated variables whose inferred type is an implicit `Any` (unknown).
@@ -6005,6 +6019,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 x.is_in_function_scope,
                 x.is_class_body_assignment,
                 x.attrs_field_specifier,
+                x.last_value_or_narrow,
                 errors,
             ),
             Binding::TypeVar(x) => {

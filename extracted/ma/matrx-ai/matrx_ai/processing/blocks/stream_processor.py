@@ -53,6 +53,7 @@ from matrx_ai.processing.blocks.envelope import (
     discriminator_for_block,
     envelope_for_block,
 )
+from matrx_ai.processing.blocks.kind_correctors import KIND_CORRECTIONS_KEY, correct_kind_value
 from matrx_ai.processing.blocks.models.base import (
     BlockStatus,
     BlockType,
@@ -1477,6 +1478,13 @@ class StreamBlockProcessor:
             return
 
         if result is not None:
+            if block.type == KIND_BLOCK_TYPE:
+                # A registered kind's value is made to agree with its own rules HERE,
+                # before the envelope is built from it, so no renderer ever sees the
+                # model's arithmetic (kind_correctors). Every change rides the block.
+                result, corrections = correct_kind_value(result)
+                if corrections:
+                    block.metadata[KIND_CORRECTIONS_KEY] = corrections
             block.data = result
         else:
             # Parser returned None — content was recognized as this type but

@@ -13,4 +13,9 @@ config:
   agent-message-bus:min-instances: "1"
   agent-message-bus:max-instances: "10"
   agent-message-bus:devin-org-id: org_iq47F3xxV39G0Zhn
+  # Non-secret Zendesk settings for the MoonBot Resolution session write-back.
+  # The API token itself is a Secret Manager secret (internal-ops-zendesk-api-token)
+  # shared with the internal-mcp-servers stack.
+  agent-message-bus:zendesk-subdomain: airbyte1416
+  agent-message-bus:zendesk-email: support.ops@airbyte.io
 encryptionsalt: v1:AYsdW2X7dHA=:v1:6eavs6aAtKMTmYgn:i8+SJ8AS7AxxC9Ra1eMKk3n5+lFz8g==

@@ -20,6 +20,7 @@ from mlflow_oidc_auth.audit import emit_audit_event
 from mlflow_oidc_auth.dependencies import check_admin_permission
 from mlflow_oidc_auth.logger import get_logger
 from mlflow_oidc_auth.utils.data_fetching import fetch_all_experiments
+from mlflow_oidc_auth.utils.pagination import NO_PAGE, PageQuery, paginate_with_headers
 
 from ._prefix import TRASH_ROUTER_PREFIX
 
@@ -49,6 +50,7 @@ RESTORE_RUN = f"{RUNS}/{{run_id}}/restore"
 )
 async def list_deleted_experiments(
     admin_username: str = Depends(check_admin_permission),
+    page: PageQuery = NO_PAGE,
 ) -> JSONResponse:
     """
     List all deleted experiments.
@@ -60,6 +62,9 @@ async def list_deleted_experiments(
     -----------
     admin_username : str
         The authenticated admin username (injected by dependency).
+    page : PageParams
+        Opt-in ``limit`` / ``offset`` / ``search`` on the experiment name (see
+        ``utils/pagination.py``). The total is returned in ``X-Total-Count``.
 
     Returns:
     --------
@@ -88,8 +93,10 @@ async def list_deleted_experiments(
             }
             experiments_list.append(experiment_data)
 
+        experiments_list, headers = paginate_with_headers(experiments_list, key=lambda e: e["name"], params=page, tiebreak=lambda e: e["experiment_id"])
+
         logger.info(f"Admin user '{admin_username}' listed {len(experiments_list)} deleted experiments.")
-        return JSONResponse(content={"deleted_experiments": experiments_list})
+        return JSONResponse(content={"deleted_experiments": experiments_list}, headers=headers)
 
     except Exception:
         logger.exception("Error listing deleted experiments for admin %s", admin_username)
@@ -108,6 +115,7 @@ async def list_deleted_runs(
         None,
         description="Only include runs deleted more than this duration ago (e.g., '1d2h', '7d').",
     ),
+    page: PageQuery = NO_PAGE,
 ) -> JSONResponse:
     """
     List deleted runs with optional experiment and age filters.
@@ -121,6 +129,19 @@ async def list_deleted_runs(
     older_than : Optional[str]
         Time window threshold; runs deleted more recently than this are excluded when the backend
         supports `_get_deleted_runs`.
+    page : PageParams
+        Opt-in ``limit`` / ``offset`` / ``search`` on the run name (see ``utils/pagination.py``).
+        The total is returned in ``X-Total-Count``.
+
+    Returns
+    -------
+    JSONResponse
+        ``{"deleted_runs": [...]}``; 400 for an unparseable ``older_than``.
+
+    Raises
+    ------
+    HTTPException
+        500 when the runs cannot be read.
     """
     backend_store = _get_store()
     experiment_filter = _split_csv(experiment_ids)
@@ -179,11 +200,13 @@ async def list_deleted_runs(
                 }
             )
 
+        runs_payload, headers = paginate_with_headers(runs_payload, key=lambda r: r["run_name"], params=page, tiebreak=lambda r: r["run_id"])
+
         logger.info(
             f"Admin user '{admin_username}' listed {len(runs_payload)} deleted runs"
             f" (experiments filter: {experiment_filter or 'all'}, older_than: {older_than or 'not set'})."
         )
-        return JSONResponse(content={"deleted_runs": runs_payload})
+        return JSONResponse(content={"deleted_runs": runs_payload}, headers=headers)
 
     except Exception:
         logger.exception("Error listing deleted runs for admin %s", admin_username)
@@ -398,7 +421,7 @@ async def permanently_delete_all_trashed_entities(
                     # Fail safe by keeping the run's metadata and reporting the failure instead
                     # of hard-deleting a run whose artifacts were not actually removed.
                     logger.error(f"Error deleting artifacts for run {run_id}: {str(e)}")
-                    failed_runs.append({"run_id": run_id, "error": f"Failed to delete artifacts: {str(e)}"})
+                    failed_runs.append({"run_id": run_id, "error": "Failed to delete artifacts"})
                     continue
 
                 # Hard delete the run
@@ -408,7 +431,10 @@ async def permanently_delete_all_trashed_entities(
 
             except Exception as e:
                 logger.error(f"Error deleting run {run_id}: {str(e)}")
-                failed_runs.append({"run_id": run_id, "error": str(e)})
+                # The client gets a fixed, classified message; the exception text stays in the
+                # server log above because it can carry store or storage internals.
+                not_found = isinstance(e, MlflowException) and e.error_code == "RESOURCE_DOES_NOT_EXIST"
+                failed_runs.append({"run_id": run_id, "error": "Run not found" if not_found else "Failed to delete run"})
 
         # Delete experiments
         deleted_experiments = []
@@ -435,7 +461,7 @@ async def permanently_delete_all_trashed_entities(
                     # Can't confirm the experiment has no runs left - fail safe and skip it
                     # rather than risk cascading a hard delete onto a run we never checked.
                     logger.error(f"Could not verify experiment {experiment_id} has no remaining runs: {str(e)}")
-                    failed_experiments.append({"experiment_id": experiment_id, "error": f"Could not verify no runs remain: {str(e)}"})
+                    failed_experiments.append({"experiment_id": experiment_id, "error": "Could not verify no runs remain"})
                     continue
 
                 if remaining_runs:
@@ -449,7 +475,7 @@ async def permanently_delete_all_trashed_entities(
                     logger.info(f"Permanently deleted experiment {experiment_id}")
                 except Exception as e:
                     logger.error(f"Error deleting experiment {experiment_id}: {str(e)}")
-                    failed_experiments.append({"experiment_id": experiment_id, "error": str(e)})
+                    failed_experiments.append({"experiment_id": experiment_id, "error": "Failed to delete experiment"})
 
         # Prepare response
         response_data = {

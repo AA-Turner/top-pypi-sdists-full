@@ -380,14 +380,19 @@ class TypedDeviceUptimeStatsWanMonitor(TypedDict):
 class TypedDeviceUptimeStatsWan(TypedDict):
     """Device uptime stats wan type definition."""
 
-    monitors: list[TypedDeviceUptimeStatsWanMonitor]
+    alerting_monitors: NotRequired[list[TypedDeviceUptimeStatsWanMonitor]]
+    availability: NotRequired[float]
+    latency_average: NotRequired[int]
+    monitors: NotRequired[list[TypedDeviceUptimeStatsWanMonitor]]
+    time_period: NotRequired[int]
+    uptime: NotRequired[int]
 
 
 class TypedDeviceUptimeStats(TypedDict):
     """Device uptime stats type definition."""
 
-    WAN: TypedDeviceUptimeStatsWan
-    WAN2: TypedDeviceUptimeStatsWan
+    WAN: NotRequired[TypedDeviceUptimeStatsWan]
+    WAN2: NotRequired[TypedDeviceUptimeStatsWan]
     WAN3: NotRequired[TypedDeviceUptimeStatsWan]
 
 

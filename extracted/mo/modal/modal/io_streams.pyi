@@ -12,7 +12,16 @@ def _sandbox_logs_iterator(
 
 T = typing.TypeVar("T")
 
-class _StreamReaderThroughServer(typing.Generic[T]):
+class _StreamReaderImpl(abc.ABC, typing.Generic[T]):
+    """Interface that `_StreamReader` delegates to."""
+    @property
+    def file_descriptor(self) -> int: ...
+    async def read(self) -> T: ...
+    def __aiter__(self) -> collections.abc.AsyncIterator[T]: ...
+    async def __anext__(self) -> T: ...
+    async def aclose(self) -> None: ...
+
+class _StreamReaderThroughServer(_StreamReaderImpl[T]):
     """A StreamReader implementation that reads sandbox logs from the server."""
 
     _stream: typing.Optional[collections.abc.AsyncGenerator[T, None]]
@@ -45,9 +54,8 @@ class _StreamReaderThroughServer(typing.Generic[T]):
         ...
 
     def __aiter__(self) -> collections.abc.AsyncGenerator[T, None]: ...
-    async def aclose(self):
-        """mdmd:hidden"""
-        ...
+    async def __anext__(self) -> T: ...
+    async def aclose(self) -> None: ...
 
 def _decode_bytes_stream_to_str(
     stream: collections.abc.AsyncGenerator[bytes, None],
@@ -185,30 +193,40 @@ class _StreamReaderThroughSandboxCommandRouterParams:
         ...
 
 def _stdio_stream_from_sandbox_command_router(
-    params: _StreamReaderThroughSandboxCommandRouterParams,
-) -> collections.abc.AsyncGenerator[bytes, None]:
-    """Stream raw bytes from a V2 sandbox's primary stdio via ``sandbox_stdio_read``."""
+    params: _StreamReaderThroughSandboxCommandRouterParams, start_offset: int
+) -> collections.abc.AsyncGenerator[tuple[bytes, int], None]:
+    """Stream ``(data, next_offset)`` pairs from a V2 sandbox's primary stdio
+    via ``sandbox_stdio_read``, starting at ``start_offset``.
+    """
     ...
 
 def _stdio_stream_from_sandbox_exec_command_router(
-    params: _StreamReaderThroughSandboxExecCommandRouterParams,
-) -> collections.abc.AsyncGenerator[bytes, None]:
-    """Stream raw bytes from a V2 sandbox-exec'd process via ``exec_stdio_read``."""
+    params: _StreamReaderThroughSandboxExecCommandRouterParams, start_offset: int
+) -> collections.abc.AsyncGenerator[tuple[bytes, int], None]:
+    """Stream ``(data, next_offset)`` pairs from a V2 sandbox-exec'd process
+    via ``exec_stdio_read``, starting at ``start_offset``.
+    """
     ...
 
 def _stdio_stream_from_command_router(
     params: typing.Union[
         _StreamReaderThroughSandboxExecCommandRouterParams, _StreamReaderThroughSandboxCommandRouterParams
     ],
-) -> collections.abc.AsyncGenerator[bytes, None]:
+    start_offset: int,
+) -> collections.abc.AsyncGenerator[tuple[bytes, int], None]:
     """Dispatch between the V2-sandbox primary stdio and the V2-sandbox-exec
-    stdio streams, both of which yield raw bytes.
+    stdio streams, both of which yield ``(data, next_offset)`` pairs.
     """
     ...
 
-class _BytesStreamReaderThroughCommandRouter:
-    """StreamReader that yields raw bytes from the router-backed stdio source
-    (either V2 sandbox top-level stdio or V2 sandbox-exec stdio).
+class _StreamReaderThroughCommandRouterBase(_StreamReaderImpl[T]):
+    """Shared stream position for router-backed readers.
+
+    All iterators and reads on the same reader draw from one underlying
+    stream, so each chunk is delivered exactly once. Pulls are serialized
+    with a lock so concurrent readers take turns instead of failing on an
+    already-running generator. Closing the underlying stream keeps the
+    offset, so a later read reopens it where the previous one stopped.
     """
     def __init__(
         self,
@@ -221,11 +239,31 @@ class _BytesStreamReaderThroughCommandRouter:
 
     @property
     def file_descriptor(self) -> int: ...
+    def _iterate_stream(self) -> collections.abc.AsyncGenerator[T, None]:
+        """Open the underlying stream at the current offset."""
+        ...
+
+    async def __anext__(self) -> T: ...
+    def _consume_stream(self) -> collections.abc.AsyncGenerator[T, None]: ...
+    def __aiter__(self) -> collections.abc.AsyncGenerator[T, None]: ...
+    async def aclose(self) -> None:
+        """Close the underlying stream. A stream another reader is currently
+        pulling from is left open for that reader to close.
+        """
+        ...
+
+class _BytesStreamReaderThroughCommandRouter(_StreamReaderThroughCommandRouterBase[bytes]):
+    """StreamReader that yields raw bytes from the router-backed stdio source
+    (either V2 sandbox top-level stdio or V2 sandbox-exec stdio).
+    """
     async def read(self) -> bytes: ...
-    def __aiter__(self) -> collections.abc.AsyncGenerator[bytes, None]: ...
+    def _iterate_stream(self) -> collections.abc.AsyncGenerator[bytes, None]:
+        """Open the underlying stream at the current offset."""
+        ...
+
     async def _print_all(self, output_stream: typing.TextIO) -> None: ...
 
-class _TextStreamReaderThroughCommandRouter:
+class _TextStreamReaderThroughCommandRouter(_StreamReaderThroughCommandRouterBase[str]):
     """StreamReader that yields UTF-8-decoded text from the router-backed
     stdio source.
     """
@@ -239,13 +277,14 @@ class _TextStreamReaderThroughCommandRouter:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
-    @property
-    def file_descriptor(self) -> int: ...
     async def read(self) -> str: ...
-    def __aiter__(self) -> collections.abc.AsyncGenerator[str, None]: ...
+    def _iterate_stream(self) -> collections.abc.AsyncGenerator[str, None]:
+        """Open the underlying stream at the current offset."""
+        ...
+
     async def _print_all(self, output_stream: typing.TextIO) -> None: ...
 
-class _StdoutPrintingStreamReaderThroughCommandRouter(typing.Generic[T]):
+class _StdoutPrintingStreamReaderThroughCommandRouter(_StreamReaderImpl[T]):
     """StreamReader implementation for StreamType.STDOUT when using the task command router.
 
     This mirrors the behavior from the server-backed implementation: the stream is printed to
@@ -266,9 +305,9 @@ class _StdoutPrintingStreamReaderThroughCommandRouter(typing.Generic[T]):
     async def read(self) -> T: ...
     def __aiter__(self) -> collections.abc.AsyncIterator[T]: ...
     async def __anext__(self) -> T: ...
-    async def aclose(self): ...
+    async def aclose(self) -> None: ...
 
-class _DevnullStreamReader(typing.Generic[T]):
+class _DevnullStreamReader(_StreamReaderImpl[T]):
     """StreamReader implementation for a stream configured with
     StreamType.DEVNULL. Throws an error if read or any other method is
     called.
@@ -282,7 +321,7 @@ class _DevnullStreamReader(typing.Generic[T]):
     async def read(self) -> T: ...
     def __aiter__(self) -> collections.abc.AsyncIterator[T]: ...
     async def __anext__(self) -> T: ...
-    async def aclose(self): ...
+    async def aclose(self) -> None: ...
 
 class _StreamReader(typing.Generic[T]):
     """Retrieve logs from a stream (`stdout` or `stderr`).
@@ -291,14 +330,7 @@ class _StreamReader(typing.Generic[T]):
     statements. Just loop over the object to read in chunks.
     """
 
-    _impl: typing.Union[
-        _StreamReaderThroughServer,
-        _DevnullStreamReader,
-        _TextStreamReaderThroughCommandRouter,
-        _BytesStreamReaderThroughCommandRouter,
-        _StdoutPrintingStreamReaderThroughCommandRouter,
-    ]
-    _read_gen: typing.Optional[collections.abc.AsyncGenerator[T, None]]
+    _impl: _StreamReaderImpl[T]
 
     def __init__(
         self,
@@ -414,12 +446,14 @@ class _StreamWriterThroughCommandRouterSandboxParams:
     resolve_router: collections.abc.Callable[
         [], collections.abc.Awaitable[tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]]
     ]
+    check_open: collections.abc.Callable[[], None]
 
     def __init__(
         self,
         resolve_router: collections.abc.Callable[
             [], collections.abc.Awaitable[tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]]
         ],
+        check_open: collections.abc.Callable[[], None],
     ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
@@ -518,6 +552,14 @@ class _StreamWriterThroughCommandRouterSandbox(_StreamWriterThroughCommandRouter
 
 class _StreamWriter:
     """Provides an interface to buffer and write logs to a sandbox or container process stream (`stdin`)."""
+
+    _impl: typing.Union[
+        _StreamWriterThroughServer,
+        _StreamWriterThroughCommandRouterSandboxExec,
+        _StreamWriterThroughCommandRouterSandbox,
+    ]
+    _check_open: typing.Optional[collections.abc.Callable[[], None]]
+
     def __init__(
         self,
         params: typing.Union[
@@ -589,14 +631,7 @@ class StreamReader(typing.Generic[T]):
     statements. Just loop over the object to read in chunks.
     """
 
-    _impl: typing.Union[
-        _StreamReaderThroughServer,
-        _DevnullStreamReader,
-        _TextStreamReaderThroughCommandRouter,
-        _BytesStreamReaderThroughCommandRouter,
-        _StdoutPrintingStreamReaderThroughCommandRouter,
-    ]
-    _read_gen: typing.Optional[collections.abc.AsyncGenerator[T, None]]
+    _impl: _StreamReaderImpl[T]
 
     def __init__(
         self,
@@ -657,6 +692,14 @@ class StreamReader(typing.Generic[T]):
 
 class StreamWriter:
     """Provides an interface to buffer and write logs to a sandbox or container process stream (`stdin`)."""
+
+    _impl: typing.Union[
+        _StreamWriterThroughServer,
+        _StreamWriterThroughCommandRouterSandboxExec,
+        _StreamWriterThroughCommandRouterSandbox,
+    ]
+    _check_open: typing.Optional[collections.abc.Callable[[], None]]
+
     def __init__(
         self,
         params: typing.Union[

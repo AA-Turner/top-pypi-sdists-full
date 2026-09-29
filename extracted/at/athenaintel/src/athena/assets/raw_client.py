@@ -141,7 +141,7 @@ class RawAssetsClient:
             ID of the Excel (.xlsx) asset to convert into an Athena sheet
 
         password : typing.Optional[str]
-            Optional password used to decrypt a password-protected workbook. Password-protected workbooks always convert on the 'legacy' engine.
+            Optional password used to decrypt a password-protected workbook. Password-protected workbooks convert on either engine (they are decrypted server-side before an rnc import).
 
         run_async : typing.Optional[bool]
             Return the sheet asset immediately and convert in the background. Large workbooks outlive the gateway's ~60s response window on the synchronous path — with run_async the caller polls athena_metadata.conversionStatus ('converting' | 'completed' | 'failed', with conversionError on failure) instead.
@@ -1206,7 +1206,7 @@ class RawAssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[typing.Iterator[bytes]]]:
         """
-        Download an asset's file exactly as Athena stores or serves it — no type coercion, no pagination. Native collaborative assets are converted from live content to their canonical Office format: Athena documents download as .docx, spreadsheets as .xlsx (round-trip faithful — string identifiers, leading zeros, and number formats are preserved), PPTX Studio presentations and Word documents export their live studio content as .pptx/.docx. Uploaded files stream their original bytes. The response sets Content-Disposition with a filename derived from the asset title and media type. With `live_sync=true`, a spreadsheet's .xlsx or a PPTX Studio presentation's .pptx also carries the Athena for Microsoft 365 add-in's link record, so opening it in Excel or PowerPoint with the add-in installed starts syncing it with the asset; other asset types ignore the flag.
+        Download an asset's file exactly as Athena stores or serves it — no type coercion, no pagination. Native collaborative assets are converted from live content to their canonical Office format: Athena documents download as .docx, spreadsheets as .xlsx (round-trip faithful — string identifiers, leading zeros, and number formats are preserved), PPTX Studio presentations and Word documents export their live studio content as .pptx/.docx. Uploaded files stream their original bytes. The response sets Content-Disposition with a filename derived from the asset title and media type. With `live_sync=true`, a spreadsheet's .xlsx, a PPTX Studio presentation's .pptx or a Word document's .docx also carries the Athena for Microsoft 365 add-in's link record, so opening it in Excel, PowerPoint or Word with the add-in installed starts syncing it with the asset; other asset types ignore the flag.
 
         Parameters
         ----------
@@ -1214,7 +1214,7 @@ class RawAssetsClient:
             Unique identifier of the asset to download
 
         live_sync : typing.Optional[bool]
-            Office live sync: when true and the asset is an Athena spreadsheet or a PPTX Studio presentation, the downloaded .xlsx / .pptx carries the Athena for Microsoft 365 add-in's link record and opens already syncing with this asset. Ignored for every other asset type.
+            Office live sync: when true and the asset is an Athena spreadsheet, a PPTX Studio presentation or a Word document, the downloaded .xlsx / .pptx / .docx carries the Athena for Microsoft 365 add-in's link record and opens already syncing with this asset. Ignored for every other asset type.
 
         addin_id : typing.Optional[str]
             GUID of the installed add-in manifest the live-sync record should reference (defaults to this deployment's Athena add-in). Only read together with `live_sync`; use it to target a preview-channel sideload.
@@ -1721,7 +1721,7 @@ class AsyncRawAssetsClient:
             ID of the Excel (.xlsx) asset to convert into an Athena sheet
 
         password : typing.Optional[str]
-            Optional password used to decrypt a password-protected workbook. Password-protected workbooks always convert on the 'legacy' engine.
+            Optional password used to decrypt a password-protected workbook. Password-protected workbooks convert on either engine (they are decrypted server-side before an rnc import).
 
         run_async : typing.Optional[bool]
             Return the sheet asset immediately and convert in the background. Large workbooks outlive the gateway's ~60s response window on the synchronous path — with run_async the caller polls athena_metadata.conversionStatus ('converting' | 'completed' | 'failed', with conversionError on failure) instead.
@@ -2786,7 +2786,7 @@ class AsyncRawAssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[typing.AsyncIterator[bytes]]]:
         """
-        Download an asset's file exactly as Athena stores or serves it — no type coercion, no pagination. Native collaborative assets are converted from live content to their canonical Office format: Athena documents download as .docx, spreadsheets as .xlsx (round-trip faithful — string identifiers, leading zeros, and number formats are preserved), PPTX Studio presentations and Word documents export their live studio content as .pptx/.docx. Uploaded files stream their original bytes. The response sets Content-Disposition with a filename derived from the asset title and media type. With `live_sync=true`, a spreadsheet's .xlsx or a PPTX Studio presentation's .pptx also carries the Athena for Microsoft 365 add-in's link record, so opening it in Excel or PowerPoint with the add-in installed starts syncing it with the asset; other asset types ignore the flag.
+        Download an asset's file exactly as Athena stores or serves it — no type coercion, no pagination. Native collaborative assets are converted from live content to their canonical Office format: Athena documents download as .docx, spreadsheets as .xlsx (round-trip faithful — string identifiers, leading zeros, and number formats are preserved), PPTX Studio presentations and Word documents export their live studio content as .pptx/.docx. Uploaded files stream their original bytes. The response sets Content-Disposition with a filename derived from the asset title and media type. With `live_sync=true`, a spreadsheet's .xlsx, a PPTX Studio presentation's .pptx or a Word document's .docx also carries the Athena for Microsoft 365 add-in's link record, so opening it in Excel, PowerPoint or Word with the add-in installed starts syncing it with the asset; other asset types ignore the flag.
 
         Parameters
         ----------
@@ -2794,7 +2794,7 @@ class AsyncRawAssetsClient:
             Unique identifier of the asset to download
 
         live_sync : typing.Optional[bool]
-            Office live sync: when true and the asset is an Athena spreadsheet or a PPTX Studio presentation, the downloaded .xlsx / .pptx carries the Athena for Microsoft 365 add-in's link record and opens already syncing with this asset. Ignored for every other asset type.
+            Office live sync: when true and the asset is an Athena spreadsheet, a PPTX Studio presentation or a Word document, the downloaded .xlsx / .pptx / .docx carries the Athena for Microsoft 365 add-in's link record and opens already syncing with this asset. Ignored for every other asset type.
 
         addin_id : typing.Optional[str]
             GUID of the installed add-in manifest the live-sync record should reference (defaults to this deployment's Athena add-in). Only read together with `live_sync`; use it to target a preview-channel sideload.

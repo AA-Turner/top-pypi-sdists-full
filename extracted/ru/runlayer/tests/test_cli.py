@@ -1586,6 +1586,7 @@ def test_scan_continues_when_enforce_validation_checkin_fails(tmp_path: Path):
         artifact_cache=None,
         failed_surfaces=ANY,
         superseded=ANY,
+        throttled_surfaces=ANY,
     )
 
 
@@ -1641,6 +1642,7 @@ def test_scan_continues_when_detect_checkin_fails(tmp_path: Path):
         artifact_cache=None,
         failed_surfaces=ANY,
         superseded=ANY,
+        throttled_surfaces=ANY,
     )
 
 

@@ -271,7 +271,7 @@ class AnthropicCompletion(CompletionModel):
         if not (input_tokens or cache_read or cache_write):
             return None
         return TokenUsage(
-            input_tokens=input_tokens,
+            input_tokens=input_tokens + cache_read + cache_write,
             cache_read_tokens=cache_read,
             cache_write_tokens=cache_write,
         )

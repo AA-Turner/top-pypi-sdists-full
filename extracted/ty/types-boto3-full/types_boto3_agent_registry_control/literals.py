@@ -30,6 +30,7 @@ __all__ = (
     "AutoDetectionScopeType",
     "AutoDetectionStatusType",
     "ClaimMatchOperatorTypeType",
+    "CustomMetadataSchemaComplianceStatusType",
     "EndpointIpAddressTypeType",
     "InboundTokenClaimValueTypeType",
     "ListRegistriesPaginatorName",
@@ -59,6 +60,7 @@ AutoApprovalRuleType = Literal["APPROVE_ALL"]
 AutoDetectionScopeType = Literal["ORGANIZATION"]
 AutoDetectionStatusType = Literal["ACTIVE", "INACTIVE"]
 ClaimMatchOperatorTypeType = Literal["CONTAINS", "CONTAINS_ANY", "EQUALS"]
+CustomMetadataSchemaComplianceStatusType = Literal["COMPLIANT", "NON_COMPLIANT"]
 EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
 InboundTokenClaimValueTypeType = Literal["STRING", "STRING_ARRAY"]
 ListRegistriesPaginatorName = Literal["list_registries"]

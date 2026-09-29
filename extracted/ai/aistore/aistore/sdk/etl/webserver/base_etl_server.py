@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2025-2026, NVIDIA CORPORATION. All rights reserved.
 #
 
 import os
@@ -47,10 +47,6 @@ def _is_connection_refused(exc: requests.ConnectionError) -> bool:
       requests.ConnectionError → MaxRetryError → NewConnectionError → ConnectionRefusedError
 
     Returns False for bare ConnectionError("lost") and other non-refused connection errors.
-
-    Note: urllib3 v1.x (Python 3.9) raises NewConnectionError without explicit ``from``
-    chaining, so ``__cause__`` is None and the ConnectionRefusedError is only reachable
-    via ``__context__``.  Both are checked for cross-version compatibility.
     """
     inner = exc.args[0] if exc.args else None
     if not isinstance(inner, MaxRetryError):
@@ -314,6 +310,8 @@ class ETLServer(ABC):  # pylint: disable=too-many-instance-attributes
             )
 
         if resp.status_code == STATUS_OK:
+            # TODO: Distinguish empty ETL output from direct-put completion explicitly;
+            # otherwise AIS may treat the empty body as delivered and skip returning or storing it.
             if resp.content:  # from other ETL server, forward the content back
                 return resp.status_code, resp.content, 0
 

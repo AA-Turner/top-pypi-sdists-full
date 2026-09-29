@@ -97,6 +97,29 @@ _WRITE_GOVERNED_REASON: dict[str, str] = {
     ),
 }
 
+# Schemas that hold the PLATFORM'S OWN machinery: access (iam, admin), audit and
+# version history, schedules (every one needs Arman's approval by name), the
+# execution spine, and `platform` itself — whose tables include scheduled
+# database changes applied by a function running as the database owner. A raw
+# write here from an agent skips every guard those systems have, so the tool
+# refuses it for EVERY agent and every admin tier; reads stay allowed.
+# DATED-CHANGES-ATTACK B2 (2026-09-28). Each system writes through its own
+# governed door (e.g. the `create_dated_change` tool for platform.dated_change).
+PLATFORM_INTERNAL_SCHEMAS: frozenset[str] = frozenset(
+    {
+        "platform",
+        "iam",
+        "admin",
+        "audit",
+        "history",
+        "meta",
+        "ops",
+        "partman",
+        "scheduler",
+        "runtime",
+    }
+)
+
 MAX_QUERY_TIMEOUT = 10
 
 
@@ -661,6 +684,19 @@ async def _resolve_write_target(
                 ),
             )
         return None, None, "validation", f"Table '{raw}' was not found in any exposed schema."
+    if schema in PLATFORM_INTERNAL_SCHEMAS:
+        return (
+            None,
+            None,
+            "permission",
+            (
+                f"Table '{schema}.{name}' is platform-internal and read-only for this tool. "
+                "The platform's own machinery (access, audit, history, schedules, the "
+                "execution spine, scheduled database changes) changes only through its "
+                "governed door — for a future-dated change use the `create_dated_change` "
+                "tool. You can still read this table."
+            ),
+        )
     if schema in WRITE_GOVERNED_SCHEMAS:
         return (
             None,

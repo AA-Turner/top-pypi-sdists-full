@@ -877,9 +877,14 @@ class TestItIsSafeOnARealFile:
 
         CLIConfig(config_path=str(config_path))  # must not raise
 
-        assert config_path.read_text() == original
+        # Kept byte-for-byte -- set aside as a backup rather than left in place
+        # (PF-466), so the CLI can carry on.
+        [backup] = (config_path.parent / "archive").glob(config_path.name + ".*")
+        assert backup.read_text() == original
 
-    def test_the_purge_refuses_to_write_when_the_load_degraded(self, config_path):
+    def test_the_purge_refuses_to_write_when_the_load_degraded(
+        self, config_path, monkeypatch
+    ):
         """The `_load_degraded` guard specifically, exercised on its own.
 
         The test above passes with or without that guard: when the load
@@ -895,6 +900,13 @@ class TestItIsSafeOnARealFile:
         """
         original = "{ this is not json"
         config_path.write_text(original)
+        # Degraded mode now happens only when the file can't be set aside.
+        from pathlib import Path
+
+        def no_move(self, target):
+            raise PermissionError("read-only")
+
+        monkeypatch.setattr(Path, "rename", no_move)
 
         config = CLIConfig(config_path=str(config_path))
         assert config._load_degraded  # precondition of what follows

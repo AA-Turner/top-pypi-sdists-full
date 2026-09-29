@@ -118,7 +118,8 @@ def check_client(
     # ENG-3217: the MDM drift check runs as root, and VS Code / Claude Code /
     # Hermes read their config from the console user's home — a user-controlled
     # dir. Read link-safe (O_NOFOLLOW from the trusted anchor) so a planted
-    # symlink can't make root read an arbitrary file. ``home is None`` (user
+    # symlink can't make root read an arbitrary file; the user's own in-home
+    # link chain is followed like the writer does. ``home is None`` (user
     # scope, Cursor / Codex enterprise dirs, or Windows after the reparse-point
     # preflight above) falls through to a plain read.
     home = (
@@ -126,7 +127,9 @@ def check_client(
         if scope == InstallScope.MDM and client in CONSOLE_HOME_CLIENTS
         else None
     )
-    config_text = maybe_safe_read_text(config_path, home=home)
+    config_text = maybe_safe_read_text(
+        config_path, home=home, follow_in_home_links=True
+    )
     if config_text is None:
         return InstalledClient(client, ClientStatus.MISSING, f"no {config_path.name}")
 
@@ -404,7 +407,9 @@ def check_absent_client(
         if scope == InstallScope.MDM and client in CONSOLE_HOME_CLIENTS
         else None
     )
-    config_text = maybe_safe_read_text(config_path, home=home)
+    config_text = maybe_safe_read_text(
+        config_path, home=home, follow_in_home_links=True
+    )
     if config_text is None:
         return InstalledClient(client, ClientStatus.OK)
 

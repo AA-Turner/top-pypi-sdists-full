@@ -22,7 +22,7 @@ from typing import (
 
 import z3
 
-from crosshair.core import deep_realize, smt_for_unification
+from crosshair.core import deep_realize, python_type, smt_for_unification
 from crosshair.tracers import NoTracing, ResumedTracing, tracing_iter
 from crosshair.util import (
     CrossHairInternal,
@@ -105,16 +105,14 @@ class MapBase(collections.abc.MutableMapping):
         contents = ", ".join(f"{repr(k)}: {repr(v)}" for (k, v) in self.items())
         return "{" + contents + "}"
 
-    if sys.version_info >= (3, 9):
+    def __or__(self, other: Mapping) -> Mapping:
+        if not isinstance(other, Mapping):
+            raise TypeError
+        union_map = self.copy()
+        union_map.update(other)
+        return union_map
 
-        def __or__(self, other: Mapping) -> Mapping:
-            if not isinstance(other, Mapping):
-                raise TypeError
-            union_map = self.copy()
-            union_map.update(other)
-            return union_map
-
-        __ror__ = __or__
+    __ror__ = __or__
 
     if sys.version_info >= (3, 13):
 
@@ -243,10 +241,8 @@ class ShellMutableMap(MapBase, collections.abc.MutableMapping):
         else:
             return ret
 
-    if sys.version_info >= (3, 8):
-
-        def __reversed__(self):
-            return self._reversed()
+    def __reversed__(self):
+        return self._reversed()
 
     def _reversed(self):
         deleted = []
@@ -454,6 +450,26 @@ def indices(s: slice, container_len: int) -> Tuple[int, int, int]:
     )
 
 
+def sequences_equal(a: Sequence, b: Sequence) -> bool:
+    """
+    Compare two sequences by their contents, disregarding their container types.
+
+    (``[1]`` and ``array("h", [1])`` are equal here, but unequal under ``==``.)
+    """
+    with NoTracing():
+        if isinstance(a, ShellSequence):
+            a = a.inner
+        if isinstance(b, ShellSequence):
+            b = b.inner
+        if not isinstance(a, CrossHairValue) and isinstance(b, CrossHairValue):
+            # A symbolic operand can compare many items at once; keep it on the left.
+            a, b = b, a
+        compare_itemwise = not isinstance(a, CrossHairValue) and type(a) is not type(b)
+    if compare_itemwise:
+        return a.__len__() == b.__len__() and all(map(operator.eq, a, b))
+    return a == b
+
+
 class SeqBase(CrossHairValue):
     def __hash__(self):
         # TODO: test
@@ -599,7 +615,9 @@ class SequenceConcatenation(collections.abc.Sequence, SeqBase):
         if self.__len__() != other.__len__():
             return False
         firstlen = first.__len__()
-        return first == other[:firstlen] and second == other[firstlen:]
+        return sequences_equal(first, other[:firstlen]) and sequences_equal(
+            second, other[firstlen:]
+        )
 
     def __contains__(self, item):
         return self._first.__contains__(item) or self._second.__contains__(item)
@@ -679,37 +697,134 @@ def concatenate_sequences(a: Sequence, b: Sequence) -> Sequence:
         return SequenceConcatenation(a, b)
 
 
-def sequence_evaluation(seq: Sequence):
+def sequence_evaluation(seq: Iterable):
     with NoTracing():
-        if is_hashable(seq):
-            return seq  # immutable datastructures are fine
-        elif isinstance(seq, ShellMutableSequence):
+        if isinstance(seq, ShellSequence):
             return seq.inner
-        else:
-            return list(seq)  # TODO: use tracing_iter() here?
+        elif isinstance(seq, collections.abc.Sequence) and is_hashable(seq):
+            return seq  # immutable datastructures are fine
+        return list(tracing_iter(seq))
 
 
 @dataclasses.dataclass(eq=False)
-class ShellMutableSequence(collections.abc.MutableSequence, SeqBase):
+class ShellSequence(collections.abc.Sequence, SeqBase):
     """
-    Wrap a sequence and provide mutating operations without modifying the original.
+    Present the contents of another sequence as a sequence of a builtin type.
 
-    It reuses portions of the original list as best it can.
+    Operations that interact with other sequences (comparisons, concatenation)
+    accept only operands of that builtin type, as the builtin does.
+    Operations that produce a new sequence wrap it in a shell of the same kind.
     """
 
     inner: Sequence
 
-    __hash__ = None  # type: ignore
+    def __ch_pytype__(self):
+        return tuple
 
-    def _spawn(self, items: Sequence) -> "ShellMutableSequence":
-        # For overriding in subclasses.
-        return ShellMutableSequence(items)
+    def __ch_realize__(self):
+        return tuple(tracing_iter(self.inner))
+
+    __hash__ = SeqBase.__hash__
+
+    def _spawn(self, items: Sequence) -> "ShellSequence":
+        with NoTracing():
+            shell_type = type(self)
+        return shell_type(items)
+
+    def _is_operand_type(self, other: object) -> bool:
+        with NoTracing():
+            return issubclass(python_type(other), python_type(self))
+
+    def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
+        """See :func:`~crosshair.core.smt_for_unification`"""
+        return smt_for_unification(self.inner, other_value)
 
     def __eq__(self, other):
-        with NoTracing():
-            if isinstance(other, ShellMutableSequence):
-                other = other.inner
-        return self.inner.__eq__(other)
+        if not self._is_operand_type(other):
+            return False
+        return sequences_equal(self.inner, other)
+
+    def __lt__(self, other):
+        if not self._is_operand_type(other):
+            raise TypeError
+        return super().__lt__(other)
+
+    def __le__(self, other):
+        if not self._is_operand_type(other):
+            raise TypeError
+        return super().__le__(other)
+
+    def __gt__(self, other):
+        if not self._is_operand_type(other):
+            raise TypeError
+        return super().__gt__(other)
+
+    def __ge__(self, other):
+        if not self._is_operand_type(other):
+            raise TypeError
+        return super().__ge__(other)
+
+    def __add__(self, other):
+        if not self._is_operand_type(other):
+            with NoTracing():
+                mine, theirs = python_type(self), python_type(other)
+            raise TypeError(
+                f"can only concatenate {name_of_type(mine)}"
+                f' (not "{name_of_type(theirs)}") to {name_of_type(mine)}'
+            )
+        return self._spawn(
+            concatenate_sequences(self.inner, sequence_evaluation(other))
+        )
+
+    def __radd__(self, other):
+        if not self._is_operand_type(other):
+            with NoTracing():
+                mine, theirs = python_type(self), python_type(other)
+            raise TypeError(
+                "unsupported operand type(s) for +:"
+                f" '{name_of_type(theirs)}' and '{name_of_type(mine)}'"
+            )
+        return self._spawn(
+            concatenate_sequences(sequence_evaluation(other), self.inner)
+        )
+
+    def __len__(self):
+        return self.inner.__len__()
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return self._spawn(self.inner.__getitem__(key))
+        else:
+            return self.inner.__getitem__(key)
+
+    def __contains__(self, other):
+        return self.inner.__contains__(other)
+
+    def __iter__(self):
+        return self.inner.__iter__()
+
+    def index(self, *a) -> int:
+        return self.inner.index(*a)
+
+    def __repr__(self):
+        return repr(tuple(self))
+
+
+class ShellMutableSequence(ShellSequence, collections.abc.MutableSequence):
+    """
+    Present the contents of another sequence as a list, and support mutation.
+
+    Mutations replace the shell's contents without modifying the original sequence,
+    reusing portions of it as best they can.
+    """
+
+    __hash__ = None  # type: ignore
+
+    def __ch_pytype__(self):
+        return list
+
+    def __ch_realize__(self):
+        return list(tracing_iter(self.inner))
 
     def __setitem__(self, k, v):
         inner = self.inner
@@ -761,22 +876,9 @@ class ShellMutableSequence(collections.abc.MutableSequence, SeqBase):
             idx = check_idx(k, mylen)
             self.__setitem__(slice(idx, idx + 1, 1), [])
 
-    def __add__(self, other):
-        if isinstance(other, collections.abc.Sequence):
-            return self._spawn(
-                concatenate_sequences(self.inner, sequence_evaluation(other))
-            )
-        raise TypeError(f"unsupported operand type(s) for +")
-
-    def __radd__(self, other):
-        if isinstance(other, collections.abc.Sequence):
-            return self._spawn(
-                concatenate_sequences(sequence_evaluation(other), self.inner)
-            )
-        raise TypeError(f"unsupported operand type(s) for +")
-
     def __imul__(self, other):
-        return self._spawn(self * other)
+        self.inner = (self * other).inner
+        return self
 
     def append(self, item):
         inner = self.inner
@@ -787,36 +889,18 @@ class ShellMutableSequence(collections.abc.MutableSequence, SeqBase):
             raise TypeError("object is not iterable")
         self.inner = concatenate_sequences(self.inner, sequence_evaluation(other))
 
-    def index(self, *a) -> int:
-        return self.inner.index(*a)
-
     def sort(self, key=None, reverse=False):
         self.inner = sorted(self.inner, key=key, reverse=reverse)
 
     def copy(self):
         return self[:]
 
-    def __len__(self):
-        return self.inner.__len__()
-
     def insert(self, index, item):
         self.__setitem__(slice(index, index, 1), [item])
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return self._spawn(self.inner.__getitem__(key))
-        else:
-            return self.inner.__getitem__(key)
 
     def __repr__(self):
         contents = ", ".join(map(repr, self))
         return f"[{contents}]"
-
-    def __contains__(self, other):
-        return self.inner.__contains__(other)
-
-    def __iter__(self):
-        return self.inner.__iter__()
 
     def reverse(self):
         self.inner = list(reversed(self.inner))

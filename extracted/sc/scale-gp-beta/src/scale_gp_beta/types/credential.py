@@ -13,13 +13,13 @@ class Credential(BaseModel):
 
     created_at: datetime
 
-    created_by_identity_type: str
+    created_by_identity_type: Optional[str] = None
 
-    created_by_user_id: str
+    created_by_user_id: Optional[str] = None
 
-    credential_metadata: Dict[str, object]
+    credential_metadata: Optional[Dict[str, object]] = None
 
-    description: str
+    description: Optional[str] = None
 
     name: str
 

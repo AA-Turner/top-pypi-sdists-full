@@ -54,6 +54,52 @@ async def test_orphan_model_failure_creates_structured_system_error(monkeypatch)
     }
 
 
+@pytest.mark.asyncio
+async def test_a_parked_model_is_not_an_orphan(monkeypatch) -> None:
+    """A model whose real offering was deliberately marked unavailable is PARKED
+    (a recorded decision); only a model with no well-formed offering is ORPHANED.
+    2026-09-28: four parked models (no computer-use harness, invite-only Mythos)
+    were reported every boot as dead rows with the remedy "INSERT an offering"."""
+    from types import SimpleNamespace
+
+    from matrx_ai.catalog import host_catalog
+    from matrx_ai.catalog import manager as catalog_manager_module
+    from matrx_ai.db.ai_models import ai_model_manager as model_manager_module
+
+    models = [
+        SimpleNamespace(id="m-parked", name="parked-model", is_deprecated=False, retired_at=None),
+        SimpleNamespace(id="m-dead", name="dead-model", is_deprecated=False, retired_at=None),
+    ]
+
+    class _Models:
+        async def load_all_models(self):
+            return models
+
+    class _Catalog:
+        async def ensure_loaded(self):
+            return None
+
+        def offerings_for(self, model_id):
+            return []
+
+        def parked_offerings_for(self, model_id):
+            return [SimpleNamespace(id="o1")] if model_id == "m-parked" else []
+
+    orphans: list[list[str]] = []
+
+    async def _capture(names):
+        orphans.append(list(names))
+
+    monkeypatch.setattr(host_catalog, "get_model_catalog", lambda: None)
+    monkeypatch.setattr(model_manager_module, "ai_model_manager_instance", _Models())
+    monkeypatch.setattr(catalog_manager_module, "ai_catalog_manager", _Catalog())
+    monkeypatch.setattr(uc, "_capture_orphan_models", _capture)
+
+    await uc.warm_pricing_lookup()
+
+    assert orphans == [["dead-model (m-dead)"]]
+
+
 def _tier(input_price: float, output_price: float, usage_basis: str | None = None) -> PricingTier:
     return PricingTier(
         max_tokens=None,

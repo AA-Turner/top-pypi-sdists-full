@@ -15,12 +15,54 @@ import synchronicity.combined_types
 import typing
 import typing_extensions
 
+def _expected_block_lengths(start: int, length: int, num_blocks: int) -> list[int]:
+    """Number of bytes of a byte range that fall into each of its `BLOCK_SIZE`-aligned blocks.
+
+    A downloaded block may be shorter than this (trailing zero bytes are left out),
+    so the caller extends it with zeros to the expected length.
+    """
+    ...
+
 async def _raise_on_block_response_error(response) -> None:
     """Raise a picklable Modal exception on error.
 
     We avoid `aiohttp.ClientResponse.raise_for_status()` because the resulting
     `ClientResponseError` is not picklable, which breaks result serialization
     when raised from within a Modal function.
+    """
+    ...
+
+def _split_sf_members(header: str) -> list[str]: ...
+def _parse_repr_digest(header: typing.Optional[str]) -> typing.Optional[bytes]: ...
+
+class _BlockDigestVerifier:
+    """Checks a streamed block body against the digest its response advertised.
+
+    Feed the body through `update` in order, then call `finish`. Without a
+    digest both are no-ops, so callers can use one unconditionally.
+    """
+    def __init__(self, sha256: typing.Optional[bytes]):
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def update(self, chunk: bytes) -> None: ...
+    def finish(self) -> None: ...
+
+async def _read_block_body(response, expected_len: int) -> bytes:
+    """Read a block response body, verifying any digest it advertises.
+
+    The body may be shorter than `expected_len` (trailing zero bytes are left out),
+    but never longer: the read is abandoned as soon as it passes that budget, so a
+    response can never make the client buffer an unbounded amount of data.
+    """
+    ...
+
+def _block_download_timeout():
+    """Per-request timeout for a block download.
+
+    Only inactivity is bounded: a healthy transfer may take as long as its size
+    requires, and a connection that stops delivering bytes is abandoned so that the
+    attempt can be retried.
     """
     ...
 

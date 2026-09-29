@@ -235,6 +235,7 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
                 return _stamp(
                     ToolResult(
                         success=True,
+                        output_kind="knowledge_search_empty_result",
                         output={
                             "query": parsed.query,
                             "hits": [],

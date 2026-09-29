@@ -4,6 +4,7 @@
 #include "catalog/catalog_entry/index_catalog_entry.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
+#include "catalog/schema_graph.h"
 #include "common/exception/binder.h"
 #include "common/file_system/virtual_file_system.h"
 #include "common/string_utils.h"
@@ -11,6 +12,7 @@
 #include "parser/parser.h"
 #include "parser/port_db.h"
 #include "parser/query/regular_query.h"
+#include "storage/table/ice_disk_constants.h"
 #include "transaction/transaction.h"
 #include <format>
 
@@ -35,6 +37,10 @@ FileTypeInfo getFileType(case_insensitive_map_t<Value>& options) {
         auto valueStr = value.getValue<std::string>();
         StringUtils::toUpper(valueStr);
         fileTypeInfo = FileTypeInfo{FileTypeUtils::fromString(valueStr), valueStr};
+        if (fileTypeInfo.fileType != FileType::PARQUET) {
+            throw BinderException(
+                "Export database only supports the parquet (icebug-disk CSR) format.");
+        }
         options.erase(PortDBConstants::EXPORT_FORMAT_OPTION);
     }
     return fileTypeInfo;
@@ -57,66 +63,140 @@ void bindExportTableData(ExportedTableData& tableData, const std::string& query,
     tableData.regularQuery = std::move(boundQuery);
 }
 
-static std::string getExportNodeTableDataQuery(const TableCatalogEntry& entry) {
-    return std::format("match (a:{}) return a.*", StringUtils::quoteIdentifier(entry.getName()));
+static std::string getPropertyReturnList(const TableCatalogEntry& entry, const std::string& var) {
+    std::string props;
+    for (auto& property : entry.getProperties()) {
+        if (property.getType() == LogicalType::INTERNAL_ID()) {
+            continue;
+        }
+        props += std::format(",{}.{} as {}", var, StringUtils::quoteIdentifier(property.getName()),
+            StringUtils::quoteIdentifier(property.getName()));
+    }
+    return props;
 }
 
-static std::string getExportRelTableDataQuery(const TableCatalogEntry& relGroupEntry,
+static std::string getExportNodeTableDataQuery(const TableCatalogEntry& entry) {
+    // Order by storage offset so that row i in nodes_<table>.parquet holds the node
+    // with dense offset i, matching the CSR target/ptr values in the rel tables.
+    // Properties are aliased explicitly so parquet columns carry clean names.
+    auto props = getPropertyReturnList(entry, "a");
+    auto returns = props.empty() ? "a.*" : props.substr(1);
+    return std::format("match (a:{}) return {} order by offset(id(a))",
+        StringUtils::quoteIdentifier(entry.getName()), returns);
+}
+
+static std::string getExportRelIndicesQuery(const TableCatalogEntry& relGroupEntry,
     const NodeTableCatalogEntry& srcEntry, const NodeTableCatalogEntry& dstEntry) {
-    return std::format("match (a:{})-[r:{}]->(b:{}) return a.{},b.{},r.*;",
+    // CSR indices table: dense target offsets (+ edge properties), ordered by
+    // (source offset, target offset). The source offset is encoded by indptr.
+    return std::format("match (a:{})-[r:{}]->(b:{}) return offset(id(b)) as target{} "
+                       "order by offset(id(a)), offset(id(b));",
         StringUtils::quoteIdentifier(srcEntry.getName()),
         StringUtils::quoteIdentifier(relGroupEntry.getName()),
         StringUtils::quoteIdentifier(dstEntry.getName()),
-        StringUtils::quoteIdentifier(srcEntry.getPrimaryKeyName()),
-        StringUtils::quoteIdentifier(dstEntry.getPrimaryKeyName()));
+        getPropertyReturnList(relGroupEntry, "r"));
+}
+
+static std::string getExportRelIndptrQuery(const TableCatalogEntry& relGroupEntry,
+    const NodeTableCatalogEntry& srcEntry, const NodeTableCatalogEntry& dstEntry) {
+    // One row per source node (OPTIONAL MATCH keeps zero-degree nodes), consumed by
+    // the indptr export function which sorts by src and prefix-sums the degrees.
+    return std::format(
+        "match (a:{}) optional match (a)-[r:{}]->(b:{}) return offset(id(a)) as src, "
+        "count(r) as degree;",
+        StringUtils::quoteIdentifier(srcEntry.getName()),
+        StringUtils::quoteIdentifier(relGroupEntry.getName()),
+        StringUtils::quoteIdentifier(dstEntry.getName()));
+}
+
+static std::string getExportRelFlatQuery(const TableCatalogEntry& relGroupEntry,
+    const NodeTableCatalogEntry& srcEntry, const NodeTableCatalogEntry& dstEntry) {
+    // Flat relationship file for native re-import: source/target primary-key values
+    // (COPY FROM resolves them back to node offsets) followed by edge properties.
+    return std::format("match (a:{})-[r:{}]->(b:{}) return {}.{} as {}, {}.{} as {}{};",
+        StringUtils::quoteIdentifier(srcEntry.getName()),
+        StringUtils::quoteIdentifier(relGroupEntry.getName()),
+        StringUtils::quoteIdentifier(dstEntry.getName()), "a",
+        StringUtils::quoteIdentifier(srcEntry.getPrimaryKeyDefinition().getName()),
+        StringUtils::quoteIdentifier("from"), "b",
+        StringUtils::quoteIdentifier(dstEntry.getPrimaryKeyDefinition().getName()),
+        StringUtils::quoteIdentifier("to"), getPropertyReturnList(relGroupEntry, "r"));
 }
 
 static std::vector<ExportedTableData> getExportInfo(const Catalog& catalog,
-    main::ClientContext* context, Binder* binder, FileTypeInfo& fileTypeInfo) {
+    main::ClientContext* context, Binder* binder, [[maybe_unused]] FileTypeInfo& fileTypeInfo) {
     auto transaction = Transaction::Get(*context);
     std::vector<ExportedTableData> exportData;
     for (auto entry : catalog.getNodeTableEntries(transaction, false /*useInternal*/)) {
+        if (isSchemaGraphTableName(entry->getName())) {
+            continue;
+        }
         ExportedTableData tableData;
         tableData.tableName = entry->getName();
-        tableData.fileName =
-            entry->getName() + "." + StringUtils::getLower(fileTypeInfo.fileTypeStr);
+        tableData.fileName = std::format("nodes_{}.parquet", entry->getName());
         auto query = getExportNodeTableDataQuery(*entry);
         bindExportTableData(tableData, query, context, binder);
         exportData.push_back(std::move(tableData));
     }
     for (auto entry : catalog.getRelGroupEntries(transaction, false /* useInternal */)) {
+        if (isSchemaGraphTableName(entry->getName())) {
+            continue;
+        }
         auto& relGroupEntry = entry->constCast<RelGroupCatalogEntry>();
+        if (relGroupEntry.getRelEntryInfos().size() != 1) {
+            throw BinderException(std::format(
+                "Export database: rel table {} connects multiple node pairs, which is not "
+                "supported for icebug-disk CSR export yet.",
+                relGroupEntry.getName()));
+        }
         for (auto& info : relGroupEntry.getRelEntryInfos()) {
-            ExportedTableData tableData;
             auto srcTableID = info.nodePair.srcTableID;
             auto dstTableID = info.nodePair.dstTableID;
             auto& srcEntry = catalog.getTableCatalogEntry(transaction, srcTableID)
                                  ->constCast<NodeTableCatalogEntry>();
             auto& dstEntry = catalog.getTableCatalogEntry(transaction, dstTableID)
                                  ->constCast<NodeTableCatalogEntry>();
-            tableData.tableName = entry->getName();
-            tableData.fileName =
-                std::format("{}_{}_{}.{}", relGroupEntry.getName(), srcEntry.getName(),
-                    dstEntry.getName(), StringUtils::getLower(fileTypeInfo.fileTypeStr));
-            auto query = getExportRelTableDataQuery(relGroupEntry, srcEntry, dstEntry);
-            bindExportTableData(tableData, query, context, binder);
-            exportData.push_back(std::move(tableData));
+            ExportedTableData indicesData;
+            indicesData.tableName = entry->getName();
+            indicesData.fileName = std::format("indices_{}.parquet", relGroupEntry.getName());
+            bindExportTableData(indicesData,
+                getExportRelIndicesQuery(relGroupEntry, srcEntry, dstEntry), context, binder);
+            exportData.push_back(std::move(indicesData));
+            ExportedTableData indptrData;
+            indptrData.tableName = entry->getName();
+            indptrData.fileName = std::format("indptr_{}.parquet", relGroupEntry.getName());
+            indptrData.isIndptr = true;
+            bindExportTableData(indptrData,
+                getExportRelIndptrQuery(relGroupEntry, srcEntry, dstEntry), context, binder);
+            exportData.push_back(std::move(indptrData));
+            // Flat relationship file (from/to primary-key values + properties), used by
+            // IMPORT DATABASE to ingest the relationship table into native storage. It is
+            // ignored when the export is mounted as icebug-disk (which uses the CSR files).
+            ExportedTableData flatRelData;
+            flatRelData.tableName = entry->getName();
+            flatRelData.fileName = std::format("rels_{}.parquet", relGroupEntry.getName());
+            bindExportTableData(flatRelData,
+                getExportRelFlatQuery(relGroupEntry, srcEntry, dstEntry), context, binder);
+            exportData.push_back(std::move(flatRelData));
         }
     }
 
+    // Index aux tables (e.g. the FTS internal stopwords table) are not part of the CSR
+    // layout, but index.cypher needs them on import when the original stopwords source
+    // table no longer exists. Export them as <tableName>.parquet; the FTS index's
+    // toCypher references the file path in that case.
     for (auto indexEntry : catalog.getIndexEntries(transaction)) {
-        // Export
-        ExportedTableData tableData;
-        auto entry = indexEntry->getTableEntryToExport(context);
-        if (entry == nullptr) {
+        auto auxEntry = indexEntry->getTableEntryToExport(context);
+        if (auxEntry == nullptr) {
             continue;
         }
-        DASSERT(entry->getTableType() == TableType::NODE);
-        tableData.tableName = entry->getName();
-        tableData.fileName =
-            entry->getName() + "." + StringUtils::getLower(fileTypeInfo.fileTypeStr);
-        auto query = getExportNodeTableDataQuery(*entry);
-        bindExportTableData(tableData, query, context, binder);
+        ExportedTableData tableData;
+        tableData.tableName = auxEntry->getName();
+        tableData.fileName = std::format("{}.parquet", auxEntry->getName());
+        bindExportTableData(tableData,
+            std::format("match (a:{}) return a.*",
+                StringUtils::quoteIdentifier(auxEntry->getName())),
+            context, binder);
         exportData.push_back(std::move(tableData));
     }
     return exportData;
@@ -158,10 +238,17 @@ std::unique_ptr<BoundStatement> Binder::bindExportDatabaseClause(const Statement
     }
     auto exportSchemaOnly = schemaOnly(parsedOptions, exportDB);
     if (!exportSchemaOnly && fileTypeInfo.fileType != FileType::CSV && parsedOptions.size() != 0) {
-        throw BinderException{"Only export to csv can have options."};
+        throw BinderException{"Export database does not support copy options with the parquet "
+                              "(icebug-disk CSR) format."};
     }
     auto exportData =
         getExportInfo(*Catalog::Get(*clientContext), clientContext, this, fileTypeInfo);
+    // Stamp every exported parquet file with the icebug-disk format version so that
+    // IceDiskUtils::checkVersionCompatibility can validate it when the export is mounted.
+    if (fileTypeInfo.fileType == FileType::PARQUET && !exportSchemaOnly) {
+        parsedOptions.insert_or_assign(PortDBConstants::ICEBUG_DISK_VERSION_OPTION,
+            Value{std::string{storage::IceDiskConstants::CURRENT_VERSION}});
+    }
     auto boundFilePath = VirtualFileSystem::GetUnsafe(*clientContext)
                              ->expandPath(clientContext, exportDB.getFilePath());
     return std::make_unique<BoundExportDatabase>(boundFilePath, fileTypeInfo, std::move(exportData),

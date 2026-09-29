@@ -218,6 +218,7 @@ class HttpStatusEvidence(CheckEvidence):
     """Shared by ``broken_page_4xx`` and ``server_error_5xx``."""
 
     http_status: int | None = None
+    blocked_reason: str | None = None
 
 
 class RedirectChainEvidence(CheckEvidence):

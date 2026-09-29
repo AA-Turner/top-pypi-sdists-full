@@ -26,6 +26,29 @@ USER = "44444444-4444-4444-8444-444444444444"
 ORG = "55555555-5555-4555-8555-555555555555"
 
 
+@pytest.fixture(autouse=True)
+def _writes_run_in_a_person_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Certified kind tables are written in the caller's RLS session (kind_shared.
+    writing_as_the_person); these unit tests hold a pass-through session and a
+    no-op admin lane. Tests that prove a refusal replace or remove it."""
+    import contextlib
+
+    import matrx_orm
+
+    from matrx_ai import _ext
+
+    @contextlib.asynccontextmanager
+    async def _session(_ctx=None):
+        yield
+
+    @contextlib.asynccontextmanager
+    async def _lane(*_a, **_k):
+        yield
+
+    monkeypatch.setitem(_ext._registry, "acting_as_caller", _session)
+    monkeypatch.setattr(matrx_orm, "admin_lane", _lane, raising=False)
+
+
 class _Stop(Exception):
     """Raised by the fake model once it has captured the payload."""
 

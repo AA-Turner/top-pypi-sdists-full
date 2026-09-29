@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nibe
-Version: 2.24.0
+Version: 2.25.0
 Summary: Nibe heatpump communication library
 Home-page: https://github.com/yozik04/nibe
 Author: Jevgeni Kiski
@@ -51,6 +51,7 @@ Library for communication with Nibe heatpumps.
 #### F series
 
  - F370
+ - F372
  - F470
  - F730
  - F750

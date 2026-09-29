@@ -4805,6 +4805,7 @@ class MCPGatewayConfigurationOutputTypeDef(TypedDict):
     searchType: NotRequired[Literal["SEMANTIC"]]
     sessionConfiguration: NotRequired[SessionConfigurationTypeDef]
     streamingConfiguration: NotRequired[StreamingConfigurationTypeDef]
+    disableMcpListToolsPagination: NotRequired[bool]
 
 
 class MCPGatewayConfigurationTypeDef(TypedDict):
@@ -4813,6 +4814,7 @@ class MCPGatewayConfigurationTypeDef(TypedDict):
     searchType: NotRequired[Literal["SEMANTIC"]]
     sessionConfiguration: NotRequired[SessionConfigurationTypeDef]
     streamingConfiguration: NotRequired[StreamingConfigurationTypeDef]
+    disableMcpListToolsPagination: NotRequired[bool]
 
 
 ManagedVpcResourceUnionTypeDef = Union[ManagedVpcResourceTypeDef, ManagedVpcResourceOutputTypeDef]

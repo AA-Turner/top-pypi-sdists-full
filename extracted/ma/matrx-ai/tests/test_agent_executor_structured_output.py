@@ -44,7 +44,26 @@ def test_response_format_for_model_preserves_literal_and_boolean_contract() -> N
     assert response_format["type"] == "json_schema"
     assert response_format["json_schema"]["strict"] is True
     schema = response_format["json_schema"]["schema"]
-    assert schema["$defs"]["_Finding"]["properties"]["finding_type"]["enum"] == [
+
+    def non_null_branch(node: dict[str, object]) -> dict[str, object]:
+        """The real shape inside the nullable wrapper an OPTIONAL field carries.
+
+        A field the author left optional is listed in `required` (every provider
+        demands that) and expressed as `anyOf: [X, {"type": "null"}]`, with `null`
+        carrying "absent". The spelling is `anyOf` and NOT `{"type": ["X","null"]}`
+        because the type-array form is refused by every provider in some
+        combination, each differently — Anthropic beside an `enum` ("Enum value
+        'fact' does not match declared type"), OpenAI strict opaquely on live
+        commerce_intake schemas, Gemini when deciding a `$ref` cycle can terminate.
+        Measured live 2026-09-27; `anyOf` was accepted by all three every time.
+        """
+        branches = node.get("anyOf")
+        if isinstance(branches, list):
+            return next(b for b in branches if b.get("type") != "null")
+        return node
+
+    finding_type = non_null_branch(schema["$defs"]["_Finding"]["properties"]["finding_type"])
+    assert finding_type["enum"] == [
         "fact",
         "claim",
         "statistic",
@@ -53,8 +72,10 @@ def test_response_format_for_model_preserves_literal_and_boolean_contract() -> N
         "trend",
         "example",
         "counterpoint",
-    ]
-    assert schema["$defs"]["_Claim"]["properties"]["is_well_supported"]["type"] == "boolean"
+    ], "the Literal's members must survive the nullable wrapper untouched"
+    assert finding_type["type"] == "string"
+    claim = non_null_branch(schema["$defs"]["_Claim"]["properties"]["is_well_supported"])
+    assert claim["type"] == "boolean"
 
 
 @pytest.mark.asyncio

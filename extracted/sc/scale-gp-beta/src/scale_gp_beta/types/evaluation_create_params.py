@@ -40,7 +40,7 @@ class EvaluationEvaluationStandaloneCreateRequest(TypedDict, total=False):
     """Do not queue a contributor task for prefilled questions"""
 
     tags: SequenceNotStr[str]
-    """The tags associated with the entity"""
+    """The tags associated with the evaluation"""
 
     tasks: Iterable["EvaluationTaskParam"]
     """Tasks allow you to augment and evaluate your data"""
@@ -78,7 +78,7 @@ class EvaluationEvaluationFromDatasetCreateRequest(TypedDict, total=False):
     """Do not queue a contributor task for prefilled questions"""
 
     tags: SequenceNotStr[str]
-    """The tags associated with the entity"""
+    """The tags associated with the evaluation"""
 
     tasks: Iterable["EvaluationTaskParam"]
     """Tasks allow you to augment and evaluate your data"""
@@ -128,7 +128,7 @@ class EvaluationEvaluationWithDatasetCreateRequest(TypedDict, total=False):
     """Do not queue a contributor task for prefilled questions"""
 
     tags: SequenceNotStr[str]
-    """The tags associated with the entity"""
+    """The tags associated with the evaluation"""
 
     tasks: Iterable["EvaluationTaskParam"]
     """Tasks allow you to augment and evaluate your data"""

@@ -1,6 +1,17 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """SQL query templates and schema documentation for Airbyte Cloud Prod DB Replica.
 
+Bind placeholders and Sentry spans
+==================================
+
+Every `:placeholder` here becomes a `db.param.<name>` attribute on the query's
+Sentry span, but its *value* is recorded only if the name is listed in
+`queries._RECORDED_PARAMETERS`. That allowlist fails closed: a placeholder
+added below without a matching entry reads `<redacted>` in traces. Add the name
+there when the value is safe to record, and leave it out when it can carry
+customer content — `:name_contains`, `:email_domain`, and `:stream_name` are
+deliberately absent.
+
 Prod DB Replica Schema Reference
 ================================
 

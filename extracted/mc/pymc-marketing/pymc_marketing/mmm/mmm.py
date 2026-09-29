@@ -202,7 +202,11 @@ from pytensor.xtensor import as_xtensor
 from pytensor.xtensor.type import XTensorVariable
 
 from pymc_marketing.data.idata.mmm_wrapper import MMMIDataWrapper
-from pymc_marketing.data.idata.utils import subsample_draws
+from pymc_marketing.data.idata.schema import Frequency
+from pymc_marketing.data.idata.utils import (
+    subsample_draws,
+    sum_contributions_over_time,
+)
 from pymc_marketing.hsgp_kwargs import HSGPKwargs
 from pymc_marketing.mmm import SoftPlusHSGP
 from pymc_marketing.mmm.additive_effect import (
@@ -218,7 +222,7 @@ from pymc_marketing.mmm.causal import CausalGraphModel
 from pymc_marketing.mmm.components.adstock import AdstockTransformation
 from pymc_marketing.mmm.components.saturation import SaturationTransformation
 from pymc_marketing.mmm.constraints import Constraint
-from pymc_marketing.mmm.data_conversion import to_mmm_dataset
+from pymc_marketing.mmm.data_conversion import _dataset_has_target, to_mmm_dataset
 from pymc_marketing.mmm.decomposition import (
     identity_counterfactual_component,
     log_counterfactual_remove_component,
@@ -233,7 +237,12 @@ from pymc_marketing.mmm.lift_test import (
     add_lift_measurements_to_likelihood_from_saturation,
     scale_lift_measurements,
 )
-from pymc_marketing.mmm.link import LinkFunction, LinkSpec, get_link_spec
+from pymc_marketing.mmm.link import (
+    BASELINE_PART,
+    LinkFunction,
+    LinkSpec,
+    get_link_spec,
+)
 from pymc_marketing.mmm.plot import MMMPlotSuite
 from pymc_marketing.mmm.plotting import MMMPlotSuiteFacade
 from pymc_marketing.mmm.plotting.budget import BudgetPlots
@@ -256,6 +265,7 @@ from pymc_marketing.model_builder import RegressionModelBuilder, SamplingMethod
 from pymc_marketing.model_config import parse_model_config
 from pymc_marketing.model_graph import deterministics_to_flat
 from pymc_marketing.serialization import DeserializationContext, serialization
+from pymc_marketing.special_priors import LogNormalPrior
 from pymc_marketing.version import __version__
 
 if TYPE_CHECKING:
@@ -637,6 +647,10 @@ class MMM(RegressionModelBuilder):
         self._cost_per_unit_input = cost_per_unit
         self._plot_suite: Literal["legacy", "new"] = "legacy"
         self._plot_suite_warned: bool = False
+        # True only while the built model's observed target is the ones
+        # placeholder that `sample_prior_predictive` substitutes for a missing
+        # `y` under a LogNormalPrior likelihood; see `fit`.
+        self._target_is_placeholder: bool = False
 
         super().__init__(model_config=model_config, sampler_config=sampler_config)
 
@@ -1308,18 +1322,27 @@ class MMM(RegressionModelBuilder):
             mmm.add_original_scale_contribution_variable(["channel_contribution"])
             mmm.data.validate_or_raise()
 
-            # Filter and aggregate
-            monthly = mmm.data.filter_dates("2024-01-01", "2024-12-31").aggregate_time(
-                "monthly"
+            # Filter, then aggregate spend over time
+            monthly_spend = (
+                mmm.data.filter_dates("2024-01-01", "2024-12-31")
+                .aggregate_time("monthly")
+                .get_channel_spend()
             )
+
+            # Contributions are decomposed per date, then summed per period
+            monthly_contributions = mmm.data.filter_dates(
+                "2024-01-01", "2024-12-31"
+            ).get_contributions(period="monthly")
         """
         self._validate_idata_exists()
 
         return MMMIDataWrapper.from_mmm(self)
 
+    @validate_call
     def compute_counterfactual_contributions_dataset(
         self,
         central_tendency: Literal["median", "mean"] = "median",
+        period: Frequency = "original",
     ) -> xr.Dataset:
         r"""Full-posterior counterfactual contributions as an :class:`xr.Dataset`.
 
@@ -1374,20 +1397,48 @@ class MMM(RegressionModelBuilder):
         dimensions so that downstream code can compute arbitrary
         summaries (HDI, quantiles, etc.).
 
+        With a ``period``, the per-date, per-draw contributions above are
+        summed over the dates :math:`t \in T` of each period:
+
+        .. math::
+
+            \text{contribution}_j^{(d)}(T)
+            = \sum_{t \in T} \bigl[\text{inv}\bigl(\mu^{(d)}(t)\bigr)
+            - \text{inv}\bigl(\mu^{(d)}(t) - v_j^{(d)}(t)\bigr)\bigr] \cdot s
+
+        The decomposition runs on the original dates and the sum comes
+        afterwards.  Under the log link the order matters:
+        :math:`\exp(\sum_t \mu_t) - \exp(\sum_t \mu_t - \sum_t v_t)` is not
+        :math:`\sum_t [\exp(\mu_t) - \exp(\mu_t - v_t)]`, so decomposing
+        time-aggregated data (e.g. after
+        :meth:`MMMIDataWrapper.aggregate_time`) is wrong.  Under the
+        identity link both orders agree.  A time-invariant intercept is added
+        to :math:`\mu` in every period, so it is counted once per date of the
+        period, as :meth:`MMMIDataWrapper.get_contributions` with a
+        ``period`` does.
+
         This is the **counterfactual** decomposition: per-component
         ``what-if-removed`` lifts that, under the log link, do *not* sum
         to :math:`\hat y` (interactions are counted by every component
-        they touch).  For a **conserving** decomposition whose components
-        sum exactly to :math:`\hat y`, see
-        :meth:`MMMIDataWrapper.get_contributions`.
+        they touch), per date and therefore per period as well.  For a
+        **conserving** decomposition whose components sum exactly to
+        :math:`\hat y`, see :meth:`MMMIDataWrapper.get_contributions`.
 
         Parameters
         ----------
         central_tendency : {"median", "mean"}, default "median"
-            Response summary the counterfactual is expressed on.  For the
-            identity link the two are identical (Normal mean == median).
+            Response summary the counterfactual is expressed on.  Under the
+            identity link the two coincide for most likelihoods, but not for
+            ``TruncatedNormal``, where clipping shifts the mean off ``mu``.
             For the log link, ``"median"`` uses :math:`\exp(\mu)` and
             ``"mean"`` applies the :math:`\exp(\sigma^2 / 2)` correction.
+            Applied per date, before any ``period`` sum.
+        period : {"original", "weekly", "monthly", "quarterly", "yearly", "all_time"}, default "original"
+            Time period to sum the per-date contributions over, per draw.
+            ``"original"`` keeps every date, ``"all_time"`` removes the
+            ``date`` dim. A period shorter than the spacing of the dates
+            (e.g. ``"weekly"`` on monthly data) leaves empty periods, which
+            are ``NaN``.
 
         Returns
         -------
@@ -1395,12 +1446,19 @@ class MMM(RegressionModelBuilder):
             One data variable per component (channels, controls,
             ``yearly_seasonality``, any ``mu_effects``, ``intercept``).
             Dimensions are ``(chain, draw, date, ...)`` where ``...`` are
-            any extra model dimensions (e.g. ``geo``).
+            any extra model dimensions (e.g. ``geo``).  With a ``period``,
+            ``date`` holds the last calendar day of each period (a Sunday for
+            ``"weekly"``), which can fall after the last observed date;
+            ``"all_time"`` has no ``date`` dim.  Under the identity link a
+            time-invariant ``intercept`` has no ``date`` dim with
+            ``"original"`` and the ``date`` dim of the periods otherwise.
 
         Raises
         ------
         ValueError
-            If the model has not been fitted (no ``idata``).
+            If ``central_tendency`` or ``period`` is not one of the listed
+            values (a :class:`pydantic.ValidationError`, raised before any
+            computation), or if the model has not been fitted (no ``idata``).
 
         Examples
         --------
@@ -1416,6 +1474,15 @@ class MMM(RegressionModelBuilder):
             import arviz as az
 
             az.hdi(ds)
+
+            # Per quarter and for the whole window, with credible intervals.
+            # Decompose first, sum afterwards: do not aggregate the data over
+            # time and decompose the result.
+            quarterly = mmm.compute_counterfactual_contributions_dataset(
+                period="quarterly"
+            )
+            az.hdi(quarterly)
+            total = mmm.compute_counterfactual_contributions_dataset(period="all_time")
 
         See Also
         --------
@@ -1492,20 +1559,29 @@ class MMM(RegressionModelBuilder):
                     stacklevel=2,
                 )
 
-        parts["intercept"] = counterfactual_fn(posterior["intercept_contribution"])
+        parts[BASELINE_PART] = counterfactual_fn(posterior["intercept_contribution"])
 
         dataset = xr.Dataset(parts)
 
         if central_tendency == "mean":
-            dataset = dataset * self._link_spec.mean_correction(
-                posterior, self.output_var
+            dataset = self._link_spec.to_mean_scale(
+                dataset,
+                posterior,
+                self.model_config["likelihood"],
+                target_scale,
+                self.output_var,
             )
 
-        return dataset
+        # Decompose per date first, then sum over the dates of each period: under
+        # the log link the inverse link is nonlinear in mu, so the other order is
+        # wrong. A time-invariant intercept is counted once per observed date.
+        return sum_contributions_over_time(dataset, period)
 
+    @validate_call
     def compute_mean_contributions_over_time(
         self,
         central_tendency: Literal["median", "mean"] = "median",
+        period: Frequency = "original",
     ) -> pd.DataFrame:
         r"""Posterior-mean counterfactual contributions as a DataFrame.
 
@@ -1543,12 +1619,17 @@ class MMM(RegressionModelBuilder):
         For **log-link** (multiplicative) models this computes a genuine
         per-component counterfactual.  Because interaction effects are
         counted by every component that participates in them, the columns
-        sum to *more* than :math:`\hat y(t)`.  This is an expected
-        property of per-component counterfactuals in a multiplicative
-        model, not a defect.  Under the log link :math:`\exp(\mu)` is the
-        conditional **median**; pass ``central_tendency="mean"`` for the
-        conditional-mean scale (see
+        sum to *more* than :math:`\hat y(t)`, per date and per ``period``
+        alike.  This is an expected property of per-component
+        counterfactuals in a multiplicative model, not a defect.  Under the
+        log link :math:`\exp(\mu)` is the conditional **median**; pass
+        ``central_tendency="mean"`` for the conditional-mean scale (see
         :meth:`compute_counterfactual_contributions_dataset`).
+
+        With a ``period`` each row holds the per-date contributions summed
+        over the dates of the period.  The decomposition runs on the
+        original dates and the sum comes afterwards, which the log link
+        requires (see :meth:`compute_counterfactual_contributions_dataset`).
 
         This method does **not** require
         :meth:`add_original_scale_contribution_variable` to have been
@@ -1559,14 +1640,20 @@ class MMM(RegressionModelBuilder):
         central_tendency : {"median", "mean"}, default "median"
             Forwarded to
             :meth:`compute_counterfactual_contributions_dataset`.
+        period : {"original", "weekly", "monthly", "quarterly", "yearly", "all_time"}, default "original"
+            Forwarded to
+            :meth:`compute_counterfactual_contributions_dataset`; one row per
+            period (x extra dims) instead of one per date.
 
         Returns
         -------
         pd.DataFrame
             Wide-format DataFrame with one row per observation (date x extra
-            dims).  Columns include:
+            dims), or per period (x extra dims) with a ``period``.  Columns
+            include:
 
-            - ``date`` -- date coordinate
+            - ``date`` -- date coordinate; the last calendar day of each
+              period with a ``period``, absent with ``"all_time"``
             - Extra dimension columns (e.g. ``geo``) when the model is
               multidimensional
             - One column per channel (named after channel coordinate labels)
@@ -1578,7 +1665,9 @@ class MMM(RegressionModelBuilder):
         Raises
         ------
         ValueError
-            If the model has not been fitted (no ``idata``).
+            If ``central_tendency`` or ``period`` is not one of the listed
+            values (a :class:`pydantic.ValidationError`, raised before any
+            computation), or if the model has not been fitted (no ``idata``).
 
         Examples
         --------
@@ -1586,6 +1675,10 @@ class MMM(RegressionModelBuilder):
 
             mmm.fit(X, y)
             contributions_df = mmm.compute_mean_contributions_over_time()
+
+            # One row per month (x extra dims); one row per extra dim with
+            # period="all_time"
+            monthly_df = mmm.compute_mean_contributions_over_time(period="monthly")
 
         See Also
         --------
@@ -1599,9 +1692,13 @@ class MMM(RegressionModelBuilder):
         self._validate_idata_exists()
 
         dataset: xr.Dataset = self.compute_counterfactual_contributions_dataset(
-            central_tendency=central_tendency
+            central_tendency=central_tendency, period=period
         )
-        return dataset.mean(("chain", "draw")).to_dataframe().reset_index()
+        posterior_mean = dataset.mean(("chain", "draw"))
+        if not posterior_mean.dims:
+            # period="all_time" without extra dims: a single row
+            return posterior_mean.to_pandas().to_frame().T.reset_index(drop=True)
+        return posterior_mean.to_dataframe().reset_index()
 
     @property
     def summary(self) -> Any:  # type: ignore[no-any-return]
@@ -2055,6 +2152,40 @@ class MMM(RegressionModelBuilder):
                 "Model was not built. Build the model first using MMM.build_model()"
             )
 
+    def scaled_channel(self, channel: str) -> XTensorVariable:
+        """Return scaled spend for a single channel by name.
+
+        Indexes ``channel_data_scaled`` by the model's ``channel`` coordinate,
+        which is the axis of the tensor.  For DataFrame input that matches
+        ``channel_columns``; for ``xr.Dataset`` input it follows the dataset
+        coordinate, which may be ordered differently.
+
+        Parameters
+        ----------
+        channel : str
+            Channel name present on the model's ``channel`` coordinate.
+
+        Returns
+        -------
+        XTensorVariable
+            Scaled channel spend with the ``channel`` dimension dropped.
+
+        Raises
+        ------
+        ValueError
+            If the model has not been built or *channel* is not in the
+            model's ``channel`` coordinate.
+        """
+        self._validate_model_was_built()
+        channels = list(self.model_coords["channel"])
+        try:
+            channel_idx = channels.index(channel)
+        except ValueError as err:
+            raise ValueError(
+                f"Channel {channel!r} not in model channel coords {channels!r}."
+            ) from err
+        return self.channel_data_scaled.isel(channel=channel_idx)
+
     def _validate_contribution_variable(self, var: str) -> None:
         """Validate that the variable ends with "_contribution" and is in the model."""
         if not (var.endswith("_contribution") or var == self.output_var):
@@ -2181,6 +2312,17 @@ class MMM(RegressionModelBuilder):
         xr.DataTree
             Inference data of the fitted model.
         """
+        if hasattr(self, "model") and self._target_is_placeholder:
+            warnings.warn(
+                "The model was built by `sample_prior_predictive` with a "
+                "placeholder target of ones because no `y` was given, and "
+                "`fit` reuses an existing model without refreshing its observed "
+                "target (see issue #2956). The posterior will be fit to the "
+                "placeholder, not to `y`. Build the model with the real target "
+                "first, or fit a fresh instance.",
+                UserWarning,
+                stacklevel=2,
+            )
         idata = super().fit(
             X,
             y,
@@ -2269,12 +2411,16 @@ class MMM(RegressionModelBuilder):
             X=X,
             y=y,
         )
+        self._target_is_placeholder = False
 
+        likelihood = self.model_config["likelihood"]
         if "_target" in self.xarray_dataset.data_vars:
             self._link_spec.validate_target(self.xarray_dataset["_target"].values)
-        LinkSpec.validate_likelihood_compatibility(
-            self.link, self.model_config["likelihood"]
-        )
+            # LogNormalPrior observes the raw target on the strictly positive
+            # support, which the link-level validate_target cannot know about.
+            if isinstance(likelihood, LogNormalPrior):
+                likelihood.validate_observed(self.xarray_dataset["_target"].values)
+        LinkSpec.validate_likelihood_compatibility(self.link, likelihood)
 
         if self.link == LinkFunction.LOG and self.mu_effects:
             warnings.warn(
@@ -2289,9 +2435,12 @@ class MMM(RegressionModelBuilder):
         # Compute and save scales
         self._compute_scales()
 
-        with pm.Model(
-            coords=self.model_coords,
-        ) as self.model:
+        with pm.Model(coords=self.model_coords) as self.model:
+            if self.yearly_seasonality:
+                self.model.add_coord(
+                    self.yearly_fourier.prefix, self.yearly_fourier.nodes
+                )
+
             _channel_scale = pmd.Data("channel_scale", self.scalers._channel)
             _target_scale = pmd.Data("target_scale", self.scalers._target)
 
@@ -2329,6 +2478,31 @@ class MMM(RegressionModelBuilder):
             ## TODO: Find a better way to save it or access it in the pytensor graph.
             self.target_data_scaled = target_data_scaled
 
+            # The likelihood observes this, not `_target`, so the support check
+            # has to run here rather than next to `validate_target` above: the
+            # scale can be negative and the switch above rewrites NaN/inf to
+            # zero, so the raw target's values are not the ones being fitted.
+            # `validate_likelihood_support` evaluates the variable only if the
+            # likelihood has a support to check, so the default `Normal` pays
+            # nothing.
+            #
+            # An all-zero target is the placeholder that `fit` and
+            # `sample_prior_predictive` substitute when no `y` is given
+            # (`model_builder.py:1546`, `:1772`). It has no support to respect,
+            # and failing it would break building a model in order to look at
+            # its prior, so skip the check rather than reject the placeholder.
+            if np.any(self.xarray_dataset["_target"].values != 0):
+                LinkSpec.validate_likelihood_support(
+                    self.model_config["likelihood"],
+                    target_data_scaled,
+                    target_scale=self.scalers["_target"].values,
+                )
+
+            # DataVarMuEffect inputs may be shared by several effects, but must
+            # never reuse data nodes that MMM registered for its own internals.
+            # Snapshot before the effect loop so names registered by an earlier
+            # effect remain eligible for sharing with a later one.
+            self._library_data_names = frozenset(self.model.named_vars)
             for mu_effect in self.mu_effects:
                 mu_effect.create_data(self)
 
@@ -2449,7 +2623,16 @@ class MMM(RegressionModelBuilder):
             if self.link == LinkFunction.LOG:
                 mu_var = pmd.Deterministic("mu", mu_var.transpose("date", ...))
             else:
-                mu_var.name = "mu"
+                # Registered rather than merely named, because the identity-link
+                # mean correction is pointwise in mu and reconstructing it by
+                # summing the contribution Deterministics is not safe:
+                # MuEffect.create_effect is only required to return its term,
+                # not to register one.
+                #
+                # Not transposed, unlike the log branch, which would change the
+                # dims order the likelihood sees, so "date" stays wherever the
+                # linear predictor already put it rather than moving to front.
+                mu_var = pmd.Deterministic("mu", mu_var)
 
             self._link_spec.create_media_contribution_deterministic(
                 mu_var=mu_var,
@@ -2912,6 +3095,93 @@ class MMM(RegressionModelBuilder):
             **kwargs,
         )
 
+    def sample_prior_predictive(  # type: ignore[override]
+        self,
+        X: pd.DataFrame | xr.Dataset | xr.DataArray,
+        y: pd.Series | pd.DataFrame | xr.DataArray | np.ndarray | None = None,
+        samples: int | None = None,
+        extend_idata: bool = True,
+        combined: bool = True,
+        **kwargs,
+    ) -> xr.Dataset:
+        """Sample from the model's prior predictive distribution.
+
+        Delegates to
+        :meth:`RegressionModelBuilder.sample_prior_predictive` and
+        additionally warns when a
+        :class:`~pymc_marketing.special_priors.LogNormalPrior` likelihood
+        produces exactly-zero or non-finite draws, the symptoms of a
+        non-positive response-scale mean or ``std`` under the prior. See
+        :meth:`_warn_on_degenerate_lognormal_draws`.
+
+        When ``y`` is omitted and ``X`` already carries the target, as an
+        :class:`xarray.Dataset` embedding a ``target`` / ``_target`` variable
+        or a :class:`pandas.DataFrame` with the model's ``target_column``,
+        the model is built from ``X`` alone before delegating:
+        ``to_mmm_dataset`` reads the embedded target only when no separate
+        ``y`` is given, and the base class's zeros default would otherwise
+        supply one. With a LogNormalPrior likelihood and no target anywhere,
+        a strictly positive placeholder target of ones is used instead of
+        the base class's zeros default, which the likelihood's
+        ``validate_observed`` would reject before any draws are produced.
+        That path emits a ``UserWarning`` and marks the instance, so that a
+        later :meth:`fit` on it, which reuses the built model and would
+        train on the placeholder rather than the real target, warns again
+        (see issue #2956).
+        """
+        placeholder_target = False
+        if y is None and (
+            (isinstance(X, xr.Dataset) and _dataset_has_target(X))
+            or (isinstance(X, pd.DataFrame) and self.target_column in X.columns)
+        ):
+            if not hasattr(self, "model"):
+                self.build_model(X)
+        elif (
+            y is None
+            and not hasattr(self, "model")
+            and isinstance(self.model_config["likelihood"], LogNormalPrior)
+        ):
+            # The base class only builds when no model exists, so the
+            # placeholder is needed only then. Observed values enter prior
+            # sampling only through the max-abs target scale, so ones
+            # (scale = 1) is an inert placeholder.
+            if isinstance(X, xr.Dataset | xr.DataArray):
+                target_dims = ("date", *self.dims)
+                y = xr.DataArray(
+                    np.ones([X.sizes[d] for d in target_dims]),
+                    dims=target_dims,
+                    coords={d: X.coords[d] for d in target_dims},
+                )
+            else:
+                y = np.ones(len(X))
+            placeholder_target = True
+            warnings.warn(
+                "No target was provided, so the model is being built with a "
+                "placeholder target of ones to satisfy the LogNormalPrior "
+                "likelihood. A later `fit` on this instance reuses the built "
+                "model and would train on that placeholder instead of the real "
+                "target (see issue #2956). Pass `y` to `sample_prior_predictive`, "
+                "or create a fresh model before fitting.",
+                UserWarning,
+                stacklevel=2,
+            )
+        prior_predictive_samples = super().sample_prior_predictive(
+            X,
+            y=y,
+            samples=samples,
+            extend_idata=extend_idata,
+            combined=combined,
+            **kwargs,
+        )
+        if placeholder_target:
+            # Set after delegating: build_model, which runs inside the base
+            # call, resets the flag.
+            self._target_is_placeholder = True
+        self._warn_on_degenerate_lognormal_draws(
+            prior_predictive_samples, group_label="prior-predictive"
+        )
+        return prior_predictive_samples
+
     def sample_posterior_predictive(
         self,
         X: pd.DataFrame | xr.Dataset | None = None,  # type: ignore
@@ -2992,7 +3262,66 @@ class MMM(RegressionModelBuilder):
                 date=slice(self.adstock.l_max, None)
             )
 
+        self._warn_on_degenerate_lognormal_draws(
+            posterior_predictive_samples, group_label="posterior-predictive"
+        )
+
         return posterior_predictive_samples
+
+    def _warn_on_degenerate_lognormal_draws(
+        self, predictive_samples: xr.Dataset, group_label: str
+    ) -> None:
+        """Warn when LogNormalPrior forward draws are exactly zero or non-finite.
+
+        The ``mu > 0`` and ``std > 0`` check in the LogNormalPrior likelihood
+        only protects log-probability evaluation. In compiled forward-sampling
+        graphs pymc rewrites the check to a ``-inf`` log-mean, so a
+        non-positive response-scale mean (for example a negative intercept,
+        a prior that puts mass below zero, or counterfactual ``X`` that
+        pushes the linear predictor below zero) silently yields
+        ``exp(-inf) = 0`` draws, and a non-positive ``std`` draw makes the
+        log-scale sigma NaN so the draw is NaN. A genuine LogNormal draw is
+        finite and never exactly zero except through float underflow of an
+        extremely negative log-scale draw, so either signature almost always
+        indicates this failure mode. Called from both
+        :meth:`sample_posterior_predictive` and :meth:`sample_prior_predictive`
+        (``stacklevel=3`` assumes exactly that one intermediate frame).
+
+        Parameters
+        ----------
+        predictive_samples : xr.Dataset
+            Extracted forward draws containing ``self.output_var``.
+        group_label : str
+            Label naming the sampling path in the warning message, e.g.
+            ``"posterior-predictive"`` or ``"prior-predictive"``.
+        """
+        if not isinstance(self.model_config["likelihood"], LogNormalPrior):
+            return
+        if self.output_var not in predictive_samples:
+            return
+        y_draws = predictive_samples[self.output_var].values
+        n_zero = int(np.count_nonzero(y_draws == 0))
+        n_nonfinite = int(np.count_nonzero(~np.isfinite(y_draws)))
+        if not (n_zero or n_nonfinite):
+            return
+        warnings.warn(
+            f"{n_zero} of {y_draws.size} {group_label} draws "
+            f"({n_zero / y_draws.size:.1%}) of '{self.output_var}' are exactly "
+            f"zero and {n_nonfinite} ({n_nonfinite / y_draws.size:.1%}) are "
+            "non-finite. With a LogNormalPrior likelihood, exact zeros almost "
+            "always mean the model produced a non-positive response-scale mean "
+            "'mu' for those draws, and non-finite draws mean it produced a "
+            "non-positive 'std': forward sampling rewrites the mu > 0 and "
+            "std > 0 check to a -inf log-mean instead of raising an error, so "
+            "the draw becomes exp(-inf) = 0, or NaN when the log-scale sigma "
+            "is itself NaN. (Rarely, a finite but extremely negative log-scale "
+            "draw can also underflow to exactly zero.) Check for a negative "
+            "intercept, a 'std' prior with mass below zero, or input data that "
+            "pushes the linear predictor below zero before using these "
+            "predictions.",
+            UserWarning,
+            stacklevel=3,
+        )
 
     @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
     def sample_saturation_curve(

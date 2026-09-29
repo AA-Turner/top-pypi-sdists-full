@@ -129,6 +129,77 @@ def _gs_error_reported(stream) -> bool:
     return bool(match)
 
 
+# Ghostscript 10 reports the font file it substitutes for a missing font;
+# Ghostscript 9 reports the name of the substitute
+_RE_GS10_FONT_LOADED = re.compile(
+    r'^Loading font (?P<requested>.+?) \(or substitute\) from (?P<substitute>.+)$',
+    re.MULTILINE,
+)
+_RE_GS9_FONT_SUBSTITUTED = re.compile(
+    r'^Substituting font (?P<substitute>\S+) for (?P<requested>.+)\.$',
+    re.MULTILINE,
+)
+_RE_BOLD = re.compile(r'bold|black|heavy', re.IGNORECASE)
+_RE_ITALIC = re.compile(r'italic|oblique', re.IGNORECASE)
+# Names such as n019004l, used by old URW font files, say nothing about style
+_RE_URW_FILE_NAME = re.compile(r'^[a-z]\d{6}l$')
+
+
+def find_style_lost_substitutions(stderr: str) -> list[tuple[str, str, str]]:
+    """Find substitute fonts that lack the bold or italic style of the original.
+
+    PDF/A requires embedded fonts, so Ghostscript substitutes one of its own
+    fonts for each font the input does not embed. The substitute should have
+    the style the font's name asks for, such as ``Verdana,Bold``, but some
+    Ghostscript versions pick a regular face for font families their Fontmap
+    does not know, and the output silently loses the styling.
+
+    Args:
+        stderr: Ghostscript's output.
+
+    Returns:
+        (requested font, substitute font, lost style) for each substitution
+        that lost bold, italic or both, in order of appearance.
+    """
+    matches = sorted(
+        [
+            *_RE_GS10_FONT_LOADED.finditer(stderr),
+            *_RE_GS9_FONT_SUBSTITUTED.finditer(stderr),
+        ],
+        key=lambda m: m.start(),
+    )
+    found = []
+    for match in matches:
+        requested = match['requested'].strip()
+        # Ghostscript 9.5x ends the message with a period
+        substitute = Path(match['substitute'].strip().rstrip('.')).stem
+        if _RE_URW_FILE_NAME.match(substitute):
+            continue
+        lost = []
+        if _RE_BOLD.search(requested) and not _RE_BOLD.search(substitute):
+            lost.append('bold')
+        if _RE_ITALIC.search(requested) and not _RE_ITALIC.search(substitute):
+            lost.append('italic')
+        if lost:
+            found.append((requested, substitute, ' and '.join(lost)))
+    return found
+
+
+def _warn_style_lost_substitutions(stderr: str) -> None:
+    lost = find_style_lost_substitutions(stderr)
+    if not lost:
+        return
+    details = ', '.join(
+        f"{requested} (replaced by {substitute}, {style} lost)"
+        for requested, substitute, style in lost
+    )
+    log.warning(
+        f"Ghostscript substituted fonts without the style of the original, so "
+        f"the output loses that styling: {details}. Use `--output-type pdf` to "
+        "keep the original fonts, or embed the fonts in the input file."
+    )
+
+
 def _gs_devicen_reported(stream) -> bool:
     """Did Ghostscript warn about a DeviceN with inappropriate alternate?
 
@@ -338,6 +409,7 @@ def generate_pdfa(
     pdfa_part: str = '2',
     progressbar_class=None,
     stop_on_error: bool = False,
+    subset_fonts: bool = False,
 ):
     _ensure_log_filter_installed()
     # Ghostscript's compression is all or nothing. We can either force all images
@@ -408,6 +480,18 @@ def generate_pdfa(
             f"-dMonoImageResolution={jpeg_maxdpi}",
         ]
 
+    # PDF/A requires embedded fonts, so Ghostscript substitutes any font the
+    # input does not embed. -dNONATIVEFONTMAP makes it choose from its own URW
+    # fonts instead of the platform's (fontconfig, or macOS/Windows system
+    # fonts), so the output does not depend on what fonts happen to be
+    # installed; on macOS the native map embedded tens of megabytes of system
+    # fonts (#1369). Fonts that are embedded in the input are unaffected.
+    # Subsetting fonts can damage the encoding of fonts embedded in the input
+    # (#1592), so the caller may only enable it when there are none.
+    font_args = ['-dNONATIVEFONTMAP']
+    if not subset_fonts:
+        font_args.append('-dSubsetFonts=false')
+
     # nb no need to specify ProcessColorModel when ColorConversionStrategy
     # is set; see:
     # https://bugs.ghostscript.com/show_bug.cgi?id=699392
@@ -425,9 +509,9 @@ def generate_pdfa(
         + (['-dPDFSTOPONERROR'] if stop_on_error else [])
         + compression_args
         + downsample_args
+        + font_args
         + [
             f"-dJPEGQ={effective_jpeg_quality}",  # See note above on JPEG quality
-            "-dSubsetFonts=false",  # Prevents GS from messing up some encodings
             f"-dPDFA={pdfa_part}",
             "-dPDFACompatibilityPolicy=1",
             "-o",
@@ -469,3 +553,4 @@ def generate_pdfa(
             # liable to render blank in some viewers, so raise regardless of the
             # strategy and tailor the guidance to what was attempted.
             raise ColorConversionNeededError(color_conversion_strategy)
+        _warn_style_lost_substitutions(stderr)

@@ -557,6 +557,16 @@ class AiCatalogManager:
             and o.api_id in self._apis
         ]
 
+    def parked_offerings_for(self, model_id: str) -> list[CatalogOffering]:
+        """Well-formed offerings an operator deliberately marked ``is_available=false``.
+
+        This is the catalog's "we know this route and cannot call it yet" state
+        (no harness, invite-only access): a DECISION, recorded with its reason
+        in ``ai.offering.notes``. Quarantined rows never appear here — a broken
+        offering is not a parked one.
+        """
+        return [o for o in self._offerings_by_model.get(str(model_id), []) if not o.is_available]
+
     def endpoint(self, endpoint_id: str) -> CatalogEndpoint | None:
         return self._endpoints.get(str(endpoint_id))
 

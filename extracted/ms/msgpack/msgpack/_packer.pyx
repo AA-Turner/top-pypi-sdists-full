@@ -4,6 +4,7 @@ from cpython.datetime cimport (
     PyDateTime_CheckExact, PyDelta_CheckExact,
     datetime_tzinfo, timedelta_days, timedelta_seconds, timedelta_microseconds,
 )
+from cpython.frozendict cimport PyAnyDict_Check, PyAnyDict_CheckExact
 
 cdef ExtType
 cdef Timestamp
@@ -202,7 +203,7 @@ cdef class Packer:
                 rawval = o
             msgpack_pack_raw(&self.pk, L)
             msgpack_pack_raw_body(&self.pk, rawval, L)
-        elif PyDict_CheckExact(o) if strict else PyDict_Check(o):
+        elif PyAnyDict_CheckExact(o) if strict else PyAnyDict_Check(o):
             L = len(o)
             if L > ITEM_LIMIT:
                 raise ValueError("dict is too large")
@@ -299,6 +300,8 @@ cdef class Packer:
     @cython.critical_section
     def pack_array_header(self, long long size):
         self._check_exports()
+        if size < 0:
+            raise ValueError("array size must be non-negative")
         if size > ITEM_LIMIT:
             raise ValueError("array too large")
         msgpack_pack_array(&self.pk, size)
@@ -310,6 +313,8 @@ cdef class Packer:
     @cython.critical_section
     def pack_map_header(self, long long size):
         self._check_exports()
+        if size < 0:
+            raise ValueError("map size must be non-negative")
         if size > ITEM_LIMIT:
             raise ValueError("map too learge")
         msgpack_pack_map(&self.pk, size)

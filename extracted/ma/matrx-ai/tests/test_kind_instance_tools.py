@@ -114,7 +114,7 @@ class _FakeModel:
 
 @pytest.mark.asyncio
 async def test_instance_create_declares_the_agent_tool_actor(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, person_session: dict[str, str]
 ) -> None:
     """The durable write must carry the tool's AI authorship into its transaction."""
     from matrx_orm import current_actor
@@ -334,6 +334,7 @@ async def test_missing_deleted_and_unauthorized_shapes_match(
     person_session["user"] = user
     monkeypatch.setattr(ki, "ctx_user_id", lambda _ctx: user)
 
+    probe_id = str(uuid4())
     messages: list[str] = []
     for row, readers in (
         (None, {user}),
@@ -341,11 +342,12 @@ async def test_missing_deleted_and_unauthorized_shapes_match(
         (_instance_row(str(uuid4())), set()),
     ):
         _patch_instance_model(monkeypatch, row, readers=readers)
-        result = await ki.instance_get({"instance_id": str(uuid4())}, make_ctx())
+        result = await ki.instance_get({"instance_id": probe_id}, make_ctx())
         assert result.success is False
         assert result.error is not None and result.error.error_type == "not_found"
         messages.append(result.error.message)
     assert len(set(messages)) == 1  # identical content-free shape
+    assert probe_id in messages[0]  # the honest answer names the id it was asked about
 
 
 @pytest.mark.asyncio

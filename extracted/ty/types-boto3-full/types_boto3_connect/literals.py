@@ -48,6 +48,7 @@ __all__ = (
     "ComparisonType",
     "ConfigurableNotificationPriorityType",
     "ConnectServiceName",
+    "ConnectionTypeType",
     "ContactEvaluationAttributeComparisonTypeType",
     "ContactEvaluationAttributeKeyType",
     "ContactFieldType",
@@ -142,6 +143,7 @@ __all__ = (
     "ListDataTablesPaginatorName",
     "ListDefaultVocabulariesPaginatorName",
     "ListEntitySecurityProfilesPaginatorName",
+    "ListEvaluationFormAIVersionsPaginatorName",
     "ListEvaluationFormVersionsPaginatorName",
     "ListEvaluationFormsPaginatorName",
     "ListExtractionDefinitionsPaginatorName",
@@ -371,6 +373,9 @@ ChannelWorkloadBehaviorTypeType = Literal[
 ChatEventTypeType = Literal["DISCONNECT", "EVENT", "MESSAGE"]
 ComparisonType = Literal["LT"]
 ConfigurableNotificationPriorityType = Literal["HIGH", "LOW"]
+ConnectionTypeType = Literal[
+    "AUTHENTICATION_SESSION", "CONNECTION_CREDENTIALS", "WEBRTC_CONNECTION", "WEBSOCKET"
+]
 ContactEvaluationAttributeComparisonTypeType = Literal["EXACT"]
 ContactEvaluationAttributeKeyType = Literal["ContactAgentId"]
 ContactFieldType = Literal["ADDITIONAL_EMAIL_RECIPIENTS", "CUSTOMER_ENDPOINT", "EMAIL_SUBJECT"]
@@ -669,6 +674,7 @@ ListDataTableValuesPaginatorName = Literal["list_data_table_values"]
 ListDataTablesPaginatorName = Literal["list_data_tables"]
 ListDefaultVocabulariesPaginatorName = Literal["list_default_vocabularies"]
 ListEntitySecurityProfilesPaginatorName = Literal["list_entity_security_profiles"]
+ListEvaluationFormAIVersionsPaginatorName = Literal["list_evaluation_form_ai_versions"]
 ListEvaluationFormVersionsPaginatorName = Literal["list_evaluation_form_versions"]
 ListEvaluationFormsPaginatorName = Literal["list_evaluation_forms"]
 ListExtractionDefinitionsPaginatorName = Literal["list_extraction_definitions"]
@@ -1690,6 +1696,7 @@ PaginatorName = Literal[
     "list_data_tables",
     "list_default_vocabularies",
     "list_entity_security_profiles",
+    "list_evaluation_form_ai_versions",
     "list_evaluation_form_versions",
     "list_evaluation_forms",
     "list_extraction_definitions",

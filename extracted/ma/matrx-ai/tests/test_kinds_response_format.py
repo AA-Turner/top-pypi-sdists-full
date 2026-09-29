@@ -46,11 +46,19 @@ async def test_binds_object_kind_with_portable_strict_schema():
     assert rf.json_schema is not None and rf.json_schema.name == "test_shape"
     assert rf.json_schema.strict is True
     schema = rf.json_schema.schema_.model_dump(by_alias=True, exclude_none=True)
-    # Portable pipeline: additionalProperties:false + all-required.
-    assert schema["additionalProperties"] is False
-    assert schema["required"] == ["__kind", "title", "count"]
+    # The envelope carries the KIND's own contract (the one the answer is checked
+    # against and pruned back to): `count` stays OPTIONAL here. Each provider
+    # translator derives its strict wire copy from it (schema.lint.make_portable).
+    assert "count" not in schema["required"], schema["required"]
+    assert "title" in schema["required"]
     assert next(iter(schema["properties"])) == "__kind"
     assert schema["properties"]["__kind"]["const"] == "test_shape"
+    from matrx_ai.schema.lint import make_portable
+
+    wire = make_portable(schema)
+    assert wire["additionalProperties"] is False
+    assert wire["required"] == ["__kind", "title", "count"]
+    assert {"type": "null"} in wire["properties"]["count"]["anyOf"]
 
 
 async def test_non_object_root_declines_loudly(caplog):

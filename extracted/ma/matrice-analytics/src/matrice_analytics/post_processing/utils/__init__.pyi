@@ -58,6 +58,7 @@ logger: Any = ...  # From legacy_analytics_bridge
 GEOMETRY_RETRY_INTERVAL: int = ...  # From post_processing_config_client
 ENV_SKIP_PUBLIC_IP: str = ...  # From public_ip
 logger: Any = ...  # From smoothing_utils
+logger: Any = ...  # From speed_box3d_utils
 DEFAULT_MAX_F_SENSITIVITY_PCT: float = ...  # From speed_geometry_utils
 DEFAULT_MAX_VP2_DIAGONALS: float = ...  # From speed_geometry_utils
 Point: Any = ...  # From speed_geometry_utils
@@ -677,6 +678,30 @@ def match_results_structure(results: Any) -> Any:
     ...
 
 # From geometry_utils
+def bbox_is_normalized(bbox: Optional[Dict[str, Any]]) -> bool:
+    """
+    True when all four coordinates lie in ``[0, 1]`` and the box is not empty.
+    
+        The same rule the config client applies to zone polygons
+        (``PostProcessingConfigClient._is_normalized_points``). An all-zero box is not called
+        normalized: it carries no geometry to scale.
+    """
+    ...
+
+# From geometry_utils
+def bbox_xyxy_pixels(bbox: Optional[Dict[str, Any]], image_width: float, image_height: float) -> Tuple[float, float, float, float]:
+    """
+    ``(x1, y1, x2, y2)`` of ``bbox`` in PIXELS, whether it arrived normalized or in pixels.
+    
+        New-flow detections arrive normalized ``[0, 1]`` (see ``post_processor._backfill_stream_resolution``),
+        so anything that gates or crops in pixels has to scale first. A normalized box is scaled by
+        ``image_width`` / ``image_height``. A pixel box is returned unchanged, so pixel inputs behave
+        exactly as before. A normalized box with no known size (either dimension ``<= 0``) is also
+        returned unchanged; callers that care check :func:`bbox_is_normalized` and say so.
+    """
+    ...
+
+# From geometry_utils
 def calculate_bbox_overlap(bbox1: Dict[str, float], bbox2: Dict[str, float]) -> float:
     """
     Calculate IoU (Intersection over Union) between two bounding boxes.
@@ -1100,6 +1125,25 @@ def create_default_smoothing_config(**overrides: Any) -> Any:
     
     Returns:
         BBoxSmoothingConfig: Configuration instance
+    """
+    ...
+
+# From speed_box3d_utils
+def footprint(det: Dict[str, Any], ground_indices: Any[int], width: int, height: int, min_corner_conf: float = 0.5, min_size_px: float = 12.0, margin_px: float = 2.0) -> Optional[Any.Any]:
+    """
+    The 4 ground-contact corners of a detection, ``(4, 2)`` pixels, or ``None``.
+    
+        ``None`` for anything that is not a trustworthy footprint: no keypoints, a corner
+        below ``min_corner_conf``, a corner outside the frame (a vehicle cut off at the edge
+        has corners the detector guessed), or a footprint too small to measure. Keypoints
+        that arrive normalised (every coordinate within the unit square) are scaled up.
+    """
+    ...
+
+# From speed_box3d_utils
+def solve_camera(footprints: Any.Any, width: int, height: int, car_length_m: float = 4.5, car_width_m: float = 1.8, init_height_m: float = 8.0, max_dim_error: float = 0.15) -> Any:
+    """
+    Fit ``(f, tilt, roll, h)`` to ``footprints`` -- ``(N, 4, 2)`` pixels, cyclic order.
     """
     ...
 
@@ -2601,6 +2645,88 @@ class BBoxSmoothingTracker:
         ...
 
 
+# From speed_box3d_utils
+class Box3DFallback:
+    # Collects car footprints from the first frame; solves the camera once triggered.
+    #
+    #     Triggered when the paint calibration has not produced a camera within
+    #     ``after_seconds`` of frame time, or has declared the camera uncalibratable. Collection
+    #     starts at once, so a camera that needs the fallback has its evidence ready by then.
+
+    def __init__(self: Any, enabled: bool = True, after_seconds: float = 60.0, ground_indices: Any[int] = (0, 1, 2, 3), categories: Any[str] = ('car',), car_length_m: float = 4.5, car_width_m: float = 1.8, init_height_m: float = 8.0, min_footprints: int = 300, min_tracks: int = 20, retry_footprints: int = 300, max_footprints: int = 3000, min_corner_conf: float = 0.5, min_size_px: float = 12.0, max_dim_error: float = 0.15) -> None: ...
+
+    def corners(self: Any, det: Dict[str, Any], width: int, height: int) -> Optional[Any.Any]:
+        """
+        This detection's footprint under this fallback's settings.
+        """
+        ...
+
+    def footprints_seen(self: Any) -> int:
+        """
+        Usable footprints received so far. 0 means the detector sends no 3D corners.
+        """
+        ...
+
+    def locate(self: Any, det: Dict[str, Any], width: int, height: int) -> Optional[Tuple[Tuple[float, float], Tuple[float, float]]]:
+        """
+        ``(pixel, (along, across))`` of this vehicle's footprint centre, or ``None``.
+        
+                The centre of the four ground corners, each mapped onto the road first: on the
+                road, so free of the height bias a box edge carries, and not tied to whichever
+                corner happens to be lowest in the image.
+        """
+        ...
+
+    def observe(self: Any, detections: List[Dict[str, Any]], frame_ts: float, width: int, height: int, paint_failed: bool) -> bool:
+        """
+        Collect this frame's footprints; solve when due. True the frame it succeeds.
+        """
+        ...
+
+
+# From speed_box3d_utils
+class Box3DPlane:
+    # Maps a pixel to ``(along, across)`` metres on the road, like ``RoadPlane``.
+    #
+    #     Same interface as :class:`speed_geometry_utils.RoadPlane` -- ``project`` and
+    #     ``metres_per_pixel`` -- so the fitting and uncertainty code runs on either unchanged.
+
+    def __init__(self: Any, pp: Tuple[float, float], focal: float, tilt: float, roll: float, height_m: float, road_angle: float = 0.0) -> None: ...
+
+    def ground(self: Any, x: float, y: float) -> Optional[Tuple[float, float]]:
+        """
+        Pixel -> world ``(X, Y)`` metres on the road, or ``None`` above the horizon.
+        """
+        ...
+
+    def metres_per_pixel(self: Any, x: float, y: float, pixels: float) -> float:
+        """
+        Ground metres spanned by ``pixels`` of vertical wobble at this image point.
+        """
+        ...
+
+    def pixel(self: Any, world_x: float, world_y: float) -> Tuple[float, float]:
+        """
+        World ``(X, Y)`` on the road -> pixel. The inverse of :meth:`ground`.
+        """
+        ...
+
+    def project(self: Any, x: float, y: float) -> Optional[Tuple[float, float]]:
+        """
+        Pixel -> ``(along, across)`` in METRES, along being the road direction.
+        """
+        ...
+
+
+# From speed_box3d_utils
+class Box3DResult:
+    # One solve: a plane, or the reason there is none.
+
+    def __init__(self: Any, plane: Optional[Any] = None, reason: str = '', diagnostics: Optional[Dict[str, float]] = None) -> None: ...
+
+    def ok(self: Any) -> bool: ...
+
+
 # From speed_geometry_utils
 class CalibrationQuality:
     # What a vanishing-point pair is worth, before anything is measured with it.
@@ -2694,6 +2820,12 @@ class SelfCalibrator:
     def done(self: Any) -> bool:
         """
         True once there is a camera, or once it is established there will not be one.
+        """
+        ...
+
+    def failed(self: Any) -> bool:
+        """
+        True once no camera will come from paint: declared permanent, or out of attempts.
         """
         ...
 
@@ -2829,4 +2961,4 @@ class WrongWayState:
     WRONG_WAY: str
 
 
-from . import advanced_counting_utils, advanced_helper_utils, agnostic_nms, alert_instance_utils, alerting_utils, business_metrics_aggregation_utils, business_metrics_manager_utils, bytetrack_utils, category_mapping_utils, color_utils, counting_utils, filter_utils, format_utils, geometry_utils, incident_manager_utils, incident_res_format, legacy_analytics_bridge, location_name_cache, parking_analytics_tracker, post_processing_config_client, public_ip, smoothing_utils, speed_fit_utils, speed_geometry_utils, speed_paint_calibration_utils, speed_paint_utils, stream_time_utils, tailgating_utils, tracking_utils, visualization_utils, weapon_human_filter, weapon_person_fusion_v1, wrong_way_tracker
+from . import advanced_counting_utils, advanced_helper_utils, agnostic_nms, alert_instance_utils, alerting_utils, business_metrics_aggregation_utils, business_metrics_manager_utils, bytetrack_utils, category_mapping_utils, color_utils, counting_utils, filter_utils, format_utils, geometry_utils, incident_manager_utils, incident_res_format, legacy_analytics_bridge, location_name_cache, parking_analytics_tracker, post_processing_config_client, public_ip, smoothing_utils, speed_box3d_utils, speed_fit_utils, speed_geometry_utils, speed_paint_calibration_utils, speed_paint_utils, stream_time_utils, tailgating_utils, tracking_utils, visualization_utils, weapon_human_filter, weapon_person_fusion_v1, wrong_way_tracker

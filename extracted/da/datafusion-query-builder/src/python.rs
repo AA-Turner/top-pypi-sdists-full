@@ -541,6 +541,14 @@ impl PyQuery {
         PyQuery::new(self.inner.clone().with_cte(name, query.inner.clone()))
     }
 
+    fn with_recursive_cte(&self, name: &str, query: PyRef<'_, PyQuery>) -> PyQuery {
+        PyQuery::new(
+            self.inner
+                .clone()
+                .with_recursive_cte(name, query.inner.clone()),
+        )
+    }
+
     #[pyo3(signature = (*sorts))]
     fn order_by(&self, sorts: Vec<SortArg>) -> PyQuery {
         let sorts = sorts.into_iter().map(|s| s.0).collect();

@@ -17,8 +17,6 @@ from matrx_ai.config import (
 from matrx_ai.config.enums import Role
 from matrx_ai.config.extra_config import WebSearchCallContent
 from matrx_ai.config.message_config import (
-    iter_images_by_role,
-    pick_image_by_role,
     pick_text_by_role,
 )
 from matrx_ai.config.tools_config import ToolCallContent
@@ -304,11 +302,14 @@ class OpenAITranslator(BaseTranslator):
         ``oneOf`` anywhere ("'oneOf' is not permitted"). Recursion IS accepted,
         so it is left alone.
         """
+        from matrx_ai.schema.lint import make_portable
         from matrx_ai.schema.rules import (
             NORMALIZATION_NOTES_KEY,
             classify_normalization_notes,
+            OPEN_SCALAR_ITEM_SCHEMA,
             concretize_empty_schemas,
             count_optional_properties,
+            dedupe_combinator_branches,
             drop_refinement_combinators,
             enforce_additional_properties_false,
             enforce_all_required,
@@ -318,11 +319,17 @@ class OpenAITranslator(BaseTranslator):
             normalize_combinator_siblings,
             prune_unreachable_defs,
             rewrite_oneof_as_anyof,
+            split_enum_from_type_union,
             take_normalization_notes,
         )
 
         narrowed: list[str] = []
         relaxed: list[str] = []
+        # THE SHARED FIRST STEP (every translator runs it): the author's schema —
+        # which is what the wire envelope carries — closed, all-required, each
+        # optional field widened to nullable (OpenAI has no union ceiling, and the
+        # 2026-09-28 sweep measured 0 regressions from it), `__kind` first.
+        schema = make_portable(schema, notes=narrowed)
         # Refinement-only combinators are validation logic, not shape — removed
         # FIRST, before any rule below can mistake a branch for a structure (the
         # union rules would distribute the parent into type-less branches and the
@@ -340,7 +347,17 @@ class OpenAITranslator(BaseTranslator):
         schema = rewrite_oneof_as_anyof(schema)
         schema = normalize_combinator_siblings(schema)
         schema = normalize_array_items(schema)
-        schema = concretize_empty_schemas(schema)
+        # An unspecified array ELEMENT becomes the widest shape a strict decoder
+        # compiles (every scalar and null), named as a narrowing — never `string`.
+        schema = concretize_empty_schemas(schema, item_placeholder=OPEN_SCALAR_ITEM_SCHEMA)
+        # Lossless, and it must run AFTER the rules above because they are what
+        # creates the duplicates (`make_portable` already dropped the ones the
+        # author wrote): an emptied refinement branch concretized into the same
+        # type its sibling already had leaves `anyOf: [A, A]`, which every
+        # constrained decoder compiles twice for nothing
+        # (SCHEMA-TRANSLATION-VERIFY.md, F7 — measured on Anthropic's union cap,
+        # fixed here too because the shape is the shape, not a provider's rule).
+        schema = dedupe_combinator_branches(schema)
         schema = prune_unreachable_defs(schema)
         schema = enforce_additional_properties_false(schema, maps="narrow", notes=narrowed)
         optional = count_optional_properties(schema)
@@ -353,6 +370,9 @@ class OpenAITranslator(BaseTranslator):
         # is no union ceiling on OpenAI, so every one of them can be expressed.
         # A `const` (`__kind`) is forced and not widened — already determined.
         enforce_all_required(schema, express_optional_as_nullable=True, notes=narrowed)
+        # Same rewrite as the Anthropic path, at the same seam: one shape of a
+        # nullable enum for every strict provider, never two.
+        schema = split_enum_from_type_union(schema)
         if optional:
             vcprint(
                 f"[openai] {optional} optional propert{'y' if optional == 1 else 'ies'} made "

@@ -55,6 +55,11 @@ __all__ = (
     "BillingViewSegmentTimeRangeTypeDef",
     "BillingViewSegmentTimeRangeUnionTypeDef",
     "BillingViewSegmentsListElementTypeDef",
+    "BusinessSupportAccountChargeTypeDef",
+    "BusinessSupportDiscountTypeDef",
+    "BusinessSupportServiceSpendTypeDef",
+    "BusinessSupportSubscriptionContractTypeDef",
+    "BusinessSupportTierChargeTypeDef",
     "ChargeAccountTypeDef",
     "ContractAccountTypeDef",
     "CostCategoryValuesOutputTypeDef",
@@ -95,6 +100,12 @@ __all__ = (
     "ListBillingViewsRequestPaginateTypeDef",
     "ListBillingViewsRequestTypeDef",
     "ListBillingViewsResponseTypeDef",
+    "ListBusinessSupportAccountChargesRequestPaginateTypeDef",
+    "ListBusinessSupportAccountChargesRequestTypeDef",
+    "ListBusinessSupportAccountChargesResponseTypeDef",
+    "ListBusinessSupportSubscriptionHistoryRequestPaginateTypeDef",
+    "ListBusinessSupportSubscriptionHistoryRequestTypeDef",
+    "ListBusinessSupportSubscriptionHistoryResponseTypeDef",
     "ListEnterpriseSupportLinkedAccountChargesRequestPaginateTypeDef",
     "ListEnterpriseSupportLinkedAccountChargesRequestTypeDef",
     "ListEnterpriseSupportLinkedAccountChargesResponseTypeDef",
@@ -164,6 +175,33 @@ class BillingViewHealthStatusTypeDef(TypedDict):
 class BillingViewSegmentTimeRangeOutputTypeDef(TypedDict):
     beginDateInclusive: NotRequired[datetime]
     endDateExclusive: NotRequired[datetime]
+
+class BusinessSupportDiscountTypeDef(TypedDict):
+    discountAmount: NotRequired[str]
+    discountPercentage: NotRequired[str]
+    discountType: NotRequired[str]
+    discountSource: NotRequired[str]
+
+class BusinessSupportServiceSpendTypeDef(TypedDict):
+    contributingService: str
+    itemType: str
+    chargeAmount: str
+    currency: str
+    description: NotRequired[str]
+
+class BusinessSupportTierChargeTypeDef(TypedDict):
+    tierDescription: str
+    tierRate: str
+    usageSlice: str
+    tierCharge: str
+    chargePeriodStartDate: NotRequired[datetime]
+    chargePeriodEndDate: NotRequired[datetime]
+
+class BusinessSupportSubscriptionContractTypeDef(TypedDict):
+    accountId: str
+    planName: str
+    contractStartDate: datetime
+    contractEndDate: datetime
 
 class ChargeAccountTypeDef(TypedDict):
     accountId: str
@@ -242,6 +280,12 @@ class StringSearchTypeDef(TypedDict):
     searchOption: Literal["STARTS_WITH"]
     searchValue: str
 
+class ListBusinessSupportAccountChargesRequestTypeDef(TypedDict):
+    billingMonth: str
+    accountId: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
 class ListEnterpriseSupportLinkedAccountChargesRequestTypeDef(TypedDict):
     billingMonth: str
     accountId: NotRequired[str]
@@ -294,6 +338,14 @@ class GetCreditsRequestTypeDef(TypedDict):
     startDate: TimestampTypeDef
     endDate: NotRequired[TimestampTypeDef]
     payerAccountFlag: NotRequired[bool]
+
+class ListBusinessSupportSubscriptionHistoryRequestTypeDef(TypedDict):
+    billingMonth: NotRequired[str]
+    accountId: NotRequired[str]
+    startDate: NotRequired[TimestampTypeDef]
+    endDate: NotRequired[TimestampTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class TimeRangeTypeDef(TypedDict):
     beginDateInclusive: NotRequired[TimestampTypeDef]
@@ -396,6 +448,20 @@ class BillingViewSegmentsListElementTypeDef(TypedDict):
     managementAccountId: NotRequired[str]
     billingGroupPrimaryAccountId: NotRequired[str]
 
+class BusinessSupportAccountChargeTypeDef(TypedDict):
+    accountId: str
+    supportPlanName: str
+    totalCharge: str
+    totalUsageBasis: str
+    tierCharges: NotRequired[list[BusinessSupportTierChargeTypeDef]]
+    supportDiscount: NotRequired[BusinessSupportDiscountTypeDef]
+    supportEligibleSpendByService: NotRequired[list[BusinessSupportServiceSpendTypeDef]]
+
+class ListBusinessSupportSubscriptionHistoryResponseTypeDef(TypedDict):
+    subscriptionContracts: list[BusinessSupportSubscriptionContractTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     resourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -415,6 +481,18 @@ class GetCreditAllocationHistoryRequestPaginateTypeDef(TypedDict):
     startDate: TimestampTypeDef
     endDate: TimestampTypeDef
     creditId: NotRequired[int]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListBusinessSupportAccountChargesRequestPaginateTypeDef(TypedDict):
+    billingMonth: str
+    accountId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListBusinessSupportSubscriptionHistoryRequestPaginateTypeDef(TypedDict):
+    billingMonth: NotRequired[str]
+    accountId: NotRequired[str]
+    startDate: NotRequired[TimestampTypeDef]
+    endDate: NotRequired[TimestampTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEnterpriseSupportLinkedAccountChargesRequestPaginateTypeDef(TypedDict):
@@ -508,6 +586,16 @@ class ListBillingViewsResponseTypeDef(TypedDict):
 
 class ListBillingViewSegmentsResponseTypeDef(TypedDict):
     items: list[BillingViewSegmentsListElementTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListBusinessSupportAccountChargesResponseTypeDef(TypedDict):
+    billingMonth: str
+    isEstimated: bool
+    totalSupportCharge: str
+    totalSupportEligibleSpend: str
+    accountCount: int
+    accountCharges: list[BusinessSupportAccountChargeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

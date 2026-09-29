@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "binder/expression/aggregate_function_expression.h"
 #include "binder/expression/literal_expression.h"
 #include "binder/expression/scalar_function_expression.h"
@@ -17,6 +19,7 @@
 #include "processor/operator/aggregate/packed_filtered_count.h"
 #include "processor/operator/aggregate/simple_aggregate.h"
 #include "processor/operator/aggregate/simple_aggregate_scan.h"
+#include "processor/operator/scan/scan_rel_table.h"
 #include "processor/plan_mapper.h"
 #include "processor/result/result_set_descriptor.h"
 
@@ -214,6 +217,29 @@ static std::unique_ptr<PhysicalOperator> tryMapPackedFilteredCount(PlanMapper& m
         return nullptr;
     }
     const auto keyGroupPos = packedChildSchema->getGroupPos(*key);
+    // The GROUP BY key must live in one of the predicate's groups (the parent/bound group).
+    // Otherwise fall back to the regular aggregate plan.
+    if (!dependentGroups.contains(keyGroupPos)) {
+        return nullptr;
+    }
+    // Match predicate inputs to parent/child groups deterministically. ADD is commutative so
+    // its child order does not reliably indicate which input belongs to the parent (bound)
+    // vs child (nbr) chunk; binder/planner normalization can surface them in different orders
+    // on different STLs (MSVC vs libstdc++). Resolve via the schema instead: the input in the
+    // key (parent) group is lhs, the other is rhs.
+    const auto firstGroupPos = packedChildSchema->getGroupPos(*predicateInputs->first);
+    const auto secondGroupPos = packedChildSchema->getGroupPos(*predicateInputs->second);
+    std::shared_ptr<Expression> lhsExpr;
+    std::shared_ptr<Expression> rhsExpr;
+    if (firstGroupPos == keyGroupPos && secondGroupPos != keyGroupPos) {
+        lhsExpr = predicateInputs->first;
+        rhsExpr = predicateInputs->second;
+    } else if (secondGroupPos == keyGroupPos && firstGroupPos != keyGroupPos) {
+        lhsExpr = predicateInputs->second;
+        rhsExpr = predicateInputs->first;
+    } else {
+        return nullptr;
+    }
     std::vector<data_chunk_pos_t> multiplicityChunks;
     for (auto groupPos : packedChildSchema->getGroupsPosInScope()) {
         if (groupPos == keyGroupPos || dependentGroups.contains(groupPos) ||
@@ -222,17 +248,30 @@ static std::unique_ptr<PhysicalOperator> tryMapPackedFilteredCount(PlanMapper& m
         }
         multiplicityChunks.push_back(groupPos);
     }
+    std::sort(multiplicityChunks.begin(), multiplicityChunks.end());
+    // Sort for cross-platform determinism: unordered_set iteration order differs between MSVC
+    // and libstdc++, which otherwise yields different select/flat assignments and plans.
     std::vector<data_chunk_pos_t> dependentGroupsVector{dependentGroups.begin(),
         dependentGroups.end()};
+    std::sort(dependentGroupsVector.begin(), dependentGroupsVector.end());
     auto sharedState = std::make_shared<PackedFilteredCountSharedState>();
     auto info = PackedFilteredCountInfo{DataPos{packedChildSchema->getExpressionPos(*key)},
         DataPos{agg.getSchema()->getExpressionPos(*key)},
         DataPos{agg.getSchema()->getExpressionPos(*aggregate)},
-        DataPos{packedChildSchema->getExpressionPos(*predicateInputs->first)},
-        DataPos{packedChildSchema->getExpressionPos(*predicateInputs->second)},
-        dependentGroupsVector[0], dependentGroupsVector[1], std::move(multiplicityChunks)};
+        DataPos{packedChildSchema->getExpressionPos(*lhsExpr)},
+        DataPos{packedChildSchema->getExpressionPos(*rhsExpr)}, dependentGroupsVector[0],
+        dependentGroupsVector[1], std::move(multiplicityChunks)};
+    auto packedChildPhysicalOp = mapper.mapOperator(packedChild);
+    // Enable multi-parent packed batches on the underlying rel scan (if it is a single-table
+    // ScanRelTable): PackedFilteredCount is packed-aware and consumes the PackedChildSlices
+    // descriptor, so it can attribute children of many parents per batch. Other consumers of
+    // packed extend output keep the one-parent-per-batch contract. See
+    // docs/multi_parent_lifetime.md.
+    if (auto* scanRelTable = dynamic_cast<ScanRelTable*>(packedChildPhysicalOp.get())) {
+        scanRelTable->setMultiParentPackedScanEnabled(true);
+    }
     auto sink = std::make_unique<PackedFilteredCount>(sharedState, info,
-        mapper.mapOperator(packedChild), mapper.getOperatorID(),
+        std::move(packedChildPhysicalOp), mapper.getOperatorID(),
         std::make_unique<PackedFilteredCountPrintInfo>(logicalFilter.getPredicate(),
             agg.getKeys()));
     sink->setDescriptor(std::make_unique<ResultSetDescriptor>(packedChildSchema));

@@ -1,7 +1,6 @@
 #include "Protocol.h"
 
 #include <cstring>
-#include "fmt/base.h"
 #include "protocol/simpleble.pb.h"
 
 using namespace SimpleBLE::Dongl::Serial;
@@ -110,7 +109,7 @@ simpleble_ScanIsActiveRsp Protocol::simpleble_scan_is_active() {
 }
 
 simpleble_ConnectRsp Protocol::simpleble_connect(simpleble_BluetoothAddressType address_type,
-                                                 const std::string& address) {
+                                                 const std::string& address, uint32_t timeout_ms) {
     dongl_Command command = dongl_Command_init_zero;
     command.which_cmd = dongl_Command_simpleble_tag;
     command.cmd.simpleble.which_cmd = simpleble_Command_connect_tag;
@@ -120,6 +119,7 @@ simpleble_ConnectRsp Protocol::simpleble_connect(simpleble_BluetoothAddressType 
     command.cmd.simpleble.cmd.connect.address_type = address_type;
     strncpy(command.cmd.simpleble.cmd.connect.address, address.c_str(),
             sizeof(command.cmd.simpleble.cmd.connect.address));
+    command.cmd.simpleble.cmd.connect.timeout_ms = timeout_ms;
 
     dongl_Response response = exchange(command);
     return response.rsp.simpleble.rsp.connect;
@@ -131,6 +131,7 @@ simpleble_DisconnectRsp Protocol::simpleble_disconnect(uint16_t conn_handle) {
     command.cmd.simpleble.which_cmd = simpleble_Command_disconnect_tag;
     simpleble_DisconnectCmd disconnect_cmd = simpleble_DisconnectCmd_init_default;
     command.cmd.simpleble.cmd.disconnect = disconnect_cmd;
+    command.cmd.simpleble.cmd.disconnect.conn_handle = conn_handle;
 
     dongl_Response response = exchange(command);
     return response.rsp.simpleble.rsp.disconnect;
@@ -145,9 +146,9 @@ simpleble_ReadRsp Protocol::simpleble_read(uint16_t conn_handle, uint16_t handle
     command.cmd.simpleble.cmd.read.conn_handle = conn_handle;
     command.cmd.simpleble.cmd.read.handle = handle;
 
-    fmt::print("simpleble_read: conn_handle: {}, handle: {}\n", conn_handle, handle);
-    dongl_Response response = exchange(command);
-    fmt::print("simpleble_read: response: {}\n", response.rsp.simpleble.rsp.read.ret_code);
+    // Long values take one ATT round trip per MTU-sized chunk, up to 512 bytes, before the Dongl responds. With a
+    // slow connection interval and peripheral latency that can take several seconds.
+    dongl_Response response = exchange(command, std::chrono::milliseconds(15000));
     return response.rsp.simpleble.rsp.read;
 }
 
@@ -170,4 +171,68 @@ simpleble_WriteRsp Protocol::simpleble_write(uint16_t conn_handle, uint16_t hand
 
     dongl_Response response = exchange(command);
     return response.rsp.simpleble.rsp.write;
+}
+
+simpleble_IsPairedRsp Protocol::simpleble_is_paired(simpleble_BluetoothAddressType address_type,
+                                                    const std::string& address) {
+    dongl_Command command = dongl_Command_init_zero;
+    command.which_cmd = dongl_Command_simpleble_tag;
+    command.cmd.simpleble.which_cmd = simpleble_Command_is_paired_tag;
+    command.cmd.simpleble.cmd.is_paired.address_type = address_type;
+    strncpy(command.cmd.simpleble.cmd.is_paired.address, address.c_str(),
+            sizeof(command.cmd.simpleble.cmd.is_paired.address) - 1);
+
+    dongl_Response response = exchange(command);
+    return response.rsp.simpleble.rsp.is_paired;
+}
+
+simpleble_UnpairRsp Protocol::simpleble_unpair(simpleble_BluetoothAddressType address_type,
+                                               const std::string& address) {
+    dongl_Command command = dongl_Command_init_zero;
+    command.which_cmd = dongl_Command_simpleble_tag;
+    command.cmd.simpleble.which_cmd = simpleble_Command_unpair_tag;
+    command.cmd.simpleble.cmd.unpair.address_type = address_type;
+    strncpy(command.cmd.simpleble.cmd.unpair.address, address.c_str(),
+            sizeof(command.cmd.simpleble.cmd.unpair.address) - 1);
+
+    dongl_Response response = exchange(command);
+    return response.rsp.simpleble.rsp.unpair;
+}
+
+simpleble_AuthKeyReplyRsp Protocol::simpleble_auth_key_reply(uint16_t conn_handle, uint32_t request_id,
+                                                             const std::vector<uint8_t>& key, bool accept) {
+    if (key.size() > sizeof(simpleble_AuthKeyReplyCmd_key_t::bytes)) {
+        throw std::length_error("Pairing key exceeds maximum size of 16 bytes");
+    }
+
+    dongl_Command command = dongl_Command_init_zero;
+    command.which_cmd = dongl_Command_simpleble_tag;
+    command.cmd.simpleble.which_cmd = simpleble_Command_auth_key_reply_tag;
+    command.cmd.simpleble.cmd.auth_key_reply.conn_handle = conn_handle;
+    command.cmd.simpleble.cmd.auth_key_reply.request_id = request_id;
+    command.cmd.simpleble.cmd.auth_key_reply.key.size = key.size();
+    memcpy(command.cmd.simpleble.cmd.auth_key_reply.key.bytes, key.data(), key.size());
+    command.cmd.simpleble.cmd.auth_key_reply.accept = accept;
+
+    dongl_Response response = exchange(command);
+    return response.rsp.simpleble.rsp.auth_key_reply;
+}
+
+simpleble_GetPairedPeripheralRsp Protocol::simpleble_get_paired_peripheral(uint16_t index) {
+    dongl_Command command = dongl_Command_init_zero;
+    command.which_cmd = dongl_Command_simpleble_tag;
+    command.cmd.simpleble.which_cmd = simpleble_Command_get_paired_peripheral_tag;
+    command.cmd.simpleble.cmd.get_paired_peripheral.index = index;
+
+    dongl_Response response = exchange(command);
+    return response.rsp.simpleble.rsp.get_paired_peripheral;
+}
+
+simpleble_GetPairedPeripheralCountRsp Protocol::simpleble_get_paired_peripheral_count() {
+    dongl_Command command = dongl_Command_init_zero;
+    command.which_cmd = dongl_Command_simpleble_tag;
+    command.cmd.simpleble.which_cmd = simpleble_Command_get_paired_peripheral_count_tag;
+
+    dongl_Response response = exchange(command);
+    return response.rsp.simpleble.rsp.get_paired_peripheral_count;
 }

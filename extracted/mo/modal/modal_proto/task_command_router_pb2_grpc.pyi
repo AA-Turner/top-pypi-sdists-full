@@ -103,6 +103,11 @@ class TaskCommandRouterStub:
         modal_proto.task_command_router_pb2.TaskSetNetworkAccessResponse,
     ]
     """Replace the task's outbound network allowlist (domains + CIDRs)."""
+    TaskSetOutboundPolicy: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskSetOutboundPolicyRequest,
+        modal_proto.task_command_router_pb2.TaskSetOutboundPolicyResponse,
+    ]
+    """Replace the task's outbound policy."""
     TaskSnapshotDirectory: grpc.UnaryUnaryMultiCallable[
         modal_proto.task_command_router_pb2.TaskSnapshotDirectoryRequest,
         modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse,
@@ -258,6 +263,13 @@ class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.task_command_router_pb2.TaskSetNetworkAccessResponse:
         """Replace the task's outbound network allowlist (domains + CIDRs)."""
+    @abc.abstractmethod
+    def TaskSetOutboundPolicy(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskSetOutboundPolicyRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskSetOutboundPolicyResponse:
+        """Replace the task's outbound policy."""
     @abc.abstractmethod
     def TaskSnapshotDirectory(
         self,

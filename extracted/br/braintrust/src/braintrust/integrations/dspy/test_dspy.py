@@ -2,6 +2,8 @@
 Tests for DSPy integration with Braintrust.
 """
 
+import inspect
+
 import dspy
 import pytest
 from braintrust import logger
@@ -12,6 +14,10 @@ from braintrust.test_helpers import init_test_logger
 
 PROJECT_NAME = "test-dspy-app"
 MODEL = "openai/gpt-4o-mini"
+# DSPy >= 3.4 defaults to engine="auto", which routes OpenAI calls through the
+# vendored lm15 raw-socket transport that VCR cannot intercept. Pin LiteLLM so
+# the request is recorded.
+LM_KWARGS = {"engine": "litellm"} if "engine" in inspect.signature(dspy.LM.__init__).parameters else {}
 
 
 @pytest.fixture
@@ -27,7 +33,7 @@ def test_dspy_callback(memory_logger):
     assert not memory_logger.pop()
 
     # Configure DSPy with Braintrust callback
-    lm = dspy.LM(MODEL)
+    lm = dspy.LM(MODEL, **LM_KWARGS)
     dspy.configure(lm=lm, callbacks=[BraintrustDSpyCallback()])
 
     # Use ChainOfThought for a more interesting test
@@ -118,33 +124,23 @@ def test_dspy_adapter_callbacks(memory_logger):
 class TestPatchDSPy:
     """Tests for patch_dspy()."""
 
-    def test_patch_dspy_patches_configure(self):
-        """patch_dspy() should patch dspy.configure via the integration patcher."""
-        result = run_in_subprocess("""
-            from braintrust.integrations.dspy import patch_dspy
-            result = patch_dspy()
-            assert result, "patch_dspy() should return True"
-            print("SUCCESS")
-        """)
-        assert result.returncode == 0, f"Failed: {result.stderr}"
-        assert "SUCCESS" in result.stdout
-
     def test_patch_dspy_wraps_configure(self):
         """After patch_dspy(), dspy.configure() should auto-add BraintrustDSpyCallback."""
         result = run_in_subprocess("""
             from braintrust.integrations.dspy import patch_dspy, BraintrustDSpyCallback
-            patch_dspy()
+            assert patch_dspy(), "patch_dspy() should return True"
+            assert patch_dspy(), "second patch_dspy() should be a no-op that still returns True"
 
             import dspy
 
             # Configure without explicitly adding callback
             dspy.configure(lm=None)
 
-            # Check that BraintrustDSpyCallback was auto-added
+            # Check that exactly one BraintrustDSpyCallback was auto-added (no double-wrap)
             from dspy.dsp.utils.settings import settings
             callbacks = settings.callbacks
-            has_bt_callback = any(isinstance(cb, BraintrustDSpyCallback) for cb in callbacks)
-            assert has_bt_callback, f"Expected BraintrustDSpyCallback in {callbacks}"
+            bt_callbacks = [cb for cb in callbacks if isinstance(cb, BraintrustDSpyCallback)]
+            assert len(bt_callbacks) == 1, f"Expected one BraintrustDSpyCallback in {callbacks}"
             print("SUCCESS")
         """)
         assert result.returncode == 0, f"Failed: {result.stderr}"
@@ -197,23 +193,6 @@ class TestPatchDSPy:
             # Should only have one BraintrustDSpyCallback
             bt_callbacks = [cb for cb in callbacks if isinstance(cb, BraintrustDSpyCallback)]
             assert len(bt_callbacks) == 1, f"Expected 1 BraintrustDSpyCallback, got {len(bt_callbacks)}"
-            print("SUCCESS")
-        """)
-        assert result.returncode == 0, f"Failed: {result.stderr}"
-        assert "SUCCESS" in result.stdout
-
-    def test_patch_dspy_idempotent(self):
-        """Multiple patch_dspy() calls should be safe."""
-        result = run_in_subprocess("""
-            from braintrust.integrations.dspy import patch_dspy
-            import dspy
-
-            patch_dspy()
-            patch_dspy()  # Second call - should be no-op, not double-wrap
-
-            # Verify configure still works
-            lm = dspy.LM("openai/gpt-4o-mini")
-            dspy.configure(lm=lm)
             print("SUCCESS")
         """)
         assert result.returncode == 0, f"Failed: {result.stderr}"

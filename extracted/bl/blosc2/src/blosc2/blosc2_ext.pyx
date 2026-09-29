@@ -478,8 +478,8 @@ cdef extern from "blosc2.h":
     blosc2_schunk *blosc2_schunk_new(blosc2_storage *storage)
     blosc2_schunk *blosc2_schunk_copy(blosc2_schunk *schunk, blosc2_storage *storage)
     blosc2_schunk *blosc2_schunk_from_buffer(uint8_t *cframe, int64_t len, c_bool copy)
-    blosc2_schunk *blosc2_schunk_open_offset(const char* urlpath, int64_t offset)
-    blosc2_schunk* blosc2_schunk_open_offset_udio(const char* urlpath, int64_t offset, const blosc2_io *udio)
+    blosc2_schunk *blosc2_schunk_open_offset(const char* urlpath, int64_t offset) nogil
+    blosc2_schunk* blosc2_schunk_open_offset_udio(const char* urlpath, int64_t offset, const blosc2_io *udio) nogil
 
     int64_t blosc2_schunk_to_buffer(blosc2_schunk* schunk, uint8_t** cframe, c_bool* needs_free) nogil
     void blosc2_schunk_avoid_cframe_free(blosc2_schunk *schunk, c_bool avoid_cframe_free)
@@ -1741,12 +1741,12 @@ cdef class SChunk:
             create_storage(&storage, kwargs)
 
         if self.mode == "r":
-            offset = 0
-            if storage.io != NULL:
-                # mmap or locking: open through the user-defined io
-                self.schunk = blosc2_schunk_open_offset_udio(storage.urlpath, offset, storage.io)
-            else:
-                self.schunk = blosc2_schunk_open_offset(storage.urlpath, offset)
+            with nogil:  # A lock holder in another thread must be able to resume.
+                if storage.io != NULL:
+                    # mmap or locking: open through the user-defined io
+                    self.schunk = blosc2_schunk_open_offset_udio(storage.urlpath, 0, storage.io)
+                else:
+                    self.schunk = blosc2_schunk_open_offset(storage.urlpath, 0)
 
             if kwargs is not None:
                 check_schunk_params(self.schunk, kwargs)
@@ -3384,6 +3384,8 @@ def meta_keys(self):
 
 def open(urlpath, mode, offset, **kwargs):
     urlpath_ = urlpath.encode("utf-8") if isinstance(urlpath, str) else urlpath
+    cdef const char* path = urlpath_
+    cdef int64_t frame_offset = offset
     cdef blosc2_schunk* schunk
     cdef blosc2_stdio_mmap* mmap_file
     cdef blosc2_io* io
@@ -3407,10 +3409,12 @@ def open(urlpath, mode, offset, **kwargs):
             raise ValueError("initial_mapping_size can only be used with writing modes (r+, c)")
 
     if mmap_mode is None:
-        if locking:
-            schunk = blosc2_schunk_open_offset_udio(urlpath_, offset, &_locking_io)
-        else:
-            schunk = blosc2_schunk_open_offset(urlpath_, offset)
+        io = &_locking_io if locking else NULL
+        with nogil:  # Opening can wait for another Python thread's frame lock.
+            if io != NULL:
+                schunk = blosc2_schunk_open_offset_udio(path, frame_offset, io)
+            else:
+                schunk = blosc2_schunk_open_offset(path, frame_offset)
     else:
         mmap_file = <blosc2_stdio_mmap *>malloc(sizeof(BLOSC2_STDIO_MMAP_DEFAULTS))
         memcpy(mmap_file, &BLOSC2_STDIO_MMAP_DEFAULTS, sizeof(BLOSC2_STDIO_MMAP_DEFAULTS))
@@ -3424,7 +3428,8 @@ def open(urlpath, mode, offset, **kwargs):
         io = <blosc2_io *>malloc(sizeof(blosc2_io))
         io.id = BLOSC2_IO_FILESYSTEM_MMAP
         io.params = mmap_file
-        schunk = blosc2_schunk_open_offset_udio(urlpath_, offset, io)
+        with nogil:
+            schunk = blosc2_schunk_open_offset_udio(path, frame_offset, io)
 
     if schunk == NULL:
         if mmap_mode is not None:
@@ -3779,11 +3784,22 @@ cdef class slice_flatter:
 
 cdef class NDArray:
     cdef b2nd_array_t* array
+    cdef PyThread_type_lock read_lock
+    cdef c_bool owns_read_lock
 
     def __init__(self, array, base=None):
         self._dtype = None
         self.array = <b2nd_array_t *> PyCapsule_GetPointer(array, <char *> "b2nd_array_t*")
         self.base = base # add reference to base if NDArray is a view
+        if base is None:
+            self.read_lock = PyThread_allocate_lock()
+            if self.read_lock == NULL:
+                raise MemoryError("Could not allocate NDArray read lock")
+            self.owns_read_lock = True
+        else:
+            # expand_dims/squeeze views share the base SChunk, so reads through
+            # all aliases must be protected by the same lock.
+            self.read_lock = (<NDArray>base).read_lock
 
     @property
     def c_array(self):
@@ -3851,11 +3867,19 @@ cdef class NDArray:
             buffershape_[i] = stop_[i] - start_[i]
 
         cdef Py_buffer view
+        cdef int rc
         PyObject_GetBuffer(arr, &view, PyBUF_SIMPLE)
-        _check_rc(b2nd_get_slice_cbuffer(self.array, start_, stop_,
-                                         <void *> view.buf, buffershape_, view.len),
-                  "Error while getting the buffer")
+        # Waiting for a reader already using this SChunk must not retain the
+        # GIL: that reader can need the GIL again from a Python postfilter.
+        with nogil:
+            PyThread_acquire_lock(self.read_lock, 1)
+        try:
+            rc = b2nd_get_slice_cbuffer(self.array, start_, stop_,
+                                        <void *> view.buf, buffershape_, view.len)
+        finally:
+            PyThread_release_lock(self.read_lock)
         PyBuffer_Release(&view)
+        _check_rc(rc, "Error while getting the buffer")
 
         return arr
 
@@ -3874,11 +3898,10 @@ cdef class NDArray:
         cdef int32_t chunk_nbytes
         cdef int32_t chunk_cbytes
         cdef int32_t block_nbytes
-        cdef blosc2_context *dctx = self.array.sc.dctx
+        cdef blosc2_context *dctx
         cdef Py_buffer view
         cdef int rc
         cdef int32_t lazychunk_cbytes
-        cdef c_bool owns_dctx = False
         cdef int32_t want_nbytes
 
         lazychunk_cbytes = blosc2_schunk_get_lazychunk(self.array.sc, nchunk, &chunk, &needs_free)
@@ -3902,9 +3925,16 @@ cdef class NDArray:
                 free(chunk)
             raise ValueError("destination buffer is smaller than the requested decoded span")
 
-        if dctx == NULL:
-            dctx = blosc2_create_dctx(BLOSC2_DPARAMS_DEFAULTS)
-            owns_dctx = True
+        # A Blosc2 decompression context is mutable.  This method is used by
+        # the indexing planner from several Python workers, so it must not
+        # borrow the SChunk's shared context.  It still needs to be
+        # associated with the SChunk (not just BLOSC2_DPARAMS_DEFAULTS),
+        # since some codecs/filters resolve per-schunk state (e.g.
+        # dictionaries) through dparams.schunk during decompression.
+        cdef blosc2_dparams dparams = dereference(self.array.sc.storage.dparams)
+        dparams.schunk = self.array.sc
+        dparams.typesize = self.array.sc.typesize
+        dctx = blosc2_create_dctx(dparams)
         if dctx == NULL:
             PyBuffer_Release(&view)
             if needs_free:
@@ -3920,8 +3950,7 @@ cdef class NDArray:
         rc = blosc2_getitem_bytes_ctx(dctx, chunk, lazychunk_cbytes,
                                       start * self.array.sc.typesize, want_nbytes,
                                       view.buf, view.len)
-        if owns_dctx:
-            blosc2_free_ctx(dctx)
+        blosc2_free_ctx(dctx)
         PyBuffer_Release(&view)
         if needs_free:
             free(chunk)
@@ -4543,6 +4572,8 @@ cdef class NDArray:
     def __dealloc__(self):
         if self.array != NULL:
             _check_rc(b2nd_free(self.array), "Error while freeing the array")
+        if self.owns_read_lock and self.read_lock != NULL:
+            PyThread_free_lock(self.read_lock)
 
 
 cdef b2nd_context_t* create_b2nd_context(shape, chunks, blocks, dtype, kwargs):

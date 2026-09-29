@@ -19,7 +19,7 @@ class PublicAssetOut(UniversalBaseModel):
 
     athena_metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field(default=None)
     """
-    Internal metadata used by Athena system (e.g., {'source': 'kb', 'topic': 'insights'})
+    Internal metadata used by Athena system (e.g., {'source': 'kb', 'topic': 'insights'}). Never carries a stored credential: connection-string passwords are masked as '****' and secret keys are removed; last_read_at holds only the caller's own read receipt.
     """
 
     athena_original_type: str = pydantic.Field()

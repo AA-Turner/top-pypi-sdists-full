@@ -9,6 +9,6 @@ __all__ = ["InferenceResponse"]
 
 
 class InferenceResponse(BaseModel):
-    response: Union[Dict[str, object], List[object], str, float, bool]
+    response: Union[Dict[str, object], List[object], str, float, bool, None] = None
 
     object: Optional[Literal["generic_inference"]] = None

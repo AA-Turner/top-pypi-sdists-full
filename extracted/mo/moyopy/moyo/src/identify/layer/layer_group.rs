@@ -84,7 +84,9 @@ impl LayerGroup {
             };
             debug!(
                 "Matched layer Hall number {} (LG {}) via prim_trans_mat {:?}",
-                hall_number, entry.number, transformation.linear
+                hall_number,
+                entry.number,
+                transformation.linear()
             );
             return Ok(Self {
                 number: entry.number,
@@ -125,7 +127,7 @@ impl LayerGroup {
         Ok(LayerGroup {
             number: reduced.number,
             hall_number: reduced.hall_number,
-            transformation: reduced.transformation * to_reduced,
+            transformation: to_reduced * reduced.transformation,
         })
     }
 }

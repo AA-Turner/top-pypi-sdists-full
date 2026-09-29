@@ -110,6 +110,9 @@ public:
     // Parallelism
     void setMaxNumThreadForExec(uint64_t numThreads);
     uint64_t getMaxNumThreadForExec() const;
+    // Whether node groups may be split into sub-node-group morsels for a statement of the
+    // given write-ness, per the `enable_sub_node_group_morsels` setting.
+    bool isSubNodeGroupMorselEnabled(bool isWriteStatement) const;
 
     // Replace function.
     void addScanReplace(function::ScanReplacement scanReplacement);
@@ -237,6 +240,9 @@ private:
     std::unique_ptr<QueryResult> handleFailedExecution(std::optional<uint64_t> queryID,
         const std::exception& e) const;
 
+    // EXTENSION ABI: extensions ship once per minor version and must keep working with
+    // patch-release CLIs, while inline accessors bake member offsets into extension binaries.
+    // NEVER reorder/remove data members; ALWAYS append new members at the END (see #971).
     std::mutex mtx;
     // Client side configurable settings.
     ClientConfig clientConfig;

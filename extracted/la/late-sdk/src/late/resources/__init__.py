@@ -17,6 +17,7 @@ from ._generated.ad_library import AdLibraryResource
 from ._generated.ad_targeting import AdTargetingResource
 from ._generated.api_keys import ApiKeysResource
 from ._generated.blogs import BlogsResource
+from ._generated.branded_calling import BrandedCallingResource
 from ._generated.broadcasts import BroadcastsResource
 from ._generated.business_agent import BusinessAgentResource
 from ._generated.calls import CallsResource
@@ -28,6 +29,7 @@ from ._generated.contacts import ContactsResource
 from ._generated.conversions import ConversionsResource
 from ._generated.custom_fields import CustomFieldsResource
 from ._generated.discord import DiscordResource
+from ._generated.feedback import FeedbackResource
 from ._generated.gmb_services import GmbServicesResource
 from ._generated.gmb_verifications import GmbVerificationsResource
 from ._generated.imessage import ImessageResource
@@ -42,6 +44,7 @@ from ._generated.messaging_ads import MessagingAdsResource
 from ._generated.phone_numbers import PhoneNumbersResource
 from ._generated.product_catalogs import ProductCatalogsResource
 from ._generated.products import ProductsResource
+from ._generated.rcs import RcsResource
 from ._generated.reach_and_frequency import ReachAndFrequencyResource
 from ._generated.reddit import RedditResource
 from ._generated.reviews import ReviewsResource
@@ -87,6 +90,7 @@ __all__ = [
     "AnalyticsResource",
     "ApiKeysResource",
     "BlogsResource",
+    "BrandedCallingResource",
     "BroadcastsResource",
     "BusinessAgentResource",
     "CallsResource",
@@ -98,6 +102,7 @@ __all__ = [
     "ConversionsResource",
     "CustomFieldsResource",
     "DiscordResource",
+    "FeedbackResource",
     "GmbServicesResource",
     "GmbVerificationsResource",
     "ImessageResource",
@@ -116,6 +121,7 @@ __all__ = [
     "ProductsResource",
     "ProfilesResource",
     "QueueResource",
+    "RcsResource",
     "ReachAndFrequencyResource",
     "RedditResource",
     "ReviewsResource",

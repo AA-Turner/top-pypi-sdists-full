@@ -201,56 +201,96 @@ def _agent_row(**overrides: Any) -> SimpleNamespace:
 _CTX = SimpleNamespace(user_id="user-1", is_admin=False)
 
 
-def _mock_manager(rows: dict[str, Any]):
-    async def _load(agent_id: str) -> Any:
-        if agent_id in rows and rows[agent_id] is not None:
-            return rows[agent_id]
-        raise LookupError(f"agent {agent_id} not found")
+_ACTING: dict[str, Any] = {"user": None, "admin_lane": False, "privileged_reads": 0}
 
-    manager = SimpleNamespace(load_by_id=AsyncMock(side_effect=_load))
-    return patch(
-        "matrx_ai.db.agx_manager.agx_agent_manager_instance", manager, create=True
+
+def _mock_manager(rows: dict[str, Any]):
+    """agent.definition as RLS shows it. Each agent row is visible to its
+    ``created_by`` and to anyone in its ``_readers``; the platform-admin arm
+    answers only when the admin lane is open. A read outside the person's
+    session is counted as a privileged read (a defect)."""
+    import contextlib
+
+    from matrx_ai import _ext
+
+    @contextlib.asynccontextmanager
+    async def acting_as_caller(ctx: Any = None):
+        before = _ACTING["user"]
+        _ACTING["user"] = getattr(ctx, "user_id", None)
+        try:
+            yield
+        finally:
+            _ACTING["user"] = before
+
+    @contextlib.asynccontextmanager
+    async def admin_lane(*_a: Any, **_k: Any):
+        _ACTING["admin_lane"] = True
+        try:
+            yield
+        finally:
+            _ACTING["admin_lane"] = False
+
+    async def load(_cls: Any, agent_id: str) -> Any:
+        who = _ACTING["user"]
+        if who is None:
+            _ACTING["privileged_reads"] += 1
+        row = rows.get(agent_id)
+        if row is None:
+            return None
+        readers = {row.created_by, *getattr(row, "_readers", set())}
+        return row if who in readers or _ACTING["admin_lane"] else None
+
+    stack = contextlib.ExitStack()
+    stack.enter_context(patch.dict(_ext._registry, {"acting_as_caller": acting_as_caller}))
+    stack.enter_context(
+        patch("matrx_ai.db.agx_manager.AgxDefinition.load_by_id_or_none", classmethod(load), create=True)
     )
+    stack.enter_context(patch("matrx_orm.admin_lane", admin_lane, create=True))
+    return stack
 
 
 async def test_missing_agent_reported():
     plan = _plan([_step(1, inputs={"topic": "x"})])
     with _mock_manager({}):
         issues = await validate_plan_agents(plan, _CTX)
-    assert any("could not be loaded" in i.message for i in issues)
+    assert any(_A1 in i.message and "not found" in i.message for i in issues)
 
 
 async def test_access_denied_for_foreign_private_agent():
+    """RLS hides someone else's private agent: one answer naming the id."""
     plan = _plan([_step(1, inputs={"topic": "x"})])
-    with _mock_manager({_A1: _agent_row(created_by="someone-else")}), patch(
-        "matrx_ai.db.agx_manager.agent_viewer_access",
-        AsyncMock(return_value=False),
-        create=True,
-    ):
+    with _mock_manager({_A1: _agent_row(created_by="someone-else")}):
         issues = await validate_plan_agents(plan, _CTX)
-    assert any("do not have access" in i.message for i in issues)
+    assert any(_A1 in i.message and "do not have access" in i.message for i in issues)
+    assert _ACTING["privileged_reads"] == 0
 
 
 async def test_viewer_and_admin_access_allowed():
     plan = _plan([_step(1, inputs={"topic": "x"})])
-    # Viewer-level access (the 2026-08-12 replacement for is_public) allows the run.
-    with _mock_manager({_A1: _agent_row(created_by="someone-else")}), patch(
-        "matrx_ai.db.agx_manager.agent_viewer_access",
-        AsyncMock(return_value=True),
-        create=True,
-    ):
+    shared = _agent_row(created_by="someone-else")
+    shared._readers = {"user-1"}  # RLS lets this person see it (share / org / public)
+    with _mock_manager({_A1: shared}):
         assert await validate_plan_agents(plan, _CTX) == []
-    # THE ADMIN SURFACE (2026-09-25): admin reach works only from an admin surface.
+    # THE ADMIN SURFACE (2026-09-25): the database's admin arm answers only in the lane.
     admin_ctx = SimpleNamespace(user_id="admin-1", is_admin=True, admin_surface=True)
     with _mock_manager({_A1: _agent_row(created_by="someone-else")}):
         assert await validate_plan_agents(plan, admin_ctx) == []
     admin_in_chat = SimpleNamespace(user_id="admin-1", is_admin=True, admin_surface=False)
-    with _mock_manager({_A1: _agent_row(created_by="someone-else")}), patch(
-        "matrx_ai.db.agx_manager.agent_viewer_access",
-        AsyncMock(return_value=False),
-        create=True,
-    ):
+    with _mock_manager({_A1: _agent_row(created_by="someone-else")}):
         assert await validate_plan_agents(plan, admin_in_chat) != []
+    assert _ACTING["privileged_reads"] == 0
+
+
+async def test_no_app_code_access_question_is_asked():
+    """No owner comparison and no agent_viewer_access call: RLS decides."""
+    plan = _plan([_step(1, inputs={"topic": "x"})])
+    asked = AsyncMock(return_value=True)
+    with _mock_manager({_A1: _agent_row(created_by="someone-else")}), patch(
+        "matrx_ai.db.agx_manager.agent_viewer_access", asked, create=True
+    ):
+        issues = await validate_plan_agents(plan, _CTX)
+    asked.assert_not_called()
+    assert any("do not have access" in i.message for i in issues)
 
 
 async def test_archived_agent_rejected():
@@ -662,7 +702,7 @@ _AGENT_REFUSALS = [
     pytest.param(
         {},
         [_step(1, inputs={"topic": "x"})],
-        rf"\[steps\[1\]\.agent_id\] \(step 1\) agent {_A1} could not be loaded: LookupError: agent {_A1} not found",
+        rf"\[steps\[1\]\.agent_id\] \(step 1\) agent {_A1} was not found, or you do not have access to it\.",
         id="missing-agent",
     ),
     pytest.param(
