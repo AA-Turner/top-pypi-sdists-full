@@ -592,17 +592,19 @@ class GetLogAggregatesResponse(_message.Message):
     def __init__(self, table: _Optional[_Union[_aggregation_pb2.AggregateTable, _Mapping]] = ...) -> None: ...
 
 class GetLogStatRequest(_message.Message):
-    __slots__ = ("query", "start_time", "end_time", "comparison_lookback_offset", "aggregation")
+    __slots__ = ("query", "start_time", "end_time", "comparison_lookback_offset", "aggregation", "rate_options")
     QUERY_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     COMPARISON_LOOKBACK_OFFSET_FIELD_NUMBER: _ClassVar[int]
     AGGREGATION_FIELD_NUMBER: _ClassVar[int]
+    RATE_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     query: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     comparison_lookback_offset: _duration_pb2.Duration
     aggregation: _aggregation_pb2.Aggregation
+    rate_options: _aggregation_pb2.RateOptions
     def __init__(
         self,
         query: _Optional[str] = ...,
@@ -610,6 +612,7 @@ class GetLogStatRequest(_message.Message):
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         comparison_lookback_offset: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         aggregation: _Optional[_Union[_aggregation_pb2.Aggregation, _Mapping]] = ...,
+        rate_options: _Optional[_Union[_aggregation_pb2.RateOptions, _Mapping]] = ...,
     ) -> None: ...
 
 class GetLogStatResponse(_message.Message):
@@ -627,6 +630,7 @@ class GetAccessLogStatRequest(_message.Message):
         "aggregation",
         "scaling_group_id",
         "container_id",
+        "rate_options",
     )
     QUERY_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -635,6 +639,7 @@ class GetAccessLogStatRequest(_message.Message):
     AGGREGATION_FIELD_NUMBER: _ClassVar[int]
     SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
+    RATE_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     query: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -642,6 +647,7 @@ class GetAccessLogStatRequest(_message.Message):
     aggregation: _aggregation_pb2.Aggregation
     scaling_group_id: str
     container_id: str
+    rate_options: _aggregation_pb2.RateOptions
     def __init__(
         self,
         query: _Optional[str] = ...,
@@ -651,6 +657,7 @@ class GetAccessLogStatRequest(_message.Message):
         aggregation: _Optional[_Union[_aggregation_pb2.Aggregation, _Mapping]] = ...,
         scaling_group_id: _Optional[str] = ...,
         container_id: _Optional[str] = ...,
+        rate_options: _Optional[_Union[_aggregation_pb2.RateOptions, _Mapping]] = ...,
     ) -> None: ...
 
 class GetAccessLogStatResponse(_message.Message):

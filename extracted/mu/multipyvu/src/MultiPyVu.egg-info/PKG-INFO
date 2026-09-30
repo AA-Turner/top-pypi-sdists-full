@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: MultiPyVu
-Version: 3.6.1
+Version: 3.8.0
 Summary: Control MultiVu using Python
 Author-email: Damon D Jackson <djackson@qdusa.com>
 Maintainer-email: "Quantum Design, Inc." <apps@qdusa.com>
@@ -22,9 +22,7 @@ Requires-Dist: pywin32>=300; platform_system == "Windows"
 Requires-Dist: pillow
 Requires-Dist: pyyaml
 Dynamic: license-file
-Dynamic: requires-dist
 Dynamic: requires-python
-Dynamic: summary
 
 ![qd_logo](https://qdusa.com/images/QD_logo.png)
 # MultiPyVu
@@ -67,7 +65,7 @@ MultiPyVu uses the following modules:
 - pillow - supports server gui
 - pyyaml - supports logging
 
-For the Python 3 distribution Quantum Design recommends [Anaconda](https://www.anaconda.com/products/individual) as it includes most modules needed for this server and other packages useful for scientific computing.  To find which version of Python is used, from a command prompt type:
+To find which version of Python is used on the local computer, from a command prompt type:
 ```
 python --version
 ```
@@ -92,10 +90,9 @@ Measuring\example_get_setpoints.py | Shows how to get the temperature and magnet
 Options\example_aux_therm.py | Gets the temperature of the auxiliary thermometer from the OptiCool.
 Options\example_resistivity_option.py | Demonstrates how to set up the BRT module bridges for resistivity measurements and how to save the data.
 Options\example_horizontal_rotator.py | Demonstrates how to move the horizontal rotator to a new position.
-UsefulBatchFiles\whats_my_ip_address.cmd | This batch file script prints out the IP address for the computer, providing an easy way to get the server IP address needed for remote operation. Alternatively, the gui can be used to get the IP address by calling ```python -m MultiPyVu```.
-UsefulBatchFiles\show_process_with_port.cmd | Shows that active processes are running and what port is being used. By default, this looks for processes running on port 5000.  To query a different port number, append it to the command line arguments.  ```$ show_processes_with_port.cmd 4567```
+UsefulBatchFiles\show_processes_with_port.cmd | Shows that active processes are running and what port is being used. By default, this looks for processes running on port 27183.  To query a different port number, append it to the command line arguments.  ```$ show_processes_with_port.cmd 45678```
 UsefulBatchFiles\RunServer.cmd | This runs the server GUI.
-UsefulBatchFiles\kill_process.cmd | This ends the processes with the specified PID (which can be identified using show_process_with_port.cmd). Run using ```$ kill_process.cmd 13579```
+UsefulBatchFiles\kill_process.cmd | This ends the processes with the specified PID (which can be identified using show_processes_with_port.cmd). Run using ```$ kill_process.cmd 13579```
 
 ### Getting Started<a class="anchor" id="getting-started"></a>
  Once the MultiPyVu module has been installed, be sure that the MultiVu executable is running on the PC connected to the cryostat before starting the server. For testing purposes, you can use MultiVu in simulation mode on an office computer, or run mpv.Server with the -s flag which runs the python code in scaffolding that mimics MultiVu. This is especially helpful for developing a script on a computer that does not have MultiVu running (Mac, Linux, or any PC without MultiVu).  When running MultiVu and MultiPyVu, be sure that they are running under the same permissions.
@@ -161,7 +158,7 @@ with mpv.Client('127.0.0.1') as client:
 # do post-processing once the client has been closed
 ```
 
-If the host or port are not default values (localhost and 5000, respectively), then these parameters must be specified when instantiating MultiPyVu.Client().
+If the host or port are not default values (localhost and 27183, respectively), then these parameters must be specified when instantiating MultiPyVu.Client().
 
 Alternatively, one can start a connection to the server using:
 ```python
@@ -313,7 +310,7 @@ For DynaCool, VersaLab, and PPMS customers with the horizontal rotator option, M
 Once configured, the following commands are simple to use:
 ```python
 position = 374.5
-rate_deg_per_sec = 100.0
+rate_deg_per_sec = 30.0
 client.set_position(position, rate_deg_per_sec)
 pos, status = client.get_position()
 ```
@@ -388,7 +385,7 @@ The server status can be queried from the command line.  First, we can see if th
 ```cmd
 $ python -m MultiPyVu -running
 ```
-By default, this queries the server at IP address = localhost and port = 5000.  To query a different address, use the *-ip=* or *-p=* flags.
+By default, this queries the server at IP address = localhost and port = 27183.  To query a different address, use the *-ip=* or *-p=* flags.
 
 Similarly, in order to get the server status at a specific ip address, use:
 ```cmd
@@ -427,8 +424,8 @@ with mpv.Server(flags=['-s', 'DYNACOOL']) as server:
 
 ### Troubleshooting<a class="anchor" id="troubleshooting"></a>
 Typical connection issues are due to:
-- Firewall. You might need to allow connections on port 5000 (the default port number) in your firewall. Windows Firewall may cause issues depending upon your network settings. If the server is open and a connection fails disabling Firewalls temporarily may be your best option to troubleshoot. If your computers are on the same domain disabling the Domain Firewall may be sufficient.
-- Port conflict. If port 5000 is in use, a different number can be specified when instantiating MultiPyVu.Server() and MultiPyVu.Client().
+- Firewall. You might need to allow connections on port 27183 (the default port number) in your firewall. Windows Firewall may cause issues depending upon your network settings. If the server is open and a connection fails disabling Firewalls temporarily may be your best option to troubleshoot. If your computers are on the same domain disabling the Domain Firewall may be sufficient.
+- Port conflict. If port 27183 is in use, a different number can be specified when instantiating MultiPyVu.Server() and MultiPyVu.Client().
 ```python
 server = mpv.Server(port=6000)
 client = mpv.Client(port=6000)
@@ -437,6 +434,16 @@ client = mpv.Client(port=6000)
 - A log file named QdMultiVu.log shows the traffic between the server and client which can also be useful during troubleshooting.
 
 ## Changelog<a class="anchor" id="changelog"></a>
+**3.8.0**
+- September 2026
+- Add support for the OptiCool Vector magnet
+- Improvements to the GUI for a better look on MacOS.
+- Improvements to wait_for() command.
+
+**3.7.0**
+ - September 2025
+ - Point MultiPyVuDataFile to version 00.05.00, which ignores blank lines when importing .dat files into a Pandas Dataframe.
+ 
 **3.6.1**
 - August 2025
 - Add commands to get the temperature and field setpoints.

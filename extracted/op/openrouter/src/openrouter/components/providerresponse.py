@@ -74,6 +74,7 @@ ProviderResponseProviderName = Union[
         "DeepSeek",
         "DekaLLM",
         "DigitalOcean",
+        "ElevenLabs",
         "Featherless",
         "Fireworks",
         "Fish Audio",
@@ -160,6 +161,7 @@ RoutedServiceTier = Union[
     Literal[
         "flex",
         "priority",
+        "ultrafast",
     ],
     UnrecognizedStr,
 ]

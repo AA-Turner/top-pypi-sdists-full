@@ -8,14 +8,14 @@ from typing import List
 from typing_extensions import TypedDict
 
 
-class LinksTypedDict(TypedDict):
+class ModelsListResponseLinksTypedDict(TypedDict):
     r"""Pagination links"""
 
     next: Nullable[str]
     r"""URL for the next page of results, or null if this is the last page"""
 
 
-class Links(BaseModel):
+class ModelsListResponseLinks(BaseModel):
     r"""Pagination links"""
 
     next: Nullable[str]
@@ -41,7 +41,7 @@ class ModelsListResponseTypedDict(TypedDict):
 
     data: List[ModelTypedDict]
     r"""List of available models"""
-    links: LinksTypedDict
+    links: ModelsListResponseLinksTypedDict
     r"""Pagination links"""
     total_count: int
     r"""Total number of models matching the query"""
@@ -53,7 +53,7 @@ class ModelsListResponse(BaseModel):
     data: List[Model]
     r"""List of available models"""
 
-    links: Links
+    links: ModelsListResponseLinks
     r"""Pagination links"""
 
     total_count: int

@@ -82,7 +82,11 @@ with open(cop_file, 'r') as cop:
             else:
                 msg = 'Duplicate SDO name:  \n'
                 msg += f'{name}\n'
-                msg += f'{n = }, {i = }, {s = }, {v_t = }'
+                # Spelled out rather than using the f-string '=' form,
+                # which needs Python 3.8.  This module is the only file
+                # in the package that is not 3.7-clean, and
+                # python_requires says >= 3.7.
+                msg += f'n = {n}, i = {i}, s = {s}, v_t = {v_t}'
                 print(msg)
 
 # create the python file name
@@ -107,7 +111,7 @@ while exists:
 
 # write the file
 with open(sdo_file, 'w') as s_file:
-    s_file.write(f""""\nSDO Dictionary generated using {cop_file}\n\n"""")
+    s_file.write(f'"""\nSDO Dictionary generated using {cop_file}\n"""\n')
     s_file.write('\nfrom MultiPyVu.sdo_object import SdoObject, val_type\n\n\n')
     for n, s in sdo_dict.items():
         if s is None:

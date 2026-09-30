@@ -18,9 +18,7 @@
 # Urwid web site: https://urwid.org/
 
 
-"""
-Curses-based UI implementation
-"""
+"""Curses-based UI implementation."""
 
 from __future__ import annotations
 
@@ -70,6 +68,7 @@ if IS_WINDOWS:
     )
 
     def initscr() -> curses.window:
+        """Initialize curses on Windows, copying the ``ACS_*``/``LINES``/``COLS`` attributes ``_curses`` misses."""
         import curses  # noqa: I001  # pylint: disable=redefined-outer-name,reimported  # special case for monkeypatch
 
         import _curses
@@ -111,7 +110,10 @@ _curses_colours = {  # pylint: disable=consider-using-namedtuple-or-dataclass  #
 
 
 class Screen(BaseScreen, RealTerminal):
+    """Screen backend that drives the real terminal through the ``curses`` module."""
+
     def __init__(self) -> None:
+        """Initialize an unstarted curses screen with no color pairs allocated yet."""
         super().__init__()
         self.curses_pairs = [(None, None)]  # Can't be sure what pair 0 will default to
         self.has_color = False
@@ -171,9 +173,7 @@ class Screen(BaseScreen, RealTerminal):
         self._mouse_tracking_enabled = enable
 
     def _start(self, *args: typing.Any, **kwargs: typing.Any) -> None:
-        """
-        Initialize the screen and input mode.
-        """
+        """Initialize the screen and input mode."""
         self.s = curses.initscr()
         self.has_color = curses.has_colors()
         if self.has_color:
@@ -206,9 +206,7 @@ class Screen(BaseScreen, RealTerminal):
             self.s.keypad(True)
 
     def _stop(self) -> None:
-        """
-        Restore the screen.
-        """
+        """Restore the screen."""
         curses.echo()
         self._curs_set(1)
         with suppress(curses.error):
@@ -221,11 +219,9 @@ class Screen(BaseScreen, RealTerminal):
         super()._stop()
 
     def _setup_colour_pairs(self) -> None:
-        """
-        Initialize all 63 color pairs based on the term:
-        bg * 8 + 7 - fg
-        So to get a color, we just need to use that term and get the right color
-        pair number.
+        """Initialize all 63 color pairs based on the term: bg * 8 + 7 - fg.
+
+        So to get a color, we just need to use that term and get the right color pair number.
         """
         if not self.has_color:
             return
@@ -295,9 +291,9 @@ class Screen(BaseScreen, RealTerminal):
         complete_wait: float = 0.1,
         resize_wait: float = 0.1,
     ) -> None:
-        """
-        Set the get_input timeout values.  All values have a granularity
-        of 0.1s, ie. any value between 0.15 and 0.05 will be treated as
+        """Set the get_input timeout values.
+
+        All values have a granularity of 0.1s, ie. any value between 0.15 and 0.05 will be treated as
         0.1 and any value less than 0.05 will be treated as 0.  The
         maximum timeout value for this module is 25.5 seconds.
 
@@ -325,7 +321,7 @@ class Screen(BaseScreen, RealTerminal):
     def get_input(self, raw_keys: Literal[True]) -> tuple[_DecodedInput, list[int]]: ...
 
     def get_input(self, raw_keys: bool = False) -> _DecodedInput | tuple[_DecodedInput, list[int]]:
-        """Return pending input as a list.
+        r"""Return pending input as a list.
 
         :param raw_keys: return raw keycodes as well as translated versions
         :raises RuntimeError: the screen has not been started.
@@ -349,15 +345,15 @@ class Screen(BaseScreen, RealTerminal):
 
         When a narrow encoding is not enabled:
 
-        * "Extended ASCII" characters:  "\\xa1", "\\xb2", "\\xfe"
+        * "Extended ASCII" characters:  "\xa1", "\xb2", "\xfe"
 
         When a wide encoding is enabled:
 
-        * Double-byte characters:  "\\xa1\\xea", "\\xb2\\xd4"
+        * Double-byte characters:  "\xa1\xea", "\xb2\xd4"
 
         When utf8 encoding is enabled:
 
-        * Unicode characters: u"\\u00a5", u'\\u253c"
+        * Unicode characters: u"\u00a5", u'\u253c"
 
         Examples of mouse events returned:
 
@@ -642,7 +638,6 @@ class Screen(BaseScreen, RealTerminal):
         :raises ValueError: *canvas* does not match *size*, or a run carries an unknown character set.
         :raises TypeError: a text run is not a byte string.
         """
-
         logger = self.logger.getChild("draw_screen")
 
         if not self._started:
@@ -712,9 +707,7 @@ class Screen(BaseScreen, RealTerminal):
         self.keep_cache_alive_link = canvas
 
     def clear(self) -> None:
-        """
-        Force the screen to be completely repainted on the next call to draw_screen().
-        """
+        """Force the screen to be completely repainted on the next call to draw_screen()."""
         self.s.clear()
 
 
@@ -736,6 +729,7 @@ class _test:
             self.run()
 
     def run(self) -> None:
+        """Render a palette demo screen showing every registered color combination."""
         from urwid.canvas import TextCanvas
 
         encoding = util.get_encoding()

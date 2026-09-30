@@ -25,6 +25,125 @@ fn link_target_policy_accepts_canonical_working_directory_paths() {
     assert!(absolute_policy.contains(&canonical_target));
 }
 
+/// The working directory is reported canonically, while a document can be
+/// supplied through a symlinked ancestor of it (`/var` for `/private/var`).
+/// That document is still the one a relatively supplied document's link names.
+#[cfg(unix)]
+#[test]
+fn link_target_policy_reads_an_absolute_path_through_a_symlinked_ancestor() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().canonicalize().unwrap();
+    std::fs::create_dir_all(root.join("real/docs")).unwrap();
+    std::fs::write(root.join("real/docs/b.md"), "").unwrap();
+    std::os::unix::fs::symlink(root.join("real"), root.join("alias")).unwrap();
+
+    let supplied = root.join("alias/docs/b.md");
+    let policy = LinkTargetPolicy::from_paths_with_roots([&supplied], true, [root.join("real")]);
+
+    assert!(policy.contains(&supplied), "the spelling as supplied");
+    assert!(
+        policy.contains(Path::new("docs/b.md")),
+        "the working-directory-relative spelling of the same file"
+    );
+}
+
+#[test]
+fn link_target_policy_resolves_directories_implied_by_supplied_paths() {
+    let base = std::env::current_dir().expect("test process should have a working directory");
+    let root = base.join("workspace");
+    let policy = LinkTargetPolicy::from_paths_with_roots(["docs/sub/x.md"], false, [root.as_path()]);
+
+    for dir in ["docs", "docs/", "./docs", "docs/sub", "docs/sub/"] {
+        assert_eq!(
+            policy.resolve_supplied(Path::new(dir)),
+            Some(PathBuf::from(dir.trim_start_matches("./").trim_end_matches('/'))),
+            "{dir} holds a supplied path"
+        );
+    }
+    assert_eq!(
+        policy.resolve_supplied(&root.join("docs")),
+        Some(root.join("docs")),
+        "the root-joined spelling of a directory resolves like the relative one"
+    );
+
+    assert_eq!(
+        policy.resolve_supplied(&root),
+        Some(root.clone()),
+        "the working root holds every supplied path"
+    );
+    assert_eq!(
+        policy.resolve_supplied(&base),
+        None,
+        "the working root's parent holds the batch but is not part of it"
+    );
+
+    for missing in ["doc", "doc/", "docs/su", "nope", "docs/sub/x.md/extra"] {
+        assert_eq!(policy.resolve_supplied(Path::new(missing)), None, "{missing}");
+    }
+    assert!(
+        !policy.contains(Path::new("docs")),
+        "a directory resolves as a link target but is not a supplied document"
+    );
+}
+
+#[test]
+fn link_target_policy_bounds_directories_of_paths_outside_the_working_root() {
+    let base = std::env::current_dir().expect("test process should have a working directory");
+    let root = base.join("workspace");
+    let outside = base.join("elsewhere").join("site");
+    let policy = LinkTargetPolicy::from_paths_with_roots(
+        [outside.join("a.md"), outside.join("docs").join("x.md")],
+        false,
+        [root.as_path()],
+    );
+
+    assert_eq!(
+        policy.resolve_supplied(&outside.join("docs")),
+        Some(outside.join("docs"))
+    );
+    assert_eq!(
+        policy.resolve_supplied(&outside),
+        Some(outside.clone()),
+        "the deepest directory holding every outside path is their root"
+    );
+    assert_eq!(policy.resolve_supplied(&base.join("elsewhere")), None);
+    assert_eq!(policy.resolve_supplied(&base), None);
+}
+
+#[test]
+fn link_target_policy_bounds_directories_of_relative_paths_above_the_working_root() {
+    let base = std::env::current_dir().expect("test process should have a working directory");
+    let root = base.join("workspace");
+    let policy = LinkTargetPolicy::from_paths_with_roots(
+        ["../elsewhere/site/a.md", "../elsewhere/site/docs/x.md"],
+        false,
+        [root.as_path()],
+    );
+
+    assert_eq!(
+        policy.resolve_supplied(Path::new("../elsewhere/site/docs")),
+        Some(PathBuf::from("../elsewhere/site/docs"))
+    );
+    assert_eq!(
+        policy.resolve_supplied(Path::new("../elsewhere/site")),
+        Some(PathBuf::from("../elsewhere/site"))
+    );
+    assert_eq!(policy.resolve_supplied(Path::new("../elsewhere")), None);
+    assert_eq!(policy.resolve_supplied(Path::new("..")), None);
+    assert_eq!(policy.resolve_supplied(&base.join("elsewhere")), None);
+    assert_eq!(policy.resolve_supplied(&base), None);
+}
+
+#[test]
+fn link_target_policy_prefers_a_supplied_document_over_a_same_named_directory() {
+    let policy = LinkTargetPolicy::from_paths_with_roots(["docs.md", "docs/b.md"], false, Vec::<PathBuf>::new());
+
+    assert_eq!(
+        policy.resolve_supplied(Path::new("docs")),
+        Some(PathBuf::from("docs.md"))
+    );
+}
+
 #[test]
 fn test_empty_content() {
     let ctx = LintContext::new("", MarkdownFlavor::Standard, None);
@@ -3357,6 +3476,62 @@ fn test_html_block_div_still_terminates_on_blank_line() {
         !ctx.is_in_html_block(4),
         "line 4 (`after blank`) must NOT be in html block"
     );
+}
+
+#[test]
+fn test_html_block_gt_line_is_html_text_outside_a_blockquote() {
+    // A tag broken across lines leaves a line that starts with `>`. Outside a
+    // blockquote that is HTML text: it neither ends the block nor opens a quote.
+    let content = "<table>\n  <td>\n    <a\n      >a</a\n    >\n    text after\n  </td>\n</table>\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    for line in 1..=8 {
+        let info = ctx.line_info(line).unwrap();
+        assert!(info.in_html_block, "line {line} should be in the html block");
+        assert!(info.blockquote.is_none(), "line {line} must not be a blockquote");
+        assert!(!info.is_blank, "line {line} must not be blank");
+    }
+}
+
+#[test]
+fn test_html_block_gt_line_below_the_opener_column_is_still_a_blockquote() {
+    // The `>` line is indented less than the item's HTML, so it leaves the list
+    // item and the HTML block with it, and opens a blockquote.
+    let content = "- item\n\n  <div>\n  inner\n> quote\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    assert!(ctx.is_in_html_block(4), "line 4 should be in the html block");
+    assert!(ctx.line_info(5).unwrap().blockquote.is_some(), "line 5 is a blockquote");
+}
+
+#[test]
+fn test_html_block_complete_tag_alone_on_a_line_opens_a_block() {
+    // CommonMark start condition 7: a tag alone on its line opens an HTML block
+    // running to the next blank line, whatever element it names.
+    let content = "Intro\n\n<math display=\"block\">\n  <mi>x</mi>\n</math>\n\nAfter\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    for line in 3..=5 {
+        assert!(ctx.is_in_html_block(line), "line {line} should be in the html block");
+    }
+    assert!(!ctx.is_in_html_block(7), "the blank line ends the block");
+
+    // Such a tag cannot interrupt a paragraph.
+    let ctx = LintContext::new("Intro\n<span>\ntext\n", MarkdownFlavor::Standard, None);
+    assert!(!ctx.is_in_html_block(2));
+
+    // Front matter is not Markdown, so a tag in it opens no block.
+    let ctx = LintContext::new("---\nx: 1\n\n<span>\n---\ntext\n", MarkdownFlavor::Standard, None);
+    assert!(!ctx.is_in_html_block(4));
+    assert!(!ctx.is_in_html_block(6));
+
+    // A block opened after a list marker leaves the item's line to the list.
+    let ctx = LintContext::new("- <span>\n  text\n", MarkdownFlavor::Standard, None);
+    assert!(!ctx.is_in_html_block(1));
+    assert!(ctx.line_info(1).unwrap().list_item.is_some());
+
+    // MDX reads the same line as JSX.
+    let ctx = LintContext::new("<Card>\ntext\n", MarkdownFlavor::MDX, None);
+    assert!(!ctx.is_in_html_block(2));
 }
 
 #[test]

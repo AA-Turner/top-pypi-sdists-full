@@ -1,0 +1,14 @@
+name: airmux-control-plane
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: |
+  Airmux control plane, console, Cloud SQL Postgres, and PSC-published gateway edge.
+config:
+  gcp:project:
+    description: Runtime GCP project
+    value: internal-airbyte-ai-infra
+  gcp:region:
+    description: Runtime region
+    value: us-west3

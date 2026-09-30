@@ -21,15 +21,12 @@ from typing import Any
 import httpx
 
 from plato.agents.mounts import AgentWorkspaceMount
-from plato.chronos.api.workspace_repos import bulk_ingest_ref_audit_events
-from plato.chronos.models import AuditEventInput, BulkRefAuditEventsRequest
 from plato.runtimes.base import RuntimeInfo
 from plato.transports.base import Transport
 from plato.transports.fuse import FuseDirectTransport
 from plato.transports.nfs import NFSTransport
 from plato.transports.rsync import RsyncTransport
 from plato.transports.sshfs import SSHFSTransport
-from plato.utils.audit import read_audit_records
 from plato.utils.subprocess import run_local
 from plato.worlds.dvc_models import S3Config, credential_refresh_config
 
@@ -616,10 +613,7 @@ class Workspace:
             dvc_files[dir_name] = dvc_yaml
 
         await self._validate_dvc_files_restorable(dvc_files)
-        ref_public_id = await self._record_workspace_ref(
-            step_name, "output", dvc_files, changed=True, trigger_span_id=trigger_span_id
-        )
-        await self._upload_audit_events(step_name, ref_public_id)
+        await self._record_workspace_ref(step_name, "output", dvc_files, changed=True, trigger_span_id=trigger_span_id)
 
         return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys())})
 
@@ -662,10 +656,7 @@ class Workspace:
             dvc_path.write_text(dvc_yaml)
             dvc_files[dir_name] = dvc_yaml
 
-        ref_public_id = await self._record_workspace_ref(
-            step_name, "output", dvc_files, changed=True, trigger_span_id=trigger_span_id
-        )
-        await self._upload_audit_events(step_name, ref_public_id)
+        await self._record_workspace_ref(step_name, "output", dvc_files, changed=True, trigger_span_id=trigger_span_id)
 
         return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys())})
 
@@ -1065,101 +1056,6 @@ class Workspace:
         if self.chronos_url and self.repo_id:
             if not self._sts_credentials or time.time() >= self._sts_expires_at:
                 await self._refresh_credentials()
-
-    def _audit_scope_dir(self) -> Path:
-        return self._repo_root / ".plato" / "audit" / self.name
-
-    def _audit_scope_files(self) -> list[Path]:
-        audit_dir = self._audit_scope_dir()
-        if not audit_dir.exists():
-            return []
-        return sorted(audit_dir.glob("*.jsonl"))
-
-    def _read_audit_scope_events(self, paths: list[Path]) -> list[AuditEventInput]:
-        events: list[AuditEventInput] = []
-        for path in paths:
-            try:
-                records = read_audit_records(path)
-                events.extend(record.to_audit_event_input() for record in records)
-            except FileNotFoundError:
-                continue
-            except Exception as exc:
-                logger.warning(
-                    "Skipping invalid audit spool file %s: %s",
-                    path,
-                    exc,
-                )
-        return events
-
-    async def _upload_audit_events(self, step_name: str, ref_public_id: str | None) -> None:
-        """Upload audit events from local scoped JSONL spool files to Chronos."""
-        try:
-            if not self.chronos_url or not self.session_id or not self.tracked:
-                return
-
-            if not ref_public_id:
-                logger.debug(
-                    "Skipping audit upload for workspace '%s' at step '%s' because no committed ref_public_id was recorded",
-                    self.name,
-                    step_name,
-                )
-                return
-
-            scope_files = self._audit_scope_files()
-            if not scope_files:
-                return
-
-            events = await asyncio.to_thread(self._read_audit_scope_events, scope_files)
-            if not events:
-                logger.debug("No audit events to upload for step '%s'", step_name)
-                for path in scope_files:
-                    try:
-                        path.unlink()
-                    except OSError:
-                        pass
-                return
-
-            # Transform paths from agent mount path to workspace-relative paths
-            # so they match the file tree in workspace refs.
-            # Agent sees: /workspace/input_a.txt (mount_path)
-            # Workspace ref stores: /data/input_a.txt (relative to _repo_root)
-            mount = self.mount_path.rstrip("/")
-            repo_root = str(self._repo_root)
-            ws_relative = str(self.path).removeprefix(repo_root)  # e.g. "/data"
-            if mount:
-                for event in events:
-                    if event.path.startswith(mount):
-                        event.path = ws_relative + event.path[len(mount) :]
-                    if event.new_path and event.new_path.startswith(mount):
-                        event.new_path = ws_relative + event.new_path[len(mount) :]
-
-            # Upload in chunks of 500
-            chunk_size = 500
-            total_uploaded = 0
-            async with httpx.AsyncClient(
-                base_url=self.chronos_url,
-                headers={"X-API-Key": self.api_key},
-                timeout=30,
-            ) as client:
-                for i in range(0, len(events), chunk_size):
-                    chunk = events[i : i + chunk_size]
-                    payload = BulkRefAuditEventsRequest(events=chunk)
-                    await bulk_ingest_ref_audit_events.asyncio(
-                        client,
-                        ref_public_id=ref_public_id,
-                        body=payload,
-                    )
-                    total_uploaded += len(chunk)
-
-            logger.debug("Uploaded %d audit events for step '%s'", total_uploaded, step_name)
-
-            for path in scope_files:
-                try:
-                    path.unlink()
-                except OSError:
-                    pass
-        except Exception:
-            logger.warning("Failed to upload audit events for step '%s'", step_name, exc_info=True)
 
     def _require_tracked(self) -> None:
         if not self.tracked:

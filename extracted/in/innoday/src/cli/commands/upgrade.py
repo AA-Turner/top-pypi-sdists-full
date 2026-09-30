@@ -60,7 +60,7 @@ def _fetch_pypi_latest() -> Optional[str]:
         response = requests.get(_PYPI_JSON_URL, timeout=10)
         response.raise_for_status()
         return response.json()["info"]["version"]
-    except requests.exceptions.RequestException:
+    except (requests.exceptions.RequestException, KeyError, TypeError, ValueError):
         return None
 
 

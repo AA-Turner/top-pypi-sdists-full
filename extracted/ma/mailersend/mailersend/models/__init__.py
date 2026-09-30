@@ -10,6 +10,11 @@ from .email import (
     EmailRequest,
     EmailTrackingSettings,
     EmailHeader,
+    EmailActivityEvent,
+    EmailListItem,
+    EmailsListQueryParams,
+    EmailsListRequest,
+    EmailGetRequest,
 )
 from .activity import (
     ActivityRecipient,
@@ -169,6 +174,11 @@ from .dmarc_monitoring import (
     DmarcMonitoringReportSourcesRequest,
     DmarcMonitoringFavoriteRequest,
 )
+from .whatsapp import (
+    WhatsAppPersonalizationData,
+    WhatsAppPersonalization,
+    WhatsAppSendRequest,
+)
 
 __all__ = [
     "BaseModel",
@@ -178,6 +188,11 @@ __all__ = [
     "EmailRequest",
     "EmailTrackingSettings",
     "EmailHeader",
+    "EmailActivityEvent",
+    "EmailListItem",
+    "EmailsListQueryParams",
+    "EmailsListRequest",
+    "EmailGetRequest",
     "ActivityRecipient",
     "ActivityEmail",
     "Activity",
@@ -308,4 +323,8 @@ __all__ = [
     "DmarcMonitoringIpReportRequest",
     "DmarcMonitoringReportSourcesRequest",
     "DmarcMonitoringFavoriteRequest",
+    # WhatsApp models
+    "WhatsAppPersonalizationData",
+    "WhatsAppPersonalization",
+    "WhatsAppSendRequest",
 ]

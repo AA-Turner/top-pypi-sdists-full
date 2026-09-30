@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulpcore
-Version: 3.119.1
+Version: 3.120.0
 Summary: Pulp Django Application and Related Modules
 Author-email: Pulp Team <pulp-list@redhat.com>
 License-Expression: GPL-2.0-or-later
@@ -25,6 +25,7 @@ Requires-Dist: asyncio-throttle<=1.0.2,>=1.0
 Requires-Dist: backoff<2.3,>=2.1.2
 Requires-Dist: click<8.6,>=8.1.0
 Requires-Dist: cryptography<51.0,>=49.0.0
+Requires-Dist: pyjwt<3,>=2.4
 Requires-Dist: Django<5.3,>=5.2.0
 Requires-Dist: django-filter<=26.1,>=24.3
 Requires-Dist: django-guid<3.7,>=3.4.0

@@ -204,7 +204,7 @@ class TaskCreateWire(ToolArgs):
     status: str = "incomplete"
     due_date: str | None = None
     priority: str | None = None
-    visibility: Literal["personal", "internal", "link", "public"] | None = None
+    visibility: Literal["personal", "internal", "link", "public"] | None = None  # T-13 transitional wire input (tool_def row)
     project_id: str | None = None
     assignee_id: str | None = None
     description: str | None = None
@@ -218,7 +218,7 @@ class TaskUpdateWire(ToolArgs):
     status: str = "incomplete"
     due_date: str | None = None
     priority: str | None = None
-    visibility: Literal["personal", "internal", "link", "public"] | None = None
+    visibility: Literal["personal", "internal", "link", "public"] | None = None  # T-13 transitional wire input (tool_def row)
     project_id: str | None = None
     assignee_id: str | None = None
     description: str | None = None

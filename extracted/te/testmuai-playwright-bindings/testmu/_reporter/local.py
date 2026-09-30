@@ -23,7 +23,8 @@ class LocalReporter:
         iid_part = f" [iid={instruction_id}]" if instruction_id else ""
         _log.info("  [STEP %d]%s %s", self._step_num, iid_part, description)
 
-    async def end_step(self, description, ok, error=None, instruction_id=None):
+    async def end_step(self, description, ok, error=None, instruction_id=None,
+                       on_failure=None):
         if not ok:
             _log.error("  [STEP %d FAIL] %s", self._step_num, error)
 

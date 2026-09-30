@@ -74,7 +74,7 @@ class KindComponentContextSummary(KindSubModel):
             "authoring_owner": None,
             "version": 1,
             "is_active": False,
-            "visibility": "private",
+            "published_to_web": False,
             "organization_id": None,
             "created_by": None,
             "emitted_fingerprint": "abc123",

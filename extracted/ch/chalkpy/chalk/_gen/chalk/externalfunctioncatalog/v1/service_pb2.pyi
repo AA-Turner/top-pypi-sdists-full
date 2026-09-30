@@ -2,8 +2,11 @@ from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
 from chalk._gen.chalk.runtime.v1 import remote_python_call_pb2 as _remote_python_call_pb2
-from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as _service_pb2
+from chalk._gen.chalk.sandbox.v1 import service_pb2 as _service_pb2
+from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as _service_pb2_1
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from chalk._gen.chalk.volume.v2 import volume_pb2 as _volume_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
@@ -140,12 +143,16 @@ class ConcurrencyPolicy(_message.Message):
     def __init__(self, max_concurrent: _Optional[int] = ..., key: _Optional[str] = ...) -> None: ...
 
 class QueuePolicy(_message.Message):
-    __slots__ = ("max_items", "key")
+    __slots__ = ("max_items", "key", "result_ttl_seconds")
     MAX_ITEMS_FIELD_NUMBER: _ClassVar[int]
     KEY_FIELD_NUMBER: _ClassVar[int]
+    RESULT_TTL_SECONDS_FIELD_NUMBER: _ClassVar[int]
     max_items: int
     key: str
-    def __init__(self, max_items: _Optional[int] = ..., key: _Optional[str] = ...) -> None: ...
+    result_ttl_seconds: int
+    def __init__(
+        self, max_items: _Optional[int] = ..., key: _Optional[str] = ..., result_ttl_seconds: _Optional[int] = ...
+    ) -> None: ...
 
 class TracingPolicy(_message.Message):
     __slots__ = ("mode", "sample_rate")
@@ -225,6 +232,7 @@ class ExternalFunctionVersion(_message.Message):
         "created_at",
         "config",
         "deleted_at",
+        "created_by",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     FUNCTION_ID_FIELD_NUMBER: _ClassVar[int]
@@ -237,6 +245,7 @@ class ExternalFunctionVersion(_message.Message):
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FIELD_NUMBER: _ClassVar[int]
     DELETED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     id: str
     function_id: str
     function_name: str
@@ -248,6 +257,7 @@ class ExternalFunctionVersion(_message.Message):
     created_at: _timestamp_pb2.Timestamp
     config: FunctionConfig
     deleted_at: _timestamp_pb2.Timestamp
+    created_by: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -261,6 +271,7 @@ class ExternalFunctionVersion(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         config: _Optional[_Union[FunctionConfig, _Mapping]] = ...,
         deleted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        created_by: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateExternalFunctionVersionRequest(_message.Message):
@@ -274,7 +285,7 @@ class CreateExternalFunctionVersionRequest(_message.Message):
     function_name: str
     input_arrow_schema: _arrow_pb2.Schema
     output_arrow_schema: _arrow_pb2.Schema
-    spec: _service_pb2.ScalingGroupSpec
+    spec: _service_pb2_1.ScalingGroupSpec
     config: FunctionConfig
     volume_commits: _containers.RepeatedCompositeFieldContainer[_volume_pb2.CommitIntent]
     def __init__(
@@ -282,7 +293,7 @@ class CreateExternalFunctionVersionRequest(_message.Message):
         function_name: _Optional[str] = ...,
         input_arrow_schema: _Optional[_Union[_arrow_pb2.Schema, _Mapping]] = ...,
         output_arrow_schema: _Optional[_Union[_arrow_pb2.Schema, _Mapping]] = ...,
-        spec: _Optional[_Union[_service_pb2.ScalingGroupSpec, _Mapping]] = ...,
+        spec: _Optional[_Union[_service_pb2_1.ScalingGroupSpec, _Mapping]] = ...,
         config: _Optional[_Union[FunctionConfig, _Mapping]] = ...,
         volume_commits: _Optional[_Iterable[_Union[_volume_pb2.CommitIntent, _Mapping]]] = ...,
     ) -> None: ...
@@ -292,11 +303,11 @@ class CreateExternalFunctionVersionResponse(_message.Message):
     EXTERNAL_FUNCTION_VERSION_FIELD_NUMBER: _ClassVar[int]
     SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
     external_function_version: ExternalFunctionVersion
-    scaling_group: _service_pb2.ScalingGroupResponse
+    scaling_group: _service_pb2_1.ScalingGroupResponse
     def __init__(
         self,
         external_function_version: _Optional[_Union[ExternalFunctionVersion, _Mapping]] = ...,
-        scaling_group: _Optional[_Union[_service_pb2.ScalingGroupResponse, _Mapping]] = ...,
+        scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...,
     ) -> None: ...
 
 class ExternalFunctionVersionSpec(_message.Message):
@@ -308,16 +319,162 @@ class ExternalFunctionVersionSpec(_message.Message):
     VOLUME_COMMITS_FIELD_NUMBER: _ClassVar[int]
     input_arrow_schema: _arrow_pb2.Schema
     output_arrow_schema: _arrow_pb2.Schema
-    spec: _service_pb2.ScalingGroupSpec
+    spec: _service_pb2_1.ScalingGroupSpec
     config: FunctionConfig
     volume_commits: _containers.RepeatedCompositeFieldContainer[_volume_pb2.CommitIntent]
     def __init__(
         self,
         input_arrow_schema: _Optional[_Union[_arrow_pb2.Schema, _Mapping]] = ...,
         output_arrow_schema: _Optional[_Union[_arrow_pb2.Schema, _Mapping]] = ...,
-        spec: _Optional[_Union[_service_pb2.ScalingGroupSpec, _Mapping]] = ...,
+        spec: _Optional[_Union[_service_pb2_1.ScalingGroupSpec, _Mapping]] = ...,
         config: _Optional[_Union[FunctionConfig, _Mapping]] = ...,
         volume_commits: _Optional[_Iterable[_Union[_volume_pb2.CommitIntent, _Mapping]]] = ...,
+    ) -> None: ...
+
+class DesiredFunctionSpec(_message.Message):
+    __slots__ = ("version_spec", "image", "sources", "local_secrets")
+    class LocalSecretsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    VERSION_SPEC_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_FIELD_NUMBER: _ClassVar[int]
+    SOURCES_FIELD_NUMBER: _ClassVar[int]
+    LOCAL_SECRETS_FIELD_NUMBER: _ClassVar[int]
+    version_spec: ExternalFunctionVersionSpec
+    image: _service_pb2.ImageSpec
+    sources: _containers.RepeatedCompositeFieldContainer[FunctionSourceMount]
+    local_secrets: _containers.ScalarMap[str, str]
+    def __init__(
+        self,
+        version_spec: _Optional[_Union[ExternalFunctionVersionSpec, _Mapping]] = ...,
+        image: _Optional[_Union[_service_pb2.ImageSpec, _Mapping]] = ...,
+        sources: _Optional[_Iterable[_Union[FunctionSourceMount, _Mapping]]] = ...,
+        local_secrets: _Optional[_Mapping[str, str]] = ...,
+    ) -> None: ...
+
+class FunctionSourceMount(_message.Message):
+    __slots__ = ("tree_digest", "mount_path")
+    TREE_DIGEST_FIELD_NUMBER: _ClassVar[int]
+    MOUNT_PATH_FIELD_NUMBER: _ClassVar[int]
+    tree_digest: str
+    mount_path: str
+    def __init__(self, tree_digest: _Optional[str] = ..., mount_path: _Optional[str] = ...) -> None: ...
+
+class FunctionSourceFile(_message.Message):
+    __slots__ = ("path", "content_digest", "size", "mode")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_DIGEST_FIELD_NUMBER: _ClassVar[int]
+    SIZE_FIELD_NUMBER: _ClassVar[int]
+    MODE_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    content_digest: str
+    size: int
+    mode: int
+    def __init__(
+        self,
+        path: _Optional[str] = ...,
+        content_digest: _Optional[str] = ...,
+        size: _Optional[int] = ...,
+        mode: _Optional[int] = ...,
+    ) -> None: ...
+
+class FunctionSourceManifest(_message.Message):
+    __slots__ = ("tree_digest", "files")
+    TREE_DIGEST_FIELD_NUMBER: _ClassVar[int]
+    FILES_FIELD_NUMBER: _ClassVar[int]
+    tree_digest: str
+    files: _containers.RepeatedCompositeFieldContainer[FunctionSourceFile]
+    def __init__(
+        self, tree_digest: _Optional[str] = ..., files: _Optional[_Iterable[_Union[FunctionSourceFile, _Mapping]]] = ...
+    ) -> None: ...
+
+class FunctionDeploymentInputs(_message.Message):
+    __slots__ = ("manifests", "files", "uploaded_objects", "upload_volume")
+    MANIFESTS_FIELD_NUMBER: _ClassVar[int]
+    FILES_FIELD_NUMBER: _ClassVar[int]
+    UPLOADED_OBJECTS_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_VOLUME_FIELD_NUMBER: _ClassVar[int]
+    manifests: _containers.RepeatedCompositeFieldContainer[FunctionSourceManifest]
+    files: _containers.RepeatedCompositeFieldContainer[_volume_pb2.PathFileDelta]
+    uploaded_objects: _containers.RepeatedCompositeFieldContainer[_volume_pb2.UploadedObjectReference]
+    upload_volume: _volume_pb2.VolumeRef
+    def __init__(
+        self,
+        manifests: _Optional[_Iterable[_Union[FunctionSourceManifest, _Mapping]]] = ...,
+        files: _Optional[_Iterable[_Union[_volume_pb2.PathFileDelta, _Mapping]]] = ...,
+        uploaded_objects: _Optional[_Iterable[_Union[_volume_pb2.UploadedObjectReference, _Mapping]]] = ...,
+        upload_volume: _Optional[_Union[_volume_pb2.VolumeRef, _Mapping]] = ...,
+    ) -> None: ...
+
+class EnsureExternalFunctionRequest(_message.Message):
+    __slots__ = ("request_id", "function_name", "spec", "force_new_version", "supplied_inputs")
+    REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
+    FUNCTION_NAME_FIELD_NUMBER: _ClassVar[int]
+    SPEC_FIELD_NUMBER: _ClassVar[int]
+    FORCE_NEW_VERSION_FIELD_NUMBER: _ClassVar[int]
+    SUPPLIED_INPUTS_FIELD_NUMBER: _ClassVar[int]
+    request_id: str
+    function_name: str
+    spec: DesiredFunctionSpec
+    force_new_version: bool
+    supplied_inputs: FunctionDeploymentInputs
+    def __init__(
+        self,
+        request_id: _Optional[str] = ...,
+        function_name: _Optional[str] = ...,
+        spec: _Optional[_Union[DesiredFunctionSpec, _Mapping]] = ...,
+        force_new_version: bool = ...,
+        supplied_inputs: _Optional[_Union[FunctionDeploymentInputs, _Mapping]] = ...,
+    ) -> None: ...
+
+class MissingFunctionDeploymentInputs(_message.Message):
+    __slots__ = ("tree_digests", "file_digests", "upload_volume")
+    TREE_DIGESTS_FIELD_NUMBER: _ClassVar[int]
+    FILE_DIGESTS_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_VOLUME_FIELD_NUMBER: _ClassVar[int]
+    tree_digests: _containers.RepeatedScalarFieldContainer[str]
+    file_digests: _containers.RepeatedScalarFieldContainer[str]
+    upload_volume: _volume_pb2.VolumeRef
+    def __init__(
+        self,
+        tree_digests: _Optional[_Iterable[str]] = ...,
+        file_digests: _Optional[_Iterable[str]] = ...,
+        upload_volume: _Optional[_Union[_volume_pb2.VolumeRef, _Mapping]] = ...,
+    ) -> None: ...
+
+class EnsuredExternalFunction(_message.Message):
+    __slots__ = ("external_function", "scaling_group", "reused_version")
+    EXTERNAL_FUNCTION_FIELD_NUMBER: _ClassVar[int]
+    SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
+    REUSED_VERSION_FIELD_NUMBER: _ClassVar[int]
+    external_function: ExternalFunction
+    scaling_group: _service_pb2_1.ScalingGroupResponse
+    reused_version: bool
+    def __init__(
+        self,
+        external_function: _Optional[_Union[ExternalFunction, _Mapping]] = ...,
+        scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...,
+        reused_version: bool = ...,
+    ) -> None: ...
+
+class EnsureExternalFunctionResponse(_message.Message):
+    __slots__ = ("complete", "missing_inputs", "pending_image_build")
+    COMPLETE_FIELD_NUMBER: _ClassVar[int]
+    MISSING_INPUTS_FIELD_NUMBER: _ClassVar[int]
+    PENDING_IMAGE_BUILD_FIELD_NUMBER: _ClassVar[int]
+    complete: EnsuredExternalFunction
+    missing_inputs: MissingFunctionDeploymentInputs
+    pending_image_build: _service_pb2.GetOrBuildCustomImageResponse
+    def __init__(
+        self,
+        complete: _Optional[_Union[EnsuredExternalFunction, _Mapping]] = ...,
+        missing_inputs: _Optional[_Union[MissingFunctionDeploymentInputs, _Mapping]] = ...,
+        pending_image_build: _Optional[_Union[_service_pb2.GetOrBuildCustomImageResponse, _Mapping]] = ...,
     ) -> None: ...
 
 class ExternalFunctionTraffic(_message.Message):
@@ -384,19 +541,21 @@ class UpdateExternalFunctionResponse(_message.Message):
     def __init__(self, external_function: _Optional[_Union[ExternalFunction, _Mapping]] = ...) -> None: ...
 
 class ExternalFunction(_message.Message):
-    __slots__ = ("id", "name", "current_version", "created_at", "updated_at", "deleted_at")
+    __slots__ = ("id", "name", "current_version", "created_at", "updated_at", "deleted_at", "created_by")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CURRENT_VERSION_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     DELETED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     current_version: ExternalFunctionVersion
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
     deleted_at: _timestamp_pb2.Timestamp
+    created_by: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -405,6 +564,7 @@ class ExternalFunction(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         deleted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        created_by: _Optional[str] = ...,
     ) -> None: ...
 
 class GetExternalFunctionRequest(_message.Message):
@@ -435,12 +595,12 @@ class GetExternalFunctionResponse(_message.Message):
     SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
     external_function: ExternalFunction
     active_schedule: ActiveSchedule
-    scaling_group: _service_pb2.ScalingGroupResponse
+    scaling_group: _service_pb2_1.ScalingGroupResponse
     def __init__(
         self,
         external_function: _Optional[_Union[ExternalFunction, _Mapping]] = ...,
         active_schedule: _Optional[_Union[ActiveSchedule, _Mapping]] = ...,
-        scaling_group: _Optional[_Union[_service_pb2.ScalingGroupResponse, _Mapping]] = ...,
+        scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...,
     ) -> None: ...
 
 class ExternalFunctionVersionKey(_message.Message):
@@ -485,12 +645,12 @@ class GetExternalFunctionVersionResponse(_message.Message):
     SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
     ACTIVE_SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     external_function_version: ExternalFunctionVersion
-    scaling_group: _service_pb2.ScalingGroupResponse
+    scaling_group: _service_pb2_1.ScalingGroupResponse
     active_schedule: ActiveSchedule
     def __init__(
         self,
         external_function_version: _Optional[_Union[ExternalFunctionVersion, _Mapping]] = ...,
-        scaling_group: _Optional[_Union[_service_pb2.ScalingGroupResponse, _Mapping]] = ...,
+        scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...,
         active_schedule: _Optional[_Union[ActiveSchedule, _Mapping]] = ...,
     ) -> None: ...
 
@@ -586,11 +746,11 @@ class ListExternalFunctionVersionsEntry(_message.Message):
     EXTERNAL_FUNCTION_VERSION_FIELD_NUMBER: _ClassVar[int]
     SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
     external_function_version: ExternalFunctionVersion
-    scaling_group: _service_pb2.ScalingGroupResponse
+    scaling_group: _service_pb2_1.ScalingGroupResponse
     def __init__(
         self,
         external_function_version: _Optional[_Union[ExternalFunctionVersion, _Mapping]] = ...,
-        scaling_group: _Optional[_Union[_service_pb2.ScalingGroupResponse, _Mapping]] = ...,
+        scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...,
     ) -> None: ...
 
 class ListExternalFunctionVersionsResponse(_message.Message):
@@ -644,6 +804,7 @@ class ExternalFunctionSummary(_message.Message):
         "created_at",
         "current_version",
         "function_id",
+        "created_by",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     LATEST_VERSION_FIELD_NUMBER: _ClassVar[int]
@@ -656,17 +817,19 @@ class ExternalFunctionSummary(_message.Message):
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     CURRENT_VERSION_FIELD_NUMBER: _ClassVar[int]
     FUNCTION_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     name: str
     latest_version: int
     latest_scaling_group_name: str
     latest_updated_at: _timestamp_pb2.Timestamp
     config: FunctionConfig
-    scaling_group: _service_pb2.ScalingGroupResponse
+    scaling_group: _service_pb2_1.ScalingGroupResponse
     active_schedule: ActiveSchedule
-    visibility: _service_pb2.ScalingGroupVisibility
+    visibility: _service_pb2_1.ScalingGroupVisibility
     created_at: _timestamp_pb2.Timestamp
     current_version: int
     function_id: str
+    created_by: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -674,12 +837,13 @@ class ExternalFunctionSummary(_message.Message):
         latest_scaling_group_name: _Optional[str] = ...,
         latest_updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         config: _Optional[_Union[FunctionConfig, _Mapping]] = ...,
-        scaling_group: _Optional[_Union[_service_pb2.ScalingGroupResponse, _Mapping]] = ...,
+        scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...,
         active_schedule: _Optional[_Union[ActiveSchedule, _Mapping]] = ...,
-        visibility: _Optional[_Union[_service_pb2.ScalingGroupVisibility, str]] = ...,
+        visibility: _Optional[_Union[_service_pb2_1.ScalingGroupVisibility, str]] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         current_version: _Optional[int] = ...,
         function_id: _Optional[str] = ...,
+        created_by: _Optional[str] = ...,
     ) -> None: ...
 
 class ListExternalFunctionsRequest(_message.Message):

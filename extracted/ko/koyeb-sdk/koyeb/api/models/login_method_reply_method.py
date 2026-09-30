@@ -26,12 +26,10 @@ class LoginMethodReplyMethod(str, Enum):
     """
     allowed enum values
     """
-    KOYEB = 'KOYEB'
-    WORKOS = 'WORKOS'
+    KOYEB = "KOYEB"
+    WORKOS = "WORKOS"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of LoginMethodReplyMethod from a JSON string"""
         return cls(json.loads(json_str))
-
-

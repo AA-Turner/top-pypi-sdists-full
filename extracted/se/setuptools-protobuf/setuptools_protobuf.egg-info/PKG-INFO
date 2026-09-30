@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: setuptools-protobuf
-Version: 0.1.16
+Version: 0.1.17
 Summary: Setuptools protobuf extension plugin
 Author-email: Jelmer Vernooĳ <jelmer@jelmer.uk>
 License: Apachev2
@@ -84,8 +84,22 @@ requires = ["setuptools", "setuptools-protobuf"]
 [tool.setuptools-protobuf]
 protobufs = ["example/foo.proto"]
 
+# Wildcards are supported (evaluated relative to `proto_path`, or the
+# project root if `proto_path` is unset):
+# protobufs = ["example/*.proto", "protos/**/*.proto"]
+#
+# If `protobufs` is omitted entirely, all `.proto` files under the search
+# root are discovered recursively.
+
 # Require the generation of typing hints:
 mypy = true
+
+# Or disable typing hint generation entirely. When `mypy` is unset,
+# setuptools-protobuf auto-enables stub generation if `protoc-gen-mypy`
+# is on PATH and runnable; set this to `false` to opt out (for example,
+# when a stale `protoc-gen-mypy` is installed but `mypy_protobuf` is not
+# importable in the build environment).
+# mypy = false
 
 # Optionally, set the specific protoc version to use:
 protoc_version = '25.1'

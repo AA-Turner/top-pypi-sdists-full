@@ -1,3 +1,5 @@
+"""Overlay: a container that draws one widget on top of another."""
+
 from __future__ import annotations
 
 import typing
@@ -58,6 +60,8 @@ def _check_widget_subclass(widget: AbstractWidget) -> None:
 
 
 class OverlayOptions(typing.NamedTuple):
+    """Placement and sizing options for the top widget of an :class:`Overlay`."""
+
     align: Align | Literal[WHSettings.RELATIVE]
     align_amount: int | None
     width_type: WHSettings
@@ -140,7 +144,8 @@ class Overlay(
         top: int = 0,
         bottom: int = 0,
     ) -> None:
-        """
+        """Build the widget overlaying *top_w* on *bottom_w*.
+
         :param top_w: a flow, box or fixed widget to overlay "on top".
         :param bottom_w: a box widget to appear "below" previous widget.
         :param align: alignment, one of ``'left'``, ``'center'``, ``'right'`` or
@@ -400,6 +405,7 @@ class Overlay(
         return remove_defaults(attrs, Overlay.__init__)
 
     def __rich_repr__(self) -> Iterator[tuple[str | None, typing.Any] | typing.Any]:
+        """Yield this widget's constructor arguments as `(name, value)` pairs, for `rich`'s repr protocol."""
         yield "top", self.top_w
         yield "bottom", self.bottom_w
         yield "align", self.align
@@ -415,6 +421,7 @@ class Overlay(
 
     @property
     def align(self) -> Align | tuple[Literal[WHSettings.RELATIVE], int]:
+        """Return the simplified horizontal alignment of the top widget."""
         return simplify_align(self.align_type, self.align_amount)
 
     @property
@@ -426,10 +433,12 @@ class Overlay(
         | tuple[Literal[WHSettings.RELATIVE], int]
         | tuple[Literal[WHSettings.WEIGHT], int | float]
     ):
+        """Return the simplified width of the top widget."""
         return simplify_width(self.width_type, self.width_amount)
 
     @property
     def valign(self) -> VAlign | tuple[Literal[WHSettings.RELATIVE], int]:
+        """Return the simplified vertical alignment of the top widget."""
         return simplify_valign(self.valign_type, self.valign_amount)
 
     @property
@@ -441,6 +450,7 @@ class Overlay(
         | tuple[Literal[WHSettings.RELATIVE], int]
         | tuple[Literal[WHSettings.WEIGHT], int | float]
     ):
+        """Return the simplified height of the top widget."""
         return simplify_height(self.height_type, self.height_amount)
 
     @staticmethod
@@ -539,7 +549,6 @@ class Overlay(
 
         :raises OverlayError: *valign* is not a vertical alignment value.
         """
-
         # convert obsolete parameters 'fixed ...':
         normalized_align: Align | tuple[Literal["relative", WHSettings.RELATIVE], int]
         if isinstance(align, tuple):
@@ -641,18 +650,15 @@ class Overlay(
 
     @property
     def focus(self) -> TopWidget:
-        """
-        Read-only property returning the child widget in focus for
-        container widgets.  This default implementation
-        always returns ``None``, indicating that this widget has no children.
+        """Return the child widget in focus for container widgets.
+
+        This default implementation always returns ``None``, indicating that this widget has no children.
         """
         return self.top_w
 
     @property
     def focus_position(self) -> Literal[1]:
-        """
-        Return the top widget position (currently always 1).
-        """
+        """Return the top widget position (currently always 1)."""
         return 1
 
     @focus_position.setter  # type: ignore[override]
@@ -668,8 +674,9 @@ class Overlay(
 
     @property
     def contents(self) -> MutableSequence[OverlayContentsItem[TopWidget, BottomWidget]]:
-        """
-        a list-like object similar to::
+        """A list-like object holding the overlay's widgets and their options.
+
+        It is similar to::
 
             [(bottom_w, bottom_options)),
              (top_w, top_options)]
@@ -692,6 +699,8 @@ class Overlay(
 
         # noinspection PyMethodParameters
         class OverlayContents(MutableSequence[OverlayContentsItem[TopWidget, BottomWidget]]):
+            """Two-item sequence view onto this Overlay's bottom and top widget entries."""
+
             # pylint: disable=no-self-argument
             def __len__(inner_self) -> int:
                 return 2

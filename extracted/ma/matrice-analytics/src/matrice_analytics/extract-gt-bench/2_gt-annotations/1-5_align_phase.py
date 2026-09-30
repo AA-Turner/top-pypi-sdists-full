@@ -45,8 +45,7 @@ import sys
 from pathlib import Path
 
 import cv2
-
-from loitering_common import color_for_class, ensure_loitering_class_names
+from loitering_common import ensure_loitering_class_names
 
 VERIFY_COLORS = {0: (180, 50, 200), 1: (0, 140, 255)}  # BGR: person / loitering_person
 
@@ -54,11 +53,11 @@ VERIFY_COLORS = {0: (180, 50, 200), 1: (0, 140, 255)}  # BGR: person / loitering
 state = {
     "cap": None,
     "data": {},
-    "samples": [],       # sorted src_idx ints present in the JSON
-    "di": 0,             # detection cursor (index into samples)
-    "vf": 0,             # current video frame
-    "N": 0,              # loop length in frames (modulus)
-    "S": None,           # locked rotation when set; last value kept for save
+    "samples": [],  # sorted src_idx ints present in the JSON
+    "di": 0,  # detection cursor (index into samples)
+    "vf": 0,  # current video frame
+    "N": 0,  # loop length in frames (modulus)
+    "S": None,  # locked rotation when set; last value kept for save
     "set_mode": False,
     "class_names": {},
     "alerts": {},
@@ -122,22 +121,26 @@ def read_video_frame(idx):
     ok, frame = cap.read()
     if not ok:
         import numpy as np
+
         return np.zeros((480, 640, 3), dtype="uint8")
     return frame
 
 
 def draw_box(img, det, w, h):
     cid = int(det.get("class_id", 0))
-    x1 = int(det["bbox"][0] * w); y1 = int(det["bbox"][1] * h)
-    x2 = int(det["bbox"][2] * w); y2 = int(det["bbox"][3] * h)
+    x1 = int(det["bbox"][0] * w)
+    y1 = int(det["bbox"][1] * h)
+    x2 = int(det["bbox"][2] * w)
+    y2 = int(det["bbox"][3] * h)
     c = color_for(cid)
     cv2.rectangle(img, (x1, y1), (x2, y2), c, 2)
     label = det.get("category") or class_label(cid)
     font = cv2.FONT_HERSHEY_SIMPLEX
     (tw, th), _ = cv2.getTextSize(label, font, 0.45, 1)
     cv2.rectangle(img, (x1, max(0, y1 - th - 6)), (x1 + tw + 6, y1), c, -1)
-    cv2.putText(img, label, (x1 + 3, max(th + 1, y1 - 4)), font, 0.45,
-                (255, 255, 255), 1, cv2.LINE_AA)
+    cv2.putText(
+        img, label, (x1 + 3, max(th + 1, y1 - 4)), font, 0.45, (255, 255, 255), 1, cv2.LINE_AA
+    )
 
 
 def draw_overlay(img):
@@ -145,13 +148,18 @@ def draw_overlay(img):
     mode = "SET" if state["set_mode"] else "FREE"
     s_txt = "--" if state["S"] is None else str(state["S"])
     boxes = len(get_dets(sidx))
-    line1 = (f"[{mode}]  sample {state['di'] + 1}/{len(state['samples'])}  src_idx={sidx}"
-             f"   video_frame={state['vf']}   S={s_txt}   boxes={boxes}")
-    line2 = ("VIDEO <-/-> 1  Up/Dn 10  [ ] 100   |   DET a/d 1  z/c 10   |   "
-             "f SET/follow   s save   r reset   q quit")
+    line1 = (
+        f"[{mode}]  sample {state['di'] + 1}/{len(state['samples'])}  src_idx={sidx}"
+        f"   video_frame={state['vf']}   S={s_txt}   boxes={boxes}"
+    )
+    line2 = (
+        "VIDEO <-/-> 1  Up/Dn 10  [ ] 100   |   DET a/d 1  z/c 10   |   "
+        "f SET/follow   s save   r reset   q quit"
+    )
     if state["set_mode"]:
-        line2 = ("SET: a/d step detection (video follows)   <-/-> nudge S   "
-                 "f unset   s save   q quit")
+        line2 = (
+            "SET: a/d step detection (video follows)   <-/-> nudge S   f unset   s save   q quit"
+        )
     font = cv2.FONT_HERSHEY_SIMPLEX
     sizes = [cv2.getTextSize(t, font, 0.45, 1)[0] for t in (line1, line2)]
     panel_w = max(s[0] for s in sizes) + 16
@@ -197,19 +205,31 @@ def save_aligned(out_path):
 
 
 def main():
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--video", required=True, help="The ORIGINAL source video streamed in stage 1.")
-    p.add_argument("--json", required=True, help="Consolidated tracking_stats predictions (from 1_consolidate.py).")
+    p.add_argument(
+        "--json",
+        required=True,
+        help="Consolidated tracking_stats predictions (from 1_consolidate.py).",
+    )
     p.add_argument("--meta", default=None, help="meta.json (optional; for n_source_frames).")
-    p.add_argument("--out", default=None, help="Where to write the re-keyed JSON (default: <json>-aligned.json).")
+    p.add_argument(
+        "--out",
+        default=None,
+        help="Where to write the re-keyed JSON (default: <json>-aligned.json).",
+    )
     args = p.parse_args()
 
     data = json.loads(Path(args.json).read_text())
     data.setdefault("frames", {})
     data["class_names"] = ensure_loitering_class_names(data.get("class_names"))
     if data.get("detections_source") == "model":
-        print("[WARN] this JSON was consolidated with --detections_source model; "
-              "re-run 1_consolidate.py with the default (tracking_stats) for req-7 overlays.")
+        print(
+            "[WARN] this JSON was consolidated with --detections_source model; "
+            "re-run 1_consolidate.py with the default (tracking_stats) for req-7 overlays."
+        )
 
     state["data"] = data
     state["class_names"] = data["class_names"]
@@ -231,14 +251,17 @@ def main():
     if not state["N"]:
         sys.exit("ERROR: could not determine loop length N (no n_frames/meta/video count).")
     if state["n_video_frames"] and n_frames and state["n_video_frames"] != n_frames:
-        print(f"[WARN] video has {state['n_video_frames']} frames but n_frames={n_frames}; "
-              "is this the exact file that was streamed?")
+        print(
+            f"[WARN] video has {state['n_video_frames']} frames but n_frames={n_frames}; "
+            "is this the exact file that was streamed?"
+        )
 
     out_path = args.out or str(Path(args.json).with_name(Path(args.json).stem + "-aligned.json"))
 
     win = "align_phase"
     cv2.namedWindow(win, cv2.WINDOW_NORMAL)
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)); h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     cv2.resizeWindow(win, min(1280, w or 1280), min(720, h or 720))
 
     KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN = 2424832, 2555904, 2490368, 2621440
@@ -254,40 +277,42 @@ def main():
                     break
                 continue
             ak = k & 0xFF
-            if k == KEY_RIGHT or ak == ord('.'):
+            if k == KEY_RIGHT or ak == ord("."):
                 move_video(1)
-            elif k == KEY_LEFT or ak == ord(','):
+            elif k == KEY_LEFT or ak == ord(","):
                 move_video(-1)
             elif k == KEY_UP:
                 move_video(10)
             elif k == KEY_DOWN:
                 move_video(-10)
-            elif ak == ord(']'):
+            elif ak == ord("]"):
                 move_video(100)
-            elif ak == ord('['):
+            elif ak == ord("["):
                 move_video(-100)
-            elif ak == ord('d'):
+            elif ak == ord("d"):
                 move_detection(1)
-            elif ak == ord('a'):
+            elif ak == ord("a"):
                 move_detection(-1)
-            elif ak == ord('c'):
+            elif ak == ord("c"):
                 move_detection(10)
-            elif ak == ord('z'):
+            elif ak == ord("z"):
                 move_detection(-10)
-            elif ak == ord('f'):
+            elif ak == ord("f"):
                 toggle_set()
-            elif ak == ord('r'):
+            elif ak == ord("r"):
                 state["set_mode"] = False
-            elif ak == ord('s'):
+            elif ak == ord("s"):
                 save_aligned(out_path)
-            elif ak == ord('q') or k == 27:
+            elif ak == ord("q") or k == 27:
                 break
     finally:
         cap.release()
         cv2.destroyAllWindows()
     if state["S"] is not None:
-        print(f"final S = {state['S']}  (total phase_offset would be "
-              f"{(int(state['data'].get('phase_offset', 0)) + state['S']) % state['N']})")
+        print(
+            f"final S = {state['S']}  (total phase_offset would be "
+            f"{(int(state['data'].get('phase_offset', 0)) + state['S']) % state['N']})"
+        )
     print("bye.")
 
 

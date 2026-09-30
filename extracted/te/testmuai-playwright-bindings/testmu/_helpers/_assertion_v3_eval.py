@@ -212,6 +212,82 @@ def _json_coerce(value: Any) -> Any:
     return value
 
 
+def _numeric_list_contains(left, right) -> "bool | None":
+    """Element-wise numeric membership for ``list CONTAINS number``.
+
+    Returns ``None`` when this path does not apply, so the caller falls through
+    to the existing substring semantics.
+
+    Without it both operands are stringified and the test becomes a SUBSTRING
+    match on the list's repr — ``[12, 3]`` "contains" ``2`` and ``[10, 20]``
+    "contains" ``0``, both false positives that make a failing assertion pass
+    silently (the Pepsico sub-division report).
+
+    Integer-shaped values are compared as ints rather than floats so adjacent
+    integers above 2**53 don't collapse onto the same float. String items are
+    coerced, so a JSON payload whose numbers arrived as strings still matches.
+    ``bool`` is excluded on both sides: ``True == 1`` is a Python accident, not
+    an assertion the user meant.
+    """
+    if not isinstance(left, list):
+        return None
+    # A quoted number ("1") is the shape authoring emits, and V3 keeps operand
+    # types verbatim, so without this the element-wise path below never fires
+    # and CONTAINS falls back to a substring test on the list's repr. V2 got
+    # here by coercing every operand in _resolve; that is too broad for V3
+    # (scalar "007" must stay unequal to "7"), so coerce only opposite a list.
+    if isinstance(right, str):
+        text = right.strip()
+        try:
+            right = int(text)
+        except ValueError:
+            try:
+                right = float(text)
+            except ValueError:
+                return None
+    if isinstance(right, bool) or not isinstance(right, (int, float)):
+        return None
+
+    r_int = right if isinstance(right, int) else (
+        int(right) if isinstance(right, float) and right.is_integer() else None
+    )
+    r_float = None if r_int is not None else float(right)
+
+    def _item_matches(item) -> bool:
+        if isinstance(item, bool):
+            return False
+        i_int = i_float = None
+        if isinstance(item, int):
+            i_int = item
+        elif isinstance(item, float):
+            if item.is_integer():
+                i_int = int(item)
+            else:
+                i_float = item
+        elif isinstance(item, str):
+            text = item.strip()
+            try:
+                i_int = int(text)
+            except ValueError:
+                try:
+                    parsed = float(text)
+                except ValueError:
+                    return False
+                if parsed.is_integer():
+                    i_int = int(parsed)
+                else:
+                    i_float = parsed
+        else:
+            return False
+
+        if i_int is not None and r_int is not None:
+            return i_int == r_int
+        left_value = float(i_int) if i_int is not None else i_float
+        right_value = float(r_int) if r_int is not None else r_float
+        return left_value == right_value
+
+    return any(_item_matches(item) for item in left)
+
 class AssertionCondition(enum.Enum):
     EQUALS = "equals"
     NOT_EQUALS = "not_equals"
@@ -404,6 +480,12 @@ class Assertion:
             left, right = _coerce_numeric_mixed(left, right)
             l, r = _normalize_bool_str(left, right)
             return l <= r
+        if cond in (AssertionCondition.CONTAINS, AssertionCondition.NOT_CONTAINS):
+            # A list of numbers compared against a number is membership,
+            # not a substring test on the list's repr.
+            numeric_hit = _numeric_list_contains(left, right)
+            if numeric_hit is not None:
+                return numeric_hit if cond == AssertionCondition.CONTAINS else not numeric_hit
         if cond == AssertionCondition.CONTAINS:
             return _normalize_text(right, case_insensitive=True) in _normalize_text(left, case_insensitive=True)
         if cond == AssertionCondition.NOT_CONTAINS:

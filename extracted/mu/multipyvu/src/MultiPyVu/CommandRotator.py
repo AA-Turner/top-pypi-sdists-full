@@ -15,7 +15,7 @@ from typing import Dict, List, Tuple, Union
 from .check_windows_esc import _check_windows_esc
 from .exceptions import MultiPyVuError, PythoncomImportError
 from .ICommand import (ICommand, ICommandImp, ICommandObserverSim,
-                       ISimulateChange, catch_thread_error, floats_equal)
+                       ISimulateChange, floats_equal)
 from .IEventManager import IObserver
 from .project_vars import CLOCK_TIME
 
@@ -68,7 +68,7 @@ class CommandRotatorBase(ICommand):
     # class variables
     _set_point: float = 0.0
     _current_val: float = 0.0
-    _rate: float = 1
+    _rate: float = 1.0
     _state: int = 1
     _mode: RotatorEnum = RotatorEnum.move_to_position
     _serial_number: str = ''    # example: 'ROT123'
@@ -210,7 +210,7 @@ class CommandRotatorBase(ICommand):
             err_msg = 'Setting the rotator position requires two numeric '
             err_msg += 'inputs, separated by a comma: '
             err_msg += 'Set Point (deg), '
-            err_msg += 'rate (ded/sec),'
+            err_msg += 'rate (deg/sec),'
             raise MultiPyVuError(err_msg)
         position, rate = arg_string.split(',')
 
@@ -303,7 +303,10 @@ class CommandRotatorImp(ICommandImp, CommandRotatorBase):
                                                   )
             response = string_variant.value.split(',')
             if len(response) != 4:
-                error = error_variant.value
+                # Strip out any garbage/non-ASCII bytes so this stays
+                # safely printable/loggable. This can happen on a PPMS
+                # in simulation mode with no Model6000 attached.
+                error = error_variant.value.encode('ascii', errors='backslashreplace').decode('ascii')
                 err_msg = 'Invalid response while getting '
                 err_msg += f'the motor calibration: "{response}"'
                 err_msg += f' error = "{error}"'
@@ -321,7 +324,10 @@ class CommandRotatorImp(ICommandImp, CommandRotatorBase):
                                                   )
             response = string_variant.value.split(',')
             if len(response) != 4:
-                error = error_variant.value
+                # Strip out any garbage/non-ASCII bytes so this stays
+                # safely printable/loggable. This can happen on a PPMS
+                # in simulation mode with no Model6000 attached.
+                error = error_variant.value.encode('ascii', errors='backslashreplace').decode('ascii')
                 err_msg = 'Invalid response while getting '
                 err_msg += f'the motor position: "{response}"'
                 err_msg += f' error = "{error}"'
@@ -424,14 +430,19 @@ class CommandRotatorImp(ICommandImp, CommandRotatorBase):
 #
 ############################
 
-@catch_thread_error
 class SimulateRotatorChange(ISimulateChange):
-    # class variables
+    # These are class variables, not instance variables, so that the
+    # simulated instrument keeps its condition from one change
+    # thread to the next.  See ISimulateChange for the reasoning.
     _stop_flag: bool = False
-    _val: float
-    _state: str
-    _set_point: float
-    _rate: float
+    _state_dict = STATE_DICT
+    # The starting values come from the Command*Base class so that
+    # the scaffolding and the real implementation begin in the
+    # same place.
+    _current_val: float = CommandRotatorBase._current_val
+    _state: int = CommandRotatorBase._state
+    _set_point: float = CommandRotatorBase._set_point
+    _rate: float = CommandRotatorBase._rate
     _mode: RotatorEnum = RotatorEnum.move_to_position
     _observers: List[IObserver] = []
 
@@ -440,11 +451,11 @@ class SimulateRotatorChange(ISimulateChange):
 
     @property
     def current_val(self):
-        return SimulateRotatorChange._val
+        return SimulateRotatorChange._current_val
 
     @current_val.setter
     def current_val(self, new):
-        SimulateRotatorChange._val = new
+        SimulateRotatorChange._current_val = new
 
     @property
     def set_point(self):
@@ -486,7 +497,7 @@ class SimulateRotatorChange(ISimulateChange):
 
         # set state to moving
         start_time = time.time()
-        self.state = STATE_DICT[5]
+        self.state = 5
         self.notify_observers(self.current_val, self.state)
 
         # simulate the ramp
@@ -513,7 +524,7 @@ class SimulateRotatorChange(ISimulateChange):
 
         # set the final values
         self.current_val = self.set_point
-        self.state = STATE_DICT[1]
+        self.state = 1
         self.notify_observers(self.current_val, self.state)
         start_time = time.time()
 
@@ -544,11 +555,10 @@ class CommandRotatorSim(CommandRotatorBase,
                        set_mode: RotatorEnum,
                        ) -> Union[str, int]:
         self.change_thread: SimulateRotatorChange = self.get_sim_instance()
-        state_string = STATE_DICT[self.state]
         self.change_thread.set_params(self.current_val,
                                       position,
                                       set_rate_per_sec,
-                                      state_string,
+                                      self.state,
                                       )
         self.mode = set_mode
         self.change_thread.mode = set_mode
@@ -560,7 +570,4 @@ class CommandRotatorSim(CommandRotatorBase,
 
     def update(self, value, state):
         self.current_val = value
-        for state_number, state_str in STATE_DICT.items():
-            if state == state_str:
-                self.state = state_number
-                break
+        self.state = state

@@ -1,3 +1,5 @@
+"""Padding: a decoration that adds blank columns to the left and right of a widget."""
+
 from __future__ import annotations
 
 import typing
@@ -38,6 +40,8 @@ class PaddingWarning(WidgetWarning):
 
 
 class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
+    """Decoration that adds blank columns to the left and/or right of a wrapped widget."""
+
     def __init__(
         self,
         w: WrappedWidget,
@@ -56,7 +60,8 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         left: int = 0,
         right: int = 0,
     ) -> None:
-        """
+        r"""Build the widget, padding *w* on the left and/or right.
+
         :param w: a box, flow or fixed widget to pad on the left and/or right
             this widget is stored as self.original_widget
 
@@ -115,7 +120,7 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         >>> pr(p)  # align against right
         |    12 |
         |    34 |
-        >>> pr(Padding(Text("hi\\nthere"), "right", "pack"))  # pack text first
+        >>> pr(Padding(Text("hi\nthere"), "right", "pack"))  # pack text first
         |  hi   |
         |  there|
         >>> pr(Padding(BigText("1,2,3", FontRegistry["Thin 3x3"]()), width="clip"))
@@ -192,6 +197,7 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         return remove_defaults(attrs, Padding.__init__)
 
     def __rich_repr__(self) -> Iterator[tuple[str | None, typing.Any] | typing.Any]:
+        """Yield this widget's constructor arguments as `(name, value)` pairs, for `rich`'s repr protocol."""
         yield "w", self.original_widget
         yield "align", self.align
         yield "width", self.width
@@ -203,18 +209,14 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
     def align(
         self,
     ) -> Literal["left", "center", "right"] | Align | tuple[Literal["relative", WHSettings.RELATIVE], int]:
-        """
-        Return the padding alignment setting.
-        """
+        """Return the padding alignment setting."""
         return simplify_align(self._align_type, self._align_amount)
 
     @align.setter
     def align(
         self, align: Literal["left", "center", "right"] | Align | tuple[Literal["relative", WHSettings.RELATIVE], int]
     ) -> None:
-        """
-        Set the padding alignment.
-        """
+        """Set the padding alignment."""
         self._align_type, self._align_amount = normalize_align(align, PaddingError)
         self._invalidate()
 
@@ -222,9 +224,7 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
     def width(
         self,
     ) -> Literal[WHSettings.CLIP, WHSettings.PACK] | int | tuple[Literal[WHSettings.RELATIVE], int]:
-        """
-        Return the padding width.
-        """
+        """Return the padding width."""
         return simplify_width(self._width_type, self._width_amount)
 
     @width.setter
@@ -236,9 +236,7 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
             | tuple[Literal["relative", WHSettings.RELATIVE], int]
         ),
     ) -> None:
-        """
-        Set the padding width.
-        """
+        """Set the padding width."""
         self._width_type, self._width_amount = normalize_width(width, PaddingError)
         self._invalidate()
 
@@ -572,9 +570,7 @@ def calculate_left_right_padding(
     left: int,
     right: int,
 ) -> tuple[int, int]:
-    """
-    Return the amount of padding (or clipping) on the left and
-    right part of maxcol columns to satisfy the following:
+    """Return the amount of padding (or clipping) on the left and right part of maxcol columns.
 
     :param align_type: 'left', 'center', 'right', 'relative'
     :param align_amount: a percentage when align_type=='relative'

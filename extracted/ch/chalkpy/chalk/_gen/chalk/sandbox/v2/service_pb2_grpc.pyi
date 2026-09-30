@@ -12,6 +12,8 @@ from chalk._gen.chalk.sandbox.v2.service_pb2 import (
     CreateSandboxResponse,
     GetSandboxRequest,
     GetSandboxResponse,
+    ListSandboxResourcesRequest,
+    ListSandboxResourcesResponse,
     ListSandboxesRequest,
     ListSandboxesResponse,
     ResumeSandboxRequest,
@@ -94,3 +96,20 @@ class SandboxServiceServicer(metaclass=ABCMeta):
     ) -> TerminateSandboxResponse: ...
 
 def add_SandboxServiceServicer_to_server(servicer: SandboxServiceServicer, server: Server) -> None: ...
+
+class SandboxResourceServiceStub:
+    def __init__(self, channel: Channel) -> None: ...
+    ListSandboxResources: UnaryUnaryMultiCallable[
+        ListSandboxResourcesRequest,
+        ListSandboxResourcesResponse,
+    ]
+
+class SandboxResourceServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def ListSandboxResources(
+        self,
+        request: ListSandboxResourcesRequest,
+        context: ServicerContext,
+    ) -> ListSandboxResourcesResponse: ...
+
+def add_SandboxResourceServiceServicer_to_server(servicer: SandboxResourceServiceServicer, server: Server) -> None: ...

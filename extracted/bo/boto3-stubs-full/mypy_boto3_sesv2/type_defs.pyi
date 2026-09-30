@@ -46,10 +46,12 @@ from .literals import (
     FeatureStatusType,
     HttpsPolicyType,
     IdentityCertificateStatusType,
+    IdentityFilterKeyType,
     IdentityTypeType,
     ImportDestinationTypeType,
     JobStatusType,
     ListRecommendationsFilterKeyType,
+    ListTenantsFilterKeyType,
     MailFromDomainStatusType,
     MailTypeType,
     MetricAggregationType,
@@ -846,6 +848,7 @@ class InboxPlacementTrackingOptionTypeDef(TypedDict):
     TrackedIsps: NotRequired[Sequence[str]]
 
 class ListConfigurationSetsRequestTypeDef(TypedDict):
+    Filter: NotRequired[Mapping[Literal["CONFIGURATION_SET_NAME_CONTAINS"], str]]
     NextToken: NotRequired[str]
     PageSize: NotRequired[int]
 
@@ -870,6 +873,7 @@ class ListDeliverabilityTestReportsRequestTypeDef(TypedDict):
     PageSize: NotRequired[int]
 
 class ListEmailIdentitiesRequestTypeDef(TypedDict):
+    Filter: NotRequired[Mapping[IdentityFilterKeyType, str]]
     NextToken: NotRequired[str]
     PageSize: NotRequired[int]
 
@@ -967,6 +971,7 @@ class TenantResourceTypeDef(TypedDict):
     ResourceArn: NotRequired[str]
 
 class ListTenantsRequestTypeDef(TypedDict):
+    Filter: NotRequired[Mapping[ListTenantsFilterKeyType, str]]
     NextToken: NotRequired[str]
     PageSize: NotRequired[int]
 
@@ -975,6 +980,7 @@ class TenantInfoTypeDef(TypedDict):
     TenantId: NotRequired[str]
     TenantArn: NotRequired[str]
     CreatedTimestamp: NotRequired[datetime]
+    SendingStatus: NotRequired[SendingStatusType]
 
 class MessageInsightsFiltersOutputTypeDef(TypedDict):
     FromEmailAddress: NotRequired[list[str]]
@@ -1563,6 +1569,7 @@ class ListTenantResourcesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListTenantsRequestPaginateTypeDef(TypedDict):
+    Filter: NotRequired[Mapping[ListTenantsFilterKeyType, str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMultiRegionEndpointsResponseTypeDef(TypedDict):

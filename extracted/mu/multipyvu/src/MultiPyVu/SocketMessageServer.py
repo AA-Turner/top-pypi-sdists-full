@@ -8,6 +8,7 @@ Created on Mon Jun 7 23:47:19 2021
 @author: D. Jackson
 """
 
+import errno
 import logging
 import re
 import selectors
@@ -20,7 +21,7 @@ from sys import platform
 from typing import Dict, List, Optional, Union
 
 from .check_windows_esc import _check_windows_esc
-from .Command_factory import create_command_mv
+from .CommandFactory import create_command_mv
 from .exceptions import (ClientCloseError, MultiPyVuError, PwinComError,
                          PythoncomImportError, ServerCloseError, SocketError)
 from .IEventManager import IObserver as _IObserver
@@ -160,19 +161,47 @@ class ServerMessage(Message, threading.Thread, _Publisher):
         Returns:
         --------
         Configured socket
+
+        Raises:
+        -------
+        SocketError
+            The port is already in use.
+        OSError
+            The socket could not be bound for any other reason.
         """
         # Set up the sockets
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # Avoid bind() exception: OSError: [Errno 48] Address already in use
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if platform == 'win32':
+            # Windows SO_REUSEADDR is not the same as the BSD option of
+            # the same name:  it lets a second socket bind a port that is
+            # already being listened on, so two servers can claim one port
+            # and split the incoming connections between them.
+            # SO_EXCLUSIVEADDRUSE gives the behavior wanted here, which is
+            # to claim the port and make a second bind fail.
+            sock.setsockopt(socket.SOL_SOCKET,
+                            socket.SO_EXCLUSIVEADDRUSE,
+                            1,
+                            )
+        else:
+            # Avoid bind() exception: OSError: [Errno 48] Address already
+            # in use.  Here SO_REUSEADDR only permits taking over a port
+            # left in TIME_WAIT; it does not allow a second live listener.
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             sock.bind(('0.0.0.0', self.port))
-        except socket.error as e:
-            if e.strerror == 'Address already in use':
-                msg = f'{e.strerror}: try using a different '
-                msg += f'port (used {self.port})'
-                self.logger.info(msg)
-                raise SocketError(msg)
+        except OSError as e:
+            # Compare the error number rather than the message, which is
+            # worded differently on each platform.  errno.EADDRINUSE is
+            # 48 on macOS/Linux and 10048 on Windows, so this one test
+            # covers both.
+            if e.errno != errno.EADDRINUSE:
+                # Anything else is unexpected, and binding failed, so it
+                # must not fall through to listen() on an unbound socket.
+                raise
+            msg = 'Address already in use: try using a different '
+            msg += f'port (used {self.port})'
+            self.logger.info(msg)
+            raise SocketError(msg) from e
         sock.listen()
         sock.setblocking(False)
         self.server_status = ServerStatus.idle
@@ -391,6 +420,15 @@ class ServerMessage(Message, threading.Thread, _Publisher):
                 self.logger.info(result)
                 response_dict['result'] = result
             else:
+                # Ask MultiVu for its version number.  This is done here,
+                # rather than in __init__(), because this method runs on
+                # the thread which owns the win32com connection set up by
+                # .get_multivu_win32com_instance().  It is only queried
+                # once and then cached.
+                if not self.mvu_version:
+                    self.mvu_version = self.instr.get_multivu_version()
+                    msg = f'MultiVu version: {self.mvu_version}'
+                    self.logger.debug(msg)
                 # change the query to let the client know server info
                 response_dict['query'] = self._start_to_str()
                 response_dict['result'] = default_result
@@ -695,6 +733,13 @@ class ServerMessage(Message, threading.Thread, _Publisher):
                     break
                 except KeyboardInterrupt as e:
                     raise e
+
+        # get_multivu_win32com_instance() above set up a COM apartment
+        # specific to this thread; release it here, on the same thread,
+        # before this thread exits. MultiVuServer.__exit__() only
+        # releases the main thread's instrument-detection apartment, not
+        # this one.
+        self.instr.end_multivu_win32com_instance()
 
     def connection_good(self, sock: Union[socket.socket, None]) -> bool:
         """

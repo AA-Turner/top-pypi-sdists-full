@@ -64,7 +64,7 @@ class AgentConfig:
     # output-apply dispatcher can declare a directive ON the agent (the agent
     # emits a plain payload; the host wraps + applies it). ``None`` = not declared.
     matrx_actions: dict[str, Any] | None = None
-    # Per-agent skill visibility config (skill.definition tiering). Loaded from
+    # Per-agent skill exposure config (skill.definition tiering). Loaded from
     # ``agx_agent.skill_config`` JSONB. ``None`` = column absent (defensive);
     # an explicit empty SkillConfig() means "no opinions, default tiers apply."
     # See ``matrx_ai.skills.models.SkillConfig``.

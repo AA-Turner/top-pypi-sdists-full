@@ -40,6 +40,26 @@ class CloudComponentsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentClusterRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentClusterResponse.FromString,
         )
+        self.CreateRecoverClusterTarget = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/CreateRecoverClusterTarget",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateRecoverClusterTargetRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateRecoverClusterTargetResponse.FromString,
+        )
+        self.ListRecoveryClusterTargets = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/ListRecoveryClusterTargets",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListRecoveryClusterTargetsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListRecoveryClusterTargetsResponse.FromString,
+        )
+        self.ActivateRecoveryClusterTarget = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/ActivateRecoveryClusterTarget",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ActivateRecoveryClusterTargetRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ActivateRecoveryClusterTargetResponse.FromString,
+        )
+        self.DeactivateRecoveryClusterTarget = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/DeactivateRecoveryClusterTarget",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeactivateRecoveryClusterTargetRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeactivateRecoveryClusterTargetResponse.FromString,
+        )
         self.UpdateCloudComponentCluster = channel.unary_unary(
             "/chalk.server.v1.CloudComponentsService/UpdateCloudComponentCluster",
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentClusterRequest.SerializeToString,
@@ -350,6 +370,30 @@ class CloudComponentsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def CreateCloudComponentCluster(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateRecoverClusterTarget(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListRecoveryClusterTargets(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ActivateRecoveryClusterTarget(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeactivateRecoveryClusterTarget(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -720,6 +764,26 @@ def add_CloudComponentsServiceServicer_to_server(servicer, server):
             servicer.CreateCloudComponentCluster,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentClusterRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentClusterResponse.SerializeToString,
+        ),
+        "CreateRecoverClusterTarget": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateRecoverClusterTarget,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateRecoverClusterTargetRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateRecoverClusterTargetResponse.SerializeToString,
+        ),
+        "ListRecoveryClusterTargets": grpc.unary_unary_rpc_method_handler(
+            servicer.ListRecoveryClusterTargets,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListRecoveryClusterTargetsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListRecoveryClusterTargetsResponse.SerializeToString,
+        ),
+        "ActivateRecoveryClusterTarget": grpc.unary_unary_rpc_method_handler(
+            servicer.ActivateRecoveryClusterTarget,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ActivateRecoveryClusterTargetRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ActivateRecoveryClusterTargetResponse.SerializeToString,
+        ),
+        "DeactivateRecoveryClusterTarget": grpc.unary_unary_rpc_method_handler(
+            servicer.DeactivateRecoveryClusterTarget,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeactivateRecoveryClusterTargetRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeactivateRecoveryClusterTargetResponse.SerializeToString,
         ),
         "UpdateCloudComponentCluster": grpc.unary_unary_rpc_method_handler(
             servicer.UpdateCloudComponentCluster,
@@ -1147,6 +1211,122 @@ class CloudComponentsService(object):
             "/chalk.server.v1.CloudComponentsService/CreateCloudComponentCluster",
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentClusterRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentClusterResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateRecoverClusterTarget(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/CreateRecoverClusterTarget",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateRecoverClusterTargetRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateRecoverClusterTargetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListRecoveryClusterTargets(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/ListRecoveryClusterTargets",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListRecoveryClusterTargetsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListRecoveryClusterTargetsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ActivateRecoveryClusterTarget(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/ActivateRecoveryClusterTarget",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ActivateRecoveryClusterTargetRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ActivateRecoveryClusterTargetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeactivateRecoveryClusterTarget(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/DeactivateRecoveryClusterTarget",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeactivateRecoveryClusterTargetRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeactivateRecoveryClusterTargetResponse.FromString,
             options,
             channel_credentials,
             insecure,

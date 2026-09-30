@@ -29,7 +29,9 @@ logger: Any = ...  # From incident_lifecycle
 QuantFn: Any = ...  # From quant_strategies
 logger: Any = ...  # From quant_strategies
 AGG_STREAM: str = ...  # From redis_publisher
+DEFAULT_STREAM_MAXLEN: int = ...  # From redis_publisher
 INCIDENT_STREAM: str = ...  # From redis_publisher
+STREAM_MAXLEN_ENV: str = ...  # From redis_publisher
 logger: Any = ...  # From redis_publisher
 
 # Functions

@@ -54,7 +54,7 @@ jobs:
       actions: read
     steps:
       - name: Execute reminder action
-        uses: aaronsteers/devin-reminders-action@main
+        uses: airbytehq/devin-reminders-action@main
         with:
           action: 'list'
           reminder-timezone: America/Los_Angeles
@@ -70,7 +70,7 @@ jobs:
       actions: write
     steps:
       - name: Execute reminder action
-        uses: aaronsteers/devin-reminders-action@main
+        uses: airbytehq/devin-reminders-action@main
         with:
           action: 'put'
           lock-mode: auto
@@ -95,7 +95,7 @@ jobs:
       actions: write
     steps:
       - name: Execute reminder action
-        uses: aaronsteers/devin-reminders-action@main
+        uses: airbytehq/devin-reminders-action@main
         with:
           action: 'cancel'
           lock-mode: auto
@@ -115,7 +115,7 @@ jobs:
       actions: write
     steps:
       - name: Execute reminder action
-        uses: aaronsteers/devin-reminders-action@main
+        uses: airbytehq/devin-reminders-action@main
         with:
           action: 'cron'
           lock-mode: auto

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import argparse
 import importlib.util
 import json
@@ -11,7 +12,6 @@ from typing import Any
 
 import cv2
 from ultralytics import YOLO
-import numpy as np
 
 # --- Import bootstrap (analytics + footfall only) ---
 # Avoid ``matrice_analytics/__init__.py`` (pulls all of post_processing) and
@@ -34,7 +34,6 @@ _register_pkg("matrice_analytics.post_processing", _PKG / "post_processing")
 _register_pkg("matrice_analytics.post_processing.usecases", _PKG / "post_processing" / "usecases")
 
 from matrice_analytics.analytics.engine import AnalyticsEngine  # noqa: E402
-
 
 _spec_bt = importlib.util.spec_from_file_location(
     "matrice_analytics.post_processing.usecases.footfall",
@@ -224,7 +223,16 @@ class IncidentAnalyticsTestProcessor:
 
             (tw, th), baseline = cv2.getTextSize(label, font, font_scale, 1)
             cv2.rectangle(frame, (x1, y1 - th - baseline - 4), (x1 + tw + 4, y1), bbox_color, -1)
-            cv2.putText(frame, label, (x1 + 2, y1 - baseline - 2), font, font_scale, text_color, 1, cv2.LINE_AA)
+            cv2.putText(
+                frame,
+                label,
+                (x1 + 2, y1 - baseline - 2),
+                font,
+                font_scale,
+                text_color,
+                1,
+                cv2.LINE_AA,
+            )
 
         return frame
 
@@ -247,7 +255,9 @@ class IncidentAnalyticsTestProcessor:
         cv2.addWeighted(overlay, 0.6, frame, 0.4, 0, frame)
 
         label = f"Severity: {severity.upper()} | Quant: {quant:.1f}%"
-        cv2.putText(frame, label, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(
+            frame, label, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA
+        )
 
         return frame
 
@@ -391,7 +401,7 @@ class IncidentAnalyticsTestProcessor:
             json.dump(self._serialize(final_agg), f, indent=2)
         print(f"\nFinal aggregation saved: {final_agg_path}")
         print("Final aggregation result:")
-        pprint.pprint(self._serialize(final_agg))
+        pprint.pprint(self._serialize(final_agg))  # noqa: T203
 
         # Save all incident events summary
         if total_events:
@@ -408,7 +418,7 @@ class IncidentAnalyticsTestProcessor:
             state = self.engine.get_incident_state(cid)
             if state:
                 print(f"\nFinal incident lifecycle state ({cid}):")
-                pprint.pprint(state.model_dump() if hasattr(state, "model_dump") else state)
+                pprint.pprint(state.model_dump() if hasattr(state, "model_dump") else state)  # noqa: T203
                 break
 
         cap.release()
@@ -469,8 +479,8 @@ if __name__ == "__main__":
         json_dir=args.json_dir or defaults.get("json_dir", "jsons"),
         draw_bboxes=not args.no_video,
         output_video_path=args.output_video or defaults.get("output_video_path", "output.mp4"),
-        confidence_threshold=args.confidence if args.confidence is not None else defaults.get(
-            "confidence_threshold", 0.45
-        ),
+        confidence_threshold=args.confidence
+        if args.confidence is not None
+        else defaults.get("confidence_threshold", 0.45),
     )
     processor.process_video()

@@ -34,7 +34,7 @@ Storage model (``content_ir.kind_component``):
 Authorization: see ``kind_shared`` module docstring — every read is gated at
 ``viewer`` and every write at ``editor`` through the live
 ``iam.has_access_for`` SECURITY DEFINER function (owner fast-path in code; no
-hand-rolled visibility/org semantics). Incident payloads are stricter:
+hand-rolled access/org semantics). Incident payloads are stricter:
 editor-only, because ``data_snapshot`` carries the exact crashing ``__kind``
 payload (potentially another user's business data).
 """

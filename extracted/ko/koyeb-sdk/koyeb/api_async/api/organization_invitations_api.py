@@ -18,11 +18,21 @@ from typing_extensions import Annotated
 from pydantic import Field, StrictStr, field_validator
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
-from koyeb.api_async.models.create_organization_invitation_reply import CreateOrganizationInvitationReply
-from koyeb.api_async.models.create_organization_invitation_request import CreateOrganizationInvitationRequest
-from koyeb.api_async.models.get_organization_invitation_reply import GetOrganizationInvitationReply
-from koyeb.api_async.models.list_organization_invitations_reply import ListOrganizationInvitationsReply
-from koyeb.api_async.models.resend_organization_invitation_reply import ResendOrganizationInvitationReply
+from koyeb.api_async.models.create_organization_invitation_reply import (
+    CreateOrganizationInvitationReply,
+)
+from koyeb.api_async.models.create_organization_invitation_request import (
+    CreateOrganizationInvitationRequest,
+)
+from koyeb.api_async.models.get_organization_invitation_reply import (
+    GetOrganizationInvitationReply,
+)
+from koyeb.api_async.models.list_organization_invitations_reply import (
+    ListOrganizationInvitationsReply,
+)
+from koyeb.api_async.models.resend_organization_invitation_reply import (
+    ResendOrganizationInvitationReply,
+)
 
 from koyeb.api_async.api_client import ApiClient, RequestSerialized
 from koyeb.api_async.api_response import ApiResponse
@@ -41,7 +51,6 @@ class OrganizationInvitationsApi:
             api_client = ApiClient.get_default()
         self.api_client = api_client
 
-
     @validate_call
     async def create_organization_invitation(
         self,
@@ -50,9 +59,8 @@ class OrganizationInvitationsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -84,35 +92,34 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._create_organization_invitation_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreateOrganizationInvitationReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "CreateOrganizationInvitationReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     async def create_organization_invitation_with_http_info(
@@ -122,9 +129,8 @@ class OrganizationInvitationsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -156,35 +162,34 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._create_organization_invitation_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreateOrganizationInvitationReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "CreateOrganizationInvitationReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     async def create_organization_invitation_without_preload_content(
@@ -194,9 +199,8 @@ class OrganizationInvitationsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -228,31 +232,30 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._create_organization_invitation_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreateOrganizationInvitationReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "CreateOrganizationInvitationReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _create_organization_invitation_serialize(
         self,
@@ -262,11 +265,9 @@ class OrganizationInvitationsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -285,24 +286,16 @@ class OrganizationInvitationsApi:
         if body is not None:
             _body_params = body
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/v1/organization_invitations',
+            method="POST",
+            resource_path="/v1/organization_invitations",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -312,23 +305,22 @@ class OrganizationInvitationsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     async def delete_organization_invitation(
         self,
-        id: Annotated[StrictStr, Field(description="The id of the organization invitation to delete")],
+        id: Annotated[
+            StrictStr,
+            Field(description="The id of the organization invitation to delete"),
+        ],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -360,28 +352,28 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._delete_organization_invitation_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "object",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "object",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -389,18 +381,19 @@ class OrganizationInvitationsApi:
             response_types_map=_response_types_map,
         ).data
 
-
     @validate_call
     async def delete_organization_invitation_with_http_info(
         self,
-        id: Annotated[StrictStr, Field(description="The id of the organization invitation to delete")],
+        id: Annotated[
+            StrictStr,
+            Field(description="The id of the organization invitation to delete"),
+        ],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -432,28 +425,28 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._delete_organization_invitation_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "object",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "object",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -461,18 +454,19 @@ class OrganizationInvitationsApi:
             response_types_map=_response_types_map,
         )
 
-
     @validate_call
     async def delete_organization_invitation_without_preload_content(
         self,
-        id: Annotated[StrictStr, Field(description="The id of the organization invitation to delete")],
+        id: Annotated[
+            StrictStr,
+            Field(description="The id of the organization invitation to delete"),
+        ],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -504,31 +498,30 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._delete_organization_invitation_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "object",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "object",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _delete_organization_invitation_serialize(
         self,
@@ -538,11 +531,9 @@ class OrganizationInvitationsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -555,30 +546,22 @@ class OrganizationInvitationsApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='DELETE',
-            resource_path='/v1/organization_invitations/{id}',
+            method="DELETE",
+            resource_path="/v1/organization_invitations/{id}",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -588,11 +571,8 @@ class OrganizationInvitationsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     async def get_organization_invitation(
@@ -602,9 +582,8 @@ class OrganizationInvitationsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -636,35 +615,34 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_organization_invitation_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetOrganizationInvitationReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "GetOrganizationInvitationReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     async def get_organization_invitation_with_http_info(
@@ -674,9 +652,8 @@ class OrganizationInvitationsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -708,35 +685,34 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_organization_invitation_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetOrganizationInvitationReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "GetOrganizationInvitationReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     async def get_organization_invitation_without_preload_content(
@@ -746,9 +722,8 @@ class OrganizationInvitationsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -780,31 +755,30 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_organization_invitation_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetOrganizationInvitationReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "GetOrganizationInvitationReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _get_organization_invitation_serialize(
         self,
@@ -814,11 +788,9 @@ class OrganizationInvitationsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -831,30 +803,22 @@ class OrganizationInvitationsApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/organization_invitations/{id}',
+            method="GET",
+            resource_path="/v1/organization_invitations/{id}",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -864,26 +828,36 @@ class OrganizationInvitationsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     async def list_organization_invitations(
         self,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on organization invitation statuses")] = None,
-        user_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on invitee ID. Will match both invitations sent to that user_id and invitations sent to the email of that user_id. The only valid value is the requester's user_id")] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        statuses: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on organization invitation statuses"),
+        ] = None,
+        user_id: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) Filter on invitee ID. Will match both invitations sent to that user_id and invitations sent to the email of that user_id. The only valid value is the requester's user_id"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -921,7 +895,7 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_organization_invitations_serialize(
             limit=limit,
@@ -931,21 +905,21 @@ class OrganizationInvitationsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListOrganizationInvitationsReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListOrganizationInvitationsReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -953,21 +927,33 @@ class OrganizationInvitationsApi:
             response_types_map=_response_types_map,
         ).data
 
-
     @validate_call
     async def list_organization_invitations_with_http_info(
         self,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on organization invitation statuses")] = None,
-        user_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on invitee ID. Will match both invitations sent to that user_id and invitations sent to the email of that user_id. The only valid value is the requester's user_id")] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        statuses: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on organization invitation statuses"),
+        ] = None,
+        user_id: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) Filter on invitee ID. Will match both invitations sent to that user_id and invitations sent to the email of that user_id. The only valid value is the requester's user_id"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1005,7 +991,7 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_organization_invitations_serialize(
             limit=limit,
@@ -1015,21 +1001,21 @@ class OrganizationInvitationsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListOrganizationInvitationsReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListOrganizationInvitationsReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -1037,21 +1023,33 @@ class OrganizationInvitationsApi:
             response_types_map=_response_types_map,
         )
 
-
     @validate_call
     async def list_organization_invitations_without_preload_content(
         self,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on organization invitation statuses")] = None,
-        user_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on invitee ID. Will match both invitations sent to that user_id and invitations sent to the email of that user_id. The only valid value is the requester's user_id")] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        statuses: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on organization invitation statuses"),
+        ] = None,
+        user_id: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) Filter on invitee ID. Will match both invitations sent to that user_id and invitations sent to the email of that user_id. The only valid value is the requester's user_id"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1089,7 +1087,7 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_organization_invitations_serialize(
             limit=limit,
@@ -1099,24 +1097,23 @@ class OrganizationInvitationsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListOrganizationInvitationsReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListOrganizationInvitationsReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _list_organization_invitations_serialize(
         self,
@@ -1129,11 +1126,10 @@ class OrganizationInvitationsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: Dict[str, str] = {
-            'statuses': 'multi',
+            "statuses": "multi",
         }
 
         _path_params: Dict[str, str] = {}
@@ -1148,43 +1144,31 @@ class OrganizationInvitationsApi:
         # process the path parameters
         # process the query parameters
         if limit is not None:
-            
-            _query_params.append(('limit', limit))
-            
+            _query_params.append(("limit", limit))
+
         if offset is not None:
-            
-            _query_params.append(('offset', offset))
-            
+            _query_params.append(("offset", offset))
+
         if statuses is not None:
-            
-            _query_params.append(('statuses', statuses))
-            
+            _query_params.append(("statuses", statuses))
+
         if user_id is not None:
-            
-            _query_params.append(('user_id', user_id))
-            
+            _query_params.append(("user_id", user_id))
+
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/organization_invitations',
+            method="GET",
+            resource_path="/v1/organization_invitations",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1194,24 +1178,23 @@ class OrganizationInvitationsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     async def resend_organization_invitation(
         self,
-        id: Annotated[StrictStr, Field(description="The id of the organization invitation to resend")],
+        id: Annotated[
+            StrictStr,
+            Field(description="The id of the organization invitation to resend"),
+        ],
         body: Dict[str, Any],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1245,7 +1228,7 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._resend_organization_invitation_serialize(
             id=id,
@@ -1253,21 +1236,21 @@ class OrganizationInvitationsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResendOrganizationInvitationReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ResendOrganizationInvitationReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -1275,19 +1258,20 @@ class OrganizationInvitationsApi:
             response_types_map=_response_types_map,
         ).data
 
-
     @validate_call
     async def resend_organization_invitation_with_http_info(
         self,
-        id: Annotated[StrictStr, Field(description="The id of the organization invitation to resend")],
+        id: Annotated[
+            StrictStr,
+            Field(description="The id of the organization invitation to resend"),
+        ],
         body: Dict[str, Any],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1321,7 +1305,7 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._resend_organization_invitation_serialize(
             id=id,
@@ -1329,21 +1313,21 @@ class OrganizationInvitationsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResendOrganizationInvitationReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ResendOrganizationInvitationReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -1351,19 +1335,20 @@ class OrganizationInvitationsApi:
             response_types_map=_response_types_map,
         )
 
-
     @validate_call
     async def resend_organization_invitation_without_preload_content(
         self,
-        id: Annotated[StrictStr, Field(description="The id of the organization invitation to resend")],
+        id: Annotated[
+            StrictStr,
+            Field(description="The id of the organization invitation to resend"),
+        ],
         body: Dict[str, Any],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1397,7 +1382,7 @@ class OrganizationInvitationsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._resend_organization_invitation_serialize(
             id=id,
@@ -1405,24 +1390,23 @@ class OrganizationInvitationsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResendOrganizationInvitationReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ResendOrganizationInvitationReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _resend_organization_invitation_serialize(
         self,
@@ -1433,11 +1417,9 @@ class OrganizationInvitationsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -1450,7 +1432,7 @@ class OrganizationInvitationsApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
@@ -1458,24 +1440,16 @@ class OrganizationInvitationsApi:
         if body is not None:
             _body_params = body
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/v1/organization_invitations/{id}/resend',
+            method="POST",
+            resource_path="/v1/organization_invitations/{id}/resend",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1485,7 +1459,5 @@ class OrganizationInvitationsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-

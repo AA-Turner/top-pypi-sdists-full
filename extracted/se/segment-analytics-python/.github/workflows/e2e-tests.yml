@@ -1,0 +1,68 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      e2e_tests_ref:
+        description: 'Branch or ref of sdk-e2e-tests to use'
+        required: false
+        default: 'main'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ARTIFACTORY_URL: ${{ vars.ARTIFACTORY_URL }}
+
+jobs:
+  e2e-tests:
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'ubuntu-x64' }}
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
+    steps:
+      - name: Checkout SDK
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          path: sdk
+
+      - name: Checkout sdk-e2e-tests
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          repository: segmentio/sdk-e2e-tests
+          ref: ${{ inputs.e2e_tests_ref || 'main' }}
+          path: sdk-e2e-tests
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
+        with:
+          node-version: '20'
+
+      - name: Install Python SDK
+        working-directory: sdk
+        run: pip install -e .
+
+      - name: Install e2e-cli dependencies
+        working-directory: sdk/e2e-cli
+        run: pip install -e .
+
+      - name: Run E2E tests
+        working-directory: sdk-e2e-tests
+        run: |
+          ./scripts/run-tests.sh \
+            --sdk-dir "${{ github.workspace }}/sdk/e2e-cli" \
+            --cli "e2e-cli"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e2e-test-results
+          path: sdk-e2e-tests/test-results/
+          if-no-files-found: ignore

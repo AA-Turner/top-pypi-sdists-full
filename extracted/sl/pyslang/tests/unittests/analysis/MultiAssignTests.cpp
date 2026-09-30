@@ -841,7 +841,7 @@ endmodule
     auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 4);
     CHECK(diags[0].code == diag::InputPortAssign);
-    CHECK(diags[1].code == diag::InputPortAssign);
+    CHECK(diags[1].code == diag::InputPortCoercion);
     CHECK(diags[2].code == diag::InputPortAssign);
     CHECK(diags[3].code == diag::MixedVarAssigns);
 }
@@ -1580,4 +1580,44 @@ endmodule
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::InferredLatch);
     CHECK(diags[1].code == diag::InferredComb);
+}
+
+TEST_CASE("Malformed literal checker arg driver crash regress GH #1884") {
+    auto& code = R"(
+module t;
+    bit failure;
+    mutex c((0_r), failure);
+endmodule
+checker mutex(input logic [31:0] sig, output bit failure);
+    assert property ($onehot0(sig)) failure = 1'b0; else failure = 1'b1;
+endchecker
+)";
+
+    // The code here is invalid because of the malformed literal, but we want to
+    // make sure we don't crash in the analysis manager when the checker output
+    // port connection ends up being a null expression.
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto tree = SyntaxTree::fromText(code);
+    compilation.addSyntaxTree(tree);
+    compilation.getAllDiagnostics();
+    compilation.freeze();
+
+    analysisManager.analyze(compilation);
+}
+
+TEST_CASE("Multi-assign for output port variable with initializer") {
+    auto& code = R"(
+module m(output var reg r = 1);
+   assign r = 1;
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::MixedVarAssigns);
 }

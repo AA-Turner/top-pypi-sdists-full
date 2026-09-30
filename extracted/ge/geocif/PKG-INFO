@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1057
+Version: 0.4.1059
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -174,6 +174,18 @@ this is how the cluster env pulls the package. Note that four optional extras
 (`shap_fast`, `powershap`, `geospann`, `desreg`) pin dependencies that conflict
 with geocif's own core pins and cannot currently be installed alongside it — see
 the comments in `pyproject.toml`.
+
+### Training bundle for Google Colab
+
+`training-book/colab/` holds a self-contained training kit that runs the whole pipeline
+(`geodownload -> geoextract -> geomerge -> indices_runner -> yield_outlook`) for Afghanistan
+poppy on a free Colab runtime: `geocif_poppy_colab.ipynb` (the notebook; `pip install
+geocif geoprepare` plus apt GMT, no credentials) and a ~100 MB bundle built by
+`stage_bundle.sh` (cluster side: 2026 rasters clipped to Afghanistan, 26 years of CIDs,
+static extracts, a reference run) and `assemble_bundle.py` (configs, training overrides,
+stage scripts, manifest, zip). Every step runs live on a few files and the final
+`yield_outlook` assembles the pre-prepared history; see
+`training-book/03-pipeline/colab.qmd`.
 
 ## Config files
 

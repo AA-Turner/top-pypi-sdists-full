@@ -830,9 +830,13 @@ class MultiVuDataFile():
         # the data file
         in_headers = True
         column_headers = ''
+        
         with open(file_path) as f:
             for raw_line in f:
                 line = raw_line.rstrip()
+                # Skip blank lines
+                if line == '':
+                    continue
                 if in_headers:
                     in_headers = not (line == '[Data]')
                 else:

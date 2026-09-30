@@ -1,0 +1,249 @@
+name: Deploy Airmux
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/airmux-control-plane/AIRMUX_VERSION"
+      - ".github/workflows/deploy-airmux-command.yml"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Deployment target."
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+      pr:
+        description: "PR number. Slash-command static arg; presence implies a preview deploy unless target=production."
+        required: false
+        type: string
+      comment-id:
+        description: "Slash-command comment ID."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+env:
+  GCP_PROJECT: internal-airbyte-ai-infra
+  GCP_REGION: us-west3
+  TARGET_INPUT: ${{ github.event.inputs.target }}
+  AIRMUX_PR: ${{ github.event.inputs.pr }}
+
+jobs:
+  deploy-airmux:
+    name: Deploy Airmux
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-airmux-${{ (github.event_name == 'push' || inputs.target != 'production') && 'preview' || 'production' }}
+      cancel-in-progress: false
+    environment:
+      name: ${{ (github.event_name == 'push' || inputs.target != 'production') && 'Cloud Run (airmux-preview)' || 'Cloud Run (airmux)' }}
+      url: ${{ (github.event_name == 'push' || inputs.target != 'production') && 'https://preview.airmux.internal.airbyte.ai' || 'https://airmux.internal.airbyte.ai' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        # `/deploy-airmux` passes pr=<n>; check out the PR head, else the
+        # default ref (empty string = default behavior).
+        with:
+          ref: ${{ inputs.pr != '' && format('refs/pull/{0}/head', inputs.pr) || '' }}
+
+      - name: Resolve Variables
+        id: resolve-vars
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          # The version always comes from the checked-in pin; no override.
+          version="$(cat infra/airmux-control-plane/AIRMUX_VERSION)"
+
+          # A merge to main deploys the preview twin; production is only
+          # reachable via an explicit `target=production` dispatch.
+          target="preview"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$TARGET_INPUT" = "production" ]; then
+            target="production"
+          fi
+
+          suffix=""
+          if [ "$target" = "preview" ]; then
+            suffix="-preview"
+          fi
+
+          {
+            printf "version=%s\n" "$version"
+            printf "target=%s\n" "$target"
+            printf "suffix=%s\n" "$suffix"
+            printf "image=%s-docker.pkg.dev/%s/airmux-upstream/michel-tricot/airmux:%s\n" \
+              "$GCP_REGION" "$GCP_PROJECT" "$version"
+            printf "control_plane_service=airmux-control-plane%s\n" "$suffix"
+            printf "console_service=airmux-console%s\n" "$suffix"
+            printf "migrate_job=airmux-migrate%s\n" "$suffix"
+            printf "taxonomy_job=airmux-taxonomy%s\n" "$suffix"
+          } | tee -a "$GITHUB_OUTPUT"
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-actions-ci@internal-airbyte-ai-infra.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # A push-triggered run can race `Pulumi Apply` (which owns the remote
+      # repo, jobs, and services). Wait for them to exist rather than failing
+      # the first describe.
+      - name: Wait for control-plane resources
+        env:
+          TIMEOUT_IN_MINUTES: 20
+          POLL_INTERVAL_SECONDS: 30
+          MIGRATE_JOB: ${{ steps.resolve-vars.outputs.migrate_job }}
+          TAXONOMY_JOB: ${{ steps.resolve-vars.outputs.taxonomy_job }}
+          CONTROL_PLANE_SERVICE: ${{ steps.resolve-vars.outputs.control_plane_service }}
+          CONSOLE_SERVICE: ${{ steps.resolve-vars.outputs.console_service }}
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + TIMEOUT_IN_MINUTES * 60))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if gcloud artifacts repositories describe airmux-upstream \
+                 --location="$GCP_REGION" --project="$GCP_PROJECT" >/dev/null 2>&1 \
+              && gcloud run jobs describe "$MIGRATE_JOB" \
+                 --region="$GCP_REGION" --project="$GCP_PROJECT" >/dev/null 2>&1 \
+              && gcloud run jobs describe "$TAXONOMY_JOB" \
+                 --region="$GCP_REGION" --project="$GCP_PROJECT" >/dev/null 2>&1 \
+              && gcloud run services describe "$CONTROL_PLANE_SERVICE" \
+                 --region="$GCP_REGION" --project="$GCP_PROJECT" >/dev/null 2>&1 \
+              && gcloud run services describe "$CONSOLE_SERVICE" \
+                 --region="$GCP_REGION" --project="$GCP_PROJECT" >/dev/null 2>&1; then
+              echo "Control-plane resources are present."
+              exit 0
+            fi
+            echo "Waiting for Pulumi Apply to create control-plane resources..."
+            sleep "$POLL_INTERVAL_SECONDS"
+          done
+          echo "::error::Timed out after ${TIMEOUT_IN_MINUTES}m waiting for Pulumi Apply to create the airmux control-plane resources."
+          exit 1
+
+      - name: Resolve image digest through the remote repository
+        id: image
+        run: |
+          set -euo pipefail
+          image="${{ steps.resolve-vars.outputs.image }}"
+          # `artifacts docker images describe` reads the cached inventory and
+          # can lag a fresh tag; pull instead so the upstream is fetched.
+          gcloud auth configure-docker us-west3-docker.pkg.dev --quiet
+          docker pull "$image"
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$image" | cut -d@ -f2)"
+          echo "digest=$digest" | tee -a "$GITHUB_OUTPUT"
+          echo "image_ref=${image}@${digest}" | tee -a "$GITHUB_OUTPUT"
+
+      # Pulumi runs migrations inside the apply (run_execution_token); this
+      # step re-runs the job idempotently so ordering against a concurrent
+      # pulumi-apply doesn't matter.
+      - name: Run migrate job
+        run: |
+          set -euo pipefail
+          gcloud run jobs update "${{ steps.resolve-vars.outputs.migrate_job }}" \
+            --image="${{ steps.image.outputs.image_ref }}" \
+            --project="${{ env.GCP_PROJECT }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --quiet
+          gcloud run jobs execute "${{ steps.resolve-vars.outputs.migrate_job }}" \
+            --project="${{ env.GCP_PROJECT }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --wait
+
+      - name: Run taxonomy job
+        run: |
+          set -euo pipefail
+          gcloud run jobs update "${{ steps.resolve-vars.outputs.taxonomy_job }}" \
+            --image="${{ steps.image.outputs.image_ref }}" \
+            --project="${{ env.GCP_PROJECT }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --quiet
+          gcloud run jobs execute "${{ steps.resolve-vars.outputs.taxonomy_job }}" \
+            --project="${{ env.GCP_PROJECT }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --wait
+
+      - name: Deploy control plane and console
+        run: |
+          set -euo pipefail
+          gcloud run services update "${{ steps.resolve-vars.outputs.control_plane_service }}" \
+            --image="${{ steps.image.outputs.image_ref }}" \
+            --project="${{ env.GCP_PROJECT }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --quiet
+          gcloud run services update "${{ steps.resolve-vars.outputs.console_service }}" \
+            --image="${{ steps.image.outputs.image_ref }}" \
+            --project="${{ env.GCP_PROJECT }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --quiet
+
+      - name: Route traffic to latest revision (production only)
+        if: steps.resolve-vars.outputs.target == 'production'
+        run: |
+          set -euo pipefail
+          gcloud run services update-traffic "${{ steps.resolve-vars.outputs.control_plane_service }}" \
+            --project="${{ env.GCP_PROJECT }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --to-latest \
+            --quiet
+          gcloud run services update-traffic "${{ steps.resolve-vars.outputs.console_service }}" \
+            --project="${{ env.GCP_PROJECT }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --to-latest \
+            --quiet
+
+      - name: Authenticate as GitHub App
+        if: env.AIRMUX_PR != ''
+        uses: actions/create-github-app-token@v2
+        id: get-app-token
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+
+      - name: Find existing preview comment
+        id: find-preview-comment
+        if: steps.resolve-vars.outputs.target == 'preview' && env.AIRMUX_PR != ''
+        uses: peter-evans/find-comment@v3
+        with:
+          token: ${{ steps.get-app-token.outputs.token }}
+          issue-number: ${{ env.AIRMUX_PR }}
+          body-includes: "<!-- airmux-preview -->"
+
+      - name: Post or update preview comment
+        if: steps.resolve-vars.outputs.target == 'preview' && env.AIRMUX_PR != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          token: ${{ steps.get-app-token.outputs.token }}
+          comment-id: ${{ steps.find-preview-comment.outputs.comment-id }}
+          issue-number: ${{ env.AIRMUX_PR }}
+          edit-mode: replace
+          body: |
+            <!-- airmux-preview -->
+            ### 🔍 Airmux preview
+
+            **Preview console:** https://preview.airmux.internal.airbyte.ai
+            **Gateway hostname:** `airmux-cp-preview.internal.airbyte.ai`
+            **Version:** `${{ steps.resolve-vars.outputs.version }}`
+
+            > This deploys the `-preview` twin (separate Cloud Run services, jobs, and `airmux_preview` database). Re-deploys replace the previous preview revision.
+
+      - name: Summarize deployment
+        run: |
+          {
+            printf "Airmux %s deployed.\n" "${{ steps.resolve-vars.outputs.version }}"
+            printf "Target: %s\n" "${{ steps.resolve-vars.outputs.target }}"
+            printf "Image: %s\n" "${{ steps.image.outputs.image_ref }}"
+            printf "Services: %s, %s\n" \
+              "${{ steps.resolve-vars.outputs.control_plane_service }}" \
+              "${{ steps.resolve-vars.outputs.console_service }}"
+          } | tee -a "$GITHUB_STEP_SUMMARY"

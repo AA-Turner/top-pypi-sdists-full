@@ -64,11 +64,7 @@ def sync(
     plato_type: str | None = None,
     x_api_key: str | None = None,
 ) -> None:
-    """Stream logs/events for a session as NDJSON chunks.
-
-    Audit events are not included in the stream. Use the per-span
-    ``/{public_id}/spans/{span_id}/audit-events`` endpoint to load
-    them lazily."""
+    """Stream logs/events for a session as NDJSON chunks."""
 
     request_args = _build_request_args(
         public_id=public_id,
@@ -99,11 +95,7 @@ async def asyncio(
     plato_type: str | None = None,
     x_api_key: str | None = None,
 ) -> None:
-    """Stream logs/events for a session as NDJSON chunks.
-
-    Audit events are not included in the stream. Use the per-span
-    ``/{public_id}/spans/{span_id}/audit-events`` endpoint to load
-    them lazily."""
+    """Stream logs/events for a session as NDJSON chunks."""
 
     request_args = _build_request_args(
         public_id=public_id,

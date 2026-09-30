@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class NotificationList(BaseModel):
     """
     NotificationList
-    """ # noqa: E501
+    """  # noqa: E501
+
     notifications: Optional[List[Notification]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
@@ -36,7 +38,16 @@ class NotificationList(BaseModel):
     is_seen: Optional[StrictBool] = None
     unread: Optional[StrictInt] = None
     unseen: Optional[StrictInt] = None
-    __properties: ClassVar[List[str]] = ["notifications", "limit", "offset", "count", "is_read", "is_seen", "unread", "unseen"]
+    __properties: ClassVar[List[str]] = [
+        "notifications",
+        "limit",
+        "offset",
+        "count",
+        "is_read",
+        "is_seen",
+        "unread",
+        "unseen",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -44,7 +55,6 @@ class NotificationList(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -69,8 +79,7 @@ class NotificationList(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,9 +90,12 @@ class NotificationList(BaseModel):
         _items = []
         if self.notifications:
             for _item_notifications in self.notifications:
-                if _item_notifications:
-                    _items.append(_item_notifications.to_dict())
-            _dict['notifications'] = _items
+                _items.append(
+                    _item_notifications.to_dict()
+                    if _item_notifications is not None
+                    else None
+                )
+            _dict["notifications"] = _items
         return _dict
 
     @classmethod
@@ -95,16 +107,20 @@ class NotificationList(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "notifications": [Notification.from_dict(_item) for _item in obj["notifications"]] if obj.get("notifications") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset"),
-            "count": obj.get("count"),
-            "is_read": obj.get("is_read"),
-            "is_seen": obj.get("is_seen"),
-            "unread": obj.get("unread"),
-            "unseen": obj.get("unseen")
-        })
+        _obj = cls.model_validate(
+            {
+                "notifications": [
+                    Notification.from_dict(_item) for _item in obj["notifications"]
+                ]
+                if obj.get("notifications") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+                "count": obj.get("count"),
+                "is_read": obj.get("is_read"),
+                "is_seen": obj.get("is_seen"),
+                "unread": obj.get("unread"),
+                "unseen": obj.get("unseen"),
+            }
+        )
         return _obj
-
-

@@ -8,6 +8,8 @@ readme = "README.md"
 
 [features]
 default = []
+# Pass through: ZeroMQ recording transport (pulls a C++ toolchain).
+zmq-transport = ["guacr-recording/zmq-transport"]
 # Enable vSphere REST API client for VM management and console access
 vsphere = ["dep:reqwest", "dep:serde"]
 # Enable Docker container management via bollard

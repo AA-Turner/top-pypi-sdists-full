@@ -85,6 +85,11 @@ class GitHubAppServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoResponse.FromString,
         )
+        self.CreatePullRequestFromVolume = channel.unary_unary(
+            "/chalk.server.v1.GitHubAppService/CreatePullRequestFromVolume",
+            request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromVolumeRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromVolumeResponse.FromString,
+        )
         self.LinkProjectToGitHubRepository = channel.unary_unary(
             "/chalk.server.v1.GitHubAppService/LinkProjectToGitHubRepository",
             request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.LinkProjectToGitHubRepositoryRequest.SerializeToString,
@@ -198,6 +203,15 @@ class GitHubAppServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CreatePullRequestFromVolume(self, request, context):
+        """Diffs a volume's contents against base_branch and opens a pull request
+        making the repository match the volume, server-side -- no file bytes
+        cross the caller.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def LinkProjectToGitHubRepository(self, request, context):
         """-- Project links --"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -294,6 +308,11 @@ def add_GitHubAppServiceServicer_to_server(servicer, server):
             servicer.CreateVolumeFromGitHubRepo,
             request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoResponse.SerializeToString,
+        ),
+        "CreatePullRequestFromVolume": grpc.unary_unary_rpc_method_handler(
+            servicer.CreatePullRequestFromVolume,
+            request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromVolumeRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromVolumeResponse.SerializeToString,
         ),
         "LinkProjectToGitHubRepository": grpc.unary_unary_rpc_method_handler(
             servicer.LinkProjectToGitHubRepository,
@@ -720,6 +739,35 @@ class GitHubAppService(object):
             "/chalk.server.v1.GitHubAppService/CreateVolumeFromGitHubRepo",
             chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreatePullRequestFromVolume(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GitHubAppService/CreatePullRequestFromVolume",
+            chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromVolumeRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromVolumeResponse.FromString,
             options,
             channel_credentials,
             insecure,

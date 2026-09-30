@@ -27,9 +27,7 @@ class TestActivityApi(unittest.IsolatedAsyncioTestCase):
         await self.api.api_client.close()
 
     async def test_get_account_activities(self) -> None:
-        """Test case for get_account_activities
-
-        """
+        """Test case for get_account_activities"""
         pass
 
     async def test_list_activities(self) -> None:
@@ -47,5 +45,5 @@ class TestActivityApi(unittest.IsolatedAsyncioTestCase):
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

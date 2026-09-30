@@ -594,6 +594,9 @@ class Workday(FlowComponent):
                 "cost_center_id_type", "organization_id_type", "worker_id_type",
                 "exclude_all_attachments", "exclude_employees", "exclude_contingent_workers",
                 "StepName", "TaskName", "debug", "step_name", "task_name",
+                # Injected by Task for every component (tasks/task.py);
+                # Workday RaaS rejects unknown query params.
+                "storage_name",
             }
             for attr_name in dir(self):
                 if attr_name.startswith("_") or attr_name in excluded_attrs:

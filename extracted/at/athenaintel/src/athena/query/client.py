@@ -46,6 +46,7 @@ class QueryClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.query.execute_snippet(
@@ -96,6 +97,7 @@ class AsyncQueryClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 

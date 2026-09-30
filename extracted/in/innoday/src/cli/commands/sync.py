@@ -25,6 +25,7 @@ from src.cli.commands.boards import (
 )
 from src.cli.utils import guidance
 from src.cli.utils.formatters import (
+    ProgressReporter,
     format_error,
     format_info,
     format_success,
@@ -510,10 +511,11 @@ class SyncCommands:
         if since:
             sync_data["since"] = since
 
-        response = await client.post(
-            f"/organizations/{org_id}/boards/{board_id}/sync",
-            json=sync_data,
-        )
+        with ProgressReporter("Starting the board sync…"):
+            response = await client.post(
+                f"/organizations/{org_id}/boards/{board_id}/sync",
+                json=sync_data,
+            )
         if response.status_code in (200, 201):
             data = response.json()
             sync_id = data.get("sync_id")
@@ -524,10 +526,7 @@ class SyncCommands:
                         f"(sync_id: {sync_id})"
                     )
                 )
-                console.print(
-                    "  [dim]Check status with: "
-                    f"innoday board sync-status --board-id {board_id}[/dim]"
-                )
+                console.print("  [dim]Check status with: innoday status[/dim]")
                 return 0
 
             console.print(
@@ -548,7 +547,7 @@ class SyncCommands:
             # The line that stood here dropped all of it (#613).
             #
             # Kept identical to `BoardCommands._handle_sync`'s 429 branch --
-            # same refusal, same bug, and this one used to omit the sync-status
+            # same refusal, same bug, and this one used to omit the status
             # hint that the success branch nine lines above prints, so the
             # operator with a *wedged* board got less help than the one whose
             # sync queued fine.
@@ -571,10 +570,7 @@ class SyncCommands:
                     )
                 )
             )
-            console.print(
-                "  [dim]Check status with: "
-                f"innoday board sync-status --board-id {board_id}[/dim]"
-            )
+            console.print("  [dim]Check status with: innoday status[/dim]")
             return 1
         else:
             console.print(
@@ -589,9 +585,10 @@ class SyncCommands:
         client: InnoDayAPIClient, org_id: str, project_id: str
     ) -> int:
         """Discover/reconcile the project's repos by GitHub topic label."""
-        response = await client.post(
-            f"/organizations/{org_id}/projects/{project_id}/repositories/discover"
-        )
+        with ProgressReporter("Finding the project's repositories on GitHub…"):
+            response = await client.post(
+                f"/organizations/{org_id}/projects/{project_id}/repositories/discover"
+            )
         if response.status_code != 200:
             console.print(
                 format_error(

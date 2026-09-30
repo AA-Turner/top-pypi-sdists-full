@@ -474,14 +474,14 @@ async def test_late_one_shots_preserve_fk_queue_order(monkeypatch, captured_tier
 
 
 # ---------------------------------------------------------------------------
-# Cross-coordinator pending visibility (the duplicate-cx_user_request fix)
+# Cross-coordinator pending reads (the duplicate-cx_user_request fix)
 #
 # Each sub-agent gets its OWN Coordinator (own Session), pushed onto the
 # matrx-orm session stack on top of the parent request's Session. A read
 # inside the child must see the ancestor row the parent already queued —
 # otherwise the child's ``ensure_*_exists`` gate misses it and re-queues a
 # duplicate INSERT → ``*_pkey`` unique violation when both coordinators
-# flush. This pins the stack-walk visibility the gate depends on.
+# flush. This pins the stack-walk read-through the gate depends on.
 # ---------------------------------------------------------------------------
 
 

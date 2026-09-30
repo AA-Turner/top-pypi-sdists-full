@@ -365,6 +365,7 @@ class UpdateEnvironmentOperation(_message.Message):
         "pinned_base_image",
         "description",
         "default_engine_base_image",
+        "default_ai_provider_connection_id",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -391,6 +392,7 @@ class UpdateEnvironmentOperation(_message.Message):
     PINNED_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_ENGINE_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_AI_PROVIDER_CONNECTION_ID_FIELD_NUMBER: _ClassVar[int]
     is_default: bool
     specs_config_json: str
     additional_env_vars: _containers.ScalarMap[str, str]
@@ -408,6 +410,7 @@ class UpdateEnvironmentOperation(_message.Message):
     pinned_base_image: str
     description: str
     default_engine_base_image: str
+    default_ai_provider_connection_id: str
     def __init__(
         self,
         is_default: bool = ...,
@@ -427,6 +430,7 @@ class UpdateEnvironmentOperation(_message.Message):
         pinned_base_image: _Optional[str] = ...,
         description: _Optional[str] = ...,
         default_engine_base_image: _Optional[str] = ...,
+        default_ai_provider_connection_id: _Optional[str] = ...,
     ) -> None: ...
 
 class UpdateEnvironmentRequest(_message.Message):

@@ -11,7 +11,7 @@
 pack_id: every-app-seo-skills
 title: "SEO skills and strategy playbooks"
 imported_on: "2026-09-27"
-visibility: public          # platform-provided library entries every organization can use
+published_to_web: true          # platform-provided library entries every organization can use
 skill_type: reference
 
 source:

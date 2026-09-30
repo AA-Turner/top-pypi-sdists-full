@@ -1,9 +1,9 @@
 import io
 import logging
 import os
-import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -20,24 +20,22 @@ except ImportError:
 
 _logger = logging.getLogger(__name__)
 
+# Importing this module must not install packages or write files: the runtime
+# image provides the dependencies.
 
-def _run_clip_module_pip_installs() -> None:
-    with open("pip_jetson_bti.log", "w", encoding="utf-8") as log_file:
-        subprocess.run(
-            ["pip", "install", "importlib-resources"],
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
-        subprocess.run(
-            ["pip", "install", "httpx", "aiohttp", "filterpy"],
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
-
-
-_run_clip_module_pip_installs()
+# Process-wide cache of the heavy CLIP state (two ONNX sessions, the processor and
+# the text embeddings). Every ClipProcessor shares one copy per model/provider key,
+# so N color cameras in one worker cost one download and one GPU allocation.
+_SHARED_MODELS_LOCK = threading.Lock()
+_SHARED_MODELS: Dict[str, Dict[str, object]] = {}
+# Negative cache: after a failed init, further attempts fail fast until the
+# backoff window has passed, so a broken init is not retried per frame. The
+# backoff is deliberately process-wide rather than per model key: ClipProcessor
+# checks it before resolving providers (so before a key exists), and the failures
+# it guards against (missing packages, an unreachable model host) affect every key.
+_INIT_BACKOFF_BASE_S = 30.0
+_INIT_BACKOFF_MAX_S = 600.0
+_init_failure: Dict[str, object] = {"retry_at": 0.0, "delay": 0.0, "error": None}
 
 # Try to import optional CLIP dependencies (fail gracefully if missing)
 # These will be None if not available, and auto-install will be attempted on first use
@@ -65,7 +63,7 @@ try:
 except ImportError as import_err:
     _logger.warning("CLIP dependencies not available at import time: %s", import_err)
     _logger.warning("Will attempt auto-installation when color detection is first used")
-except Exception as import_err:
+except Exception as import_err:  # noqa: BLE001 - optional deps, color detection degrades
     _logger.warning("Error importing CLIP dependencies: %s", import_err)
     _logger.warning("Color detection may be disabled")
 
@@ -90,6 +88,22 @@ def preprocess_crop_paper_vcr(
     img = cv2.GaussianBlur(img, gaussian_kernel, sigmaX=0)
     img = cv2.resize(img, output_size, interpolation=cv2.INTER_LINEAR)
     return img
+
+
+def _pip_package_installed(package_name: str) -> bool:
+    """Return True when pip reports the package as installed."""
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "show", package_name],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return result.returncode == 0
+    except Exception:  # noqa: BLE001 - probe failure means not installed
+        return False
 
 
 def try_install_clip_dependencies():
@@ -132,19 +146,7 @@ def try_install_clip_dependencies():
         print(f"→ Detected x86_64 platform ({machine})")
 
     packages_to_install = []
-
-    # Helper function to check if package is installed
-    def is_package_installed(package_name):
-        try:
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "show", package_name],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            return result.returncode == 0
-        except Exception:
-            return False
+    is_package_installed = _pip_package_installed
 
     # Check which packages are missing
     try:
@@ -182,14 +184,18 @@ def try_install_clip_dependencies():
             print("→ pillow is installed but import failed")
 
     try:
-        from transformers import CLIPProcessor as CLIP  # noqa: F401 — import verifies package availability
+        from transformers import (
+            CLIPProcessor as CLIP,  # noqa: F401 — import verifies package availability
+        )
 
         print("→ transformers imported successfully")
     except ImportError:
         if not is_package_installed("transformers"):
             packages_to_install.append("transformers")
         else:
-            print("→ transformers is installed but import failed (may be incompatible with torch version)")
+            print(
+                "→ transformers is installed but import failed (may be incompatible with torch version)"
+            )
 
     # Check for tqdm (required by transformers)
     try:
@@ -236,7 +242,7 @@ def try_install_clip_dependencies():
                     _installation_error = error_msg
                     _logger.debug("CLIP install error: %r", _installation_error)
                     return False
-        except Exception as install_error:
+        except Exception as install_error:  # noqa: BLE001 - install failure is recorded and backed off
             error_msg = f"Installation failed: {install_error}"
             print(f"✗ {error_msg}")
             _installation_error = error_msg
@@ -259,7 +265,7 @@ def try_install_clip_dependencies():
         import onnxruntime as ort_module
 
         print("  ✓ onnxruntime imported")
-    except Exception as pkg_err:
+    except Exception as pkg_err:  # noqa: BLE001 - import probe, failure is reported
         import_errors.append(f"onnxruntime: {pkg_err}")
         print(f"  ✗ onnxruntime import failed: {pkg_err}")
 
@@ -267,7 +273,7 @@ def try_install_clip_dependencies():
         from PIL import Image as PILImage
 
         print("  ✓ PIL imported")
-    except Exception as pkg_err:
+    except Exception as pkg_err:  # noqa: BLE001 - import probe, failure is reported
         import_errors.append(f"PIL: {pkg_err}")
         print(f"  ✗ PIL import failed: {pkg_err}")
 
@@ -275,7 +281,7 @@ def try_install_clip_dependencies():
         from transformers import CLIPProcessor as CLIPProc
 
         print("  ✓ transformers imported")
-    except Exception as pkg_err:
+    except Exception as pkg_err:  # noqa: BLE001 - import probe, failure is reported
         import_errors.append(f"transformers: {pkg_err}")
         print(f"  ✗ transformers import failed: {pkg_err}")
 
@@ -284,7 +290,7 @@ def try_install_clip_dependencies():
         from importlib.resources import files as ir_files_module
 
         print("  ✓ importlib.resources imported")
-    except Exception as pkg_err:
+    except Exception as pkg_err:  # noqa: BLE001 - import probe, failure is reported
         import_errors.append(f"importlib.resources: {pkg_err}")
         print(f"  ✗ importlib.resources import failed: {pkg_err}")
 
@@ -353,7 +359,7 @@ def load_model_from_checkpoint(checkpoint_url: str, providers: Optional[List] = 
             # Conservative thread usage – GPU work dominates
             sess_options.intra_op_num_threads = 1
             sess_options.inter_op_num_threads = 1
-        except Exception:
+        except Exception:  # noqa: BLE001 - session tuning is optional
             sess_options = None
 
         # Resolve providers
@@ -377,7 +383,9 @@ def load_model_from_checkpoint(checkpoint_url: str, providers: Optional[List] = 
         for provider in use_providers:
             provider_name = provider[0] if isinstance(provider, tuple) else provider
             if provider_name not in available:
-                print(f"Warning: Requested provider '{provider_name}' not in available providers: {available}")
+                print(
+                    f"Warning: Requested provider '{provider_name}' not in available providers: {available}"
+                )
                 print("Will attempt to use it anyway, may fall back to available providers")
 
         # Load ONNX model from bytes with enforced providers
@@ -391,9 +399,95 @@ def load_model_from_checkpoint(checkpoint_url: str, providers: Optional[List] = 
         print("Model loaded successfully from checkpoint (in-memory)")
         return model
 
-    except Exception as load_err:
+    except Exception as load_err:  # noqa: BLE001 - load failure is reported to the caller
         print(f"Error loading model from checkpoint: {load_err}")
         return None
+
+
+def _load_clip_text_processor(processor_path: str):
+    """Load the CLIPProcessor from the bundled assets, falling back to the hub."""
+    if CLIPProcessor is None:
+        raise RuntimeError("transformers (CLIPProcessor) is not available")
+    try:
+        if processor_path and os.path.isdir(processor_path):
+            return CLIPProcessor.from_pretrained(processor_path, local_files_only=True)  # nosec B615
+        return CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")  # nosec B615
+    except Exception as processor_err:  # noqa: BLE001 - local processor assets are optional
+        print(
+            f"Falling back to remote CLIPProcessor due to error loading local assets: {processor_err}"
+        )
+        try:
+            return CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")  # nosec B615
+        except Exception as e2:
+            raise RuntimeError(
+                f"Failed to load CLIPProcessor from both local and remote: {e2}\n"
+                "Please ensure transformers package is properly installed and you have internet connection."
+            ) from e2
+
+
+def _build_models(
+    image_url: str, text_url: str, processor_path: str, providers, labels
+) -> Dict[str, object]:
+    image_sess = load_model_from_checkpoint(image_url, providers=providers)
+    text_sess = load_model_from_checkpoint(text_url, providers=providers)
+    if image_sess is None or text_sess is None:
+        raise RuntimeError(
+            "Failed to load the CLIP ONNX models (image and text sessions are required)"
+        )
+    processor = _load_clip_text_processor(processor_path)
+    tok = processor.tokenizer(labels, padding=True, return_tensors="np")
+    ort_inputs_text = {
+        "input_ids": tok["input_ids"].astype(np.int64),
+        "attention_mask": tok["attention_mask"].astype(np.int64),
+    }
+    text_out = text_sess.run(["text_embeds"], ort_inputs_text)[0].astype(np.float32)
+    sample = processor(images=np.zeros((224, 224, 3), dtype=np.uint8), return_tensors="np")
+    return {
+        "image_sess": image_sess,
+        "text_sess": text_sess,
+        "processor": processor,
+        "text_embeds": text_out / np.linalg.norm(text_out, axis=-1, keepdims=True),
+        "pixel_template": sample["pixel_values"].astype(np.float32),
+    }
+
+
+def clip_init_backoff_remaining() -> float:
+    """Seconds left before a failed CLIP init may be retried (0 when allowed)."""
+    return max(0.0, float(_init_failure["retry_at"]) - time.monotonic())  # type: ignore[arg-type]
+
+
+def _record_init_failure(err: BaseException) -> None:
+    """Start (or double, up to the cap) the retry backoff after a failed init."""
+    delay = min(_INIT_BACKOFF_MAX_S, max(_INIT_BACKOFF_BASE_S, 2 * float(_init_failure["delay"])))  # type: ignore[arg-type]
+    _init_failure.update(retry_at=time.monotonic() + delay, delay=delay, error=str(err))
+
+
+def _raise_if_init_backing_off() -> None:
+    remaining = clip_init_backoff_remaining()
+    if remaining > 0:
+        raise RuntimeError(
+            f"CLIP init failed recently ({_init_failure['error']}); retry in {remaining:.0f}s"
+        )
+
+
+def _get_shared_models(
+    image_url: str, text_url: str, processor_path: str, providers, labels
+) -> Dict[str, object]:
+    """Return the process-wide CLIP models for this key, loading them once under a lock."""
+    key = repr((image_url, text_url, processor_path, providers, tuple(labels)))
+    with _SHARED_MODELS_LOCK:
+        cached = _SHARED_MODELS.get(key)
+        if cached is not None:
+            return cached
+        _raise_if_init_backing_off()
+        try:
+            models = _build_models(image_url, text_url, processor_path, providers, labels)
+        except Exception as load_err:
+            _record_init_failure(load_err)
+            raise
+        _init_failure.update(retry_at=0.0, delay=0.0, error=None)
+        _SHARED_MODELS[key] = models
+        return models
 
 
 class ClipProcessor:
@@ -404,13 +498,15 @@ class ClipProcessor:
         processor_dir: Optional[str] = None,
         providers: Optional[List[str]] = None,
     ):
+        # Fail fast while a recent init failure is backing off (see _init_failure).
+        _raise_if_init_backing_off()
         # Check if required dependencies are available, try auto-install if not
         if ort is None or CLIPProcessor is None or Image is None:
             print("⚠ Color detection dependencies missing, attempting auto-installation...")
 
             # Try to auto-install missing dependencies (lazy installation)
             if not try_install_clip_dependencies():
-                raise RuntimeError(
+                deps_err = RuntimeError(
                     "Required dependencies for ClipProcessor are not available.\n"
                     "Auto-installation failed. Missing: "
                     + (
@@ -421,6 +517,9 @@ class ClipProcessor:
                     + "\n"
                     "Please install manually: pip install transformers onnxruntime-gpu pillow"
                 )
+                with _SHARED_MODELS_LOCK:
+                    _record_init_failure(deps_err)
+                raise deps_err
 
             print("✓ Auto-installation successful, continuing with ClipProcessor initialization")
 
@@ -445,31 +544,13 @@ class ClipProcessor:
         cwd = os.getcwd()
         print("Current working directory:", cwd)
 
-        cmd = [
-            "pip",
-            "install",
-            "--force-reinstall",
-            "huggingface_hub",
-            "regex",
-            "safetensors",
-        ]
-
-        def _pip_jetson_bti_log() -> None:
-            with open("pip_jetson_bti.log", "w", encoding="utf-8") as log_file:
-                subprocess.run(
-                    cmd,
-                    stdout=log_file,
-                    stderr=subprocess.STDOUT,
-                    check=False,
-                )
-
-        threading.Thread(target=_pip_jetson_bti_log, daemon=True).start()
-
         # Determine and enforce providers (prefer CUDA only)
         try:
             available = ort.get_available_providers()
-        except Exception:
-            print("Error getting ONNX providers - this should not happen if dependencies check passed")
+        except Exception:  # noqa: BLE001 - provider query failure falls back
+            print(
+                "Error getting ONNX providers - this should not happen if dependencies check passed"
+            )
             available = []
         print(
             "True OG Available ONNX providers:",
@@ -497,51 +578,22 @@ class ClipProcessor:
         self._lock = threading.Lock()
         print("Curr Providersss: ", self.providers)
 
-        self.image_sess = load_model_from_checkpoint(self.image_url, providers=self.providers)
-        self.text_sess = load_model_from_checkpoint(self.text_url, providers=self.providers)
-
-        # Load CLIPProcessor tokenizer/config from local package data if available
-        self.processor = None
-
-        # Double-check CLIPProcessor is available (should never be None at this point due to check above)
-        if CLIPProcessor is None:
-            raise RuntimeError(
-                "CRITICAL: CLIPProcessor is None despite early check. This should never happen.\n"
-                "The auto-installation may have failed. Please manually install: pip install transformers"
-            )
-
-        try:
-            if self.processor_path and os.path.isdir(self.processor_path):
-                self.processor = CLIPProcessor.from_pretrained(self.processor_path, local_files_only=True)  # nosec B615
-            else:
-                # Fallback to hub
-                self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")  # nosec B615
-        except Exception as processor_err:
-            print(f"Falling back to remote CLIPProcessor due to error loading local assets: {processor_err}")
-            try:
-                self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")  # nosec B615
-            except Exception as e2:
-                raise RuntimeError(
-                    f"Failed to load CLIPProcessor from both local and remote: {e2}\n"
-                    "Please ensure transformers package is properly installed and you have internet connection."
-                )
-
-        tok = self.processor.tokenizer(self.color_category, padding=True, return_tensors="np")
-        ort_inputs_text = {
-            "input_ids": tok["input_ids"].astype(np.int64),
-            "attention_mask": tok["attention_mask"].astype(np.int64),
-        }
-        text_out = self.text_sess.run(["text_embeds"], ort_inputs_text)[0].astype(np.float32)
-        self.text_embeds = text_out / np.linalg.norm(text_out, axis=-1, keepdims=True)
-
-        sample = self.processor(images=np.zeros((224, 224, 3), dtype=np.uint8), return_tensors="np")
-        self.pixel_template = sample["pixel_values"].astype(np.float32)
+        models = _get_shared_models(
+            self.image_url, self.text_url, self.processor_path, self.providers, self.color_category
+        )
+        self.image_sess = models["image_sess"]
+        self.text_sess = models["text_sess"]
+        self.processor = models["processor"]
+        self.text_embeds = models["text_embeds"]
+        self.pixel_template = models["pixel_template"]
         self.min_box_size = 32
         self.max_batch = 32
         # Classify every frame for stability unless changed by caller
         # NOTE : frame_skip param updated from 1 to 3 for latency improvement. Can be tuned based on use case and performance requirements.
         self.frame_skip = 3
-        self.batch_pixels = np.zeros((self.max_batch, *self.pixel_template.shape[1:]), dtype=np.float32)
+        self.batch_pixels = np.zeros(
+            (self.max_batch, *self.pixel_template.shape[1:]), dtype=np.float32
+        )
 
         self.records: Dict[int, Dict[str, float]] = {}
         self.frame_idx = 0
@@ -576,11 +628,11 @@ class ClipProcessor:
                     with ir_as_file(res) as p:
                         if Path(p).is_dir():
                             return str(p)
-                except Exception:
+                except Exception:  # noqa: BLE001 - not a context resource, try it as a path
                     # If already a concrete path
                     if res and str(res):
                         return str(res)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 - bundled processor dir is optional
             # Non-fatal: exception ignored here; execution continues per surrounding logic.
             pass
 
@@ -642,29 +694,20 @@ class ClipProcessor:
             # print(tracked_ids)
             crops_for_model = []
             map_trackidx_to_cropidx = []
-            for i, (bbox, tid) in enumerate(zip(boxes, tracked_ids)):
+            for _i, (bbox, tid) in enumerate(zip(boxes, tracked_ids)):  # noqa: B905 - boxes and track ids are parallel
                 last_rec = self.records.get(tid)
                 should_classify = False
                 if last_rec is None:
                     should_classify = True
                 else:
-                    if (self.frame_idx - last_rec.get("last_classified_frame", -999)) >= self.frame_skip:
+                    if (
+                        self.frame_idx - last_rec.get("last_classified_frame", -999)
+                    ) >= self.frame_skip:
                         should_classify = True
                 if should_classify:
-                    x1, y1, x2, y2 = (
-                        bbox["xmin"],
-                        bbox["ymin"],
-                        bbox["xmax"],
-                        bbox["ymax"],
-                    )
-                    # crop safely - convert to integers
-                    y1c, y2c = max(0, int(y1)), min(frame.shape[0], int(y2))
-                    x1c, x2c = max(0, int(x1)), min(frame.shape[1], int(x2))
-                    print(f"Cropping bbox: x1c={x1c}, y1c={y1c}, x2c={x2c}, y2c={y2c}, frame_shape={frame.shape}")
-                    if y2c - y1c <= 0 or x2c - x1c <= 0:
-                        print(f"Skipping invalid crop: dimensions {x2c - x1c}x{y2c - y1c}")
+                    crop = self._crop_rgb(frame, bbox)
+                    if crop is None:
                         continue
-                    crop = cv2.cvtColor(frame[y1c:y2c, x1c:x2c], cv2.COLOR_BGR2RGB)
                     map_trackidx_to_cropidx.append((tid, len(crops_for_model)))
                     # Pass raw numpy crop; resize handled in run_image_onnx_on_crops
                     crops_for_model.append(crop)
@@ -677,7 +720,9 @@ class ClipProcessor:
                 # compute similarity with text_embeds (shape [num_labels, D])
                 sims = img_embeds @ self.text_embeds.T  # [N, num_labels]
                 # convert to probs
-                probs = np.exp(sims) / np.exp(sims).sum(axis=-1, keepdims=True)  # softmax numerically simple
+                probs = np.exp(sims) / np.exp(sims).sum(
+                    axis=-1, keepdims=True
+                )  # softmax numerically simple
                 # print(probs)
 
                 # assign back to corresponding tracks
@@ -706,6 +751,21 @@ class ClipProcessor:
 
             return record
 
+    @staticmethod
+    def _crop_rgb(frame, bbox):
+        """Crop ``bbox`` out of a BGR frame as RGB, or None when the crop is empty."""
+        x1, y1, x2, y2 = (bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"])
+        # crop safely - convert to integers
+        y1c, y2c = max(0, int(y1)), min(frame.shape[0], int(y2))
+        x1c, x2c = max(0, int(x1)), min(frame.shape[1], int(x2))
+        print(
+            f"Cropping bbox: x1c={x1c}, y1c={y1c}, x2c={x2c}, y2c={y2c}, frame_shape={frame.shape}"
+        )
+        if y2c - y1c <= 0 or x2c - x1c <= 0:
+            print(f"Skipping invalid crop: dimensions {x2c - x1c}x{y2c - y1c}")
+            return None
+        return cv2.cvtColor(frame[y1c:y2c, x1c:x2c], cv2.COLOR_BGR2RGB)
+
     def run_image_onnx_on_crops(self, crops):
         valid_crops = []
         for i, crop in enumerate(crops):
@@ -722,7 +782,7 @@ class ClipProcessor:
             try:
                 crop_preprocessed = preprocess_crop_paper_vcr(crop)
                 valid_crops.append(crop_preprocessed)
-            except Exception as crop_err:
+            except Exception as crop_err:  # noqa: BLE001 - a bad crop is skipped, not fatal
                 print(f"Skipping crop {i}: resize failed ({crop_err})")
 
         if not valid_crops:

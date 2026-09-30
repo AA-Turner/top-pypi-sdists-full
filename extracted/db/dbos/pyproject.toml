@@ -35,7 +35,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Framework :: AsyncIO",
 ]
-version = "3.1.0"
+version = "3.2.0"
 
 [project.license]
 text = "MIT"
@@ -65,6 +65,15 @@ build-backend = "pdm.backend"
 
 [tool.pdm]
 distribution = true
+
+[tool.pdm.build]
+includes = [
+    "dbos/",
+]
+source-includes = [
+    "tests/",
+    "version/",
+]
 
 [tool.pdm.version]
 source = "scm"

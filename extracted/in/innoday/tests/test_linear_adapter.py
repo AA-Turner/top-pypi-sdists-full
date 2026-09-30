@@ -196,6 +196,51 @@ async def test_validate_connection_returns_false_on_exception():
 
 
 @pytest.mark.asyncio
+async def test_initialize_surfaces_linear_rejection_reason():
+    """PF-471: a 401 from Linear must reach the sync record, not be replaced
+    by a generic "Failed to connect" that reads the same as a missing team."""
+    from src.adapters.base_adapter import BoardAdapterError
+    from src.adapters.linear_adapter import LinearBoardAdapter
+    from src.api.linear_api import LinearAPI, LinearAPIError
+
+    api = MagicMock(spec=LinearAPI)
+    api.get_team = AsyncMock(
+        side_effect=LinearAPIError(
+            'Linear returned HTTP 401: {"errors":[{"message":"Authentication required"}]}'
+        )
+    )
+
+    adapter = LinearBoardAdapter(
+        api, make_registration("0f8b1c2e-1111-2222-3333-444455556666")
+    )
+    with pytest.raises(BoardAdapterError) as exc:
+        await adapter.initialize("token")
+
+    msg = str(exc.value)
+    assert "Could not connect to Linear team" in msg
+    assert "HTTP 401" in msg
+    assert "Authentication required" in msg
+
+
+@pytest.mark.asyncio
+async def test_initialize_says_team_not_found_when_linear_returns_none():
+    from src.adapters.base_adapter import BoardAdapterError
+    from src.adapters.linear_adapter import LinearBoardAdapter
+    from src.api.linear_api import LinearAPI
+
+    api = MagicMock(spec=LinearAPI)
+    api.get_team = AsyncMock(return_value=None)
+
+    adapter = LinearBoardAdapter(
+        api, make_registration("0f8b1c2e-1111-2222-3333-444455556666")
+    )
+    with pytest.raises(BoardAdapterError) as exc:
+        await adapter.initialize("token")
+
+    assert "team not found" in str(exc.value)
+
+
+@pytest.mark.asyncio
 async def test_initialize_resolves_stale_team_key_to_uuid():
     """
     Regression test: boards registered before register_board started

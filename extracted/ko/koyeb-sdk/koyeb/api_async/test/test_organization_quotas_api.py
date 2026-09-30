@@ -27,11 +27,9 @@ class TestOrganizationQuotasApi(unittest.IsolatedAsyncioTestCase):
         await self.api.api_client.close()
 
     async def test_get_quotas(self) -> None:
-        """Test case for get_quotas
-
-        """
+        """Test case for get_quotas"""
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

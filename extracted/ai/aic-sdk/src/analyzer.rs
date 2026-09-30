@@ -10,7 +10,7 @@ use crate::to_py_err;
 /// Scores are in the range 0.0 to 1.0. For all fields except speaker_loudness, lower values
 /// indicate less problematic audio.
 #[gen_stub_pyclass]
-#[pyclass(module = "aic_sdk", get_all)]
+#[pyclass(module = "aic_sdk", get_all, from_py_object)]
 #[derive(Clone)]
 pub struct AnalysisResult {
     /// Headline audio score.
@@ -225,8 +225,8 @@ impl Analyzer {
     ///
     /// Example:
     ///     >>> analyzer.reset()
-    fn reset(&self) -> PyResult<()> {
-        self.inner.reset().map_err(to_py_err)
+    fn reset(&self) {
+        self.inner.reset()
     }
 
     /// Analyzes the buffered signal.
@@ -257,8 +257,8 @@ impl Analyzer {
     ///
     /// Warning:
     ///     This method may block and is not real-time safe.
-    fn terminate_session(&mut self, py: Python<'_>) -> PyResult<()> {
-        py.detach(|| self.inner.terminate_session().map_err(to_py_err))
+    fn terminate_session(&mut self, py: Python<'_>) {
+        py.detach(|| self.inner.terminate_session())
     }
 
     /// Replaces the bearer token on the analyzer.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: p4p
-Version: 4.2.2
+Version: 4.3.0
 Summary: Python interface to PVAccess protocol client
 Home-page: https://epics-base.github.io/p4p
 Author: Michael Davidsaver
@@ -8,10 +8,8 @@ Author-email: mdavidsaver@gmail.com
 License: BSD
 Keywords: epics scada
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
@@ -19,14 +17,14 @@ Classifier: Topic :: System :: Distributed Computing
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
-Requires-Python: >=2.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: epicscorelibs<7.0.10.99.1,>=7.0.10.99.0.0
-Requires-Dist: pvxslibs<1.6.0a1,>=1.5.0
+Requires-Dist: epicscorelibs<7.0.10.99.1,>=7.0.10.99.0.2
+Requires-Dist: pvxslibs<1.6.0a1,>=1.5.3
 Requires-Dist: nose2>=0.8.0
 Requires-Dist: ply
-Requires-Dist: numpy>=1.7
+Requires-Dist: numpy>=1.15
 Requires-Dist: numpy<3
 Provides-Extra: qt
 Requires-Dist: qtpy; extra == "qt"

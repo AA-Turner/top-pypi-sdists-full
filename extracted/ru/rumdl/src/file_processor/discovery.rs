@@ -282,18 +282,32 @@ pub fn to_display_path(file_path: &str, project_root: Option<&Path>) -> String {
 
     // Canonicalize the file path once (handles symlinks)
     let canonical_file = path.canonicalize().ok();
-    let effective_path = canonical_file.as_deref().unwrap_or(path);
+    relative_display_path(canonical_file.as_deref().unwrap_or(path), file_path, project_root)
+}
 
+/// [`to_display_path`] for a path [`find_markdown_files`] returned.
+///
+/// Discovery canonicalizes every file it returns, so resolving the path again
+/// would repeat the same filesystem walk once per report for nothing.
+pub fn discovered_display_path(file_path: &str, project_root: Option<&Path>) -> String {
+    relative_display_path(Path::new(file_path), file_path, project_root)
+}
+
+/// The display form of `resolved`, the file `file_path` names with symlinks
+/// resolved: relative to the project root, else to the working directory,
+/// else `file_path` as given.
+fn relative_display_path(resolved: &Path, file_path: &str, project_root: Option<&Path>) -> String {
     // Try project root first (preferred for consistent output across the project)
     if let Some(root) = project_root
-        && let Some(relative) = strip_base_prefix(effective_path, root)
+        && let Some(relative) = strip_base_prefix(resolved, root)
     {
         return normalize_for_display(relative);
     }
 
-    // Fall back to CWD-relative
-    if let Ok(cwd) = std::env::current_dir()
-        && let Some(relative) = strip_base_prefix(effective_path, &cwd)
+    // Fall back to CWD-relative. The cached working directory, because reading
+    // it afresh walks the path on macOS, once per reported file.
+    if let Some(cwd) = rumdl_lib::utils::project_root::working_directory()
+        && let Some(relative) = strip_base_prefix(resolved, cwd)
     {
         return normalize_for_display(relative);
     }
@@ -313,6 +327,16 @@ pub fn resolve_display_path(file_path: &str, show_full_path: bool, project_root:
         normalize_for_display(file_path.to_string())
     } else {
         to_display_path(file_path, project_root)
+    }
+}
+
+/// [`resolve_display_path`] for a path [`find_markdown_files`] returned; see
+/// [`discovered_display_path`].
+pub fn resolve_discovered_display_path(file_path: &str, show_full_path: bool, project_root: Option<&Path>) -> String {
+    if show_full_path {
+        normalize_for_display(file_path.to_string())
+    } else {
+        discovered_display_path(file_path, project_root)
     }
 }
 
@@ -340,22 +364,25 @@ pub(super) fn windows_display_path(path: &str) -> String {
 }
 
 /// Try to strip a base path prefix from a file path.
-/// Handles canonicalization of the base path to resolve symlinks.
+///
+/// An absolute base is tried as given first: the bases here (the project root,
+/// the working directory) are usually canonical already, and one that prefixes
+/// the path as written is the answer either way. Otherwise the base is resolved
+/// (e.g. `/tmp` -> `/private/tmp` on macOS) and tried again. A base that is not
+/// absolute must resolve to an existing directory before it counts, since the
+/// empty path prefixes every path as written; once it does, a match as written
+/// still stands. On Windows that covers a drive-relative root such as `/`,
+/// which is not absolute and resolves to `\\?\C:\`, a prefix a path written as
+/// `/usr/local/test.md` does not carry.
 pub(super) fn strip_base_prefix(file_path: &Path, base: &Path) -> Option<String> {
-    // Canonicalize base to resolve symlinks (e.g., /tmp -> /private/tmp on macOS)
-    let canonical_base = base.canonicalize().ok()?;
-
-    // Try stripping the canonical base prefix
-    if let Ok(relative) = file_path.strip_prefix(&canonical_base) {
-        return Some(relative.to_string_lossy().to_string());
-    }
-
-    // Also try with non-canonical base (for cases where file_path wasn't canonicalized)
-    if let Ok(relative) = file_path.strip_prefix(base) {
-        return Some(relative.to_string_lossy().to_string());
-    }
-
-    None
+    let relative = match file_path.strip_prefix(base) {
+        Ok(relative) if base.is_absolute() => relative,
+        as_written => {
+            let canonical = base.canonicalize().ok()?;
+            file_path.strip_prefix(&canonical).or(as_written).ok()?
+        }
+    };
+    Some(relative.to_string_lossy().to_string())
 }
 
 /// Why a discovery walk produced no files to check.

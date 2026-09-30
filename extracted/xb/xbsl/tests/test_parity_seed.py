@@ -8,8 +8,13 @@ passing quietly.
 
 The tool is a script rather than part of the package, so it is loaded by path - the same way
 tests/test_claims_registry.py loads the claims tool.
+
+The tests that run a seed need the Element data and are marked one by one. The module as a whole
+is not: the check that no constant of the tool is bound twice reads the tool's source alone, and
+it has to run in a public checkout as well.
 """
 
+import ast
 import dataclasses
 import importlib.util
 import sys
@@ -20,8 +25,6 @@ import pytest
 from xbsl import dataset
 
 ROOT = Path(__file__).resolve().parent.parent
-
-pytestmark = pytest.mark.needs_data
 
 
 def _tool():
@@ -37,6 +40,7 @@ def _tool():
 _TOOL = _tool()
 
 
+@pytest.mark.needs_data
 @pytest.mark.parametrize(
     "seed", _TOOL.SEEDS, ids=lambda s: f"{s.rule.replace('/', '-')}-{s.expect}",
 )
@@ -61,6 +65,7 @@ def test_seed_reads_the_same_in_both_spellings(seed):
         assert result["status"] == "ok", detail
 
 
+@pytest.mark.needs_data
 def test_a_seed_that_stops_planting_its_case_is_reported_stale():
     """The tool's own negative control: passing must mean the case was actually planted.
 
@@ -96,6 +101,7 @@ def test_a_seed_whose_data_section_is_missing_is_not_judged():
     assert (result["russian"], result["english"]) == (0, 0)
 
 
+@pytest.mark.needs_data
 def test_a_hand_written_twin_the_rule_misreads_is_blamed_on_the_rule():
     """With a hand-written English twin the `en-...` verdict speaks about the rule alone.
 
@@ -124,6 +130,7 @@ def test_a_hand_written_twin_the_rule_misreads_is_blamed_on_the_rule():
     assert result["translator_differs"] == ["Applications.xbsl"]
 
 
+@pytest.mark.needs_data
 def test_a_translated_twin_that_disagrees_alone_is_blamed_on_the_translator():
     """The dictionary maps the unknown type onto a platform one: the translated tree passes
     where the hand-written twin reports, and the verdict names the translator, not the rule."""
@@ -148,6 +155,7 @@ def test_a_translated_twin_that_disagrees_alone_is_blamed_on_the_translator():
     assert result["translator_differs"] == ["Applications.xbsl"]
 
 
+@pytest.mark.needs_data
 def test_the_translator_leaves_no_problem_behind_on_a_seed():
     """A seed whose translation collides is testing the dictionary, not the rule."""
     problems = {
@@ -155,6 +163,31 @@ def test_the_translator_leaves_no_problem_behind_on_a_seed():
         for seed in _TOOL.SEEDS
     }
     assert {rule: found for rule, found in problems.items() if found} == {}
+
+
+def test_no_constant_of_the_tool_is_bound_twice():
+    """Every module constant of the tool is bound once.
+
+    `SEEDS` is built after all the constants, so every seed reads a name bound twice at its
+    LAST binding - the seeds written for the first binding included. Two names were once bound
+    twice: the seeds of code/query-needs-server got the tokens of the subquery seeds, and their
+    Russian tree came out untranslated; five seeds planted the task card of another rule rather
+    than the object form their English twin describes. Nothing failed - the only trace was a
+    `translator differs` line under seeds that passed.
+    """
+    tree = ast.parse((ROOT / "tools" / "parity_seed.py").read_text(encoding="utf-8"))
+    bound: dict[str, list[int]] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+        else:
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name):
+                bound.setdefault(target.id, []).append(node.lineno)
+    assert {name: lines for name, lines in bound.items() if len(lines) > 1} == {}
 
 
 #: One pair of the platform's picture library, as the extractor files it (uiterms.resource_paths).
@@ -181,6 +214,7 @@ def _serve_picture_table(monkeypatch, table):
     dataset.set_data_root(None)  # the reset hooks drop every table read before
 
 
+@pytest.mark.needs_data
 def test_a_picture_of_the_library_reads_the_same_on_data_with_the_picture_table_and_without(
         monkeypatch):
     """The library seed on data with the table of pictures and without it.

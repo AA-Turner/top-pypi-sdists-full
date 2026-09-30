@@ -7,6 +7,9 @@
         "extra_compile_args": [
             "-O3"
         ],
+        "extra_link_args": [
+            "-Wl,--strip-all"
+        ],
         "language": "c",
         "name": "querysource.parsers.cql",
         "sources": [
@@ -1531,6 +1534,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser {
   PyObject *fields;
   PyObject *ordering;
   PyObject *grouping;
+  PyObject *having;
   PyObject *program_slug;
   int refresh;
   PyObject *tablename;
@@ -1663,7 +1667,7 @@ struct __pyx_obj_11querysource_7parsers_3cql___pyx_scope_struct_3_genexpr {
 };
 
 
-/* "querysource/parsers/cql.pyx":169
+/* "querysource/parsers/cql.pyx":171
  *         return _sql
  * 
  *     async def build_query(self, querylimit: int = None, offset: int = None):             # <<<<<<<<<<<<<<
@@ -1719,6 +1723,7 @@ struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser {
   void (*_query_limit_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
   void (*_offset_pagination_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
   void (*_grouping_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
+  void (*_having_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
   void (*_ordering_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
   void (*_filter_options_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
   void (*_query_filter_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
@@ -2379,6 +2384,10 @@ static PyObject *__Pyx_GetItemInt_Generic(PyObject *o, PyObject* j);
 static CYTHON_INLINE PyObject *__Pyx_GetItemInt_Fast(PyObject *o, Py_ssize_t i,
                                                      int is_list, int wraparound, int boundscheck);
 
+/* IterNext.proto */
+#define __Pyx_PyIter_Next(obj) __Pyx_PyIter_Next2(obj, NULL)
+static CYTHON_INLINE PyObject *__Pyx_PyIter_Next2(PyObject *, PyObject *);
+
 /* PyObject_Unicode.proto */
 #if PY_MAJOR_VERSION >= 3
 #define __Pyx_PyObject_Unicode(obj)\
@@ -2810,6 +2819,7 @@ static PyObject *__pyx_builtin_super;
 static PyObject *__pyx_builtin_ValueError;
 static PyObject *__pyx_builtin_TypeError;
 static PyObject *__pyx_builtin_KeyError;
+static PyObject *__pyx_builtin_reversed;
 /* #### Code section: string_decls ### */
 static const char __pyx_k_v[] = "v";
 static const char __pyx_k_IN[] = " IN (";
@@ -2907,7 +2917,6 @@ static const char __pyx_k_genexpr[] = "genexpr";
 static const char __pyx_k_inspect[] = "inspect";
 static const char __pyx_k_isalnum[] = "isalnum";
 static const char __pyx_k_partial[] = "partial";
-static const char __pyx_k_popitem[] = "popitem";
 static const char __pyx_k_program[] = "program";
 static const char __pyx_k_set_cql[] = "set_cql";
 static const char __pyx_k_HAS_RUST[] = "HAS_RUST";
@@ -2925,6 +2934,7 @@ static const char __pyx_k_limiting[] = "limiting";
 static const char __pyx_k_order_by[] = "order_by";
 static const char __pyx_k_ordering[] = "ordering";
 static const char __pyx_k_pyx_type[] = "__pyx_type";
+static const char __pyx_k_reversed[] = "reversed";
 static const char __pyx_k_setstate[] = "__setstate__";
 static const char __pyx_k_stripped[] = "stripped";
 static const char __pyx_k_CQLParser[] = "CQLParser";
@@ -2987,7 +2997,7 @@ static const char __pyx_k_querysource_parsers_cql_pyx[] = "querysource/parsers/c
 static const char __pyx_k_CQLParser__filter_conditions_cy[] = "CQLParser._filter_conditions_cy";
 static const char __pyx_k_filter_conditions_cy_locals_gen[] = "_filter_conditions_cy.<locals>.genexpr";
 static const char __pyx_k_Cassandra_CQL_Parser_Build_CQL_Q[] = "Cassandra CQL Parser.\n\nBuild CQL-Queries for Apache Cassandra, validation and parsing.\n";
-static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0x0e9dac6, 0xb9c607d, 0x4e84e8c) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))";
+static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0x02b6060, 0xc22f967, 0x7d95366) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))";
 static const char __pyx_k_QS_Cassandra_no_CQL_query_to_par[] = "QS Cassandra: no CQL query to parse.";
 /* #### Code section: decls ### */
 static int __pyx_pf_11querysource_7parsers_3cql_9CQLParser___init__(struct __pyx_obj_11querysource_7parsers_3cql_CQLParser *__pyx_v_self, PyObject *__pyx_v_args, PyObject *__pyx_v_kwargs); /* proto */
@@ -3186,7 +3196,6 @@ typedef struct {
   PyObject *__pyx_n_s_ordering;
   PyObject *__pyx_n_s_partial;
   PyObject *__pyx_n_s_pickle;
-  PyObject *__pyx_n_s_popitem;
   PyObject *__pyx_n_s_process_fields;
   PyObject *__pyx_n_s_program;
   PyObject *__pyx_n_s_pyx_PickleError;
@@ -3206,6 +3215,7 @@ typedef struct {
   PyObject *__pyx_n_s_reduce_cython;
   PyObject *__pyx_n_s_reduce_ex;
   PyObject *__pyx_n_s_result;
+  PyObject *__pyx_n_s_reversed;
   PyObject *__pyx_n_s_rs;
   PyObject *__pyx_n_s_rstrip;
   PyObject *__pyx_n_s_run_in_executor;
@@ -3241,9 +3251,9 @@ typedef struct {
   PyObject *__pyx_kp_u_where_cond_2;
   PyObject *__pyx_int_0;
   PyObject *__pyx_int_1;
-  PyObject *__pyx_int_15325894;
-  PyObject *__pyx_int_82333324;
-  PyObject *__pyx_int_194797693;
+  PyObject *__pyx_int_2842720;
+  PyObject *__pyx_int_131683174;
+  PyObject *__pyx_int_203618663;
   PyObject *__pyx_codeobj_;
   PyObject *__pyx_slice__23;
   PyObject *__pyx_tuple__28;
@@ -3447,7 +3457,6 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_ordering);
   Py_CLEAR(clear_module_state->__pyx_n_s_partial);
   Py_CLEAR(clear_module_state->__pyx_n_s_pickle);
-  Py_CLEAR(clear_module_state->__pyx_n_s_popitem);
   Py_CLEAR(clear_module_state->__pyx_n_s_process_fields);
   Py_CLEAR(clear_module_state->__pyx_n_s_program);
   Py_CLEAR(clear_module_state->__pyx_n_s_pyx_PickleError);
@@ -3467,6 +3476,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_reduce_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_reduce_ex);
   Py_CLEAR(clear_module_state->__pyx_n_s_result);
+  Py_CLEAR(clear_module_state->__pyx_n_s_reversed);
   Py_CLEAR(clear_module_state->__pyx_n_s_rs);
   Py_CLEAR(clear_module_state->__pyx_n_s_rstrip);
   Py_CLEAR(clear_module_state->__pyx_n_s_run_in_executor);
@@ -3502,9 +3512,9 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_kp_u_where_cond_2);
   Py_CLEAR(clear_module_state->__pyx_int_0);
   Py_CLEAR(clear_module_state->__pyx_int_1);
-  Py_CLEAR(clear_module_state->__pyx_int_15325894);
-  Py_CLEAR(clear_module_state->__pyx_int_82333324);
-  Py_CLEAR(clear_module_state->__pyx_int_194797693);
+  Py_CLEAR(clear_module_state->__pyx_int_2842720);
+  Py_CLEAR(clear_module_state->__pyx_int_131683174);
+  Py_CLEAR(clear_module_state->__pyx_int_203618663);
   Py_CLEAR(clear_module_state->__pyx_codeobj_);
   Py_CLEAR(clear_module_state->__pyx_slice__23);
   Py_CLEAR(clear_module_state->__pyx_tuple__28);
@@ -3686,7 +3696,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_ordering);
   Py_VISIT(traverse_module_state->__pyx_n_s_partial);
   Py_VISIT(traverse_module_state->__pyx_n_s_pickle);
-  Py_VISIT(traverse_module_state->__pyx_n_s_popitem);
   Py_VISIT(traverse_module_state->__pyx_n_s_process_fields);
   Py_VISIT(traverse_module_state->__pyx_n_s_program);
   Py_VISIT(traverse_module_state->__pyx_n_s_pyx_PickleError);
@@ -3706,6 +3715,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_reduce_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_reduce_ex);
   Py_VISIT(traverse_module_state->__pyx_n_s_result);
+  Py_VISIT(traverse_module_state->__pyx_n_s_reversed);
   Py_VISIT(traverse_module_state->__pyx_n_s_rs);
   Py_VISIT(traverse_module_state->__pyx_n_s_rstrip);
   Py_VISIT(traverse_module_state->__pyx_n_s_run_in_executor);
@@ -3741,9 +3751,9 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_kp_u_where_cond_2);
   Py_VISIT(traverse_module_state->__pyx_int_0);
   Py_VISIT(traverse_module_state->__pyx_int_1);
-  Py_VISIT(traverse_module_state->__pyx_int_15325894);
-  Py_VISIT(traverse_module_state->__pyx_int_82333324);
-  Py_VISIT(traverse_module_state->__pyx_int_194797693);
+  Py_VISIT(traverse_module_state->__pyx_int_2842720);
+  Py_VISIT(traverse_module_state->__pyx_int_131683174);
+  Py_VISIT(traverse_module_state->__pyx_int_203618663);
   Py_VISIT(traverse_module_state->__pyx_codeobj_);
   Py_VISIT(traverse_module_state->__pyx_slice__23);
   Py_VISIT(traverse_module_state->__pyx_tuple__28);
@@ -3941,7 +3951,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_ordering __pyx_mstate_global->__pyx_n_s_ordering
 #define __pyx_n_s_partial __pyx_mstate_global->__pyx_n_s_partial
 #define __pyx_n_s_pickle __pyx_mstate_global->__pyx_n_s_pickle
-#define __pyx_n_s_popitem __pyx_mstate_global->__pyx_n_s_popitem
 #define __pyx_n_s_process_fields __pyx_mstate_global->__pyx_n_s_process_fields
 #define __pyx_n_s_program __pyx_mstate_global->__pyx_n_s_program
 #define __pyx_n_s_pyx_PickleError __pyx_mstate_global->__pyx_n_s_pyx_PickleError
@@ -3961,6 +3970,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_reduce_cython __pyx_mstate_global->__pyx_n_s_reduce_cython
 #define __pyx_n_s_reduce_ex __pyx_mstate_global->__pyx_n_s_reduce_ex
 #define __pyx_n_s_result __pyx_mstate_global->__pyx_n_s_result
+#define __pyx_n_s_reversed __pyx_mstate_global->__pyx_n_s_reversed
 #define __pyx_n_s_rs __pyx_mstate_global->__pyx_n_s_rs
 #define __pyx_n_s_rstrip __pyx_mstate_global->__pyx_n_s_rstrip
 #define __pyx_n_s_run_in_executor __pyx_mstate_global->__pyx_n_s_run_in_executor
@@ -3996,9 +4006,9 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_kp_u_where_cond_2 __pyx_mstate_global->__pyx_kp_u_where_cond_2
 #define __pyx_int_0 __pyx_mstate_global->__pyx_int_0
 #define __pyx_int_1 __pyx_mstate_global->__pyx_int_1
-#define __pyx_int_15325894 __pyx_mstate_global->__pyx_int_15325894
-#define __pyx_int_82333324 __pyx_mstate_global->__pyx_int_82333324
-#define __pyx_int_194797693 __pyx_mstate_global->__pyx_int_194797693
+#define __pyx_int_2842720 __pyx_mstate_global->__pyx_int_2842720
+#define __pyx_int_131683174 __pyx_mstate_global->__pyx_int_131683174
+#define __pyx_int_203618663 __pyx_mstate_global->__pyx_int_203618663
 #define __pyx_codeobj_ __pyx_mstate_global->__pyx_codeobj_
 #define __pyx_slice__23 __pyx_mstate_global->__pyx_slice__23
 #define __pyx_tuple__28 __pyx_mstate_global->__pyx_tuple__28
@@ -6122,8 +6132,8 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  *                 _, name, end = field_components(key)[0]
  *                 # if format is not defined, need to be determined
  *                 if isinstance(value, dict):             # <<<<<<<<<<<<<<
- *                     op, v = value.popitem()
- *                     if op in ('>=', '<=', '<>', '!=', '<', '>'):
+ *                     if not value:
+ *                         continue
  */
       __pyx_t_2 = PyDict_Check(__pyx_cur_scope->__pyx_v_value); 
       if (__pyx_t_2) {
@@ -6131,11 +6141,40 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
         /* "querysource/parsers/cql.pyx":87
  *                 # if format is not defined, need to be determined
  *                 if isinstance(value, dict):
- *                     op, v = value.popitem()             # <<<<<<<<<<<<<<
+ *                     if not value:             # <<<<<<<<<<<<<<
+ *                         continue
+ *                     op, v = next(reversed(value.items()))  # never popitem(): the filter dict is the caller's
+ */
+        __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_value); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 87, __pyx_L1_error)
+        __pyx_t_12 = (!__pyx_t_2);
+        if (__pyx_t_12) {
+
+          /* "querysource/parsers/cql.pyx":88
+ *                 if isinstance(value, dict):
+ *                     if not value:
+ *                         continue             # <<<<<<<<<<<<<<
+ *                     op, v = next(reversed(value.items()))  # never popitem(): the filter dict is the caller's
+ *                     if op in ('>=', '<=', '<>', '!=', '<', '>'):
+ */
+          goto __pyx_L5_continue;
+
+          /* "querysource/parsers/cql.pyx":87
+ *                 # if format is not defined, need to be determined
+ *                 if isinstance(value, dict):
+ *                     if not value:             # <<<<<<<<<<<<<<
+ *                         continue
+ *                     op, v = next(reversed(value.items()))  # never popitem(): the filter dict is the caller's
+ */
+        }
+
+        /* "querysource/parsers/cql.pyx":89
+ *                     if not value:
+ *                         continue
+ *                     op, v = next(reversed(value.items()))  # never popitem(): the filter dict is the caller's             # <<<<<<<<<<<<<<
  *                     if op in ('>=', '<=', '<>', '!=', '<', '>'):
  *                         # SECURITY: Escape comparison value
  */
-        __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_value, __pyx_n_s_popitem); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 87, __pyx_L1_error)
+        __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_value, __pyx_n_s_items); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 89, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_17);
         __pyx_t_15 = NULL;
         __pyx_t_18 = 0;
@@ -6155,17 +6194,23 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           PyObject *__pyx_callargs[2] = {__pyx_t_15, NULL};
           __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_17, __pyx_callargs+1-__pyx_t_18, 0+__pyx_t_18);
           __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 87, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 89, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
         }
+        __pyx_t_17 = __Pyx_PyObject_CallOneArg(__pyx_builtin_reversed, __pyx_t_6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 89, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_17);
+        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+        __pyx_t_6 = __Pyx_PyIter_Next(__pyx_t_17); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 89, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_6);
+        __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
         if ((likely(PyTuple_CheckExact(__pyx_t_6))) || (PyList_CheckExact(__pyx_t_6))) {
           PyObject* sequence = __pyx_t_6;
           Py_ssize_t size = __Pyx_PySequence_SIZE(sequence);
           if (unlikely(size != 2)) {
             if (size > 2) __Pyx_RaiseTooManyValuesError(2);
             else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-            __PYX_ERR(0, 87, __pyx_L1_error)
+            __PYX_ERR(0, 89, __pyx_L1_error)
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
           if (likely(PyTuple_CheckExact(sequence))) {
@@ -6178,32 +6223,32 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __Pyx_INCREF(__pyx_t_17);
           __Pyx_INCREF(__pyx_t_15);
           #else
-          __pyx_t_17 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 87, __pyx_L1_error)
+          __pyx_t_17 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 89, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_15 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 87, __pyx_L1_error)
+          __pyx_t_15 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 89, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           #endif
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         } else {
           Py_ssize_t index = -1;
-          __pyx_t_7 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 87, __pyx_L1_error)
+          __pyx_t_7 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 89, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __pyx_t_19 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_7);
-          index = 0; __pyx_t_17 = __pyx_t_19(__pyx_t_7); if (unlikely(!__pyx_t_17)) goto __pyx_L35_unpacking_failed;
+          index = 0; __pyx_t_17 = __pyx_t_19(__pyx_t_7); if (unlikely(!__pyx_t_17)) goto __pyx_L36_unpacking_failed;
           __Pyx_GOTREF(__pyx_t_17);
-          index = 1; __pyx_t_15 = __pyx_t_19(__pyx_t_7); if (unlikely(!__pyx_t_15)) goto __pyx_L35_unpacking_failed;
+          index = 1; __pyx_t_15 = __pyx_t_19(__pyx_t_7); if (unlikely(!__pyx_t_15)) goto __pyx_L36_unpacking_failed;
           __Pyx_GOTREF(__pyx_t_15);
-          if (__Pyx_IternextUnpackEndCheck(__pyx_t_19(__pyx_t_7), 2) < 0) __PYX_ERR(0, 87, __pyx_L1_error)
+          if (__Pyx_IternextUnpackEndCheck(__pyx_t_19(__pyx_t_7), 2) < 0) __PYX_ERR(0, 89, __pyx_L1_error)
           __pyx_t_19 = NULL;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          goto __pyx_L36_unpacking_done;
-          __pyx_L35_unpacking_failed:;
+          goto __pyx_L37_unpacking_done;
+          __pyx_L36_unpacking_failed:;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
           __pyx_t_19 = NULL;
           if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-          __PYX_ERR(0, 87, __pyx_L1_error)
-          __pyx_L36_unpacking_done:;
+          __PYX_ERR(0, 89, __pyx_L1_error)
+          __pyx_L37_unpacking_done:;
         }
         __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_op);
         __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_op, __pyx_t_17);
@@ -6214,64 +6259,64 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
         __Pyx_GIVEREF(__pyx_t_15);
         __pyx_t_15 = 0;
 
-        /* "querysource/parsers/cql.pyx":88
- *                 if isinstance(value, dict):
- *                     op, v = value.popitem()
+        /* "querysource/parsers/cql.pyx":90
+ *                         continue
+ *                     op, v = next(reversed(value.items()))  # never popitem(): the filter dict is the caller's
  *                     if op in ('>=', '<=', '<>', '!=', '<', '>'):             # <<<<<<<<<<<<<<
  *                         # SECURITY: Escape comparison value
  *                         safe_v = Entity.quoteString(v) if isinstance(v, str) else str(v)
  */
         __Pyx_INCREF(__pyx_cur_scope->__pyx_v_op);
         __pyx_t_6 = __pyx_cur_scope->__pyx_v_op;
-        __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__7, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 88, __pyx_L1_error)
-        if (!__pyx_t_12) {
+        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__7, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
+        if (!__pyx_t_2) {
         } else {
-          __pyx_t_2 = __pyx_t_12;
-          goto __pyx_L38_bool_binop_done;
+          __pyx_t_12 = __pyx_t_2;
+          goto __pyx_L39_bool_binop_done;
         }
-        __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__8, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 88, __pyx_L1_error)
-        if (!__pyx_t_12) {
+        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__8, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
+        if (!__pyx_t_2) {
         } else {
-          __pyx_t_2 = __pyx_t_12;
-          goto __pyx_L38_bool_binop_done;
+          __pyx_t_12 = __pyx_t_2;
+          goto __pyx_L39_bool_binop_done;
         }
-        __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__9, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 88, __pyx_L1_error)
-        if (!__pyx_t_12) {
+        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__9, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
+        if (!__pyx_t_2) {
         } else {
-          __pyx_t_2 = __pyx_t_12;
-          goto __pyx_L38_bool_binop_done;
+          __pyx_t_12 = __pyx_t_2;
+          goto __pyx_L39_bool_binop_done;
         }
-        __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__10, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 88, __pyx_L1_error)
-        if (!__pyx_t_12) {
+        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__10, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
+        if (!__pyx_t_2) {
         } else {
-          __pyx_t_2 = __pyx_t_12;
-          goto __pyx_L38_bool_binop_done;
+          __pyx_t_12 = __pyx_t_2;
+          goto __pyx_L39_bool_binop_done;
         }
-        __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__11, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 88, __pyx_L1_error)
-        if (!__pyx_t_12) {
+        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__11, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
+        if (!__pyx_t_2) {
         } else {
-          __pyx_t_2 = __pyx_t_12;
-          goto __pyx_L38_bool_binop_done;
+          __pyx_t_12 = __pyx_t_2;
+          goto __pyx_L39_bool_binop_done;
         }
-        __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__12, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 88, __pyx_L1_error)
-        __pyx_t_2 = __pyx_t_12;
-        __pyx_L38_bool_binop_done:;
-        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__12, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
         __pyx_t_12 = __pyx_t_2;
-        if (__pyx_t_12) {
+        __pyx_L39_bool_binop_done:;
+        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+        __pyx_t_2 = __pyx_t_12;
+        if (__pyx_t_2) {
 
-          /* "querysource/parsers/cql.pyx":90
+          /* "querysource/parsers/cql.pyx":92
  *                     if op in ('>=', '<=', '<>', '!=', '<', '>'):
  *                         # SECURITY: Escape comparison value
  *                         safe_v = Entity.quoteString(v) if isinstance(v, str) else str(v)             # <<<<<<<<<<<<<<
  *                         where_cond.append(f"{key} {op} {safe_v}")
  *                     else:
  */
-          __pyx_t_12 = PyUnicode_Check(__pyx_cur_scope->__pyx_v_v); 
-          if (__pyx_t_12) {
-            __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_n_s_Entity); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 90, __pyx_L1_error)
+          __pyx_t_2 = PyUnicode_Check(__pyx_cur_scope->__pyx_v_v); 
+          if (__pyx_t_2) {
+            __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_n_s_Entity); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 92, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_17);
-            __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 90, __pyx_L1_error)
+            __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 92, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_7);
             __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
             __pyx_t_17 = NULL;
@@ -6292,14 +6337,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
               PyObject *__pyx_callargs[2] = {__pyx_t_17, __pyx_cur_scope->__pyx_v_v};
               __pyx_t_15 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_18, 1+__pyx_t_18);
               __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
-              if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 90, __pyx_L1_error)
+              if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 92, __pyx_L1_error)
               __Pyx_GOTREF(__pyx_t_15);
               __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
             }
             __pyx_t_6 = __pyx_t_15;
             __pyx_t_15 = 0;
           } else {
-            __pyx_t_15 = __Pyx_PyObject_Unicode(__pyx_cur_scope->__pyx_v_v); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 90, __pyx_L1_error)
+            __pyx_t_15 = __Pyx_PyObject_Unicode(__pyx_cur_scope->__pyx_v_v); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 92, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_15);
             __pyx_t_6 = __pyx_t_15;
             __pyx_t_15 = 0;
@@ -6309,18 +6354,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __Pyx_GIVEREF(__pyx_t_6);
           __pyx_t_6 = 0;
 
-          /* "querysource/parsers/cql.pyx":91
+          /* "querysource/parsers/cql.pyx":93
  *                         # SECURITY: Escape comparison value
  *                         safe_v = Entity.quoteString(v) if isinstance(v, str) else str(v)
  *                         where_cond.append(f"{key} {op} {safe_v}")             # <<<<<<<<<<<<<<
  *                     else:
  *                         continue
  */
-          __pyx_t_6 = PyTuple_New(5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 91, __pyx_L1_error)
+          __pyx_t_6 = PyTuple_New(5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 93, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
           __pyx_t_13 = 0;
           __pyx_t_14 = 127;
-          __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 91, __pyx_L1_error)
+          __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 93, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
@@ -6331,7 +6376,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __pyx_t_13 += 1;
           __Pyx_GIVEREF(__pyx_kp_u__13);
           PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_kp_u__13);
-          __pyx_t_15 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_op, __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 91, __pyx_L1_error)
+          __pyx_t_15 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_op, __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 93, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
@@ -6342,30 +6387,30 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __pyx_t_13 += 1;
           __Pyx_GIVEREF(__pyx_kp_u__13);
           PyTuple_SET_ITEM(__pyx_t_6, 3, __pyx_kp_u__13);
-          __pyx_t_15 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_safe_v, __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 91, __pyx_L1_error)
+          __pyx_t_15 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_safe_v, __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 93, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
           __Pyx_GIVEREF(__pyx_t_15);
           PyTuple_SET_ITEM(__pyx_t_6, 4, __pyx_t_15);
           __pyx_t_15 = 0;
-          __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_6, 5, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 91, __pyx_L1_error)
+          __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_6, 5, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 93, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_15); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 91, __pyx_L1_error)
+          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_15); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 93, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
 
-          /* "querysource/parsers/cql.pyx":88
- *                 if isinstance(value, dict):
- *                     op, v = value.popitem()
+          /* "querysource/parsers/cql.pyx":90
+ *                         continue
+ *                     op, v = next(reversed(value.items()))  # never popitem(): the filter dict is the caller's
  *                     if op in ('>=', '<=', '<>', '!=', '<', '>'):             # <<<<<<<<<<<<<<
  *                         # SECURITY: Escape comparison value
  *                         safe_v = Entity.quoteString(v) if isinstance(v, str) else str(v)
  */
-          goto __pyx_L37;
+          goto __pyx_L38;
         }
 
-        /* "querysource/parsers/cql.pyx":93
+        /* "querysource/parsers/cql.pyx":95
  *                         where_cond.append(f"{key} {op} {safe_v}")
  *                     else:
  *                         continue             # <<<<<<<<<<<<<<
@@ -6375,82 +6420,82 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
         /*else*/ {
           goto __pyx_L5_continue;
         }
-        __pyx_L37:;
+        __pyx_L38:;
 
         /* "querysource/parsers/cql.pyx":86
  *                 _, name, end = field_components(key)[0]
  *                 # if format is not defined, need to be determined
  *                 if isinstance(value, dict):             # <<<<<<<<<<<<<<
- *                     op, v = value.popitem()
- *                     if op in ('>=', '<=', '<>', '!=', '<', '>'):
+ *                     if not value:
+ *                         continue
  */
         goto __pyx_L34;
       }
 
-      /* "querysource/parsers/cql.pyx":94
+      /* "querysource/parsers/cql.pyx":96
  *                     else:
  *                         continue
  *                 elif isinstance(value, list):             # <<<<<<<<<<<<<<
  *                     fval = value[0]
  *                     if fval in self.valid_operators:
  */
-      __pyx_t_12 = PyList_Check(__pyx_cur_scope->__pyx_v_value); 
-      if (__pyx_t_12) {
+      __pyx_t_2 = PyList_Check(__pyx_cur_scope->__pyx_v_value); 
+      if (__pyx_t_2) {
 
-        /* "querysource/parsers/cql.pyx":95
+        /* "querysource/parsers/cql.pyx":97
  *                         continue
  *                 elif isinstance(value, list):
  *                     fval = value[0]             # <<<<<<<<<<<<<<
  *                     if fval in self.valid_operators:
  *                         # SECURITY: Escape second operand
  */
-        __pyx_t_15 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_value, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 95, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_value, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 97, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_15);
-        if (!(likely(PyUnicode_CheckExact(__pyx_t_15))||((__pyx_t_15) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_15))) __PYX_ERR(0, 95, __pyx_L1_error)
+        if (!(likely(PyUnicode_CheckExact(__pyx_t_15))||((__pyx_t_15) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_15))) __PYX_ERR(0, 97, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_fval);
         __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_fval, ((PyObject*)__pyx_t_15));
         __Pyx_GIVEREF(__pyx_t_15);
         __pyx_t_15 = 0;
 
-        /* "querysource/parsers/cql.pyx":96
+        /* "querysource/parsers/cql.pyx":98
  *                 elif isinstance(value, list):
  *                     fval = value[0]
  *                     if fval in self.valid_operators:             # <<<<<<<<<<<<<<
  *                         # SECURITY: Escape second operand
  *                         safe_v = Entity.quoteString(str(value[1])) if value[1] not in ('null', 'NULL') else str(value[1])
  */
-        __pyx_t_12 = (__Pyx_PySequence_ContainsTF(__pyx_cur_scope->__pyx_v_fval, __pyx_cur_scope->__pyx_v_self->__pyx_base.valid_operators, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 96, __pyx_L1_error)
-        if (__pyx_t_12) {
+        __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_cur_scope->__pyx_v_fval, __pyx_cur_scope->__pyx_v_self->__pyx_base.valid_operators, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 98, __pyx_L1_error)
+        if (__pyx_t_2) {
 
-          /* "querysource/parsers/cql.pyx":98
+          /* "querysource/parsers/cql.pyx":100
  *                     if fval in self.valid_operators:
  *                         # SECURITY: Escape second operand
  *                         safe_v = Entity.quoteString(str(value[1])) if value[1] not in ('null', 'NULL') else str(value[1])             # <<<<<<<<<<<<<<
  *                         where_cond.append(f"{key} {fval} {safe_v}")
  *                     else:
  */
-          __pyx_t_6 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_value, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 98, __pyx_L1_error)
+          __pyx_t_6 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_value, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 100, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
-          __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_n_u_null, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 98, __pyx_L1_error)
-          if (__pyx_t_2) {
+          __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_n_u_null, Py_NE)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 100, __pyx_L1_error)
+          if (__pyx_t_12) {
           } else {
-            __pyx_t_12 = __pyx_t_2;
-            goto __pyx_L45_bool_binop_done;
+            __pyx_t_2 = __pyx_t_12;
+            goto __pyx_L46_bool_binop_done;
           }
-          __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_n_u_NULL, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 98, __pyx_L1_error)
-          __pyx_t_12 = __pyx_t_2;
-          __pyx_L45_bool_binop_done:;
-          __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+          __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_n_u_NULL, Py_NE)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 100, __pyx_L1_error)
           __pyx_t_2 = __pyx_t_12;
-          if (__pyx_t_2) {
-            __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_Entity); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 98, __pyx_L1_error)
+          __pyx_L46_bool_binop_done:;
+          __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+          __pyx_t_12 = __pyx_t_2;
+          if (__pyx_t_12) {
+            __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_Entity); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 100, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_7);
-            __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 98, __pyx_L1_error)
+            __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 100, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_17);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-            __pyx_t_7 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_value, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 98, __pyx_L1_error)
+            __pyx_t_7 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_value, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 100, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_7);
-            __pyx_t_16 = __Pyx_PyObject_Unicode(__pyx_t_7); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 98, __pyx_L1_error)
+            __pyx_t_16 = __Pyx_PyObject_Unicode(__pyx_t_7); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 100, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_16);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
             __pyx_t_7 = NULL;
@@ -6472,16 +6517,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
               __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_17, __pyx_callargs+1-__pyx_t_18, 1+__pyx_t_18);
               __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
               __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-              if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 98, __pyx_L1_error)
+              if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 100, __pyx_L1_error)
               __Pyx_GOTREF(__pyx_t_6);
               __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
             }
             __pyx_t_15 = __pyx_t_6;
             __pyx_t_6 = 0;
           } else {
-            __pyx_t_6 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_value, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 98, __pyx_L1_error)
+            __pyx_t_6 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_value, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 100, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_6);
-            __pyx_t_17 = __Pyx_PyObject_Unicode(__pyx_t_6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 98, __pyx_L1_error)
+            __pyx_t_17 = __Pyx_PyObject_Unicode(__pyx_t_6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 100, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_17);
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
             __pyx_t_15 = __pyx_t_17;
@@ -6492,18 +6537,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __Pyx_GIVEREF(__pyx_t_15);
           __pyx_t_15 = 0;
 
-          /* "querysource/parsers/cql.pyx":99
+          /* "querysource/parsers/cql.pyx":101
  *                         # SECURITY: Escape second operand
  *                         safe_v = Entity.quoteString(str(value[1])) if value[1] not in ('null', 'NULL') else str(value[1])
  *                         where_cond.append(f"{key} {fval} {safe_v}")             # <<<<<<<<<<<<<<
  *                     else:
  *                         val = ','.join(
  */
-          __pyx_t_15 = PyTuple_New(5); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 99, __pyx_L1_error)
+          __pyx_t_15 = PyTuple_New(5); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 101, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __pyx_t_13 = 0;
           __pyx_t_14 = 127;
-          __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 99, __pyx_L1_error)
+          __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 101, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
@@ -6514,7 +6559,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __pyx_t_13 += 1;
           __Pyx_GIVEREF(__pyx_kp_u__13);
           PyTuple_SET_ITEM(__pyx_t_15, 1, __pyx_kp_u__13);
-          __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_fval); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 99, __pyx_L1_error)
+          __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_fval); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 101, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
@@ -6525,30 +6570,30 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __pyx_t_13 += 1;
           __Pyx_GIVEREF(__pyx_kp_u__13);
           PyTuple_SET_ITEM(__pyx_t_15, 3, __pyx_kp_u__13);
-          __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_safe_v, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 99, __pyx_L1_error)
+          __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_safe_v, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 101, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
           __Pyx_GIVEREF(__pyx_t_17);
           PyTuple_SET_ITEM(__pyx_t_15, 4, __pyx_t_17);
           __pyx_t_17 = 0;
-          __pyx_t_17 = __Pyx_PyUnicode_Join(__pyx_t_15, 5, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 99, __pyx_L1_error)
+          __pyx_t_17 = __Pyx_PyUnicode_Join(__pyx_t_15, 5, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 101, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_17); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 99, __pyx_L1_error)
+          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_17); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 101, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "querysource/parsers/cql.pyx":96
+          /* "querysource/parsers/cql.pyx":98
  *                 elif isinstance(value, list):
  *                     fval = value[0]
  *                     if fval in self.valid_operators:             # <<<<<<<<<<<<<<
  *                         # SECURITY: Escape second operand
  *                         safe_v = Entity.quoteString(str(value[1])) if value[1] not in ('null', 'NULL') else str(value[1])
  */
-          goto __pyx_L44;
+          goto __pyx_L45;
         }
 
-        /* "querysource/parsers/cql.pyx":101
+        /* "querysource/parsers/cql.pyx":103
  *                         where_cond.append(f"{key} {fval} {safe_v}")
  *                     else:
  *                         val = ','.join(             # <<<<<<<<<<<<<<
@@ -6558,17 +6603,17 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
         /*else*/ {
           { /* enter inner scope */
 
-            /* "querysource/parsers/cql.pyx":102
+            /* "querysource/parsers/cql.pyx":104
  *                     else:
  *                         val = ','.join(
  *                             [             # <<<<<<<<<<<<<<
  *                                 "{}".format(Entity.quoteString(v))
  *                                 for v in value
  */
-            __pyx_t_17 = PyList_New(0); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 102, __pyx_L1_error)
+            __pyx_t_17 = PyList_New(0); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 104, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_17);
 
-            /* "querysource/parsers/cql.pyx":104
+            /* "querysource/parsers/cql.pyx":106
  *                             [
  *                                 "{}".format(Entity.quoteString(v))
  *                                 for v in value             # <<<<<<<<<<<<<<
@@ -6580,9 +6625,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
               __pyx_t_13 = 0;
               __pyx_t_21 = NULL;
             } else {
-              __pyx_t_13 = -1; __pyx_t_15 = PyObject_GetIter(__pyx_cur_scope->__pyx_v_value); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 104, __pyx_L1_error)
+              __pyx_t_13 = -1; __pyx_t_15 = PyObject_GetIter(__pyx_cur_scope->__pyx_v_value); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 106, __pyx_L1_error)
               __Pyx_GOTREF(__pyx_t_15);
-              __pyx_t_21 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_15); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 104, __pyx_L1_error)
+              __pyx_t_21 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_15); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 106, __pyx_L1_error)
             }
             for (;;) {
               if (likely(!__pyx_t_21)) {
@@ -6590,28 +6635,28 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
                   {
                     Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_15);
                     #if !CYTHON_ASSUME_SAFE_MACROS
-                    if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 104, __pyx_L1_error)
+                    if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
                     #endif
                     if (__pyx_t_13 >= __pyx_temp) break;
                   }
                   #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-                  __pyx_t_6 = PyList_GET_ITEM(__pyx_t_15, __pyx_t_13); __Pyx_INCREF(__pyx_t_6); __pyx_t_13++; if (unlikely((0 < 0))) __PYX_ERR(0, 104, __pyx_L1_error)
+                  __pyx_t_6 = PyList_GET_ITEM(__pyx_t_15, __pyx_t_13); __Pyx_INCREF(__pyx_t_6); __pyx_t_13++; if (unlikely((0 < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
                   #else
-                  __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_15, __pyx_t_13); __pyx_t_13++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 104, __pyx_L1_error)
+                  __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_15, __pyx_t_13); __pyx_t_13++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 106, __pyx_L1_error)
                   __Pyx_GOTREF(__pyx_t_6);
                   #endif
                 } else {
                   {
                     Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_15);
                     #if !CYTHON_ASSUME_SAFE_MACROS
-                    if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 104, __pyx_L1_error)
+                    if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
                     #endif
                     if (__pyx_t_13 >= __pyx_temp) break;
                   }
                   #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-                  __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_15, __pyx_t_13); __Pyx_INCREF(__pyx_t_6); __pyx_t_13++; if (unlikely((0 < 0))) __PYX_ERR(0, 104, __pyx_L1_error)
+                  __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_15, __pyx_t_13); __Pyx_INCREF(__pyx_t_6); __pyx_t_13++; if (unlikely((0 < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
                   #else
-                  __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_15, __pyx_t_13); __pyx_t_13++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 104, __pyx_L1_error)
+                  __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_15, __pyx_t_13); __pyx_t_13++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 106, __pyx_L1_error)
                   __Pyx_GOTREF(__pyx_t_6);
                   #endif
                 }
@@ -6621,7 +6666,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
                   PyObject* exc_type = PyErr_Occurred();
                   if (exc_type) {
                     if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-                    else __PYX_ERR(0, 104, __pyx_L1_error)
+                    else __PYX_ERR(0, 106, __pyx_L1_error)
                   }
                   break;
                 }
@@ -6632,18 +6677,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
               __Pyx_GIVEREF(__pyx_t_6);
               __pyx_t_6 = 0;
 
-              /* "querysource/parsers/cql.pyx":103
+              /* "querysource/parsers/cql.pyx":105
  *                         val = ','.join(
  *                             [
  *                                 "{}".format(Entity.quoteString(v))             # <<<<<<<<<<<<<<
  *                                 for v in value
  *                             ]
  */
-              __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__15, __pyx_n_s_format); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 103, __pyx_L1_error)
+              __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__15, __pyx_n_s_format); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 105, __pyx_L1_error)
               __Pyx_GOTREF(__pyx_t_16);
-              __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_n_s_Entity); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 103, __pyx_L1_error)
+              __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_n_s_Entity); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 105, __pyx_L1_error)
               __Pyx_GOTREF(__pyx_t_22);
-              __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 103, __pyx_L1_error)
+              __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 105, __pyx_L1_error)
               __Pyx_GOTREF(__pyx_t_23);
               __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
               __pyx_t_22 = NULL;
@@ -6664,7 +6709,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
                 PyObject *__pyx_callargs[2] = {__pyx_t_22, __pyx_cur_scope->__pyx_8genexpr2__pyx_v_v};
                 __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_23, __pyx_callargs+1-__pyx_t_18, 1+__pyx_t_18);
                 __Pyx_XDECREF(__pyx_t_22); __pyx_t_22 = 0;
-                if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 103, __pyx_L1_error)
+                if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 105, __pyx_L1_error)
                 __Pyx_GOTREF(__pyx_t_7);
                 __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
               }
@@ -6687,14 +6732,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
                 __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_16, __pyx_callargs+1-__pyx_t_18, 1+__pyx_t_18);
                 __Pyx_XDECREF(__pyx_t_23); __pyx_t_23 = 0;
                 __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-                if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 103, __pyx_L1_error)
+                if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 105, __pyx_L1_error)
                 __Pyx_GOTREF(__pyx_t_6);
                 __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
               }
-              if (unlikely(__Pyx_ListComp_Append(__pyx_t_17, (PyObject*)__pyx_t_6))) __PYX_ERR(0, 102, __pyx_L1_error)
+              if (unlikely(__Pyx_ListComp_Append(__pyx_t_17, (PyObject*)__pyx_t_6))) __PYX_ERR(0, 104, __pyx_L1_error)
               __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-              /* "querysource/parsers/cql.pyx":104
+              /* "querysource/parsers/cql.pyx":106
  *                             [
  *                                 "{}".format(Entity.quoteString(v))
  *                                 for v in value             # <<<<<<<<<<<<<<
@@ -6705,14 +6750,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
             __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
           } /* exit inner scope */
 
-          /* "querysource/parsers/cql.pyx":101
+          /* "querysource/parsers/cql.pyx":103
  *                         where_cond.append(f"{key} {fval} {safe_v}")
  *                     else:
  *                         val = ','.join(             # <<<<<<<<<<<<<<
  *                             [
  *                                 "{}".format(Entity.quoteString(v))
  */
-          __pyx_t_15 = PyUnicode_Join(__pyx_kp_u__14, __pyx_t_17); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 101, __pyx_L1_error)
+          __pyx_t_15 = PyUnicode_Join(__pyx_kp_u__14, __pyx_t_17); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 103, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
           __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_val);
@@ -6720,28 +6765,28 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __Pyx_GIVEREF(__pyx_t_15);
           __pyx_t_15 = 0;
 
-          /* "querysource/parsers/cql.pyx":107
+          /* "querysource/parsers/cql.pyx":109
  *                             ]
  *                         )
  *                         if end == '!':             # <<<<<<<<<<<<<<
  *                             where_cond.append(f"{name} NOT IN ({val})")
  *                         else:
  */
-          __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_cur_scope->__pyx_v_end, __pyx_kp_u__16, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 107, __pyx_L1_error)
-          if (__pyx_t_2) {
+          __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_cur_scope->__pyx_v_end, __pyx_kp_u__16, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 109, __pyx_L1_error)
+          if (__pyx_t_12) {
 
-            /* "querysource/parsers/cql.pyx":108
+            /* "querysource/parsers/cql.pyx":110
  *                         )
  *                         if end == '!':
  *                             where_cond.append(f"{name} NOT IN ({val})")             # <<<<<<<<<<<<<<
  *                         else:
  *                             where_cond.append(f"{key} IN ({val})")
  */
-            __pyx_t_15 = PyTuple_New(4); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 108, __pyx_L1_error)
+            __pyx_t_15 = PyTuple_New(4); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 110, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_15);
             __pyx_t_13 = 0;
             __pyx_t_14 = 127;
-            __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_name); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 108, __pyx_L1_error)
+            __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_name); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 110, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_17);
             __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_14;
             __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
@@ -6752,7 +6797,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
             __pyx_t_13 += 9;
             __Pyx_GIVEREF(__pyx_kp_u_NOT_IN);
             PyTuple_SET_ITEM(__pyx_t_15, 1, __pyx_kp_u_NOT_IN);
-            __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_val); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 108, __pyx_L1_error)
+            __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_val); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 110, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_17);
             __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_14;
             __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
@@ -6763,23 +6808,23 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
             __pyx_t_13 += 1;
             __Pyx_GIVEREF(__pyx_kp_u__17);
             PyTuple_SET_ITEM(__pyx_t_15, 3, __pyx_kp_u__17);
-            __pyx_t_17 = __Pyx_PyUnicode_Join(__pyx_t_15, 4, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 108, __pyx_L1_error)
+            __pyx_t_17 = __Pyx_PyUnicode_Join(__pyx_t_15, 4, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 110, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_17);
             __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-            __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_17); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 108, __pyx_L1_error)
+            __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_17); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 110, __pyx_L1_error)
             __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-            /* "querysource/parsers/cql.pyx":107
+            /* "querysource/parsers/cql.pyx":109
  *                             ]
  *                         )
  *                         if end == '!':             # <<<<<<<<<<<<<<
  *                             where_cond.append(f"{name} NOT IN ({val})")
  *                         else:
  */
-            goto __pyx_L50;
+            goto __pyx_L51;
           }
 
-          /* "querysource/parsers/cql.pyx":110
+          /* "querysource/parsers/cql.pyx":112
  *                             where_cond.append(f"{name} NOT IN ({val})")
  *                         else:
  *                             where_cond.append(f"{key} IN ({val})")             # <<<<<<<<<<<<<<
@@ -6787,11 +6832,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  *                     str_value = str(value)
  */
           /*else*/ {
-            __pyx_t_17 = PyTuple_New(4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 110, __pyx_L1_error)
+            __pyx_t_17 = PyTuple_New(4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 112, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_17);
             __pyx_t_13 = 0;
             __pyx_t_14 = 127;
-            __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 110, __pyx_L1_error)
+            __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 112, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_15);
             __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
             __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
@@ -6802,7 +6847,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
             __pyx_t_13 += 5;
             __Pyx_GIVEREF(__pyx_kp_u_IN);
             PyTuple_SET_ITEM(__pyx_t_17, 1, __pyx_kp_u_IN);
-            __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_val); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 110, __pyx_L1_error)
+            __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_val); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 112, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_15);
             __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
             __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
@@ -6813,17 +6858,17 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
             __pyx_t_13 += 1;
             __Pyx_GIVEREF(__pyx_kp_u__17);
             PyTuple_SET_ITEM(__pyx_t_17, 3, __pyx_kp_u__17);
-            __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_17, 4, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 110, __pyx_L1_error)
+            __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_17, 4, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 112, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_15);
             __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_15); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 110, __pyx_L1_error)
+            __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_15); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 112, __pyx_L1_error)
             __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
           }
-          __pyx_L50:;
+          __pyx_L51:;
         }
-        __pyx_L44:;
+        __pyx_L45:;
 
-        /* "querysource/parsers/cql.pyx":94
+        /* "querysource/parsers/cql.pyx":96
  *                     else:
  *                         continue
  *                 elif isinstance(value, list):             # <<<<<<<<<<<<<<
@@ -6833,56 +6878,56 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
         goto __pyx_L34;
       }
 
-      /* "querysource/parsers/cql.pyx":111
+      /* "querysource/parsers/cql.pyx":113
  *                         else:
  *                             where_cond.append(f"{key} IN ({val})")
  *                 elif isinstance(value, (str, int)):             # <<<<<<<<<<<<<<
  *                     str_value = str(value)
  *                     if "BETWEEN" in str_value:
  */
-      __pyx_t_12 = PyUnicode_Check(__pyx_cur_scope->__pyx_v_value); 
-      if (!__pyx_t_12) {
+      __pyx_t_2 = PyUnicode_Check(__pyx_cur_scope->__pyx_v_value); 
+      if (!__pyx_t_2) {
       } else {
-        __pyx_t_2 = __pyx_t_12;
-        goto __pyx_L51_bool_binop_done;
+        __pyx_t_12 = __pyx_t_2;
+        goto __pyx_L52_bool_binop_done;
       }
-      __pyx_t_12 = PyInt_Check(__pyx_cur_scope->__pyx_v_value); 
-      __pyx_t_2 = __pyx_t_12;
-      __pyx_L51_bool_binop_done:;
-      if (__pyx_t_2) {
+      __pyx_t_2 = PyInt_Check(__pyx_cur_scope->__pyx_v_value); 
+      __pyx_t_12 = __pyx_t_2;
+      __pyx_L52_bool_binop_done:;
+      if (__pyx_t_12) {
 
-        /* "querysource/parsers/cql.pyx":112
+        /* "querysource/parsers/cql.pyx":114
  *                             where_cond.append(f"{key} IN ({val})")
  *                 elif isinstance(value, (str, int)):
  *                     str_value = str(value)             # <<<<<<<<<<<<<<
  *                     if "BETWEEN" in str_value:
  *                         # SECURITY: Reject BETWEEN clauses with injection markers
  */
-        __pyx_t_15 = __Pyx_PyObject_Unicode(__pyx_cur_scope->__pyx_v_value); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 112, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_PyObject_Unicode(__pyx_cur_scope->__pyx_v_value); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 114, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_15);
         __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_str_value);
         __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_str_value, __pyx_t_15);
         __Pyx_GIVEREF(__pyx_t_15);
         __pyx_t_15 = 0;
 
-        /* "querysource/parsers/cql.pyx":113
+        /* "querysource/parsers/cql.pyx":115
  *                 elif isinstance(value, (str, int)):
  *                     str_value = str(value)
  *                     if "BETWEEN" in str_value:             # <<<<<<<<<<<<<<
  *                         # SECURITY: Reject BETWEEN clauses with injection markers
  *                         upper_val = str_value.upper()
  */
-        __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_BETWEEN, __pyx_cur_scope->__pyx_v_str_value, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 113, __pyx_L1_error)
-        if (__pyx_t_2) {
+        __pyx_t_12 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_BETWEEN, __pyx_cur_scope->__pyx_v_str_value, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 115, __pyx_L1_error)
+        if (__pyx_t_12) {
 
-          /* "querysource/parsers/cql.pyx":115
+          /* "querysource/parsers/cql.pyx":117
  *                     if "BETWEEN" in str_value:
  *                         # SECURITY: Reject BETWEEN clauses with injection markers
  *                         upper_val = str_value.upper()             # <<<<<<<<<<<<<<
  *                         if ('--' in str_value or '/[inserted by cython to avoid comment start]*' in str_value or ';' in str_value
  *                                 or 'UNION' in upper_val or 'SELECT' in upper_val):
  */
-          __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_str_value, __pyx_n_s_upper); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 115, __pyx_L1_error)
+          __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_str_value, __pyx_n_s_upper); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 117, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __pyx_t_6 = NULL;
           __pyx_t_18 = 0;
@@ -6902,7 +6947,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
             PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
             __pyx_t_15 = __Pyx_PyObject_FastCall(__pyx_t_17, __pyx_callargs+1-__pyx_t_18, 0+__pyx_t_18);
             __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-            if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 115, __pyx_L1_error)
+            if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 117, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_15);
             __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
           }
@@ -6911,59 +6956,59 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __Pyx_GIVEREF(__pyx_t_15);
           __pyx_t_15 = 0;
 
-          /* "querysource/parsers/cql.pyx":116
+          /* "querysource/parsers/cql.pyx":118
  *                         # SECURITY: Reject BETWEEN clauses with injection markers
  *                         upper_val = str_value.upper()
  *                         if ('--' in str_value or '/[inserted by cython to avoid comment start]*' in str_value or ';' in str_value             # <<<<<<<<<<<<<<
  *                                 or 'UNION' in upper_val or 'SELECT' in upper_val):
  *                             continue
  */
-          __pyx_t_12 = (__Pyx_PySequence_ContainsTF(__pyx_kp_u__18, __pyx_cur_scope->__pyx_v_str_value, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 116, __pyx_L1_error)
-          if (!__pyx_t_12) {
+          __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_kp_u__18, __pyx_cur_scope->__pyx_v_str_value, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 118, __pyx_L1_error)
+          if (!__pyx_t_2) {
           } else {
-            __pyx_t_2 = __pyx_t_12;
-            goto __pyx_L55_bool_binop_done;
+            __pyx_t_12 = __pyx_t_2;
+            goto __pyx_L56_bool_binop_done;
           }
-          __pyx_t_12 = (__Pyx_PySequence_ContainsTF(__pyx_kp_u__19, __pyx_cur_scope->__pyx_v_str_value, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 116, __pyx_L1_error)
-          if (!__pyx_t_12) {
+          __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_kp_u__19, __pyx_cur_scope->__pyx_v_str_value, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 118, __pyx_L1_error)
+          if (!__pyx_t_2) {
           } else {
-            __pyx_t_2 = __pyx_t_12;
-            goto __pyx_L55_bool_binop_done;
+            __pyx_t_12 = __pyx_t_2;
+            goto __pyx_L56_bool_binop_done;
           }
 
-          /* "querysource/parsers/cql.pyx":117
+          /* "querysource/parsers/cql.pyx":119
  *                         upper_val = str_value.upper()
  *                         if ('--' in str_value or '/[inserted by cython to avoid comment start]*' in str_value or ';' in str_value
  *                                 or 'UNION' in upper_val or 'SELECT' in upper_val):             # <<<<<<<<<<<<<<
  *                             continue
  *                         where_cond.append(f"({key} {str_value})")
  */
-          __pyx_t_12 = (__Pyx_PySequence_ContainsTF(__pyx_kp_u__20, __pyx_cur_scope->__pyx_v_str_value, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 116, __pyx_L1_error)
-          if (!__pyx_t_12) {
+          __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_kp_u__20, __pyx_cur_scope->__pyx_v_str_value, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 118, __pyx_L1_error)
+          if (!__pyx_t_2) {
           } else {
-            __pyx_t_2 = __pyx_t_12;
-            goto __pyx_L55_bool_binop_done;
+            __pyx_t_12 = __pyx_t_2;
+            goto __pyx_L56_bool_binop_done;
           }
-          __pyx_t_12 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_UNION, __pyx_cur_scope->__pyx_v_upper_val, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 117, __pyx_L1_error)
-          if (!__pyx_t_12) {
+          __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_UNION, __pyx_cur_scope->__pyx_v_upper_val, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 119, __pyx_L1_error)
+          if (!__pyx_t_2) {
           } else {
-            __pyx_t_2 = __pyx_t_12;
-            goto __pyx_L55_bool_binop_done;
+            __pyx_t_12 = __pyx_t_2;
+            goto __pyx_L56_bool_binop_done;
           }
-          __pyx_t_12 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_SELECT, __pyx_cur_scope->__pyx_v_upper_val, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 117, __pyx_L1_error)
-          __pyx_t_2 = __pyx_t_12;
-          __pyx_L55_bool_binop_done:;
+          __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_SELECT, __pyx_cur_scope->__pyx_v_upper_val, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 119, __pyx_L1_error)
+          __pyx_t_12 = __pyx_t_2;
+          __pyx_L56_bool_binop_done:;
 
-          /* "querysource/parsers/cql.pyx":116
+          /* "querysource/parsers/cql.pyx":118
  *                         # SECURITY: Reject BETWEEN clauses with injection markers
  *                         upper_val = str_value.upper()
  *                         if ('--' in str_value or '/[inserted by cython to avoid comment start]*' in str_value or ';' in str_value             # <<<<<<<<<<<<<<
  *                                 or 'UNION' in upper_val or 'SELECT' in upper_val):
  *                             continue
  */
-          if (__pyx_t_2) {
+          if (__pyx_t_12) {
 
-            /* "querysource/parsers/cql.pyx":118
+            /* "querysource/parsers/cql.pyx":120
  *                         if ('--' in str_value or '/[inserted by cython to avoid comment start]*' in str_value or ';' in str_value
  *                                 or 'UNION' in upper_val or 'SELECT' in upper_val):
  *                             continue             # <<<<<<<<<<<<<<
@@ -6972,7 +7017,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
             goto __pyx_L5_continue;
 
-            /* "querysource/parsers/cql.pyx":116
+            /* "querysource/parsers/cql.pyx":118
  *                         # SECURITY: Reject BETWEEN clauses with injection markers
  *                         upper_val = str_value.upper()
  *                         if ('--' in str_value or '/[inserted by cython to avoid comment start]*' in str_value or ';' in str_value             # <<<<<<<<<<<<<<
@@ -6981,14 +7026,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
           }
 
-          /* "querysource/parsers/cql.pyx":119
+          /* "querysource/parsers/cql.pyx":121
  *                                 or 'UNION' in upper_val or 'SELECT' in upper_val):
  *                             continue
  *                         where_cond.append(f"({key} {str_value})")             # <<<<<<<<<<<<<<
  *                     elif value in ('null', 'NULL'):
  *                         where_cond.append(f"{key} IS NULL")
  */
-          __pyx_t_15 = PyTuple_New(5); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 119, __pyx_L1_error)
+          __pyx_t_15 = PyTuple_New(5); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 121, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __pyx_t_13 = 0;
           __pyx_t_14 = 127;
@@ -6996,7 +7041,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __pyx_t_13 += 1;
           __Pyx_GIVEREF(__pyx_kp_u__21);
           PyTuple_SET_ITEM(__pyx_t_15, 0, __pyx_kp_u__21);
-          __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 119, __pyx_L1_error)
+          __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 121, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
@@ -7007,7 +7052,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __pyx_t_13 += 1;
           __Pyx_GIVEREF(__pyx_kp_u__13);
           PyTuple_SET_ITEM(__pyx_t_15, 2, __pyx_kp_u__13);
-          __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_str_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 119, __pyx_L1_error)
+          __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_str_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 121, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
@@ -7018,23 +7063,23 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __pyx_t_13 += 1;
           __Pyx_GIVEREF(__pyx_kp_u__17);
           PyTuple_SET_ITEM(__pyx_t_15, 4, __pyx_kp_u__17);
-          __pyx_t_17 = __Pyx_PyUnicode_Join(__pyx_t_15, 5, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 119, __pyx_L1_error)
+          __pyx_t_17 = __Pyx_PyUnicode_Join(__pyx_t_15, 5, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 121, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_17); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 119, __pyx_L1_error)
+          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_17); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 121, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "querysource/parsers/cql.pyx":113
+          /* "querysource/parsers/cql.pyx":115
  *                 elif isinstance(value, (str, int)):
  *                     str_value = str(value)
  *                     if "BETWEEN" in str_value:             # <<<<<<<<<<<<<<
  *                         # SECURITY: Reject BETWEEN clauses with injection markers
  *                         upper_val = str_value.upper()
  */
-          goto __pyx_L53;
+          goto __pyx_L54;
         }
 
-        /* "querysource/parsers/cql.pyx":120
+        /* "querysource/parsers/cql.pyx":122
  *                             continue
  *                         where_cond.append(f"({key} {str_value})")
  *                     elif value in ('null', 'NULL'):             # <<<<<<<<<<<<<<
@@ -7043,45 +7088,45 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
         __Pyx_INCREF(__pyx_cur_scope->__pyx_v_value);
         __pyx_t_17 = __pyx_cur_scope->__pyx_v_value;
-        __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_17, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
-        if (!__pyx_t_12) {
+        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_17, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 122, __pyx_L1_error)
+        if (!__pyx_t_2) {
         } else {
-          __pyx_t_2 = __pyx_t_12;
-          goto __pyx_L60_bool_binop_done;
+          __pyx_t_12 = __pyx_t_2;
+          goto __pyx_L61_bool_binop_done;
         }
-        __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_17, __pyx_n_u_NULL, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
-        __pyx_t_2 = __pyx_t_12;
-        __pyx_L60_bool_binop_done:;
-        __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
+        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_17, __pyx_n_u_NULL, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 122, __pyx_L1_error)
         __pyx_t_12 = __pyx_t_2;
-        if (__pyx_t_12) {
+        __pyx_L61_bool_binop_done:;
+        __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
+        __pyx_t_2 = __pyx_t_12;
+        if (__pyx_t_2) {
 
-          /* "querysource/parsers/cql.pyx":121
+          /* "querysource/parsers/cql.pyx":123
  *                         where_cond.append(f"({key} {str_value})")
  *                     elif value in ('null', 'NULL'):
  *                         where_cond.append(f"{key} IS NULL")             # <<<<<<<<<<<<<<
  *                     elif value in ('!null', '!NULL'):
  *                         where_cond.append(f"{key} IS NOT NULL")
  */
-          __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 121, __pyx_L1_error)
+          __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 123, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_15 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_17, __pyx_kp_u_IS_NULL); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 121, __pyx_L1_error)
+          __pyx_t_15 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_17, __pyx_kp_u_IS_NULL); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 123, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_15); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 121, __pyx_L1_error)
+          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_15); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 123, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
 
-          /* "querysource/parsers/cql.pyx":120
+          /* "querysource/parsers/cql.pyx":122
  *                             continue
  *                         where_cond.append(f"({key} {str_value})")
  *                     elif value in ('null', 'NULL'):             # <<<<<<<<<<<<<<
  *                         where_cond.append(f"{key} IS NULL")
  *                     elif value in ('!null', '!NULL'):
  */
-          goto __pyx_L53;
+          goto __pyx_L54;
         }
 
-        /* "querysource/parsers/cql.pyx":122
+        /* "querysource/parsers/cql.pyx":124
  *                     elif value in ('null', 'NULL'):
  *                         where_cond.append(f"{key} IS NULL")
  *                     elif value in ('!null', '!NULL'):             # <<<<<<<<<<<<<<
@@ -7090,66 +7135,66 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
         __Pyx_INCREF(__pyx_cur_scope->__pyx_v_value);
         __pyx_t_15 = __pyx_cur_scope->__pyx_v_value;
-        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_15, __pyx_kp_u_null_2, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 122, __pyx_L1_error)
-        if (!__pyx_t_2) {
+        __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_15, __pyx_kp_u_null_2, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 124, __pyx_L1_error)
+        if (!__pyx_t_12) {
         } else {
-          __pyx_t_12 = __pyx_t_2;
-          goto __pyx_L62_bool_binop_done;
+          __pyx_t_2 = __pyx_t_12;
+          goto __pyx_L63_bool_binop_done;
         }
-        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_15, __pyx_kp_u_NULL_2, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 122, __pyx_L1_error)
-        __pyx_t_12 = __pyx_t_2;
-        __pyx_L62_bool_binop_done:;
-        __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+        __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_t_15, __pyx_kp_u_NULL_2, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 124, __pyx_L1_error)
         __pyx_t_2 = __pyx_t_12;
-        if (__pyx_t_2) {
+        __pyx_L63_bool_binop_done:;
+        __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+        __pyx_t_12 = __pyx_t_2;
+        if (__pyx_t_12) {
 
-          /* "querysource/parsers/cql.pyx":123
+          /* "querysource/parsers/cql.pyx":125
  *                         where_cond.append(f"{key} IS NULL")
  *                     elif value in ('!null', '!NULL'):
  *                         where_cond.append(f"{key} IS NOT NULL")             # <<<<<<<<<<<<<<
  *                     elif end == '!':
  *                         # SECURITY: Escape the negated value
  */
-          __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 123, __pyx_L1_error)
+          __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 125, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
-          __pyx_t_17 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_15, __pyx_kp_u_IS_NOT_NULL); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 123, __pyx_L1_error)
+          __pyx_t_17 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_15, __pyx_kp_u_IS_NOT_NULL); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 125, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_17); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 123, __pyx_L1_error)
+          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_17); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 125, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "querysource/parsers/cql.pyx":122
+          /* "querysource/parsers/cql.pyx":124
  *                     elif value in ('null', 'NULL'):
  *                         where_cond.append(f"{key} IS NULL")
  *                     elif value in ('!null', '!NULL'):             # <<<<<<<<<<<<<<
  *                         where_cond.append(f"{key} IS NOT NULL")
  *                     elif end == '!':
  */
-          goto __pyx_L53;
+          goto __pyx_L54;
         }
 
-        /* "querysource/parsers/cql.pyx":124
+        /* "querysource/parsers/cql.pyx":126
  *                     elif value in ('!null', '!NULL'):
  *                         where_cond.append(f"{key} IS NOT NULL")
  *                     elif end == '!':             # <<<<<<<<<<<<<<
  *                         # SECURITY: Escape the negated value
  *                         where_cond.append(f"{name} != {Entity.quoteString(str_value)}")
  */
-        __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_cur_scope->__pyx_v_end, __pyx_kp_u__16, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 124, __pyx_L1_error)
-        if (__pyx_t_2) {
+        __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_cur_scope->__pyx_v_end, __pyx_kp_u__16, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 126, __pyx_L1_error)
+        if (__pyx_t_12) {
 
-          /* "querysource/parsers/cql.pyx":126
+          /* "querysource/parsers/cql.pyx":128
  *                     elif end == '!':
  *                         # SECURITY: Escape the negated value
  *                         where_cond.append(f"{name} != {Entity.quoteString(str_value)}")             # <<<<<<<<<<<<<<
  *                     elif str_value.startswith('!'):
  *                         where_cond.append(
  */
-          __pyx_t_17 = PyTuple_New(3); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 126, __pyx_L1_error)
+          __pyx_t_17 = PyTuple_New(3); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 128, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __pyx_t_13 = 0;
           __pyx_t_14 = 127;
-          __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_name); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 126, __pyx_L1_error)
+          __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_name); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 128, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
@@ -7160,9 +7205,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __pyx_t_13 += 4;
           __Pyx_GIVEREF(__pyx_kp_u__22);
           PyTuple_SET_ITEM(__pyx_t_17, 1, __pyx_kp_u__22);
-          __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_Entity); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 126, __pyx_L1_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_Entity); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 128, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
-          __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 126, __pyx_L1_error)
+          __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 128, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_16);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __pyx_t_6 = NULL;
@@ -7183,11 +7228,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
             PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_cur_scope->__pyx_v_str_value};
             __pyx_t_15 = __Pyx_PyObject_FastCall(__pyx_t_16, __pyx_callargs+1-__pyx_t_18, 1+__pyx_t_18);
             __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-            if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 126, __pyx_L1_error)
+            if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 128, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_15);
             __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
           }
-          __pyx_t_16 = __Pyx_PyObject_FormatSimple(__pyx_t_15, __pyx_empty_unicode); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 126, __pyx_L1_error)
+          __pyx_t_16 = __Pyx_PyObject_FormatSimple(__pyx_t_15, __pyx_empty_unicode); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 128, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_16);
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_16) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_16) : __pyx_t_14;
@@ -7195,30 +7240,30 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __Pyx_GIVEREF(__pyx_t_16);
           PyTuple_SET_ITEM(__pyx_t_17, 2, __pyx_t_16);
           __pyx_t_16 = 0;
-          __pyx_t_16 = __Pyx_PyUnicode_Join(__pyx_t_17, 3, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 126, __pyx_L1_error)
+          __pyx_t_16 = __Pyx_PyUnicode_Join(__pyx_t_17, 3, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 128, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_16);
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_16); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 126, __pyx_L1_error)
+          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_16); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 128, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
 
-          /* "querysource/parsers/cql.pyx":124
+          /* "querysource/parsers/cql.pyx":126
  *                     elif value in ('!null', '!NULL'):
  *                         where_cond.append(f"{key} IS NOT NULL")
  *                     elif end == '!':             # <<<<<<<<<<<<<<
  *                         # SECURITY: Escape the negated value
  *                         where_cond.append(f"{name} != {Entity.quoteString(str_value)}")
  */
-          goto __pyx_L53;
+          goto __pyx_L54;
         }
 
-        /* "querysource/parsers/cql.pyx":127
+        /* "querysource/parsers/cql.pyx":129
  *                         # SECURITY: Escape the negated value
  *                         where_cond.append(f"{name} != {Entity.quoteString(str_value)}")
  *                     elif str_value.startswith('!'):             # <<<<<<<<<<<<<<
  *                         where_cond.append(
  *                             f"{key} != {Entity.quoteString(str_value[1:])}"
  */
-        __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_str_value, __pyx_n_s_startswith); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 127, __pyx_L1_error)
+        __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_str_value, __pyx_n_s_startswith); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 129, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_17);
         __pyx_t_15 = NULL;
         __pyx_t_18 = 0;
@@ -7238,26 +7283,26 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           PyObject *__pyx_callargs[2] = {__pyx_t_15, __pyx_kp_u__16};
           __pyx_t_16 = __Pyx_PyObject_FastCall(__pyx_t_17, __pyx_callargs+1-__pyx_t_18, 1+__pyx_t_18);
           __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
-          if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 127, __pyx_L1_error)
+          if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 129, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_16);
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
         }
-        __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_16); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 127, __pyx_L1_error)
+        __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_16); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 129, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-        if (__pyx_t_2) {
+        if (__pyx_t_12) {
 
-          /* "querysource/parsers/cql.pyx":129
+          /* "querysource/parsers/cql.pyx":131
  *                     elif str_value.startswith('!'):
  *                         where_cond.append(
  *                             f"{key} != {Entity.quoteString(str_value[1:])}"             # <<<<<<<<<<<<<<
  *                         )
  *                     else:
  */
-          __pyx_t_16 = PyTuple_New(3); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 129, __pyx_L1_error)
+          __pyx_t_16 = PyTuple_New(3); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 131, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_16);
           __pyx_t_13 = 0;
           __pyx_t_14 = 127;
-          __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 129, __pyx_L1_error)
+          __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 131, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
@@ -7268,12 +7313,12 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __pyx_t_13 += 4;
           __Pyx_GIVEREF(__pyx_kp_u__22);
           PyTuple_SET_ITEM(__pyx_t_16, 1, __pyx_kp_u__22);
-          __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_n_s_Entity); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 129, __pyx_L1_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_n_s_Entity); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 131, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
-          __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_15, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 129, __pyx_L1_error)
+          __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_15, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 131, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-          __pyx_t_15 = __Pyx_PyObject_GetSlice(__pyx_cur_scope->__pyx_v_str_value, 1, 0, NULL, NULL, &__pyx_slice__23, 1, 0, 0); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 129, __pyx_L1_error)
+          __pyx_t_15 = __Pyx_PyObject_GetSlice(__pyx_cur_scope->__pyx_v_str_value, 1, 0, NULL, NULL, &__pyx_slice__23, 1, 0, 0); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 131, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __pyx_t_7 = NULL;
           __pyx_t_18 = 0;
@@ -7294,11 +7339,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
             __pyx_t_17 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_18, 1+__pyx_t_18);
             __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
             __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-            if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 129, __pyx_L1_error)
+            if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 131, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_17);
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           }
-          __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_17, __pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 129, __pyx_L1_error)
+          __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_17, __pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 131, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) : __pyx_t_14;
@@ -7306,31 +7351,31 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __Pyx_GIVEREF(__pyx_t_6);
           PyTuple_SET_ITEM(__pyx_t_16, 2, __pyx_t_6);
           __pyx_t_6 = 0;
-          __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_16, 3, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 129, __pyx_L1_error)
+          __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_16, 3, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 131, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
           __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
 
-          /* "querysource/parsers/cql.pyx":128
+          /* "querysource/parsers/cql.pyx":130
  *                         where_cond.append(f"{name} != {Entity.quoteString(str_value)}")
  *                     elif str_value.startswith('!'):
  *                         where_cond.append(             # <<<<<<<<<<<<<<
  *                             f"{key} != {Entity.quoteString(str_value[1:])}"
  *                         )
  */
-          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_6); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 128, __pyx_L1_error)
+          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_6); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 130, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-          /* "querysource/parsers/cql.pyx":127
+          /* "querysource/parsers/cql.pyx":129
  *                         # SECURITY: Escape the negated value
  *                         where_cond.append(f"{name} != {Entity.quoteString(str_value)}")
  *                     elif str_value.startswith('!'):             # <<<<<<<<<<<<<<
  *                         where_cond.append(
  *                             f"{key} != {Entity.quoteString(str_value[1:])}"
  */
-          goto __pyx_L53;
+          goto __pyx_L54;
         }
 
-        /* "querysource/parsers/cql.pyx":132
+        /* "querysource/parsers/cql.pyx":134
  *                         )
  *                     else:
  *                         where_cond.append(             # <<<<<<<<<<<<<<
@@ -7339,18 +7384,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
         /*else*/ {
 
-          /* "querysource/parsers/cql.pyx":133
+          /* "querysource/parsers/cql.pyx":135
  *                     else:
  *                         where_cond.append(
  *                             f"{key}={Entity.quoteString(value)}"             # <<<<<<<<<<<<<<
  *                         )
  *                 elif isinstance(value, bool):
  */
-          __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 133, __pyx_L1_error)
+          __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 135, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
           __pyx_t_13 = 0;
           __pyx_t_14 = 127;
-          __pyx_t_16 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 133, __pyx_L1_error)
+          __pyx_t_16 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 135, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_16);
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_16) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_16) : __pyx_t_14;
           __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_16);
@@ -7361,9 +7406,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __pyx_t_13 += 1;
           __Pyx_GIVEREF(__pyx_kp_u__24);
           PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_kp_u__24);
-          __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_n_s_Entity); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 133, __pyx_L1_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_n_s_Entity); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 135, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 133, __pyx_L1_error)
+          __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 135, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
           __pyx_t_17 = NULL;
@@ -7384,11 +7429,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
             PyObject *__pyx_callargs[2] = {__pyx_t_17, __pyx_cur_scope->__pyx_v_value};
             __pyx_t_16 = __Pyx_PyObject_FastCall(__pyx_t_15, __pyx_callargs+1-__pyx_t_18, 1+__pyx_t_18);
             __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
-            if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 133, __pyx_L1_error)
+            if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 135, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_16);
             __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
           }
-          __pyx_t_15 = __Pyx_PyObject_FormatSimple(__pyx_t_16, __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 133, __pyx_L1_error)
+          __pyx_t_15 = __Pyx_PyObject_FormatSimple(__pyx_t_16, __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 135, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
           __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
@@ -7396,23 +7441,23 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           __Pyx_GIVEREF(__pyx_t_15);
           PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_15);
           __pyx_t_15 = 0;
-          __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 133, __pyx_L1_error)
+          __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 135, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-          /* "querysource/parsers/cql.pyx":132
+          /* "querysource/parsers/cql.pyx":134
  *                         )
  *                     else:
  *                         where_cond.append(             # <<<<<<<<<<<<<<
  *                             f"{key}={Entity.quoteString(value)}"
  *                         )
  */
-          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_15); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 132, __pyx_L1_error)
+          __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_15); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 134, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
         }
-        __pyx_L53:;
+        __pyx_L54:;
 
-        /* "querysource/parsers/cql.pyx":111
+        /* "querysource/parsers/cql.pyx":113
  *                         else:
  *                             where_cond.append(f"{key} IN ({val})")
  *                 elif isinstance(value, (str, int)):             # <<<<<<<<<<<<<<
@@ -7422,7 +7467,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
         goto __pyx_L34;
       }
 
-      /* "querysource/parsers/cql.pyx":135
+      /* "querysource/parsers/cql.pyx":137
  *                             f"{key}={Entity.quoteString(value)}"
  *                         )
  *                 elif isinstance(value, bool):             # <<<<<<<<<<<<<<
@@ -7431,22 +7476,22 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
       __pyx_t_15 = ((PyObject*)&PyBool_Type);
       __Pyx_INCREF(__pyx_t_15);
-      __pyx_t_2 = PyObject_IsInstance(__pyx_cur_scope->__pyx_v_value, __pyx_t_15); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 135, __pyx_L1_error)
+      __pyx_t_12 = PyObject_IsInstance(__pyx_cur_scope->__pyx_v_value, __pyx_t_15); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 137, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-      if (__pyx_t_2) {
+      if (__pyx_t_12) {
 
-        /* "querysource/parsers/cql.pyx":136
+        /* "querysource/parsers/cql.pyx":138
  *                         )
  *                 elif isinstance(value, bool):
  *                     where_cond.append(f"{key} = {value}")             # <<<<<<<<<<<<<<
  *                 else:
  *                     where_cond.append(
  */
-        __pyx_t_15 = PyTuple_New(3); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 136, __pyx_L1_error)
+        __pyx_t_15 = PyTuple_New(3); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 138, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_15);
         __pyx_t_13 = 0;
         __pyx_t_14 = 127;
-        __pyx_t_6 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 136, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 138, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) : __pyx_t_14;
         __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6);
@@ -7457,20 +7502,20 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
         __pyx_t_13 += 3;
         __Pyx_GIVEREF(__pyx_kp_u__25);
         PyTuple_SET_ITEM(__pyx_t_15, 1, __pyx_kp_u__25);
-        __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 136, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 138, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) : __pyx_t_14;
         __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6);
         __Pyx_GIVEREF(__pyx_t_6);
         PyTuple_SET_ITEM(__pyx_t_15, 2, __pyx_t_6);
         __pyx_t_6 = 0;
-        __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_15, 3, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 136, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_15, 3, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 138, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-        __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_6); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 136, __pyx_L1_error)
+        __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_6); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 138, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "querysource/parsers/cql.pyx":135
+        /* "querysource/parsers/cql.pyx":137
  *                             f"{key}={Entity.quoteString(value)}"
  *                         )
  *                 elif isinstance(value, bool):             # <<<<<<<<<<<<<<
@@ -7480,7 +7525,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
         goto __pyx_L34;
       }
 
-      /* "querysource/parsers/cql.pyx":138
+      /* "querysource/parsers/cql.pyx":140
  *                     where_cond.append(f"{key} = {value}")
  *                 else:
  *                     where_cond.append(             # <<<<<<<<<<<<<<
@@ -7489,18 +7534,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
       /*else*/ {
 
-        /* "querysource/parsers/cql.pyx":139
+        /* "querysource/parsers/cql.pyx":141
  *                 else:
  *                     where_cond.append(
  *                         f"{key}={Entity.quoteString(value)}"             # <<<<<<<<<<<<<<
  *                     )
  *             # build WHERE
  */
-        __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 139, __pyx_L1_error)
+        __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 141, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_t_13 = 0;
         __pyx_t_14 = 127;
-        __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 139, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 141, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_15);
         __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_15) : __pyx_t_14;
         __pyx_t_13 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_15);
@@ -7511,9 +7556,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
         __pyx_t_13 += 1;
         __Pyx_GIVEREF(__pyx_kp_u__24);
         PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_kp_u__24);
-        __Pyx_GetModuleGlobalName(__pyx_t_16, __pyx_n_s_Entity); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 139, __pyx_L1_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_16, __pyx_n_s_Entity); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 141, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_16);
-        __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_16, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 139, __pyx_L1_error)
+        __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_16, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 141, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_17);
         __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
         __pyx_t_16 = NULL;
@@ -7534,11 +7579,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
           PyObject *__pyx_callargs[2] = {__pyx_t_16, __pyx_cur_scope->__pyx_v_value};
           __pyx_t_15 = __Pyx_PyObject_FastCall(__pyx_t_17, __pyx_callargs+1-__pyx_t_18, 1+__pyx_t_18);
           __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
-          if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 139, __pyx_L1_error)
+          if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 141, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_15);
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
         }
-        __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_t_15, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 139, __pyx_L1_error)
+        __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_t_15, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 141, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_17);
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
         __pyx_t_14 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_14) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_14;
@@ -7546,18 +7591,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
         __Pyx_GIVEREF(__pyx_t_17);
         PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_17);
         __pyx_t_17 = 0;
-        __pyx_t_17 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 139, __pyx_L1_error)
+        __pyx_t_17 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, __pyx_t_13, __pyx_t_14); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 141, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_17);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "querysource/parsers/cql.pyx":138
+        /* "querysource/parsers/cql.pyx":140
  *                     where_cond.append(f"{key} = {value}")
  *                 else:
  *                     where_cond.append(             # <<<<<<<<<<<<<<
  *                         f"{key}={Entity.quoteString(value)}"
  *                     )
  */
-        __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_17); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 138, __pyx_L1_error)
+        __pyx_t_20 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_where_cond, __pyx_t_17); if (unlikely(__pyx_t_20 == ((int)-1))) __PYX_ERR(0, 140, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
       }
       __pyx_L34:;
@@ -7565,7 +7610,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "querysource/parsers/cql.pyx":142
+    /* "querysource/parsers/cql.pyx":144
  *                     )
  *             # build WHERE
  *             if _sql.count('and_cond') > 0:             # <<<<<<<<<<<<<<
@@ -7574,82 +7619,82 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
     if (unlikely(__pyx_cur_scope->__pyx_v__sql == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "count");
-      __PYX_ERR(0, 142, __pyx_L1_error)
+      __PYX_ERR(0, 144, __pyx_L1_error)
     }
-    __pyx_t_4 = PyUnicode_Count(__pyx_cur_scope->__pyx_v__sql, __pyx_n_u_and_cond, 0, PY_SSIZE_T_MAX); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 142, __pyx_L1_error)
-    __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
+    __pyx_t_4 = PyUnicode_Count(__pyx_cur_scope->__pyx_v__sql, __pyx_n_u_and_cond, 0, PY_SSIZE_T_MAX); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 144, __pyx_L1_error)
+    __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_17 = PyObject_RichCompare(__pyx_t_1, __pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_17); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 142, __pyx_L1_error)
+    __pyx_t_17 = PyObject_RichCompare(__pyx_t_1, __pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_17); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 144, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_17); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 142, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_17); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 144, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-    if (__pyx_t_2) {
+    if (__pyx_t_12) {
 
-      /* "querysource/parsers/cql.pyx":143
+      /* "querysource/parsers/cql.pyx":145
  *             # build WHERE
  *             if _sql.count('and_cond') > 0:
  *                 _and = ' AND '.join(where_cond)             # <<<<<<<<<<<<<<
  *                 _filter = f' AND {_and}'
  *                 _sql = _sql.format_map(SafeDict(and_cond=_filter))
  */
-      __pyx_t_17 = PyUnicode_Join(__pyx_kp_u_AND, __pyx_cur_scope->__pyx_v_where_cond); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 143, __pyx_L1_error)
+      __pyx_t_17 = PyUnicode_Join(__pyx_kp_u_AND, __pyx_cur_scope->__pyx_v_where_cond); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 145, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_17);
       __Pyx_GIVEREF(__pyx_t_17);
       __pyx_cur_scope->__pyx_v__and = ((PyObject*)__pyx_t_17);
       __pyx_t_17 = 0;
 
-      /* "querysource/parsers/cql.pyx":144
+      /* "querysource/parsers/cql.pyx":146
  *             if _sql.count('and_cond') > 0:
  *                 _and = ' AND '.join(where_cond)
  *                 _filter = f' AND {_and}'             # <<<<<<<<<<<<<<
  *                 _sql = _sql.format_map(SafeDict(and_cond=_filter))
  *             elif _sql.count('where_cond') > 0:
  */
-      __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__and); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 144, __pyx_L1_error)
+      __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__and); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 146, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_17);
-      __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_kp_u_AND, __pyx_t_17); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_kp_u_AND, __pyx_t_17); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
       __Pyx_GIVEREF(__pyx_t_1);
       __pyx_cur_scope->__pyx_v__filter = ((PyObject*)__pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/cql.pyx":145
+      /* "querysource/parsers/cql.pyx":147
  *                 _and = ' AND '.join(where_cond)
  *                 _filter = f' AND {_and}'
  *                 _sql = _sql.format_map(SafeDict(and_cond=_filter))             # <<<<<<<<<<<<<<
  *             elif _sql.count('where_cond') > 0:
  *                 _and = ' AND '.join(where_cond)
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 147, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_17 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 145, __pyx_L1_error)
+      __pyx_t_17 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 147, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_17);
-      if (PyDict_SetItem(__pyx_t_17, __pyx_n_s_and_cond, __pyx_cur_scope->__pyx_v__filter) < 0) __PYX_ERR(0, 145, __pyx_L1_error)
-      __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_17); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 145, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_17, __pyx_n_s_and_cond, __pyx_cur_scope->__pyx_v__filter) < 0) __PYX_ERR(0, 147, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_17); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 147, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-      __pyx_t_17 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 145, __pyx_L1_error)
+      __pyx_t_17 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 147, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_17);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_17))||((__pyx_t_17) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_17))) __PYX_ERR(0, 145, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_17))||((__pyx_t_17) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_17))) __PYX_ERR(0, 147, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_cur_scope->__pyx_v__sql);
       __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v__sql, ((PyObject*)__pyx_t_17));
       __Pyx_GIVEREF(__pyx_t_17);
       __pyx_t_17 = 0;
 
-      /* "querysource/parsers/cql.pyx":142
+      /* "querysource/parsers/cql.pyx":144
  *                     )
  *             # build WHERE
  *             if _sql.count('and_cond') > 0:             # <<<<<<<<<<<<<<
  *                 _and = ' AND '.join(where_cond)
  *                 _filter = f' AND {_and}'
  */
-      goto __pyx_L64;
+      goto __pyx_L65;
     }
 
-    /* "querysource/parsers/cql.pyx":146
+    /* "querysource/parsers/cql.pyx":148
  *                 _filter = f' AND {_and}'
  *                 _sql = _sql.format_map(SafeDict(and_cond=_filter))
  *             elif _sql.count('where_cond') > 0:             # <<<<<<<<<<<<<<
@@ -7658,82 +7703,82 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
     if (unlikely(__pyx_cur_scope->__pyx_v__sql == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "count");
-      __PYX_ERR(0, 146, __pyx_L1_error)
+      __PYX_ERR(0, 148, __pyx_L1_error)
     }
-    __pyx_t_4 = PyUnicode_Count(__pyx_cur_scope->__pyx_v__sql, __pyx_n_u_where_cond, 0, PY_SSIZE_T_MAX); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 146, __pyx_L1_error)
-    __pyx_t_17 = PyInt_FromSsize_t(__pyx_t_4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 146, __pyx_L1_error)
+    __pyx_t_4 = PyUnicode_Count(__pyx_cur_scope->__pyx_v__sql, __pyx_n_u_where_cond, 0, PY_SSIZE_T_MAX); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 148, __pyx_L1_error)
+    __pyx_t_17 = PyInt_FromSsize_t(__pyx_t_4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 148, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_17);
-    __pyx_t_6 = PyObject_RichCompare(__pyx_t_17, __pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_6); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 146, __pyx_L1_error)
+    __pyx_t_6 = PyObject_RichCompare(__pyx_t_17, __pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_6); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 148, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 146, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 148, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (__pyx_t_2) {
+    if (__pyx_t_12) {
 
-      /* "querysource/parsers/cql.pyx":147
+      /* "querysource/parsers/cql.pyx":149
  *                 _sql = _sql.format_map(SafeDict(and_cond=_filter))
  *             elif _sql.count('where_cond') > 0:
  *                 _and = ' AND '.join(where_cond)             # <<<<<<<<<<<<<<
  *                 _filter = f' WHERE {_and}'
  *                 _sql = _sql.format_map(SafeDict(where_cond=_filter))
  */
-      __pyx_t_6 = PyUnicode_Join(__pyx_kp_u_AND, __pyx_cur_scope->__pyx_v_where_cond); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 147, __pyx_L1_error)
+      __pyx_t_6 = PyUnicode_Join(__pyx_kp_u_AND, __pyx_cur_scope->__pyx_v_where_cond); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 149, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_GIVEREF(__pyx_t_6);
       __pyx_cur_scope->__pyx_v__and = ((PyObject*)__pyx_t_6);
       __pyx_t_6 = 0;
 
-      /* "querysource/parsers/cql.pyx":148
+      /* "querysource/parsers/cql.pyx":150
  *             elif _sql.count('where_cond') > 0:
  *                 _and = ' AND '.join(where_cond)
  *                 _filter = f' WHERE {_and}'             # <<<<<<<<<<<<<<
  *                 _sql = _sql.format_map(SafeDict(where_cond=_filter))
  *             elif _sql.count('filter') > 0:
  */
-      __pyx_t_6 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__and); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 148, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__and); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 150, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_17 = __Pyx_PyUnicode_Concat(__pyx_kp_u_WHERE, __pyx_t_6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 148, __pyx_L1_error)
+      __pyx_t_17 = __Pyx_PyUnicode_Concat(__pyx_kp_u_WHERE, __pyx_t_6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 150, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_17);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_GIVEREF(__pyx_t_17);
       __pyx_cur_scope->__pyx_v__filter = ((PyObject*)__pyx_t_17);
       __pyx_t_17 = 0;
 
-      /* "querysource/parsers/cql.pyx":149
+      /* "querysource/parsers/cql.pyx":151
  *                 _and = ' AND '.join(where_cond)
  *                 _filter = f' WHERE {_and}'
  *                 _sql = _sql.format_map(SafeDict(where_cond=_filter))             # <<<<<<<<<<<<<<
  *             elif _sql.count('filter') > 0:
  *                 _and = ' AND '.join(where_cond)
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 149, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 151, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_17);
-      __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 149, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 151, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_where_cond, __pyx_cur_scope->__pyx_v__filter) < 0) __PYX_ERR(0, 149, __pyx_L1_error)
-      __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_17, __pyx_empty_tuple, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 149, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_where_cond, __pyx_cur_scope->__pyx_v__filter) < 0) __PYX_ERR(0, 151, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_17, __pyx_empty_tuple, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_6 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 149, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 151, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_6))) __PYX_ERR(0, 149, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_6))) __PYX_ERR(0, 151, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_cur_scope->__pyx_v__sql);
       __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v__sql, ((PyObject*)__pyx_t_6));
       __Pyx_GIVEREF(__pyx_t_6);
       __pyx_t_6 = 0;
 
-      /* "querysource/parsers/cql.pyx":146
+      /* "querysource/parsers/cql.pyx":148
  *                 _filter = f' AND {_and}'
  *                 _sql = _sql.format_map(SafeDict(and_cond=_filter))
  *             elif _sql.count('where_cond') > 0:             # <<<<<<<<<<<<<<
  *                 _and = ' AND '.join(where_cond)
  *                 _filter = f' WHERE {_and}'
  */
-      goto __pyx_L64;
+      goto __pyx_L65;
     }
 
-    /* "querysource/parsers/cql.pyx":150
+    /* "querysource/parsers/cql.pyx":152
  *                 _filter = f' WHERE {_and}'
  *                 _sql = _sql.format_map(SafeDict(where_cond=_filter))
  *             elif _sql.count('filter') > 0:             # <<<<<<<<<<<<<<
@@ -7742,82 +7787,82 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
     if (unlikely(__pyx_cur_scope->__pyx_v__sql == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "count");
-      __PYX_ERR(0, 150, __pyx_L1_error)
+      __PYX_ERR(0, 152, __pyx_L1_error)
     }
-    __pyx_t_4 = PyUnicode_Count(__pyx_cur_scope->__pyx_v__sql, __pyx_n_u_filter, 0, PY_SSIZE_T_MAX); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 150, __pyx_L1_error)
-    __pyx_t_6 = PyInt_FromSsize_t(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 150, __pyx_L1_error)
+    __pyx_t_4 = PyUnicode_Count(__pyx_cur_scope->__pyx_v__sql, __pyx_n_u_filter, 0, PY_SSIZE_T_MAX); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 152, __pyx_L1_error)
+    __pyx_t_6 = PyInt_FromSsize_t(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 152, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_1 = PyObject_RichCompare(__pyx_t_6, __pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L1_error)
+    __pyx_t_1 = PyObject_RichCompare(__pyx_t_6, __pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 150, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 152, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (__pyx_t_2) {
+    if (__pyx_t_12) {
 
-      /* "querysource/parsers/cql.pyx":151
+      /* "querysource/parsers/cql.pyx":153
  *                 _sql = _sql.format_map(SafeDict(where_cond=_filter))
  *             elif _sql.count('filter') > 0:
  *                 _and = ' AND '.join(where_cond)             # <<<<<<<<<<<<<<
  *                 _filter = f' WHERE {_and}'
  *                 _sql = _sql.format_map(SafeDict(filter=_filter))
  */
-      __pyx_t_1 = PyUnicode_Join(__pyx_kp_u_AND, __pyx_cur_scope->__pyx_v_where_cond); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
+      __pyx_t_1 = PyUnicode_Join(__pyx_kp_u_AND, __pyx_cur_scope->__pyx_v_where_cond); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_GIVEREF(__pyx_t_1);
       __pyx_cur_scope->__pyx_v__and = ((PyObject*)__pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/cql.pyx":152
+      /* "querysource/parsers/cql.pyx":154
  *             elif _sql.count('filter') > 0:
  *                 _and = ' AND '.join(where_cond)
  *                 _filter = f' WHERE {_and}'             # <<<<<<<<<<<<<<
  *                 _sql = _sql.format_map(SafeDict(filter=_filter))
  *             else:
  */
-      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__and); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__and); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_kp_u_WHERE, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 152, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_kp_u_WHERE, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 154, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_GIVEREF(__pyx_t_6);
       __pyx_cur_scope->__pyx_v__filter = ((PyObject*)__pyx_t_6);
       __pyx_t_6 = 0;
 
-      /* "querysource/parsers/cql.pyx":153
+      /* "querysource/parsers/cql.pyx":155
  *                 _and = ' AND '.join(where_cond)
  *                 _filter = f' WHERE {_and}'
  *                 _sql = _sql.format_map(SafeDict(filter=_filter))             # <<<<<<<<<<<<<<
  *             else:
  *                 _and = ' AND '.join(where_cond)
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 153, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 155, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_filter, __pyx_cur_scope->__pyx_v__filter) < 0) __PYX_ERR(0, 153, __pyx_L1_error)
-      __pyx_t_17 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 153, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_filter, __pyx_cur_scope->__pyx_v__filter) < 0) __PYX_ERR(0, 155, __pyx_L1_error)
+      __pyx_t_17 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 155, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_17);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_17); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_17); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 153, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 155, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_cur_scope->__pyx_v__sql);
       __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v__sql, ((PyObject*)__pyx_t_1));
       __Pyx_GIVEREF(__pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/cql.pyx":150
+      /* "querysource/parsers/cql.pyx":152
  *                 _filter = f' WHERE {_and}'
  *                 _sql = _sql.format_map(SafeDict(where_cond=_filter))
  *             elif _sql.count('filter') > 0:             # <<<<<<<<<<<<<<
  *                 _and = ' AND '.join(where_cond)
  *                 _filter = f' WHERE {_and}'
  */
-      goto __pyx_L64;
+      goto __pyx_L65;
     }
 
-    /* "querysource/parsers/cql.pyx":155
+    /* "querysource/parsers/cql.pyx":157
  *                 _sql = _sql.format_map(SafeDict(filter=_filter))
  *             else:
  *                 _and = ' AND '.join(where_cond)             # <<<<<<<<<<<<<<
@@ -7825,13 +7870,13 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  *                     _filter = f' AND {_and}'
  */
     /*else*/ {
-      __pyx_t_1 = PyUnicode_Join(__pyx_kp_u_AND, __pyx_cur_scope->__pyx_v_where_cond); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
+      __pyx_t_1 = PyUnicode_Join(__pyx_kp_u_AND, __pyx_cur_scope->__pyx_v_where_cond); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 157, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_GIVEREF(__pyx_t_1);
       __pyx_cur_scope->__pyx_v__and = ((PyObject*)__pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/cql.pyx":156
+      /* "querysource/parsers/cql.pyx":158
  *             else:
  *                 _and = ' AND '.join(where_cond)
  *                 if 'WHERE' in _sql:             # <<<<<<<<<<<<<<
@@ -7840,38 +7885,38 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
       if (unlikely(__pyx_cur_scope->__pyx_v__sql == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-        __PYX_ERR(0, 156, __pyx_L1_error)
+        __PYX_ERR(0, 158, __pyx_L1_error)
       }
-      __pyx_t_2 = (__Pyx_PyUnicode_ContainsTF(__pyx_n_u_WHERE_2, __pyx_cur_scope->__pyx_v__sql, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 156, __pyx_L1_error)
-      if (__pyx_t_2) {
+      __pyx_t_12 = (__Pyx_PyUnicode_ContainsTF(__pyx_n_u_WHERE_2, __pyx_cur_scope->__pyx_v__sql, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 158, __pyx_L1_error)
+      if (__pyx_t_12) {
 
-        /* "querysource/parsers/cql.pyx":157
+        /* "querysource/parsers/cql.pyx":159
  *                 _and = ' AND '.join(where_cond)
  *                 if 'WHERE' in _sql:
  *                     _filter = f' AND {_and}'             # <<<<<<<<<<<<<<
  *                 else:
  *                     _filter = f' WHERE {_and}'
  */
-        __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__and); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 157, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__and); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 159, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_17 = __Pyx_PyUnicode_Concat(__pyx_kp_u_AND, __pyx_t_1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 157, __pyx_L1_error)
+        __pyx_t_17 = __Pyx_PyUnicode_Concat(__pyx_kp_u_AND, __pyx_t_1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 159, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_17);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_GIVEREF(__pyx_t_17);
         __pyx_cur_scope->__pyx_v__filter = ((PyObject*)__pyx_t_17);
         __pyx_t_17 = 0;
 
-        /* "querysource/parsers/cql.pyx":156
+        /* "querysource/parsers/cql.pyx":158
  *             else:
  *                 _and = ' AND '.join(where_cond)
  *                 if 'WHERE' in _sql:             # <<<<<<<<<<<<<<
  *                     _filter = f' AND {_and}'
  *                 else:
  */
-        goto __pyx_L65;
+        goto __pyx_L66;
       }
 
-      /* "querysource/parsers/cql.pyx":159
+      /* "querysource/parsers/cql.pyx":161
  *                     _filter = f' AND {_and}'
  *                 else:
  *                     _filter = f' WHERE {_and}'             # <<<<<<<<<<<<<<
@@ -7879,27 +7924,27 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  *         if '{where_cond}' in _sql:
  */
       /*else*/ {
-        __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__and); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 159, __pyx_L1_error)
+        __pyx_t_17 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__and); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 161, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_17);
-        __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_kp_u_WHERE, __pyx_t_17); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 159, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_kp_u_WHERE, __pyx_t_17); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 161, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
         __Pyx_GIVEREF(__pyx_t_1);
         __pyx_cur_scope->__pyx_v__filter = ((PyObject*)__pyx_t_1);
         __pyx_t_1 = 0;
       }
-      __pyx_L65:;
+      __pyx_L66:;
 
-      /* "querysource/parsers/cql.pyx":160
+      /* "querysource/parsers/cql.pyx":162
  *                 else:
  *                     _filter = f' WHERE {_and}'
  *                 _sql = f'{_sql}{_filter}'             # <<<<<<<<<<<<<<
  *         if '{where_cond}' in _sql:
  *             _sql = _sql.format_map(SafeDict(where_cond=''))
  */
-      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__sql); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 160, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v__sql); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_17 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_1, __pyx_cur_scope->__pyx_v__filter); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 160, __pyx_L1_error)
+      __pyx_t_17 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_1, __pyx_cur_scope->__pyx_v__filter); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 162, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_17);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_GOTREF(__pyx_cur_scope->__pyx_v__sql);
@@ -7907,7 +7952,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
       __Pyx_GIVEREF(__pyx_t_17);
       __pyx_t_17 = 0;
     }
-    __pyx_L64:;
+    __pyx_L65:;
 
     /* "querysource/parsers/cql.pyx":65
  *         cdef list where_cond
@@ -7918,7 +7963,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
   }
 
-  /* "querysource/parsers/cql.pyx":161
+  /* "querysource/parsers/cql.pyx":163
  *                     _filter = f' WHERE {_and}'
  *                 _sql = f'{_sql}{_filter}'
  *         if '{where_cond}' in _sql:             # <<<<<<<<<<<<<<
@@ -7927,37 +7972,37 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
   if (unlikely(__pyx_cur_scope->__pyx_v__sql == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 161, __pyx_L1_error)
+    __PYX_ERR(0, 163, __pyx_L1_error)
   }
-  __pyx_t_2 = (__Pyx_PyUnicode_ContainsTF(__pyx_kp_u_where_cond_2, __pyx_cur_scope->__pyx_v__sql, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 161, __pyx_L1_error)
-  if (__pyx_t_2) {
+  __pyx_t_12 = (__Pyx_PyUnicode_ContainsTF(__pyx_kp_u_where_cond_2, __pyx_cur_scope->__pyx_v__sql, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 163, __pyx_L1_error)
+  if (__pyx_t_12) {
 
-    /* "querysource/parsers/cql.pyx":162
+    /* "querysource/parsers/cql.pyx":164
  *                 _sql = f'{_sql}{_filter}'
  *         if '{where_cond}' in _sql:
  *             _sql = _sql.format_map(SafeDict(where_cond=''))             # <<<<<<<<<<<<<<
  *         if '{and_cond}' in _sql:
  *             _sql = _sql.format_map(SafeDict(and_cond=''))
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 162, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 164, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_17);
-    __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 164, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_where_cond, __pyx_kp_u__26) < 0) __PYX_ERR(0, 162, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_17, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 162, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_where_cond, __pyx_kp_u__26) < 0) __PYX_ERR(0, 164, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_17, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 164, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 164, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 162, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 164, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v__sql);
     __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v__sql, ((PyObject*)__pyx_t_1));
     __Pyx_GIVEREF(__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/cql.pyx":161
+    /* "querysource/parsers/cql.pyx":163
  *                     _filter = f' WHERE {_and}'
  *                 _sql = f'{_sql}{_filter}'
  *         if '{where_cond}' in _sql:             # <<<<<<<<<<<<<<
@@ -7966,7 +8011,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
   }
 
-  /* "querysource/parsers/cql.pyx":163
+  /* "querysource/parsers/cql.pyx":165
  *         if '{where_cond}' in _sql:
  *             _sql = _sql.format_map(SafeDict(where_cond=''))
  *         if '{and_cond}' in _sql:             # <<<<<<<<<<<<<<
@@ -7975,37 +8020,37 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
   if (unlikely(__pyx_cur_scope->__pyx_v__sql == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 163, __pyx_L1_error)
+    __PYX_ERR(0, 165, __pyx_L1_error)
   }
-  __pyx_t_2 = (__Pyx_PyUnicode_ContainsTF(__pyx_kp_u_and_cond_2, __pyx_cur_scope->__pyx_v__sql, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 163, __pyx_L1_error)
-  if (__pyx_t_2) {
+  __pyx_t_12 = (__Pyx_PyUnicode_ContainsTF(__pyx_kp_u_and_cond_2, __pyx_cur_scope->__pyx_v__sql, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 165, __pyx_L1_error)
+  if (__pyx_t_12) {
 
-    /* "querysource/parsers/cql.pyx":164
+    /* "querysource/parsers/cql.pyx":166
  *             _sql = _sql.format_map(SafeDict(where_cond=''))
  *         if '{and_cond}' in _sql:
  *             _sql = _sql.format_map(SafeDict(and_cond=''))             # <<<<<<<<<<<<<<
  *         if '{filter}' in _sql:
  *             _sql = _sql.format_map(SafeDict(filter=''))
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 166, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 166, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_and_cond, __pyx_kp_u__26) < 0) __PYX_ERR(0, 164, __pyx_L1_error)
-    __pyx_t_17 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 164, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_and_cond, __pyx_kp_u__26) < 0) __PYX_ERR(0, 166, __pyx_L1_error)
+    __pyx_t_17 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 166, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_17);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_17); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_17); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 166, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_6))) __PYX_ERR(0, 164, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_6))) __PYX_ERR(0, 166, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v__sql);
     __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v__sql, ((PyObject*)__pyx_t_6));
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "querysource/parsers/cql.pyx":163
+    /* "querysource/parsers/cql.pyx":165
  *         if '{where_cond}' in _sql:
  *             _sql = _sql.format_map(SafeDict(where_cond=''))
  *         if '{and_cond}' in _sql:             # <<<<<<<<<<<<<<
@@ -8014,7 +8059,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
   }
 
-  /* "querysource/parsers/cql.pyx":165
+  /* "querysource/parsers/cql.pyx":167
  *         if '{and_cond}' in _sql:
  *             _sql = _sql.format_map(SafeDict(and_cond=''))
  *         if '{filter}' in _sql:             # <<<<<<<<<<<<<<
@@ -8023,37 +8068,37 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
   if (unlikely(__pyx_cur_scope->__pyx_v__sql == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 165, __pyx_L1_error)
+    __PYX_ERR(0, 167, __pyx_L1_error)
   }
-  __pyx_t_2 = (__Pyx_PyUnicode_ContainsTF(__pyx_kp_u_filter_2, __pyx_cur_scope->__pyx_v__sql, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 165, __pyx_L1_error)
-  if (__pyx_t_2) {
+  __pyx_t_12 = (__Pyx_PyUnicode_ContainsTF(__pyx_kp_u_filter_2, __pyx_cur_scope->__pyx_v__sql, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 167, __pyx_L1_error)
+  if (__pyx_t_12) {
 
-    /* "querysource/parsers/cql.pyx":166
+    /* "querysource/parsers/cql.pyx":168
  *             _sql = _sql.format_map(SafeDict(and_cond=''))
  *         if '{filter}' in _sql:
  *             _sql = _sql.format_map(SafeDict(filter=''))             # <<<<<<<<<<<<<<
  *         return _sql
  * 
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 168, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_17 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __pyx_t_17 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 168, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_17);
-    if (PyDict_SetItem(__pyx_t_17, __pyx_n_s_filter, __pyx_kp_u__26) < 0) __PYX_ERR(0, 166, __pyx_L1_error)
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_empty_tuple, __pyx_t_17); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 166, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_17, __pyx_n_s_filter, __pyx_kp_u__26) < 0) __PYX_ERR(0, 168, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_empty_tuple, __pyx_t_17); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-    __pyx_t_17 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __pyx_t_17 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v__sql, __pyx_t_1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 168, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_17);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_17))||((__pyx_t_17) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_17))) __PYX_ERR(0, 166, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_17))||((__pyx_t_17) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_17))) __PYX_ERR(0, 168, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v__sql);
     __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v__sql, ((PyObject*)__pyx_t_17));
     __Pyx_GIVEREF(__pyx_t_17);
     __pyx_t_17 = 0;
 
-    /* "querysource/parsers/cql.pyx":165
+    /* "querysource/parsers/cql.pyx":167
  *         if '{and_cond}' in _sql:
  *             _sql = _sql.format_map(SafeDict(and_cond=''))
  *         if '{filter}' in _sql:             # <<<<<<<<<<<<<<
@@ -8062,7 +8107,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
  */
   }
 
-  /* "querysource/parsers/cql.pyx":167
+  /* "querysource/parsers/cql.pyx":169
  *         if '{filter}' in _sql:
  *             _sql = _sql.format_map(SafeDict(filter=''))
  *         return _sql             # <<<<<<<<<<<<<<
@@ -8106,7 +8151,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_11generator1(__
 }
 static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/cql.pyx":169
+/* "querysource/parsers/cql.pyx":171
  *         return _sql
  * 
  *     async def build_query(self, querylimit: int = None, offset: int = None):             # <<<<<<<<<<<<<<
@@ -8172,19 +8217,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_querylimit);
           if (value) { values[0] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 169, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 171, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_offset);
           if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 169, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 171, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "build_query") < 0)) __PYX_ERR(0, 169, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "build_query") < 0)) __PYX_ERR(0, 171, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -8201,7 +8246,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("build_query", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 169, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("build_query", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 171, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8215,8 +8260,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_querylimit), (&PyInt_Type), 1, "querylimit", 1))) __PYX_ERR(0, 169, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_offset), (&PyInt_Type), 1, "offset", 1))) __PYX_ERR(0, 169, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_querylimit), (&PyInt_Type), 1, "querylimit", 1))) __PYX_ERR(0, 171, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_offset), (&PyInt_Type), 1, "offset", 1))) __PYX_ERR(0, 171, __pyx_L1_error)
   __pyx_r = __pyx_pf_11querysource_7parsers_3cql_9CQLParser_12build_query(((struct __pyx_obj_11querysource_7parsers_3cql_CQLParser *)__pyx_v_self), __pyx_v_querylimit, __pyx_v_offset);
 
   /* function exit code */
@@ -8246,7 +8291,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_12build_query(s
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 169, __pyx_L1_error)
+    __PYX_ERR(0, 171, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -8260,7 +8305,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_12build_query(s
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_offset);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_offset);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2, __pyx_codeobj__27, (PyObject *) __pyx_cur_scope, __pyx_n_s_build_query, __pyx_n_s_CQLParser_build_query, __pyx_n_s_querysource_parsers_cql); if (unlikely(!gen)) __PYX_ERR(0, 169, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2, __pyx_codeobj__27, (PyObject *) __pyx_cur_scope, __pyx_n_s_build_query, __pyx_n_s_CQLParser_build_query, __pyx_n_s_querysource_parsers_cql); if (unlikely(!gen)) __PYX_ERR(0, 171, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -8313,9 +8358,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 169, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 171, __pyx_L1_error)
 
-  /* "querysource/parsers/cql.pyx":171
+  /* "querysource/parsers/cql.pyx":173
  *     async def build_query(self, querylimit: int = None, offset: int = None):
  *         """Build a CQL Query."""
  *         cdef str cql = self.query_raw             # <<<<<<<<<<<<<<
@@ -8328,18 +8373,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
   __pyx_cur_scope->__pyx_v_cql = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/cql.pyx":172
+  /* "querysource/parsers/cql.pyx":174
  *         """Build a CQL Query."""
  *         cdef str cql = self.query_raw
  *         self.logger.debug(f":: RAW CQL: {cql}")             # <<<<<<<<<<<<<<
  *         cql = await self.process_fields(cql)
  *         # add query options
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.logger, __pyx_n_s_debug); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.logger, __pyx_n_s_debug); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_cql); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_cql); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyUnicode_Concat(__pyx_kp_u_RAW_CQL, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_Concat(__pyx_kp_u_RAW_CQL, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -8361,20 +8406,20 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "querysource/parsers/cql.pyx":173
+  /* "querysource/parsers/cql.pyx":175
  *         cdef str cql = self.query_raw
  *         self.logger.debug(f":: RAW CQL: {cql}")
  *         cql = await self.process_fields(cql)             # <<<<<<<<<<<<<<
  *         # add query options
  *         for _, func in self.get_query_filters().items():
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_process_fields); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_process_fields); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 175, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_4 = NULL;
   __pyx_t_5 = 0;
@@ -8394,7 +8439,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_cur_scope->__pyx_v_cql};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
@@ -8409,20 +8454,20 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 173, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 175, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else {
     __pyx_t_1 = NULL;
-    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 173, __pyx_L1_error)
+    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 173, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 175, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_cql);
   __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_cql, ((PyObject*)__pyx_t_1));
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/cql.pyx":175
+  /* "querysource/parsers/cql.pyx":177
  *         cql = await self.process_fields(cql)
  *         # add query options
  *         for _, func in self.get_query_filters().items():             # <<<<<<<<<<<<<<
@@ -8430,13 +8475,13 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
  *             func = partial(
  */
   __pyx_t_6 = 0;
-  __pyx_t_2 = ((struct __pyx_vtabstruct_11querysource_7parsers_3cql_CQLParser *)__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.__pyx_vtab)->__pyx_base.__pyx_base.get_query_filters(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self), 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __pyx_t_2 = ((struct __pyx_vtabstruct_11querysource_7parsers_3cql_CQLParser *)__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.__pyx_vtab)->__pyx_base.__pyx_base.get_query_filters(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self), 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (unlikely(__pyx_t_2 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 175, __pyx_L1_error)
+    __PYX_ERR(0, 177, __pyx_L1_error)
   }
-  __pyx_t_4 = __Pyx_dict_iterator(__pyx_t_2, 1, __pyx_n_s_items, (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_dict_iterator(__pyx_t_2, 1, __pyx_n_s_items, (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_XDECREF(__pyx_t_1);
@@ -8445,7 +8490,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
   while (1) {
     __pyx_t_9 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_7, &__pyx_t_6, &__pyx_t_4, &__pyx_t_2, NULL, __pyx_t_8);
     if (unlikely(__pyx_t_9 == 0)) break;
-    if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(0, 175, __pyx_L1_error)
+    if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(0, 177, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v__);
@@ -8457,7 +8502,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     __Pyx_GIVEREF(__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "querysource/parsers/cql.pyx":176
+    /* "querysource/parsers/cql.pyx":178
  *         # add query options
  *         for _, func in self.get_query_filters().items():
  *             fn, args = func             # <<<<<<<<<<<<<<
@@ -8470,7 +8515,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 176, __pyx_L1_error)
+        __PYX_ERR(0, 178, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -8483,21 +8528,21 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __Pyx_INCREF(__pyx_t_2);
       __Pyx_INCREF(__pyx_t_4);
       #else
-      __pyx_t_2 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 176, __pyx_L1_error)
+      __pyx_t_2 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 178, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_4 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 176, __pyx_L1_error)
+      __pyx_t_4 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 178, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       #endif
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_3 = PyObject_GetIter(__pyx_cur_scope->__pyx_v_func); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 176, __pyx_L1_error)
+      __pyx_t_3 = PyObject_GetIter(__pyx_cur_scope->__pyx_v_func); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 178, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_10 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_3);
       index = 0; __pyx_t_2 = __pyx_t_10(__pyx_t_3); if (unlikely(!__pyx_t_2)) goto __pyx_L7_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_2);
       index = 1; __pyx_t_4 = __pyx_t_10(__pyx_t_3); if (unlikely(!__pyx_t_4)) goto __pyx_L7_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_4);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_10(__pyx_t_3), 2) < 0) __PYX_ERR(0, 176, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_10(__pyx_t_3), 2) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
       __pyx_t_10 = NULL;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L8_unpacking_done;
@@ -8505,7 +8550,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_10 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 176, __pyx_L1_error)
+      __PYX_ERR(0, 178, __pyx_L1_error)
       __pyx_L8_unpacking_done:;
     }
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_fn);
@@ -8517,44 +8562,44 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     __Pyx_GIVEREF(__pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "querysource/parsers/cql.pyx":177
+    /* "querysource/parsers/cql.pyx":179
  *         for _, func in self.get_query_filters().items():
  *             fn, args = func
  *             func = partial(             # <<<<<<<<<<<<<<
  *                 fn, args, where=self.filter, program=self.program_slug
  *             )
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_partial); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 177, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_partial); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
 
-    /* "querysource/parsers/cql.pyx":178
+    /* "querysource/parsers/cql.pyx":180
  *             fn, args = func
  *             func = partial(
  *                 fn, args, where=self.filter, program=self.program_slug             # <<<<<<<<<<<<<<
  *             )
  *             result, ordering = await asyncio.get_event_loop().run_in_executor(
  */
-    __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 177, __pyx_L1_error)
+    __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_fn);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_fn);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_cur_scope->__pyx_v_fn)) __PYX_ERR(0, 177, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_cur_scope->__pyx_v_fn)) __PYX_ERR(0, 179, __pyx_L1_error);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_args);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_args);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_cur_scope->__pyx_v_args)) __PYX_ERR(0, 177, __pyx_L1_error);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 178, __pyx_L1_error)
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_cur_scope->__pyx_v_args)) __PYX_ERR(0, 179, __pyx_L1_error);
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 180, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_where, __pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.filter) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_program, __pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.program_slug) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_where, __pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.filter) < 0) __PYX_ERR(0, 180, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_program, __pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.program_slug) < 0) __PYX_ERR(0, 180, __pyx_L1_error)
 
-    /* "querysource/parsers/cql.pyx":177
+    /* "querysource/parsers/cql.pyx":179
  *         for _, func in self.get_query_filters().items():
  *             fn, args = func
  *             func = partial(             # <<<<<<<<<<<<<<
  *                 fn, args, where=self.filter, program=self.program_slug
  *             )
  */
-    __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 177, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -8564,16 +8609,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     __Pyx_GIVEREF(__pyx_t_11);
     __pyx_t_11 = 0;
 
-    /* "querysource/parsers/cql.pyx":180
+    /* "querysource/parsers/cql.pyx":182
  *                 fn, args, where=self.filter, program=self.program_slug
  *             )
  *             result, ordering = await asyncio.get_event_loop().run_in_executor(             # <<<<<<<<<<<<<<
  *                 self._executor, func
  *             )
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_asyncio); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 180, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_asyncio); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 182, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_get_event_loop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 180, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_get_event_loop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 182, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_2 = NULL;
@@ -8594,22 +8639,22 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 180, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 182, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_run_in_executor); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 180, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_run_in_executor); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 182, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "querysource/parsers/cql.pyx":181
+    /* "querysource/parsers/cql.pyx":183
  *             )
  *             result, ordering = await asyncio.get_event_loop().run_in_executor(
  *                 self._executor, func             # <<<<<<<<<<<<<<
  *             )
  *             self.filter = {**self.filter, **result}
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_executor); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 181, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_executor); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 183, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_2 = NULL;
     __pyx_t_5 = 0;
@@ -8630,7 +8675,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __pyx_t_11 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 2+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 180, __pyx_L1_error)
+      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 182, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
@@ -8656,11 +8701,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __pyx_t_6 = __pyx_cur_scope->__pyx_t_1;
       __pyx_t_7 = __pyx_cur_scope->__pyx_t_2;
       __pyx_t_8 = __pyx_cur_scope->__pyx_t_3;
-      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 180, __pyx_L1_error)
+      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 182, __pyx_L1_error)
       __pyx_t_11 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_11);
     } else {
       __pyx_t_11 = NULL;
-      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_11) < 0) __PYX_ERR(0, 180, __pyx_L1_error)
+      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_11) < 0) __PYX_ERR(0, 182, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
     }
     if ((likely(PyTuple_CheckExact(__pyx_t_11))) || (PyList_CheckExact(__pyx_t_11))) {
@@ -8669,7 +8714,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 180, __pyx_L1_error)
+        __PYX_ERR(0, 182, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -8682,15 +8727,15 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __Pyx_INCREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_t_3);
       #else
-      __pyx_t_4 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 180, __pyx_L1_error)
+      __pyx_t_4 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 182, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_3 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 180, __pyx_L1_error)
+      __pyx_t_3 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 182, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       #endif
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_2 = PyObject_GetIter(__pyx_t_11); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 180, __pyx_L1_error)
+      __pyx_t_2 = PyObject_GetIter(__pyx_t_11); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 182, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __pyx_t_10 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_2);
@@ -8698,7 +8743,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __Pyx_GOTREF(__pyx_t_4);
       index = 1; __pyx_t_3 = __pyx_t_10(__pyx_t_2); if (unlikely(!__pyx_t_3)) goto __pyx_L10_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_3);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_10(__pyx_t_2), 2) < 0) __PYX_ERR(0, 180, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_10(__pyx_t_2), 2) < 0) __PYX_ERR(0, 182, __pyx_L1_error)
       __pyx_t_10 = NULL;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       goto __pyx_L11_unpacking_done;
@@ -8706,11 +8751,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_t_10 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 180, __pyx_L1_error)
+      __PYX_ERR(0, 182, __pyx_L1_error)
       __pyx_L11_unpacking_done:;
     }
 
-    /* "querysource/parsers/cql.pyx":180
+    /* "querysource/parsers/cql.pyx":182
  *                 fn, args, where=self.filter, program=self.program_slug
  *             )
  *             result, ordering = await asyncio.get_event_loop().run_in_executor(             # <<<<<<<<<<<<<<
@@ -8726,7 +8771,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     __Pyx_GIVEREF(__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "querysource/parsers/cql.pyx":183
+    /* "querysource/parsers/cql.pyx":185
  *                 self._executor, func
  *             )
  *             self.filter = {**self.filter, **result}             # <<<<<<<<<<<<<<
@@ -8735,17 +8780,17 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
  */
     if (unlikely(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.filter == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-      __PYX_ERR(0, 183, __pyx_L1_error)
+      __PYX_ERR(0, 185, __pyx_L1_error)
     }
-    __pyx_t_11 = PyDict_Copy(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.filter); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_11 = PyDict_Copy(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.filter); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     if (unlikely(__pyx_cur_scope->__pyx_v_result == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-      __PYX_ERR(0, 183, __pyx_L1_error)
+      __PYX_ERR(0, 185, __pyx_L1_error)
     }
     if (unlikely(PyDict_Update(__pyx_t_11, __pyx_cur_scope->__pyx_v_result) < 0)) {
       if (PyErr_ExceptionMatches(PyExc_AttributeError)) __Pyx_RaiseMappingExpectedError(__pyx_cur_scope->__pyx_v_result);
-      __PYX_ERR(0, 183, __pyx_L1_error)
+      __PYX_ERR(0, 185, __pyx_L1_error)
     }
     __Pyx_GIVEREF(__pyx_t_11);
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.filter);
@@ -8753,33 +8798,33 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     __pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.filter = ((PyObject*)__pyx_t_11);
     __pyx_t_11 = 0;
 
-    /* "querysource/parsers/cql.pyx":184
+    /* "querysource/parsers/cql.pyx":186
  *             )
  *             self.filter = {**self.filter, **result}
  *             if ordering:             # <<<<<<<<<<<<<<
  *                 self.ordering = self.ordering + ordering
  *         # add filtering conditions
  */
-    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_ordering); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 184, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_ordering); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 186, __pyx_L1_error)
     if (__pyx_t_12) {
 
-      /* "querysource/parsers/cql.pyx":185
+      /* "querysource/parsers/cql.pyx":187
  *             self.filter = {**self.filter, **result}
  *             if ordering:
  *                 self.ordering = self.ordering + ordering             # <<<<<<<<<<<<<<
  *         # add filtering conditions
  *         cql = self.filtering_options(cql)
  */
-      __pyx_t_11 = PyNumber_Add(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.ordering, __pyx_cur_scope->__pyx_v_ordering); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 185, __pyx_L1_error)
+      __pyx_t_11 = PyNumber_Add(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.ordering, __pyx_cur_scope->__pyx_v_ordering); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 187, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
-      if (!(likely(PyList_CheckExact(__pyx_t_11))||((__pyx_t_11) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_11))) __PYX_ERR(0, 185, __pyx_L1_error)
+      if (!(likely(PyList_CheckExact(__pyx_t_11))||((__pyx_t_11) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_11))) __PYX_ERR(0, 187, __pyx_L1_error)
       __Pyx_GIVEREF(__pyx_t_11);
       __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.ordering);
       __Pyx_DECREF(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.ordering);
       __pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.ordering = ((PyObject*)__pyx_t_11);
       __pyx_t_11 = 0;
 
-      /* "querysource/parsers/cql.pyx":184
+      /* "querysource/parsers/cql.pyx":186
  *             )
  *             self.filter = {**self.filter, **result}
  *             if ordering:             # <<<<<<<<<<<<<<
@@ -8790,83 +8835,28 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "querysource/parsers/cql.pyx":187
+  /* "querysource/parsers/cql.pyx":189
  *                 self.ordering = self.ordering + ordering
  *         # add filtering conditions
  *         cql = self.filtering_options(cql)             # <<<<<<<<<<<<<<
  *         # processing filter options
  *         cql = await self.filter_conditions(cql)
  */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_11querysource_7parsers_3cql_CQLParser *)__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.__pyx_vtab)->__pyx_base.__pyx_base.filtering_options(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self), __pyx_cur_scope->__pyx_v_cql, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 187, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_11querysource_7parsers_3cql_CQLParser *)__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.__pyx_vtab)->__pyx_base.__pyx_base.filtering_options(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self), __pyx_cur_scope->__pyx_v_cql, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_cql);
   __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_cql, ((PyObject*)__pyx_t_1));
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/cql.pyx":189
+  /* "querysource/parsers/cql.pyx":191
  *         cql = self.filtering_options(cql)
  *         # processing filter options
  *         cql = await self.filter_conditions(cql)             # <<<<<<<<<<<<<<
  *         # processing conditions
  *         cql = await self.group_by(cql)
  */
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_filter_conditions); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 189, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_3 = NULL;
-  __pyx_t_5 = 0;
-  #if CYTHON_UNPACK_METHODS
-  if (likely(PyMethod_Check(__pyx_t_11))) {
-    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_11);
-    if (likely(__pyx_t_3)) {
-      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_11);
-      __Pyx_INCREF(__pyx_t_3);
-      __Pyx_INCREF(function);
-      __Pyx_DECREF_SET(__pyx_t_11, function);
-      __pyx_t_5 = 1;
-    }
-  }
-  #endif
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_cur_scope->__pyx_v_cql};
-    __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
-    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 189, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  }
-  __pyx_r = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __Pyx_XGOTREF(__pyx_r);
-  if (likely(__pyx_r)) {
-    __Pyx_XGIVEREF(__pyx_r);
-    __Pyx_RefNannyFinishContext();
-    __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
-    /* return from generator, awaiting value */
-    __pyx_generator->resume_label = 3;
-    return __pyx_r;
-    __pyx_L13_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 189, __pyx_L1_error)
-    __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
-  } else {
-    __pyx_t_1 = NULL;
-    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 189, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-  }
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 189, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_cql);
-  __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_cql, ((PyObject*)__pyx_t_1));
-  __Pyx_GIVEREF(__pyx_t_1);
-  __pyx_t_1 = 0;
-
-  /* "querysource/parsers/cql.pyx":191
- *         cql = await self.filter_conditions(cql)
- *         # processing conditions
- *         cql = await self.group_by(cql)             # <<<<<<<<<<<<<<
- *         if self.ordering:
- *             cql = await self.order_by(cql)
- */
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_group_by); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_filter_conditions); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 191, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __pyx_t_3 = NULL;
   __pyx_t_5 = 0;
@@ -8898,9 +8888,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     __Pyx_RefNannyFinishContext();
     __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
     /* return from generator, awaiting value */
-    __pyx_generator->resume_label = 4;
+    __pyx_generator->resume_label = 3;
     return __pyx_r;
-    __pyx_L14_resume_from_await:;
+    __pyx_L13_resume_from_await:;
     if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 191, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else {
@@ -8914,7 +8904,62 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/cql.pyx":192
+  /* "querysource/parsers/cql.pyx":193
+ *         cql = await self.filter_conditions(cql)
+ *         # processing conditions
+ *         cql = await self.group_by(cql)             # <<<<<<<<<<<<<<
+ *         if self.ordering:
+ *             cql = await self.order_by(cql)
+ */
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_group_by); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 193, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_11);
+  __pyx_t_3 = NULL;
+  __pyx_t_5 = 0;
+  #if CYTHON_UNPACK_METHODS
+  if (likely(PyMethod_Check(__pyx_t_11))) {
+    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_11);
+    if (likely(__pyx_t_3)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_11);
+      __Pyx_INCREF(__pyx_t_3);
+      __Pyx_INCREF(function);
+      __Pyx_DECREF_SET(__pyx_t_11, function);
+      __pyx_t_5 = 1;
+    }
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_cur_scope->__pyx_v_cql};
+    __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 193, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+  }
+  __pyx_r = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_XGOTREF(__pyx_r);
+  if (likely(__pyx_r)) {
+    __Pyx_XGIVEREF(__pyx_r);
+    __Pyx_RefNannyFinishContext();
+    __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
+    /* return from generator, awaiting value */
+    __pyx_generator->resume_label = 4;
+    return __pyx_r;
+    __pyx_L14_resume_from_await:;
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 193, __pyx_L1_error)
+    __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
+  } else {
+    __pyx_t_1 = NULL;
+    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 193, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 193, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_cql);
+  __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_cql, ((PyObject*)__pyx_t_1));
+  __Pyx_GIVEREF(__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "querysource/parsers/cql.pyx":194
  *         # processing conditions
  *         cql = await self.group_by(cql)
  *         if self.ordering:             # <<<<<<<<<<<<<<
@@ -8924,14 +8969,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
   __pyx_t_12 = (__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.ordering != Py_None)&&(PyList_GET_SIZE(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.ordering) != 0);
   if (__pyx_t_12) {
 
-    /* "querysource/parsers/cql.pyx":193
+    /* "querysource/parsers/cql.pyx":195
  *         cql = await self.group_by(cql)
  *         if self.ordering:
  *             cql = await self.order_by(cql)             # <<<<<<<<<<<<<<
  *         if querylimit:
  *             cql = await self.limiting(cql, querylimit, offset)
  */
-    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_order_by); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 193, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_order_by); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 195, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __pyx_t_3 = NULL;
     __pyx_t_5 = 0;
@@ -8951,7 +8996,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_cur_scope->__pyx_v_cql};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 193, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 195, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     }
@@ -8966,20 +9011,20 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __pyx_generator->resume_label = 5;
       return __pyx_r;
       __pyx_L16_resume_from_await:;
-      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 193, __pyx_L1_error)
+      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 195, __pyx_L1_error)
       __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
     } else {
       __pyx_t_1 = NULL;
-      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 193, __pyx_L1_error)
+      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 195, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 193, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 195, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_cql);
     __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_cql, ((PyObject*)__pyx_t_1));
     __Pyx_GIVEREF(__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/cql.pyx":192
+    /* "querysource/parsers/cql.pyx":194
  *         # processing conditions
  *         cql = await self.group_by(cql)
  *         if self.ordering:             # <<<<<<<<<<<<<<
@@ -8988,24 +9033,24 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
  */
   }
 
-  /* "querysource/parsers/cql.pyx":194
+  /* "querysource/parsers/cql.pyx":196
  *         if self.ordering:
  *             cql = await self.order_by(cql)
  *         if querylimit:             # <<<<<<<<<<<<<<
  *             cql = await self.limiting(cql, querylimit, offset)
  *         elif self.querylimit:
  */
-  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_querylimit); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 194, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_querylimit); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 196, __pyx_L1_error)
   if (__pyx_t_12) {
 
-    /* "querysource/parsers/cql.pyx":195
+    /* "querysource/parsers/cql.pyx":197
  *             cql = await self.order_by(cql)
  *         if querylimit:
  *             cql = await self.limiting(cql, querylimit, offset)             # <<<<<<<<<<<<<<
  *         elif self.querylimit:
  *             cql = await self.limiting(cql, self.querylimit, self._offset)
  */
-    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_limiting); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 195, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_limiting); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 197, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __pyx_t_3 = NULL;
     __pyx_t_5 = 0;
@@ -9025,7 +9070,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       PyObject *__pyx_callargs[4] = {__pyx_t_3, __pyx_cur_scope->__pyx_v_cql, __pyx_cur_scope->__pyx_v_querylimit, __pyx_cur_scope->__pyx_v_offset};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_5, 3+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 195, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 197, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     }
@@ -9040,20 +9085,20 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __pyx_generator->resume_label = 6;
       return __pyx_r;
       __pyx_L18_resume_from_await:;
-      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 195, __pyx_L1_error)
+      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 197, __pyx_L1_error)
       __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
     } else {
       __pyx_t_1 = NULL;
-      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 195, __pyx_L1_error)
+      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 195, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 197, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_cql);
     __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_cql, ((PyObject*)__pyx_t_1));
     __Pyx_GIVEREF(__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/cql.pyx":194
+    /* "querysource/parsers/cql.pyx":196
  *         if self.ordering:
  *             cql = await self.order_by(cql)
  *         if querylimit:             # <<<<<<<<<<<<<<
@@ -9063,7 +9108,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     goto __pyx_L17;
   }
 
-  /* "querysource/parsers/cql.pyx":196
+  /* "querysource/parsers/cql.pyx":198
  *         if querylimit:
  *             cql = await self.limiting(cql, querylimit, offset)
  *         elif self.querylimit:             # <<<<<<<<<<<<<<
@@ -9073,18 +9118,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
   __pyx_t_12 = (__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.querylimit != 0);
   if (__pyx_t_12) {
 
-    /* "querysource/parsers/cql.pyx":197
+    /* "querysource/parsers/cql.pyx":199
  *             cql = await self.limiting(cql, querylimit, offset)
  *         elif self.querylimit:
  *             cql = await self.limiting(cql, self.querylimit, self._offset)             # <<<<<<<<<<<<<<
  *         else:
  *             cql = await self.limiting(cql, '')
  */
-    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_limiting); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 197, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_limiting); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 199, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.querylimit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 197, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.querylimit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 199, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyInt_From_int32_t(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base._offset); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 197, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_From_int32_t(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base._offset); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 199, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_2 = NULL;
     __pyx_t_5 = 0;
@@ -9106,7 +9151,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 197, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 199, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     }
@@ -9121,20 +9166,20 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __pyx_generator->resume_label = 7;
       return __pyx_r;
       __pyx_L19_resume_from_await:;
-      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 197, __pyx_L1_error)
+      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 199, __pyx_L1_error)
       __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
     } else {
       __pyx_t_1 = NULL;
-      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 197, __pyx_L1_error)
+      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 199, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 197, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 199, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_cql);
     __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_cql, ((PyObject*)__pyx_t_1));
     __Pyx_GIVEREF(__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/cql.pyx":196
+    /* "querysource/parsers/cql.pyx":198
  *         if querylimit:
  *             cql = await self.limiting(cql, querylimit, offset)
  *         elif self.querylimit:             # <<<<<<<<<<<<<<
@@ -9144,7 +9189,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     goto __pyx_L17;
   }
 
-  /* "querysource/parsers/cql.pyx":199
+  /* "querysource/parsers/cql.pyx":201
  *             cql = await self.limiting(cql, self.querylimit, self._offset)
  *         else:
  *             cql = await self.limiting(cql, '')             # <<<<<<<<<<<<<<
@@ -9152,7 +9197,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
  *             cql = cql.format_map(SafeDict(**self.conditions))
  */
   /*else*/ {
-    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_limiting); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 199, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_limiting); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 201, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __pyx_t_4 = NULL;
     __pyx_t_5 = 0;
@@ -9172,7 +9217,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       PyObject *__pyx_callargs[3] = {__pyx_t_4, __pyx_cur_scope->__pyx_v_cql, __pyx_kp_u__26};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_5, 2+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 199, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 201, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     }
@@ -9187,14 +9232,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       __pyx_generator->resume_label = 8;
       return __pyx_r;
       __pyx_L20_resume_from_await:;
-      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 199, __pyx_L1_error)
+      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 201, __pyx_L1_error)
       __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
     } else {
       __pyx_t_1 = NULL;
-      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 199, __pyx_L1_error)
+      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 201, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 199, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 201, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_cql);
     __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_cql, ((PyObject*)__pyx_t_1));
     __Pyx_GIVEREF(__pyx_t_1);
@@ -9202,14 +9247,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
   }
   __pyx_L17:;
 
-  /* "querysource/parsers/cql.pyx":200
+  /* "querysource/parsers/cql.pyx":202
  *         else:
  *             cql = await self.limiting(cql, '')
  *         if self.conditions and len(self.conditions) > 0:             # <<<<<<<<<<<<<<
  *             cql = cql.format_map(SafeDict(**self.conditions))
  *             # default null setters
  */
-  __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.conditions); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 200, __pyx_L1_error)
+  __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.conditions); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 202, __pyx_L1_error)
   if (__pyx_t_13) {
   } else {
     __pyx_t_12 = __pyx_t_13;
@@ -9217,54 +9262,54 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
   }
   __pyx_t_1 = __pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.conditions;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_7 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 200, __pyx_L1_error)
+  __pyx_t_7 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 202, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_13 = (__pyx_t_7 > 0);
   __pyx_t_12 = __pyx_t_13;
   __pyx_L22_bool_binop_done:;
   if (__pyx_t_12) {
 
-    /* "querysource/parsers/cql.pyx":201
+    /* "querysource/parsers/cql.pyx":203
  *             cql = await self.limiting(cql, '')
  *         if self.conditions and len(self.conditions) > 0:
  *             cql = cql.format_map(SafeDict(**self.conditions))             # <<<<<<<<<<<<<<
  *             # default null setters
  *             cql = cql.format_map(NullDefault())
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 201, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_SafeDict); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 203, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     if (unlikely(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.conditions == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-      __PYX_ERR(0, 201, __pyx_L1_error)
+      __PYX_ERR(0, 203, __pyx_L1_error)
     }
     if (likely(PyDict_CheckExact(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.conditions))) {
-      __pyx_t_11 = PyDict_Copy(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.conditions); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 201, __pyx_L1_error)
+      __pyx_t_11 = PyDict_Copy(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.conditions); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 203, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
     } else {
-      __pyx_t_11 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.conditions); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 201, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.conditions); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 203, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
     }
-    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_11); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 201, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_11); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 203, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    __pyx_t_11 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v_cql, __pyx_t_4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 201, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v_cql, __pyx_t_4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 203, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_11))||((__pyx_t_11) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_11))) __PYX_ERR(0, 201, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_11))||((__pyx_t_11) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_11))) __PYX_ERR(0, 203, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_cql);
     __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_cql, ((PyObject*)__pyx_t_11));
     __Pyx_GIVEREF(__pyx_t_11);
     __pyx_t_11 = 0;
 
-    /* "querysource/parsers/cql.pyx":203
+    /* "querysource/parsers/cql.pyx":205
  *             cql = cql.format_map(SafeDict(**self.conditions))
  *             # default null setters
  *             cql = cql.format_map(NullDefault())             # <<<<<<<<<<<<<<
  *         self.query_parsed = cql
  *         self.logger.debug(f": CQL :: {cql}")
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_NullDefault); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 203, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_NullDefault); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 205, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_1 = NULL;
     __pyx_t_5 = 0;
@@ -9284,20 +9329,20 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
       __pyx_t_11 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 203, __pyx_L1_error)
+      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 205, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
-    __pyx_t_4 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v_cql, __pyx_t_11); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 203, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyUnicode_Type_format_map, __pyx_cur_scope->__pyx_v_cql, __pyx_t_11); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 205, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 203, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 205, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_cql);
     __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_cql, ((PyObject*)__pyx_t_4));
     __Pyx_GIVEREF(__pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "querysource/parsers/cql.pyx":200
+    /* "querysource/parsers/cql.pyx":202
  *         else:
  *             cql = await self.limiting(cql, '')
  *         if self.conditions and len(self.conditions) > 0:             # <<<<<<<<<<<<<<
@@ -9306,7 +9351,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
  */
   }
 
-  /* "querysource/parsers/cql.pyx":204
+  /* "querysource/parsers/cql.pyx":206
  *             # default null setters
  *             cql = cql.format_map(NullDefault())
  *         self.query_parsed = cql             # <<<<<<<<<<<<<<
@@ -9319,18 +9364,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
   __Pyx_DECREF(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.query_parsed);
   __pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.query_parsed = __pyx_cur_scope->__pyx_v_cql;
 
-  /* "querysource/parsers/cql.pyx":205
+  /* "querysource/parsers/cql.pyx":207
  *             cql = cql.format_map(NullDefault())
  *         self.query_parsed = cql
  *         self.logger.debug(f": CQL :: {cql}")             # <<<<<<<<<<<<<<
  *         if self.query_parsed == '' or self.query_parsed is None:
  *             raise EmptySentence(
  */
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.logger, __pyx_n_s_debug); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 205, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.logger, __pyx_n_s_debug); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 207, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_cql); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 205, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_cur_scope->__pyx_v_cql); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 207, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyUnicode_Concat(__pyx_kp_u_CQL, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 205, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyUnicode_Concat(__pyx_kp_u_CQL, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 207, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = NULL;
@@ -9352,20 +9397,20 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
     __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 205, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 207, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "querysource/parsers/cql.pyx":206
+  /* "querysource/parsers/cql.pyx":208
  *         self.query_parsed = cql
  *         self.logger.debug(f": CQL :: {cql}")
  *         if self.query_parsed == '' or self.query_parsed is None:             # <<<<<<<<<<<<<<
  *             raise EmptySentence(
  *                 'QS Cassandra: no CQL query to parse.'
  */
-  __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.query_parsed, __pyx_kp_u__26, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_cur_scope->__pyx_v_self->__pyx_base.__pyx_base.query_parsed, __pyx_kp_u__26, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 208, __pyx_L1_error)
   if (!__pyx_t_13) {
   } else {
     __pyx_t_12 = __pyx_t_13;
@@ -9376,14 +9421,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
   __pyx_L25_bool_binop_done:;
   if (unlikely(__pyx_t_12)) {
 
-    /* "querysource/parsers/cql.pyx":207
+    /* "querysource/parsers/cql.pyx":209
  *         self.logger.debug(f": CQL :: {cql}")
  *         if self.query_parsed == '' or self.query_parsed is None:
  *             raise EmptySentence(             # <<<<<<<<<<<<<<
  *                 'QS Cassandra: no CQL query to parse.'
  *             )
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_n_s_EmptySentence); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 207, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_n_s_EmptySentence); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 209, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __pyx_t_3 = NULL;
     __pyx_t_5 = 0;
@@ -9403,15 +9448,15 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_kp_u_QS_Cassandra_no_CQL_query_to_par};
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 207, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 209, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 207, __pyx_L1_error)
+    __PYX_ERR(0, 209, __pyx_L1_error)
 
-    /* "querysource/parsers/cql.pyx":206
+    /* "querysource/parsers/cql.pyx":208
  *         self.query_parsed = cql
  *         self.logger.debug(f": CQL :: {cql}")
  *         if self.query_parsed == '' or self.query_parsed is None:             # <<<<<<<<<<<<<<
@@ -9420,7 +9465,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
  */
   }
 
-  /* "querysource/parsers/cql.pyx":210
+  /* "querysource/parsers/cql.pyx":212
  *                 'QS Cassandra: no CQL query to parse.'
  *             )
  *         return self.query_parsed             # <<<<<<<<<<<<<<
@@ -9430,7 +9475,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_3cql_9CQLParser_14generator2(__
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/cql.pyx":169
+  /* "querysource/parsers/cql.pyx":171
  *         return _sql
  * 
  *     async def build_query(self, querylimit: int = None, offset: int = None):             # <<<<<<<<<<<<<<
@@ -9535,7 +9580,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
   /* "(tree fragment)":5
  *     cdef object _dict
  *     cdef bint use_setstate
- *     state = (self._add_fields, self._base_sql, self._conditions, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self._tablename, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)             # <<<<<<<<<<<<<<
+ *     state = (self._add_fields, self._base_sql, self._conditions, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self._tablename, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.having, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)             # <<<<<<<<<<<<<<
  *     _dict = getattr(self, '__dict__', None)
  *     if _dict is not None:
  */
@@ -9563,7 +9608,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
   __Pyx_GOTREF(__pyx_t_11);
   __pyx_t_12 = __Pyx_PyBool_FromLong(__pyx_v_self->__pyx_base.__pyx_base.string_literal); if (unlikely(!__pyx_t_12)) __PYX_ERR(1, 5, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
-  __pyx_t_13 = PyTuple_New(41); if (unlikely(!__pyx_t_13)) __PYX_ERR(1, 5, __pyx_L1_error)
+  __pyx_t_13 = PyTuple_New(42); if (unlikely(!__pyx_t_13)) __PYX_ERR(1, 5, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_13);
   __Pyx_GIVEREF(__pyx_t_1);
   if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 0, __pyx_t_1)) __PYX_ERR(1, 5, __pyx_L1_error);
@@ -9638,44 +9683,47 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.grouping);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.grouping);
   if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 26, __pyx_v_self->__pyx_base.__pyx_base.grouping)) __PYX_ERR(1, 5, __pyx_L1_error);
+  __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.having);
+  __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.having);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 27, __pyx_v_self->__pyx_base.__pyx_base.having)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.logger);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.logger);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 27, __pyx_v_self->__pyx_base.__pyx_base.logger)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 28, __pyx_v_self->__pyx_base.__pyx_base.logger)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.ordering);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.ordering);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 28, __pyx_v_self->__pyx_base.__pyx_base.ordering)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 29, __pyx_v_self->__pyx_base.__pyx_base.ordering)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.params);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.params);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 29, __pyx_v_self->__pyx_base.__pyx_base.params)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 30, __pyx_v_self->__pyx_base.__pyx_base.params)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.program_slug);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.program_slug);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 30, __pyx_v_self->__pyx_base.__pyx_base.program_slug)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 31, __pyx_v_self->__pyx_base.__pyx_base.program_slug)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.query_object);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.query_object);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 31, __pyx_v_self->__pyx_base.__pyx_base.query_object)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 32, __pyx_v_self->__pyx_base.__pyx_base.query_object)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.query_parsed);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.query_parsed);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 32, __pyx_v_self->__pyx_base.__pyx_base.query_parsed)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 33, __pyx_v_self->__pyx_base.__pyx_base.query_parsed)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.query_raw);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.query_raw);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 33, __pyx_v_self->__pyx_base.__pyx_base.query_raw)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 34, __pyx_v_self->__pyx_base.__pyx_base.query_raw)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_9);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 34, __pyx_t_9)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 35, __pyx_t_9)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_10);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 35, __pyx_t_10)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 36, __pyx_t_10)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.schema);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.schema);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 36, __pyx_v_self->__pyx_base.__pyx_base.schema)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 37, __pyx_v_self->__pyx_base.__pyx_base.schema)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_11);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 37, __pyx_t_11)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 38, __pyx_t_11)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_12);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 38, __pyx_t_12)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 39, __pyx_t_12)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.tablename);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.tablename);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 39, __pyx_v_self->__pyx_base.__pyx_base.tablename)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 40, __pyx_v_self->__pyx_base.__pyx_base.tablename)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.valid_operators);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.valid_operators);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 40, __pyx_v_self->__pyx_base.valid_operators)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 41, __pyx_v_self->__pyx_base.valid_operators)) __PYX_ERR(1, 5, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
@@ -9693,7 +9741,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
 
   /* "(tree fragment)":6
  *     cdef bint use_setstate
- *     state = (self._add_fields, self._base_sql, self._conditions, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self._tablename, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
+ *     state = (self._add_fields, self._base_sql, self._conditions, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self._tablename, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.having, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
  *     _dict = getattr(self, '__dict__', None)             # <<<<<<<<<<<<<<
  *     if _dict is not None:
  *         state += (_dict,)
@@ -9704,7 +9752,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
   __pyx_t_13 = 0;
 
   /* "(tree fragment)":7
- *     state = (self._add_fields, self._base_sql, self._conditions, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self._tablename, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
+ *     state = (self._add_fields, self._base_sql, self._conditions, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self._tablename, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.having, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
  *     _dict = getattr(self, '__dict__', None)
  *     if _dict is not None:             # <<<<<<<<<<<<<<
  *         state += (_dict,)
@@ -9736,12 +9784,12 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
  *         state += (_dict,)
  *         use_setstate = True             # <<<<<<<<<<<<<<
  *     else:
- *         use_setstate = self._base_sql is not None or self._conditions is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self._tablename is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
+ *         use_setstate = self._base_sql is not None or self._conditions is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self._tablename is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.having is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
  */
     __pyx_v_use_setstate = 1;
 
     /* "(tree fragment)":7
- *     state = (self._add_fields, self._base_sql, self._conditions, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self._tablename, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
+ *     state = (self._add_fields, self._base_sql, self._conditions, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self._tablename, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.having, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
  *     _dict = getattr(self, '__dict__', None)
  *     if _dict is not None:             # <<<<<<<<<<<<<<
  *         state += (_dict,)
@@ -9753,9 +9801,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
   /* "(tree fragment)":11
  *         use_setstate = True
  *     else:
- *         use_setstate = self._base_sql is not None or self._conditions is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self._tablename is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None             # <<<<<<<<<<<<<<
+ *         use_setstate = self._base_sql is not None or self._conditions is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self._tablename is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.having is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None             # <<<<<<<<<<<<<<
  *     if use_setstate:
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, None), state
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, None), state
  */
   /*else*/ {
     __pyx_t_15 = (__pyx_v_self->__pyx_base._base_sql != ((PyObject*)Py_None));
@@ -9872,6 +9920,12 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
       __pyx_t_14 = __pyx_t_15;
       goto __pyx_L4_bool_binop_done;
     }
+    __pyx_t_15 = (__pyx_v_self->__pyx_base.__pyx_base.having != Py_None);
+    if (!__pyx_t_15) {
+    } else {
+      __pyx_t_14 = __pyx_t_15;
+      goto __pyx_L4_bool_binop_done;
+    }
     __pyx_t_15 = (__pyx_v_self->__pyx_base.__pyx_base.logger != Py_None);
     if (!__pyx_t_15) {
     } else {
@@ -9935,19 +9989,19 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
 
   /* "(tree fragment)":12
  *     else:
- *         use_setstate = self._base_sql is not None or self._conditions is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self._tablename is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
+ *         use_setstate = self._base_sql is not None or self._conditions is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self._tablename is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.having is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
  *     if use_setstate:             # <<<<<<<<<<<<<<
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, None), state
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, None), state
  *     else:
  */
   if (__pyx_v_use_setstate) {
 
     /* "(tree fragment)":13
- *         use_setstate = self._base_sql is not None or self._conditions is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self._tablename is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
+ *         use_setstate = self._base_sql is not None or self._conditions is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self._tablename is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.having is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
  *     if use_setstate:
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, None), state             # <<<<<<<<<<<<<<
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, None), state             # <<<<<<<<<<<<<<
  *     else:
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, state)
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, state)
  */
     __Pyx_XDECREF(__pyx_r);
     __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_n_s_pyx_unpickle_CQLParser); if (unlikely(!__pyx_t_12)) __PYX_ERR(1, 13, __pyx_L1_error)
@@ -9957,9 +10011,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
     __Pyx_INCREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
     __Pyx_GIVEREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
     if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 0, ((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))))) __PYX_ERR(1, 13, __pyx_L1_error);
-    __Pyx_INCREF(__pyx_int_15325894);
-    __Pyx_GIVEREF(__pyx_int_15325894);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 1, __pyx_int_15325894)) __PYX_ERR(1, 13, __pyx_L1_error);
+    __Pyx_INCREF(__pyx_int_2842720);
+    __Pyx_GIVEREF(__pyx_int_2842720);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 1, __pyx_int_2842720)) __PYX_ERR(1, 13, __pyx_L1_error);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
     if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 2, Py_None)) __PYX_ERR(1, 13, __pyx_L1_error);
@@ -9980,17 +10034,17 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
 
     /* "(tree fragment)":12
  *     else:
- *         use_setstate = self._base_sql is not None or self._conditions is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self._tablename is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
+ *         use_setstate = self._base_sql is not None or self._conditions is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self._tablename is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.having is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
  *     if use_setstate:             # <<<<<<<<<<<<<<
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, None), state
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, None), state
  *     else:
  */
   }
 
   /* "(tree fragment)":15
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, None), state
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, None), state
  *     else:
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, state)             # <<<<<<<<<<<<<<
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, state)             # <<<<<<<<<<<<<<
  * def __setstate_cython__(self, __pyx_state):
  *     __pyx_unpickle_CQLParser__set_state(self, __pyx_state)
  */
@@ -10003,9 +10057,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
     __Pyx_INCREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
     __Pyx_GIVEREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
     if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 0, ((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))))) __PYX_ERR(1, 15, __pyx_L1_error);
-    __Pyx_INCREF(__pyx_int_15325894);
-    __Pyx_GIVEREF(__pyx_int_15325894);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 1, __pyx_int_15325894)) __PYX_ERR(1, 15, __pyx_L1_error);
+    __Pyx_INCREF(__pyx_int_2842720);
+    __Pyx_GIVEREF(__pyx_int_2842720);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 1, __pyx_int_2842720)) __PYX_ERR(1, 15, __pyx_L1_error);
     __Pyx_INCREF(__pyx_v_state);
     __Pyx_GIVEREF(__pyx_v_state);
     if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 2, __pyx_v_state)) __PYX_ERR(1, 15, __pyx_L1_error);
@@ -10055,7 +10109,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_15__reduce_cyth
 
 /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, state)
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_CQLParser__set_state(self, __pyx_state)
  */
@@ -10167,7 +10221,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_17__setstate_cy
   __Pyx_RefNannySetupContext("__setstate_cython__", 1);
 
   /* "(tree fragment)":17
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, state)
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, state)
  * def __setstate_cython__(self, __pyx_state):
  *     __pyx_unpickle_CQLParser__set_state(self, __pyx_state)             # <<<<<<<<<<<<<<
  */
@@ -10178,7 +10232,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql_9CQLParser_17__setstate_cy
 
   /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, state)
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_CQLParser__set_state(self, __pyx_state)
  */
@@ -10347,9 +10401,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql___pyx_unpickle_CQLParser(C
   /* "(tree fragment)":4
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0x0e9dac6, 0xb9c607d, 0x4e84e8c):             # <<<<<<<<<<<<<<
+ *     if __pyx_checksum not in (0x02b6060, 0xc22f967, 0x7d95366):             # <<<<<<<<<<<<<<
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x0e9dac6, 0xb9c607d, 0x4e84e8c) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x02b6060, 0xc22f967, 0x7d95366) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  */
   __pyx_t_1 = __Pyx_PyInt_From_long(__pyx_v___pyx_checksum); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -10359,9 +10413,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql___pyx_unpickle_CQLParser(C
 
     /* "(tree fragment)":5
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0x0e9dac6, 0xb9c607d, 0x4e84e8c):
+ *     if __pyx_checksum not in (0x02b6060, 0xc22f967, 0x7d95366):
  *         from pickle import PickleError as __pyx_PickleError             # <<<<<<<<<<<<<<
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x0e9dac6, 0xb9c607d, 0x4e84e8c) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x02b6060, 0xc22f967, 0x7d95366) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  *     __pyx_result = CQLParser.__new__(__pyx_type)
  */
     __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 5, __pyx_L1_error)
@@ -10380,9 +10434,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql___pyx_unpickle_CQLParser(C
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
     /* "(tree fragment)":6
- *     if __pyx_checksum not in (0x0e9dac6, 0xb9c607d, 0x4e84e8c):
+ *     if __pyx_checksum not in (0x02b6060, 0xc22f967, 0x7d95366):
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x0e9dac6, 0xb9c607d, 0x4e84e8c) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum             # <<<<<<<<<<<<<<
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x02b6060, 0xc22f967, 0x7d95366) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum             # <<<<<<<<<<<<<<
  *     __pyx_result = CQLParser.__new__(__pyx_type)
  *     if __pyx_state is not None:
  */
@@ -10398,15 +10452,15 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql___pyx_unpickle_CQLParser(C
     /* "(tree fragment)":4
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0x0e9dac6, 0xb9c607d, 0x4e84e8c):             # <<<<<<<<<<<<<<
+ *     if __pyx_checksum not in (0x02b6060, 0xc22f967, 0x7d95366):             # <<<<<<<<<<<<<<
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x0e9dac6, 0xb9c607d, 0x4e84e8c) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x02b6060, 0xc22f967, 0x7d95366) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  */
   }
 
   /* "(tree fragment)":7
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x0e9dac6, 0xb9c607d, 0x4e84e8c) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x02b6060, 0xc22f967, 0x7d95366) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  *     __pyx_result = CQLParser.__new__(__pyx_type)             # <<<<<<<<<<<<<<
  *     if __pyx_state is not None:
  *         __pyx_unpickle_CQLParser__set_state(<CQLParser> __pyx_result, __pyx_state)
@@ -10439,7 +10493,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql___pyx_unpickle_CQLParser(C
   __pyx_t_1 = 0;
 
   /* "(tree fragment)":8
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x0e9dac6, 0xb9c607d, 0x4e84e8c) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x02b6060, 0xc22f967, 0x7d95366) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  *     __pyx_result = CQLParser.__new__(__pyx_type)
  *     if __pyx_state is not None:             # <<<<<<<<<<<<<<
  *         __pyx_unpickle_CQLParser__set_state(<CQLParser> __pyx_result, __pyx_state)
@@ -10461,7 +10515,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql___pyx_unpickle_CQLParser(C
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
     /* "(tree fragment)":8
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x0e9dac6, 0xb9c607d, 0x4e84e8c) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x02b6060, 0xc22f967, 0x7d95366) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  *     __pyx_result = CQLParser.__new__(__pyx_type)
  *     if __pyx_state is not None:             # <<<<<<<<<<<<<<
  *         __pyx_unpickle_CQLParser__set_state(<CQLParser> __pyx_result, __pyx_state)
@@ -10474,7 +10528,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql___pyx_unpickle_CQLParser(C
  *         __pyx_unpickle_CQLParser__set_state(<CQLParser> __pyx_result, __pyx_state)
  *     return __pyx_result             # <<<<<<<<<<<<<<
  * cdef __pyx_unpickle_CQLParser__set_state(CQLParser __pyx_result, tuple __pyx_state):
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
  */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v___pyx_result);
@@ -10506,8 +10560,8 @@ static PyObject *__pyx_pf_11querysource_7parsers_3cql___pyx_unpickle_CQLParser(C
  *         __pyx_unpickle_CQLParser__set_state(<CQLParser> __pyx_result, __pyx_state)
  *     return __pyx_result
  * cdef __pyx_unpickle_CQLParser__set_state(CQLParser __pyx_result, tuple __pyx_state):             # <<<<<<<<<<<<<<
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):
  */
 
 static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__set_state(struct __pyx_obj_11querysource_7parsers_3cql_CQLParser *__pyx_v___pyx_result, PyObject *__pyx_v___pyx_state) {
@@ -10530,9 +10584,9 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
   /* "(tree fragment)":12
  *     return __pyx_result
  * cdef __pyx_unpickle_CQLParser__set_state(CQLParser __pyx_result, tuple __pyx_state):
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]             # <<<<<<<<<<<<<<
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):
- *         __pyx_result.__dict__.update(__pyx_state[41])
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]             # <<<<<<<<<<<<<<
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):
+ *         __pyx_result.__dict__.update(__pyx_state[42])
  */
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
@@ -10813,6 +10867,17 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
   __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 27);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
+  __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.having);
+  __Pyx_DECREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.having);
+  __pyx_v___pyx_result->__pyx_base.__pyx_base.having = __pyx_t_2;
+  __pyx_t_2 = 0;
+  if (unlikely(__pyx_v___pyx_state == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+    __PYX_ERR(1, 12, __pyx_L1_error)
+  }
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 28);
+  __Pyx_INCREF(__pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.logger);
   __Pyx_DECREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.logger);
   __pyx_v___pyx_result->__pyx_base.__pyx_base.logger = __pyx_t_2;
@@ -10821,8 +10886,8 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyList_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 28)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 28)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", PyTuple_GET_ITEM(__pyx_v___pyx_state, 28)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 28);
+  if (!(likely(PyList_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 29);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.ordering);
@@ -10833,8 +10898,8 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyDict_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 29);
+  if (!(likely(PyDict_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 30);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.params);
@@ -10845,8 +10910,8 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 30);
+  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 31)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 31)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 31)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 31);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.program_slug);
@@ -10857,7 +10922,7 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 31);
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 32);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.query_object);
@@ -10868,8 +10933,8 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 32)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 32)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 32)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 32);
+  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 33);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.query_parsed);
@@ -10880,8 +10945,8 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 33);
+  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 34)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 34)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 34)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 34);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.query_raw);
@@ -10892,20 +10957,20 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_4 = __Pyx_PyInt_As_int(PyTuple_GET_ITEM(__pyx_v___pyx_state, 34)); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyInt_As_int(PyTuple_GET_ITEM(__pyx_v___pyx_state, 35)); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
   __pyx_v___pyx_result->__pyx_base.__pyx_base.querylimit = __pyx_t_4;
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 35)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 36)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
   __pyx_v___pyx_result->__pyx_base.__pyx_base.refresh = __pyx_t_1;
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 36)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 36)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 36)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 36);
+  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 37)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 37)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 37)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 37);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.schema);
@@ -10916,20 +10981,20 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 37)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 38)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
   __pyx_v___pyx_result->__pyx_base.__pyx_base.schema_based = __pyx_t_1;
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 38)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 39)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
   __pyx_v___pyx_result->__pyx_base.__pyx_base.string_literal = __pyx_t_1;
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 39)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 39)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 39)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 39);
+  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 40)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 40)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 40)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 40);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.tablename);
@@ -10940,7 +11005,7 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 40);
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 41);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.valid_operators);
@@ -10950,16 +11015,16 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
 
   /* "(tree fragment)":13
  * cdef __pyx_unpickle_CQLParser__set_state(CQLParser __pyx_result, tuple __pyx_state):
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
- *         __pyx_result.__dict__.update(__pyx_state[41])
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
+ *         __pyx_result.__dict__.update(__pyx_state[42])
  */
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
     __PYX_ERR(1, 13, __pyx_L1_error)
   }
   __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(__pyx_v___pyx_state); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(1, 13, __pyx_L1_error)
-  __pyx_t_6 = (__pyx_t_5 > 41);
+  __pyx_t_6 = (__pyx_t_5 > 42);
   if (__pyx_t_6) {
   } else {
     __pyx_t_1 = __pyx_t_6;
@@ -10971,9 +11036,9 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
   if (__pyx_t_1) {
 
     /* "(tree fragment)":14
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):
- *         __pyx_result.__dict__.update(__pyx_state[41])             # <<<<<<<<<<<<<<
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):
+ *         __pyx_result.__dict__.update(__pyx_state[42])             # <<<<<<<<<<<<<<
  */
     __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v___pyx_result), __pyx_n_s_dict); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 14, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
@@ -10999,7 +11064,7 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_7, PyTuple_GET_ITEM(__pyx_v___pyx_state, 41)};
+      PyObject *__pyx_callargs[2] = {__pyx_t_7, PyTuple_GET_ITEM(__pyx_v___pyx_state, 42)};
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 14, __pyx_L1_error)
@@ -11010,9 +11075,9 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
 
     /* "(tree fragment)":13
  * cdef __pyx_unpickle_CQLParser__set_state(CQLParser __pyx_result, tuple __pyx_state):
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
- *         __pyx_result.__dict__.update(__pyx_state[41])
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
+ *         __pyx_result.__dict__.update(__pyx_state[42])
  */
   }
 
@@ -11020,8 +11085,8 @@ static PyObject *__pyx_f_11querysource_7parsers_3cql___pyx_unpickle_CQLParser__s
  *         __pyx_unpickle_CQLParser__set_state(<CQLParser> __pyx_result, __pyx_state)
  *     return __pyx_result
  * cdef __pyx_unpickle_CQLParser__set_state(CQLParser __pyx_result, tuple __pyx_state):             # <<<<<<<<<<<<<<
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._distinct = __pyx_state[3]; __pyx_result._hierarchy = __pyx_state[4]; __pyx_result._limit = __pyx_state[5]; __pyx_result._name_ = __pyx_state[6]; __pyx_result._offset = __pyx_state[7]; __pyx_result._page_ = __pyx_state[8]; __pyx_result._paged = __pyx_state[9]; __pyx_result._qry_options = __pyx_state[10]; __pyx_result._query_filters = __pyx_state[11]; __pyx_result._redis = __pyx_state[12]; __pyx_result._safe_substitution = __pyx_state[13]; __pyx_result._select_pattern = __pyx_state[14]; __pyx_result._slug = __pyx_state[15]; __pyx_result._tablename = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):
  */
 
   /* function exit code */
@@ -12262,7 +12327,6 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_ordering, __pyx_k_ordering, sizeof(__pyx_k_ordering), 0, 0, 1, 1},
     {&__pyx_n_s_partial, __pyx_k_partial, sizeof(__pyx_k_partial), 0, 0, 1, 1},
     {&__pyx_n_s_pickle, __pyx_k_pickle, sizeof(__pyx_k_pickle), 0, 0, 1, 1},
-    {&__pyx_n_s_popitem, __pyx_k_popitem, sizeof(__pyx_k_popitem), 0, 0, 1, 1},
     {&__pyx_n_s_process_fields, __pyx_k_process_fields, sizeof(__pyx_k_process_fields), 0, 0, 1, 1},
     {&__pyx_n_s_program, __pyx_k_program, sizeof(__pyx_k_program), 0, 0, 1, 1},
     {&__pyx_n_s_pyx_PickleError, __pyx_k_pyx_PickleError, sizeof(__pyx_k_pyx_PickleError), 0, 0, 1, 1},
@@ -12282,6 +12346,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_reduce_cython, __pyx_k_reduce_cython, sizeof(__pyx_k_reduce_cython), 0, 0, 1, 1},
     {&__pyx_n_s_reduce_ex, __pyx_k_reduce_ex, sizeof(__pyx_k_reduce_ex), 0, 0, 1, 1},
     {&__pyx_n_s_result, __pyx_k_result, sizeof(__pyx_k_result), 0, 0, 1, 1},
+    {&__pyx_n_s_reversed, __pyx_k_reversed, sizeof(__pyx_k_reversed), 0, 0, 1, 1},
     {&__pyx_n_s_rs, __pyx_k_rs, sizeof(__pyx_k_rs), 0, 0, 1, 1},
     {&__pyx_n_s_rstrip, __pyx_k_rstrip, sizeof(__pyx_k_rstrip), 0, 0, 1, 1},
     {&__pyx_n_s_run_in_executor, __pyx_k_run_in_executor, sizeof(__pyx_k_run_in_executor), 0, 0, 1, 1},
@@ -12326,6 +12391,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 76, __pyx_L1_error)
   __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_n_s_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(0, 76, __pyx_L1_error)
   __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_n_s_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(0, 82, __pyx_L1_error)
+  __pyx_builtin_reversed = __Pyx_GetBuiltinName(__pyx_n_s_reversed); if (!__pyx_builtin_reversed) __PYX_ERR(0, 89, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -12336,25 +12402,25 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "querysource/parsers/cql.pyx":129
+  /* "querysource/parsers/cql.pyx":131
  *                     elif str_value.startswith('!'):
  *                         where_cond.append(
  *                             f"{key} != {Entity.quoteString(str_value[1:])}"             # <<<<<<<<<<<<<<
  *                         )
  *                     else:
  */
-  __pyx_slice__23 = PySlice_New(__pyx_int_1, Py_None, Py_None); if (unlikely(!__pyx_slice__23)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_slice__23 = PySlice_New(__pyx_int_1, Py_None, Py_None); if (unlikely(!__pyx_slice__23)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_slice__23);
   __Pyx_GIVEREF(__pyx_slice__23);
 
   /* "(tree fragment)":4
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0x0e9dac6, 0xb9c607d, 0x4e84e8c):             # <<<<<<<<<<<<<<
+ *     if __pyx_checksum not in (0x02b6060, 0xc22f967, 0x7d95366):             # <<<<<<<<<<<<<<
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x0e9dac6, 0xb9c607d, 0x4e84e8c) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0x02b6060, 0xc22f967, 0x7d95366) = (_add_fields, _base_sql, _conditions, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, _tablename, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  */
-  __pyx_tuple__28 = PyTuple_Pack(3, __pyx_int_15325894, __pyx_int_194797693, __pyx_int_82333324); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(1, 4, __pyx_L1_error)
+  __pyx_tuple__28 = PyTuple_Pack(3, __pyx_int_2842720, __pyx_int_203618663, __pyx_int_131683174); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__28);
   __Pyx_GIVEREF(__pyx_tuple__28);
 
@@ -12406,18 +12472,18 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__35);
   __pyx_codeobj__4 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 24, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__35, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_cql_pyx, __pyx_n_s_filter_conditions_cy, 52, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__4)) __PYX_ERR(0, 52, __pyx_L1_error)
 
-  /* "querysource/parsers/cql.pyx":169
+  /* "querysource/parsers/cql.pyx":171
  *         return _sql
  * 
  *     async def build_query(self, querylimit: int = None, offset: int = None):             # <<<<<<<<<<<<<<
  *         """Build a CQL Query."""
  *         cdef str cql = self.query_raw
  */
-  __pyx_tuple__36 = PyTuple_Pack(10, __pyx_n_s_self, __pyx_n_s_querylimit, __pyx_n_s_offset, __pyx_n_s_cql, __pyx_n_s__2, __pyx_n_s_func, __pyx_n_s_fn, __pyx_n_s_args, __pyx_n_s_result, __pyx_n_s_ordering); if (unlikely(!__pyx_tuple__36)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_tuple__36 = PyTuple_Pack(10, __pyx_n_s_self, __pyx_n_s_querylimit, __pyx_n_s_offset, __pyx_n_s_cql, __pyx_n_s__2, __pyx_n_s_func, __pyx_n_s_fn, __pyx_n_s_args, __pyx_n_s_result, __pyx_n_s_ordering); if (unlikely(!__pyx_tuple__36)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__36);
   __Pyx_GIVEREF(__pyx_tuple__36);
-  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 10, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__36, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_cql_pyx, __pyx_n_s_build_query, 169, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 169, __pyx_L1_error)
-  __pyx_tuple__37 = PyTuple_Pack(2, Py_None, Py_None); if (unlikely(!__pyx_tuple__37)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 10, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__36, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_cql_pyx, __pyx_n_s_build_query, 171, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 171, __pyx_L1_error)
+  __pyx_tuple__37 = PyTuple_Pack(2, Py_None, Py_None); if (unlikely(!__pyx_tuple__37)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__37);
   __Pyx_GIVEREF(__pyx_tuple__37);
 
@@ -12433,7 +12499,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
 
   /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, state)
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_CQLParser__set_state(self, __pyx_state)
  */
@@ -12467,9 +12533,9 @@ static CYTHON_SMALL_CODE int __Pyx_InitConstants(void) {
   if (__Pyx_CreateStringTabAndInitStrings() < 0) __PYX_ERR(0, 1, __pyx_L1_error);
   __pyx_int_0 = PyInt_FromLong(0); if (unlikely(!__pyx_int_0)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_1 = PyInt_FromLong(1); if (unlikely(!__pyx_int_1)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_int_15325894 = PyInt_FromLong(15325894L); if (unlikely(!__pyx_int_15325894)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_int_82333324 = PyInt_FromLong(82333324L); if (unlikely(!__pyx_int_82333324)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_int_194797693 = PyInt_FromLong(194797693L); if (unlikely(!__pyx_int_194797693)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_2842720 = PyInt_FromLong(2842720L); if (unlikely(!__pyx_int_2842720)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_131683174 = PyInt_FromLong(131683174L); if (unlikely(!__pyx_int_131683174)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_203618663 = PyInt_FromLong(203618663L); if (unlikely(!__pyx_int_203618663)) __PYX_ERR(0, 1, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -12638,15 +12704,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query)) __PYX_ERR(0, 169, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query_spec, __pyx_ptype_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query) < 0) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query)) __PYX_ERR(0, 171, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query_spec, __pyx_ptype_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query) < 0) __PYX_ERR(0, 171, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query = &__pyx_type_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query) < 0) __PYX_ERR(0, 169, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query) < 0) __PYX_ERR(0, 171, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_3cql___pyx_scope_struct_4_build_query->tp_print = 0;
@@ -13261,23 +13327,23 @@ if (!__Pyx_RefNanny) {
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_3cql_CQLParser);
 
-  /* "querysource/parsers/cql.pyx":169
+  /* "querysource/parsers/cql.pyx":171
  *         return _sql
  * 
  *     async def build_query(self, querylimit: int = None, offset: int = None):             # <<<<<<<<<<<<<<
  *         """Build a CQL Query."""
  *         cdef str cql = self.query_raw
  */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_querylimit, __pyx_n_s_int) < 0) __PYX_ERR(0, 169, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_offset, __pyx_n_s_int) < 0) __PYX_ERR(0, 169, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_3cql_9CQLParser_13build_query, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_CQLParser_build_query, NULL, __pyx_n_s_querysource_parsers_cql, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 169, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_querylimit, __pyx_n_s_int) < 0) __PYX_ERR(0, 171, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_offset, __pyx_n_s_int) < 0) __PYX_ERR(0, 171, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_3cql_9CQLParser_13build_query, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_CQLParser_build_query, NULL, __pyx_n_s_querysource_parsers_cql, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__37);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_7);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_3cql_CQLParser, __pyx_n_s_build_query, __pyx_t_2) < 0) __PYX_ERR(0, 169, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_3cql_CQLParser, __pyx_n_s_build_query, __pyx_t_2) < 0) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_3cql_CQLParser);
 
@@ -13294,7 +13360,7 @@ if (!__Pyx_RefNanny) {
 
   /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_CQLParser, (type(self), 0x0e9dac6, state)
+ *         return __pyx_unpickle_CQLParser, (type(self), 0x02b6060, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_CQLParser__set_state(self, __pyx_state)
  */
@@ -17358,6 +17424,63 @@ static CYTHON_INLINE PyObject *__Pyx_GetItemInt_Fast(PyObject *o, Py_ssize_t i, 
     }
 #endif
     return __Pyx_GetItemInt_Generic(o, PyInt_FromSsize_t(i));
+}
+
+/* IterNext */
+  static PyObject *__Pyx_PyIter_Next2Default(PyObject* defval) {
+    PyObject* exc_type;
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    exc_type = __Pyx_PyErr_CurrentExceptionType();
+    if (unlikely(exc_type)) {
+        if (!defval || unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration)))
+            return NULL;
+        __Pyx_PyErr_Clear();
+        Py_INCREF(defval);
+        return defval;
+    }
+    if (defval) {
+        Py_INCREF(defval);
+        return defval;
+    }
+    __Pyx_PyErr_SetNone(PyExc_StopIteration);
+    return NULL;
+}
+static void __Pyx_PyIter_Next_ErrorNoIterator(PyObject *iterator) {
+    __Pyx_TypeName iterator_type_name = __Pyx_PyType_GetName(Py_TYPE(iterator));
+    PyErr_Format(PyExc_TypeError,
+        __Pyx_FMT_TYPENAME " object is not an iterator", iterator_type_name);
+    __Pyx_DECREF_TypeName(iterator_type_name);
+}
+static CYTHON_INLINE PyObject *__Pyx_PyIter_Next2(PyObject* iterator, PyObject* defval) {
+    PyObject* next;
+    iternextfunc iternext = Py_TYPE(iterator)->tp_iternext;
+    if (likely(iternext)) {
+#if CYTHON_USE_TYPE_SLOTS || CYTHON_COMPILING_IN_PYPY
+        next = iternext(iterator);
+        if (likely(next))
+            return next;
+#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030d0000
+        if (unlikely(iternext == &_PyObject_NextNotImplemented))
+            return NULL;
+#endif
+#else
+        next = PyIter_Next(iterator);
+        if (likely(next))
+            return next;
+#endif
+    } else if (CYTHON_USE_TYPE_SLOTS || unlikely(!PyIter_Check(iterator))) {
+        __Pyx_PyIter_Next_ErrorNoIterator(iterator);
+        return NULL;
+    }
+#if !CYTHON_USE_TYPE_SLOTS
+    else {
+        next = PyIter_Next(iterator);
+        if (likely(next))
+            return next;
+    }
+#endif
+    return __Pyx_PyIter_Next2Default(defval);
 }
 
 /* UnicodeConcatInPlace */

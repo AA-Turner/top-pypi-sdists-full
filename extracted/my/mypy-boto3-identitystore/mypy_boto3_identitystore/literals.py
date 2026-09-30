@@ -27,6 +27,7 @@ __all__ = (
     "ListGroupMembershipsForMemberPaginatorName",
     "ListGroupMembershipsPaginatorName",
     "ListGroupsPaginatorName",
+    "ListIdentityStoresPaginatorName",
     "ListUsersPaginatorName",
     "PaginatorName",
     "RegionName",
@@ -39,14 +40,18 @@ __all__ = (
 ListGroupMembershipsForMemberPaginatorName = Literal["list_group_memberships_for_member"]
 ListGroupMembershipsPaginatorName = Literal["list_group_memberships"]
 ListGroupsPaginatorName = Literal["list_groups"]
+ListIdentityStoresPaginatorName = Literal["list_identity_stores"]
 ListUsersPaginatorName = Literal["list_users"]
 UserStatusType = Literal["DISABLED", "ENABLED"]
 IdentityStoreServiceName = Literal["identitystore"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -119,6 +124,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -193,6 +199,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -221,6 +228,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -235,8 +243,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -263,6 +269,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -315,6 +323,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -330,10 +339,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -351,6 +360,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -366,6 +376,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -393,6 +404,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -414,7 +426,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -435,6 +446,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -471,7 +483,11 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "list_group_memberships", "list_group_memberships_for_member", "list_groups", "list_users"
+    "list_group_memberships",
+    "list_group_memberships_for_member",
+    "list_groups",
+    "list_identity_stores",
+    "list_users",
 ]
 RegionName = Literal[
     "af-south-1",

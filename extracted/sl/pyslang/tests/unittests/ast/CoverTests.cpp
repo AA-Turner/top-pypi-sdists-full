@@ -339,6 +339,53 @@ endclass
     NO_COMPILATION_ERRORS;
 }
 
+TEST_CASE("Covergroup coverage expr references later class member") {
+    auto tree = SyntaxTree::fromText(R"(
+class xyz;
+    covergroup cov1;
+        coverpoint analysis_txn.we;
+    endgroup
+
+    typedef struct packed { bit we; } txn_t;
+    txn_t analysis_txn;
+
+    function new(); cov1 = new; endfunction
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Covergroup coverage expr forward reference errors") {
+    auto tree = SyntaxTree::fromText(R"(
+class xyz;
+    covergroup cov1;
+        coverpoint does_not_exist.we;
+    endgroup
+
+    function new(); cov1 = new; endfunction
+endclass
+
+module m;
+    covergroup cg1;
+        coverpoint later.we;
+    endgroup
+
+    struct packed { bit we; } later;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::UndeclaredIdentifier);
+    CHECK(diags[1].code == diag::UsedBeforeDeclared);
+}
+
 TEST_CASE("Covergroup built-in methods") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -881,4 +928,105 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::CrossIdentInBinsof);
+}
+
+TEST_CASE("Legacy cross_auto_bin_max option -- error without flag") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    bit clk;
+    logic [1:0] a, b;
+    covergroup cg @(posedge clk);
+        cp_a : coverpoint a;
+        cp_b : coverpoint b;
+        x : cross cp_a, cp_b {
+            option.cross_auto_bin_max = 0;
+        }
+    endgroup
+    cg c = new;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UnknownMember);
+}
+
+TEST_CASE("Legacy cross_auto_bin_max option -- allowed with flag at covergroup and cross scope") {
+    // SystemVerilog 3.1a Table 20-2: cross_auto_bin_max is allowed at covergroup
+    // scope (as default for crosses) and at cross scope.
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    bit clk;
+    logic [1:0] a, b;
+    covergroup cg @(posedge clk);
+        option.cross_auto_bin_max = 32;
+        cp_a : coverpoint a;
+        cp_b : coverpoint b;
+        x : cross cp_a, cp_b {
+            option.cross_auto_bin_max = 0;
+        }
+    endgroup
+    cg c = new;
+endmodule
+)");
+
+    CompilationOptions options;
+    options.flags |= CompilationFlags::AllowCrossAutoBinMax;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Legacy cross_auto_bin_max option -- still rejected at coverpoint scope") {
+    // SystemVerilog 3.1a Table 20-2: cross_auto_bin_max is not allowed at
+    // coverpoint scope even in 3.1a.
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    bit clk;
+    logic [1:0] a;
+    covergroup cg @(posedge clk);
+        cp_a : coverpoint a {
+            option.cross_auto_bin_max = 0;
+        }
+    endgroup
+    cg c = new;
+endmodule
+)");
+
+    CompilationOptions options;
+    options.flags |= CompilationFlags::AllowCrossAutoBinMax;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UnknownMember);
+}
+
+TEST_CASE("Invalid binsof target") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic [3:0] a, b;
+    covergroup cg;
+        x: coverpoint a;
+        cross x {
+            bins bad = binsof(b);
+        }
+    endgroup
+    cg c1 = new;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::CoverCrossItems);
+    CHECK(diags[1].code == diag::InvalidBinsTarget);
 }

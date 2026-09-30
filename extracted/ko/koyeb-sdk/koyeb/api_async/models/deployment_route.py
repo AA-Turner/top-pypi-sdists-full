@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeploymentRoute(BaseModel):
     """
     DeploymentRoute
-    """ # noqa: E501
+    """  # noqa: E501
+
     port: Optional[StrictInt] = None
     path: Optional[StrictStr] = None
     security_policies: Optional[SecurityPolicies] = None
@@ -39,7 +41,6 @@ class DeploymentRoute(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +65,7 @@ class DeploymentRoute(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -74,7 +74,7 @@ class DeploymentRoute(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of security_policies
         if self.security_policies:
-            _dict['security_policies'] = self.security_policies.to_dict()
+            _dict["security_policies"] = self.security_policies.to_dict()
         return _dict
 
     @classmethod
@@ -86,11 +86,15 @@ class DeploymentRoute(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "port": obj.get("port"),
-            "path": obj.get("path"),
-            "security_policies": SecurityPolicies.from_dict(obj["security_policies"]) if obj.get("security_policies") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "port": obj.get("port"),
+                "path": obj.get("path"),
+                "security_policies": SecurityPolicies.from_dict(
+                    obj["security_policies"]
+                )
+                if obj.get("security_policies") is not None
+                else None,
+            }
+        )
         return _obj
-
-

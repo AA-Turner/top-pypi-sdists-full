@@ -1,11 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: flufl.lock
-Version: 9.1.0
+Version: 9.2.0
 Summary: NFS-safe file locking with timeouts for POSIX and Windows
 Project-URL: Home Page, https://flufllock.readthedocs.io
 Project-URL: Documentation, https://flufllock.readthedocs.io
-Project-URL: Source Code, https://gitlab.com/warsaw/flufl.lock.git
-Project-URL: Bug Tracker, https://gitlab.com/warsaw/flufl.lock/issues
+Project-URL: Source Code, https://gitlab.com/flufl/flufl.lock.git
+Project-URL: Bug Tracker, https://gitlab.com/flufl/flufl.lock/-/work_items
 Author-email: Barry Warsaw <barry@python.org>
 License: Apache-2.0
 License-File: LICENSE
@@ -65,7 +65,7 @@ your clocks are properly synchronized.
 Author
 ======
 
-``flufl.lock`` is Copyright (C) 2007-2026 Barry Warsaw <barry@python.org>
+``flufl.lock`` is Copyright (C) 2004-2026 Barry Warsaw <barry@python.org>
 
 Licensed under the terms of the Apache License Version 2.0.  See the LICENSE
 file for details.
@@ -74,8 +74,8 @@ file for details.
 Project details
 ===============
 
- * Project home: https://gitlab.com/warsaw/flufl.lock
- * Report bugs at: https://gitlab.com/warsaw/flufl.lock/issues
- * Code hosting: https://gitlab.com/warsaw/flufl.lock.git
- * Documentation: https://flufllock.readthedocs.io/
- * PyPI: https://pypi.python.org/pypi/flufl.lock
+ * Project home: https://gitlab.com/flufl/flufl.lock
+ * Report bugs at: https://gitlab.com/flufl/flufl.lock/-/work_items
+ * Code hosting: https://gitlab.com/flufl/flufl.lock.git
+ * Documentation: https://flufllock.readthedocs.io
+ * PyPI: https://pypi.org/project/flufl.lock/

@@ -119,7 +119,7 @@ def _persister() -> tuple[CanonicalBodyPersister, AsyncMock, AsyncMock]:
             storage_uri=f"s3://canonical/{count['n']}",
             version_number=1,
             is_new=True,
-            visibility="internal",
+            published_to_web=False,
         )
 
     write = AsyncMock(side_effect=fake_write)
@@ -177,7 +177,7 @@ async def test_committed_snapshot_lands_as_an_internal_unkept_web_page_source(
     assert landing["source_id"] == PAGE_ID
     assert landing["canonical_identity"] == "https://acme.example/pricing"
     assert landing["name"] == "Acme pricing"
-    assert landing["visibility"] == "internal"
+    assert landing["published_to_web"] is False
     assert landing["keep"] is False
     # Filed under its site, structurally: never a Keep.
     assert landing["attach_to"] == [

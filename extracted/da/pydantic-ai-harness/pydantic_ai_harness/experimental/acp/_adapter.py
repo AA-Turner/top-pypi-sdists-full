@@ -23,6 +23,7 @@ import acp
 import anyio
 from acp import schema
 from acp.interfaces import Client
+
 from pydantic_ai import DeferredToolRequests, DeferredToolResults, ToolDenied, UsageLimitExceeded
 from pydantic_ai.agent import AbstractAgent
 from pydantic_ai.messages import (
@@ -47,7 +48,6 @@ from pydantic_ai.run import AgentRunResultEvent
 from pydantic_ai.tools import AgentDepsT
 from pydantic_ai.toolsets import AbstractToolset, AgentToolset, FunctionToolset
 from pydantic_ai.usage import RunUsage, UsageLimits
-
 from pydantic_ai_harness.experimental.acp._content import PromptContentBlock, prompt_blocks_to_user_content
 from pydantic_ai_harness.experimental.acp._permission import (
     PermissionPolicy,
@@ -211,8 +211,9 @@ class PydanticAIACPAgent(acp.Agent, Generic[AgentDepsT, OutputDataT]):
             session_config: Optional factory called once per session with the client's
                 [`AcpSession`][pydantic_ai_harness.experimental.acp.AcpSession] setup (its `cwd`, MCP servers,
                 and capabilities). It returns an
-                [`AcpSessionConfig`][pydantic_ai_harness.experimental.acp.AcpSessionConfig] whose `deps` and
-                `toolsets` are applied to every run in that session. May be sync or async.
+                [`AcpSessionConfig`][pydantic_ai_harness.experimental.acp.AcpSessionConfig] whose `deps`,
+                `capabilities`, `toolsets`, and optional `workspace` are applied to every run in that session. May be
+                sync or async.
             permission_policy: Optional function deciding the scope under which an "always
                 allow"/"always reject" decision is remembered. Defaults to the exact call (tool
                 name plus arguments).
@@ -251,7 +252,8 @@ class PydanticAIACPAgent(acp.Agent, Generic[AgentDepsT, OutputDataT]):
                 A turn that resumes after a tool approval starts a fresh run, so the limits bound
                 each approval-to-approval segment, not the whole turn. An exceeded limit ends the
                 turn with a `max_tokens`/`max_turn_requests` stop reason, never a request error.
-                Defaults to Pydantic AI's own defaults (50 requests per run).
+                By default, no request limit is applied. Pass `UsageLimits` to bound requests,
+                tokens, tool calls, or cost.
         """
         self._agent = agent
         self._deps = deps
@@ -271,7 +273,7 @@ class PydanticAIACPAgent(acp.Agent, Generic[AgentDepsT, OutputDataT]):
         self._session_store = session_store
         self._models: tuple[str, ...] = _all_known_model_names() if models == 'all' else tuple(models) if models else ()
         self._model_resolver = model_resolver
-        self._usage_limits = usage_limits
+        self._usage_limits = usage_limits if usage_limits is not None else UsageLimits(request_limit=None)
         self._client_capabilities: schema.ClientCapabilities | None = None
         self._conn: Client | None = None
         # All live sessions, keyed by session id. Each owns its own turn lock (the dispatcher
@@ -631,6 +633,7 @@ class PydanticAIACPAgent(acp.Agent, Generic[AgentDepsT, OutputDataT]):
                     deps=config.deps,
                     capabilities=config.capabilities,
                     toolsets=config.toolsets,
+                    workspace=config.workspace,
                     # Per-run override for the client's model config choice; `None` uses the
                     # agent's own model, never mutating the shared agent. A `model_resolver` (if
                     # given) maps the advertised id to a pre-built `Model` for ids `infer_model`

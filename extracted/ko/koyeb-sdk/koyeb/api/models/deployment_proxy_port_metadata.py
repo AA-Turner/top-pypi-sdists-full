@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeploymentProxyPortMetadata(BaseModel):
     """
     DeploymentProxyPortMetadata
-    """ # noqa: E501
+    """  # noqa: E501
+
     host: Optional[StrictStr] = None
     public_port: Optional[StrictInt] = None
     port: Optional[StrictInt] = None
@@ -40,7 +42,6 @@ class DeploymentProxyPortMetadata(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +66,7 @@ class DeploymentProxyPortMetadata(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -84,12 +84,14 @@ class DeploymentProxyPortMetadata(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "host": obj.get("host"),
-            "public_port": obj.get("public_port"),
-            "port": obj.get("port"),
-            "protocol": obj.get("protocol") if obj.get("protocol") is not None else ProxyPortProtocol.TCP
-        })
+        _obj = cls.model_validate(
+            {
+                "host": obj.get("host"),
+                "public_port": obj.get("public_port"),
+                "port": obj.get("port"),
+                "protocol": obj.get("protocol")
+                if obj.get("protocol") is not None
+                else ProxyPortProtocol.TCP,
+            }
+        )
         return _obj
-
-

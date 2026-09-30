@@ -87,6 +87,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.list(
@@ -143,6 +144,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.convert_excel_to_sheet(
@@ -198,6 +200,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.create(
@@ -266,6 +269,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.create_project(
@@ -330,6 +334,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.duplicate(
@@ -368,6 +373,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.get(
@@ -404,6 +410,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.rename(
@@ -448,6 +455,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.list_activity(
@@ -488,6 +496,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.get_activity_delta(
@@ -529,6 +538,7 @@ class AssetsClient:
         from athena import ActivityClockRangeIn, Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.get_activity_deltas(
@@ -572,6 +582,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.archive(
@@ -611,6 +622,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.create_collab_token(
@@ -655,6 +667,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.download(
@@ -701,6 +714,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.move(
@@ -759,6 +773,7 @@ class AssetsClient:
         from athena import Athena, ShareRecipient
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.share(
@@ -818,6 +833,7 @@ class AssetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.assets.update_workspace_access(
@@ -891,6 +907,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -955,6 +972,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1018,6 +1036,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1094,6 +1113,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1166,6 +1186,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1212,6 +1233,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1256,6 +1278,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1308,6 +1331,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1356,6 +1380,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1407,6 +1432,7 @@ class AsyncAssetsClient:
         from athena import ActivityClockRangeIn, AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1458,6 +1484,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1505,6 +1532,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1557,6 +1585,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1612,6 +1641,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1678,6 +1708,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena, ShareRecipient
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1745,6 +1776,7 @@ class AsyncAssetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 

@@ -5,10 +5,33 @@ pytest.importorskip('playwright')
 from bokeh.models.formatters import PrintfTickFormatter
 from panel import config
 from panel.tests.util import serve_component, wait_until
-from panel_material_ui.widgets import EditableFloatSlider, EditableIntSlider, IntSlider, Rating
 from playwright.sync_api import expect
 
+from panel_material_ui.widgets import DiscreteSlider, EditableFloatSlider, EditableIntSlider, IntSlider, LinearProgress, Rating
+
 pytestmark = pytest.mark.ui
+
+
+def test_linear_progress_max(page):
+    """Absolute progress is scaled by max and responds to updates."""
+    widget = LinearProgress(value=50, max=200)
+    serve_component(page, widget)
+    bar = page.locator('.MuiLinearProgress-bar')
+    expect(bar).to_have_attribute('style', 'transform: translateX(-75%);')
+    widget.value = 100
+    expect(bar).to_have_attribute('style', 'transform: translateX(-50%);')
+    widget.max = 100
+    expect(bar).to_have_attribute('style', 'transform: translateX(0%);')
+
+
+def test_discrete_slider_formatter(page):
+    """Numeric option labels update without changing the selected value."""
+    widget = DiscreteSlider(options=[1.234, 2.456], value=1.234, formatter='%.1f')
+    serve_component(page, widget)
+    expect(page.locator('.MuiFormLabel-root')).to_have_text('1.2')
+    widget.formatter = '%.2f'
+    expect(page.locator('.MuiFormLabel-root')).to_have_text('1.23')
+    assert widget.value == 1.234
 
 
 def test_int_slider(page):
@@ -61,7 +84,7 @@ def test_slider_vertical_orientation(page):
 
     serve_component(page, widget)
 
-    expect(page.locator(f'.MuiSlider-vertical')).to_have_count(1)
+    expect(page.locator('.MuiSlider-vertical')).to_have_count(1)
     assert page.locator('.MuiSlider-rail').evaluate("el => el.offsetHeight") == 277
 
 
@@ -105,6 +128,8 @@ def test_slider_label_no_trailing_colon_when_value_hidden(page):
 
 @pytest.mark.parametrize('size', ["small", "medium", "large"])
 def test_rating(page, size):
+    warnings = []
+    page.on('console', lambda message: warnings.append(message.text) if message.type == 'warning' else None)
     widget = Rating(value=3, size=size)
     serve_component(page, widget)
 
@@ -113,6 +138,7 @@ def test_rating(page, size):
 
     rating_size = page.locator(f'.MuiRating-size{size.capitalize()}')
     expect(rating_size).to_have_count(1)
+    assert not any('fullWidth' in warning for warning in warnings)
 
 
 # --- EditableIntSlider / EditableFloatSlider throttled tests ---

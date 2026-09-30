@@ -11,6 +11,7 @@ Single-model pipeline:
 Usage (run from repo root or anywhere):
     python src/matrice_analytics/analytics/tests/test_quality_analytics.py
 """
+
 from __future__ import annotations
 
 import csv
@@ -51,7 +52,6 @@ _register_pkg(
 )
 
 from matrice_analytics.analytics.engine import AnalyticsEngine  # noqa: E402
-
 
 _spec_bt = importlib.util.spec_from_file_location(
     "matrice_analytics.post_processing.usecases.footfall",
@@ -223,10 +223,7 @@ class QualityAnalyticsTestProcessor:
             x2 = int(bb["xmax"])
             y2 = int(bb["ymax"])
             color = color_by_cat.get(det["category"], (0, 255, 0))
-            label = (
-                f"{det['category']} id:{det.get('track_id', '?')} "
-                f"{det['confidence']:.2f}"
-            )
+            label = f"{det['category']} id:{det.get('track_id', '?')} {det['confidence']:.2f}"
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
             (tw, th), baseline = cv2.getTextSize(label, font, font_scale, 1)
             cv2.rectangle(
@@ -351,9 +348,7 @@ class QualityAnalyticsTestProcessor:
         video_writer = None
         if self.draw_bboxes:
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-            video_writer = cv2.VideoWriter(
-                self.output_video_path, fourcc, fps, (width, height)
-            )
+            video_writer = cv2.VideoWriter(self.output_video_path, fourcc, fps, (width, height))
             print(f"Video output enabled — {self.output_video_path}")
 
         csv_file = None
@@ -427,9 +422,7 @@ class QualityAnalyticsTestProcessor:
                             "cum_defect_rate": row["cum_defect_rate"],
                         },
                     }
-                    agg_path = os.path.join(
-                        self.json_dir, "agg", f"agg_{frame_idx:04d}.json"
-                    )
+                    agg_path = os.path.join(self.json_dir, "agg", f"agg_{frame_idx:04d}.json")
                     with open(agg_path, "w") as f:
                         json.dump(serialized_with_cum, f, indent=2)
                     print(
@@ -509,7 +502,7 @@ class QualityAnalyticsTestProcessor:
             )
         print(f"\nFinal aggregation saved: {final_agg_path}")
         print("Final aggregation result:")
-        pprint.pprint(final_serialized)
+        pprint.pprint(final_serialized)  # noqa: T203
 
         # Per-window summary CSV (window deltas + running cumulative view).
         summary_csv_path = os.path.join(self.json_dir, "agg", "agg_summary.csv")

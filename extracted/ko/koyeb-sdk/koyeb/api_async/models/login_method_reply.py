@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class LoginMethodReply(BaseModel):
     """
     LoginMethodReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     method: Optional[LoginMethodReplyMethod] = LoginMethodReplyMethod.KOYEB
     __properties: ClassVar[List[str]] = ["method"]
 
@@ -37,7 +39,6 @@ class LoginMethodReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class LoginMethodReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,9 +81,11 @@ class LoginMethodReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "method": obj.get("method") if obj.get("method") is not None else LoginMethodReplyMethod.KOYEB
-        })
+        _obj = cls.model_validate(
+            {
+                "method": obj.get("method")
+                if obj.get("method") is not None
+                else LoginMethodReplyMethod.KOYEB
+            }
+        )
         return _obj
-
-

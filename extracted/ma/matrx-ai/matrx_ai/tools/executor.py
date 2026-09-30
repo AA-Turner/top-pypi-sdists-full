@@ -543,6 +543,10 @@ async def warn_member_depth_exhausted(
         )
 
 
+#: ``tool_step`` name that carries a notice the model was shown on a result.
+MODEL_NOTICE_STEP = "model_notice"
+
+
 def _chosen_variant_schema(tool_def: ToolDefinition, args: dict[str, Any]) -> dict[str, Any] | None:
     """The provider-dialect JSON Schema of the action ``args`` chose, or ``None``.
 
@@ -1168,6 +1172,9 @@ class ToolExecutor:
         # client, and tools without a declared model are left untouched.
         coerced_fields: list[str] = []
         inferred_discriminator: tuple[str, str] | None = None
+        # (discriminator, action, removed fields) when pre-flight stripped
+        # arguments another action owns — told to the model on the result.
+        removed_variant_fields: tuple[str, str, list[str]] | None = None
         if not is_delegated_pre:
             from matrx_ai.tools._dispatch_util import (
                 coerce_stringified_containers,
@@ -1252,6 +1259,17 @@ class ToolExecutor:
                             _healed = False
                         if _healed:
                             arguments = _cand_args
+                            from matrx_ai.tools.validation.schema import (
+                                discriminated_union_members,
+                            )
+
+                            _union = discriminated_union_members(_declared.args_model)
+                            _disc_name = _union[0] if _union else "action"
+                            removed_variant_fields = (
+                                _disc_name,
+                                str((arguments or {}).get(_disc_name, "")),
+                                list(_removed_fields),
+                            )
                             _fields_str = ", ".join(_removed_fields)
                             logger.warning(
                                 "[ToolExecutor] removed flattened-schema "
@@ -1884,25 +1902,47 @@ class ToolExecutor:
         # away with it: inject a notice key into a dict output so it rides the
         # tool result into context. Non-dict outputs fall back to the log +
         # COERCED/INFERRED trace events only.
-        if coerced_fields and isinstance(result.output, dict):
-            result.output.setdefault(
-                "arg_coercion_notice",
-                (
-                    f"NOTICE: argument(s) {', '.join(repr(f) for f in coerced_fields)} "
-                    "were sent as JSON-encoded strings; the server decoded them to "
-                    "native JSON this time. Next call, pass the raw JSON "
-                    "object/array itself — not a quoted string."
-                ),
+        # A non-dict output carries the same notice as a model notice (rendered
+        # after the content by ToolResult.to_tool_result_content) — the log +
+        # trace events alone would leave the model repeating the mistake.
+        if coerced_fields:
+            _coerce_notice = (
+                f"NOTICE: argument(s) {', '.join(repr(f) for f in coerced_fields)} "
+                "were sent as JSON-encoded strings; the server decoded them to "
+                "native JSON this time. Next call, pass the raw JSON "
+                "object/array itself — not a quoted string."
             )
-        if inferred_discriminator and isinstance(result.output, dict):
+            if isinstance(result.output, dict):
+                result.output.setdefault("arg_coercion_notice", _coerce_notice)
+            else:
+                result.model_notices.append(_coerce_notice)
+        if inferred_discriminator:
             _idf, _idt = inferred_discriminator
-            result.output.setdefault(
-                "arg_inference_notice",
-                (
-                    f"NOTICE: {_idf!r} was omitted; inferred {_idf}={_idt!r} from "
-                    f"the other fields. Next call, set {_idf}={_idt!r} explicitly."
-                ),
+            _infer_notice = (
+                f"NOTICE: {_idf!r} was omitted; inferred {_idf}={_idt!r} from "
+                f"the other fields. Next call, set {_idf}={_idt!r} explicitly."
             )
+            if isinstance(result.output, dict):
+                result.output.setdefault("arg_inference_notice", _infer_notice)
+            else:
+                result.model_notices.append(_infer_notice)
+        if removed_variant_fields is not None:
+            # The call ran WITHOUT these arguments: a model that sent, say,
+            # categories to the wrong action got a different answer than it
+            # asked for, so it is told — on every result shape, success or not.
+            _rdisc, _raction, _rfields = removed_variant_fields
+            result.model_notices.append(
+                f"NOTICE: ignored argument(s) for {_rdisc}={_raction!r}: "
+                f"{', '.join(_rfields)} — not accepted by this {_rdisc}, so the call "
+                "ran without them. Send them only with the "
+                f"{_rdisc} that takes them."
+            )
+        # Each model notice is also a tool_step: streamed live (the person sees
+        # it) and persisted in execution_events, which is where a rebuilt turn
+        # reads it back (``_conversation_rebuild_impl``) — cx_tool_call.output
+        # stays the tool's own output.
+        for _notice in result.model_notices:
+            await stream.step(MODEL_NOTICE_STEP, _notice)
 
         # --- Contract repair: failure with no structured error ---
         # If a tool returns success=False but leaves ToolResult.error unset,

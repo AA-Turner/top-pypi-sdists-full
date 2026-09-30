@@ -8,9 +8,20 @@ behaviour has its own coverage in tests/functional/test_integrity_enforce.py.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
-from boost_cli.core import catalog, config, integrity, lockfile, paths, registry, store
+from boost_cli.core import (
+    catalog,
+    config,
+    integrity,
+    lockfile,
+    paths,
+    registry,
+    scopes,
+    store,
+)
 from boost_cli.errors import BoostError
 
 
@@ -286,6 +297,107 @@ class TestProjectScope:
     def test_project_skills_none_outside_a_repo(self, sandbox, monkeypatch):
         # Patch the resolver rather than chdir'ing — a unit test that chdirs
         # breaks mutmut's instrumentation (it resolves boost_cli off the cwd).
-        monkeypatch.setattr(integrity.scopes, "project_root", lambda *a, **k: None)
+        # `resolve_base`, not `project_root`: patching by name is silent when
+        # the code under test moves to the other function, and this test went
+        # on passing against the real resolver until the name was updated.
+        monkeypatch.setattr(integrity.scopes, "resolve_base", lambda *a, **k: None)
         base, skills = integrity.project_skills()
         assert base is None and skills == {}
+
+    def test_project_skills_reads_an_unmarked_directory(
+            self, sandbox, fixture_tap_src):
+        # The seam this fixes: `install --local` resolves its base with
+        # `resolve_base`, which falls back to the cwd when no VCS marker is
+        # above it. Reading with `project_root` answered None for the very
+        # directory install had just written, so `doctor` and `verify` called
+        # a machine clean while the lock and the agent dirs sat in the cwd.
+        #
+        # No monkeypatch and no chdir: the `sandbox` fixture already stands in
+        # an unmarked directory, so this drives the real resolver — patching
+        # `scopes.resolve_base` would patch it for the code under test too,
+        # since `integrity.scopes` is that same module object.
+        t = registry.add(str(fixture_tap_src))
+        catalog.rebuild_tap(t)
+        here = Path.cwd().resolve()
+        assert scopes.project_root(here) is None, (
+            "a VCS marker at or above tmp_path would make this assert nothing")
+        store.install(catalog.resolve_one("brainstorming"),
+                      scope="project", base=str(here))
+        base, skills = integrity.project_skills()
+        assert base == here
+        assert set(skills) == {"brainstorming"}
+
+
+class TestARowNothingWritesIsNotAMissingArtifact:
+    """`materialized_status` is the fifth reader of a materialization row.
+
+    A row for an agent boost no longer writes names a file nothing wrote and
+    nothing will write. Read as ``STATUS_MISSING`` it failed `boost verify`
+    on every run and made `boost drift` and `boost health` demand a
+    `boost sync` that skips the row by design -- the same closed loop
+    `boost doctor` was fixed for
+    (sync-repairs-a-disabled-agents-row-every-run). Five commands read it:
+    `verify`, `attest`, `drift`, `health` and `serve`.
+    """
+
+    @staticmethod
+    def _entry(kind, agent):
+        gone = paths.home() / ".cursor" / "nothing-wrote-this"
+        return {"kind": kind, "materializations": [
+            {"agent": agent, "mode": "file", "path": str(gone),
+             "sha256": "x" * 64}]}
+
+    @staticmethod
+    def _disable(agent):
+        cfg = config.load()
+        cfg["agents"][agent]["enabled"] = False
+        config.save(cfg)
+
+    @pytest.mark.parametrize("kind", ["rule", "workflow"])
+    def test_a_disabled_agents_row_stops_reading_as_missing(self, sandbox,
+                                                            kind):
+        e = self._entry(kind, "cursor")
+        assert integrity.materialized_status("x", e) == integrity.STATUS_MISSING
+        self._disable("cursor")
+        assert integrity.materialized_status("x", e) == integrity.STATUS_OK
+
+    def test_a_workflow_row_is_judged_by_the_narrower_set_here_too(self,
+                                                                   sandbox):
+        """`codex` is enabled and takes rules, and has no command format, so
+        the two kinds must answer differently for the same row."""
+        assert integrity.materialized_status(
+            "x", self._entry("rule", "codex")) == integrity.STATUS_MISSING
+        assert integrity.materialized_status(
+            "x", self._entry("workflow", "codex")) == integrity.STATUS_OK
+
+    def test_an_entry_with_no_kind_is_judged_as_a_rule(self, sandbox):
+        """Locks written before entries carried `kind` must not be read as
+        workflows: that is the narrower set, so it would hide a real gap."""
+        e = self._entry("rule", "codex")
+        del e["kind"]
+        assert integrity.materialized_status("x", e) == integrity.STATUS_MISSING
+
+    def test_the_callers_kind_wins_over_the_entrys_own_field(self, sandbox):
+        """Every caller loops one lock section at a time, so it knows the
+        kind for certain; the entry's field is a copy that can be wrong.
+
+        A workflow entry whose `kind` says `rule` -- restored from a snapshot
+        older than the field, or hand-edited -- would be judged as a rule
+        here and as a workflow by `store`, and `boost verify` and
+        `boost doctor` would then give opposite answers for one row with
+        nothing to say which was right. Passing the section's kind removes
+        the disagreement at the source.
+        """
+        e = self._entry("rule", "codex")           # says rule, is a workflow
+        assert integrity.materialized_status("x", e) == integrity.STATUS_MISSING
+        assert integrity.materialized_status(
+            "x", e, "workflow") == integrity.STATUS_OK
+
+    def test_the_entrys_field_stays_the_fallback(self, sandbox):
+        """A caller holding only the entry still gets the old answer, and an
+        explicit `None` is that caller, not a third kind."""
+        e = self._entry("workflow", "codex")
+        assert integrity.materialized_status("x", e, None) == \
+            integrity.STATUS_OK
+        assert integrity.materialized_status(
+            "x", self._entry("rule", "codex"), None) == integrity.STATUS_MISSING

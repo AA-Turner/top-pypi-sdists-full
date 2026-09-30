@@ -630,9 +630,15 @@ class UnifiedMessage:
         tool_media_parts: list[dict[str, Any]] = []
         text_content_id: str | None = None
         dropped_search_calls = 0
+        # True only while the last content seen was a replayed reasoning item — the one position
+        # in which OpenAI accepts a web_search_call.
+        search_replay_open = False
 
         for content in self.content:
+            if not isinstance(content, (ThinkingContent, WebSearchCallContent)):
+                search_replay_open = False
             if isinstance(content, ThinkingContent):
+                search_replay_open = bool(content.provider == "openai" and content.signature)
                 if content.provider == "openai" and content.signature:
                     items.append(
                         {
@@ -670,7 +676,9 @@ class UnifiedMessage:
                 # its required 'reasoning' item"). A reasoning block with no encrypted content
                 # cannot be replayed (above), so its search call cannot be either: the search's
                 # findings already live in the assistant text that follows. Dropped, counted.
-                if not any(i.get("type") == "reasoning" for i in items):
+                # Kept only when the reasoning item that produced it was itself replayed
+                # immediately before it.
+                if not search_replay_open:
                     dropped_search_calls += 1
                     continue
                 item = {
@@ -681,6 +689,9 @@ class UnifiedMessage:
                 if content.action:
                     item["action"] = content.action
                 items.append(item)
+                # One reasoning item pairs with ONE search call; a second call in a row has
+                # no reasoning of its own to ride on.
+                search_replay_open = False
 
             elif isinstance(content, TextContent):
                 text_type = "output_text" if self.role == Role.ASSISTANT else "input_text"
@@ -1238,7 +1249,7 @@ class MessageList:
                 messages=self._deferred_empty_messages,
             )
 
-        # Pass 1 — visibility.
+        # Pass 1 — model_visibility (is_visible_to_model).
         visible: list[UnifiedMessage] = []
         for msg in self._messages:
             if not getattr(msg, "is_visible_to_model", True):
@@ -1252,7 +1263,7 @@ class MessageList:
         visibility_emptied = bool(original_messages and not visible)
         if visibility_emptied and not allow_empty:
             _raise_sanitized_empty(
-                pass_name="visibility",
+                pass_name="model_visibility",
                 messages=original_messages,
             )
 
@@ -1614,7 +1625,7 @@ class MessageList:
 
         if original_messages and not cleaned:
             pass_name = (
-                "visibility"
+                "model_visibility"
                 if visibility_emptied
                 else "tool_pairing"
                 if orphan_blocks_dropped or nonadjacent_uses

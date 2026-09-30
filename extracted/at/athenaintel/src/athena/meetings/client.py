@@ -97,6 +97,7 @@ class MeetingsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         response = client.meetings.list(
@@ -146,6 +147,7 @@ class MeetingsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.meetings.get(
@@ -186,6 +188,7 @@ class MeetingsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.meetings.download(
@@ -280,6 +283,7 @@ class AsyncMeetingsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -338,6 +342,7 @@ class AsyncMeetingsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -386,6 +391,7 @@ class AsyncMeetingsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 

@@ -55,9 +55,10 @@ struct Cli {
     ///   - Explicit global section: `--config 'global.line-length = 20'`
     ///
     /// At most one value may be a file path; the rest must be inline TOML.
-    /// Inline overrides remain in effect when combined with `--no-config`
-    /// /`--isolated` (the file path is rejected, but inline values still apply).
+    /// Inline overrides still apply with `--no-config` or `--isolated`, which
+    /// reject only the file path.
     #[arg(
+        verbatim_doc_comment,
         long,
         short = 'c',
         global = true,
@@ -126,6 +127,9 @@ enum Commands {
         /// Output file path (default: .rumdl.toml)
         #[arg(long, short = 'o')]
         output: Option<String>,
+        /// Append to an existing pyproject.toml without asking
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
     /// Show information about a rule or list all rules
     Rule {
@@ -322,6 +326,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 pyproject,
                 preset,
                 output,
+                yes,
             } => {
                 commands::init::handle_init(
                     pyproject,
@@ -331,6 +336,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         Preset::Relaxed => "relaxed",
                     }),
                     output,
+                    yes,
                 );
             }
             Commands::Check(mut args) => {

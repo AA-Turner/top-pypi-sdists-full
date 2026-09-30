@@ -6,14 +6,14 @@ serve_path = str(Path(__file__).with_name("v3-lab-serve").resolve())
 roboto_path = str(Path(__file__).with_name("roboto").resolve())
 
 serve = {
-    f"__trame_vuetify_lab_{__version__}": serve_path,
+    f"__trame_vuetify3_lab_{__version__}": serve_path,
     f"__trame_roboto_{__version__}": roboto_path,
 }
 
-scripts = [f"__trame_vuetify_lab_{__version__}/trame-vuetify-lab.umd.js"]
+scripts = [f"__trame_vuetify3_lab_{__version__}/trame-vuetify-lab.umd.js"]
 styles = [
-    f"__trame_vuetify_lab_{__version__}/style.css",
-    f"__trame_vuetify_lab_{__version__}/css/mdi.css",
+    f"__trame_vuetify3_lab_{__version__}/trame-vuetify-lab.css",
+    f"__trame_vuetify3_lab_{__version__}/css/mdi.css",
     f"__trame_roboto_{__version__}/roboto.css",
 ]
 vue_use = ["vuetifylab.createVuetify(trame.state.get('trame__vuetify3_config')||{})"]

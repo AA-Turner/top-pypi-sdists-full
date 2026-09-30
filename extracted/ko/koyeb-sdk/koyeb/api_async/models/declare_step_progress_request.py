@@ -20,21 +20,33 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api_async.models.deployment_provisioning_info_stage_status import DeploymentProvisioningInfoStageStatus
+from koyeb.api_async.models.deployment_provisioning_info_stage_status import (
+    DeploymentProvisioningInfoStageStatus,
+)
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeclareStepProgressRequest(BaseModel):
     """
     DeclareStepProgressRequest
-    """ # noqa: E501
+    """  # noqa: E501
+
     secret: Optional[StrictStr] = None
-    status: Optional[DeploymentProvisioningInfoStageStatus] = DeploymentProvisioningInfoStageStatus.UNKNOWN
+    status: Optional[
+        DeploymentProvisioningInfoStageStatus
+    ] = DeploymentProvisioningInfoStageStatus.UNKNOWN
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     messages: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["secret", "status", "started_at", "finished_at", "messages"]
+    __properties: ClassVar[List[str]] = [
+        "secret",
+        "status",
+        "started_at",
+        "finished_at",
+        "messages",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -42,7 +54,6 @@ class DeclareStepProgressRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -67,8 +78,7 @@ class DeclareStepProgressRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -86,13 +96,15 @@ class DeclareStepProgressRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "secret": obj.get("secret"),
-            "status": obj.get("status") if obj.get("status") is not None else DeploymentProvisioningInfoStageStatus.UNKNOWN,
-            "started_at": obj.get("started_at"),
-            "finished_at": obj.get("finished_at"),
-            "messages": obj.get("messages")
-        })
+        _obj = cls.model_validate(
+            {
+                "secret": obj.get("secret"),
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else DeploymentProvisioningInfoStageStatus.UNKNOWN,
+                "started_at": obj.get("started_at"),
+                "finished_at": obj.get("finished_at"),
+                "messages": obj.get("messages"),
+            }
+        )
         return _obj
-
-

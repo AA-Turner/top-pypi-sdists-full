@@ -11,11 +11,16 @@ import sqlalchemy as sa
 from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
 
 # Public API
-from dbos import DBOS, DBOSConfig, run_dbos_database_migrations
+from dbos import DBOS, DBOSConfig, SQLAlchemyDatasource, run_dbos_database_migrations
 
 # Private API because this is a unit test
+from dbos._datasource_migration import (
+    DATASOURCE_MIGRATIONS_TABLE,
+    get_sqlite_datasource_migrations,
+)
 from dbos._error import DBOSInitializationError
 from dbos._migration import get_dbos_migrations, should_migrate, sqlite_migrations
+from dbos._schemas.datasource_database import datasource_outputs_table
 from dbos._schemas.system_database import SystemSchema
 from dbos._serialization import DefaultSerializer
 from dbos._sys_db import SystemDatabase
@@ -270,7 +275,29 @@ def test_reset_truncate(
 
     DBOS.destroy()
     dbos = DBOS(config=config)
+    # A datasource sharing the system schema
+    sys_db_url = config.get("system_database_url")
+    assert sys_db_url is not None
+    ds = SQLAlchemyDatasource.create(sys_db_url)
+    with ds.engine.begin() as c:
+        c.execute(
+            datasource_outputs_table("dbos")
+            .insert()
+            .values(workflow_id="wf", step_id=1, created_at=1)
+        )
+    ds.engine.dispose()
     DBOS.reset_system_database(truncate=True)
+
+    # The datasource's checkpoints go but its version stays, so verify-only creation works
+    ds = SQLAlchemyDatasource.create(sys_db_url, run_migrations=False)
+    with ds.engine.connect() as c:
+        assert (
+            c.execute(
+                sa.select(sa.func.count()).select_from(datasource_outputs_table("dbos"))
+            ).scalar_one()
+            == 0
+        )
+    ds.engine.dispose()
 
     # Unlike a reset, the database itself survives
     with db_engine.connect() as c:
@@ -542,6 +569,8 @@ def test_enqueue_workflow_function_application_name(
 
 def test_sqlite_systemdb_migration() -> None:
     """Test SQLite system database migration."""
+    # A launched instance left in the registry would refuse the datasources below.
+    DBOS.destroy(destroy_registry=True)
     # Create a temporary SQLite database file
     with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as temp_db:
         temp_db_path = temp_db.name
@@ -616,6 +645,14 @@ def test_sqlite_systemdb_migration() -> None:
                 assert columns["application_name"] == 0, table
 
         # Test truncating the system database: the rows go, the schema stays
+        ds = SQLAlchemyDatasource.create(sqlite_url)
+        with ds.engine.begin() as connection:
+            connection.execute(
+                datasource_outputs_table(None)
+                .insert()
+                .values(workflow_id="wf", step_id=1, created_at=1)
+            )
+        ds.engine.dispose()
         with sys_db.engine.begin() as connection:
             connection.execute(
                 SystemSchema.application_versions.insert().values(
@@ -639,13 +676,27 @@ def test_sqlite_systemdb_migration() -> None:
             assert connection.execute(
                 sa.text("SELECT version FROM dbos_migrations")
             ).scalar() == len(sqlite_migrations)
+            # A datasource sharing the file loses its checkpoints but keeps its version
+            assert (
+                connection.execute(
+                    sa.select(sa.func.count()).select_from(
+                        datasource_outputs_table(None)
+                    )
+                ).scalar_one()
+                == 0
+            )
+            assert connection.execute(
+                sa.text(f"SELECT version FROM {DATASOURCE_MIGRATIONS_TABLE}")
+            ).scalar() == len(get_sqlite_datasource_migrations())
+        ds = SQLAlchemyDatasource.create(sqlite_url, run_migrations=False)
+        ds.engine.dispose()
 
         # Clean up
         sys_db.destroy()
 
     # Test resetting the system database
     assert os.path.exists(temp_db_path)
-    DBOS.destroy()
+    DBOS.destroy(destroy_registry=True)
     DBOS(config={"name": "sqlite_test", "system_database_url": sqlite_url})
     DBOS.reset_system_database()
     assert not os.path.exists(temp_db_path)
@@ -737,7 +788,10 @@ def test_migrate(db_engine: sa.Engine, skip_with_sqlite: None) -> None:
         DBOS.destroy()
 
 
-def test_programmatic_migration(db_engine: sa.Engine, skip_with_sqlite: None) -> None:
+@pytest.mark.parametrize("entrypoint", ["function", "static"])
+def test_programmatic_migration(
+    entrypoint: str, db_engine: sa.Engine, skip_with_sqlite: None
+) -> None:
     database_name = "migrate_test"
     migrate_role = "migrate-test-role"
     app_role = "app-test-role"
@@ -772,11 +826,8 @@ def test_programmatic_migration(db_engine: sa.Engine, skip_with_sqlite: None) ->
         .set(password=role_password)
         .render_as_string(hide_password=False)
     )
-    run_dbos_database_migrations(
-        migrate_url,
-        schema=schema,
-        application_role=app_role,
-    )
+    migrate = run_dbos_database_migrations if entrypoint == "function" else DBOS.migrate
+    migrate(migrate_url, schema=schema, application_role=app_role)
     with db_engine.connect() as c:
         c.execution_options(isolation_level="AUTOCOMMIT")
         result = c.execute(

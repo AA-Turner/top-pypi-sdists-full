@@ -23,6 +23,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+from ...clients import identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.response import CallFailure
 from .location_name_cache import LocationNameCache
 
 if TYPE_CHECKING:  # pragma: no cover - resolved by the type checker only
@@ -35,6 +38,11 @@ DEFAULT_AGGREGATION_INTERVAL = 300
 
 # Supported aggregation types
 AGGREGATION_TYPES = ["mean", "min", "max", "sum"]
+
+#: How long one location-name lookup may take, in seconds. Short on purpose: this runs
+#: on the metrics path, where a site name that arrives late is worth less than the
+#: batch it was meant to label, and the default name is already a usable answer.
+LOCATION_LOOKUP_TIMEOUT_S = 3
 
 # Cache for location names to avoid repeated API calls
 _location_name_cache = LocationNameCache()
@@ -209,6 +217,7 @@ class BUSINESS_METRICS_MANAGER:
 
         # Store factory reference for fetching camera info
         self._factory_ref: Optional["BusinessMetricsManagerFactory"] = None
+        self._client: Optional[AnalyticsClient] = None
 
         self.logger.info(
             f"[BUSINESS_METRICS_MANAGER] Initialized with output_topic={output_topic}, "
@@ -398,30 +407,20 @@ class BUSINESS_METRICS_MANAGER:
         )
         return camera_name, camera_id
 
-    def _pick_deployment_ids(
-        self,
-        stream_info: Dict[str, Any],
-        camera_info: Dict[str, Any],
-        input_settings: Dict[str, Any],
-    ) -> Tuple[str, str]:
-        """``(app_deployment_id, application_id)``, snake_case preferred over camelCase."""
-        app_deployment_id = (
-            stream_info.get("app_deployment_id", "")
-            or stream_info.get("appDeploymentId", "")
-            or input_settings.get("app_deployment_id", "")
-            or input_settings.get("appDeploymentId", "")
-            or camera_info.get("app_deployment_id", "")
-            or ""
+    @staticmethod
+    def _pick_deployment_ids(stream_info: Dict[str, Any]) -> Tuple[str, str]:
+        """``(app_deployment_id, application_id)``, read off the top of ``stream_info``.
+
+        Both builders that produce a ``stream_info`` write these two ids top-level
+        and snake_case, and neither ``input_settings`` nor ``camera_info`` ever
+        carries an id -- the first holds frame bounds and timing, the second holds
+        the camera's own name, group and location. The camelCase and nested
+        spellings this used to try were reachable from no producer.
+        """
+        return (
+            identity.resolve_app_deployment_id(stream_info),
+            identity.resolve_application_id(stream_info),
         )
-        application_id = (
-            stream_info.get("application_id", "")
-            or stream_info.get("applicationId", "")
-            or input_settings.get("application_id", "")
-            or input_settings.get("applicationId", "")
-            or camera_info.get("application_id", "")
-            or ""
-        )
-        return app_deployment_id, application_id
 
     def _pick_location_id(
         self,
@@ -512,7 +511,7 @@ class BUSINESS_METRICS_MANAGER:
                 camera_id_from_topic, stream_info, camera_info, input_camera_info, input_settings
             )
             result["app_deployment_id"], result["application_id"] = self._pick_deployment_ids(
-                stream_info, camera_info, input_settings
+                stream_info
             )
             result["location_id"] = self._pick_location_id(
                 stream_info, camera_info, input_camera_info
@@ -527,6 +526,18 @@ class BUSINESS_METRICS_MANAGER:
             )
 
         return result
+
+    def _platform(self) -> AnalyticsClient:
+        """The client every platform call in this class goes through.
+
+        Built on the factory's session, which :meth:`_fetch_location_name` has
+        already established is present -- this manager is handed its session by
+        the factory rather than opening one, so there is nothing to fall back to
+        if the factory has none.
+        """
+        if self._client is None:
+            self._client = AnalyticsClient(session=self._factory_ref._session)
+        return self._client
 
     def _fetch_location_name(self, location_id: str) -> str:
         """
@@ -575,40 +586,30 @@ class BUSINESS_METRICS_MANAGER:
             return default_location
 
         try:
-            endpoint = f"/v1/inference/get_location/{location_id}"
             self.logger.info(
-                f"[BUSINESS_METRICS_MANAGER] Fetching location name from API: {endpoint}"
+                f"[BUSINESS_METRICS_MANAGER] Fetching location name for location_id: {location_id}"
             )
-
-            response = self._factory_ref._session.rpc.get(
-                endpoint, timeout=3, raise_exception=False
+            site = self._platform().inference.fetch_location(
+                location_id, timeout_s=LOCATION_LOOKUP_TIMEOUT_S
             )
+            location_name = site.location_name if site else ""
 
-            if response and isinstance(response, dict):
-                success = response.get("success", False)
-                if success:
-                    data = response.get("data", {})
-                    location_name = data.get("locationName", default_location)
-                    self.logger.info(
-                        f"[BUSINESS_METRICS_MANAGER] ✓ Fetched location name: '{location_name}' for location_id: '{location_id}'"
-                    )
-
-                    # Cache the result
-                    _location_name_cache.store(location_id, location_name)
-                    return location_name
-                else:
-                    self.logger.warning(
-                        f"[BUSINESS_METRICS_MANAGER] API returned success=false for location_id '{location_id}': "
-                        f"{response.get('message', 'Unknown error')}"
-                    )
-            else:
-                self.logger.warning(
-                    f"[BUSINESS_METRICS_MANAGER] Invalid response format from API: {response}"
+            if location_name:
+                self.logger.info(
+                    f"[BUSINESS_METRICS_MANAGER] ✓ Fetched location name: '{location_name}' "
+                    f"for location_id: '{location_id}'"
                 )
+                _location_name_cache.store(location_id, location_name)
+                return location_name
 
-        except Exception as e:
+            self.logger.warning(
+                f"[BUSINESS_METRICS_MANAGER] No location name for location_id '{location_id}'"
+            )
+
+        except CallFailure as exc:
             self.logger.error(
-                f"[BUSINESS_METRICS_MANAGER] Error fetching location name for '{location_id}': {e}",
+                f"[BUSINESS_METRICS_MANAGER] Error fetching location name for "
+                f"'{location_id}': {exc}",
                 exc_info=True,
             )
 

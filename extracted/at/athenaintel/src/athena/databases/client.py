@@ -63,6 +63,7 @@ class DatabasesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.databases.get_status(
@@ -95,6 +96,7 @@ class DatabasesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.databases.list_tables(
@@ -161,6 +163,7 @@ class DatabasesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.databases.select(
@@ -216,6 +219,7 @@ class DatabasesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.databases.insert(
@@ -284,6 +288,7 @@ class DatabasesClient:
         from athena import Athena, DeleteDataRequest
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.databases.delete(
@@ -354,6 +359,7 @@ class DatabasesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.databases.update(
@@ -398,6 +404,7 @@ class DatabasesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.databases.get_table_schema(
@@ -434,6 +441,7 @@ class DatabasesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.databases.execute_sql(
@@ -492,6 +500,7 @@ class AsyncDatabasesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -532,6 +541,7 @@ class AsyncDatabasesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -606,6 +616,7 @@ class AsyncDatabasesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -669,6 +680,7 @@ class AsyncDatabasesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -745,6 +757,7 @@ class AsyncDatabasesClient:
         from athena import AsyncAthena, DeleteDataRequest
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -823,6 +836,7 @@ class AsyncDatabasesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -875,6 +889,7 @@ class AsyncDatabasesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -919,6 +934,7 @@ class AsyncDatabasesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 

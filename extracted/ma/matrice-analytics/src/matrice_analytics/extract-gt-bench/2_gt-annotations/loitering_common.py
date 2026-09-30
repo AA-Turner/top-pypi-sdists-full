@@ -1,8 +1,9 @@
 """Shared constants and JSON helpers for loitering-detection ground truth."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 # YOLO (people-counting model) only ever detects class 0 -> "person".
 # class 1 -> "loitering_person" is assigned by LoiteringUseCase bootstrap or manual GT edit.

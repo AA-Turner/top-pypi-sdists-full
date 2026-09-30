@@ -43,7 +43,6 @@ class SecretsApi:
             api_client = ApiClient.get_default()
         self.api_client = api_client
 
-
     @validate_call
     def create_secret(
         self,
@@ -52,9 +51,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -86,35 +84,34 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._create_secret_serialize(
             secret=secret,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreateSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "CreateSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     def create_secret_with_http_info(
@@ -124,9 +121,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -158,35 +154,34 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._create_secret_serialize(
             secret=secret,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreateSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "CreateSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     def create_secret_without_preload_content(
@@ -196,9 +191,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -230,31 +224,30 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._create_secret_serialize(
             secret=secret,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreateSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "CreateSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _create_secret_serialize(
         self,
@@ -264,11 +257,9 @@ class SecretsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -287,24 +278,16 @@ class SecretsApi:
         if secret is not None:
             _body_params = secret
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/v1/secrets',
+            method="POST",
+            resource_path="/v1/secrets",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -314,11 +297,8 @@ class SecretsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def delete_secret(
@@ -328,9 +308,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -362,35 +341,34 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._delete_secret_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "object",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "object",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     def delete_secret_with_http_info(
@@ -400,9 +378,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -434,35 +411,34 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._delete_secret_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "object",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "object",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     def delete_secret_without_preload_content(
@@ -472,9 +448,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -506,31 +481,30 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._delete_secret_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "object",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "object",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _delete_secret_serialize(
         self,
@@ -540,11 +514,9 @@ class SecretsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -557,30 +529,22 @@ class SecretsApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='DELETE',
-            resource_path='/v1/secrets/{id}',
+            method="DELETE",
+            resource_path="/v1/secrets/{id}",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -590,11 +554,8 @@ class SecretsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def get_secret(
@@ -604,9 +565,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -638,35 +598,34 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_secret_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "GetSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     def get_secret_with_http_info(
@@ -676,9 +635,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -710,35 +668,34 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_secret_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "GetSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     def get_secret_without_preload_content(
@@ -748,9 +705,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -782,31 +738,30 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_secret_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "GetSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _get_secret_serialize(
         self,
@@ -816,11 +771,9 @@ class SecretsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -833,30 +786,22 @@ class SecretsApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/secrets/{id}',
+            method="GET",
+            resource_path="/v1/secrets/{id}",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -866,11 +811,8 @@ class SecretsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def list_secrets(
@@ -878,15 +820,19 @@ class SecretsApi:
         name: Optional[StrictStr] = None,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
-        types: Annotated[Optional[List[StrictStr]], Field(description="Filter by secret types")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        types: Annotated[
+            Optional[List[StrictStr]], Field(description="Filter by secret types")
+        ] = None,
+        ids: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on secret ids"),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -904,8 +850,8 @@ class SecretsApi:
         :type offset: str
         :param types: Filter by secret types
         :type types: List[str]
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on secret ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -926,32 +872,32 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_secrets_serialize(
             name=name,
             limit=limit,
             offset=offset,
             types=types,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListSecretsReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListSecretsReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -959,22 +905,25 @@ class SecretsApi:
             response_types_map=_response_types_map,
         ).data
 
-
     @validate_call
     def list_secrets_with_http_info(
         self,
         name: Optional[StrictStr] = None,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
-        types: Annotated[Optional[List[StrictStr]], Field(description="Filter by secret types")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        types: Annotated[
+            Optional[List[StrictStr]], Field(description="Filter by secret types")
+        ] = None,
+        ids: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on secret ids"),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -992,8 +941,8 @@ class SecretsApi:
         :type offset: str
         :param types: Filter by secret types
         :type types: List[str]
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on secret ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1014,32 +963,32 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_secrets_serialize(
             name=name,
             limit=limit,
             offset=offset,
             types=types,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListSecretsReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListSecretsReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -1047,22 +996,25 @@ class SecretsApi:
             response_types_map=_response_types_map,
         )
 
-
     @validate_call
     def list_secrets_without_preload_content(
         self,
         name: Optional[StrictStr] = None,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
-        types: Annotated[Optional[List[StrictStr]], Field(description="Filter by secret types")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        types: Annotated[
+            Optional[List[StrictStr]], Field(description="Filter by secret types")
+        ] = None,
+        ids: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on secret ids"),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1080,8 +1032,8 @@ class SecretsApi:
         :type offset: str
         :param types: Filter by secret types
         :type types: List[str]
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on secret ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1102,35 +1054,34 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_secrets_serialize(
             name=name,
             limit=limit,
             offset=offset,
             types=types,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListSecretsReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListSecretsReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _list_secrets_serialize(
         self,
@@ -1138,17 +1089,17 @@ class SecretsApi:
         limit,
         offset,
         types,
-        project_id,
+        ids,
         _request_auth,
         _content_type,
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: Dict[str, str] = {
-            'types': 'multi',
+            "types": "multi",
+            "ids": "multi",
         }
 
         _path_params: Dict[str, str] = {}
@@ -1163,47 +1114,34 @@ class SecretsApi:
         # process the path parameters
         # process the query parameters
         if name is not None:
-            
-            _query_params.append(('name', name))
-            
+            _query_params.append(("name", name))
+
         if limit is not None:
-            
-            _query_params.append(('limit', limit))
-            
+            _query_params.append(("limit", limit))
+
         if offset is not None:
-            
-            _query_params.append(('offset', offset))
-            
+            _query_params.append(("offset", offset))
+
         if types is not None:
-            
-            _query_params.append(('types', types))
-            
-        if project_id is not None:
-            
-            _query_params.append(('project_id', project_id))
-            
+            _query_params.append(("types", types))
+
+        if ids is not None:
+            _query_params.append(("ids", ids))
+
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/secrets',
+            method="GET",
+            resource_path="/v1/secrets",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1213,11 +1151,8 @@ class SecretsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def reveal_secret(
@@ -1228,9 +1163,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1264,7 +1198,7 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._reveal_secret_serialize(
             id=id,
@@ -1272,28 +1206,27 @@ class SecretsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "RevealSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "RevealSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     def reveal_secret_with_http_info(
@@ -1304,9 +1237,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1340,7 +1272,7 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._reveal_secret_serialize(
             id=id,
@@ -1348,28 +1280,27 @@ class SecretsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "RevealSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "RevealSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     def reveal_secret_without_preload_content(
@@ -1380,9 +1311,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1416,7 +1346,7 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._reveal_secret_serialize(
             id=id,
@@ -1424,24 +1354,23 @@ class SecretsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "RevealSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "RevealSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _reveal_secret_serialize(
         self,
@@ -1452,11 +1381,9 @@ class SecretsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -1469,7 +1396,7 @@ class SecretsApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
@@ -1477,24 +1404,16 @@ class SecretsApi:
         if body is not None:
             _body_params = body
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/v1/secrets/{id}/reveal',
+            method="POST",
+            resource_path="/v1/secrets/{id}/reveal",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1504,11 +1423,8 @@ class SecretsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def update_secret(
@@ -1520,9 +1436,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1558,7 +1473,7 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._update_secret_serialize(
             id=id,
@@ -1567,28 +1482,27 @@ class SecretsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "UpdateSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "UpdateSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     def update_secret_with_http_info(
@@ -1600,9 +1514,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1638,7 +1551,7 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._update_secret_serialize(
             id=id,
@@ -1647,28 +1560,27 @@ class SecretsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "UpdateSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "UpdateSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     def update_secret_without_preload_content(
@@ -1680,9 +1592,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1718,7 +1629,7 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._update_secret_serialize(
             id=id,
@@ -1727,24 +1638,23 @@ class SecretsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "UpdateSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "UpdateSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _update_secret_serialize(
         self,
@@ -1756,11 +1666,9 @@ class SecretsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -1773,36 +1681,27 @@ class SecretsApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         if update_mask is not None:
-            
-            _query_params.append(('update_mask', update_mask))
-            
+            _query_params.append(("update_mask", update_mask))
+
         # process the header parameters
         # process the form parameters
         # process the body parameter
         if secret is not None:
             _body_params = secret
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='PUT',
-            resource_path='/v1/secrets/{id}',
+            method="PUT",
+            resource_path="/v1/secrets/{id}",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1812,11 +1711,8 @@ class SecretsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def update_secret2(
@@ -1828,9 +1724,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1866,7 +1761,7 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._update_secret2_serialize(
             id=id,
@@ -1875,28 +1770,27 @@ class SecretsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "UpdateSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "UpdateSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     def update_secret2_with_http_info(
@@ -1908,9 +1802,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1946,7 +1839,7 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._update_secret2_serialize(
             id=id,
@@ -1955,28 +1848,27 @@ class SecretsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "UpdateSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "UpdateSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     def update_secret2_without_preload_content(
@@ -1988,9 +1880,8 @@ class SecretsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2026,7 +1917,7 @@ class SecretsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._update_secret2_serialize(
             id=id,
@@ -2035,24 +1926,23 @@ class SecretsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "UpdateSecretReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "UpdateSecretReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _update_secret2_serialize(
         self,
@@ -2064,11 +1954,9 @@ class SecretsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -2081,36 +1969,27 @@ class SecretsApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         if update_mask is not None:
-            
-            _query_params.append(('update_mask', update_mask))
-            
+            _query_params.append(("update_mask", update_mask))
+
         # process the header parameters
         # process the form parameters
         # process the body parameter
         if secret is not None:
             _body_params = secret
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='PATCH',
-            resource_path='/v1/secrets/{id}',
+            method="PATCH",
+            resource_path="/v1/secrets/{id}",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -2120,7 +1999,5 @@ class SecretsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-

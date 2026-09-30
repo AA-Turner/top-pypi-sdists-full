@@ -25,10 +25,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ServiceState(BaseModel):
     """
     ServiceState
-    """ # noqa: E501
+    """  # noqa: E501
+
     desired_deployment: Optional[DesiredDeployment] = None
     auto_release: Optional[AutoRelease] = None
     __properties: ClassVar[List[str]] = ["desired_deployment", "auto_release"]
@@ -39,7 +41,6 @@ class ServiceState(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +65,7 @@ class ServiceState(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -74,10 +74,10 @@ class ServiceState(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of desired_deployment
         if self.desired_deployment:
-            _dict['desired_deployment'] = self.desired_deployment.to_dict()
+            _dict["desired_deployment"] = self.desired_deployment.to_dict()
         # override the default output from pydantic by calling `to_dict()` of auto_release
         if self.auto_release:
-            _dict['auto_release'] = self.auto_release.to_dict()
+            _dict["auto_release"] = self.auto_release.to_dict()
         return _dict
 
     @classmethod
@@ -89,10 +89,16 @@ class ServiceState(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "desired_deployment": DesiredDeployment.from_dict(obj["desired_deployment"]) if obj.get("desired_deployment") is not None else None,
-            "auto_release": AutoRelease.from_dict(obj["auto_release"]) if obj.get("auto_release") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "desired_deployment": DesiredDeployment.from_dict(
+                    obj["desired_deployment"]
+                )
+                if obj.get("desired_deployment") is not None
+                else None,
+                "auto_release": AutoRelease.from_dict(obj["auto_release"])
+                if obj.get("auto_release") is not None
+                else None,
+            }
+        )
         return _obj
-
-

@@ -37,6 +37,7 @@ fn test_list_item_trailing_whitespace_removal() {
         atomic_spans: true,
         break_link_text: false,
         length_exemptions: Default::default(),
+        cjk_soft_break: Default::default(),
     };
 
     let result = reflow_markdown(input, &options);
@@ -510,6 +511,7 @@ fn test_sentence_per_line_reflow() {
         atomic_spans: true,
         break_link_text: false,
         length_exemptions: Default::default(),
+        cjk_soft_break: Default::default(),
     };
 
     let input = "First sentence. Second sentence. Third sentence.";
@@ -1084,6 +1086,7 @@ fn test_ie_abbreviation_preserves_sentence() {
         atomic_spans: true,
         break_link_text: false,
         length_exemptions: Default::default(),
+        cjk_soft_break: Default::default(),
     };
 
     let result = reflow_line(input, &options);
@@ -1117,6 +1120,7 @@ fn test_ie_abbreviation_paragraph() {
         atomic_spans: true,
         break_link_text: false,
         length_exemptions: Default::default(),
+        cjk_soft_break: Default::default(),
     };
 
     let result = reflow_markdown(input, &options);
@@ -1201,6 +1205,7 @@ fn test_definition_list_with_paragraphs() {
         atomic_spans: true,
         break_link_text: false,
         length_exemptions: Default::default(),
+        cjk_soft_break: Default::default(),
     };
 
     let content = "Regular paragraph. With multiple sentences.\n\nTerm\n: Definition.\n\nAnother paragraph.";
@@ -7557,5 +7562,24 @@ fn a_soft_break_after_a_trailing_space_joins_with_one_space() {
         ),
     ] {
         assert_eq!(reflow_markdown(input, &options), expected, "{label}: {input:?}");
+    }
+}
+
+#[test]
+fn reflow_markdown_keeps_blank_lines_at_the_end() {
+    let options = ReflowOptions {
+        line_length: 20,
+        ..Default::default()
+    };
+    for (input, expected) in [
+        ("one two three four five six\n\n", "one two three four\nfive six\n\n"),
+        (
+            "one two three four five six\n\n\n",
+            "one two three four\nfive six\n\n\n",
+        ),
+        ("one two three four five six\n", "one two three four\nfive six\n"),
+        ("one two three four five six", "one two three four\nfive six"),
+    ] {
+        assert_eq!(reflow_markdown(input, &options), expected, "{input:?}");
     }
 }

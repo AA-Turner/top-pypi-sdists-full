@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Integration (not unit) tests for pylast.py
 """
@@ -35,7 +34,7 @@ class TestPyLastAlbum(TestPyLastWithLastFm):
 
         # Act
         # limit=2 to ignore now-playing:
-        track = list(lastfm_user.get_recent_tracks(limit=2))[0]
+        track = lastfm_user.get_recent_tracks(limit=2)[0]
 
         # Assert
         assert hasattr(track, "album")

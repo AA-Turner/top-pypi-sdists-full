@@ -6,6 +6,88 @@ from selenium.webdriver.remote.shadowroot import ShadowRoot
 _log = logging.getLogger(__name__)
 
 
+#: Only high-confidence ranked locators take the batched fast path. Anything
+#: lower falls straight through to native resolution, so a weak guess never
+#: bypasses WebDriver's own matching semantics.
+_FAST_FIND_MIN_SCORE = 80
+
+# Resolve a ranked locator list in ONE round-trip instead of one per candidate.
+#
+# Anchor note: document.evaluate() throws NotSupportedError when handed a
+# ShadowRoot (a DocumentFragment) as the context node, so an XPath inside a
+# shadow root is evaluated from the shadow root's first real element child and
+# relative ".." steps climb back up — mirroring the native ShadowContext path.
+_FAST_FIND_JS = """
+var locators = arguments[0];
+var host = arguments[1];
+
+var sr = host && host.shadowRoot ? host.shadowRoot : null;
+
+var anchor = null;
+if (sr) {
+    anchor = Array.from(sr.children).filter(function (el) {
+        var t = el.tagName.toLowerCase();
+        return t !== 'script' && t !== 'style';
+    })[0] || sr.querySelector(':scope > :not(script):not(style)') || null;
+}
+
+for (var i = 0; i < locators.length; i++) {
+    var loc = locators[i];
+    try {
+        if (loc.isXPath) {
+            var ctx = anchor || host || document;
+            if (!ctx) continue;
+            var r = document.evaluate(loc.selector, ctx, null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            if (r) return r;
+        } else {
+            var scope = sr || host || document;
+            var el = scope.querySelector(loc.selector);
+            if (el) return el;
+        }
+    } catch (e) { continue; }
+}
+return null;
+"""
+
+
+def _fast_find(driver, selectors):
+    """Resolve the highest-confidence candidates in a single execute_script.
+
+    The ranked lists this binding receives run to a dozen-plus candidates, and
+    each native miss is its own WebDriver round-trip; on a remote grid that is
+    real latency for an element the first JS pass would have found. One batched
+    call replaces the whole walk.
+
+    Deliberately conservative, matching the source fix: only candidates scoring
+    >= _FAST_FIND_MIN_SCORE are eligible, and ANY miss, exception, or unscored
+    list returns None so the caller runs the untouched native loop. The fast
+    path can therefore only ever save time — it can never be the reason an
+    element is not found.
+    """
+    if not selectors or not isinstance(selectors[0], dict):
+        return None
+    batch = [
+        {
+            "selector": s.get("selector"),
+            "isXPath": bool(s.get("isXPath", False)),
+        }
+        for s in selectors
+        if isinstance(s, dict)
+        and isinstance(s.get("score"), (int, float))
+        and not isinstance(s.get("score"), bool)
+        and s.get("score") >= _FAST_FIND_MIN_SCORE
+        and s.get("selector")
+    ]
+    if not batch:
+        return None
+    try:
+        return driver.execute_script(_FAST_FIND_JS, batch, None)
+    except Exception:  # noqa: BLE001 — any failure falls back to native resolution
+        _log.debug("    [find] batched fast-find unavailable; using native resolution",
+                   exc_info=True)
+        return None
+
 def findElement(driver, selectors, description=None, allow_autoheal=True, search_root=None):
     """
     Find element with optional autoheal placeholder path.
@@ -60,6 +142,21 @@ def findElement(driver, selectors, description=None, allow_autoheal=True, search
                 "search_root is a ShadowRoot — skipping %d xpath selector(s); CSS-only lookups",
                 xpath_count,
             )
+
+    # One batched JS pass over the high-confidence candidates before the native
+    # walk. A hit skips N-1 round-trips; a miss costs one call and the
+    # native loop below runs exactly as before.
+    #
+    # Document-scoped lookups only. A search_root constrains resolution to that
+    # subtree, and the JS scope rules cannot reproduce that faithfully for an
+    # arbitrary element (a host that happens to have a shadowRoot would search
+    # the shadow tree instead of the light-DOM descendants the native path
+    # walks). Scoped finds therefore keep the native loop, unchanged.
+    if search_root is None:
+        fast = _fast_find(driver, selectors)
+        if fast is not None:
+            _log.info("Element found via batched fast-find")
+            return fast
 
     for selector in selectors:
         isXPath = selector.get('isXPath', False)

@@ -62,16 +62,19 @@ check_commands "${ADLER32}" "${CRC32C}" "${XRDCP}" "${XRDFS}" "${OPENSSL}" "${CU
 declare -a hosts=(
     "root://localhost:10951"
     "root://localhost:10952"
+    "root://localhost:10953"
 )
 
 declare -a hosts_http=(
     "https://localhost:10951"
     "https://localhost:10952"
+    "https://localhost:10953"
 )
 
 declare -a hosts_abbrev=(
     "srv1"
     "srv2"
+    "srv3"
 )
 
 # Files used by the multistream HTTP TPC tests.  Both sizes are transferred on
@@ -102,7 +105,11 @@ setup_scitokens() {
 	chmod 0600 "$PWD/generated_tokens/token"
 }
 
-# Cleanup function
+# Remove everything this test creates, on the failure path as well as on the
+# successful one. The uploads fail if a file from an earlier run is still on the
+# servers, so one failure used to make every later run in the same build tree
+# fail too. No command here may fail, because the trap must not change the exit
+# status of the script.
 # shellcheck disable=SC2317
 cleanup() {
     ## Cleanup multistream files
@@ -111,47 +118,53 @@ cleanup() {
     src=${hosts_abbrev[${src_idx}]}
     dst=${hosts_abbrev[${dst_idx}]}
     for suffix in "${multistream_suffixes[@]}"; do
-        rm "${LCLDATADIR}/${src}${suffix}.ref" || :
-        rm "${LCLDATADIR}/${src}_to_${dst}${suffix}.dat_http_pull" || :
-        ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${src}${suffix}.ref" || :
-        ${XRDFS} "${hosts[$dst_idx]}" rm "${RMTDATADIR}/${src}_to_${dst}${suffix}.ref_http_pull" || :
+        rm "${LCLDATADIR}/${src}${suffix}.ref" 2>/dev/null || :
+        rm "${LCLDATADIR}/${src}_to_${dst}${suffix}.dat_http_pull" 2>/dev/null || :
+        ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${src}${suffix}.ref" 2>/dev/null || :
+        ${XRDFS} "${hosts[$dst_idx]}" rm "${RMTDATADIR}/${src}_to_${dst}${suffix}.ref_http_pull" 2>/dev/null || :
     done
 
     ## Cleanup empty files
-    rm "${LCLDATADIR}/${src}_empty.dat" || :
-    rm "${LCLDATADIR}/${src}_empty.ref" || :
-    ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${src}_empty.ref" || :
+    rm "${LCLDATADIR}/${src}_empty.dat" 2>/dev/null || :
+    rm "${LCLDATADIR}/${src}_empty.ref" 2>/dev/null || :
+    ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${src}_empty.ref" 2>/dev/null || :
     for mode in "_http_pull" "_http_push" ""; do
-        rm "${LCLDATADIR}/${src}_to_${dst}_empty.dat${mode}" || :
-        ${XRDFS} "${hosts[$dst_idx]}" rm "${RMTDATADIR}/${src}_to_${dst}_empty.ref${mode}" || :
+        rm "${LCLDATADIR}/${src}_to_${dst}_empty.dat${mode}" 2>/dev/null || :
+        ${XRDFS} "${hosts[$dst_idx]}" rm "${RMTDATADIR}/${src}_to_${dst}_empty.ref${mode}" 2>/dev/null || :
     done
 
     # Cleanup local and remote files
-    for src_idx in {0..1}; do
+    for src_idx in {0..2}; do
         src=${hosts_abbrev[${src_idx}]}
-        rm "${LCLDATADIR}/${src}.dat" || :
-        rm "${LCLDATADIR}/${src}.ref" || :
+        rm "${LCLDATADIR}/${src}.dat" 2>/dev/null || :
+        rm "${LCLDATADIR}/${src}.ref" 2>/dev/null || :
 
-        ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${src}.ref" || :
+        ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${src}.ref" 2>/dev/null || :
 
-        for dst_idx in {0..1}; do
+        for dst_idx in {0..2}; do
            dst=${hosts_abbrev[${dst_idx}]}
-           rm "${LCLDATADIR}/${src}_to_${dst}.dat" || :
-           rm "${LCLDATADIR}/${src}_to_${dst}.dat_http_pull" || :
-           rm "${LCLDATADIR}/${src}_to_${dst}.dat_http_push" || :
+           rm "${LCLDATADIR}/${src}_to_${dst}.dat" 2>/dev/null || :
+           rm "${LCLDATADIR}/${src}_to_${dst}.dat_http_pull" 2>/dev/null || :
+           rm "${LCLDATADIR}/${src}_to_${dst}.dat_http_push" 2>/dev/null || :
 
-           ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${dst}_to_${src}.ref" || :
-           ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${dst}_to_${src}.ref_http_push" || :
-           ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${dst}_to_${src}.ref_http_pull" || :
+           ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${dst}_to_${src}.ref" 2>/dev/null || :
+           ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${dst}_to_${src}.ref_http_push" 2>/dev/null || :
+           ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${dst}_to_${src}.ref_http_pull" 2>/dev/null || :
         done
-       
-    ${XRDFS} "${hosts[$src_idx]}" rmdir "${RMTDATADIR}" || :
+
+        ${XRDFS} "${hosts[$src_idx]}" rmdir "${RMTDATADIR}" 2>/dev/null || :
     done
 
-    rmdir "${LCLDATADIR}" || :
-    rm "${TPC_RESPONSE_BODY}" || :
+    rmdir "${LCLDATADIR}" 2>/dev/null || :
+    rm "${TPC_RESPONSE_BODY}" 2>/dev/null || :
 }
-trap "cleanup" ERR
+# The ERR trap alone does not run for 'exit 1' in error(). Only EXIT runs the
+# cleanup; the signal traps exit with the conventional 128+signal status, which
+# then fires the EXIT trap exactly once.
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 131' QUIT
 
 
 
@@ -296,6 +309,15 @@ plain_http_tpc() {
             -H "Source: ${src}" "${dst}")
     ;;
 
+    pullsci)
+        http_code=$(${CURL} -X COPY -L -s -o >(cat >&2) -w "%{http_code}" \
+            --cacert "${BINARY_DIR}/tests/issuer/tlsca.pem" \
+            -H "scitag: 0" \
+            -H "Authorization: Bearer ${token_src}" \
+            -H "TransferHeaderAuthorization: Bearer ${token_dst}" \
+            -H "Source: ${src}" "${dst}")
+    ;;
+
     push)
         http_code=$(${CURL} -X COPY -L -s -o >(cat >&2) -w "%{http_code}" \
             --cacert "${BINARY_DIR}/tests/issuer/tlsca.pem" \
@@ -308,6 +330,30 @@ plain_http_tpc() {
        return 1
     ;;
     esac
+
+    echo "$http_code"
+    return 0
+}
+
+# A COPY request carrying both a Source and a Destination header is ambiguous:
+# the server cannot tell whether a pull or a push was meant, so it must be
+# rejected instead of silently picking one of the two.
+# $1 is the resource the COPY is sent to, $2 the Source header, $3 the
+# Destination header.
+plain_http_tpc_source_and_destination() {
+    local resource="$1"
+    local src="$2"
+    local dst="$3"
+
+    local http_code
+
+    http_code=$(${CURL} -X COPY -L -s -o >(cat >&2) -w "%{http_code}" \
+        --cacert "${BINARY_DIR}/tests/issuer/tlsca.pem" \
+        -H "Authorization: Bearer ${BEARER_TOKEN}" \
+        -H "TransferHeaderAuthorization: Bearer ${BEARER_TOKEN}" \
+        -H "Source: ${src}" \
+        -H "Destination: ${dst}" \
+        "${resource}")
 
     echo "$http_code"
     return 0
@@ -516,12 +562,25 @@ for idx in "${!multistream_suffixes[@]}"; do
         "${hosts[$dst_idx]}" "${RMTDATADIR}/${src}_to_${dst}${suffix}.ref_http_pull"
 done
 
-cleanup
-
 # Invalid source/destination in TPC URLs
 
 assert_eq "400" "$(plain_http_tpc pull "file:///etc/os-release" "$BEARER_TOKEN" "${hosts_http[0]}/${RMTDATADIR}/os-release" "$BEARER_TOKEN")" "Did not reject disallowed protocol"
 assert_eq "400" "$(plain_http_tpc push "${hosts_http[0]}" "$BEARER_TOKEN" "${hosts_http[0]/https/root}/${RMTDATADIR}/fake.root" "$BEARER_TOKEN")" "Did not reject disallowed protocol"
+
+# this test may cause the server to crash
+export XRD_CONNECTIONRETRY=0
+assert_eq "500" "$(plain_http_tpc pullsci "https://255.255.255.255//tffile1" "$BEARER_TOKEN" "${hosts_http[2]}/${RMTDATADIR}/tffile1" "$BEARER_TOKEN")" "Did not fail with broadcast address"
+unset XRD_CONNECTIONRETRY
+
+# Both Source and Destination headers in the same COPY request
+
+tpc_src="${hosts_http[0]}/${RMTDATADIR}/${hosts_abbrev[0]}.ref"
+tpc_dst="${hosts_http[1]}/${RMTDATADIR}/${hosts_abbrev[1]}.ref"
+
+assert_eq "400" "$(plain_http_tpc_source_and_destination "${tpc_dst}" "${tpc_src}" "${tpc_dst}")" \
+    "Did not reject a COPY carrying both a Source and a Destination header"
+assert_eq "400" "$(plain_http_tpc_source_and_destination "${tpc_src}" "${tpc_src}" "${tpc_dst}")" \
+    "Did not reject a COPY carrying both a Source and a Destination header"
 
 echo "ALL TESTS PASSED"
 exit 0

@@ -24,14 +24,24 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class KgitproxyListBranchesReply(BaseModel):
     """
     KgitproxyListBranchesReply
-    """ # noqa: E501
-    branches: Optional[List[KgitproxyBranch]] = Field(default=None, description="The collection of branches.")
-    limit: Optional[StrictInt] = Field(default=None, description="The limit in the request.")
-    offset: Optional[StrictInt] = Field(default=None, description="The offset in the request.")
-    count: Optional[StrictInt] = Field(default=None, description="The total number of items.")
+    """  # noqa: E501
+
+    branches: Optional[List[KgitproxyBranch]] = Field(
+        default=None, description="The collection of branches."
+    )
+    limit: Optional[StrictInt] = Field(
+        default=None, description="The limit in the request."
+    )
+    offset: Optional[StrictInt] = Field(
+        default=None, description="The offset in the request."
+    )
+    count: Optional[StrictInt] = Field(
+        default=None, description="The total number of items."
+    )
     __properties: ClassVar[List[str]] = ["branches", "limit", "offset", "count"]
 
     model_config = ConfigDict(
@@ -40,7 +50,6 @@ class KgitproxyListBranchesReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +74,7 @@ class KgitproxyListBranchesReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,9 +85,10 @@ class KgitproxyListBranchesReply(BaseModel):
         _items = []
         if self.branches:
             for _item_branches in self.branches:
-                if _item_branches:
-                    _items.append(_item_branches.to_dict())
-            _dict['branches'] = _items
+                _items.append(
+                    _item_branches.to_dict() if _item_branches is not None else None
+                )
+            _dict["branches"] = _items
         return _dict
 
     @classmethod
@@ -91,12 +100,16 @@ class KgitproxyListBranchesReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "branches": [KgitproxyBranch.from_dict(_item) for _item in obj["branches"]] if obj.get("branches") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset"),
-            "count": obj.get("count")
-        })
+        _obj = cls.model_validate(
+            {
+                "branches": [
+                    KgitproxyBranch.from_dict(_item) for _item in obj["branches"]
+                ]
+                if obj.get("branches") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+                "count": obj.get("count"),
+            }
+        )
         return _obj
-
-

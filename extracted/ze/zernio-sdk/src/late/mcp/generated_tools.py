@@ -239,6 +239,75 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get FB Get Started button",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def account_settings_get_messenger_get_started(account_id: str) -> str:
+        """Get FB Get Started button
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.account_settings.get_messenger_get_started(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set FB Get Started button",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def account_settings_set_messenger_get_started(
+        account_id: str, payload: str
+    ) -> str:
+        """Set FB Get Started button
+
+        Args:
+            account_id: (required)
+            payload: Postback payload sent when a person taps Get Started, e.g. `GET_STARTED` or `zernio:workflow:<workflowId>`. (required)"""
+        client = _get_client()
+        try:
+            response = client.account_settings.set_messenger_get_started(
+                account_id=account_id, payload=payload
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete FB Get Started button",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def account_settings_delete_messenger_get_started(account_id: str) -> str:
+        """Delete FB Get Started button
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.account_settings.delete_messenger_get_started(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get IG ice breakers",
             readOnlyHint=True,
             destructiveHint=False,
@@ -4723,6 +4792,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_list_ad_sets(
         account_id: str | None = None,
         campaign_id: str | None = None,
+        ad_set_id: str | None = None,
         platform: str | None = None,
     ) -> str:
         """List ad sets
@@ -4730,11 +4800,15 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: Account ID
             campaign_id: Platform campaign ID
+            ad_set_id: Platform ad set ID
             platform"""
         client = _get_client()
         try:
             response = client.ad_campaigns.list_ad_sets(
-                account_id=account_id, campaign_id=campaign_id, platform=platform
+                account_id=account_id,
+                campaign_id=campaign_id,
+                ad_set_id=ad_set_id,
+                platform=platform,
             )
             return _format_response(response)
         except Exception as e:
@@ -5842,7 +5916,7 @@ def register_generated_tools(mcp, _get_client):
         `dsaBeneficiary`: required for EU targeting unless the ad account has
         a default payor.
                 lead_gen_form_id: Lead Gen form ID to attach to the boosted ad's creative. REQUIRED when `goal` is `lead_generation`. On Meta this is the leadgen_forms ID (create one via POST /v1/ads/lead-forms). On LinkedIn this is the adForm ID (create one via POST /v1/ads/lead-forms with a LinkedIn account); the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}`. Ignored for other goals.
-                status: Meta, TikTok, LinkedIn, and Google. Publish state of the created entities. Omitted or ACTIVE publishes live (default); PAUSED creates them paused so you can review before they spend. On Meta a new campaign stays paused until explicitly activated; an attached ad is itself paused. On Google the pause is held on the campaign the boost creates (ad group and ad switched on), so PUT /v1/ads/campaigns/{campaignId}/status with `active` brings it live. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each).
+                status: Publish state of the created entities, on every platform. Omitted or ACTIVE publishes live (default); PAUSED pauses only the top-most object this boost creates and switches everything below it on: a new campaign is held paused with its ad set and ad on (one PUT /v1/ads/campaigns/{campaignId}/status with `active` brings it live); into an existing campaign (TikTok `existingCampaignId`) the new ad set is held paused; attached to an existing ad set (`adSetId`) the new ad itself is paused. On LinkedIn the held campaign group is PAUSED, its campaign and creative ACTIVE. X has no per-ad switch, so its lowest level is the line item.
                 budget_level: Meta only, same semantics as POST /v1/ads/create: campaign = Advantage campaign budget (CBO), the budget and bid strategy sit on the campaign and the ad set inherits them. Default adset. Not allowed with adSetId.
                 attribution_spec: Meta only. Ad-set attribution windows, same shape as POST /v1/ads/create. Applied on OUTCOME_SALES, OUTCOME_LEADS and OUTCOME_APP_PROMOTION campaigns (conversions, lead_conversion, lead_generation, app_promotion); other objectives keep Meta's default. Not allowed with adSetId.
                 bodies: Meta only. Extra primary-text options Meta rotates on the boosted post (asset_feed_spec.bodies with DEGREES_OF_FREEDOM); the post keeps its own text as one of the options. Works for Facebook posts and Instagram media. Under a conversions or traffic goal Meta also wants a website URL on the options, taken from `linkUrl` (send it with a `callToAction`); engagement boosts need none.
@@ -6321,8 +6395,8 @@ def register_generated_tools(mcp, _get_client):
                 validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads: in the ad account currency, minimum 1; OpenAI can require a higher daily minimum for some currencies and names it in the error.
                 budget_type: Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts both as the campaign's single spend cap. A lifetime cap can later switch to daily with PUT /v1/ads/campaigns/{campaignId}, but OpenAI never switches a daily cap back to lifetime (422). Automatic bidding (Maximize Results) needs a daily budget.
-                status: Google Performance Max accepts PAUSED only and always creates a paused campaign. Google Search and Display, Meta, TikTok, LinkedIn, and ChatGPT (OpenAI): publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. Google Search and Display follow the same rule, and because Google keeps an independent switch at campaign, ad group and ad level, a PAUSED create leaves the campaign it creates PAUSED at Google. On TikTok the whole campaign > ad group > ad hierarchy stays paused. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each). ChatGPT (OpenAI) follows the Meta rule: the pause is held on the campaign this call creates.
-                campaign_status: Meta, Google, and ChatGPT (OpenAI). Overrides `status` for the campaign level alone, so you can create a live campaign whose ad set and ad stay paused, or the reverse. Omitted, it follows `status`.
+                status: Publish state of the created entities, on every platform. Omitted or ACTIVE publishes live (default, back-compat); PAUSED pauses only the TOP-MOST object this call creates and switches everything below it on, so one resume of that object brings the new tree live and nothing that already existed is touched: a new campaign is held paused with its ad set and ad on; with `existingCampaignId` the new ad set is held paused with its ad on; with `adSetId` the new ad itself is paused. `campaignStatus: ACTIVE` with `status: PAUSED` moves the pause down to the new ad set. LinkedIn: a held campaign group is PAUSED with its campaign and creative ACTIVE; a new campaign in an existing group stays DRAFT. X has no per-ad switch, so its lowest level is the line item. Google Performance Max and Demand Gen accept PAUSED only (the campaign is created paused).
+                campaign_status: Meta, Google, and ChatGPT (OpenAI). Overrides `status` for the new campaign alone. `PAUSED` holds the campaign off with its ad set and ad on; `ACTIVE` with `status: PAUSED` switches the campaign on and holds the new ad set paused (its ad on). Omitted, it follows `status`.
                 budget_level: Meta only. Where the budget lives, which selects the Meta budget model:
           - `adset` (default): ABO (Ad-set Budget Optimization). The budget is set on the
             ad set. This is the back-compatible behaviour; omit this field to keep it.
@@ -6472,7 +6546,7 @@ def register_generated_tools(mcp, _get_client):
                 zips: Postal/ZIP geo targeting. `key` is the platform's postal location ID from /v1/ads/targeting/search?dimension=geo&geoType=zip. Supported on Meta, Google, TikTok, Pinterest, X.
                 metros: DMA / metro-area geo targeting (Meta and TikTok). `key` is the platform's metro ID from /v1/ads/targeting/search?dimension=geo&geoType=metro (TikTok metros appear as type `metro`, e.g. the New York DMA).
                 custom_locations: Point-radius (lat/lng) geo targeting. Meta only (custom_locations). Rejected on platforms without radius support.
-                behaviors: Behaviour entities from /v1/ads/targeting/search?dimension=behavior. Supported on Meta and TikTok. Each must include id.
+                behaviors: Behaviour entities from /v1/ads/targeting/search?dimension=behavior. Supported on Meta only (TikTok behaviours are rejected with a 400). Each must include id.
                 work_positions: Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Each must include id. Rejected on other platforms (use LinkedIn's `jobTitles` there).
                 work_employers: Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer. Each must include id.
                 work_industries: Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Each must include id. Rejected on other platforms (use LinkedIn's `industries` there).
@@ -8157,7 +8231,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: Account ID (a connected account on the target ad platform). (required)
             q: Search query. For geo, the locality name only (no region/country suffix). (required)
-            dimension: What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities, `income` resolves income-tier options, `language` resolves Google's targetable language_constant table (Google only), `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics, `industry`/`jobFunction`/`seniority`/`companySize` resolve LinkedIn B2B facets (LinkedIn only). Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias.
+            dimension: What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities (`behavior` is Meta only), `income` resolves the normalized income tiers, `language` resolves Google's targetable language_constant table (Google only), `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics, `industry`/`jobFunction`/`seniority`/`companySize` resolve LinkedIn B2B facets (LinkedIn only). Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias.
             geo_type: Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`.
             country_code: ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search.
             limit: Maximum results to return."""
@@ -12753,6 +12827,2186 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    # COMMERCE
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a store",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_get_commerce_store(account_id: str) -> str:
+        """Get a store
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.get_commerce_store(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List products",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_products(
+        account_id: str,
+        limit: int = 20,
+        cursor: str | None = None,
+        status: str | None = None,
+        query: str | None = None,
+        collection_id: str | None = None,
+    ) -> str:
+        """List products
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)
+            limit
+            cursor: Opaque cursor from a previous response. Omit for the first page.
+            status
+            query: Platform product search syntax (Shopify: title, vendor, product_type, tag, sku, handle, ...).
+            collection_id: Only products in this collection."""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_products(
+                account_id=account_id,
+                limit=limit,
+                cursor=cursor,
+                status=status,
+                query=query,
+                collection_id=collection_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a product",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_product(
+        account_id: str,
+        title: str,
+        variants: list[dict[str, Any]] | None,
+        description_html: str | None = None,
+        handle: str | None = None,
+        vendor: str | None = None,
+        product_type: str | None = None,
+        tags: list[str] | None = None,
+        seo: dict[str, Any] | None = None,
+        status: str = "draft",
+        images: list[dict[str, Any]] | None = None,
+        options: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Create a product
+
+        Args:
+            account_id: (required)
+            title: (required)
+            description_html
+            handle
+            vendor
+            product_type
+            tags
+            seo
+            status
+            images
+            options
+            variants: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_product(
+                account_id=account_id,
+                title=title,
+                description_html=description_html,
+                handle=handle,
+                vendor=vendor,
+                product_type=product_type,
+                tags=tags,
+                seo=seo,
+                status=status,
+                images=images,
+                options=options,
+                variants=variants,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Activate, deactivate, archive or delete products",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_change_commerce_product_state(
+        account_id: str, product_ids: list[str] | None, action: str
+    ) -> str:
+        """Activate, deactivate, archive or delete products
+
+        Args:
+            account_id: (required)
+            product_ids: (required)
+            action: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.change_commerce_product_state(
+                account_id=account_id, product_ids=product_ids, action=action
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a product",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_get_commerce_product(product_id: str, account_id: str) -> str:
+        """Get a product
+
+        Args:
+            product_id: Platform-native product id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.get_commerce_product(
+                product_id=product_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a product",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_update_commerce_product(
+        product_id: str,
+        account_id: str,
+        title: str | None = None,
+        description_html: str | None = None,
+        handle: str | None = None,
+        vendor: str | None = None,
+        product_type: str | None = None,
+        tags: list[str] | None = None,
+        seo: dict[str, Any] | None = None,
+    ) -> str:
+        """Update a product
+
+        Args:
+            product_id: Platform-native product id. (required)
+            account_id: (required)
+            title
+            description_html
+            handle
+            vendor
+            product_type
+            tags
+            seo"""
+        client = _get_client()
+        try:
+            response = client.commerce.update_commerce_product(
+                product_id=product_id,
+                account_id=account_id,
+                title=title,
+                description_html=description_html,
+                handle=handle,
+                vendor=vendor,
+                product_type=product_type,
+                tags=tags,
+                seo=seo,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update variant prices",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_update_commerce_product_prices(
+        product_id: str, account_id: str, variants: list[dict[str, Any]] | None
+    ) -> str:
+        """Update variant prices
+
+        Args:
+            product_id: Platform-native product id. (required)
+            account_id: (required)
+            variants: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.update_commerce_product_prices(
+                product_id=product_id, account_id=account_id, variants=variants
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List collections",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_collections(
+        account_id: str,
+        limit: int = 20,
+        cursor: str | None = None,
+        query: str | None = None,
+    ) -> str:
+        """List collections
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)
+            limit
+            cursor
+            query: Platform collection search syntax (Shopify: title, handle, collection_type, ...)."""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_collections(
+                account_id=account_id, limit=limit, cursor=cursor, query=query
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a collection",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_collection(
+        account_id: str,
+        title: str,
+        description_html: str | None = None,
+        handle: str | None = None,
+        sort_order: str | None = None,
+        seo: dict[str, Any] | None = None,
+        image: dict[str, Any] | None = None,
+        product_ids: list[str] | None = None,
+    ) -> str:
+        """Create a collection
+
+        Args:
+            account_id: (required)
+            title: (required)
+            description_html
+            handle
+            sort_order
+            seo
+            image
+            product_ids"""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_collection(
+                account_id=account_id,
+                title=title,
+                description_html=description_html,
+                handle=handle,
+                sort_order=sort_order,
+                seo=seo,
+                image=image,
+                product_ids=product_ids,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a collection",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_get_commerce_collection(collection_id: str, account_id: str) -> str:
+        """Get a collection
+
+        Args:
+            collection_id: Platform-native collection id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.get_commerce_collection(
+                collection_id=collection_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a collection",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_update_commerce_collection(
+        collection_id: str,
+        account_id: str,
+        title: str | None = None,
+        description_html: str | None = None,
+        handle: str | None = None,
+        sort_order: str | None = None,
+        seo: dict[str, Any] | None = None,
+        image: dict[str, Any] | None = None,
+    ) -> str:
+        """Update a collection
+
+        Args:
+            collection_id: Platform-native collection id. (required)
+            account_id: (required)
+            title
+            description_html
+            handle
+            sort_order
+            seo
+            image"""
+        client = _get_client()
+        try:
+            response = client.commerce.update_commerce_collection(
+                collection_id=collection_id,
+                account_id=account_id,
+                title=title,
+                description_html=description_html,
+                handle=handle,
+                sort_order=sort_order,
+                seo=seo,
+                image=image,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a collection",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_collection(collection_id: str, account_id: str) -> str:
+        """Delete a collection
+
+        Args:
+            collection_id: Platform-native collection id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_collection(
+                collection_id=collection_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Add or remove products in a collection",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_change_commerce_collection_products(
+        collection_id: str,
+        account_id: str,
+        add: list[str] | None = None,
+        remove: list[str] | None = None,
+    ) -> str:
+        """Add or remove products in a collection
+
+        Args:
+            collection_id: Platform-native collection id. (required)
+            account_id: (required)
+            add
+            remove"""
+        client = _get_client()
+        try:
+            response = client.commerce.change_commerce_collection_products(
+                collection_id=collection_id,
+                account_id=account_id,
+                add=add,
+                remove=remove,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Add variants",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_product_variants(
+        product_id: str, account_id: str, variants: list[dict[str, Any]] | None
+    ) -> str:
+        """Add variants
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: (required)
+            variants: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_product_variants(
+                product_id=product_id, account_id=account_id, variants=variants
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete variants",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_product_variants(
+        product_id: str, account_id: str, variant_ids: str
+    ) -> str:
+        """Delete variants
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)
+            variant_ids: Comma-separated ids. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_product_variants(
+                product_id=product_id, account_id=account_id, variant_ids=variant_ids
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Add options",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_product_options(
+        product_id: str,
+        account_id: str,
+        options: list[dict[str, Any]] | None,
+        create_variants: bool = False,
+    ) -> str:
+        """Add options
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: (required)
+            options: (required)
+            create_variants"""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_product_options(
+                product_id=product_id,
+                account_id=account_id,
+                options=options,
+                create_variants=create_variants,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete options",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_product_options(
+        product_id: str, account_id: str, names: str
+    ) -> str:
+        """Delete options
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)
+            names: Comma-separated option names. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_product_options(
+                product_id=product_id, account_id=account_id, names=names
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Add images",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_add_commerce_product_images(
+        product_id: str, account_id: str, images: list[dict[str, Any]] | None
+    ) -> str:
+        """Add images
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: (required)
+            images: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.add_commerce_product_images(
+                product_id=product_id, account_id=account_id, images=images
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove images",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_remove_commerce_product_images(
+        product_id: str, account_id: str, image_ids: str
+    ) -> str:
+        """Remove images
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)
+            image_ids: Comma-separated ids. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.remove_commerce_product_images(
+                product_id=product_id, account_id=account_id, image_ids=image_ids
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Reorder images",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_reorder_commerce_product_images(
+        product_id: str, account_id: str, image_ids: list[str] | None
+    ) -> str:
+        """Reorder images
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: (required)
+            image_ids: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.reorder_commerce_product_images(
+                product_id=product_id, account_id=account_id, image_ids=image_ids
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Duplicate a product",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_duplicate_commerce_product(
+        product_id: str,
+        account_id: str,
+        title: str,
+        status: str = "draft",
+        include_images: bool = True,
+    ) -> str:
+        """Duplicate a product
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: (required)
+            title: (required)
+            status
+            include_images"""
+        client = _get_client()
+        try:
+            response = client.commerce.duplicate_commerce_product(
+                product_id=product_id,
+                account_id=account_id,
+                title=title,
+                status=status,
+                include_images=include_images,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List product metafields",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_product_metafields(
+        product_id: str, account_id: str
+    ) -> str:
+        """List product metafields
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_product_metafields(
+                product_id=product_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set product metafields",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_set_commerce_product_metafields(
+        product_id: str, account_id: str, metafields: list[dict[str, Any]] | None
+    ) -> str:
+        """Set product metafields
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: (required)
+            metafields: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.set_commerce_product_metafields(
+                product_id=product_id, account_id=account_id, metafields=metafields
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete product metafields",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_product_metafields(
+        product_id: str, account_id: str, keys: str
+    ) -> str:
+        """Delete product metafields
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)
+            keys: Comma-separated namespace.key pairs. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_product_metafields(
+                product_id=product_id, account_id=account_id, keys=keys
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Publish or unpublish a product",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_change_commerce_product_channels(
+        product_id: str,
+        account_id: str,
+        publish: list[str] | None = None,
+        unpublish: list[str] | None = None,
+    ) -> str:
+        """Publish or unpublish a product
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: (required)
+            publish: Channel ids from GET /v1/commerce/channels.
+            unpublish"""
+        client = _get_client()
+        try:
+            response = client.commerce.change_commerce_product_channels(
+                product_id=product_id,
+                account_id=account_id,
+                publish=publish,
+                unpublish=unpublish,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List collection metafields",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_collection_metafields(
+        collection_id: str, account_id: str
+    ) -> str:
+        """List collection metafields
+
+        Args:
+            collection_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_collection_metafields(
+                collection_id=collection_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set collection metafields",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_set_commerce_collection_metafields(
+        collection_id: str, account_id: str, metafields: list[dict[str, Any]] | None
+    ) -> str:
+        """Set collection metafields
+
+        Args:
+            collection_id: Platform-native id. (required)
+            account_id: (required)
+            metafields: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.set_commerce_collection_metafields(
+                collection_id=collection_id,
+                account_id=account_id,
+                metafields=metafields,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete collection metafields",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_collection_metafields(
+        collection_id: str, account_id: str, keys: str
+    ) -> str:
+        """Delete collection metafields
+
+        Args:
+            collection_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)
+            keys: Comma-separated namespace.key pairs. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_collection_metafields(
+                collection_id=collection_id, account_id=account_id, keys=keys
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Publish or unpublish a collection",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_change_commerce_collection_channels(
+        collection_id: str,
+        account_id: str,
+        publish: list[str] | None = None,
+        unpublish: list[str] | None = None,
+    ) -> str:
+        """Publish or unpublish a collection
+
+        Args:
+            collection_id: Platform-native id. (required)
+            account_id: (required)
+            publish: Channel ids from GET /v1/commerce/channels.
+            unpublish"""
+        client = _get_client()
+        try:
+            response = client.commerce.change_commerce_collection_channels(
+                collection_id=collection_id,
+                account_id=account_id,
+                publish=publish,
+                unpublish=unpublish,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Add or remove tags in bulk",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_change_commerce_product_tags(
+        account_id: str,
+        product_ids: list[str] | None,
+        add: list[str] | None = None,
+        remove: list[str] | None = None,
+    ) -> str:
+        """Add or remove tags in bulk
+
+        Args:
+            account_id: (required)
+            product_ids: (required)
+            add
+            remove"""
+        client = _get_client()
+        try:
+            response = client.commerce.change_commerce_product_tags(
+                account_id=account_id, product_ids=product_ids, add=add, remove=remove
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Reorder products in a collection",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_reorder_commerce_collection_products(
+        collection_id: str, account_id: str, moves: list[dict[str, Any]] | None
+    ) -> str:
+        """Reorder products in a collection
+
+        Args:
+            collection_id: Platform-native id. (required)
+            account_id: (required)
+            moves: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.reorder_commerce_collection_products(
+                collection_id=collection_id, account_id=account_id, moves=moves
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List pages",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_pages(
+        account_id: str,
+        limit: int = 20,
+        cursor: str | None = None,
+        query: str | None = None,
+    ) -> str:
+        """List pages
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)
+            limit
+            cursor
+            query: Platform search syntax, passed through."""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_pages(
+                account_id=account_id, limit=limit, cursor=cursor, query=query
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a page",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_page(
+        account_id: str,
+        title: str,
+        handle: str | None = None,
+        body_html: str | None = None,
+        is_published: bool | None = None,
+    ) -> str:
+        """Create a page
+
+        Args:
+            account_id: (required)
+            title: (required)
+            handle
+            body_html
+            is_published"""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_page(
+                account_id=account_id,
+                title=title,
+                handle=handle,
+                body_html=body_html,
+                is_published=is_published,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a page",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_get_commerce_page(page_id: str, account_id: str) -> str:
+        """Get a page
+
+        Args:
+            page_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.get_commerce_page(
+                page_id=page_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a page",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_update_commerce_page(
+        page_id: str,
+        account_id: str,
+        title: str | None = None,
+        handle: str | None = None,
+        body_html: str | None = None,
+        is_published: bool | None = None,
+    ) -> str:
+        """Update a page
+
+        Args:
+            page_id: Platform-native id. (required)
+            account_id: (required)
+            title
+            handle
+            body_html
+            is_published"""
+        client = _get_client()
+        try:
+            response = client.commerce.update_commerce_page(
+                page_id=page_id,
+                account_id=account_id,
+                title=title,
+                handle=handle,
+                body_html=body_html,
+                is_published=is_published,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a page",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_page(page_id: str, account_id: str) -> str:
+        """Delete a page
+
+        Args:
+            page_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_page(
+                page_id=page_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List locations",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_locations(account_id: str) -> str:
+        """List locations
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_locations(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a product's stock",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_inventory(account_id: str, product_id: str) -> str:
+        """Get a product's stock
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)
+            product_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_inventory(
+                account_id=account_id, product_id=product_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set or adjust stock",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_change_commerce_inventory(
+        product_id: str,
+        account_id: str,
+        changes: list[dict[str, Any]] | None,
+        mode: str = "set",
+    ) -> str:
+        """Set or adjust stock
+
+        Args:
+            product_id: Platform-native id. (required)
+            account_id: (required)
+            mode
+            changes: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.change_commerce_inventory(
+                product_id=product_id, account_id=account_id, mode=mode, changes=changes
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List sales channels",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_channels(account_id: str) -> str:
+        """List sales channels
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_channels(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List discounts",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_discounts(
+        account_id: str,
+        limit: int = 20,
+        cursor: str | None = None,
+        query: str | None = None,
+    ) -> str:
+        """List discounts
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)
+            limit
+            cursor
+            query: Platform search syntax, passed through."""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_discounts(
+                account_id=account_id, limit=limit, cursor=cursor, query=query
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a discount",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_discount(
+        account_id: str,
+        title: str,
+        method: str,
+        type: str,
+        code: str | None = None,
+        percentage: float | None = None,
+        amount: str | None = None,
+        applies_on_each_item: bool | None = None,
+        minimum_subtotal: str | None = None,
+        minimum_quantity: str | None = None,
+        usage_limit: str | None = None,
+        once_per_customer: bool | None = None,
+        starts_at: str | None = None,
+        ends_at: str | None = None,
+        product_ids: list[str] | None = None,
+        collection_ids: list[str] | None = None,
+    ) -> str:
+        """Create a discount
+
+        Args:
+            account_id: (required)
+            title: (required)
+            method: (required)
+            type: (required)
+            code: Required for method code.
+            percentage: For type percentage, e.g. 15 for 15%.
+            amount: For type fixed_amount, a decimal in the store currency.
+            applies_on_each_item: fixed_amount only: take the amount off each item instead of once per order.
+            minimum_subtotal: Minimum order subtotal, a decimal in the store currency.
+            minimum_quantity
+            usage_limit: Code discounts only: total uses allowed.
+            once_per_customer: Code discounts only.
+            starts_at: Defaults to now.
+            ends_at
+            product_ids
+            collection_ids"""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_discount(
+                account_id=account_id,
+                title=title,
+                method=method,
+                type=type,
+                code=code,
+                percentage=percentage,
+                amount=amount,
+                applies_on_each_item=applies_on_each_item,
+                minimum_subtotal=minimum_subtotal,
+                minimum_quantity=minimum_quantity,
+                usage_limit=usage_limit,
+                once_per_customer=once_per_customer,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                product_ids=product_ids,
+                collection_ids=collection_ids,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a discount",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_get_commerce_discount(discount_id: str, account_id: str) -> str:
+        """Get a discount
+
+        Args:
+            discount_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.get_commerce_discount(
+                discount_id=discount_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a discount",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_update_commerce_discount(
+        discount_id: str,
+        account_id: str,
+        title: str | None = None,
+        code: str | None = None,
+        percentage: float | None = None,
+        amount: str | None = None,
+        applies_on_each_item: bool | None = None,
+        minimum_subtotal: str | None = None,
+        minimum_quantity: str | None = None,
+        usage_limit: str | None = None,
+        once_per_customer: bool | None = None,
+        starts_at: str | None = None,
+        ends_at: str | None = None,
+    ) -> str:
+        """Update a discount
+
+        Args:
+            discount_id: Platform-native id. (required)
+            account_id: (required)
+            title
+            code: Required for method code.
+            percentage: For type percentage, e.g. 15 for 15%.
+            amount: For type fixed_amount, a decimal in the store currency.
+            applies_on_each_item: fixed_amount only: take the amount off each item instead of once per order.
+            minimum_subtotal: Minimum order subtotal, a decimal in the store currency.
+            minimum_quantity
+            usage_limit: Code discounts only: total uses allowed.
+            once_per_customer: Code discounts only.
+            starts_at: Defaults to now.
+            ends_at"""
+        client = _get_client()
+        try:
+            response = client.commerce.update_commerce_discount(
+                discount_id=discount_id,
+                account_id=account_id,
+                title=title,
+                code=code,
+                percentage=percentage,
+                amount=amount,
+                applies_on_each_item=applies_on_each_item,
+                minimum_subtotal=minimum_subtotal,
+                minimum_quantity=minimum_quantity,
+                usage_limit=usage_limit,
+                once_per_customer=once_per_customer,
+                starts_at=starts_at,
+                ends_at=ends_at,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a discount",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_discount(discount_id: str, account_id: str) -> str:
+        """Delete a discount
+
+        Args:
+            discount_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_discount(
+                discount_id=discount_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Activate or deactivate a discount",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_set_commerce_discount_active(
+        discount_id: str, account_id: str, active: bool
+    ) -> str:
+        """Activate or deactivate a discount
+
+        Args:
+            discount_id: Platform-native id. (required)
+            account_id: (required)
+            active: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.set_commerce_discount_active(
+                discount_id=discount_id, account_id=account_id, active=active
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Add codes to a discount",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_add_commerce_discount_codes(
+        discount_id: str, account_id: str, codes: list[str] | None
+    ) -> str:
+        """Add codes to a discount
+
+        Args:
+            discount_id: Platform-native id. (required)
+            account_id: (required)
+            codes: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.add_commerce_discount_codes(
+                discount_id=discount_id, account_id=account_id, codes=codes
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List URL redirects",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_redirects(
+        account_id: str,
+        limit: int = 20,
+        cursor: str | None = None,
+        query: str | None = None,
+    ) -> str:
+        """List URL redirects
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)
+            limit
+            cursor
+            query: Platform search syntax, passed through."""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_redirects(
+                account_id=account_id, limit=limit, cursor=cursor, query=query
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a URL redirect",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_redirect(
+        account_id: str, path: str, target: str
+    ) -> str:
+        """Create a URL redirect
+
+        Args:
+            account_id: (required)
+            path: The old path, starting with /. (required)
+            target: Where to send visitors: a path or a full URL. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_redirect(
+                account_id=account_id, path=path, target=target
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a URL redirect",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_update_commerce_redirect(
+        redirect_id: str,
+        account_id: str,
+        path: str | None = None,
+        target: str | None = None,
+    ) -> str:
+        """Update a URL redirect
+
+        Args:
+            redirect_id: Platform-native id. (required)
+            account_id: (required)
+            path
+            target"""
+        client = _get_client()
+        try:
+            response = client.commerce.update_commerce_redirect(
+                redirect_id=redirect_id, account_id=account_id, path=path, target=target
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a URL redirect",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_redirect(redirect_id: str, account_id: str) -> str:
+        """Delete a URL redirect
+
+        Args:
+            redirect_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_redirect(
+                redirect_id=redirect_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List navigation menus",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_menus(account_id: str) -> str:
+        """List navigation menus
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_menus(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a navigation menu",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_menu(
+        account_id: str, title: str, handle: str, items: list[dict[str, Any]] | None
+    ) -> str:
+        """Create a navigation menu
+
+        Args:
+            account_id: (required)
+            title: (required)
+            handle: (required)
+            items: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_menu(
+                account_id=account_id, title=title, handle=handle, items=items
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a navigation menu",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_get_commerce_menu(menu_id: str, account_id: str) -> str:
+        """Get a navigation menu
+
+        Args:
+            menu_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.get_commerce_menu(
+                menu_id=menu_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Replace a navigation menu",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_update_commerce_menu(
+        menu_id: str,
+        account_id: str,
+        title: str,
+        items: list[dict[str, Any]] | None,
+        handle: str | None = None,
+    ) -> str:
+        """Replace a navigation menu
+
+        Args:
+            menu_id: Platform-native id. (required)
+            account_id: (required)
+            title: (required)
+            handle
+            items: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.update_commerce_menu(
+                menu_id=menu_id,
+                account_id=account_id,
+                title=title,
+                handle=handle,
+                items=items,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a navigation menu",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_menu(menu_id: str, account_id: str) -> str:
+        """Delete a navigation menu
+
+        Args:
+            menu_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_menu(
+                menu_id=menu_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List metaobject definitions",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_metaobject_definitions(account_id: str) -> str:
+        """List metaobject definitions
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_metaobject_definitions(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List metaobjects of a type",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_metaobjects(
+        account_id: str, type: str, limit: int = 20, cursor: str | None = None
+    ) -> str:
+        """List metaobjects of a type
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)
+            type: Definition type from GET /v1/commerce/metaobject-definitions. (required)
+            limit
+            cursor"""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_metaobjects(
+                account_id=account_id, type=type, limit=limit, cursor=cursor
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a metaobject",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_metaobject(
+        account_id: str,
+        type: str,
+        fields: list[dict[str, Any]] | None,
+        handle: str | None = None,
+    ) -> str:
+        """Create a metaobject
+
+        Args:
+            account_id: (required)
+            type: (required)
+            handle
+            fields: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_metaobject(
+                account_id=account_id, type=type, handle=handle, fields=fields
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a metaobject",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_get_commerce_metaobject(metaobject_id: str, account_id: str) -> str:
+        """Get a metaobject
+
+        Args:
+            metaobject_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.get_commerce_metaobject(
+                metaobject_id=metaobject_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a metaobject",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_update_commerce_metaobject(
+        metaobject_id: str,
+        account_id: str,
+        fields: list[dict[str, Any]] | None,
+        handle: str | None = None,
+    ) -> str:
+        """Update a metaobject
+
+        Args:
+            metaobject_id: Platform-native id. (required)
+            account_id: (required)
+            handle
+            fields: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.update_commerce_metaobject(
+                metaobject_id=metaobject_id,
+                account_id=account_id,
+                handle=handle,
+                fields=fields,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a metaobject",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_metaobject(metaobject_id: str, account_id: str) -> str:
+        """Delete a metaobject
+
+        Args:
+            metaobject_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_metaobject(
+                metaobject_id=metaobject_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List markets",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_markets(account_id: str) -> str:
+        """List markets
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_markets(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List price lists",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_price_lists(account_id: str) -> str:
+        """List price lists
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_price_lists(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set fixed prices",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_set_commerce_price_list_prices(
+        price_list_id: str, account_id: str, prices: list[dict[str, Any]] | None
+    ) -> str:
+        """Set fixed prices
+
+        Args:
+            price_list_id: Platform-native id. (required)
+            account_id: (required)
+            prices: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.set_commerce_price_list_prices(
+                price_list_id=price_list_id, account_id=account_id, prices=prices
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove fixed prices",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_price_list_prices(
+        price_list_id: str, account_id: str, variant_ids: str
+    ) -> str:
+        """Remove fixed prices
+
+        Args:
+            price_list_id: Platform-native id. (required)
+            account_id: Connected store SocialAccount id. (required)
+            variant_ids: Comma-separated ids. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_price_list_prices(
+                price_list_id=price_list_id,
+                account_id=account_id,
+                variant_ids=variant_ids,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Record a marketing activity",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_upsert_commerce_marketing_activity(
+        account_id: str,
+        remote_id: str,
+        title: str,
+        url: str,
+        tactic: str,
+        channel: str,
+        status: str,
+        preview_image_url: str | None = None,
+        utm: dict[str, Any] | None = None,
+        budget: dict[str, Any] | None = None,
+        ad_spend: str | None = None,
+        started_at: str | None = None,
+        ended_at: str | None = None,
+    ) -> str:
+        """Record a marketing activity
+
+        Args:
+            account_id: (required)
+            remote_id: (required)
+            title: (required)
+            url: (required)
+            preview_image_url
+            utm
+            tactic: (required)
+            channel: (required)
+            status: (required)
+            budget
+            ad_spend: Decimal in the store currency.
+            started_at
+            ended_at"""
+        client = _get_client()
+        try:
+            response = client.commerce.upsert_commerce_marketing_activity(
+                account_id=account_id,
+                remote_id=remote_id,
+                title=title,
+                url=url,
+                preview_image_url=preview_image_url,
+                utm=utm,
+                tactic=tactic,
+                channel=channel,
+                status=status,
+                budget=budget,
+                ad_spend=ad_spend,
+                started_at=started_at,
+                ended_at=ended_at,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a marketing activity",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_marketing_activity(
+        remote_id: str, account_id: str
+    ) -> str:
+        """Delete a marketing activity
+
+        Args:
+            remote_id: The remoteId given when recording it. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_marketing_activity(
+                remote_id=remote_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Report daily engagement",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_add_commerce_marketing_engagement(
+        remote_id: str,
+        account_id: str,
+        date: str,
+        impressions: int | None = None,
+        views: int | None = None,
+        clicks: int | None = None,
+        shares: int | None = None,
+        likes: int | None = None,
+        comments: int | None = None,
+        ad_spend: str | None = None,
+    ) -> str:
+        """Report daily engagement
+
+        Args:
+            remote_id: The remoteId given when recording it. (required)
+            account_id: (required)
+            date: (required)
+            impressions
+            views
+            clicks
+            shares
+            likes
+            comments
+            ad_spend: Decimal in the store currency."""
+        client = _get_client()
+        try:
+            response = client.commerce.add_commerce_marketing_engagement(
+                remote_id=remote_id,
+                account_id=account_id,
+                date=date,
+                impressions=impressions,
+                views=views,
+                clicks=clicks,
+                shares=shares,
+                likes=likes,
+                comments=comments,
+                ad_spend=ad_spend,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List catalog syncs",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_catalog_syncs(account_id: str) -> str:
+        """List catalog syncs
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_catalog_syncs(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Sync a store into a Meta catalog",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_catalog_sync(
+        account_id: str, catalog_account_id: str, catalog_id: str
+    ) -> str:
+        """Sync a store into a Meta catalog
+
+        Args:
+            account_id: The store SocialAccount id. (required)
+            catalog_account_id: (required)
+            catalog_id: Meta product catalog id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_catalog_sync(
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                catalog_id=catalog_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a catalog sync",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_get_commerce_catalog_sync(sync_id: str) -> str:
+        """Get a catalog sync
+
+        Args:
+            sync_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.get_commerce_catalog_sync(sync_id=sync_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Stop a catalog sync",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_delete_commerce_catalog_sync(sync_id: str) -> str:
+        """Stop a catalog sync
+
+        Args:
+            sync_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.delete_commerce_catalog_sync(sync_id=sync_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Run a catalog sync now",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_run_commerce_catalog_sync(sync_id: str) -> str:
+        """Run a catalog sync now
+
+        Args:
+            sync_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.run_commerce_catalog_sync(sync_id=sync_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # CONNECT
 
     @mcp.tool(
@@ -12767,6 +15021,7 @@ def register_generated_tools(mcp, _get_client):
         platform: str,
         profile_id: str,
         redirect_url: str | None = None,
+        scopes: str | None = None,
         headless: bool = False,
         login_method: str = "instagram_login",
         onboarding: str | None = None,
@@ -12889,6 +15144,28 @@ def register_generated_tools(mcp, _get_client):
         profile whose Instagram account is connected through Facebook Login, so nothing was
         changed and it keeps working as before. To refresh it, connect again with
         `loginMethod=facebook_login`. To move it to Instagram Login, disconnect it first.
+                scopes: Comma-separated permission areas to request instead of the platform's full permission set. Values: `posting`, `analytics`, `comments`, `messaging`, `ads`. Omit it (the default, and what the dashboard does) to request everything the platform supports.
+
+        When present, the consent dialog asks only for the platform scopes behind those areas plus the scopes every connection needs (identity, token refresh, and listing the pages, organizations or channels the user picks from). Scopes the user was never asked for are absent from the account's `permissions`, and the health endpoints report them as not granted, so a `posting`-only account cannot read analytics or the inbox until it is connected again with more areas. First comments need `comments`: a `posting`-only account publishes the post and skips the first comment. Scopes the platform lists under none of the areas (X likes, bookmarks and follows, Pinterest ads-only extras) are requested only when the parameter is omitted.
+
+        Supported on facebook, instagram (both login methods), linkedin, twitter, tiktok, youtube, threads, reddit, pinterest, googlebusiness and slack (via `GET /v1/connect/slack`). Rejected with 400 `INVALID_FIELD_VALUE` (`param: scopes`) on bluesky, telegram, discord, snapchat and whatsapp, whose dialog cannot be reduced, and for an empty list or an unknown area.
+
+        What each area asks for, per platform (Google scopes shortened to their last path segment):
+
+        | Platform | `posting` | `analytics` | `comments` | `messaging` | `ads` | Always requested |
+        |---|---|---|---|---|---|---|
+        | facebook | `pages_manage_posts` | `read_insights`, `pages_read_user_content` | `pages_manage_engagement`, `pages_read_user_content` | (in the always-requested set) | `ads_management`, `ads_read`, `leads_retrieval`, `pages_manage_ads`, `instagram_basic`, `business_management` | `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`, `pages_messaging` |
+        | instagram (Instagram Login) | `instagram_business_content_publish` | `instagram_business_manage_insights` | `instagram_business_manage_comments` | `instagram_business_manage_messages` | none | `instagram_business_basic` |
+        | instagram (`loginMethod=facebook_login`) | `instagram_content_publish` | `instagram_manage_insights` | `instagram_manage_comments` | `instagram_manage_messages` | `ads_management`, `ads_read`, `leads_retrieval`, `pages_manage_ads` | `instagram_basic`, `pages_show_list`, `pages_read_engagement`, `business_management`, `pages_messaging`, `pages_manage_metadata` |
+        | linkedin | `w_member_social`, `w_organization_social`, `r_organization_social`, `r_organization_followers` | `r_member_postAnalytics`, `r_member_profileAnalytics`, `rw_organization_admin`, `r_organization_social`, `r_organization_followers` | `w_member_social`, `w_member_social_feed`, `w_organization_social`, `w_organization_social_feed`, `r_organization_social`, `r_organization_social_feed` | none | `r_ads`, `rw_ads`, `r_ads_reporting`, `r_marketing_leadgen_automation`, `rw_conversions` | `openid`, `profile`, `email`, `r_basicprofile`, `rw_organization_admin` |
+        | twitter | `tweet.write`, `media.write` | (in the always-requested set) | `tweet.write`, `like.write`, `tweet.moderate.write` | `dm.read`, `dm.write`, `media.write` | none | `tweet.read`, `users.read`, `offline.access` |
+        | tiktok | `video.publish` | `user.info.stats`, `user.insights`, `video.list`, `video.insights` | `comment.list`, `comment.list.manage`, `video.list` | `message.list.read`, `message.list.send`, `message.list.manage` | none | `user.info.basic`, `user.info.username`, `user.info.profile`, `user.account.type`, `video.publish`, `video.upload`, `video.list` |
+        | youtube | `youtube.upload` | `yt-analytics.readonly` | `youtube.force-ssl` | none | none | `youtube` |
+        | threads | `threads_content_publish`, `threads_manage_replies`, `threads_delete` | `threads_manage_insights` | `threads_content_publish`, `threads_read_replies`, `threads_manage_replies`, `threads_delete` | none | none | `threads_basic` |
+        | reddit | `submit`, `read`, `mysubreddits`, `flair`, `history`, `edit` | `read`, `history` | `read`, `history`, `edit`, `vote` | `privatemessages` | none | `identity` |
+        | pinterest | `boards:write`, `pins:read`, `pins:write` | `pins:read`, `user_accounts:read` | none | none | `ads:read`, `ads:write`, `boards:write`, `pins:read`, `pins:write` | `boards:read`, `user_accounts:read` |
+        | googlebusiness | `business.manage` | `business.manage` | `business.manage` | none | none | `business.manage`, `userinfo.profile`, `userinfo.email` |
+        | slack | `chat:write`, `chat:write.public`, `chat:write.customize`, `files:write`, `files:read` | none | none | `chat:write`, `chat:write.customize`, `files:write`, `files:read`, `channels:history`, `groups:history`, `im:history`, `mpim:history`, `im:read`, `im:write`, `mpim:read`, `users:read`, `reactions:read`, `reactions:write` | none | `channels:join`, `channels:read`, `groups:read`, `team:read` |
                 headless: When true, the user is redirected to your redirect_url with raw OAuth data (code, state) instead of Zernio's default account selection UI. Use this to build a custom connect experience.
                 login_method: Instagram only. Which of the two Instagram connection methods to use. Ignored for every other platform.
 
@@ -12938,6 +15215,7 @@ def register_generated_tools(mcp, _get_client):
                 platform=platform,
                 profile_id=profile_id,
                 redirect_url=redirect_url,
+                scopes=scopes,
                 headless=headless,
                 login_method=login_method,
                 onboarding=onboarding,
@@ -13914,6 +16192,7 @@ def register_generated_tools(mcp, _get_client):
         pending_data_token: str | None = None,
         account_id: str | None = None,
         redirect_url: str | None = None,
+        scopes: str | None = None,
     ) -> str:
         """List Slack channels for the channel picker
 
@@ -13921,7 +16200,8 @@ def register_generated_tools(mcp, _get_client):
             profile_id: Zernio profile the channel account will belong to. Must match the profile the OAuth flow was started on when `pendingDataToken` is used. (required)
             pending_data_token: Nonce from the OAuth redirect (first connect).
             account_id: Existing active Slack account (yours or a team member's) whose workspace token is reused.
-            redirect_url: Start-OAuth mode only: where to send the user after the connect completes. `redirectUrl` is accepted as an alias."""
+            redirect_url: Start-OAuth mode only: where to send the user after the connect completes. `redirectUrl` is accepted as an alias.
+            scopes: Start-OAuth mode only. Comma-separated permission areas to request instead of the full Slack scope set, with the same semantics as `scopes` on `GET /v1/connect/{platform}`: `posting` installs the bot with the channel scopes it needs to post, `messaging` adds the history, DM and reaction scopes the inbox reads; `analytics`, `comments` and `ads` add nothing on Slack. Omit it to request everything."""
         client = _get_client()
         try:
             response = client.connect.list_slack_channels(
@@ -13929,6 +16209,7 @@ def register_generated_tools(mcp, _get_client):
                 pending_data_token=pending_data_token,
                 account_id=account_id,
                 redirect_url=redirect_url,
+                scopes=scopes,
             )
             return _format_response(response)
         except Exception as e:
@@ -17013,6 +19294,65 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="List iMessage sandbox contacts",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def imessage_list_imessage_sandbox_contacts() -> str:
+        """List iMessage sandbox contacts"""
+        client = _get_client()
+        try:
+            response = client.imessage.list_imessage_sandbox_contacts()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Add an iMessage sandbox contact",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def imessage_add_imessage_sandbox_contact(handle: str) -> str:
+        """Add an iMessage sandbox contact
+
+        Args:
+            handle: Phone in international format (+15551234567) or an Apple ID email (required)"""
+        client = _get_client()
+        try:
+            response = client.imessage.add_imessage_sandbox_contact(handle=handle)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove an iMessage sandbox contact",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def imessage_remove_imessage_sandbox_contact(contact_id: str) -> str:
+        """Remove an iMessage sandbox contact
+
+        Args:
+            contact_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.imessage.remove_imessage_sandbox_contact(
+                contact_id=contact_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Subscribe or opt out an iMessage contact",
             readOnlyHint=False,
             destructiveHint=True,
@@ -18841,14 +21181,18 @@ def register_generated_tools(mcp, _get_client):
         whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
+        description: str | None = None,
         image_url: str | None = None,
         video: dict[str, Any] | None = None,
         welcome_message: dict[str, Any] | None = None,
         creatives: list[dict[str, Any]] | None = None,
         ad_set_id: str | None = None,
+        existing_campaign_id: str | None = None,
+        budget_level: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
         currency: str | None = None,
+        start_date: str | None = None,
         end_date: str | None = None,
         countries: list[str] | None = None,
         cities: list[dict[str, Any]] | None = None,
@@ -18862,6 +21206,25 @@ def register_generated_tools(mcp, _get_client):
         interests: list[dict[str, Any]] | None = None,
         audience_id: str | None = None,
         placements: dict[str, Any] | None = None,
+        gender: str = "all",
+        languages: list[str] | None = None,
+        places: list[dict[str, Any]] | None = None,
+        neighborhoods: list[dict[str, Any]] | None = None,
+        excluded_locations: dict[str, Any] | None = None,
+        behaviors: list[dict[str, Any]] | None = None,
+        work_positions: list[dict[str, Any]] | None = None,
+        work_employers: list[dict[str, Any]] | None = None,
+        work_industries: list[dict[str, Any]] | None = None,
+        income_tier: str | None = None,
+        user_os: list[str] | None = None,
+        user_device: list[str] | None = None,
+        audience_include: list[str] | None = None,
+        audience_exclude: list[str] | None = None,
+        saved_targeting_id: str | None = None,
+        targeting: dict[str, Any] | None = None,
+        raw_targeting: dict[str, Any] | None = None,
+        special_ad_categories: list[str] | None = None,
+        special_ad_category_country: list[str] | None = None,
         advantage_audience: int | None = None,
         objective: str | None = None,
         status: str | None = None,
@@ -18892,7 +21255,7 @@ def register_generated_tools(mcp, _get_client):
          (required)
                 campaign_name: Exact name for the campaign this request provisions. Omitted keeps `<name> - Campaign`. Ignored with `adSetId` (the ad set already has a campaign).
                 ad_set_name: Exact name for the ad set this request provisions. Omitted keeps `<name> - Ad Set`. Ignored with `adSetId`.
-                platform_post_id: Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.
+                platform_post_id: Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id run as the media owner (resolved from the media on a Meta ads business-login connection, so no Instagram connection is needed). Mutually exclusive with objectStoryId and fresh creative fields.
                 existing_post_id: Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.
                 object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId and fresh creative fields.
                 page_id: Facebook Page the ad runs as, when the connection was granted several Pages. Defaults to the Page bound to the connection. Any Page granted to the connection is accepted; other ids answer 400 listing the granted Pages. Same semantics as `pageId` on POST /v1/ads/create.
@@ -18901,6 +21264,13 @@ def register_generated_tools(mcp, _get_client):
         `creatives[]`.
                 body: Primary text shown above the image / video. Single-creative
         shape only. Mutually exclusive with `creatives[]`.
+                description: Link description, independent of `headline` and `body` (Meta's
+        `link_data.description`, `video_data.link_description` on video,
+        and the shared description of a `placementAssets` feed). Meta
+        shows it mainly on Facebook Feed placements, under the headline,
+        when there is room; Instagram, Stories, Reels and Messenger
+        placements do not display it. Also accepted per entry in
+        `creatives[]`. Not allowed with an existing post creative.
                 image_url: Image asset for single-creative shape. Mutually exclusive
         with `video` and with `creatives[]`. Required on the
         single-creative shape if neither `video` nor an existing post reference is supplied.
@@ -18921,20 +21291,45 @@ def register_generated_tools(mcp, _get_client):
                 ad_set_id: Attach the creatives to this EXISTING messaging ad set instead of
         building a campaign, so the ad set keeps its learning phase. It then
         owns budget, targeting and schedule, so `budgetAmount`, `budgetType`,
-        `endDate`, `objective`, `countries`, `interests`, `audienceId` and
-        `campaignStatus` are rejected with a 400 alongside it. Its
+        `budgetLevel`, `startDate`, `endDate`, `objective`, `campaignStatus`,
+        `existingCampaignId`, the special ad category fields and every
+        targeting field except `ageMin`, `ageMax`, `placements` and
+        `advantageAudience` are rejected with a 400 alongside it. Its
         `destination_type` must match the ad's destination.
+                existing_campaign_id: Create the new messaging ad set (and its ads) under this EXISTING
+        Meta campaign instead of a new one, e.g. several audience ad sets
+        under one campaign. The campaign's objective must be
+        OUTCOME_ENGAGEMENT, OUTCOME_SALES or OUTCOME_LEADS (400 otherwise).
+        If the campaign has a campaign budget, omit `budgetAmount` and
+        `budgetType` (400 if sent); otherwise they are required and land
+        on the new ad set. `objective`, `campaignName`, `campaignStatus`,
+        `budgetLevel`, `specialAdCategories`, `specialAdCategoryCountry`
+        and `adSetId` are rejected alongside it. To add ads to an existing
+        ad set instead, use `adSetId`.
+                budget_level: Where the budget lives. `adset` (default) puts it on the new ad
+        set. `campaign` creates an Advantage campaign budget (CBO): the
+        budget and bid strategy sit on the campaign and the ad set
+        inherits them, same as POST /v1/ads/create. Not allowed with
+        `adSetId` or `existingCampaignId`.
                 budget_amount: Budget amount in the ad account's currency major units
         (e.g. dollars for USD, not cents). Must be > 0.
-        Required unless `adSetId` is set, where the ad set owns it.
-                budget_type: Required unless `adSetId` is set.
+        Required unless `adSetId` is set (the ad set owns it) or
+        `existingCampaignId` names a campaign with a campaign budget.
+                budget_type: Required unless `adSetId` is set or `existingCampaignId` names a campaign with a campaign budget. `lifetime` requires `endDate`.
                 currency: ISO 4217 currency code matching the ad account's currency
         (e.g. `USD`). Optional: Zernio resolves it from the ad account
         when omitted. The value selects the minor-unit exponent Zernio
         converts budget/bid amounts by before calling Meta (most
         currencies are cents; zero-decimal currencies like JPY/KRW are
         sent as-is).
-                end_date: ISO 8601 datetime. Required when `budgetType` is `lifetime`.
+                start_date: When the ad set starts delivering. ISO 8601 date or date-time. A
+        value with an offset (`2027-01-15T10:00:00+01:00`, `...Z`) is used
+        as is; one without an offset (`2027-01-15T10:00:00`) is read in the
+        ad account's timezone, and a date-only value starts at 00:00 local.
+        Defaults to now.
+                end_date: ISO 8601 date or date-time, read like `startDate`; a date-only
+        value ends at 23:59:59 local. Required when `budgetType` is
+        `lifetime`.
                 countries: ISO 3166-1 alpha-2 country codes. Defaults to `["US"]` only
         when no other geo (`cities`, `regions`, `zips`, `metros`,
         `customLocations`) is supplied.
@@ -18971,6 +21366,32 @@ def register_generated_tools(mcp, _get_client):
         additionally enforces co-selection rules and restricts which
         placements are eligible for click-to-WhatsApp ads, returning an actionable
         error which we surface.
+                gender: Restrict the audience by gender (Meta `genders`). Stored on the ad and read back in `targeting.gender`.
+                languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"); unknown codes are rejected.
+                places: Meta place keys (from GET /v1/ads/targeting/search).
+                neighborhoods: Meta neighborhood keys (from GET /v1/ads/targeting/search).
+                excluded_locations: Geo to exclude, same shape as POST /v1/ads/create (countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations).
+                behaviors: Meta behavior ids. Each dimension is its own flexible_spec entry: OR within, AND across.
+                work_positions
+                work_employers
+                work_industries
+                income_tier: Normalized household-income tier, same as POST /v1/ads/create. Incompatible with housing, employment and credit specialAdCategories.
+                user_os: Meta `user_os`, e.g. ["iOS_ver_14.0_and_above"].
+                user_device: Meta `user_device`.
+                audience_include: Custom or lookalike audience ids to include.
+                audience_exclude: Custom or lookalike audience ids to exclude.
+                saved_targeting_id: ID of a saved_targeting audience (POST /v1/ads/audiences), expanded as the base targeting. Precedence: savedTargetingId, then `targeting`, then the flat fields.
+                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key.
+                raw_targeting: Meta targeting spec sent as the BASE layer of the ad set's
+        `targeting`, exactly as POST /v1/ads/create does: use it for
+        anything the flat fields cannot express, such as a layered
+        `flexible_spec` (entries AND together, ids inside one entry OR).
+        Flat fields you also send are layered on top and win per key.
+        With rawTargeting present the US geo and `advantage_audience: 0`
+        defaults are not injected, so include `targeting_automation` in
+        it (or send `advantageAudience`), as Meta requires it on create.
+                special_ad_categories: Meta special ad categories on the new campaign.
+                special_ad_category_country: Countries the special ad category applies to. Requires specialAdCategories.
                 advantage_audience: Meta's Advantage+ audience expansion. `0` (default) keeps
         targeting strict; `1` lets Meta expand beyond the supplied
         targeting when its delivery system finds better matches.
@@ -18978,14 +21399,16 @@ def register_generated_tools(mcp, _get_client):
                 objective: Defaults to `OUTCOME_ENGAGEMENT`. `OUTCOME_SALES` and `OUTCOME_LEADS` require
         additional account configuration (Dataset linked to the WABA
         for sales) and may be rejected by Meta if missing.
-                status: Ad-level status. Defaults to `ACTIVE`. `PAUSED` skips activating the
-        newly created ad(s) after Meta accepts them.
+                status: Defaults to `ACTIVE`. `PAUSED` pauses only the top-most object this
+        call creates: the new campaign (ad set and ads switched on), or, with
+        `adSetId`, the new ads themselves.
                 campaign_status: Campaign-level status, same semantics as `POST /v1/ads/create`. Defaults
-        to `ACTIVE`. `PAUSED` holds activation at the campaign so it never
-        spends before the advertiser reviews it, while the ad set and ad still
-        switch on (one resume call brings the whole hierarchy live). Only
-        meaningful when a new campaign is being created; rejected with a 400
-        alongside `adSetId` (the attach shape reuses an existing campaign).
+        to `status`. `PAUSED` holds the new campaign off while the ad set and
+        ads switch on (one resume call brings the whole hierarchy live);
+        `ACTIVE` with `status: PAUSED` switches the campaign on and pauses the
+        new ad set instead. Only meaningful when a new campaign is being
+        created; rejected with a 400 alongside `adSetId` (the attach shape
+        reuses an existing campaign).
                 bid_strategy: Meta bid strategy applied to the shared ad set. Defaults to
         `LOWEST_COST_WITHOUT_CAP` (auto-bid) when omitted.
         `LOWEST_COST_WITH_BID_CAP` and `COST_CAP` require
@@ -19050,14 +21473,18 @@ def register_generated_tools(mcp, _get_client):
                 whatsapp_phone_number=whatsapp_phone_number,
                 headline=headline,
                 body=body,
+                description=description,
                 image_url=image_url,
                 video=video,
                 welcome_message=welcome_message,
                 creatives=creatives,
                 ad_set_id=ad_set_id,
+                existing_campaign_id=existing_campaign_id,
+                budget_level=budget_level,
                 budget_amount=budget_amount,
                 budget_type=budget_type,
                 currency=currency,
+                start_date=start_date,
                 end_date=end_date,
                 countries=countries,
                 cities=cities,
@@ -19071,6 +21498,25 @@ def register_generated_tools(mcp, _get_client):
                 interests=interests,
                 audience_id=audience_id,
                 placements=placements,
+                gender=gender,
+                languages=languages,
+                places=places,
+                neighborhoods=neighborhoods,
+                excluded_locations=excluded_locations,
+                behaviors=behaviors,
+                work_positions=work_positions,
+                work_employers=work_employers,
+                work_industries=work_industries,
+                income_tier=income_tier,
+                user_os=user_os,
+                user_device=user_device,
+                audience_include=audience_include,
+                audience_exclude=audience_exclude,
+                saved_targeting_id=saved_targeting_id,
+                targeting=targeting,
+                raw_targeting=raw_targeting,
+                special_ad_categories=special_ad_categories,
+                special_ad_category_country=special_ad_category_country,
                 advantage_audience=advantage_audience,
                 objective=objective,
                 status=status,
@@ -19116,14 +21562,18 @@ def register_generated_tools(mcp, _get_client):
         whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
+        description: str | None = None,
         image_url: str | None = None,
         video: dict[str, Any] | None = None,
         welcome_message: dict[str, Any] | None = None,
         creatives: list[dict[str, Any]] | None = None,
         ad_set_id: str | None = None,
+        existing_campaign_id: str | None = None,
+        budget_level: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
         currency: str | None = None,
+        start_date: str | None = None,
         end_date: str | None = None,
         countries: list[str] | None = None,
         cities: list[dict[str, Any]] | None = None,
@@ -19137,6 +21587,25 @@ def register_generated_tools(mcp, _get_client):
         interests: list[dict[str, Any]] | None = None,
         audience_id: str | None = None,
         placements: dict[str, Any] | None = None,
+        gender: str = "all",
+        languages: list[str] | None = None,
+        places: list[dict[str, Any]] | None = None,
+        neighborhoods: list[dict[str, Any]] | None = None,
+        excluded_locations: dict[str, Any] | None = None,
+        behaviors: list[dict[str, Any]] | None = None,
+        work_positions: list[dict[str, Any]] | None = None,
+        work_employers: list[dict[str, Any]] | None = None,
+        work_industries: list[dict[str, Any]] | None = None,
+        income_tier: str | None = None,
+        user_os: list[str] | None = None,
+        user_device: list[str] | None = None,
+        audience_include: list[str] | None = None,
+        audience_exclude: list[str] | None = None,
+        saved_targeting_id: str | None = None,
+        targeting: dict[str, Any] | None = None,
+        raw_targeting: dict[str, Any] | None = None,
+        special_ad_categories: list[str] | None = None,
+        special_ad_category_country: list[str] | None = None,
         advantage_audience: int | None = None,
         objective: str | None = None,
         status: str | None = None,
@@ -19163,7 +21632,7 @@ def register_generated_tools(mcp, _get_client):
          (required)
                 campaign_name: Exact name for the campaign this request provisions. Omitted keeps `<name> - Campaign`. Ignored with `adSetId` (the ad set already has a campaign).
                 ad_set_name: Exact name for the ad set this request provisions. Omitted keeps `<name> - Ad Set`. Ignored with `adSetId`.
-                platform_post_id: Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.
+                platform_post_id: Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id run as the media owner (resolved from the media on a Meta ads business-login connection, so no Instagram connection is needed). Mutually exclusive with objectStoryId and fresh creative fields.
                 existing_post_id: Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.
                 object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId and fresh creative fields.
                 page_id: Facebook Page the ad runs as, when the connection was granted several Pages. Defaults to the Page bound to the connection. Any Page granted to the connection is accepted; other ids answer 400 listing the granted Pages. Same semantics as `pageId` on POST /v1/ads/create.
@@ -19172,6 +21641,13 @@ def register_generated_tools(mcp, _get_client):
         `creatives[]`.
                 body: Primary text shown above the image / video. Single-creative
         shape only. Mutually exclusive with `creatives[]`.
+                description: Link description, independent of `headline` and `body` (Meta's
+        `link_data.description`, `video_data.link_description` on video,
+        and the shared description of a `placementAssets` feed). Meta
+        shows it mainly on Facebook Feed placements, under the headline,
+        when there is room; Instagram, Stories, Reels and Messenger
+        placements do not display it. Also accepted per entry in
+        `creatives[]`. Not allowed with an existing post creative.
                 image_url: Image asset for single-creative shape. Mutually exclusive
         with `video` and with `creatives[]`. Required on the
         single-creative shape if neither `video` nor an existing post reference is supplied.
@@ -19192,20 +21668,45 @@ def register_generated_tools(mcp, _get_client):
                 ad_set_id: Attach the creatives to this EXISTING messaging ad set instead of
         building a campaign, so the ad set keeps its learning phase. It then
         owns budget, targeting and schedule, so `budgetAmount`, `budgetType`,
-        `endDate`, `objective`, `countries`, `interests`, `audienceId` and
-        `campaignStatus` are rejected with a 400 alongside it. Its
+        `budgetLevel`, `startDate`, `endDate`, `objective`, `campaignStatus`,
+        `existingCampaignId`, the special ad category fields and every
+        targeting field except `ageMin`, `ageMax`, `placements` and
+        `advantageAudience` are rejected with a 400 alongside it. Its
         `destination_type` must match the ad's destination.
+                existing_campaign_id: Create the new messaging ad set (and its ads) under this EXISTING
+        Meta campaign instead of a new one, e.g. several audience ad sets
+        under one campaign. The campaign's objective must be
+        OUTCOME_ENGAGEMENT, OUTCOME_SALES or OUTCOME_LEADS (400 otherwise).
+        If the campaign has a campaign budget, omit `budgetAmount` and
+        `budgetType` (400 if sent); otherwise they are required and land
+        on the new ad set. `objective`, `campaignName`, `campaignStatus`,
+        `budgetLevel`, `specialAdCategories`, `specialAdCategoryCountry`
+        and `adSetId` are rejected alongside it. To add ads to an existing
+        ad set instead, use `adSetId`.
+                budget_level: Where the budget lives. `adset` (default) puts it on the new ad
+        set. `campaign` creates an Advantage campaign budget (CBO): the
+        budget and bid strategy sit on the campaign and the ad set
+        inherits them, same as POST /v1/ads/create. Not allowed with
+        `adSetId` or `existingCampaignId`.
                 budget_amount: Budget amount in the ad account's currency major units
         (e.g. dollars for USD, not cents). Must be > 0.
-        Required unless `adSetId` is set, where the ad set owns it.
-                budget_type: Required unless `adSetId` is set.
+        Required unless `adSetId` is set (the ad set owns it) or
+        `existingCampaignId` names a campaign with a campaign budget.
+                budget_type: Required unless `adSetId` is set or `existingCampaignId` names a campaign with a campaign budget. `lifetime` requires `endDate`.
                 currency: ISO 4217 currency code matching the ad account's currency
         (e.g. `USD`). Optional: Zernio resolves it from the ad account
         when omitted. The value selects the minor-unit exponent Zernio
         converts budget/bid amounts by before calling Meta (most
         currencies are cents; zero-decimal currencies like JPY/KRW are
         sent as-is).
-                end_date: ISO 8601 datetime. Required when `budgetType` is `lifetime`.
+                start_date: When the ad set starts delivering. ISO 8601 date or date-time. A
+        value with an offset (`2027-01-15T10:00:00+01:00`, `...Z`) is used
+        as is; one without an offset (`2027-01-15T10:00:00`) is read in the
+        ad account's timezone, and a date-only value starts at 00:00 local.
+        Defaults to now.
+                end_date: ISO 8601 date or date-time, read like `startDate`; a date-only
+        value ends at 23:59:59 local. Required when `budgetType` is
+        `lifetime`.
                 countries: ISO 3166-1 alpha-2 country codes. Defaults to `["US"]` only
         when no other geo (`cities`, `regions`, `zips`, `metros`,
         `customLocations`) is supplied.
@@ -19242,6 +21743,32 @@ def register_generated_tools(mcp, _get_client):
         additionally enforces co-selection rules and restricts which
         placements are eligible for click-to-WhatsApp ads, returning an actionable
         error which we surface.
+                gender: Restrict the audience by gender (Meta `genders`). Stored on the ad and read back in `targeting.gender`.
+                languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"); unknown codes are rejected.
+                places: Meta place keys (from GET /v1/ads/targeting/search).
+                neighborhoods: Meta neighborhood keys (from GET /v1/ads/targeting/search).
+                excluded_locations: Geo to exclude, same shape as POST /v1/ads/create (countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations).
+                behaviors: Meta behavior ids. Each dimension is its own flexible_spec entry: OR within, AND across.
+                work_positions
+                work_employers
+                work_industries
+                income_tier: Normalized household-income tier, same as POST /v1/ads/create. Incompatible with housing, employment and credit specialAdCategories.
+                user_os: Meta `user_os`, e.g. ["iOS_ver_14.0_and_above"].
+                user_device: Meta `user_device`.
+                audience_include: Custom or lookalike audience ids to include.
+                audience_exclude: Custom or lookalike audience ids to exclude.
+                saved_targeting_id: ID of a saved_targeting audience (POST /v1/ads/audiences), expanded as the base targeting. Precedence: savedTargetingId, then `targeting`, then the flat fields.
+                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key.
+                raw_targeting: Meta targeting spec sent as the BASE layer of the ad set's
+        `targeting`, exactly as POST /v1/ads/create does: use it for
+        anything the flat fields cannot express, such as a layered
+        `flexible_spec` (entries AND together, ids inside one entry OR).
+        Flat fields you also send are layered on top and win per key.
+        With rawTargeting present the US geo and `advantage_audience: 0`
+        defaults are not injected, so include `targeting_automation` in
+        it (or send `advantageAudience`), as Meta requires it on create.
+                special_ad_categories: Meta special ad categories on the new campaign.
+                special_ad_category_country: Countries the special ad category applies to. Requires specialAdCategories.
                 advantage_audience: Meta's Advantage+ audience expansion. `0` (default) keeps
         targeting strict; `1` lets Meta expand beyond the supplied
         targeting when its delivery system finds better matches.
@@ -19249,14 +21776,16 @@ def register_generated_tools(mcp, _get_client):
                 objective: Defaults to `OUTCOME_ENGAGEMENT`. `OUTCOME_SALES` and `OUTCOME_LEADS` require
         additional account configuration (Dataset linked to the WABA
         for sales) and may be rejected by Meta if missing.
-                status: Ad-level status. Defaults to `ACTIVE`. `PAUSED` skips activating the
-        newly created ad(s) after Meta accepts them.
+                status: Defaults to `ACTIVE`. `PAUSED` pauses only the top-most object this
+        call creates: the new campaign (ad set and ads switched on), or, with
+        `adSetId`, the new ads themselves.
                 campaign_status: Campaign-level status, same semantics as `POST /v1/ads/create`. Defaults
-        to `ACTIVE`. `PAUSED` holds activation at the campaign so it never
-        spends before the advertiser reviews it, while the ad set and ad still
-        switch on (one resume call brings the whole hierarchy live). Only
-        meaningful when a new campaign is being created; rejected with a 400
-        alongside `adSetId` (the attach shape reuses an existing campaign).
+        to `status`. `PAUSED` holds the new campaign off while the ad set and
+        ads switch on (one resume call brings the whole hierarchy live);
+        `ACTIVE` with `status: PAUSED` switches the campaign on and pauses the
+        new ad set instead. Only meaningful when a new campaign is being
+        created; rejected with a 400 alongside `adSetId` (the attach shape
+        reuses an existing campaign).
                 bid_strategy: Meta bid strategy applied to the shared ad set. Defaults to
         `LOWEST_COST_WITHOUT_CAP` (auto-bid) when omitted.
         `LOWEST_COST_WITH_BID_CAP` and `COST_CAP` require
@@ -19309,14 +21838,18 @@ def register_generated_tools(mcp, _get_client):
                 whatsapp_phone_number=whatsapp_phone_number,
                 headline=headline,
                 body=body,
+                description=description,
                 image_url=image_url,
                 video=video,
                 welcome_message=welcome_message,
                 creatives=creatives,
                 ad_set_id=ad_set_id,
+                existing_campaign_id=existing_campaign_id,
+                budget_level=budget_level,
                 budget_amount=budget_amount,
                 budget_type=budget_type,
                 currency=currency,
+                start_date=start_date,
                 end_date=end_date,
                 countries=countries,
                 cities=cities,
@@ -19330,6 +21863,25 @@ def register_generated_tools(mcp, _get_client):
                 interests=interests,
                 audience_id=audience_id,
                 placements=placements,
+                gender=gender,
+                languages=languages,
+                places=places,
+                neighborhoods=neighborhoods,
+                excluded_locations=excluded_locations,
+                behaviors=behaviors,
+                work_positions=work_positions,
+                work_employers=work_employers,
+                work_industries=work_industries,
+                income_tier=income_tier,
+                user_os=user_os,
+                user_device=user_device,
+                audience_include=audience_include,
+                audience_exclude=audience_exclude,
+                saved_targeting_id=saved_targeting_id,
+                targeting=targeting,
+                raw_targeting=raw_targeting,
+                special_ad_categories=special_ad_categories,
+                special_ad_category_country=special_ad_category_country,
                 advantage_audience=advantage_audience,
                 objective=objective,
                 status=status,
@@ -19371,14 +21923,18 @@ def register_generated_tools(mcp, _get_client):
         whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
+        description: str | None = None,
         image_url: str | None = None,
         video: dict[str, Any] | None = None,
         welcome_message: dict[str, Any] | None = None,
         creatives: list[dict[str, Any]] | None = None,
         ad_set_id: str | None = None,
+        existing_campaign_id: str | None = None,
+        budget_level: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
         currency: str | None = None,
+        start_date: str | None = None,
         end_date: str | None = None,
         countries: list[str] | None = None,
         cities: list[dict[str, Any]] | None = None,
@@ -19392,6 +21948,25 @@ def register_generated_tools(mcp, _get_client):
         interests: list[dict[str, Any]] | None = None,
         audience_id: str | None = None,
         placements: dict[str, Any] | None = None,
+        gender: str = "all",
+        languages: list[str] | None = None,
+        places: list[dict[str, Any]] | None = None,
+        neighborhoods: list[dict[str, Any]] | None = None,
+        excluded_locations: dict[str, Any] | None = None,
+        behaviors: list[dict[str, Any]] | None = None,
+        work_positions: list[dict[str, Any]] | None = None,
+        work_employers: list[dict[str, Any]] | None = None,
+        work_industries: list[dict[str, Any]] | None = None,
+        income_tier: str | None = None,
+        user_os: list[str] | None = None,
+        user_device: list[str] | None = None,
+        audience_include: list[str] | None = None,
+        audience_exclude: list[str] | None = None,
+        saved_targeting_id: str | None = None,
+        targeting: dict[str, Any] | None = None,
+        raw_targeting: dict[str, Any] | None = None,
+        special_ad_categories: list[str] | None = None,
+        special_ad_category_country: list[str] | None = None,
         advantage_audience: int | None = None,
         objective: str | None = None,
         status: str | None = None,
@@ -19418,7 +21993,7 @@ def register_generated_tools(mcp, _get_client):
          (required)
                 campaign_name: Exact name for the campaign this request provisions. Omitted keeps `<name> - Campaign`. Ignored with `adSetId` (the ad set already has a campaign).
                 ad_set_name: Exact name for the ad set this request provisions. Omitted keeps `<name> - Ad Set`. Ignored with `adSetId`.
-                platform_post_id: Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.
+                platform_post_id: Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id run as the media owner (resolved from the media on a Meta ads business-login connection, so no Instagram connection is needed). Mutually exclusive with objectStoryId and fresh creative fields.
                 existing_post_id: Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.
                 object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId and fresh creative fields.
                 page_id: Facebook Page the ad runs as, when the connection was granted several Pages. Defaults to the Page bound to the connection. Any Page granted to the connection is accepted; other ids answer 400 listing the granted Pages. Same semantics as `pageId` on POST /v1/ads/create.
@@ -19427,6 +22002,13 @@ def register_generated_tools(mcp, _get_client):
         `creatives[]`.
                 body: Primary text shown above the image / video. Single-creative
         shape only. Mutually exclusive with `creatives[]`.
+                description: Link description, independent of `headline` and `body` (Meta's
+        `link_data.description`, `video_data.link_description` on video,
+        and the shared description of a `placementAssets` feed). Meta
+        shows it mainly on Facebook Feed placements, under the headline,
+        when there is room; Instagram, Stories, Reels and Messenger
+        placements do not display it. Also accepted per entry in
+        `creatives[]`. Not allowed with an existing post creative.
                 image_url: Image asset for single-creative shape. Mutually exclusive
         with `video` and with `creatives[]`. Required on the
         single-creative shape if neither `video` nor an existing post reference is supplied.
@@ -19447,20 +22029,45 @@ def register_generated_tools(mcp, _get_client):
                 ad_set_id: Attach the creatives to this EXISTING messaging ad set instead of
         building a campaign, so the ad set keeps its learning phase. It then
         owns budget, targeting and schedule, so `budgetAmount`, `budgetType`,
-        `endDate`, `objective`, `countries`, `interests`, `audienceId` and
-        `campaignStatus` are rejected with a 400 alongside it. Its
+        `budgetLevel`, `startDate`, `endDate`, `objective`, `campaignStatus`,
+        `existingCampaignId`, the special ad category fields and every
+        targeting field except `ageMin`, `ageMax`, `placements` and
+        `advantageAudience` are rejected with a 400 alongside it. Its
         `destination_type` must match the ad's destination.
+                existing_campaign_id: Create the new messaging ad set (and its ads) under this EXISTING
+        Meta campaign instead of a new one, e.g. several audience ad sets
+        under one campaign. The campaign's objective must be
+        OUTCOME_ENGAGEMENT, OUTCOME_SALES or OUTCOME_LEADS (400 otherwise).
+        If the campaign has a campaign budget, omit `budgetAmount` and
+        `budgetType` (400 if sent); otherwise they are required and land
+        on the new ad set. `objective`, `campaignName`, `campaignStatus`,
+        `budgetLevel`, `specialAdCategories`, `specialAdCategoryCountry`
+        and `adSetId` are rejected alongside it. To add ads to an existing
+        ad set instead, use `adSetId`.
+                budget_level: Where the budget lives. `adset` (default) puts it on the new ad
+        set. `campaign` creates an Advantage campaign budget (CBO): the
+        budget and bid strategy sit on the campaign and the ad set
+        inherits them, same as POST /v1/ads/create. Not allowed with
+        `adSetId` or `existingCampaignId`.
                 budget_amount: Budget amount in the ad account's currency major units
         (e.g. dollars for USD, not cents). Must be > 0.
-        Required unless `adSetId` is set, where the ad set owns it.
-                budget_type: Required unless `adSetId` is set.
+        Required unless `adSetId` is set (the ad set owns it) or
+        `existingCampaignId` names a campaign with a campaign budget.
+                budget_type: Required unless `adSetId` is set or `existingCampaignId` names a campaign with a campaign budget. `lifetime` requires `endDate`.
                 currency: ISO 4217 currency code matching the ad account's currency
         (e.g. `USD`). Optional: Zernio resolves it from the ad account
         when omitted. The value selects the minor-unit exponent Zernio
         converts budget/bid amounts by before calling Meta (most
         currencies are cents; zero-decimal currencies like JPY/KRW are
         sent as-is).
-                end_date: ISO 8601 datetime. Required when `budgetType` is `lifetime`.
+                start_date: When the ad set starts delivering. ISO 8601 date or date-time. A
+        value with an offset (`2027-01-15T10:00:00+01:00`, `...Z`) is used
+        as is; one without an offset (`2027-01-15T10:00:00`) is read in the
+        ad account's timezone, and a date-only value starts at 00:00 local.
+        Defaults to now.
+                end_date: ISO 8601 date or date-time, read like `startDate`; a date-only
+        value ends at 23:59:59 local. Required when `budgetType` is
+        `lifetime`.
                 countries: ISO 3166-1 alpha-2 country codes. Defaults to `["US"]` only
         when no other geo (`cities`, `regions`, `zips`, `metros`,
         `customLocations`) is supplied.
@@ -19497,6 +22104,32 @@ def register_generated_tools(mcp, _get_client):
         additionally enforces co-selection rules and restricts which
         placements are eligible for click-to-WhatsApp ads, returning an actionable
         error which we surface.
+                gender: Restrict the audience by gender (Meta `genders`). Stored on the ad and read back in `targeting.gender`.
+                languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"); unknown codes are rejected.
+                places: Meta place keys (from GET /v1/ads/targeting/search).
+                neighborhoods: Meta neighborhood keys (from GET /v1/ads/targeting/search).
+                excluded_locations: Geo to exclude, same shape as POST /v1/ads/create (countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations).
+                behaviors: Meta behavior ids. Each dimension is its own flexible_spec entry: OR within, AND across.
+                work_positions
+                work_employers
+                work_industries
+                income_tier: Normalized household-income tier, same as POST /v1/ads/create. Incompatible with housing, employment and credit specialAdCategories.
+                user_os: Meta `user_os`, e.g. ["iOS_ver_14.0_and_above"].
+                user_device: Meta `user_device`.
+                audience_include: Custom or lookalike audience ids to include.
+                audience_exclude: Custom or lookalike audience ids to exclude.
+                saved_targeting_id: ID of a saved_targeting audience (POST /v1/ads/audiences), expanded as the base targeting. Precedence: savedTargetingId, then `targeting`, then the flat fields.
+                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key.
+                raw_targeting: Meta targeting spec sent as the BASE layer of the ad set's
+        `targeting`, exactly as POST /v1/ads/create does: use it for
+        anything the flat fields cannot express, such as a layered
+        `flexible_spec` (entries AND together, ids inside one entry OR).
+        Flat fields you also send are layered on top and win per key.
+        With rawTargeting present the US geo and `advantage_audience: 0`
+        defaults are not injected, so include `targeting_automation` in
+        it (or send `advantageAudience`), as Meta requires it on create.
+                special_ad_categories: Meta special ad categories on the new campaign.
+                special_ad_category_country: Countries the special ad category applies to. Requires specialAdCategories.
                 advantage_audience: Meta's Advantage+ audience expansion. `0` (default) keeps
         targeting strict; `1` lets Meta expand beyond the supplied
         targeting when its delivery system finds better matches.
@@ -19504,14 +22137,16 @@ def register_generated_tools(mcp, _get_client):
                 objective: Defaults to `OUTCOME_ENGAGEMENT`. `OUTCOME_SALES` and `OUTCOME_LEADS` require
         additional account configuration (Dataset linked to the WABA
         for sales) and may be rejected by Meta if missing.
-                status: Ad-level status. Defaults to `ACTIVE`. `PAUSED` skips activating the
-        newly created ad(s) after Meta accepts them.
+                status: Defaults to `ACTIVE`. `PAUSED` pauses only the top-most object this
+        call creates: the new campaign (ad set and ads switched on), or, with
+        `adSetId`, the new ads themselves.
                 campaign_status: Campaign-level status, same semantics as `POST /v1/ads/create`. Defaults
-        to `ACTIVE`. `PAUSED` holds activation at the campaign so it never
-        spends before the advertiser reviews it, while the ad set and ad still
-        switch on (one resume call brings the whole hierarchy live). Only
-        meaningful when a new campaign is being created; rejected with a 400
-        alongside `adSetId` (the attach shape reuses an existing campaign).
+        to `status`. `PAUSED` holds the new campaign off while the ad set and
+        ads switch on (one resume call brings the whole hierarchy live);
+        `ACTIVE` with `status: PAUSED` switches the campaign on and pauses the
+        new ad set instead. Only meaningful when a new campaign is being
+        created; rejected with a 400 alongside `adSetId` (the attach shape
+        reuses an existing campaign).
                 bid_strategy: Meta bid strategy applied to the shared ad set. Defaults to
         `LOWEST_COST_WITHOUT_CAP` (auto-bid) when omitted.
         `LOWEST_COST_WITH_BID_CAP` and `COST_CAP` require
@@ -19562,14 +22197,18 @@ def register_generated_tools(mcp, _get_client):
                 whatsapp_phone_number=whatsapp_phone_number,
                 headline=headline,
                 body=body,
+                description=description,
                 image_url=image_url,
                 video=video,
                 welcome_message=welcome_message,
                 creatives=creatives,
                 ad_set_id=ad_set_id,
+                existing_campaign_id=existing_campaign_id,
+                budget_level=budget_level,
                 budget_amount=budget_amount,
                 budget_type=budget_type,
                 currency=currency,
+                start_date=start_date,
                 end_date=end_date,
                 countries=countries,
                 cities=cities,
@@ -19583,6 +22222,25 @@ def register_generated_tools(mcp, _get_client):
                 interests=interests,
                 audience_id=audience_id,
                 placements=placements,
+                gender=gender,
+                languages=languages,
+                places=places,
+                neighborhoods=neighborhoods,
+                excluded_locations=excluded_locations,
+                behaviors=behaviors,
+                work_positions=work_positions,
+                work_employers=work_employers,
+                work_industries=work_industries,
+                income_tier=income_tier,
+                user_os=user_os,
+                user_device=user_device,
+                audience_include=audience_include,
+                audience_exclude=audience_exclude,
+                saved_targeting_id=saved_targeting_id,
+                targeting=targeting,
+                raw_targeting=raw_targeting,
+                special_ad_categories=special_ad_categories,
+                special_ad_category_country=special_ad_category_country,
                 advantage_audience=advantage_audience,
                 objective=objective,
                 status=status,
@@ -19794,7 +22452,7 @@ def register_generated_tools(mcp, _get_client):
             area_code: Area code or national dialing code the number must start with, e.g. 415 or 91
             type: Alias of numberType, kept for existing callers
             prefix: Alias of areaCode, kept for existing callers
-            locality: City
+            locality: A city name, matched against the numbering plan (accents and common aliases allowed) and searched by that city's area codes; a name no city of the plan matches returns no numbers. `areaCode` takes a city name too.
             contains: Pattern to match within the number
             sms: true narrows the pool to SMS-capable numbers. Each result still carries its full `features` list for per-number capability badging.
             limit
@@ -19903,7 +22561,7 @@ def register_generated_tools(mcp, _get_client):
             reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.
             reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.
             area_code: Area code (NDC) the number must be in. Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area. Omit for any area. Options come from GET /v1/phone-numbers/availability (areaOptions); the purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.
-            pre_order: With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area.
+            pre_order: With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area. Without areaCode it accepts the pre-order a previous submit offered with 409 code area_pre_order_available (a geographic-match country whose address area has no stock): resend the same body with preOrder true and the order is placed for that area. A whole pair with no stock is pre-ordered without either flag.
             end_user_first_name: End user's legal first name. Required when the country has an action/ID-verification (Onfido) requirement.
             end_user_last_name: End user's legal last name. Same condition as endUserFirstName.
             values: requirementId → textual value
@@ -20552,7 +23210,7 @@ def register_generated_tools(mcp, _get_client):
         publish_now: bool = False,
         is_draft: bool = False,
         dry_run: bool = False,
-        timezone: str = "UTC",
+        timezone: str | None = None,
         tags: list[str] | None = None,
         hashtags: list[str] | None = None,
         mentions: list[str] | None = None,
@@ -20575,7 +23233,7 @@ def register_generated_tools(mcp, _get_client):
                 publish_now: Publish to every platform synchronously in this request instead of scheduling; the response then carries each platform result and `platformPostUrl`, with HTTP 207 when some platforms failed. Takes precedence over `scheduledFor`; ignored when `isDraft` is true.
                 is_draft: When true, saves the post as a draft. When none of scheduledFor, publishNow, or queuedFromProfile are provided, the post defaults to draft automatically.
                 dry_run: TikTok only. Preview whether each `tiktok` entry in `platforms` could publish right now under the TikTok Direct Post daily limits, without creating, scheduling or publishing anything: no post is persisted and no upload slot is claimed, so it can be repeated freely. The request still goes through auth, the payment gate and body validation, then returns HTTP 200 with `{ dryRun: true, canPublish, tiktok: [...] }` instead of 201. Only `tiktok` entries are evaluated; other platforms in the body are ignored, and a body with no `tiktok` entry is rejected with 400 `invalid_field_value` on `platforms`. An entry with `platformSpecificData.tiktokSettings.draft: true` (Creator Inbox upload) is not subject to the limit and always reports `canPublish: true`. Accounts connected through the TikTok for Business app do not go through these limits at all and also always report `canPublish: true`, so on those accounts a dry run confirms the request is well-formed rather than gating it.
-                timezone: IANA timezone (`Europe/Madrid`, `America/New_York`) used to interpret a `scheduledFor` (root or per-platform) that carries no `Z` or offset. Has no effect on values that already carry one. An unknown name returns 400 when `scheduledFor` is set.
+                timezone: IANA timezone (`Europe/Madrid`, `America/New_York`) used to interpret a `scheduledFor` (root or per-platform) that carries no `Z` or offset, and stored on the post. Has no effect on values that already carry one. When omitted, the post takes its profile's `timezone` (the queue's profile for a queued post, else the profile its accounts share), and UTC when there is none or the accounts sit on profiles with different timezones. An unknown name returns 400 when `scheduledFor` is set.
                 tags: Tags/keywords. YouTube constraints: each tag max 100 chars, combined max 500 chars, duplicates auto-removed.
                 hashtags: Stored for reference only. Hashtags are NOT automatically appended to the caption when publishing. Include hashtags directly in the content field (platforms like Instagram only support hashtags as caption text). For YouTube keywords, use the tags field instead.
                 mentions: Stored for reference only. This field does NOT automatically create @mentions when publishing. For LinkedIn @mentions, use the /v1/accounts/{accountId}/linkedin-mentions endpoint to resolve profile URLs to URNs, then embed the returned mentionFormat directly in the post content field.
@@ -21511,18 +24169,22 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def profiles_create_profile(
-        name: str, description: str | None = None, color: str | None = None
+        name: str,
+        description: str | None = None,
+        color: str | None = None,
+        timezone: str | None = None,
     ) -> str:
         """Create profile
 
         Args:
             name: (required)
             description
-            color"""
+            color
+            timezone: IANA timezone new posts on this profile use when they name no `timezone`. Omit to keep UTC. An unknown name returns 400."""
         client = _get_client()
         try:
             response = client.profiles.create_profile(
-                name=name, description=description, color=color
+                name=name, description=description, color=color, timezone=timezone
             )
             return _format_response(response)
         except Exception as e:
@@ -21561,6 +24223,7 @@ def register_generated_tools(mcp, _get_client):
         name: str | None = None,
         description: str | None = None,
         color: str | None = None,
+        timezone: str | None = None,
         is_default: bool | None = None,
     ) -> str:
         """Update profile
@@ -21570,6 +24233,7 @@ def register_generated_tools(mcp, _get_client):
             name
             description: Set to null to clear the description.
             color
+            timezone: IANA timezone new posts on this profile use when they name no `timezone`. Set to null to go back to UTC. An unknown name returns 400.
             is_default"""
         client = _get_client()
         try:
@@ -21578,6 +24242,7 @@ def register_generated_tools(mcp, _get_client):
                 name=name,
                 description=description,
                 color=color,
+                timezone=timezone,
                 is_default=is_default,
             )
             return _format_response(response)
@@ -24585,10 +27250,10 @@ def register_generated_tools(mcp, _get_client):
         """Send a verification code
 
         Args:
-            channel: SMS-only for now. (required)
-            to: E.164 phone number. (required)
-            from_: The SMS-enabled number on your account to send from. Defaults to your only SMS number.
-            brand_name: Your app or business name, rendered in the message. Defaults to your account name. Letters, numbers, and basic punctuation only.
+            channel: (required)
+            to: E.164 phone number. WhatsApp only delivers to a phone number, never to a username. (required)
+            from_: The number on your account to send from: an SMS-enabled number for `sms`, a connected WhatsApp number for `whatsapp`. Defaults to your only number on that channel.
+            brand_name: Your app or business name, rendered in the SMS message. Defaults to your account name. Not shown on WhatsApp, where Meta fixes the message and shows your WhatsApp display name. Letters, numbers, and basic punctuation only.
             code_length
             ttl_minutes"""
         client = _get_client()
@@ -27711,7 +30376,7 @@ def register_generated_tools(mcp, _get_client):
             area_code: Area code or national dialing code the number must start with, e.g. 415 or 91
             type: Alias of numberType, kept for existing callers
             prefix: Alias of areaCode, kept for existing callers
-            locality: City
+            locality: A city name, matched against the numbering plan (accents and common aliases allowed) and searched by that city's area codes; a name no city of the plan matches returns no numbers. `areaCode` takes a city name too.
             contains: Pattern to match within the number
             limit"""
         client = _get_client()
@@ -27818,7 +30483,7 @@ def register_generated_tools(mcp, _get_client):
             reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.
             reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.
             area_code: Area code (NDC) the number must be in. Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area. Omit for any area. Options come from GET /v1/phone-numbers/availability (areaOptions); the purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.
-            pre_order: With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area.
+            pre_order: With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area. Without areaCode it accepts the pre-order a previous submit offered with 409 code area_pre_order_available (a geographic-match country whose address area has no stock): resend the same body with preOrder true and the order is placed for that area. A whole pair with no stock is pre-ordered without either flag.
             end_user_first_name: End user's legal first name. Required when the country has an action/ID-verification (Onfido) requirement.
             end_user_last_name: End user's legal last name. Same condition as endUserFirstName.
             values: requirementId → textual value

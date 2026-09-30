@@ -91,6 +91,20 @@ class KubeClusterAutoscalingResourceLimit(_message.Message):
         self, resource_type: _Optional[str] = ..., minimum: _Optional[int] = ..., maximum: _Optional[int] = ...
     ) -> None: ...
 
+class KubeClusterGKEGPUResourceLimits(_message.Message):
+    __slots__ = ("limits",)
+    LIMITS_FIELD_NUMBER: _ClassVar[int]
+    limits: _containers.RepeatedCompositeFieldContainer[KubeClusterAutoscalingResourceLimit]
+    def __init__(
+        self, limits: _Optional[_Iterable[_Union[KubeClusterAutoscalingResourceLimit, _Mapping]]] = ...
+    ) -> None: ...
+
+class KubeClusterGKENAPLocations(_message.Message):
+    __slots__ = ("locations",)
+    LOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    locations: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, locations: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class KubeClusterGKENodeAutoprovisioningConfig(_message.Message):
     __slots__ = (
         "enabled",
@@ -218,17 +232,23 @@ class UpdateGKEClusterRequest(_message.Message):
         "autoscaling_max_cpu",
         "autoscaling_min_memory",
         "autoscaling_max_memory",
+        "gpu_resource_limits",
+        "autoprovisioning_locations",
     )
     NODE_AUTOPROVISIONING_ENABLED_FIELD_NUMBER: _ClassVar[int]
     AUTOSCALING_MIN_CPU_FIELD_NUMBER: _ClassVar[int]
     AUTOSCALING_MAX_CPU_FIELD_NUMBER: _ClassVar[int]
     AUTOSCALING_MIN_MEMORY_FIELD_NUMBER: _ClassVar[int]
     AUTOSCALING_MAX_MEMORY_FIELD_NUMBER: _ClassVar[int]
+    GPU_RESOURCE_LIMITS_FIELD_NUMBER: _ClassVar[int]
+    AUTOPROVISIONING_LOCATIONS_FIELD_NUMBER: _ClassVar[int]
     node_autoprovisioning_enabled: bool
     autoscaling_min_cpu: int
     autoscaling_max_cpu: int
     autoscaling_min_memory: int
     autoscaling_max_memory: int
+    gpu_resource_limits: KubeClusterGKEGPUResourceLimits
+    autoprovisioning_locations: KubeClusterGKENAPLocations
     def __init__(
         self,
         node_autoprovisioning_enabled: bool = ...,
@@ -236,6 +256,8 @@ class UpdateGKEClusterRequest(_message.Message):
         autoscaling_max_cpu: _Optional[int] = ...,
         autoscaling_min_memory: _Optional[int] = ...,
         autoscaling_max_memory: _Optional[int] = ...,
+        gpu_resource_limits: _Optional[_Union[KubeClusterGKEGPUResourceLimits, _Mapping]] = ...,
+        autoprovisioning_locations: _Optional[_Union[KubeClusterGKENAPLocations, _Mapping]] = ...,
     ) -> None: ...
 
 class UpdateEKSClusterRequest(_message.Message):

@@ -10,6 +10,7 @@ counting.  The only output is a per-frame :class:`IncidentFrameResult` and
 a queue of :class:`IncidentEvent` models drained by the engine for
 publishing to Redis/Kafka.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,7 +30,6 @@ from ..schemas import (
     QuantStrategyConfig,
     SeverityLevel,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +138,8 @@ def _parse_incident_types(raw: list[Any]) -> list[IncidentTypeConfig]:
                 )
             elif isinstance(raw_thresholds, dict):
                 thresholds.extend(
-                    IncidentThreshold(level=str(lvl), percentage=float(pct)) for lvl, pct in raw_thresholds.items()
+                    IncidentThreshold(level=str(lvl), percentage=float(pct))
+                    for lvl, pct in raw_thresholds.items()
                 )
             result.append(
                 IncidentTypeConfig(
@@ -259,7 +260,9 @@ class IncidentProcessor:
         if filtered:
             quant, confidence = compute_quant(filtered, self._config.quant)
             thresholds = self._resolve_thresholds(camera_id)
-            order = self._config.incident_types[0].order if self._config.incident_types else "ascending"
+            order = (
+                self._config.incident_types[0].order if self._config.incident_types else "ascending"
+            )
             severity = calculate_severity(quant, thresholds, order)
         else:
             quant, confidence, severity = 0.0, 0.0, SeverityLevel.none

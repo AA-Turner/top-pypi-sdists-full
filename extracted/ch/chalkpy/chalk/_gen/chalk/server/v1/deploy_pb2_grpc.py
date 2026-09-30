@@ -21,6 +21,11 @@ class DeployServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchResponse.FromString,
         )
+        self.DeployBranchFromVolume = channel.unary_unary(
+            "/chalk.server.v1.DeployService/DeployBranchFromVolume",
+            request_serializer=chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchFromVolumeRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchFromVolumeResponse.FromString,
+        )
         self.CreateBranchFromSourceDeployment = channel.unary_unary(
             "/chalk.server.v1.DeployService/CreateBranchFromSourceDeployment",
             request_serializer=chalk_dot_server_dot_v1_dot_deploy__pb2.CreateBranchFromSourceDeploymentRequest.SerializeToString,
@@ -83,6 +88,14 @@ class DeployServiceServicer(object):
 
     def DeployBranch(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeployBranchFromVolume(self, request, context):
+        """Builds a source archive from a volume's contents server-side and deploys
+        it as a branch -- no archive bytes cross the caller.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -160,6 +173,11 @@ def add_DeployServiceServicer_to_server(servicer, server):
             servicer.DeployBranch,
             request_deserializer=chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchResponse.SerializeToString,
+        ),
+        "DeployBranchFromVolume": grpc.unary_unary_rpc_method_handler(
+            servicer.DeployBranchFromVolume,
+            request_deserializer=chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchFromVolumeRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchFromVolumeResponse.SerializeToString,
         ),
         "CreateBranchFromSourceDeployment": grpc.unary_unary_rpc_method_handler(
             servicer.CreateBranchFromSourceDeployment,
@@ -244,6 +262,35 @@ class DeployService(object):
             "/chalk.server.v1.DeployService/DeployBranch",
             chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeployBranchFromVolume(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DeployService/DeployBranchFromVolume",
+            chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchFromVolumeRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_deploy__pb2.DeployBranchFromVolumeResponse.FromString,
             options,
             channel_credentials,
             insecure,

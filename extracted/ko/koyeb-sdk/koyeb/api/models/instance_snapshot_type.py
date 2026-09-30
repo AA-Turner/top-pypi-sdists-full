@@ -26,13 +26,11 @@ class InstanceSnapshotType(str, Enum):
     """
     allowed enum values
     """
-    INSTANCE_SNAPSHOT_TYPE_INVALID = 'INSTANCE_SNAPSHOT_TYPE_INVALID'
-    INSTANCE_SNAPSHOT_TYPE_FILESYSTEM = 'INSTANCE_SNAPSHOT_TYPE_FILESYSTEM'
-    INSTANCE_SNAPSHOT_TYPE_FULL = 'INSTANCE_SNAPSHOT_TYPE_FULL'
+    INSTANCE_SNAPSHOT_TYPE_INVALID = "INSTANCE_SNAPSHOT_TYPE_INVALID"
+    INSTANCE_SNAPSHOT_TYPE_FILESYSTEM = "INSTANCE_SNAPSHOT_TYPE_FILESYSTEM"
+    INSTANCE_SNAPSHOT_TYPE_FULL = "INSTANCE_SNAPSHOT_TYPE_FULL"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of InstanceSnapshotType from a JSON string"""
         return cls(json.loads(json_str))
-
-

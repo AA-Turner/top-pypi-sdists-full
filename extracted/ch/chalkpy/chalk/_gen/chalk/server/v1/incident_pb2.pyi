@@ -22,12 +22,14 @@ class IncidentEntityKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     INCIDENT_ENTITY_KIND_RESOLVER: _ClassVar[IncidentEntityKind]
     INCIDENT_ENTITY_KIND_SCHEDULED_QUERY: _ClassVar[IncidentEntityKind]
     INCIDENT_ENTITY_KIND_QUERY: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_SQL_QUERY: _ClassVar[IncidentEntityKind]
 
 INCIDENT_ENTITY_KIND_UNSPECIFIED: IncidentEntityKind
 INCIDENT_ENTITY_KIND_FEATURE: IncidentEntityKind
 INCIDENT_ENTITY_KIND_RESOLVER: IncidentEntityKind
 INCIDENT_ENTITY_KIND_SCHEDULED_QUERY: IncidentEntityKind
 INCIDENT_ENTITY_KIND_QUERY: IncidentEntityKind
+INCIDENT_ENTITY_KIND_SQL_QUERY: IncidentEntityKind
 
 class IncidentLinkedEntity(_message.Message):
     __slots__ = ("entity_kind", "entity_id")

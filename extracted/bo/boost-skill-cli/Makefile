@@ -122,14 +122,24 @@ dist-check:
 # 0.000 passed.
 #
 # The floors are calibrated against a TWENTY-tap corpus, not the six it used to
-# be. Over the six (921 entries) BM25 scores 0.989 / 0.769 / 0.848 / 0.880;
-# over twenty it scores 0.841 / 0.484 / 0.607 / 0.655 on the same golden set,
-# which is what tests/eval/baseline.json records at the current pins. The
+# be. Over the six (921 entries) BM25 scored 0.989 / 0.769 / 0.848 / 0.880;
+# over twenty it scores 0.846 / 0.484 / 0.607 / 0.659, which is what
+# tests/eval/baseline.json records at the current pins. Not the same golden
+# set: the six-repo row is name-graded and HISTORICAL, measured before every
+# row pinned an exemplar, and today's golden.jsonl cannot be scored over six
+# taps at all (a pin naming a tap outside the corpus is a hard error). It is
+# still re-derivable -- `git show e11a34f2:tests/eval/golden.jsonl` over a
+# six-tap corpus reproduces it to three places. The
 # second set is what a real user sees, so flooring against the first was
 # measuring the corpus rather than the retrieval — three of the four old floors
-# fail outright once the corpus is realistic. Each floor now sits ~10% below
-# its measured value: loose enough that a query or two cannot flake the build,
-# tight enough that a collapse fails it. Regression-vs-baseline stays relaxed
+# fail outright once the corpus is realistic. The four floors sit a margin
+# under their measured values (7.8% / 17.3% / 14.3% / 12.1%), recall@k the
+# tightest at 6.0 queries of 91: loose enough that a query or two cannot flake
+# the build, tight enough that a collapse fails it. That margin is not uniform
+# and never was -- it is a 2.21x spread, because the row moves with every
+# monthly refresh and the floors deliberately do not. So it is quoted rather
+# than asserted, and tests/unit/test_corpus_prose.py fails until the new
+# spread is written here. Regression-vs-baseline stays relaxed
 # (--regression-eps 1); the absolute floors are the real gate. (It was relaxed
 # while the corpus tracked upstream HEAD. tests/eval/taps.txt pins a commit per
 # row now, so that is no longer the reason.)

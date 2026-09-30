@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.kgitproxy_indexing_status import KgitproxyIndexingStatus
 
+
 class TestKgitproxyIndexingStatus(unittest.TestCase):
     """KgitproxyIndexingStatus unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestKgitproxyIndexingStatus(unittest.TestCase):
         """Test KgitproxyIndexingStatus"""
         # inst = KgitproxyIndexingStatus()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

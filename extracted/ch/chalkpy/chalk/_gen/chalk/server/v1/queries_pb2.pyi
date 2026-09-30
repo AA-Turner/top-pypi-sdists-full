@@ -22,10 +22,23 @@ class MetaQueryRunsSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     META_QUERY_RUNS_SOURCE_UNSPECIFIED: _ClassVar[MetaQueryRunsSource]
     META_QUERY_RUNS_SOURCE_TIMESCALE: _ClassVar[MetaQueryRunsSource]
     META_QUERY_RUNS_SOURCE_QUERY_LOG: _ClassVar[MetaQueryRunsSource]
+    META_QUERY_RUNS_SOURCE_CLICKHOUSE: _ClassVar[MetaQueryRunsSource]
+
+class IdComparisonOperator(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    ID_COMPARISON_OPERATOR_UNSPECIFIED: _ClassVar[IdComparisonOperator]
+    ID_COMPARISON_OPERATOR_EQUALS: _ClassVar[IdComparisonOperator]
+    ID_COMPARISON_OPERATOR_PREFIX: _ClassVar[IdComparisonOperator]
+    ID_COMPARISON_OPERATOR_SUBSTRING: _ClassVar[IdComparisonOperator]
 
 META_QUERY_RUNS_SOURCE_UNSPECIFIED: MetaQueryRunsSource
 META_QUERY_RUNS_SOURCE_TIMESCALE: MetaQueryRunsSource
 META_QUERY_RUNS_SOURCE_QUERY_LOG: MetaQueryRunsSource
+META_QUERY_RUNS_SOURCE_CLICKHOUSE: MetaQueryRunsSource
+ID_COMPARISON_OPERATOR_UNSPECIFIED: IdComparisonOperator
+ID_COMPARISON_OPERATOR_EQUALS: IdComparisonOperator
+ID_COMPARISON_OPERATOR_PREFIX: IdComparisonOperator
+ID_COMPARISON_OPERATOR_SUBSTRING: IdComparisonOperator
 
 class GetQueryPerformanceSummaryRequest(_message.Message):
     __slots__ = ("operation_id",)
@@ -461,6 +474,8 @@ class ListMetaQueryRunsRequest(_message.Message):
         "agent_ids",
         "resource_groups",
         "statuses",
+        "correlation_id",
+        "correlation_id_comparison",
     )
     INCLUDE_LATENCY_FIELD_NUMBER: _ClassVar[int]
     MIN_LATENCY_MS_FIELD_NUMBER: _ClassVar[int]
@@ -489,6 +504,8 @@ class ListMetaQueryRunsRequest(_message.Message):
     AGENT_IDS_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUPS_FIELD_NUMBER: _ClassVar[int]
     STATUSES_FIELD_NUMBER: _ClassVar[int]
+    CORRELATION_ID_FIELD_NUMBER: _ClassVar[int]
+    CORRELATION_ID_COMPARISON_FIELD_NUMBER: _ClassVar[int]
     include_latency: bool
     min_latency_ms: float
     query_plan_id: str
@@ -516,6 +533,8 @@ class ListMetaQueryRunsRequest(_message.Message):
     agent_ids: _containers.RepeatedScalarFieldContainer[str]
     resource_groups: _containers.RepeatedScalarFieldContainer[str]
     statuses: _containers.RepeatedScalarFieldContainer[_query_status_pb2.QueryStatus]
+    correlation_id: str
+    correlation_id_comparison: IdComparisonOperator
     def __init__(
         self,
         include_latency: bool = ...,
@@ -545,6 +564,8 @@ class ListMetaQueryRunsRequest(_message.Message):
         agent_ids: _Optional[_Iterable[str]] = ...,
         resource_groups: _Optional[_Iterable[str]] = ...,
         statuses: _Optional[_Iterable[_Union[_query_status_pb2.QueryStatus, str]]] = ...,
+        correlation_id: _Optional[str] = ...,
+        correlation_id_comparison: _Optional[_Union[IdComparisonOperator, str]] = ...,
     ) -> None: ...
 
 class ListMetaQueryRunsPageToken(_message.Message):
@@ -554,18 +575,21 @@ class ListMetaQueryRunsPageToken(_message.Message):
     def __init__(self, cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class ListMetaQueryRunsResponse(_message.Message):
-    __slots__ = ("query_runs", "next_cursor", "next_page_token")
+    __slots__ = ("query_runs", "next_cursor", "next_page_token", "resolved_source")
     QUERY_RUNS_FIELD_NUMBER: _ClassVar[int]
     NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    RESOLVED_SOURCE_FIELD_NUMBER: _ClassVar[int]
     query_runs: _containers.RepeatedCompositeFieldContainer[MetaQueryRunWithMeta]
     next_cursor: _timestamp_pb2.Timestamp
     next_page_token: str
+    resolved_source: MetaQueryRunsSource
     def __init__(
         self,
         query_runs: _Optional[_Iterable[_Union[MetaQueryRunWithMeta, _Mapping]]] = ...,
         next_cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         next_page_token: _Optional[str] = ...,
+        resolved_source: _Optional[_Union[MetaQueryRunsSource, str]] = ...,
     ) -> None: ...
 
 class MetaQuery(_message.Message):

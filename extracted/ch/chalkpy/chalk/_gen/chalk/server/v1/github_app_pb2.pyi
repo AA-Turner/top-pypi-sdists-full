@@ -619,3 +619,89 @@ class CreateVolumeFromGitHubRepoResponse(_message.Message):
         files: _Optional[int] = ...,
         bytes: _Optional[int] = ...,
     ) -> None: ...
+
+class CreatePullRequestFromVolumeRequest(_message.Message):
+    __slots__ = (
+        "installation_id",
+        "owner",
+        "repo",
+        "volume_name",
+        "base_branch",
+        "head_branch",
+        "title",
+        "body",
+        "commit_message",
+        "draft",
+    )
+    INSTALLATION_ID_FIELD_NUMBER: _ClassVar[int]
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    REPO_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_NAME_FIELD_NUMBER: _ClassVar[int]
+    BASE_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    HEAD_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    COMMIT_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    DRAFT_FIELD_NUMBER: _ClassVar[int]
+    installation_id: str
+    owner: str
+    repo: str
+    volume_name: str
+    base_branch: str
+    head_branch: str
+    title: str
+    body: str
+    commit_message: str
+    draft: bool
+    def __init__(
+        self,
+        installation_id: _Optional[str] = ...,
+        owner: _Optional[str] = ...,
+        repo: _Optional[str] = ...,
+        volume_name: _Optional[str] = ...,
+        base_branch: _Optional[str] = ...,
+        head_branch: _Optional[str] = ...,
+        title: _Optional[str] = ...,
+        body: _Optional[str] = ...,
+        commit_message: _Optional[str] = ...,
+        draft: bool = ...,
+    ) -> None: ...
+
+class CreatePullRequestFromVolumeResponse(_message.Message):
+    __slots__ = (
+        "html_url",
+        "number",
+        "head_branch",
+        "volume_version",
+        "files_added",
+        "files_modified",
+        "files_deleted",
+        "deletions_skipped",
+    )
+    HTML_URL_FIELD_NUMBER: _ClassVar[int]
+    NUMBER_FIELD_NUMBER: _ClassVar[int]
+    HEAD_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_VERSION_FIELD_NUMBER: _ClassVar[int]
+    FILES_ADDED_FIELD_NUMBER: _ClassVar[int]
+    FILES_MODIFIED_FIELD_NUMBER: _ClassVar[int]
+    FILES_DELETED_FIELD_NUMBER: _ClassVar[int]
+    DELETIONS_SKIPPED_FIELD_NUMBER: _ClassVar[int]
+    html_url: str
+    number: int
+    head_branch: str
+    volume_version: int
+    files_added: int
+    files_modified: int
+    files_deleted: int
+    deletions_skipped: bool
+    def __init__(
+        self,
+        html_url: _Optional[str] = ...,
+        number: _Optional[int] = ...,
+        head_branch: _Optional[str] = ...,
+        volume_version: _Optional[int] = ...,
+        files_added: _Optional[int] = ...,
+        files_modified: _Optional[int] = ...,
+        files_deleted: _Optional[int] = ...,
+        deletions_skipped: bool = ...,
+    ) -> None: ...

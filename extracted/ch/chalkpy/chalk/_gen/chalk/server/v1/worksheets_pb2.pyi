@@ -2,6 +2,7 @@ from chalk._gen.buf.validate import validate_pb2 as _validate_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import dataset_response_pb2 as _dataset_response_pb2
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
+from chalk._gen.chalk.common.v1 import resources_pb2 as _resources_pb2
 from chalk._gen.chalk.common.v1 import online_query_pb2 as _online_query_pb2
 from chalk._gen.chalk.protosql.v1 import sql_service_pb2 as _sql_service_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2

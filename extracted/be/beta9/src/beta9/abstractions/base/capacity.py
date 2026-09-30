@@ -11,6 +11,7 @@ import time
 from typing import TYPE_CHECKING, List, Optional
 
 from ... import terminal
+from ...terminal import cli_name
 from ...clients.gateway import (
     GetOrCreateStubRequest,
     GetOrCreateStubResponse,
@@ -41,13 +42,6 @@ PROVISION_POLL_INTERVAL_S = 5
 
 def requested_gpus(stub_request: GetOrCreateStubRequest) -> List[str]:
     return [g for g in (stub_request.gpu or "").split(",") if g and g != "NO_GPU"]
-
-
-def cli_name() -> str:
-    """The installed CLI executable name ("beta9" or "beam"), for command hints."""
-    from ...config import get_settings
-
-    return (get_settings().name or "beta9").lower()
 
 
 def no_capacity_hint(gpus: List[str]) -> str:
@@ -81,9 +75,10 @@ def credits_url() -> Optional[str]:
 
 
 def credit_error_hint(message: str) -> Optional[str]:
-    """A purchase link for credit-related failures; None for everything else."""
+    """A purchase link for credit-related failures that do not already name one."""
     url = credits_url()
-    if url and "credit" in (message or "").lower():
+    text = (message or "").lower()
+    if url and "credit" in text and "http" not in text:
         return f"purchase credits at {url}"
     return None
 

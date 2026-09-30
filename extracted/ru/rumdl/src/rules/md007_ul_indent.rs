@@ -2,6 +2,9 @@
 ///
 /// See [docs/md007.md](../../docs/md007.md) for full documentation, configuration, and examples.
 use crate::rule::{LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
+use crate::utils::list_fix_guard::{Allowed, drop_structure_changing_fixes};
+use crate::utils::list_indent_shift::{Nesting, move_owned_lines};
+use std::collections::HashMap;
 
 pub mod md007_config;
 use md007_config::MD007Config;
@@ -230,6 +233,9 @@ impl Rule for MD007ULIndent {
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let mut warnings = Vec::new();
         let mut list_stack: Vec<(usize, usize, bool, usize, usize, bool, usize)> = Vec::new(); // Stack of (marker_visual_col, line_num, is_ordered, content_visual_col, blockquote_depth, chain, source_content_visual_col) for tracking nesting. `chain` marks an unordered item that inherited the ordered-ancestor MD007 exemption or was checked under the fixed-style clamp. `content_visual_col` is the corrected (post-fix) column that expectation math builds on; `source_content_visual_col` is the column as written, which containment is judged against.
+
+        // Line of each re-indented item -> (its warning, how far its content moves).
+        let mut moves = HashMap::new();
 
         for (line_idx, line_info) in ctx.lines.iter().enumerate() {
             let parsed_list_item = ctx.list_item_on_line(line_idx + 1);
@@ -642,6 +648,13 @@ impl Rule for MD007ULIndent {
                         severity: Severity::Warning,
                         fix,
                     });
+                    moves.insert(
+                        line_idx,
+                        (
+                            warnings.len() - 1,
+                            expected_indent as isize - visual_marker_column as isize,
+                        ),
+                    );
                 }
             } else if !line_info.is_blank {
                 // A non-blank, non-list content line that breaks out of the open
@@ -731,6 +744,12 @@ impl Rule for MD007ULIndent {
                 Self::terminate_closed_items(ctx, line_info, &mut list_stack, bq_depth);
             }
         }
+
+        // Re-indenting a marker moves its item's content column, so the lines the
+        // item owns move with it. MD007 places every marker at an absolute column,
+        // so nested markers are left to their own warnings.
+        move_owned_lines(ctx, &moves, Nesting::Absolute, &mut warnings);
+        drop_structure_changing_fixes(ctx, &mut warnings, Allowed::Nothing);
         Ok(warnings)
     }
 
@@ -746,22 +765,7 @@ impl Rule for MD007ULIndent {
             return Ok(ctx.content.to_string());
         }
 
-        // Collect all fixes and sort by range start (descending) to apply from end to beginning
-        let mut fixes: Vec<_> = warnings
-            .iter()
-            .filter_map(|w| w.fix.as_ref().map(|f| (f.range.start, f.range.end, &f.replacement)))
-            .collect();
-        fixes.sort_by_key(|f| std::cmp::Reverse(f.0));
-
-        // Apply fixes from end to beginning to preserve byte offsets
-        let mut result = ctx.content.to_string();
-        for (start, end, replacement) in fixes {
-            if start < result.len() && end <= result.len() && start <= end {
-                result.replace_range(start..end, replacement);
-            }
-        }
-
-        Ok(result)
+        crate::utils::fix_utils::apply_warning_fixes(ctx.content, &warnings).map_err(LintError::InvalidInput)
     }
 
     /// Get the category of this rule for selective processing
@@ -804,9 +808,10 @@ impl Rule for MD007ULIndent {
                 && rule_config.style == md007_config::IndentStyle::TextAligned
             {
                 eprintln!(
-                    "\x1b[33m[config warning]\x1b[0m MD007: 'indent' has no effect when 'style = \"text-aligned\"'. \
+                    "{} MD007: 'indent' has no effect when 'style = \"text-aligned\"'. \
                      Text-aligned style ignores indent and aligns nested items with parent text. \
                      To use fixed {} space increments, either remove 'style' or set 'style = \"fixed\"'.",
+                    crate::utils::warning_label("config warning"),
                     rule_config.indent.get()
                 );
             }
@@ -817,17 +822,19 @@ impl Rule for MD007ULIndent {
         if config.markdown_flavor() == crate::config::MarkdownFlavor::MkDocs {
             if rule_config.indent_explicit && rule_config.indent.get() < 4 {
                 eprintln!(
-                    "\x1b[33m[config warning]\x1b[0m MD007: MkDocs flavor requires indent >= 4 \
+                    "{} MD007: MkDocs flavor requires indent >= 4 \
                      (Python-Markdown enforces 4-space indentation). \
                      Overriding indent={} to indent=4.",
+                    crate::utils::warning_label("config warning"),
                     rule_config.indent.get()
                 );
             }
             if rule_config.style_explicit && rule_config.style == md007_config::IndentStyle::TextAligned {
                 eprintln!(
-                    "\x1b[33m[config warning]\x1b[0m MD007: MkDocs flavor requires style=\"fixed\" \
+                    "{} MD007: MkDocs flavor requires style=\"fixed\" \
                      (Python-Markdown uses fixed 4-space indentation). \
-                     Overriding style=\"text-aligned\" to style=\"fixed\"."
+                     Overriding style=\"text-aligned\" to style=\"fixed\".",
+                    crate::utils::warning_label("config warning")
                 );
             }
             if rule_config.indent.get() < 4 {
@@ -846,6 +853,66 @@ mod tests {
     use crate::lint_context::LintContext;
     use crate::rule::Rule;
     use indoc::indoc;
+
+    fn fix_md007(content: &str) -> String {
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        MD007ULIndent::default().fix(&ctx).unwrap()
+    }
+
+    #[test]
+    fn test_fix_keeps_a_parent_paragraph_out_of_the_shifted_child() {
+        // The paragraph sits below the child's content column, so it belongs to
+        // the parent. Moving the child left must not let it capture the line.
+        let content = "* parent\n\n    * child\n\n    Parent paragraph.\n";
+        assert_eq!(fix_md007(content), "* parent\n\n  * child\n\n  Parent paragraph.\n");
+
+        let quoted = "> * parent\n>\n>     * child\n>\n>     Parent paragraph.\n";
+        assert_eq!(
+            fix_md007(quoted),
+            "> * parent\n>\n>   * child\n>\n>   Parent paragraph.\n"
+        );
+    }
+
+    #[test]
+    fn test_fix_declines_when_the_child_would_capture_a_parent_code_block() {
+        // Moving the fence to the parent's content column would change the code
+        // block's content, so the item is reported but left unfixed.
+        let content = "* parent\n\n    * child\n\n    ```\n    code\n    ```\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let warnings = MD007ULIndent::default().check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].fix.is_none());
+        assert_eq!(fix_md007(content), content);
+    }
+
+    #[test]
+    fn test_unfixable_list_leaves_other_lists_fixable() {
+        // The second list cannot be fixed, which says nothing about the first.
+        let content = "* a\n   * b\n\nParagraph.\n\n* parent\n\n    * child\n\n    ```\n    code\n    ```\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let warnings = MD007ULIndent::default().check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 2, "{warnings:?}");
+        assert!(warnings[0].fix.is_some(), "{warnings:?}");
+        assert!(warnings[1].fix.is_none(), "{warnings:?}");
+        assert_eq!(
+            fix_md007(content),
+            "* a\n  * b\n\nParagraph.\n\n* parent\n\n    * child\n\n    ```\n    code\n    ```\n"
+        );
+    }
+
+    #[test]
+    fn test_unfixable_list_leaves_a_later_list_fixable() {
+        let content = "* parent\n\n    * child\n\n    ```\n    code\n    ```\n\nParagraph.\n\n* a\n   * b\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let warnings = MD007ULIndent::default().check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 2, "{warnings:?}");
+        assert!(warnings[0].fix.is_none(), "{warnings:?}");
+        assert!(warnings[1].fix.is_some(), "{warnings:?}");
+        assert_eq!(
+            fix_md007(content),
+            "* parent\n\n    * child\n\n    ```\n    code\n    ```\n\nParagraph.\n\n* a\n  * b\n"
+        );
+    }
 
     #[test]
     fn test_valid_list_indent() {
@@ -1264,9 +1331,10 @@ tags:
         assert_eq!(result[1].line, 2);
         assert_eq!(result[1].message, "Expected 6 spaces for indent depth 1, found 4");
 
-        // Fix should correct to start_indent for first level
+        // Four spaces at the start of a document open an indented code block,
+        // so moving the list there is withheld.
         let fixed = rule.fix(&ctx).unwrap();
-        assert_eq!(fixed, "    * Item 1\n      * Item 2");
+        assert_eq!(fixed, wrong_content);
     }
 
     #[test]

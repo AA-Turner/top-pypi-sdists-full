@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.organization_invitation_status import OrganizationInvitationStatus
+from koyeb.api_async.models.organization_invitation_status import (
+    OrganizationInvitationStatus,
+)
+
 
 class TestOrganizationInvitationStatus(unittest.TestCase):
     """OrganizationInvitationStatus unit test stubs"""
@@ -29,5 +32,6 @@ class TestOrganizationInvitationStatus(unittest.TestCase):
         """Test OrganizationInvitationStatus"""
         # inst = OrganizationInvitationStatus()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

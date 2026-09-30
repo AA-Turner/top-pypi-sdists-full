@@ -98,6 +98,10 @@
     const lexbor_shs_hash_t *hash;                                             \
                                                                                \
     if (cp < 0x80) {                                                           \
+        if (*data >= end) {                                                    \
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;                           \
+        }                                                                      \
+                                                                               \
         *(*data)++ = (lxb_char_t) cp;                                          \
         return 1;                                                              \
     }                                                                          \
@@ -105,6 +109,10 @@
     hash = lexbor_shs_hash_get_static(table, table_size, cp);                  \
     if (hash == NULL) {                                                        \
         return LXB_ENCODING_ENCODE_ERROR;                                      \
+    }                                                                          \
+                                                                               \
+    if (*data >= end) {                                                        \
+        return LXB_ENCODING_ENCODE_SMALL_BUFFER;                               \
     }                                                                          \
                                                                                \
     *(*data)++ = (lxb_char_t) (uintptr_t) hash->value;                         \
@@ -767,7 +775,19 @@ lxb_encoding_encode_shift_jis_index(lxb_codepoint_t cp)
 
     index = lxb_encoding_multi_jis0208_index(cp);
 
-    return ((index - 8272) > (8835 - 8272)) ? UINT16_MAX : index;
+    if ((unsigned) (index - 8272) > (8835 - 8272)) {
+        return index;
+    }
+
+    for (index = 10716; index < (sizeof(lxb_encoding_multi_jis0208_map)
+                                 / sizeof(lxb_codepoint_t)); index++)
+    {
+        if (lxb_encoding_multi_jis0208_map[index] == cp) {
+            return index;
+        }
+    }
+
+    return UINT16_MAX;
 }
 
 lxb_status_t
@@ -1217,6 +1237,10 @@ lxb_encoding_encode_big5_single(lxb_encoding_encode_t *ctx, lxb_char_t **data,
     uint16_t index;
 
     if (cp < 0x80) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = (lxb_char_t) cp;
 
         return 1;
@@ -1250,18 +1274,30 @@ lxb_encoding_encode_euc_jp_single(lxb_encoding_encode_t *ctx, lxb_char_t **data,
     uint16_t index;
 
     if (cp < 0x80) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = (lxb_char_t) cp;
 
         return 1;
     }
 
     if (cp == 0x00A5) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = 0x5C;
 
         return 1;
     }
 
     if (cp == 0x203E) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = 0x7E;
 
         return 1;
@@ -1300,6 +1336,10 @@ lxb_encoding_encode_euc_kr_single(lxb_encoding_encode_t *ctx, lxb_char_t **data,
     uint16_t index;
 
     if (cp < 0x80) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = (lxb_char_t) cp;
 
         return 1;
@@ -1327,6 +1367,10 @@ lxb_encoding_encode_gbk_single(lxb_encoding_encode_t *ctx, lxb_char_t **data,
     uint16_t index;
 
     if (cp < 0x80) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = (lxb_char_t) cp;
 
         return 1;
@@ -1337,6 +1381,10 @@ lxb_encoding_encode_gbk_single(lxb_encoding_encode_t *ctx, lxb_char_t **data,
     }
 
     if (cp == 0x20AC) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = 0x80;
 
         return 1;
@@ -1391,6 +1439,10 @@ begin:
             }
 
             if (cp < 0x80) {
+                if (*data >= end) {
+                    goto small_buffer;
+                }
+
                 *(*data)++ = (lxb_char_t) cp;
 
                 return size + 1;
@@ -1434,6 +1486,10 @@ begin:
                         break;
 
                     default:
+                        if (*data >= end) {
+                            goto small_buffer;
+                        }
+
                         *(*data)++ = (lxb_char_t) cp;
                         return size + 1;
                 }
@@ -1456,10 +1512,18 @@ begin:
                 return size + 4;
             }
             else if (cp == 0x00A5) {
+                if (*data >= end) {
+                    goto small_buffer;
+                }
+
                 *(*data)++ = 0x5C;
                 return size + 1;
             }
             else if (cp == 0x203E) {
+                if (*data >= end) {
+                    goto small_buffer;
+                }
+
                 *(*data)++ = 0x7E;
                 return size + 1;
             }
@@ -1703,12 +1767,20 @@ lxb_encoding_encode_shift_jis_single(lxb_encoding_encode_t *ctx, lxb_char_t **da
     uint32_t lead, trail;
 
     if (cp <= 0x80) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = (lxb_char_t) cp;
 
         return 1;
     }
 
     if ((unsigned) (cp - 0xFF61) <= (0xFF9F - 0xFF61)) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = cp - 0xFF61 + 0xA1;
 
         return 1;
@@ -1716,10 +1788,18 @@ lxb_encoding_encode_shift_jis_single(lxb_encoding_encode_t *ctx, lxb_char_t **da
 
     switch (cp) {
         case 0x00A5:
+            if (*data >= end) {
+                return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+            }
+
             *(*data)++ = 0x5C;
             return 1;
 
         case 0x203E:
+            if (*data >= end) {
+                return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+            }
+
             *(*data)++ = 0x7E;
             return 1;
 
@@ -1812,6 +1892,10 @@ lxb_encoding_encode_utf_8_single(lxb_encoding_encode_t *ctx, lxb_char_t **data,
                                  const lxb_char_t *end, lxb_codepoint_t cp)
 {
     if (cp < 0x80) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         /* 0xxxxxxx */
         *(*data)++ = (lxb_char_t) cp;
 
@@ -1886,6 +1970,10 @@ lxb_encoding_encode_gb18030_single(lxb_encoding_encode_t *ctx, lxb_char_t **data
     uint32_t index;
 
     if (cp < 0x80) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = (lxb_char_t) cp;
 
         return 1;
@@ -1942,7 +2030,6 @@ int8_t
 lxb_encoding_encode_replacement_single(lxb_encoding_encode_t *ctx, lxb_char_t **data,
                                        const lxb_char_t *end, lxb_codepoint_t cp)
 {
-    (*data)++;
     return LXB_ENCODING_ENCODE_ERROR;
 }
 
@@ -2039,12 +2126,20 @@ lxb_encoding_encode_x_user_defined_single(lxb_encoding_encode_t *ctx, lxb_char_t
                                           const lxb_char_t *end, lxb_codepoint_t cp)
 {
     if (cp < 0x80) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = (lxb_char_t) cp;
 
         return 1;
     }
 
     if (cp >= 0xF780 && cp <= 0xF7FF) {
+        if (*data >= end) {
+            return LXB_ENCODING_ENCODE_SMALL_BUFFER;
+        }
+
         *(*data)++ = (lxb_char_t) (cp - 0xF780 + 0x80);
 
         return 1;

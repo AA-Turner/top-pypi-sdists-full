@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import importlib.util
 import json
 import os
@@ -9,13 +10,15 @@ from pathlib import Path
 from typing import Any
 
 import cv2
-from ultralytics import YOLO
 import numpy as np
+from ultralytics import YOLO
 
 # --- Import bootstrap (analytics + footfall only) ---
 # Avoid ``matrice_analytics/__init__.py`` (pulls all of post_processing) and
 # ``usecases/__init__.py`` (pulls color/clip and optional subprocess deps).
-_ROOT = Path("C:\\Users\\aswan_3sr40l5\\Matrice\\codespace\\repos\\py_analytics") # add path to the root of the repository
+_ROOT = Path(
+    "C:\\Users\\aswan_3sr40l5\\Matrice\\codespace\\repos\\py_analytics"
+)  # add path to the root of the repository
 _SRC = _ROOT / "src"
 _PKG = _SRC / "matrice_analytics"
 sys.path.insert(0, str(_SRC))
@@ -33,7 +36,6 @@ _register_pkg("matrice_analytics.post_processing", _PKG / "post_processing")
 _register_pkg("matrice_analytics.post_processing.usecases", _PKG / "post_processing" / "usecases")
 
 from matrice_analytics.analytics.engine import AnalyticsEngine  # noqa: E402
-
 
 _spec_bt = importlib.util.spec_from_file_location(
     "matrice_analytics.post_processing.usecases.footfall",
@@ -65,10 +67,7 @@ def _normalize_zones(
     height: int,
 ) -> dict[str, list[list[float]]]:
     """Convert pixel-coordinate zone polygons to normalized 0-1 coordinates."""
-    return {
-        name: [[pt[0] / width, pt[1] / height] for pt in pts]
-        for name, pts in zones_px.items()
-    }
+    return {name: [[pt[0] / width, pt[1] / height] for pt in pts] for name, pts in zones_px.items()}
 
 
 # COCO class index to category name for vehicle_type_monitoring
@@ -82,8 +81,8 @@ INDEX_TO_CATEGORY: dict[int, str] = {
 
 # Zone overlay colours
 ZONE_COLORS: dict[str, tuple[int, int, int]] = {
-    "A": (0, 200, 255),   # orange
-    "B": (255, 200, 0),   # cyan-blue
+    "A": (0, 200, 255),  # orange
+    "B": (255, 200, 0),  # cyan-blue
 }
 DEFAULT_ZONE_COLOR = (0, 255, 0)
 
@@ -150,7 +149,10 @@ class ZoneAnalyticsTestProcessor:
 
     def _run_inference(self, frame):
         results = self.model.predict(
-            frame, conf=self.confidence_threshold, iou=0.7, verbose=False,
+            frame,
+            conf=self.confidence_threshold,
+            iou=0.7,
+            verbose=False,
         )
         return results[0]
 
@@ -168,12 +170,14 @@ class ZoneAnalyticsTestProcessor:
 
             conf = float(boxes.conf[i])
             x1, y1, x2, y2 = boxes.xyxy[i].tolist()
-            detections.append({
-                "category": category,
-                "category_id": cls_id,
-                "confidence": conf,
-                "bounding_box": {"xmin": x1, "ymin": y1, "xmax": x2, "ymax": y2},
-            })
+            detections.append(
+                {
+                    "category": category,
+                    "category_id": cls_id,
+                    "confidence": conf,
+                    "bounding_box": {"xmin": x1, "ymin": y1, "xmax": x2, "ymax": y2},
+                }
+            )
         return detections
 
     # ------------------------------------------------------------------
@@ -191,8 +195,14 @@ class ZoneAnalyticsTestProcessor:
 
             centroid = poly.mean(axis=0).astype(int)
             cv2.putText(
-                frame, f"Zone {name}", tuple(centroid),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA,
+                frame,
+                f"Zone {name}",
+                tuple(centroid),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                color,
+                2,
+                cv2.LINE_AA,
             )
         cv2.addWeighted(overlay, 0.2, frame, 0.8, 0, frame)
 
@@ -212,8 +222,14 @@ class ZoneAnalyticsTestProcessor:
 
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                 cv2.putText(
-                    frame, label, (x1, y1 - 6),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA,
+                    frame,
+                    label,
+                    (x1, y1 - 6),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    color,
+                    1,
+                    cv2.LINE_AA,
                 )
 
     def _draw_zone_counts(self, frame, frame_result: dict) -> None:
@@ -234,8 +250,14 @@ class ZoneAnalyticsTestProcessor:
 
             text = f"Zone {zone_name}: {int(occupancy)} objects"
             cv2.putText(
-                frame, text, (10, y_offset),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA,
+                frame,
+                text,
+                (10, y_offset),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                color,
+                2,
+                cv2.LINE_AA,
             )
             y_offset += 35
 
@@ -251,6 +273,7 @@ class ZoneAnalyticsTestProcessor:
             if hasattr(o, "__dict__"):
                 return o.__dict__
             return str(o)
+
         return json.loads(json.dumps(obj, default=_to_serializable))
 
     # ------------------------------------------------------------------
@@ -271,7 +294,7 @@ class ZoneAnalyticsTestProcessor:
 
         print(f"Video: {self.video_path} ({width}x{height} @ {fps:.1f} fps)")
         print(f"Model: {self.model_path}")
-        print(f"Manifest: vehicle_type_monitoring")
+        print("Manifest: vehicle_type_monitoring")
         print(f"Zones active: {self.engine.zones_active}")
         print(f"Zone processors: {list(self.engine.zone_processors.keys())}")
         print(f"Output video: {self.output_video_path}")
@@ -367,7 +390,7 @@ class ZoneAnalyticsTestProcessor:
         print(f"\nFinal aggregation saved: {final_agg_path}")
         print(f"All aggregated results saved: {all_agg_path}")
         print("\nFinal aggregation:")
-        pprint.pprint(final_serialized)
+        pprint.pprint(final_serialized)  # noqa: T203
 
         cap.release()
         video_writer.release()

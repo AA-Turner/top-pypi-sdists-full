@@ -155,6 +155,7 @@ class Deployment(_message.Message):
         "build_options",
         "resolved_base_image_tag",
         "source_code_hash",
+        "prebuilt_engine_image",
     )
     class BuildOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -203,6 +204,7 @@ class Deployment(_message.Message):
     BUILD_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     RESOLVED_BASE_IMAGE_TAG_FIELD_NUMBER: _ClassVar[int]
     SOURCE_CODE_HASH_FIELD_NUMBER: _ClassVar[int]
+    PREBUILT_ENGINE_IMAGE_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     status: DeploymentStatus
@@ -242,6 +244,7 @@ class Deployment(_message.Message):
     build_options: _containers.ScalarMap[str, str]
     resolved_base_image_tag: str
     source_code_hash: str
+    prebuilt_engine_image: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -283,4 +286,5 @@ class Deployment(_message.Message):
         build_options: _Optional[_Mapping[str, str]] = ...,
         resolved_base_image_tag: _Optional[str] = ...,
         source_code_hash: _Optional[str] = ...,
+        prebuilt_engine_image: _Optional[str] = ...,
     ) -> None: ...

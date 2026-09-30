@@ -13,7 +13,15 @@ from typing import Any, AsyncIterator, Dict, Iterator, Optional
 
 import httpx
 
-from .utils import DEFAULT_HTTP_TIMEOUT, SandboxServiceError, SandboxTimeoutError
+from .errors import (
+    NoSandboxSecretError,
+    SandboxError,
+    SandboxRequestError,
+    SandboxServiceError,
+    SandboxTimeoutError,
+)
+
+DEFAULT_HTTP_TIMEOUT = 30  # seconds for HTTP requests
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +41,11 @@ class ConnectionInfo:
         if not self.public_url:
             raise ValueError("Unable to get sandbox URL")
         if not self.secret:
-            raise ValueError("Sandbox secret not available")
+            raise NoSandboxSecretError(
+                "Sandbox secret not available — this handle is not "
+                "executor-connected (e.g. it came from Sandbox.list()); use "
+                "Sandbox.get_from_id(<id>) for a connected handle"
+            )
 
 
 def _build_headers(conn_info: ConnectionInfo) -> Dict[str, str]:
@@ -106,7 +118,12 @@ class SandboxClient:
         **kwargs,
     ) -> httpx.Response:
         """
-        Make an HTTP request with retry logic for 503 errors.
+        Make an HTTP request with retry logic for transient failures.
+
+        Retries all 5xx responses and network errors (httpx.RequestError,
+        excluding timeouts) with exponential backoff. 4xx responses are
+        wrapped as SandboxRequestError; 5xx that persist after retries are
+        wrapped as SandboxServiceError.
 
         Args:
             method: HTTP method (e.g., 'GET', 'POST')
@@ -119,10 +136,12 @@ class SandboxClient:
             Response object
 
         Raises:
-            httpx.HTTPStatusError: If the request fails after all retries
+            SandboxRequestError: On a non-retryable HTTP error (4xx)
+            SandboxServiceError: On an HTTP 5xx error after retries are exhausted
+            SandboxTimeoutError: On request timeout
+            SandboxError: On network errors after retries are exhausted
         """
         backoff = initial_backoff
-        last_exception = None
 
         # Set default timeout if not provided
         if "timeout" not in kwargs:
@@ -132,10 +151,11 @@ class SandboxClient:
             try:
                 response = self._client.request(method, url, **kwargs)
 
-                # If we get a 503, retry with backoff
-                if response.status_code == 503 and attempt < max_retries:
+                # Retry transient server errors (5xx) with backoff
+                if response.status_code >= 500 and attempt < max_retries:
                     logger.debug(
-                        f"Received 503 error, retrying... (attempt {attempt + 1}/{max_retries + 1})"
+                        f"Received {response.status_code} error, retrying... "
+                        f"(attempt {attempt + 1}/{max_retries + 1})"
                     )
                     time.sleep(backoff)
                     backoff *= 2  # Exponential backoff
@@ -145,37 +165,43 @@ class SandboxClient:
                 return response
 
             except httpx.HTTPStatusError as e:
-                if (
-                    e.response.status_code == 503
-                    and attempt < max_retries
-                ):
+                if e.response.status_code >= 500 and attempt < max_retries:
                     logger.debug(
-                        f"Received 503 error, retrying... (attempt {attempt + 1}/{max_retries + 1})"
+                        f"Received {e.response.status_code} error, retrying... "
+                        f"(attempt {attempt + 1}/{max_retries + 1})"
                     )
                     time.sleep(backoff)
                     backoff *= 2
-                    last_exception = e
                     continue
                 if e.response.status_code >= 500:
                     raise SandboxServiceError(
                         status_code=e.response.status_code,
                         message=e.response.text,
                     ) from e
-                raise
+                raise SandboxRequestError(
+                    status_code=e.response.status_code,
+                    body=e.response.text,
+                ) from e
             except httpx.TimeoutException as e:
                 raise SandboxTimeoutError(
                     f"Request timed out after {kwargs.get('timeout', self.timeout)}s"
                 ) from e
             except httpx.RequestError as e:
-                logger.warning(f"Request failed: {e}")
-                raise
+                # Transient network errors (connection refused, reset, ...)
+                # are retried with the same backoff as server errors.
+                if attempt < max_retries:
+                    logger.debug(
+                        f"Network error, retrying... "
+                        f"(attempt {attempt + 1}/{max_retries + 1}): {e}"
+                    )
+                    time.sleep(backoff)
+                    backoff *= 2
+                    continue
+                logger.warning(f"Request failed after {max_retries} retries: {e}")
+                raise SandboxError(f"Request to sandbox executor failed: {e}") from e
 
-        # If we exhausted all retries, raise the last exception
-        if last_exception:
-            raise SandboxServiceError(
-                status_code=last_exception.response.status_code,
-                message=last_exception.response.text,
-            ) from last_exception
+        # Unreachable in practice: every terminal path returns or raises.
+        raise SandboxError(f"Request to {url} failed after {max_retries} retries")
 
     def health(self) -> Dict[str, str]:
         """
@@ -191,9 +217,7 @@ class SandboxClient:
             httpx.HTTPStatusError: If the health check fails
             httpx.TimeoutException: If the health check times out
         """
-        response = self._client.get(
-            f"{self.base_url}/health", timeout=5
-        )
+        response = self._client.get(f"{self.base_url}/health", timeout=5)
         response.raise_for_status()
         return response.json()
 
@@ -300,6 +324,9 @@ class SandboxClient:
             raise SandboxTimeoutError(
                 f"Request timed out after {request_timeout}s"
             ) from e
+        except httpx.RequestError as e:
+            # E.g. the instance is torn down mid-stream during a redeployment.
+            raise SandboxError(f"Connection to sandbox lost: {e}") from e
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """
@@ -533,9 +560,7 @@ class SandboxClient:
             >>> for process in result.get("processes", []):
             ...     print(f"{process['id']}: {process['command']} - {process['status']}")
         """
-        response = self._request_with_retry(
-            "GET", f"{self.base_url}/list_processes"
-        )
+        response = self._request_with_retry("GET", f"{self.base_url}/list_processes")
         return response.json()
 
 
@@ -582,7 +607,12 @@ class AsyncSandboxClient:
         **kwargs,
     ) -> httpx.Response:
         """
-        Make an async HTTP request with retry logic for 503 errors.
+        Make an HTTP request with retry logic for transient failures.
+
+        Retries all 5xx responses and network errors (httpx.RequestError,
+        excluding timeouts) with exponential backoff. 4xx responses are
+        wrapped as SandboxRequestError; 5xx that persist after retries are
+        wrapped as SandboxServiceError.
 
         Args:
             method: HTTP method (e.g., 'GET', 'POST')
@@ -595,10 +625,12 @@ class AsyncSandboxClient:
             Response object
 
         Raises:
-            httpx.HTTPStatusError: If the request fails after all retries
+            SandboxRequestError: On a non-retryable HTTP error (4xx)
+            SandboxServiceError: On an HTTP 5xx error after retries are exhausted
+            SandboxTimeoutError: On request timeout
+            SandboxError: On network errors after retries are exhausted
         """
         backoff = initial_backoff
-        last_exception = None
 
         # Set default timeout if not provided
         if "timeout" not in kwargs:
@@ -608,10 +640,11 @@ class AsyncSandboxClient:
             try:
                 response = await self._client.request(method, url, **kwargs)
 
-                # If we get a 503, retry with backoff
-                if response.status_code == 503 and attempt < max_retries:
+                # Retry transient server errors (5xx) with backoff
+                if response.status_code >= 500 and attempt < max_retries:
                     logger.debug(
-                        f"Received 503 error, retrying... (attempt {attempt + 1}/{max_retries + 1})"
+                        f"Received {response.status_code} error, retrying... "
+                        f"(attempt {attempt + 1}/{max_retries + 1})"
                     )
                     await asyncio.sleep(backoff)
                     backoff *= 2  # Exponential backoff
@@ -621,37 +654,43 @@ class AsyncSandboxClient:
                 return response
 
             except httpx.HTTPStatusError as e:
-                if (
-                    e.response.status_code == 503
-                    and attempt < max_retries
-                ):
+                if e.response.status_code >= 500 and attempt < max_retries:
                     logger.debug(
-                        f"Received 503 error, retrying... (attempt {attempt + 1}/{max_retries + 1})"
+                        f"Received {e.response.status_code} error, retrying... "
+                        f"(attempt {attempt + 1}/{max_retries + 1})"
                     )
                     await asyncio.sleep(backoff)
                     backoff *= 2
-                    last_exception = e
                     continue
                 if e.response.status_code >= 500:
                     raise SandboxServiceError(
                         status_code=e.response.status_code,
                         message=e.response.text,
                     ) from e
-                raise
+                raise SandboxRequestError(
+                    status_code=e.response.status_code,
+                    body=e.response.text,
+                ) from e
             except httpx.TimeoutException as e:
                 raise SandboxTimeoutError(
                     f"Request timed out after {kwargs.get('timeout', self.timeout)}s"
                 ) from e
             except httpx.RequestError as e:
-                logger.warning(f"Request failed: {e}")
-                raise
+                # Transient network errors (connection refused, reset, ...)
+                # are retried with the same backoff as server errors.
+                if attempt < max_retries:
+                    logger.debug(
+                        f"Network error, retrying... "
+                        f"(attempt {attempt + 1}/{max_retries + 1}): {e}"
+                    )
+                    await asyncio.sleep(backoff)
+                    backoff *= 2
+                    continue
+                logger.warning(f"Request failed after {max_retries} retries: {e}")
+                raise SandboxError(f"Request to sandbox executor failed: {e}") from e
 
-        # If we exhausted all retries, raise the last exception
-        if last_exception:
-            raise SandboxServiceError(
-                status_code=last_exception.response.status_code,
-                message=last_exception.response.text,
-            ) from last_exception
+        # Unreachable in practice: every terminal path returns or raises.
+        raise SandboxError(f"Request to {url} failed after {max_retries} retries")
 
     async def health(self) -> Dict[str, str]:
         """
@@ -667,9 +706,7 @@ class AsyncSandboxClient:
             httpx.HTTPStatusError: If the health check fails
             httpx.TimeoutException: If the health check times out
         """
-        response = await self._client.get(
-            f"{self.base_url}/health", timeout=5
-        )
+        response = await self._client.get(f"{self.base_url}/health", timeout=5)
         response.raise_for_status()
         return response.json()
 
@@ -776,6 +813,9 @@ class AsyncSandboxClient:
             raise SandboxTimeoutError(
                 f"Request timed out after {request_timeout}s"
             ) from e
+        except httpx.RequestError as e:
+            # E.g. the instance is torn down mid-stream during a redeployment.
+            raise SandboxError(f"Connection to sandbox lost: {e}") from e
 
     async def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """

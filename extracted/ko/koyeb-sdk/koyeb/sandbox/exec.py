@@ -13,7 +13,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from .executor_client import AsyncSandboxClient, SandboxClient
-from .utils import SandboxError
+from .errors import SandboxError
 
 if TYPE_CHECKING:
     from .sandbox import Sandbox
@@ -55,7 +55,78 @@ class CommandResult:
 
 
 class SandboxCommandError(SandboxError):
-    """Raised when command execution fails"""
+    """Raised when a sandbox command fails (opt-in via raise_on_error)."""
+
+    def __init__(self, message: str, result: Optional["CommandResult"] = None):
+        super().__init__(message)
+        self.result = result
+
+
+def _check_result(result: CommandResult, raise_on_error: bool) -> CommandResult:
+    """Raise SandboxCommandError for failed commands when opted in."""
+    if raise_on_error and not result.success:
+        raise SandboxCommandError(
+            f"Command '{result.command}' failed with exit code "
+            f"{result.exit_code}: {result.stderr or result.stdout}",
+            result=result,
+        )
+    return result
+
+
+class _EventFold:
+    """Folds executor stream events into a CommandResult.
+
+    The sync and async exec twins differ only in how events are pulled;
+    this class owns what every event means.
+    """
+
+    def __init__(self, command, start_time, on_stdout=None, on_stderr=None):
+        self.command = command
+        self.start_time = start_time
+        self.on_stdout = on_stdout
+        self.on_stderr = on_stderr
+        self.buffer = not on_stdout and not on_stderr
+        self.stdout: List[str] = []
+        self.stderr: List[str] = []
+        self.exit_code = 0
+
+    def feed(self, event: Dict[str, Any]) -> Optional[CommandResult]:
+        """Consume one event; returns a result only for a failed start."""
+        if "stream" in event:
+            stream_type = event["stream"]
+            data = event["data"]
+            if stream_type == "stdout":
+                if self.on_stdout:
+                    self.on_stdout(data)
+                elif self.buffer:
+                    self.stdout.append(data)
+            elif stream_type == "stderr":
+                if self.on_stderr:
+                    self.on_stderr(data)
+                elif self.buffer:
+                    self.stderr.append(data)
+        elif "code" in event:
+            self.exit_code = event["code"]
+        elif "error" in event and isinstance(event["error"], str):
+            return CommandResult(
+                stdout="",
+                stderr=event["error"],
+                exit_code=1,
+                status=CommandStatus.FAILED,
+                duration=time.time() - self.start_time,
+                command=self.command,
+            )
+        return None
+
+    def result(self) -> CommandResult:
+        return CommandResult(
+            stdout="".join(self.stdout),
+            stderr="".join(self.stderr),
+            exit_code=self.exit_code,
+            status=(CommandStatus.FINISHED if self.exit_code == 0 else CommandStatus.FAILED),
+            duration=time.time() - self.start_time,
+            command=self.command,
+        )
 
 
 class SandboxExecutor:
@@ -82,6 +153,7 @@ class SandboxExecutor:
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
         stream: bool = True,
+        raise_on_error: bool = False,
     ) -> CommandResult:
         """
         Execute a command in a shell synchronously. Supports streaming output via callbacks.
@@ -113,53 +185,16 @@ class SandboxExecutor:
         start_time = time.time()
 
         if stream:
-            buffer = not on_stdout and not on_stderr
-            stdout_buffer: List[str] = []
-            stderr_buffer: List[str] = []
-            exit_code = 0
-
+            fold = _EventFold(command, start_time, on_stdout, on_stderr)
             client = self._get_client()
             for event in client.run_streaming(
                 cmd=command, cwd=cwd, env=env, timeout=float(timeout)
             ):
-                if "stream" in event:
-                    stream_type = event["stream"]
-                    data = event["data"]
+                failed_start = fold.feed(event)
+                if failed_start is not None:
+                    return _check_result(failed_start, raise_on_error)
 
-                    if stream_type == "stdout":
-                        if on_stdout:
-                            on_stdout(data)
-                        elif buffer:
-                            stdout_buffer.append(data)
-                    elif stream_type == "stderr":
-                        if on_stderr:
-                            on_stderr(data)
-                        elif buffer:
-                            stderr_buffer.append(data)
-                elif "code" in event:
-                    exit_code = event["code"]
-                elif "error" in event and isinstance(event["error"], str):
-                    return CommandResult(
-                        stdout="",
-                        stderr=event["error"],
-                        exit_code=1,
-                        status=CommandStatus.FAILED,
-                        duration=time.time() - start_time,
-                        command=command,
-                    )
-
-            return CommandResult(
-                stdout="".join(stdout_buffer),
-                stderr="".join(stderr_buffer),
-                exit_code=exit_code,
-                status=(
-                    CommandStatus.FINISHED
-                    if exit_code == 0
-                    else CommandStatus.FAILED
-                ),
-                duration=time.time() - start_time,
-                command=command,
-            )
+            return _check_result(fold.result(), raise_on_error)
 
         # Use regular run for non-streaming execution
         client = self._get_client()
@@ -169,15 +204,16 @@ class SandboxExecutor:
         stderr = response.get("stderr", "")
         exit_code = response.get("code", 0)
 
-        return CommandResult(
-            stdout=stdout,
-            stderr=stderr,
-            exit_code=exit_code,
-            status=(
-                CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+        return _check_result(
+            CommandResult(
+                stdout=stdout,
+                stderr=stderr,
+                exit_code=exit_code,
+                status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
+                duration=time.time() - start_time,
+                command=command,
             ),
-            duration=time.time() - start_time,
-            command=command,
+            raise_on_error,
         )
 
 
@@ -203,6 +239,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
         stream: bool = True,
+        raise_on_error: bool = False,
     ) -> CommandResult:
         """
         Execute a command in a shell asynchronously. Supports streaming output via callbacks.
@@ -234,54 +271,16 @@ class AsyncSandboxExecutor(SandboxExecutor):
         start_time = time.time()
 
         if stream:
-            buffer = not on_stdout and not on_stderr
-            stdout_buffer: List[str] = []
-            stderr_buffer: List[str] = []
-            exit_code = 0
-
+            fold = _EventFold(command, start_time, on_stdout, on_stderr)
             client = self._get_async_client()
-
             async for event in client.run_streaming(
                 cmd=command, cwd=cwd, env=env, timeout=float(timeout)
             ):
-                if "stream" in event:
-                    stream_type = event["stream"]
-                    data = event["data"]
+                failed_start = fold.feed(event)
+                if failed_start is not None:
+                    return _check_result(failed_start, raise_on_error)
 
-                    if stream_type == "stdout":
-                        if on_stdout:
-                            on_stdout(data)
-                        elif buffer:
-                            stdout_buffer.append(data)
-                    elif stream_type == "stderr":
-                        if on_stderr:
-                            on_stderr(data)
-                        elif buffer:
-                            stderr_buffer.append(data)
-                elif "code" in event:
-                    exit_code = event["code"]
-                elif "error" in event and isinstance(event["error"], str):
-                    return CommandResult(
-                        stdout="",
-                        stderr=event["error"],
-                        exit_code=1,
-                        status=CommandStatus.FAILED,
-                        duration=time.time() - start_time,
-                        command=command,
-                    )
-
-            return CommandResult(
-                stdout="".join(stdout_buffer),
-                stderr="".join(stderr_buffer),
-                exit_code=exit_code,
-                status=(
-                    CommandStatus.FINISHED
-                    if exit_code == 0
-                    else CommandStatus.FAILED
-                ),
-                duration=time.time() - start_time,
-                command=command,
-            )
+            return _check_result(fold.result(), raise_on_error)
 
         # Use native async for non-streaming execution
         client = self._get_async_client()
@@ -293,13 +292,14 @@ class AsyncSandboxExecutor(SandboxExecutor):
         stderr = response.get("stderr", "")
         exit_code = response.get("code", 0)
 
-        return CommandResult(
-            stdout=stdout,
-            stderr=stderr,
-            exit_code=exit_code,
-            status=(
-                CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+        return _check_result(
+            CommandResult(
+                stdout=stdout,
+                stderr=stderr,
+                exit_code=exit_code,
+                status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
+                duration=time.time() - start_time,
+                command=command,
             ),
-            duration=time.time() - start_time,
-            command=command,
+            raise_on_error,
         )

@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.deployment_strategy_type import DeploymentStrategyType
 
+
 class TestDeploymentStrategyType(unittest.TestCase):
     """DeploymentStrategyType unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestDeploymentStrategyType(unittest.TestCase):
         """Test DeploymentStrategyType"""
         # inst = DeploymentStrategyType()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

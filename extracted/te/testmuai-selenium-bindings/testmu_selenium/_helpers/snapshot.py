@@ -5,11 +5,14 @@ the snapshot runtime provisioned on the test worker. The captured tuple is sent
 to the textual-query endpoint, which reads the value server-side.
 """
 import json
+import logging
 import sys
 from collections.abc import Mapping
 from functools import lru_cache
 
 from selenium.common.exceptions import JavascriptException, WebDriverException
+
+from testmu_selenium._helpers import iframe_a11y
 
 
 _LINUX_RUNTIME_ASSET_PATH = "/home/ltuser/foreman/ltuser/aria_snapshot.js"
@@ -43,6 +46,8 @@ _RUNTIME_CLEANUP = (
 )
 _MISSING_RUNTIME_ERROR = "Required runtime asset was not provisioned."
 _INVALID_RUNTIME_ERROR = "Required runtime asset returned an invalid snapshot."
+_log = logging.getLogger(__name__)
+
 _CDP_BROWSERS = {"chrome", "chromium", "edge", "microsoftedge"}
 
 
@@ -106,14 +111,48 @@ def _capture_cdp_snapshot(driver):
         "computedStyles": [
             "color", "background-color", "border-color",
             "font-size", "font-family", "font-weight", "font-style",
-            "display", "visibility", "opacity",
+            "display", "visibility", "opacity", "position", "z-index",
         ],
         "includeDOMRects": True,
+        "includePaintOrder": True,
     })
     if isinstance(dom_snapshot, str):
         dom_snapshot = json.loads(dom_snapshot)
 
+    # V2: the frame-less AX tree is main-frame only; graft each iframe's
+    # tree in so iframe-resident controls reach the endpoint. Never fatal.
+    try:
+        _merge_iframe_a11y(driver, a11y_snapshot, dom_snapshot)
+    except Exception as e:  # noqa: BLE001
+        _log.info("[iframe-a11y] merge skipped: %s", e)
+
     return a11y_snapshot, dom_snapshot
+
+
+def _merge_iframe_a11y(driver, a11y_snapshot, dom_snapshot):
+    if len((dom_snapshot or {}).get("documents") or []) < 2:
+        return
+
+    def cdp(cmd, params=None):
+        try:
+            return _execute_cdp_command(driver, cmd, params)
+        except WebDriverException as e:
+            _log.info("[iframe-a11y] %s failed: %s", cmd, e)
+            return {}
+
+    frames = iframe_a11y.frame_ids_with_parents(cdp("Page.getFrameTree"))
+    if len(frames) < 2:
+        return
+    frame_ax = {frames[0][0]: a11y_snapshot}
+    for fid, _ in frames[1:]:
+        frame_ax[fid] = cdp("Accessibility.getFullAXTree", {"frameId": fid})
+    owners = iframe_a11y.owners_from_parent_ax(frames, frame_ax)
+    for fid, _ in frames[1:]:
+        if fid not in owners:
+            bid = cdp("DOM.getFrameOwner", {"frameId": fid}).get("backendNodeId")
+            if bid is not None:
+                owners[fid] = bid
+    iframe_a11y.merge_iframe_a11y(a11y_snapshot, dom_snapshot, frames, frame_ax, owners)
 
 
 def _invalid_runtime_snapshot():
@@ -230,7 +269,7 @@ def capture_a11y_dom_snapshot(driver):
     return a11y_snapshot, dom_snapshot, viewport_node_indices
 
 
-def _compute_viewport_node_indices(dom_snapshot: dict, viewport: dict, buffer_px: int = 200) -> list:
+def _compute_viewport_node_indices(dom_snapshot: dict, viewport: dict, buffer_px: int = 0) -> list:
     """DOM node indices whose layout bounds intersect the viewport (V2 port).
 
     Returns visible node indices plus all their ancestors (so the tree stays

@@ -1,4 +1,5 @@
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
+from chalk._gen.chalk.common.v1 import resources_pb2 as _resources_pb2
 from chalk._gen.chalk.server.v1 import offline_queries_pb2 as _offline_queries_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
@@ -66,6 +67,7 @@ class ScheduledQueryRun(_message.Message):
         "blocker_operation_id",
         "workflow_execution_id",
         "has_errors",
+        "completed_at",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -83,6 +85,7 @@ class ScheduledQueryRun(_message.Message):
     BLOCKER_OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     WORKFLOW_EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]
     HAS_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    COMPLETED_AT_FIELD_NUMBER: _ClassVar[int]
     id: int
     environment_id: str
     deployment_id: str
@@ -99,6 +102,7 @@ class ScheduledQueryRun(_message.Message):
     blocker_operation_id: str
     workflow_execution_id: str
     has_errors: bool
+    completed_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -117,6 +121,7 @@ class ScheduledQueryRun(_message.Message):
         blocker_operation_id: _Optional[str] = ...,
         workflow_execution_id: _Optional[str] = ...,
         has_errors: bool = ...,
+        completed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class GetScheduledQueryRunRequest(_message.Message):

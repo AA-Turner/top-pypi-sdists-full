@@ -194,7 +194,7 @@ jobs:
   # reusable checks its validator out at `github.job_workflow_sha`.
   kb-doc-gate:
     if: github.event_name == 'pull_request' && github.base_ref == 'dev'
-    uses: OmniNode-ai/omniclaude/.github/workflows/kb-doc-gate-reusable.yml@a58fb5eab5ae66a8e7fcb7f6bcac8c3e48632ee1
+    uses: OmniNode-ai/omniclaude/.github/workflows/kb-doc-gate-reusable.yml@6ccd525e2b6390869d18f8e00d1b36294aa5550a
     with:
       mode: diff
     permissions:
@@ -1880,8 +1880,12 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # OMN-19677: anti-growth-baseline compares the baseline with its merge-base
+      # against origin/dev; a shallow checkout has no origin/dev.
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -3125,6 +3129,13 @@ jobs:
   # data-loss bugs came from exactly that (OMN-14490/14506/14513/14514). Blocks NEW
   # models outright, blocks MODIFIED baselined models, and --check-stale forces the
   # frozen baseline count down (it may never grow).
+  pydantic-extra-forbid-baseline-oneway:
+    name: Pydantic extra="forbid" Baseline One-way (OMN-19677)
+    uses: OmniNode-ai/omniclaude/.github/workflows/anti-growth-baseline-reusable.yml@3faefdcd5750b05f69d2efcb8cf200bc359483c3
+    with:
+      baseline-path: src/omnibase_core/validators/extra_forbid_baseline.yaml
+      parser: yaml-list:violations
+
   pydantic-extra-forbid:
     name: Pydantic extra="forbid" Ratchet (OMN-14515)
     needs: [zone-filter]
@@ -3343,7 +3354,7 @@ jobs:
   # diverge, and advancing the gate is those two lines changed together.
   secrets-baseline-wiring:
     name: secrets-baseline-wiring
-    uses: OmniNode-ai/omniclaude/.github/workflows/secrets-baseline-wiring-reusable.yml@a58fb5eab5ae66a8e7fcb7f6bcac8c3e48632ee1
+    uses: OmniNode-ai/omniclaude/.github/workflows/secrets-baseline-wiring-reusable.yml@6ccd525e2b6390869d18f8e00d1b36294aa5550a
 
   quality-gate:
     name: Quality Gate
@@ -4899,5 +4910,6 @@ jobs:
             --run-attempt "${RUN_ATTEMPT}" \
             --record deferred-record/record.json \
             --head-sha "${HEAD_SHA}" \
+            --current-run-id "${RUN_ID}" \
             --deadline-seconds 2400 \
             --poll-interval-seconds 60

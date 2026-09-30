@@ -21,7 +21,7 @@ dependencies = [
     "docker>=6.0,<7.0",
     "dpath>=2.1.5,<3.0",
     "fastmcp>=4.0.9,<5.0",
-    "fastmcp-extensions[cli]>=0.27.2,<1.0",
+    "fastmcp-extensions[cli]>=0.32.0,<1.0",
     "py-key-value-aio[firestore]>=0.4.4,<0.5.0",
     "fsspec>=2024.0.0",
     "gcsfs>=2024.0.0",
@@ -216,4 +216,4 @@ ignore = ["DEP004", "DEP002"]
 # Per-rule ignores for optional dependencies that are imported conditionally
 [tool.deptry.per_rule_ignores]
 # segment-analytics-python is an optional dependency in the live-tests group
-DEP001 = ["segment", "pulumi", "pulumi_gcp", "fastapi"]
+DEP001 = ["segment", "pulumi", "pulumi_gcp", "pulumi_random", "fastapi"]

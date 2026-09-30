@@ -7,6 +7,12 @@ from abc import (
     ABCMeta,
     abstractmethod,
 )
+from chalk._gen.chalk.server.v1.kube_cluster_health_pb2 import (
+    GetClusterHealthRequest,
+    GetClusterHealthResponse,
+    ListClusterDnsZonesRequest,
+    ListClusterDnsZonesResponse,
+)
 from chalk._gen.chalk.server.v1.status_pb2 import (
     CheckHealthRequest,
     CheckHealthResponse,
@@ -34,6 +40,18 @@ class HealthServiceStub:
         GetHealthResponse,
     ]
     """Return the actual health check values."""
+    GetClusterHealth: UnaryUnaryMultiCallable[
+        GetClusterHealthRequest,
+        GetClusterHealthResponse,
+    ]
+    """Inspect an attached or pending Kubernetes cluster. Requested checks run
+    concurrently and retain report order.
+    """
+    ListClusterDnsZones: UnaryUnaryMultiCallable[
+        ListClusterDnsZonesRequest,
+        ListClusterDnsZonesResponse,
+    ]
+    """Enumerate DNS zones visible to the selected cluster cloud credential."""
     GetClusterMetrics: UnaryUnaryMultiCallable[
         GetClusterMetricsRequest,
         GetClusterMetricsResponse,
@@ -55,6 +73,22 @@ class HealthServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetHealthResponse:
         """Return the actual health check values."""
+    @abstractmethod
+    def GetClusterHealth(
+        self,
+        request: GetClusterHealthRequest,
+        context: ServicerContext,
+    ) -> GetClusterHealthResponse:
+        """Inspect an attached or pending Kubernetes cluster. Requested checks run
+        concurrently and retain report order.
+        """
+    @abstractmethod
+    def ListClusterDnsZones(
+        self,
+        request: ListClusterDnsZonesRequest,
+        context: ServicerContext,
+    ) -> ListClusterDnsZonesResponse:
+        """Enumerate DNS zones visible to the selected cluster cloud credential."""
     @abstractmethod
     def GetClusterMetrics(
         self,

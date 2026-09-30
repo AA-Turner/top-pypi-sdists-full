@@ -79,6 +79,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.update_cell(
@@ -146,6 +147,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.delete_cells(
@@ -202,6 +204,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.delete_column(
@@ -249,6 +252,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.insert_column(
@@ -311,6 +315,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.clear_formatting(
@@ -379,6 +384,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.clear_range(
@@ -451,6 +457,7 @@ class SheetsClient:
         from athena import Athena, CellFormat
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.format_range(
@@ -525,6 +532,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.update_range(
@@ -585,6 +593,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.insert_row(
@@ -636,6 +645,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.duplicate_sheet(
@@ -674,6 +684,7 @@ class SheetsClient:
         from athena import Athena, Sheet
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.create_tab(
@@ -729,6 +740,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.delete_table_column(
@@ -789,6 +801,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.insert_table_column(
@@ -863,6 +876,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.create_table(
@@ -923,6 +937,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.get_table(
@@ -974,6 +989,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.insert_table_row(
@@ -1046,6 +1062,7 @@ class SheetsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.sheets.update_table(
@@ -1136,6 +1153,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1211,6 +1229,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1275,6 +1294,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1330,6 +1350,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1400,6 +1421,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1476,6 +1498,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1556,6 +1579,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena, CellFormat
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1638,6 +1662,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1706,6 +1731,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1765,6 +1791,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1811,6 +1838,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena, Sheet
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1874,6 +1902,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -1942,6 +1971,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -2024,6 +2054,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -2092,6 +2123,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -2151,6 +2183,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -2231,6 +2264,7 @@ class AsyncSheetsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 

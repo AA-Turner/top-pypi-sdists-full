@@ -3,7 +3,7 @@
 While a turn keeps failing, the user sees the failures. The moment a real
 response lands, ``_hide_superseded_failed_turns`` flips the prior failed rows to
 is_visible_to_user=False (kept for the record; already hidden from the agent).
-Net model visibility is unchanged, so no cache bust is needed.
+Net model exposure is unchanged, so no cache bust is needed.
 """
 
 # ruff: noqa: I001 -- executor must load before persistence (see import note below).
@@ -101,7 +101,7 @@ async def test_hides_prior_failed_turns_at_or_before_position(monkeypatch):
     assert {u[0] for u in queued} == {"f1", "f2"}
     assert fake_cxm.message.updates == []
     for _mid, fields in queued:
-        # hidden from user AND (defensively) from model; net model visibility unchanged.
+        # hidden from user AND (defensively) from model; net model exposure unchanged.
         assert fields == {"is_visible_to_user": False, "is_visible_to_model": False}
 
 

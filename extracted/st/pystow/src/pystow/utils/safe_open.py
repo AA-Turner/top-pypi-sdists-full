@@ -62,6 +62,7 @@ else:
 
 
 __all__ = [
+    "Source",
     "is_url",
     "open_inner_zipfile",
     "open_url",
@@ -76,7 +77,8 @@ __all__ = [
     "zstd_open",
 ]
 
-TextSource: TypeAlias = str | Path | IO[str]
+#: A source that's either a path, a path-like, or a file-like
+Source: TypeAlias = str | Path | IO[str] | IO[bytes]
 
 COMPRESSION_EXTENSIONS = ["gz", "xz", "bz2"]
 if zstd_available:
@@ -97,7 +99,8 @@ class OpenKwargs(TypedDict):
 @typing.overload
 @contextlib.contextmanager
 def safe_open(
-    path: str | Path | IO[str] | IO[bytes],
+    source: Source,
+    /,
     *,
     operation: Operation = ...,
     representation: Literal["text"] = "text",
@@ -109,7 +112,8 @@ def safe_open(
 @typing.overload
 @contextlib.contextmanager
 def safe_open(
-    path: str | Path | IO[str] | IO[bytes],
+    source: Source,
+    /,
     *,
     operation: Operation = ...,
     representation: Literal["binary"] = "binary",
@@ -119,7 +123,8 @@ def safe_open(
 
 @contextlib.contextmanager
 def safe_open(  # noqa:C901
-    path: str | Path | IO[str] | IO[bytes],
+    source: Source,
+    /,
     *,
     operation: Operation = "read",
     representation: Representation = "text",
@@ -131,18 +136,18 @@ def safe_open(  # noqa:C901
     if representation not in REPRESENTATION_VALUES:
         raise InvalidRepresentationError(representation)
 
-    if isinstance(path, (str, Path)):
+    if isinstance(source, (str, Path)):
         encoding = ensure_sensible_default_encoding(
             kwargs.get("encoding"), representation=representation
         )
         newline = ensure_sensible_newline(kwargs.get("newline"), representation=representation)
         buffering = kwargs.get("buffering") or -1
 
-        if is_url(path):
+        if is_url(source):
             if operation != "read":
                 raise ValueError('can only use operation="read" with URLs')
             with open_url(
-                path,
+                source,
                 representation=representation,
                 encoding=encoding,
                 newline=newline,
@@ -153,94 +158,94 @@ def safe_open(  # noqa:C901
         else:
             mode = MODE_MAP[operation, representation]
             premode = _OPERATION_TO_BINARY_MODE[operation]
-            path = Path(path).expanduser().resolve()
-            if path.suffix.endswith(".gz"):
+            source = Path(source).expanduser().resolve()
+            if source.suffix.endswith(".gz"):
                 with (
-                    open(path, buffering=buffering, mode=premode) as raw,
+                    open(source, buffering=buffering, mode=premode) as raw,
                     gzip.open(raw, mode=mode, encoding=encoding, newline=newline) as gzf,
                 ):
                     yield gzf  # type:ignore
-            elif path.suffix.endswith(".bz2"):
+            elif source.suffix.endswith(".bz2"):
                 with (
-                    open(path, buffering=buffering, mode=premode) as raw,
+                    open(source, buffering=buffering, mode=premode) as raw,
                     bz2.open(raw, mode=mode, encoding=encoding, newline=newline) as bz2f,
                 ):
                     yield bz2f
-            elif path.suffix.endswith(".xz"):
+            elif source.suffix.endswith(".xz"):
                 with (
-                    open(path, buffering=buffering, mode=premode) as raw,
+                    open(source, buffering=buffering, mode=premode) as raw,
                     lzma.open(raw, mode=mode, encoding=encoding, newline=newline) as lzmaf,
                 ):
                     yield lzmaf
-            elif path.suffix.endswith(".zst"):
+            elif source.suffix.endswith(".zst"):
                 with (
-                    open(path, buffering=buffering, mode=premode) as raw,
+                    open(source, buffering=buffering, mode=premode) as raw,
                     zstd_open(raw, mode=mode, encoding=encoding, newline=newline) as zstdf,
                 ):
                     yield zstdf  # type:ignore
             else:
                 with open(
-                    path, mode=mode, encoding=encoding, newline=newline, buffering=buffering
+                    source, mode=mode, encoding=encoding, newline=newline, buffering=buffering
                 ) as file:
                     yield file
 
-    elif isinstance(path, typing.TextIO | io.TextIOWrapper | io.TextIOBase):
+    elif isinstance(source, typing.TextIO | io.TextIOWrapper | io.TextIOBase):
         if representation != "text":
-            path = path.buffer
-        yield path
+            source = source.buffer
+        yield source
 
     # io.BufferedIOBase covers the LZMA, BZ2, Gzip, and ZSTD file types
     # as well as io.BufferedReader
-    elif isinstance(path, typing.BinaryIO | io.BufferedIOBase):
+    elif isinstance(source, typing.BinaryIO | io.BufferedIOBase):
         with _wrap_binary_if_needed(
-            path, representation, encoding=kwargs.get("encoding"), newline=kwargs.get("newline")
+            source, representation, encoding=kwargs.get("encoding"), newline=kwargs.get("newline")
         ) as yp:
             yield yp
     else:
-        raise TypeError(f"unsupported type for opening: {type(path)} - {path}")
+        raise TypeError(f"unsupported type for opening: {type(source)} - {source}")
 
 
 @contextlib.contextmanager
-def _open_read_text(path: TextSource, **kwargs: Unpack[OpenKwargs]) -> Generator[IO[str]]:
-    with safe_open(path, representation="text", operation="read", **kwargs) as file:
+def _open_read_text(source: Source, /, **kwargs: Unpack[OpenKwargs]) -> Generator[IO[str]]:
+    with safe_open(source, representation="text", operation="read", **kwargs) as file:
         yield file
 
 
 @contextlib.contextmanager
-def _open_write_text(path: TextSource, **kwargs: Unpack[OpenKwargs]) -> Generator[IO[str]]:
-    with safe_open(path, representation="text", operation="write", **kwargs) as file:
+def _open_write_text(source: Source, /, **kwargs: Unpack[OpenKwargs]) -> Generator[IO[str]]:
+    with safe_open(source, representation="text", operation="write", **kwargs) as file:
         yield file
 
 
-def safe_open_json(path_or_url: TextSource, **kwargs: Unpack[OpenKwargs]) -> Any:
+def safe_open_json(source: Source, /, **kwargs: Unpack[OpenKwargs]) -> Any:
     """Safely open a file and parse as JSON."""
-    with _open_read_text(path_or_url, **kwargs) as file:
+    with _open_read_text(source, **kwargs) as file:
         return json.load(file)
 
 
-def safe_open_yaml(path_or_url: TextSource, **kwargs: Unpack[OpenKwargs]) -> Any:
+def safe_open_yaml(source: Source, /, **kwargs: Unpack[OpenKwargs]) -> Any:
     """Safely open a file and parse as YAML."""
     import yaml
 
-    with _open_read_text(path_or_url, **kwargs) as file:
+    with _open_read_text(source, **kwargs) as file:
         return yaml.safe_load(file)
 
 
-def safe_write_text(s: str, path: TextSource, **kwargs: Unpack[OpenKwargs]) -> int:
+def safe_write_text(s: str, path: Source, **kwargs: Unpack[OpenKwargs]) -> int:
     """Write text to a file."""
     with _open_write_text(path, **kwargs) as file:
         return file.write(s)
 
 
-def safe_read_text(path: TextSource, **kwargs: Unpack[OpenKwargs]) -> str:
+def safe_read_text(source: Source, /, **kwargs: Unpack[OpenKwargs]) -> str:
     """Read text from a file."""
-    with _open_read_text(path, **kwargs) as file:
+    with _open_read_text(source, **kwargs) as file:
         return file.read()
 
 
 def write_yaml(
     data: Any,
-    path: TextSource,
+    path: Source,
     *,
     encoding: str | None = None,
     newline: str | None = None,
@@ -258,7 +263,7 @@ def write_yaml(
 
 def write_json(
     data: Any,
-    path: TextSource,
+    path: Source,
     *,
     encoding: str | None = None,
     newline: str | None = None,
@@ -374,17 +379,17 @@ def _wrap_binary_if_needed(
 
 @contextlib.contextmanager
 def safe_open_dict_reader(
-    f: TextSource, *, delimiter: str = "\t", **kwargs: Any
+    source: Source, /, *, delimiter: str = "\t", **kwargs: Any
 ) -> Generator[csv.DictReader[str]]:
     """Open a CSV dictionary reader, wrapping :func:`csv.DictReader`.
 
-    :param f: A path to a file, or an already open text-based IO object
+    :param source: A path to a file, or an already open text-based IO object
     :param delimiter: The delimiter for writing to CSV
     :param kwargs: Keyword arguments to pass to :func:`csv.DictReader`
 
     :yields: A CSV reader object, constructed from :func:`csv.DictReader`
     """
-    with _open_read_text(f) as file:
+    with _open_read_text(source) as file:
         yield csv.DictReader(file, delimiter=delimiter, **kwargs)
 
 

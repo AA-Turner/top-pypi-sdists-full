@@ -2245,7 +2245,7 @@ impl PyTubeRegistry {
     /// * `conversation_id` - The conversation/channel ID
     /// * `conn_no` - The connection number to open
     /// * `connect_as_payload` - Optional ConnectAs payload for credential passing (bytes)
-    ///                          Format: [encrypted_data_len: 4 bytes] + [public_key: 65 bytes] + [nonce: 12 bytes] + [encrypted_data]
+    ///                          Format: \[encrypted_data_len: 4 bytes\] + \[public_key: 65 bytes\] + \[nonce: 12 bytes\] + \[encrypted_data\]
     ///
     /// # Returns
     /// * Ok(()) on success - the remote peer will send ConnectionOpened when ready

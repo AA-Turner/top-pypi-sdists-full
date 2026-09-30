@@ -19,15 +19,19 @@ import json
 
 from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api.models.get_deployment_scaling_reply_item import GetDeploymentScalingReplyItem
+from koyeb.api.models.get_deployment_scaling_reply_item import (
+    GetDeploymentScalingReplyItem,
+)
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class GetDeploymentScalingReply(BaseModel):
     """
     GetDeploymentScalingReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     replicas: Optional[List[GetDeploymentScalingReplyItem]] = None
     __properties: ClassVar[List[str]] = ["replicas"]
 
@@ -37,7 +41,6 @@ class GetDeploymentScalingReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +65,7 @@ class GetDeploymentScalingReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -74,9 +76,10 @@ class GetDeploymentScalingReply(BaseModel):
         _items = []
         if self.replicas:
             for _item_replicas in self.replicas:
-                if _item_replicas:
-                    _items.append(_item_replicas.to_dict())
-            _dict['replicas'] = _items
+                _items.append(
+                    _item_replicas.to_dict() if _item_replicas is not None else None
+                )
+            _dict["replicas"] = _items
         return _dict
 
     @classmethod
@@ -88,9 +91,14 @@ class GetDeploymentScalingReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "replicas": [GetDeploymentScalingReplyItem.from_dict(_item) for _item in obj["replicas"]] if obj.get("replicas") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "replicas": [
+                    GetDeploymentScalingReplyItem.from_dict(_item)
+                    for _item in obj["replicas"]
+                ]
+                if obj.get("replicas") is not None
+                else None
+            }
+        )
         return _obj
-
-

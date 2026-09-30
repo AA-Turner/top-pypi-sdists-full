@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.domain_type import DomainType
 
+
 class TestDomainType(unittest.TestCase):
     """DomainType unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestDomainType(unittest.TestCase):
         """Test DomainType"""
         # inst = DomainType()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

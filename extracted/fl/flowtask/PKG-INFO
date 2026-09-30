@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flowtask
-Version: 5.12.18
+Version: 5.12.19
 Summary: Framework for Task orchestration
 Author-email: Jesus Lara <jesuslarag@gmail.com>
 License: Apache-2.0
@@ -109,8 +109,9 @@ Requires-Dist: querysource>=3.17.0
 Requires-Dist: asyncdb[all]>=2.11.7
 Requires-Dist: navconfig[default,uvloop]>=1.7.13
 Requires-Dist: navigator-auth>=0.15.8
+Requires-Dist: aiohttp>=3.14
 Requires-Dist: navigator-api[locale,uvloop]>=2.12.22
-Requires-Dist: ai-parrot[llms]>=0.17.4
+Requires-Dist: ai-parrot[llms]>=1.0.5
 Requires-Dist: msal<2,>=1.30.0
 Requires-Dist: azure-core<2,>=1.38.0
 Requires-Dist: azure-identity<2,>=1.20.0
@@ -132,12 +133,12 @@ Requires-Dist: gitpython>=3.1.50; extra == "git"
 Provides-Extra: scoring
 Requires-Dist: h3>=4.0; extra == "scoring"
 Provides-Extra: ai
-Requires-Dist: ai-parrot[agents,graphindex,images,llms,retrieval]>=0.20.4; extra == "ai"
-Requires-Dist: ai-parrot-loaders[audio,document,ebook,ml,pdf,scraping,video,web,youtube]>=0.1.0; extra == "ai"
-Requires-Dist: ai-parrot-tools[analysis,arxiv,aws,codeinterpreter,db,docker,excel,finance,flowtask,git,google,jira,messaging,pdf,pulumi,sandbox,scraping,sitesearch,slack,weather,wikipedia]>=0.1.0; extra == "ai"
-Requires-Dist: ai-parrot-pipelines>=0.1.0; extra == "ai"
-Requires-Dist: ai-parrot-server[all]>=0.1.0; extra == "ai"
-Requires-Dist: ai-parrot-integrations[all]>=0.0.17; extra == "ai"
+Requires-Dist: ai-parrot[agents,graphindex,images,llms,retrieval]>=1.0.5; extra == "ai"
+Requires-Dist: ai-parrot-loaders[audio,document,ebook,ml,pdf,scraping,video,web,youtube]>=1.0.5; extra == "ai"
+Requires-Dist: ai-parrot-tools[analysis,arxiv,aws,codeinterpreter,db,docker,excel,finance,flowtask,git,google,jira,messaging,pdf,pulumi,sandbox,scraping,sitesearch,slack,weather,wikipedia]>=1.0.5; extra == "ai"
+Requires-Dist: ai-parrot-pipelines>=1.0.5; extra == "ai"
+Requires-Dist: ai-parrot-server[all]>=1.0.5; extra == "ai"
+Requires-Dist: ai-parrot-integrations[all]>=1.0.5; extra == "ai"
 Provides-Extra: dev
 Requires-Dist: pytest>=5.4.0; extra == "dev"
 Requires-Dist: coverage; extra == "dev"

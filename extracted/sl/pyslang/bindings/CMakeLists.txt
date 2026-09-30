@@ -3,24 +3,31 @@
 # SPDX-License-Identifier: MIT
 # ~~~
 
-set(find_pkg_args "")
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24.0")
-  set(find_pkg_args "FIND_PACKAGE_ARGS" "3.0")
-endif()
-
-FetchContent_Declare(
-  pybind11
-  GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG v3.0.4
-  GIT_SHALLOW ON
-  ${find_pkg_args})
-FetchContent_MakeAvailable(pybind11)
-
-if(pybind11_FOUND)
-  message(STATUS "Using system pybind11 library: ${pybind11_VERSION}")
-  message(STATUS "Using system pybind11 include: ${pybind11_INCLUDE_DIRS}")
-else()
-  message(STATUS "Using remote pybind11 library")
+# Locate nanobind. Prefer a nanobind installed in the active Python environment
+# (this is how scikit-build-core provides it during a wheel build); otherwise
+# fall back to fetching it from GitHub.
+if(NOT nanobind_FOUND)
+  execute_process(
+    COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    OUTPUT_VARIABLE nanobind_cmake_dir
+    RESULT_VARIABLE nanobind_result
+    ERROR_QUIET)
+  if(nanobind_result EQUAL 0 AND EXISTS "${nanobind_cmake_dir}")
+    list(APPEND CMAKE_PREFIX_PATH "${nanobind_cmake_dir}")
+    find_package(nanobind CONFIG REQUIRED)
+    message(
+      STATUS "Using nanobind from Python environment: ${nanobind_cmake_dir}")
+  else()
+    FetchContent_Declare(
+      nanobind
+      GIT_REPOSITORY ${SLANG_DEP_URL_PREFIX}wjakob/nanobind.git
+      GIT_TAG v3.0.1
+      GIT_SHALLOW ON
+      FIND_PACKAGE_ARGS)
+    FetchContent_MakeAvailable(nanobind)
+    message(STATUS "Using remote nanobind library")
+  endif()
 endif()
 
 # Generate bindings for syntax node types and SyntaxFactory
@@ -37,10 +44,23 @@ add_custom_command(
   DEPENDS ${SCRIPTS_DIR}/syntax_gen.py ${SCRIPTS_DIR}/syntax.txt
   COMMENT "Generating syntax bindings")
 
-# Add the pyslang module via pybind11
-pybind11_add_module(
+# Add the pyslang module via nanobind, built in "split mode": the compiled
+# nanobind runtime (libnanobind) is provided at runtime by the separate
+# `nanobind-backend` PyPI package instead of being linked in. This targets the
+# stable ABI (abi3), so a single wheel per platform covers all supported Python
+# versions. See https://nanobind.readthedocs.io/en/latest/split_mode.html
+#
+# The stable ABI floor is pinned to 3.11 (rather than nanobind's 3.10 default)
+# because pyslang.h's std::span buffer caster uses the Python buffer protocol
+# (PyObject_GetBuffer / Py_buffer), which only became part of the limited API in
+# CPython 3.11. Keep this in sync with `wheel.py-api` / `requires-python` in
+# pyproject.toml.
+nanobind_add_module(
   pyslang
-  MODULE
+  BACKEND_MODULE
+  nanobind_backend
+  STABLE_ABI_VERSION
+  3.11
   python/AnalysisBindings.cpp
   python/ASTBindings.cpp
   python/CompBindings.cpp
@@ -61,6 +81,7 @@ set_source_files_properties(
   python/pyslang.cpp PROPERTIES COMPILE_DEFINITIONS
                                 VERSION_INFO=${PROJECT_VERSION})
 target_link_libraries(pyslang PUBLIC slang::slang)
+target_link_libraries(pyslang PRIVATE fmt::fmt)
 target_include_directories(pyslang PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/python)
 
 install(
@@ -75,11 +96,87 @@ install(
   COMPONENT pylib
   DESTINATION .)
 
-# Generate Python stubs as a post-install step
+# Generate a Python stub (.pyi) for the compiled module at build time using
+# nanobind's stub generator, then install it alongside the module.
+#
+# In split mode the generator must import the extension, which in turn imports
+# the compiled `nanobind_backend` module. If the build environment doesn't
+# already provide it (a wheel build installs it as a build dependency), fetch a
+# matching copy from PyPI into the build tree and add it to the stub import
+# path.
+set(pyslang_stub_python_path "$<TARGET_FILE_DIR:pyslang>")
+execute_process(
+  COMMAND "${Python_EXECUTABLE}" -c "import nanobind_backend"
+  RESULT_VARIABLE nanobind_backend_missing
+  OUTPUT_QUIET ERROR_QUIET)
+if(nanobind_backend_missing)
+  set(nanobind_backend_dir "${CMAKE_CURRENT_BINARY_DIR}/nanobind_backend")
+  # Re-probe with the build-tree copy on the path so reconfigures don't
+  # re-fetch.
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=${nanobind_backend_dir}"
+            "${Python_EXECUTABLE}" -c "import nanobind_backend"
+    RESULT_VARIABLE nanobind_backend_absent
+    OUTPUT_QUIET ERROR_QUIET)
+  if(nanobind_backend_absent)
+    message(
+      STATUS
+        "pyslang: nanobind_backend not found; fetching it from PyPI for stub generation"
+    )
+    execute_process(
+      COMMAND "${Python_EXECUTABLE}" -m pip install --only-binary :all: --target
+              "${nanobind_backend_dir}" "nanobind-backend>=1.0"
+      RESULT_VARIABLE nanobind_backend_fetch_result)
+    if(NOT nanobind_backend_fetch_result EQUAL 0)
+      message(
+        FATAL_ERROR
+          "pyslang: failed to fetch nanobind-backend from PyPI. Install it into the "
+          "build environment (pip install nanobind-backend) and re-run CMake.")
+    endif()
+  endif()
+  list(APPEND pyslang_stub_python_path "${nanobind_backend_dir}")
+endif()
+
+nanobind_add_stub(
+  pyslang_stub
+  MODULE
+  pyslang
+  PYTHON_PATH
+  ${pyslang_stub_python_path}
+  DEPENDS
+  pyslang
+  RECURSIVE
+  # With RECURSIVE, nanobind's stubgen places the top-level stub into
+  # pyslang/__init__.pyi (not pyslang.pyi) and nests every submodule under
+  # pyslang/, because the compiled module has planted submodules. The OUTPUT
+  # list must name the files that are actually produced so ninja tracks the step
+  # correctly.
+  OUTPUT_PATH
+  ${CMAKE_CURRENT_BINARY_DIR}/pyslang-stubs/
+  OUTPUT
+  ${CMAKE_CURRENT_BINARY_DIR}/pyslang-stubs/pyslang/__init__.pyi
+  ${CMAKE_CURRENT_BINARY_DIR}/pyslang-stubs/pyslang/ast.pyi
+  ${CMAKE_CURRENT_BINARY_DIR}/pyslang-stubs/pyslang/syntax.pyi
+  ${CMAKE_CURRENT_BINARY_DIR}/pyslang-stubs/pyslang/parsing.pyi
+  ${CMAKE_CURRENT_BINARY_DIR}/pyslang-stubs/pyslang/analysis.pyi
+  ${CMAKE_CURRENT_BINARY_DIR}/pyslang-stubs/pyslang/driver.pyi)
+
+# Install the generated stub tree alongside the module. The submodule stubs
+# (ast.pyi, syntax.pyi, ...) map onto the pyslang.<sub> modules registered by
+# the package __init__.py. This is placed into the pyslang/ directory since the
+# modules are actually imported via pyslang.pyslang.[module]
 install(
-  CODE "
-  set(STUBGEN_PYTHON_EXECUTABLE \"${Python_EXECUTABLE}\")
-  # Do NOT override CMAKE_INSTALL_PREFIX - the install-time value is correct
-  include(\"${CMAKE_CURRENT_SOURCE_DIR}/generate_stubs.cmake\")
-"
-  COMPONENT pylib)
+  DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pyslang-stubs/pyslang/
+  COMPONENT pylib
+  DESTINATION ./pyslang/
+  FILES_MATCHING
+  PATTERN "*.pyi")
+
+# The stubs also need to be installed in the root directory to account for the
+# modules being re-exported to sys.modules from the __init__.py
+install(
+  DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pyslang-stubs/pyslang/
+  COMPONENT pylib
+  DESTINATION .
+  FILES_MATCHING
+  PATTERN "*.pyi")

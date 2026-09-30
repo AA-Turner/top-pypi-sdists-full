@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: matrix-synapse
-Version: 1.161.0
+Version: 1.162.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Communications :: Chat
 Requires-Dist: jsonschema>=3.0.0
@@ -53,7 +53,7 @@ Requires-Dist: lxml>=4.6.3 ; extra == 'all'
 Requires-Dist: sentry-sdk>=0.7.2 ; extra == 'all'
 Requires-Dist: jaeger-client>=4.2.0 ; extra == 'all'
 Requires-Dist: opentracing>=2.2.0 ; extra == 'all'
-Requires-Dist: txredisapi>=1.4.7 ; extra == 'all'
+Requires-Dist: txredisapi>=1.4.12 ; extra == 'all'
 Requires-Dist: hiredis>=0.3 ; extra == 'all'
 Requires-Dist: pympler>=1.0 ; extra == 'all'
 Requires-Dist: defusedxml>=0.7.1 ; extra == 'all'
@@ -71,7 +71,7 @@ Requires-Dist: tornado>=6.0 ; extra == 'opentracing'
 Requires-Dist: psycopg2>=2.8 ; platform_python_implementation != 'PyPy' and extra == 'postgres'
 Requires-Dist: psycopg2cffi>=2.8 ; platform_python_implementation == 'PyPy' and extra == 'postgres'
 Requires-Dist: psycopg2cffi-compat==1.1 ; platform_python_implementation == 'PyPy' and extra == 'postgres'
-Requires-Dist: txredisapi>=1.4.7 ; extra == 'redis'
+Requires-Dist: txredisapi>=1.4.12 ; extra == 'redis'
 Requires-Dist: hiredis>=0.3 ; extra == 'redis'
 Requires-Dist: pysaml2>=4.5.0 ; extra == 'saml2'
 Requires-Dist: defusedxml>=0.7.1 ; extra == 'saml2'

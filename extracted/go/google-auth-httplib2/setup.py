@@ -16,7 +16,7 @@ import io
 
 from setuptools import setup
 
-version = "0.4.2"
+version = "0.4.3"
 
 DEPENDENCIES = [
     "google-auth >= 2.14.1, <3.0.0",
@@ -47,6 +47,7 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: Apache Software License",

@@ -20,16 +20,20 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api_async.models.persistent_volume_backing_store import PersistentVolumeBackingStore
+from koyeb.api_async.models.persistent_volume_backing_store import (
+    PersistentVolumeBackingStore,
+)
 from koyeb.api_async.models.persistent_volume_status import PersistentVolumeStatus
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class PersistentVolume(BaseModel):
     """
     PersistentVolume
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
     snapshot_id: Optional[StrictStr] = None
@@ -42,9 +46,28 @@ class PersistentVolume(BaseModel):
     read_only: Optional[StrictBool] = None
     max_size: Optional[StrictInt] = None
     cur_size: Optional[StrictInt] = None
-    status: Optional[PersistentVolumeStatus] = PersistentVolumeStatus.PERSISTENT_VOLUME_STATUS_INVALID
-    backing_store: Optional[PersistentVolumeBackingStore] = PersistentVolumeBackingStore.PERSISTENT_VOLUME_BACKING_STORE_INVALID
-    __properties: ClassVar[List[str]] = ["id", "name", "snapshot_id", "created_at", "updated_at", "deleted_at", "organization_id", "service_id", "region", "read_only", "max_size", "cur_size", "status", "backing_store"]
+    status: Optional[
+        PersistentVolumeStatus
+    ] = PersistentVolumeStatus.PERSISTENT_VOLUME_STATUS_INVALID
+    backing_store: Optional[
+        PersistentVolumeBackingStore
+    ] = PersistentVolumeBackingStore.PERSISTENT_VOLUME_BACKING_STORE_INVALID
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "name",
+        "snapshot_id",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+        "organization_id",
+        "service_id",
+        "region",
+        "read_only",
+        "max_size",
+        "cur_size",
+        "status",
+        "backing_store",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -52,7 +75,6 @@ class PersistentVolume(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -77,8 +99,7 @@ class PersistentVolume(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -96,22 +117,26 @@ class PersistentVolume(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "name": obj.get("name"),
-            "snapshot_id": obj.get("snapshot_id"),
-            "created_at": obj.get("created_at"),
-            "updated_at": obj.get("updated_at"),
-            "deleted_at": obj.get("deleted_at"),
-            "organization_id": obj.get("organization_id"),
-            "service_id": obj.get("service_id"),
-            "region": obj.get("region"),
-            "read_only": obj.get("read_only"),
-            "max_size": obj.get("max_size"),
-            "cur_size": obj.get("cur_size"),
-            "status": obj.get("status") if obj.get("status") is not None else PersistentVolumeStatus.PERSISTENT_VOLUME_STATUS_INVALID,
-            "backing_store": obj.get("backing_store") if obj.get("backing_store") is not None else PersistentVolumeBackingStore.PERSISTENT_VOLUME_BACKING_STORE_INVALID
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "name": obj.get("name"),
+                "snapshot_id": obj.get("snapshot_id"),
+                "created_at": obj.get("created_at"),
+                "updated_at": obj.get("updated_at"),
+                "deleted_at": obj.get("deleted_at"),
+                "organization_id": obj.get("organization_id"),
+                "service_id": obj.get("service_id"),
+                "region": obj.get("region"),
+                "read_only": obj.get("read_only"),
+                "max_size": obj.get("max_size"),
+                "cur_size": obj.get("cur_size"),
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else PersistentVolumeStatus.PERSISTENT_VOLUME_STATUS_INVALID,
+                "backing_store": obj.get("backing_store")
+                if obj.get("backing_store") is not None
+                else PersistentVolumeBackingStore.PERSISTENT_VOLUME_BACKING_STORE_INVALID,
+            }
+        )
         return _obj
-
-

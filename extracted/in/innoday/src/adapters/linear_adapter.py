@@ -111,6 +111,8 @@ class LinearBoardAdapter(BaseBoardAdapter):
         self.workflow_states: Dict[str, str] = {}
         self.state_name_to_id: Dict[str, str] = {}
         self._initialized = False
+        #: Why the last `validate_connection()` said no (mirrors JiraBoardAdapter).
+        self.last_validation_error: Optional[str] = None
 
     async def initialize(self, token: str) -> None:
         try:
@@ -129,7 +131,8 @@ class LinearBoardAdapter(BaseBoardAdapter):
 
             if not await self.validate_connection():
                 raise BoardAdapterError(
-                    f"Failed to connect to Linear team {self.board_id}"
+                    f"Could not connect to Linear team {self.board_id}: "
+                    f"{self.last_validation_error or 'unknown reason'}"
                 )
             states = await self.api.get_team_workflow_states(self.board_id)
             for state in states:
@@ -363,11 +366,19 @@ class LinearBoardAdapter(BaseBoardAdapter):
             raise BoardAdapterError(f"Failed to get board metadata: {e}") from e
 
     async def validate_connection(self) -> bool:
+        """True if the team is reachable; the reason for False is kept on
+        `self.last_validation_error` so the sync record can say *why* (a 401,
+        "Entity not found" and a timeout otherwise all read the same)."""
         try:
             team = await self.api.get_team(self.board_id)
-            return team is not None
-        except Exception:
+        except Exception as e:
+            self.last_validation_error = str(e)[:500] or type(e).__name__
             return False
+        if team is None:
+            self.last_validation_error = "team not found"
+            return False
+        self.last_validation_error = None
+        return True
 
     def _issue_to_ticket(self, issue: Dict[str, Any]) -> Ticket:
         state_name = (issue.get("state") or {}).get("name", "")

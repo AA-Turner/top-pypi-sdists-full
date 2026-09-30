@@ -28,7 +28,9 @@ from koyeb.api_async.models.env import Env
 from koyeb.api_async.models.git_source import GitSource
 from koyeb.api_async.models.network_policy import NetworkPolicy
 from koyeb.api_async.models.port import Port
-from koyeb.api_async.models.regional_deployment_definition_type import RegionalDeploymentDefinitionType
+from koyeb.api_async.models.regional_deployment_definition_type import (
+    RegionalDeploymentDefinitionType,
+)
 from koyeb.api_async.models.regional_deployment_mesh import RegionalDeploymentMesh
 from koyeb.api_async.models.regional_deployment_volume import RegionalDeploymentVolume
 from koyeb.api_async.models.route import Route
@@ -37,12 +39,16 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class RegionalDeploymentDefinition(BaseModel):
     """
     RegionalDeploymentDefinition
-    """ # noqa: E501
+    """  # noqa: E501
+
     name: Optional[StrictStr] = None
-    type: Optional[RegionalDeploymentDefinitionType] = RegionalDeploymentDefinitionType.INVALID
+    type: Optional[
+        RegionalDeploymentDefinitionType
+    ] = RegionalDeploymentDefinitionType.INVALID
     strategy: Optional[DeploymentStrategy] = None
     routes: Optional[List[Route]] = None
     ports: Optional[List[Port]] = None
@@ -55,12 +61,34 @@ class RegionalDeploymentDefinition(BaseModel):
     volumes: Optional[List[RegionalDeploymentVolume]] = None
     config_files: Optional[List[ConfigFile]] = None
     skip_cache: Optional[StrictBool] = None
-    mesh: Optional[RegionalDeploymentMesh] = RegionalDeploymentMesh.REGIONAL_DEPLOYMENT_MESH_AUTO
+    mesh: Optional[
+        RegionalDeploymentMesh
+    ] = RegionalDeploymentMesh.REGIONAL_DEPLOYMENT_MESH_AUTO
     network_policy: Optional[NetworkPolicy] = None
     docker: Optional[DockerSource] = None
     git: Optional[GitSource] = None
     archive: Optional[ArchiveSource] = None
-    __properties: ClassVar[List[str]] = ["name", "type", "strategy", "routes", "ports", "env", "region", "scaling", "instance_type", "deployment_group", "health_checks", "volumes", "config_files", "skip_cache", "mesh", "network_policy", "docker", "git", "archive"]
+    __properties: ClassVar[List[str]] = [
+        "name",
+        "type",
+        "strategy",
+        "routes",
+        "ports",
+        "env",
+        "region",
+        "scaling",
+        "instance_type",
+        "deployment_group",
+        "health_checks",
+        "volumes",
+        "config_files",
+        "skip_cache",
+        "mesh",
+        "network_policy",
+        "docker",
+        "git",
+        "archive",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -68,7 +96,6 @@ class RegionalDeploymentDefinition(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -93,8 +120,7 @@ class RegionalDeploymentDefinition(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -103,64 +129,72 @@ class RegionalDeploymentDefinition(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of strategy
         if self.strategy:
-            _dict['strategy'] = self.strategy.to_dict()
+            _dict["strategy"] = self.strategy.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in routes (list)
         _items = []
         if self.routes:
             for _item_routes in self.routes:
-                if _item_routes:
-                    _items.append(_item_routes.to_dict())
-            _dict['routes'] = _items
+                _items.append(
+                    _item_routes.to_dict() if _item_routes is not None else None
+                )
+            _dict["routes"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in ports (list)
         _items = []
         if self.ports:
             for _item_ports in self.ports:
-                if _item_ports:
-                    _items.append(_item_ports.to_dict())
-            _dict['ports'] = _items
+                _items.append(
+                    _item_ports.to_dict() if _item_ports is not None else None
+                )
+            _dict["ports"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in env (list)
         _items = []
         if self.env:
             for _item_env in self.env:
-                if _item_env:
-                    _items.append(_item_env.to_dict())
-            _dict['env'] = _items
+                _items.append(_item_env.to_dict() if _item_env is not None else None)
+            _dict["env"] = _items
         # override the default output from pydantic by calling `to_dict()` of scaling
         if self.scaling:
-            _dict['scaling'] = self.scaling.to_dict()
+            _dict["scaling"] = self.scaling.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in health_checks (list)
         _items = []
         if self.health_checks:
             for _item_health_checks in self.health_checks:
-                if _item_health_checks:
-                    _items.append(_item_health_checks.to_dict())
-            _dict['health_checks'] = _items
+                _items.append(
+                    _item_health_checks.to_dict()
+                    if _item_health_checks is not None
+                    else None
+                )
+            _dict["health_checks"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in volumes (list)
         _items = []
         if self.volumes:
             for _item_volumes in self.volumes:
-                if _item_volumes:
-                    _items.append(_item_volumes.to_dict())
-            _dict['volumes'] = _items
+                _items.append(
+                    _item_volumes.to_dict() if _item_volumes is not None else None
+                )
+            _dict["volumes"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in config_files (list)
         _items = []
         if self.config_files:
             for _item_config_files in self.config_files:
-                if _item_config_files:
-                    _items.append(_item_config_files.to_dict())
-            _dict['config_files'] = _items
+                _items.append(
+                    _item_config_files.to_dict()
+                    if _item_config_files is not None
+                    else None
+                )
+            _dict["config_files"] = _items
         # override the default output from pydantic by calling `to_dict()` of network_policy
         if self.network_policy:
-            _dict['network_policy'] = self.network_policy.to_dict()
+            _dict["network_policy"] = self.network_policy.to_dict()
         # override the default output from pydantic by calling `to_dict()` of docker
         if self.docker:
-            _dict['docker'] = self.docker.to_dict()
+            _dict["docker"] = self.docker.to_dict()
         # override the default output from pydantic by calling `to_dict()` of git
         if self.git:
-            _dict['git'] = self.git.to_dict()
+            _dict["git"] = self.git.to_dict()
         # override the default output from pydantic by calling `to_dict()` of archive
         if self.archive:
-            _dict['archive'] = self.archive.to_dict()
+            _dict["archive"] = self.archive.to_dict()
         return _dict
 
     @classmethod
@@ -172,27 +206,63 @@ class RegionalDeploymentDefinition(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "type": obj.get("type") if obj.get("type") is not None else RegionalDeploymentDefinitionType.INVALID,
-            "strategy": DeploymentStrategy.from_dict(obj["strategy"]) if obj.get("strategy") is not None else None,
-            "routes": [Route.from_dict(_item) for _item in obj["routes"]] if obj.get("routes") is not None else None,
-            "ports": [Port.from_dict(_item) for _item in obj["ports"]] if obj.get("ports") is not None else None,
-            "env": [Env.from_dict(_item) for _item in obj["env"]] if obj.get("env") is not None else None,
-            "region": obj.get("region"),
-            "scaling": Scaling.from_dict(obj["scaling"]) if obj.get("scaling") is not None else None,
-            "instance_type": obj.get("instance_type"),
-            "deployment_group": obj.get("deployment_group"),
-            "health_checks": [DeploymentHealthCheck.from_dict(_item) for _item in obj["health_checks"]] if obj.get("health_checks") is not None else None,
-            "volumes": [RegionalDeploymentVolume.from_dict(_item) for _item in obj["volumes"]] if obj.get("volumes") is not None else None,
-            "config_files": [ConfigFile.from_dict(_item) for _item in obj["config_files"]] if obj.get("config_files") is not None else None,
-            "skip_cache": obj.get("skip_cache"),
-            "mesh": obj.get("mesh") if obj.get("mesh") is not None else RegionalDeploymentMesh.REGIONAL_DEPLOYMENT_MESH_AUTO,
-            "network_policy": NetworkPolicy.from_dict(obj["network_policy"]) if obj.get("network_policy") is not None else None,
-            "docker": DockerSource.from_dict(obj["docker"]) if obj.get("docker") is not None else None,
-            "git": GitSource.from_dict(obj["git"]) if obj.get("git") is not None else None,
-            "archive": ArchiveSource.from_dict(obj["archive"]) if obj.get("archive") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "name": obj.get("name"),
+                "type": obj.get("type")
+                if obj.get("type") is not None
+                else RegionalDeploymentDefinitionType.INVALID,
+                "strategy": DeploymentStrategy.from_dict(obj["strategy"])
+                if obj.get("strategy") is not None
+                else None,
+                "routes": [Route.from_dict(_item) for _item in obj["routes"]]
+                if obj.get("routes") is not None
+                else None,
+                "ports": [Port.from_dict(_item) for _item in obj["ports"]]
+                if obj.get("ports") is not None
+                else None,
+                "env": [Env.from_dict(_item) for _item in obj["env"]]
+                if obj.get("env") is not None
+                else None,
+                "region": obj.get("region"),
+                "scaling": Scaling.from_dict(obj["scaling"])
+                if obj.get("scaling") is not None
+                else None,
+                "instance_type": obj.get("instance_type"),
+                "deployment_group": obj.get("deployment_group"),
+                "health_checks": [
+                    DeploymentHealthCheck.from_dict(_item)
+                    for _item in obj["health_checks"]
+                ]
+                if obj.get("health_checks") is not None
+                else None,
+                "volumes": [
+                    RegionalDeploymentVolume.from_dict(_item)
+                    for _item in obj["volumes"]
+                ]
+                if obj.get("volumes") is not None
+                else None,
+                "config_files": [
+                    ConfigFile.from_dict(_item) for _item in obj["config_files"]
+                ]
+                if obj.get("config_files") is not None
+                else None,
+                "skip_cache": obj.get("skip_cache"),
+                "mesh": obj.get("mesh")
+                if obj.get("mesh") is not None
+                else RegionalDeploymentMesh.REGIONAL_DEPLOYMENT_MESH_AUTO,
+                "network_policy": NetworkPolicy.from_dict(obj["network_policy"])
+                if obj.get("network_policy") is not None
+                else None,
+                "docker": DockerSource.from_dict(obj["docker"])
+                if obj.get("docker") is not None
+                else None,
+                "git": GitSource.from_dict(obj["git"])
+                if obj.get("git") is not None
+                else None,
+                "archive": ArchiveSource.from_dict(obj["archive"])
+                if obj.get("archive") is not None
+                else None,
+            }
+        )
         return _obj
-
-

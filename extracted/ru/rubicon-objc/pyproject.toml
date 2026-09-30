@@ -1,7 +1,7 @@
 [build-system]
 requires = [
-    "setuptools==82.0.1",
-    "setuptools_scm==10.2.0",
+    "setuptools==84.0.0",
+    "setuptools_scm==10.2.3",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -10,7 +10,7 @@ dynamic = ["version"]
 name = "rubicon-objc"
 description = "A bridge between an Objective C runtime environment and Python."
 readme = "README.md"
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 license = "BSD-3-Clause"
 license-files = [
     "LICENSE",
@@ -31,7 +31,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Objective C",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -49,24 +48,28 @@ Tracker = "https://github.com/beeware/rubicon-objc/issues"
 Source = "https://github.com/beeware/rubicon-objc"
 
 [dependency-groups]
+briefcase = [
+    "briefcase @ git+https://github.com/beeware/briefcase",
+]
+
 pre-commit = [
-    "pre-commit == 4.6.0",
+    "pre-commit == 4.6.2",
 ]
 
 setuptools-scm = [
-    "setuptools_scm==10.2.0",
+    "setuptools_scm==10.2.3",
 ]
 
 towncrier = [
-    "towncrier==25.8.0",
+    "towncrier==26.9.0",
 ]
 
 tox-uv = [
-    "tox-uv == 1.35.2",
+    "tox-uv == 1.36.0",
 ]
 
 test = [
-    "coverage[toml] == 7.14.3",
+    "coverage[toml] == 7.16.1",
     "coverage-conditional-plugin == 0.9.0",
     "pytest == 9.1.1",
 ]
@@ -83,6 +86,50 @@ docs = [
     "beeware-docs-tools @ git+https://github.com/beeware/beeware-docs-tools",
     # "beeware-docs-tools @ file://../beeware-docs-tools",
 ]
+
+[tool.briefcase]
+project_name = "Rubicon ObjC Testbed"
+bundle = "org.beeware"
+
+[tool.briefcase.app.testbed]
+formal_name = "Rubicon ObjC Testbed"
+description = "A testbed for Rubicon ObjC"
+long_description = """More details about the app should go here.
+"""
+sources = [
+    "testbed/testbed",
+]
+test_sources = [
+    "tests",
+]
+
+requires = [
+    "rubicon-objc",
+]
+test_requires = [
+    "pytest == 9.1.1"
+]
+requirement_installer_args = ["--pre", "-f", "./dist"]
+
+[tool.briefcase.app.testbed.macOS]
+supported = true
+
+[tool.briefcase.app.testbed.linux]
+supported = false
+
+[tool.briefcase.app.testbed.windows]
+supported = false
+
+# Mobile deployments
+[tool.briefcase.app.testbed.iOS]
+supported = true
+
+[tool.briefcase.app.testbed.android]
+supported = false
+
+# Web deployments
+[tool.briefcase.app.testbed.web]
+supported = false
 
 [tool.codespell]
 skip = ".git,*.pdf,*.svg"
@@ -149,6 +196,15 @@ extend-select = [
     # use improvement.
     # "SIM",    # flake8-simplify
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# PEP8 module naming conventions aren't appropriate
+"tests/test_NS*.py" = ["N999"]
+"tests/test_ObjC*.py" = ["N999"]
+# Ignores needed to pass the Ruff 0.16 update.
+"src/rubicon/objc/api.py" = ["PLW0642", "RUF012"]
+"tests/conftest.py" = ["BLE001"]
+"tests/test_NSString.py" = ["BLE001", "PLR0124"]
 
 [tool.rumdl]
 flavor = "mkdocs"

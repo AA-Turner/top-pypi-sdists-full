@@ -23,6 +23,19 @@ def parse_sentinel_hosts(raw: Any, default_port: int = DEFAULT_SENTINEL_PORT) ->
             silently ignored host is how an HA deployment ends up writing to one Sentinel.
     """
     ...
+def resolve_stream_maxlen(raw: Any) -> int:
+    """
+    The stream cap from a config or environment value.
+    
+        Args:
+            raw: An int, a numeric string, or ``None``/empty for the default.
+    
+        Returns:
+            A positive cap.  A non-integer or non-positive value falls back to
+            :data:`DEFAULT_STREAM_MAXLEN` **with a warning**: an unbounded stream is exactly the
+            failure the cap exists to prevent, so no value can switch it off.
+    """
+    ...
 
 # Classes
 class RedisStreamPublisher:
@@ -49,7 +62,8 @@ class RedisStreamPublisher:
                 Args:
                     config: Overrides, in precedence over the environment.  Recognised keys:
                         ``host``, ``port``, ``password``, ``username``, ``db``, ``sentinel_hosts``,
-                        ``sentinel_port``, ``master_name``, and ``redis_client`` -- an already-built
+                        ``sentinel_port``, ``master_name``, ``stream_maxlen`` (see
+                        :data:`DEFAULT_STREAM_MAXLEN`), and ``redis_client`` -- an already-built
                         client, which is how a test drives this class without a Redis.
                     clock: Anything with ``now() -> float``, used only for the reconnect backoff.
                         Defaults to :class:`~matrice_analytics.engine.primitives.base.WallClock`,
@@ -59,7 +73,7 @@ class RedisStreamPublisher:
         
                 Environment read when a key is absent: ``REDIS_HOST``, ``REDIS_PORT``,
                 ``REDIS_PASSWORD``, ``REDIS_USERNAME``, ``REDIS_DB``, ``REDIS_SENTINEL_HOSTS``,
-                ``REDIS_SENTINEL_PORT``, ``REDIS_MASTER_NAME``.
+                ``REDIS_SENTINEL_PORT``, ``REDIS_MASTER_NAME``, and :data:`STREAM_MAXLEN_ENV`.
         """
         ...
 
@@ -92,6 +106,12 @@ class RedisStreamPublisher:
                 Never raises.  A transport failure is counted in :attr:`stats` and logged: analytics is
                 a side channel, and taking an inference worker down because a dashboard is unreachable
                 is a worse failure than a missing minute of metrics.
+        """
+        ...
+
+    def stream_maxlen(self: Any) -> int:
+        """
+        The approximate ``MAXLEN`` every XADD carries.
         """
         ...
 

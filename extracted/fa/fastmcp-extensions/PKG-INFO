@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fastmcp-extensions
-Version: 0.30.0
+Version: 0.32.0
 Summary: Unofficial extension library for FastMCP 3.x with patterns, practices, and utilities
 Project-URL: Homepage, https://github.com/airbytehq/fastmcp-extensions
 Project-URL: Repository, https://github.com/airbytehq/fastmcp-extensions
@@ -502,7 +502,37 @@ are configured via FastMCP's `MultiAuth`:
 
 `static_tokens=`, `base_url=`, and `required_scopes=` round out the parameters.
 It returns a single verifier when one is configured, or a `MultiAuth` when
-several are. For a durable, shared interactive-OIDC store (so refresh tokens
+several are.
+
+#### Trusting several realms / user tokens
+
+`jwt=` also accepts a sequence of `JWTAuthConfig`s — one verifier per entry,
+combined via `MultiAuth` — so a server can trust several issuers or realms at
+once. A typical pairing is an application-token realm (client-credentials
+tokens) plus a user-token realm pinned with `allowed_client_ids`:
+
+```python
+jwt = [
+    # Application tokens minted via the client credentials grant:
+    JWTAuthConfig(
+        jwks_uri="https://app-realm.example/jwks", issuer="https://app-realm.example/"
+    ),
+    # Interactive user/session tokens, pinned by `azp` (aud varies per client):
+    JWTAuthConfig(
+        jwks_uri="https://user-realm.example/jwks",
+        issuer="https://user-realm.example/",
+        allowed_client_ids=frozenset({"my-webapp-client"}),
+    ),
+]
+```
+
+The second config builds a `ClientAllowlistJWTVerifier`: signature and issuer
+are checked as usual, and the token is then rejected unless its `azp` claim
+names an allowlisted client. Use this for user/session tokens from
+interactive clients — client-credentials tokens don't carry `azp`, so leave
+`allowed_client_ids` unset for them.
+
+For a durable, shared interactive-OIDC store (so refresh tokens
 survive restarts and span replicas), the server constructs its own backend and
 injects it via `OIDCAuthConfig(client_storage=...)` — keeping all
 backend-specific config (project, database, encryption) in the deployment, not
@@ -816,7 +846,7 @@ cmd = "python bin/measure_mcp_tool_list.py"
 
 - `CapabilityTokenMiddleware` / `RejectEventStreamGetMiddleware` - Carry extension declarations through stateless HTTP and reject SSE-style `GET` requests at the MCP path.
 - `encode_capability_token` / `decode_capability_token` - Encode and fail-closed decode self-describing capability tokens.
-- `SessionToken` / `encode_session_token` / `decode_session_token` / `session_token_from_headers` - Encode and decode v2 session tokens carrying declared extensions, `clientInfo` name and version, and protocol version. `CapabilityTokenMiddleware` mints one on every `initialize` response, so stateless tool-call telemetry reports `mcp_client_name` and `mcp_client_version` for clients that echo `Mcp-Session-Id`. Tokens are unsigned client self-declarations, never authorization.
+- `SessionToken` / `encode_session_token` / `decode_session_token` / `session_token_from_headers` - Encode and decode v2 session tokens carrying declared extensions, `clientInfo` name and version, and protocol version. `CapabilityTokenMiddleware` mints one on every `initialize` response, so stateless tool-call telemetry reports `mcp_client_name` and `mcp_client_version` for clients that echo `Mcp-Session-Id`. `minted_session_token(scope)` returns the token being minted for the current `initialize` from the ASGI scope state, so in-app code can correlate the handshake with the `Mcp-Session-Id` the client will echo. Tokens are unsigned client self-declarations, never authorization.
 - `client_supports_extension` / `client_declared_extensions_from_headers` - Resolve client extension declarations from FastMCP session capabilities, the session token, and the fallback header.
 - `DEFAULT_EXTENSIONS_HEADER` - Default fallback header name, `X-MCP-Extensions`.
 

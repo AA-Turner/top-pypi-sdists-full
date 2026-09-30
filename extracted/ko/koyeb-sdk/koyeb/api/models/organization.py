@@ -20,7 +20,9 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api.models.organization_deactivation_reason import OrganizationDeactivationReason
+from koyeb.api.models.organization_deactivation_reason import (
+    OrganizationDeactivationReason,
+)
 from koyeb.api.models.organization_detailed_status import OrganizationDetailedStatus
 from koyeb.api.models.organization_status import OrganizationStatus
 from koyeb.api.models.plan import Plan
@@ -28,10 +30,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class Organization(BaseModel):
     """
     Organization
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     external_id: Optional[StrictStr] = None
     provisioning: Optional[StrictBool] = None
@@ -54,8 +58,12 @@ class Organization(BaseModel):
     latest_subscription_id: Optional[StrictStr] = None
     signup_qualification: Optional[Dict[str, Any]] = None
     status: Optional[OrganizationStatus] = OrganizationStatus.WARNING
-    status_message: Optional[OrganizationDetailedStatus] = OrganizationDetailedStatus.NEW
-    deactivation_reason: Optional[OrganizationDeactivationReason] = OrganizationDeactivationReason.INVALID
+    status_message: Optional[
+        OrganizationDetailedStatus
+    ] = OrganizationDetailedStatus.NEW
+    deactivation_reason: Optional[
+        OrganizationDeactivationReason
+    ] = OrganizationDeactivationReason.INVALID
     verified: Optional[StrictBool] = None
     qualifies_for_hobby23: Optional[StrictBool] = None
     reprocess_after: Optional[datetime] = None
@@ -64,7 +72,40 @@ class Organization(BaseModel):
     trial_ends_at: Optional[datetime] = None
     email_domain_allowlist: Optional[List[StrictStr]] = None
     default_project_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "external_id", "provisioning", "address1", "address2", "city", "postal_code", "state", "country", "company", "vat_number", "billing_name", "billing_email", "name", "plan", "plan_updated_at", "has_payment_method", "subscription_id", "current_subscription_id", "latest_subscription_id", "signup_qualification", "status", "status_message", "deactivation_reason", "verified", "qualifies_for_hobby23", "reprocess_after", "trialing", "trial_starts_at", "trial_ends_at", "email_domain_allowlist", "default_project_id"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "external_id",
+        "provisioning",
+        "address1",
+        "address2",
+        "city",
+        "postal_code",
+        "state",
+        "country",
+        "company",
+        "vat_number",
+        "billing_name",
+        "billing_email",
+        "name",
+        "plan",
+        "plan_updated_at",
+        "has_payment_method",
+        "subscription_id",
+        "current_subscription_id",
+        "latest_subscription_id",
+        "signup_qualification",
+        "status",
+        "status_message",
+        "deactivation_reason",
+        "verified",
+        "qualifies_for_hobby23",
+        "reprocess_after",
+        "trialing",
+        "trial_starts_at",
+        "trial_ends_at",
+        "email_domain_allowlist",
+        "default_project_id",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -72,7 +113,6 @@ class Organization(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -97,8 +137,7 @@ class Organization(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -116,40 +155,46 @@ class Organization(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "external_id": obj.get("external_id"),
-            "provisioning": obj.get("provisioning"),
-            "address1": obj.get("address1"),
-            "address2": obj.get("address2"),
-            "city": obj.get("city"),
-            "postal_code": obj.get("postal_code"),
-            "state": obj.get("state"),
-            "country": obj.get("country"),
-            "company": obj.get("company"),
-            "vat_number": obj.get("vat_number"),
-            "billing_name": obj.get("billing_name"),
-            "billing_email": obj.get("billing_email"),
-            "name": obj.get("name"),
-            "plan": obj.get("plan") if obj.get("plan") is not None else Plan.HOBBY,
-            "plan_updated_at": obj.get("plan_updated_at"),
-            "has_payment_method": obj.get("has_payment_method"),
-            "subscription_id": obj.get("subscription_id"),
-            "current_subscription_id": obj.get("current_subscription_id"),
-            "latest_subscription_id": obj.get("latest_subscription_id"),
-            "signup_qualification": obj.get("signup_qualification"),
-            "status": obj.get("status") if obj.get("status") is not None else OrganizationStatus.WARNING,
-            "status_message": obj.get("status_message") if obj.get("status_message") is not None else OrganizationDetailedStatus.NEW,
-            "deactivation_reason": obj.get("deactivation_reason") if obj.get("deactivation_reason") is not None else OrganizationDeactivationReason.INVALID,
-            "verified": obj.get("verified"),
-            "qualifies_for_hobby23": obj.get("qualifies_for_hobby23"),
-            "reprocess_after": obj.get("reprocess_after"),
-            "trialing": obj.get("trialing"),
-            "trial_starts_at": obj.get("trial_starts_at"),
-            "trial_ends_at": obj.get("trial_ends_at"),
-            "email_domain_allowlist": obj.get("email_domain_allowlist"),
-            "default_project_id": obj.get("default_project_id")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "external_id": obj.get("external_id"),
+                "provisioning": obj.get("provisioning"),
+                "address1": obj.get("address1"),
+                "address2": obj.get("address2"),
+                "city": obj.get("city"),
+                "postal_code": obj.get("postal_code"),
+                "state": obj.get("state"),
+                "country": obj.get("country"),
+                "company": obj.get("company"),
+                "vat_number": obj.get("vat_number"),
+                "billing_name": obj.get("billing_name"),
+                "billing_email": obj.get("billing_email"),
+                "name": obj.get("name"),
+                "plan": obj.get("plan") if obj.get("plan") is not None else Plan.HOBBY,
+                "plan_updated_at": obj.get("plan_updated_at"),
+                "has_payment_method": obj.get("has_payment_method"),
+                "subscription_id": obj.get("subscription_id"),
+                "current_subscription_id": obj.get("current_subscription_id"),
+                "latest_subscription_id": obj.get("latest_subscription_id"),
+                "signup_qualification": obj.get("signup_qualification"),
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else OrganizationStatus.WARNING,
+                "status_message": obj.get("status_message")
+                if obj.get("status_message") is not None
+                else OrganizationDetailedStatus.NEW,
+                "deactivation_reason": obj.get("deactivation_reason")
+                if obj.get("deactivation_reason") is not None
+                else OrganizationDeactivationReason.INVALID,
+                "verified": obj.get("verified"),
+                "qualifies_for_hobby23": obj.get("qualifies_for_hobby23"),
+                "reprocess_after": obj.get("reprocess_after"),
+                "trialing": obj.get("trialing"),
+                "trial_starts_at": obj.get("trial_starts_at"),
+                "trial_ends_at": obj.get("trial_ends_at"),
+                "email_domain_allowlist": obj.get("email_domain_allowlist"),
+                "default_project_id": obj.get("default_project_id"),
+            }
+        )
         return _obj
-
-

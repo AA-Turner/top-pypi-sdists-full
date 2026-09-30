@@ -151,7 +151,7 @@ def test_the_refusal_uses_the_cli_wide_failure_code():
 
     Asserted on the source of both branches so the two paths cannot drift into
     two different codes for one refusal, which is how they came to disagree
-    about the sync-status hint in the first place (#613).
+    about the status hint in the first place (#613).
     """
     from pathlib import Path
 

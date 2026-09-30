@@ -301,3 +301,77 @@ class SandboxService(object):
             timeout,
             metadata,
         )
+
+
+class SandboxResourceServiceStub(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.ListSandboxResources = channel.unary_unary(
+            "/chalk.sandbox.v2.SandboxResourceService/ListSandboxResources",
+            request_serializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesRequest.SerializeToString,
+            response_deserializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesResponse.FromString,
+        )
+
+
+class SandboxResourceServiceServicer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def ListSandboxResources(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+
+def add_SandboxResourceServiceServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+        "ListSandboxResources": grpc.unary_unary_rpc_method_handler(
+            servicer.ListSandboxResources,
+            request_deserializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesRequest.FromString,
+            response_serializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesResponse.SerializeToString,
+        ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+        "chalk.sandbox.v2.SandboxResourceService", rpc_method_handlers
+    )
+    server.add_generic_rpc_handlers((generic_handler,))
+
+
+# This class is part of an EXPERIMENTAL API.
+class SandboxResourceService(object):
+    """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def ListSandboxResources(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.sandbox.v2.SandboxResourceService/ListSandboxResources",
+            chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesRequest.SerializeToString,
+            chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )

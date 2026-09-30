@@ -109,7 +109,8 @@ ACTIONS: Dict[str, str] = {
     "init": "Onboarding {project}",
     "join": "Joining {org}, then onboarding {project}",
     "refresh": "Re-onboarding {project}",
-    "status": "Checking your connection, identity and assigned work",
+    "status": "Checking your sign-in and your projects",
+    "health": "Checking InnoDay and this CLI",
     "sync": "Syncing {project}",
     "sync --status": "Checking whether a sync is running",
     "sync ticket": "Fetching one ticket from the board",
@@ -186,6 +187,29 @@ def print_done(facts: Sequence[str], *, stream: Optional[Console] = None) -> Non
 # --------------------------------------------------------------------------
 # The header
 # --------------------------------------------------------------------------
+
+
+#: Set once per run by `execute_command` from `header_enabled(args)`: the
+#: spinner has no `args` of its own, and must go quiet exactly when the header
+#: does (PF-472).
+_progress_enabled = True
+
+
+def configure_progress(enabled: bool) -> None:
+    global _progress_enabled
+    _progress_enabled = enabled
+
+
+def progress_enabled() -> bool:
+    """Whether the rocket spinner may draw: the header's rules, plus a real
+    terminal on stderr (a pipe or a log file gets no animation)."""
+    if not _progress_enabled:
+        return False
+    if os.getenv(_NO_BANNER_ENV, "").lower() in ("1", "true", "yes"):
+        return False
+    if any(os.getenv(var) for var in _CI_ENV):
+        return False
+    return advisory.is_terminal
 
 
 def header_enabled(args: Any) -> bool:

@@ -80,7 +80,10 @@ dev = [
     "pytest>=9.0.3",
     "pytest-cov==7.1.0",
     "pytest-asyncio>=0.21.0",
-    "ruff==0.11.12",
+    # The version the central matrice-python lint hook and CI run. The repo-local
+    # ruff-check / ruff-format hooks are `language: system`, so they call whatever
+    # `ruff` this extra puts on PATH; any other version lints differently from CI.
+    "ruff==0.15.21",
     "bandit[toml]==1.9.4",
     # APPROVED_DEPS allows mypy "2.3.0" or the "1.0" floor. The [tool.mypy] block
     # below (disable_error_code list, follow_imports = "skip") is tuned for 1.x, so
@@ -107,12 +110,11 @@ dev = [
     #     name, so 0.1.95 -- which ships neither -- raises ImportError, and
     #     open_session then reports "matrice_common is not importable" instead of
     #     naming the credential variable that is actually missing.
-    #   - `!=1.0.0` excludes a release that is NEWER by version and OLDER by
-    #     content: it was published 2026-07-29, before the credential work, and
-    #     ships no `_credentials` at all. Because `1.0.0 > 0.11.0`, a bare
-    #     `matrice-common` or a plain `>=0.11.0` floor selects it and the same
-    #     ImportError comes straight back. Excluding the one bad release rather
-    #     than capping `<1.0.0` keeps a corrected future 1.x installable.
+    #   - `<1` because the platform SDKs publish on the 0.x line; the 1.x
+    #     releases are OLDER by content and ship no `_credentials` at all.
+    #     Because `1.0.0 > 0.11.0`, a bare `matrice-common` or a plain
+    #     `>=0.11.0` floor selects 1.x and the same ImportError comes straight
+    #     back. Every internal SDK is bounded `<1` for the same reason.
     #
     # No new transitive pin is required. The unguarded module-level third-party
     # imports reachable from the four entry points we import (matrice_common,
@@ -124,7 +126,7 @@ dev = [
     # `dependency-approval-py` reads the first version token of a range, so this
     # reads as `0.11.0` to the gate; APPROVED_DEPS-python.toml allows it via
     # `versions = ["0.3.0", "*"]` and sets no min_version.
-    "matrice-common>=0.11.0,!=1.0.0",
+    "matrice-common>=0.11.0,<1",
     "httpx==0.28.1",
     # redis is a SOFT runtime dependency: the new analytics flow imports it
     # lazily and degrades to a logged no-op if absent (the inference image
@@ -367,6 +369,9 @@ ignore = [
     "UP035",  # deprecated import (py38 compat)
     "UP045",  # non-pep604-annotation-optional (py38 compat)
     "UP037",  # quoted annotation (legacy)
+    # Removed from ruff in 0.13 (0.15.21 only warns that ignoring it is a no-op),
+    # but scripts/install-dev-hooks.sh still puts ruff 0.11.12 on PATH, where it
+    # is live. Drop this line once the installer pin reaches the dev-extra ruff.
     "UP038",  # non-pep604-isinstance (py38 compat)
     "PIE790", # unnecessary placeholder (legacy)
     "PIE810", # multiple starts/ends-with (legacy)
@@ -462,4 +467,79 @@ exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.",
+]
+
+[tool.deptry]
+# Gate B (INC-2026-528): deptry checks that the declared dependencies match what
+# the shipped code imports. The rules below encode this package's deploy model:
+# the inference image provides the heavy runtime stack, so those imports are
+# either declared only in the `dev` extra (for test/CI installs) or not at all.
+known_first_party = [
+    "matrice_analytics",
+    # setup.py py_modules, shipped beside the package for the .pth bootstrap.
+    "_matrice_ort_bootstrap",
+    # sibling module of ocr/_ocr_subprocess_worker.py, which runs as a script.
+    "_ocr_ipc",
+]
+# The dev extra holds tools and test-time installs, not runtime declarations.
+optional_dependencies_dev_groups = ["dev"]
+# Paths that are not part of the distribution ([tool.setuptools.packages.find]
+# ships only matrice_analytics*): bench tooling with its own requirements.in,
+# repo scripts, in-package test modules, the unpackaged src/ service scaffolding
+# and root scratch files. Anchored regexes, extending deptry's defaults.
+extend_exclude = [
+    "src/matrice_analytics/extract-gt-bench/",
+    "src/matrice_analytics/.*/tests/",
+    "scripts/",
+    "src/(config|middleware|utils)/",
+    "src/(__init__|observability|logging_config)\\.py$",
+    "local_ppl_test\\.py$",
+    "test_build\\.py$",
+    "stub_generation\\.py$",
+]
+
+[tool.deptry.per_rule_ignores]
+# DEP001 (imported, declared nowhere): modules the deployment image or an optional
+# model stack provides. Declaring them would force a reinstall over the image's
+# copy (heavy wheels, system packages) -- see the dev-extra notes above. Most are
+# imported lazily or behind try/except and degrade when absent.
+DEP001 = [
+    "PIL",
+    "batch_face",
+    "deepface",
+    "dotenv",
+    "easyocr",
+    "fast_plate_ocr",
+    "lap",
+    "matplotlib",
+    "matrice",
+    "matrice_streaming",
+    "onnxruntime",
+    "pandas",
+    "skimage",
+    "sklearn",
+    "timm",
+    "torch",
+    "torchvision",
+    "tqdm",
+    "transformers",
+    "ultralytics",
+    "xgboost",
+    "yolox",
+]
+# DEP003 (imported, only transitive): pydantic_core ships with pydantic, which
+# pins it exactly; clients/models.py uses its validation types directly.
+DEP003 = ["pydantic_core"]
+# DEP004 (dev-only dependency imported by package code): runtime imports the
+# inference image provides. They sit in the dev extra so test/CI installs have
+# them, and stay out of [project].dependencies for deploy safety.
+DEP004 = [
+    "aiohttp",
+    "cv2",
+    "httpx",
+    "matrice_common",
+    "pydantic",
+    "redis",
+    "requests",
+    "yaml",
 ]

@@ -56,6 +56,7 @@ class WorkspacesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.workspaces.get_configuration(
@@ -95,6 +96,7 @@ class WorkspacesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.workspaces.update_configuration(
@@ -141,6 +143,7 @@ class WorkspacesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.workspaces.search_members(
@@ -176,6 +179,7 @@ class WorkspacesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.workspaces.create_presence_token(
@@ -232,6 +236,7 @@ class WorkspacesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.workspaces.resolve_presence(
@@ -277,6 +282,7 @@ class WorkspacesClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.workspaces.get_tool_registry(
@@ -320,6 +326,7 @@ class WorkspacesClient:
         from athena import Athena, UpdateWorkspaceToolRegistryToolIn
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.workspaces.update_tool_registry(
@@ -376,6 +383,7 @@ class AsyncWorkspacesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -423,6 +431,7 @@ class AsyncWorkspacesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -477,6 +486,7 @@ class AsyncWorkspacesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -522,6 +532,7 @@ class AsyncWorkspacesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -586,6 +597,7 @@ class AsyncWorkspacesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -639,6 +651,7 @@ class AsyncWorkspacesClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -690,6 +703,7 @@ class AsyncWorkspacesClient:
         from athena import AsyncAthena, UpdateWorkspaceToolRegistryToolIn
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 

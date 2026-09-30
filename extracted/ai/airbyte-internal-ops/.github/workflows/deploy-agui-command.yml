@@ -1,0 +1,168 @@
+name: Deploy AG-UI Chat
+
+# Triggers:
+# - workflow_dispatch  - Manual deploy (preview or production).
+# - repository_dispatch (`deploy-agui`) - Auto-deploy to preview, fired by the
+#   publish-image workflows in airbytehq/airbyte-agui-server and
+#   airbytehq/airbyte-agui-sdk after they push a `main-<sha>` or release image.
+#   Payload keys: `server-tag`, `playground-tag`. Dispatches always deploy to
+#   preview — production requires a manual workflow_dispatch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      server-tag:
+        description: "agui-server image tag (e.g. main-<sha>). Optional."
+        required: false
+        type: string
+      playground-tag:
+        description: "agui-playground image tag (e.g. main-<sha>). Optional."
+        required: false
+        type: string
+      target:
+        description: "Deployment target."
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+  repository_dispatch:
+    types: [deploy-agui]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT: internal-airbyte-ai-infra
+  GCP_REGION: us-west3
+  AR_REPO: airbyte-agui-internal
+  SERVER_TAG: ${{ github.event.client_payload.server-tag || github.event.inputs.server-tag || '' }}
+  PLAYGROUND_TAG: ${{ github.event.client_payload.playground-tag || github.event.inputs.playground-tag || '' }}
+  # repository_dispatch is pinned to preview regardless of payload.
+  TARGET: ${{ github.event_name == 'repository_dispatch' && 'preview' || github.event.inputs.target || 'preview' }}
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.plan.outputs.services }}
+    steps:
+      - name: Resolve services to deploy
+        id: plan
+        run: |
+          case "$TARGET" in
+            preview|production) ;;
+            *)
+              echo "::error::Invalid target: '$TARGET' (allowed: preview, production)"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$SERVER_TAG" ] && [ -z "$PLAYGROUND_TAG" ]; then
+            echo "At least one of server-tag / playground-tag is required" >&2
+            exit 1
+          fi
+
+          # Tags come from an external dispatch payload: enforce Docker's tag
+          # grammar so nothing but a plain tag ever reaches a shell or gcloud.
+          tag_re='^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
+          for tag in "$SERVER_TAG" "$PLAYGROUND_TAG"; do
+            if [ -n "$tag" ] && ! [[ "$tag" =~ $tag_re ]]; then
+              echo "::error::Invalid image tag: '$tag'"
+              exit 1
+            fi
+          done
+
+          suffix=""
+          if [ "$TARGET" = "preview" ]; then
+            suffix="-preview"
+          fi
+
+          services="[]"
+          if [ -n "$SERVER_TAG" ]; then
+            services=$(jq -c --arg svc "agui-server$suffix" \
+              --arg img "$GCP_REGION-docker.pkg.dev/$GCP_PROJECT/$AR_REPO/airbyte-agui-server:$SERVER_TAG" \
+              '. + [{name: "server", service: $svc, image: $img, registry: "ar"}]' <<<"$services")
+          fi
+          if [ -n "$PLAYGROUND_TAG" ]; then
+            services=$(jq -c --arg svc "agui-playground$suffix" \
+              --arg img "ghcr.io/airbytehq/airbyte-agui-playground:$PLAYGROUND_TAG" \
+              '. + [{name: "playground", service: $svc, image: $img, registry: "ghcr"}]' <<<"$services")
+          fi
+          echo "services=$services" | tee -a "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy ${{ matrix.name }}
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.services) }}
+    # Serialize per target *and* per service so an in-flight deploy is never
+    # interrupted and the two services never cancel each other's pending run.
+    # GitHub keeps only the newest pending run per group, so a burst of
+    # publishes for one service lands its latest tag.
+    concurrency:
+      group: deploy-agui-${{ github.event_name == 'repository_dispatch' && 'preview' || github.event.inputs.target || 'preview' }}-${{ matrix.name }}
+      cancel-in-progress: false
+    environment:
+      name: ${{ (github.event_name == 'repository_dispatch' || (inputs.target || 'preview') == 'preview') && 'Cloud Run (agui-preview)' || 'Cloud Run (agui)' }}
+      url: ${{ (github.event_name == 'repository_dispatch' || (inputs.target || 'preview') == 'preview') && 'https://preview.ops.internal.airbyte.ai/chat' || 'https://ops.internal.airbyte.ai/chat' }}
+    env:
+      SERVICE: ${{ matrix.service }}
+      IMAGE: ${{ matrix.image }}
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-actions-ci@internal-airbyte-ai-infra.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify image exists (Artifact Registry)
+        if: matrix.registry == 'ar'
+        run: >
+          gcloud artifacts docker images describe "$IMAGE"
+          --project="${{ env.GCP_PROJECT }}"
+          --quiet
+
+      - name: Verify image exists (GHCR)
+        if: matrix.registry == 'ghcr'
+        run: docker manifest inspect "$IMAGE" > /dev/null
+
+      - name: Verify Cloud Run service
+        run: >
+          gcloud run services describe "$SERVICE"
+          --project="${{ env.GCP_PROJECT }}"
+          --region="${{ env.GCP_REGION }}"
+          --format="value(metadata.name)"
+
+      - name: Deploy
+        run: >
+          gcloud run services update "$SERVICE"
+          --project="${{ env.GCP_PROJECT }}"
+          --region="${{ env.GCP_REGION }}"
+          --image="$IMAGE"
+          --quiet
+
+      - name: Route traffic to latest revision (production only)
+        if: env.TARGET == 'production'
+        run: >
+          gcloud run services update-traffic "$SERVICE"
+          --project="${{ env.GCP_PROJECT }}"
+          --region="${{ env.GCP_REGION }}"
+          --to-latest
+          --quiet
+
+      - name: Summarize deployment
+        run: |
+          {
+            printf "AG-UI chat deployed (target: %s).\n" "$TARGET"
+            printf "%s: %s\n" "$SERVICE" "$IMAGE"
+          } | tee -a "$GITHUB_STEP_SUMMARY"

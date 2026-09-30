@@ -5,6 +5,7 @@
 // SPDX-FileCopyrightText: Michael Popoloski
 // SPDX-License-Identifier: MIT
 //------------------------------------------------------------------------------
+#include <fmt/format.h>
 #include <fstream>
 #include <iostream>
 
@@ -177,6 +178,7 @@ int driverMain(int argc, TArgs argv) {
         std::optional<bool> onlyMacros;
         std::optional<bool> disableAnalysis;
         std::optional<bool> groupMacrosByFile;
+        driver.cmdLine.setGroup("Actions");
         driver.cmdLine.add("-E,--preprocess", onlyPreprocess,
                            "Only run the preprocessor (and print preprocessed files to stdout)");
         driver.cmdLine.add("--macros-only", onlyMacros, "Print a list of found macros and exit");
@@ -186,13 +188,14 @@ int driverMain(int argc, TArgs argv) {
             "--parse-only", onlyParse,
             "Stop after parsing input files, don't perform elaboration or type checking");
         driver.cmdLine.add("--disable-analysis", disableAnalysis,
-                           "Disables post-elaboration analysis passes,"
+                           "Disables post-elaboration analysis passes, "
                            "which prevents some diagnostics from being issued");
 
         std::optional<bool> includeComments;
         std::optional<bool> includeDirectives;
         std::optional<bool> obfuscateIds;
         std::optional<bool> includeSource;
+        driver.cmdLine.setGroup("Preprocessor");
         driver.cmdLine.add("--comments", includeComments,
                            "Include comments in preprocessed output (with -E)");
         driver.cmdLine.add("--directives", includeDirectives,
@@ -203,6 +206,7 @@ int driverMain(int argc, TArgs argv) {
                            "Show source line information with preprocessor output");
 
         std::optional<std::string> astJsonFile;
+        driver.cmdLine.setGroup("JSON Output");
         driver.cmdLine.add(
             "--ast-json", astJsonFile,
             "Dump the compiled AST in JSON format to the specified file, or '-' for stdout",
@@ -233,6 +237,7 @@ int driverMain(int argc, TArgs argv) {
                            "When dumping AST to JSON, expand out all type information");
 
         std::optional<std::string> timeTrace;
+        driver.cmdLine.setGroup("Profiling");
         driver.cmdLine.add("--time-trace", timeTrace,
                            "Do performance profiling of the slang compiler and output "
                            "the results to the given file in Chrome Event Tracing JSON format",
@@ -266,14 +271,14 @@ int driverMain(int argc, TArgs argv) {
         }
 
         if (!driver.processOptions())
-            return 2;
+            return 1;
 
         if (onlyParse.has_value() + onlyPreprocess.has_value() + onlyMacros.has_value() +
                 driver.options.lintMode() >
             1) {
             driver.printError("can only specify one of --preprocess, --macros-only, "
                               "--parse-only, --lint-only");
-            return 3;
+            return 1;
         }
 
         if ((onlyPreprocess || onlyMacros) &&
@@ -281,7 +286,7 @@ int driverMain(int argc, TArgs argv) {
              driver.options.allDepfile)) {
             driver.printError(
                 "cannot use dependency file options with --preprocess or --macros-only");
-            return 3;
+            return 1;
         }
 
         if (timeTrace || timeStats)
@@ -362,7 +367,7 @@ int driverMain(int argc, TArgs argv) {
         }
         SLANG_CATCH(const std::exception& e) {
             SLANG_REPORT_EXCEPTION(e, "internal compiler error: {}\n");
-            return 4;
+            return 1;
         }
 
         if (timeTrace) {
@@ -377,12 +382,12 @@ int driverMain(int argc, TArgs argv) {
         if (timeStats)
             printTimeStats(*timeStats);
 
-        return ok ? 0 : 5;
+        return ok ? 0 : 1;
     }
     SLANG_CATCH(const std::exception& e) {
         SLANG_REPORT_EXCEPTION(e, "{}\n");
     }
-    return 6;
+    return 1;
 }
 
 #ifndef FUZZ_TARGET

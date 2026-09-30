@@ -35,9 +35,7 @@ import numpy as np
 # ---------------------------------------------------------------------------
 # Make local py_analytics source importable (take precedence over site-packages)
 # ---------------------------------------------------------------------------
-_PY_ANALYTICS_SRC = Path(
-    r"C:/Users/Sreenivasan/OneDrive/Desktop/matrice/py_analytics/src"
-)
+_PY_ANALYTICS_SRC = Path(r"C:/Users/Sreenivasan/OneDrive/Desktop/matrice/py_analytics/src")
 if _PY_ANALYTICS_SRC.is_dir():
     sys.path.insert(0, str(_PY_ANALYTICS_SRC))
 
@@ -59,6 +57,8 @@ for _stub_name in ("matrice_common", "matrice_common.session"):
             _mod.Session = _StubSession
         sys.modules[_stub_name] = _mod
 
+from ultralytics import YOLO  # noqa: E402
+
 from matrice_analytics.analytics.engine import AnalyticsEngine  # noqa: E402
 from matrice_analytics.analytics.schemas import StreamInfo  # noqa: E402
 from matrice_analytics.post_processing.advanced_tracker.config import (  # noqa: E402
@@ -67,8 +67,6 @@ from matrice_analytics.post_processing.advanced_tracker.config import (  # noqa:
 from matrice_analytics.post_processing.advanced_tracker.tracker import (  # noqa: E402
     AdvancedTracker,
 )
-
-from ultralytics import YOLO  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Config / constants (copied from ppe_test.py to preserve accuracy)
@@ -112,11 +110,7 @@ DEFAULT_VIDEO = DEFAULT_BASE / "ppe-compliance.mp4"
 DEFAULT_PPE_MODEL = DEFAULT_BASE / "ppe-monitoring-2.pt"
 DEFAULT_PEOPLE_MODEL = str(DEFAULT_BASE / "people_counting_coco_kaggle_0.91_Y11m.pt")
 DEFAULT_MANIFEST = (
-    _PY_ANALYTICS_SRC
-    / "matrice_analytics"
-    / "analytics"
-    / "config"
-    / "ppe_detection.yaml"
+    _PY_ANALYTICS_SRC / "matrice_analytics" / "analytics" / "config" / "ppe_detection.yaml"
 )
 DEFAULT_OUT_DIR = DEFAULT_BASE / "output"
 
@@ -241,9 +235,7 @@ def _dedupe_gear_for_person(raw_boxes, person_top_y):
 
 
 def _person_class_id(model) -> int:
-    names = getattr(model, "names", None) or getattr(
-        getattr(model, "model", None), "names", {}
-    )
+    names = getattr(model, "names", None) or getattr(getattr(model, "model", None), "names", {})
     if not names:
         return 0
     for k, v in names.items():
@@ -278,9 +270,7 @@ def _draw_frame(frame_bgr, people, gear, stats, frame_idx, agg_hint=""):
         tid = p.get("track_id")
         label = f"person id={tid}" if tid is not None else "person"
         (tw, th), bl = cv2.getTextSize(label, font, 0.5, 1)
-        cv2.rectangle(
-            out, (x1, y1 - th - bl - 4), (x1 + tw + 4, y1), PERSON_BOX_BGR, -1
-        )
+        cv2.rectangle(out, (x1, y1 - th - bl - 4), (x1 + tw + 4, y1), PERSON_BOX_BGR, -1)
         cv2.putText(
             out,
             label,
@@ -516,7 +506,7 @@ def run(
                 pres = people_model(frame_rgb, verbose=False, conf=people_conf)
                 persons: List[Dict[str, Any]] = []
                 if pres and pres[0].boxes is not None and len(pres[0].boxes):
-                    for xyxy, conf, cls in zip(
+                    for xyxy, conf, cls in zip(  # noqa: B905 - parallel per-box tensors
                         pres[0].boxes.xyxy, pres[0].boxes.conf, pres[0].boxes.cls
                     ):
                         if int(cls.item()) != person_cls:
@@ -551,11 +541,7 @@ def run(
                     )
                     exi1, eyi1, exi2, eyi2 = _expand_bbox(xi1, yi1, xi2, yi2, w, h)
                     crop_bgr = frame_bgr[eyi1:eyi2, exi1:exi2]
-                    if (
-                        crop_bgr.size == 0
-                        or crop_bgr.shape[0] < 8
-                        or crop_bgr.shape[1] < 8
-                    ):
+                    if crop_bgr.size == 0 or crop_bgr.shape[0] < 8 or crop_bgr.shape[1] < 8:
                         continue
                     crop_rgb = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2RGB)
                     gres = ppe_model(crop_rgb, verbose=False, conf=ppe_conf)
@@ -564,7 +550,7 @@ def run(
                     pb = gres[0].boxes
                     raw = []
                     violations_here: List[Dict[str, Any]] = []
-                    for xyxy, cf, cl in zip(pb.xyxy, pb.conf, pb.cls):
+                    for xyxy, cf, cl in zip(pb.xyxy, pb.conf, pb.cls):  # noqa: B905 - parallel per-box tensors
                         cid = int(cl.item())
                         label = PPE_INDEX_TO_CATEGORY.get(cid, f"id_{cid}")
                         cx1, cy1, cx2, cy2 = xyxy.tolist()
@@ -572,9 +558,7 @@ def run(
                         gx2, gy2 = int(round(cx2)) + exi1, int(round(cy2)) + eyi1
                         gx1, gy1, gx2, gy2 = _clip_xyxy(gx1, gy1, gx2, gy2, w, h)
                         if label in ALLOWED_GEAR_LABELS:
-                            raw.append(
-                                (label, float(cf.item()), cid, gx1, gy1, gx2, gy2)
-                            )
+                            raw.append((label, float(cf.item()), cid, gx1, gy1, gx2, gy2))
                         elif label in VIOLATION_LABELS:
                             violations_here.append(
                                 {
@@ -594,9 +578,7 @@ def run(
                     # optional Mask
                     mask_raw = [t for t in raw if t[0] == "Mask"]
                     if mask_raw:
-                        _c, mconf, mid_, mx1, my1, mx2, my2 = max(
-                            mask_raw, key=lambda t: t[1]
-                        )
+                        _c, mconf, mid_, mx1, my1, mx2, my2 = max(mask_raw, key=lambda t: t[1])
                         deduped.append(
                             {
                                 "category": "Mask",
@@ -637,20 +619,14 @@ def run(
                     "total_persons": int(per_frame_metrics.get("total_persons", 0)),
                     "compliant_count": int(per_frame_metrics.get("compliant_count", 0)),
                     "violation_count": int(per_frame_metrics.get("violation_count", 0)),
-                    "compliance_pct": float(
-                        per_frame_metrics.get("compliance_pct", 0.0)
-                    ),
+                    "compliance_pct": float(per_frame_metrics.get("compliance_pct", 0.0)),
                     "hardhat_count": int(per_frame_metrics.get("hardhat_count", 0)),
-                    "safety_vest_count": int(
-                        per_frame_metrics.get("safety_vest_count", 0)
-                    ),
+                    "safety_vest_count": int(per_frame_metrics.get("safety_vest_count", 0)),
                     "gloves_count": int(per_frame_metrics.get("gloves_count", 0)),
                     "goggles_count": int(per_frame_metrics.get("goggles_count", 0)),
                     "mask_count": int(per_frame_metrics.get("mask_count", 0)),
                     "entry_count": int(per_frame_metrics.get("entry_count", 0)),
-                    "current_occupancy": int(
-                        per_frame_metrics.get("current_occupancy", 0)
-                    ),
+                    "current_occupancy": int(per_frame_metrics.get("current_occupancy", 0)),
                 }
 
                 # ── Aggregate when the window rolls over ───────────────
@@ -691,9 +667,7 @@ def run(
                         "frame_idx": frame_idx,
                         "frame_ts": frame_ts,
                         "stats": stats,
-                        "person_track_ids": [
-                            p.get("track_id") for p in tracked_persons
-                        ],
+                        "person_track_ids": [p.get("track_id") for p in tracked_persons],
                         "n_gear": len(gear_all),
                     }
                 )
@@ -743,12 +717,8 @@ def run(
         if display:
             cv2.destroyAllWindows()
 
-    frame_json_path.write_text(
-        json.dumps({"frames": frame_summaries}, indent=2), encoding="utf-8"
-    )
-    agg_json_path.write_text(
-        json.dumps({"aggregations": aggregations}, indent=2), encoding="utf-8"
-    )
+    frame_json_path.write_text(json.dumps({"frames": frame_summaries}, indent=2), encoding="utf-8")
+    agg_json_path.write_text(json.dumps({"aggregations": aggregations}, indent=2), encoding="utf-8")
     logging.getLogger("test_safety_ppe").info(
         "Done. Outputs:\n  video: %s\n  csv  : %s\n  frames: %s\n  aggs : %s",
         annotated_path,

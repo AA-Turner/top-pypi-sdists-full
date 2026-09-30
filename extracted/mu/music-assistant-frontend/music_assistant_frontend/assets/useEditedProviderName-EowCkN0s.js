@@ -1,0 +1,1 @@
+import{Oi as e,Ui as t,ga as n}from"./lucide-BMYRskK9.js";var r=Symbol(`edited-provider-name`);function i(){let e=n(``);return t(r,e),e}function a(){return e(r,n(``))}export{a as n,i as t};

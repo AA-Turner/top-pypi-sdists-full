@@ -224,7 +224,7 @@ async def land_agent_read(result: Any, ctx: ToolContext, page: dict[str, Any]) -
 
     In-process, through ``matrx_scraper``'s injected landing hook (aidream wires ``land_source``):
     ``origin_client='agent'``, unkept (so intelligence follows the kind's policy — ``on_signal``
-    defers it until someone keeps it), visibility ``personal`` — the run's person owns it and a
+    defers it until someone keeps it), not published to the web — the run's person owns it and a
     colleague reaches it only through a conveying association. The page dict gains
     ``processed_document_id`` (``None`` when it did not land) and ``notices`` saying why.
     A host with no landing hook at all is announced on the result and in the log — the read still
@@ -247,7 +247,6 @@ async def land_agent_read(result: Any, ctx: ToolContext, page: dict[str, Any]) -
             user_id=str(ctx.user_id or "") or None,
             origin_client="agent",
             keep=False,
-            visibility="internal",
         )
     except SourceLandingNotConfigured as exc:
         vcprint(f"[web_read] {exc}", color="red")

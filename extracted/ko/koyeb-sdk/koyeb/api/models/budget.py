@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class Budget(BaseModel):
     """
     Budget
-    """ # noqa: E501
+    """  # noqa: E501
+
     amount: Optional[StrictStr] = None
     thresholds: Optional[List[StrictStr]] = None
     __properties: ClassVar[List[str]] = ["amount", "thresholds"]
@@ -37,7 +39,6 @@ class Budget(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class Budget(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,10 +81,7 @@ class Budget(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "amount": obj.get("amount"),
-            "thresholds": obj.get("thresholds")
-        })
+        _obj = cls.model_validate(
+            {"amount": obj.get("amount"), "thresholds": obj.get("thresholds")}
+        )
         return _obj
-
-

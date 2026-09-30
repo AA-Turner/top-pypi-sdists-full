@@ -35,6 +35,10 @@ def unnecessary_negation():
         pass
     if not someint == 'test':  # [unnecessary-negation]
         pass
+    if not someint is not 1:  # [unnecessary-negation]
+        pass
+    if not someint not in [3, 4]:  # [unnecessary-negation]
+        pass
 
 
 def tolerated_statements():
@@ -54,6 +58,10 @@ def tolerated_statements():
     if not set(something) <= 3:
         pass
     if not frozenset(something) <= 3:
+        pass
+    if not {}.items() <= {}.items():
+        pass
+    if not {}.keys() <= {}.keys():
         pass
 
 

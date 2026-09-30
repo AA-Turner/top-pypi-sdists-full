@@ -23,15 +23,22 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DatabaseUsage(BaseModel):
     """
     DatabaseUsage
-    """ # noqa: E501
+    """  # noqa: E501
+
     service_id: Optional[StrictStr] = None
     service_name: Optional[StrictStr] = None
     compute_time_seconds: Optional[StrictInt] = None
     data_storage_megabytes_hours: Optional[StrictInt] = None
-    __properties: ClassVar[List[str]] = ["service_id", "service_name", "compute_time_seconds", "data_storage_megabytes_hours"]
+    __properties: ClassVar[List[str]] = [
+        "service_id",
+        "service_name",
+        "compute_time_seconds",
+        "data_storage_megabytes_hours",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -39,7 +46,6 @@ class DatabaseUsage(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +70,7 @@ class DatabaseUsage(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,12 +88,12 @@ class DatabaseUsage(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "service_id": obj.get("service_id"),
-            "service_name": obj.get("service_name"),
-            "compute_time_seconds": obj.get("compute_time_seconds"),
-            "data_storage_megabytes_hours": obj.get("data_storage_megabytes_hours")
-        })
+        _obj = cls.model_validate(
+            {
+                "service_id": obj.get("service_id"),
+                "service_name": obj.get("service_name"),
+                "compute_time_seconds": obj.get("compute_time_seconds"),
+                "data_storage_megabytes_hours": obj.get("data_storage_megabytes_hours"),
+            }
+        )
         return _obj
-
-

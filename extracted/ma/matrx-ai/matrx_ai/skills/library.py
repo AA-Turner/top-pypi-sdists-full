@@ -12,7 +12,7 @@ agents' ``.claude/skills``, always ``internal``) and outside packs
 (``packs.py``, faithful imports of someone else's text). Rules:
 
 * **Declared, not discovered.** ``library/<set>/library.yaml`` names the set,
-  its visibility, category and every skill in it; each declared skill must be a
+  its web lane (``published_to_web``), category and every skill in it; each declared skill must be a
   ``<skill_id>/SKILL.md`` folder whose frontmatter ``name`` equals its id, and
   every folder in the set must be declared (complete or loud). The set lives
   under the ``matrx_ai.skills`` package, which repo-mirror discovery never
@@ -21,6 +21,12 @@ agents' ``.claude/skills``, always ``internal``) and outside packs
   id) and the set may declare ``parent_pack`` (the outside pack that owns the
   parents); the write resolves it to ``parent_skill_id`` and refuses the skill
   when it does not match exactly one active row.
+* **Paired both ways.** After the write, each of our rows carries
+  ``config.derived_from`` (the original's id, skill id, pack, source repo and
+  authors) and the original carries ``config.our_version`` (our id, skill id,
+  set) — merged beside the pack's own stamps, never replacing them, so the pack
+  ingest's re-run stays ``unchanged`` and the library UI can show each row's
+  counterpart. Written only when it differs; a rerun writes nothing.
 * **Owned by the set.** Rows carry ``config.ingested_from = "platform_library"``
   and ``config.library_set``; every other source sees them as foreign.
 * **Re-runnable.** A second run over unchanged files is all ``unchanged``.
@@ -41,6 +47,7 @@ from matrx_ai.skills.ingest import (
     _parse_content,
     _parse_frontmatter,
     _row_config,
+    declared_published_to_web,
     ensure_skill_category,
     upsert_parsed_skills,
 )
@@ -51,7 +58,6 @@ PLATFORM_LIBRARY_SOURCE = "platform_library"
 # ``config.source_path`` so a row's provenance is the same on every machine.
 LIBRARY_REPO_PATH = "packages/matrx-ai/matrx_ai/skills/library"
 MANIFEST_NAME = "library.yaml"
-_VISIBILITIES = frozenset({"public", "internal", "private"})
 
 
 class LibraryError(ValueError):
@@ -62,7 +68,7 @@ class LibraryError(ValueError):
 class LibrarySet:
     set_id: str
     title: str
-    visibility: str
+    published_to_web: bool
     skill_type: str
     category: dict[str, Any]
     root: Path
@@ -84,7 +90,7 @@ def load_library_set(set_dir: Path | str) -> LibrarySet:
         ls = LibrarySet(
             set_id=str(raw["set_id"]),
             title=str(raw["title"]),
-            visibility=str(raw.get("visibility", "internal")),
+            published_to_web=declared_published_to_web(raw, f"skill library {manifest}"),
             skill_type=str(raw.get("skill_type", "reference")),
             category=dict(raw["category"]),
             root=root,
@@ -96,8 +102,8 @@ def load_library_set(set_dir: Path | str) -> LibrarySet:
         )
     except KeyError as exc:
         raise LibraryError(f"{manifest} is missing required key {exc}") from exc
-    if ls.visibility not in _VISIBILITIES:
-        raise LibraryError(f"visibility {ls.visibility!r} is not one of {sorted(_VISIBILITIES)}")
+    except ValueError as exc:
+        raise LibraryError(str(exc)) from exc
     if ls.skill_type not in _VALID_SKILL_TYPES:
         raise LibraryError(f"skill_type {ls.skill_type!r} is not a skl_skill_type value")
     if not ls.category.get("slug") or not ls.category.get("name"):
@@ -147,7 +153,7 @@ def walk_library_set(ls: LibrarySet) -> tuple[list[ParsedSkill], list[str]]:
         parsed.skill_type = ls.skill_type
         parsed.declared_skill_type = True
         parsed.category = str(ls.category["slug"])
-        parsed.visibility = ls.visibility
+        parsed.published_to_web = ls.published_to_web
         parsed.ingested_from = PLATFORM_LIBRARY_SOURCE
         parsed.extra_config = {"library_set": ls.set_id, "source_repo": "aidream"}
         if spec["parent"]:
@@ -201,10 +207,11 @@ async def ingest_library_set(
             "collisions": [],
             "prune_plan": [],
             "category": None,
+            "counterparts_linked": 0,
         }
     category = await ensure_skill_category(
         ls.category,
-        visibility=ls.visibility,
+        published_to_web=ls.published_to_web,
         extra_metadata={"library_set": ls.set_id, "source_repo": "aidream"},
         admin_user_id=str(admin_user_id),
         dry_run=dry_run,
@@ -219,6 +226,47 @@ async def ingest_library_set(
         prune_candidate=(lambda _row: True) if prune else None,
         roots=[str(ls.root)],
     )
+    report["counterparts_linked"] = 0 if dry_run else await link_counterparts(ls.set_id)
     report["set_id"] = ls.set_id
     report["category"] = category
     return report
+
+
+async def link_counterparts(set_id: str) -> int:
+    """Stamp the pairing both ways for every row of this set that has a parent.
+
+    ``parent_skill_id`` already points ours → original; this adds the readable
+    half on each side (``derived_from`` / ``our_version``) so every surface shows
+    the counterpart without a second query. ``config`` is merged, never
+    replaced (the one-write-path contract in ``ingest.py``). Returns the number
+    of rows written; 0 when everything already agrees.
+    """
+    from matrx_ai.db._registry import get_instance
+
+    defs_mgr = get_instance("skl_definitions_manager")
+    rows = await defs_mgr.filter_items()
+    by_id = {str(r.id): r for r in rows}
+    owns = library_owns(set_id)
+    written = 0
+    for ours in rows:
+        if not owns(ours) or not getattr(ours, "is_active", False):
+            continue
+        parent = by_id.get(str(getattr(ours, "parent_skill_id", None) or ""))
+        if parent is None:
+            continue
+        parent_cfg = _row_config(parent)
+        derived_from: dict[str, Any] = {
+            "id": str(parent.id),
+            "skill_id": str(parent.skill_id),
+        }
+        for key in ("pack_id", "source_repo", "source_authors"):
+            if parent_cfg.get(key):
+                derived_from[key] = parent_cfg[key]
+        our_version = {"id": str(ours.id), "skill_id": str(ours.skill_id), "library_set": set_id}
+        for row, key, value in ((ours, "derived_from", derived_from), (parent, "our_version", our_version)):
+            cfg = _row_config(row)
+            if cfg.get(key) == value:
+                continue
+            await defs_mgr.update_item(str(row.id), config={**cfg, key: value})
+            written += 1
+    return written

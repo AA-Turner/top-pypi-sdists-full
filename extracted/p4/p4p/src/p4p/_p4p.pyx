@@ -53,10 +53,10 @@ cdef extern from "<p4p.h>" namespace "p4p":
     void disconnectDynamic(const shared_ptr[server.Source]& src) except+
 
     # pvxs_client.cpp
-    void opHandler[Builder](Builder& builder, object handler)
-    void opBuilder[Builder](Builder& builder, object handler)
-    void opEvent(client.MonitorBuilder& builder, object handler)
-    object monPop(const shared_ptr[client.Subscription]& mon) with gil
+    void opHandler[Builder](Builder& builder, object handler) except+
+    void opBuilder[Builder](Builder& builder, object handler) except+
+    void opEvent(client.MonitorBuilder& builder, object handler) except+
+    object monPop(const shared_ptr[client.Subscription]& mon) except+ with gil
 
 cimport numpy # must cimport after p4p.h is included
 
@@ -118,7 +118,7 @@ cdef lookupMember(data.Value* dest, const data.Value& top, key, int err):
         if key is None:
             dest[0] = top
             return
-        elif isinstance(key, unicode):
+        elif isinstance(key, str):
             ckey = key.encode()
         else:
             ckey = key
@@ -551,6 +551,13 @@ cdef class ClientOperation:
         if cancelled:
             self.handler(1, "", None)
 
+    @property
+    def name(self):
+        if <bool>self.op:
+            return self.op.get().name()
+        return "Dead ClientOperation"
+
+
 # can't tp_clear as we have no way to replace Subscription handler (cancel?)
 @cython.no_gc_clear
 cdef class ClientMonitor:
@@ -645,7 +652,7 @@ cdef class ClientProvider:
     def disconnect(self, basestring name=None):
         cdef string cname
         if name is not None:
-            cname = name
+            cname = name.encode()
         if <bool>self.ctxt:
             with nogil:
                 self.ctxt.cacheClear(cname, client.cacheAction.Disconnect)

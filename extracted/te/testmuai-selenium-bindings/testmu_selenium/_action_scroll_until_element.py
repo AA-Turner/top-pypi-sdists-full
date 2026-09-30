@@ -32,7 +32,7 @@ import os
 
 from selenium.common.exceptions import NoSuchElementException
 
-from testmu_selenium._helpers._http import make_http_request_with_retry
+from testmu_selenium._helpers._http import TransientHTTPError, make_http_request_with_retry
 from testmu_selenium._helpers._png import _png_dimensions as _shared_png_dimensions
 from testmu_selenium._helpers._screenshot import capture_full_page_screenshot
 
@@ -134,9 +134,20 @@ def scroll_until_element(driver, *, description: str = "") -> None:
     headers = _build_auth_headers()
     payload = _build_locate_desktop_payload(intent, image_base64)
 
-    response = make_http_request_with_retry(
-        "POST", url=endpoint, headers=headers, json_data=payload,
-    )
+    # This call has no tier-level retry, so a transient automind 500
+    # used to fail the step on the first blip. Retry it — but keep the public
+    # contract: an exhausted retry still surfaces as NoSuchElementException, the
+    # same exception generated code already handles, not a transport error.
+    try:
+        response = make_http_request_with_retry(
+            "POST", url=endpoint, headers=headers, json_data=payload,
+            retry_on_server_error=True,
+        )
+    except TransientHTTPError as exc:
+        raise NoSuchElementException(
+            f"scroll_until_element: locate API returned status "
+            f"{exc.status_code} for intent {intent!r} after retries"
+        ) from exc
     if response.status_code != 200:
         raise NoSuchElementException(
             f"scroll_until_element: locate API returned status "

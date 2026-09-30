@@ -54,16 +54,26 @@ class PraisonAIDB:
         database_url: Optional[str] = None,
         state_url: Optional[str] = None,
         knowledge_url: Optional[str] = None,
+        *,
+        conversation_options: Optional[Dict[str, Any]] = None,
+        state_options: Optional[Dict[str, Any]] = None,
+        knowledge_options: Optional[Dict[str, Any]] = None,
         **options
     ):
         """
         Initialize PraisonDB adapter.
-        
+
         Args:
             database_url: URL for conversation storage (postgres, mysql, sqlite)
             state_url: URL for state storage (redis, etc.)
             knowledge_url: URL for knowledge/vector storage (qdrant, etc.)
-            **options: Additional backend-specific options
+            conversation_options: Backend-specific kwargs for the conversation store
+            state_options: Backend-specific kwargs for the state store
+            knowledge_options: Backend-specific kwargs for the knowledge store
+            **options: Deprecated. Backend-specific options broadcast to EVERY
+                configured store. This corrupts multi-backend setups because one
+                backend's kwarg (e.g. Postgres ``ssl_mode``) is also handed to an
+                unrelated store (e.g. Redis). Prefer the per-store dicts above.
         """
         self._database_url = database_url
         self._state_url = state_url
@@ -71,6 +81,30 @@ class PraisonAIDB:
         # Pop adapter-level options before forwarding the rest to the backend
         # store factories, so they are never passed through as backend kwargs.
         init_retry_cooldown = options.pop("init_retry_cooldown", 30.0)
+
+        # Per-store options keep backend-specific kwargs from colliding across
+        # unrelated stores (mirrors persistence.config.PersistenceConfig).
+        self._conversation_options: Dict[str, Any] = dict(conversation_options or {})
+        self._state_options: Dict[str, Any] = dict(state_options or {})
+        self._knowledge_options: Dict[str, Any] = dict(knowledge_options or {})
+
+        if options:
+            # Legacy broadcast path: kept for back-compat but warns, because
+            # sharing one dict across three factories cross-contaminates backends.
+            import warnings
+            warnings.warn(
+                "PraisonAIDB(**options) applies the same kwargs to every backend, "
+                "which corrupts multi-backend setups. Pass per-store dicts instead: "
+                "conversation_options=..., state_options=..., knowledge_options=...",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            for key, value in options.items():
+                self._conversation_options.setdefault(key, value)
+                self._state_options.setdefault(key, value)
+                self._knowledge_options.setdefault(key, value)
+
+        # Retained for back-compat with any external references to ._options.
         self._options = options
         
         # Lazy-loaded stores
@@ -79,9 +113,12 @@ class PraisonAIDB:
         self._knowledge_store = None
         self._initialized = False
         self._init_lock = threading.Lock()          # guards the sync init path
-        # Async callers use a dedicated asyncio.Lock (created lazily per loop) so
-        # the event loop is never blocked on a threading.Lock, and the blocking
-        # store construction runs off-loop via asyncio.to_thread.
+        # Async callers do NOT cache an asyncio.Lock on the instance: such a lock
+        # binds to the loop that created it and raises when awaited from another
+        # (e.g. per-session scoped_bridge loops sharing one adapter). Instead the
+        # blocking store construction runs off-loop via asyncio.to_thread, where
+        # the sync _init_lock already serialises init. Kept as None for backward
+        # compatibility with any external references.
         self._ainit_lock: Optional["asyncio.Lock"] = None
         # Remember the last init failure so a soft error (bad config / missing
         # dep / cloud auth failure) is surfaced cleanly instead of being re-tried
@@ -120,6 +157,9 @@ class PraisonAIDB:
         self._state_url = None
         self._knowledge_url = None
         self._options = {}
+        self._conversation_options = {}
+        self._state_options = {}
+        self._knowledge_options = {}
         self._conversation_store = conversation_store
         self._state_store = state_store
         self._knowledge_store = knowledge_store
@@ -146,21 +186,21 @@ class PraisonAIDB:
         if self._database_url:
             backend = self._detect_backend(self._database_url)
             self._conversation_store = create_conversation_store(
-                backend, url=self._database_url, **self._options
+                backend, url=self._database_url, **self._conversation_options
             )
 
         # Initialize state store
         if self._state_url:
             backend = self._detect_backend(self._state_url)
             self._state_store = create_state_store(
-                backend, url=self._state_url, **self._options
+                backend, url=self._state_url, **self._state_options
             )
 
         # Initialize knowledge store
         if self._knowledge_url:
             backend = self._detect_backend(self._knowledge_url)
             self._knowledge_store = create_knowledge_store(
-                backend, url=self._knowledge_url, **self._options
+                backend, url=self._knowledge_url, **self._knowledge_options
             )
 
     # DBAPI/driver exception class names that indicate a *transient* connection
@@ -273,19 +313,13 @@ class PraisonAIDB:
         if cached is not None:
             raise cached
 
-        # Create the asyncio.Lock lazily so it binds to the running loop. This
-        # serialises async callers; the off-loop _init_stores serialises against
-        # sync callers via the shared threading _init_lock.
-        if self._ainit_lock is None:
-            self._ainit_lock = asyncio.Lock()
-
-        async with self._ainit_lock:
-            if self._initialized:
-                return
-            cached = self._init_failure_active()
-            if cached is not None:
-                raise cached
-            await asyncio.to_thread(self._init_stores)
+        # Do not cache an asyncio.Lock on the instance: a lock created on one
+        # loop raises RuntimeError when awaited from another (e.g. per-session
+        # scoped_bridge loops sharing one PraisonAIDB). Blocking store
+        # construction is already serialised on the sync _init_lock inside
+        # _init_stores, which runs off the loop via asyncio.to_thread, so async
+        # callers on any loop can never construct stores concurrently.
+        await asyncio.to_thread(self._init_stores)
     
     def _detect_backend(self, url: str) -> str:
         """Detect backend type from URL.
@@ -1328,36 +1362,33 @@ class PraisonAIDB:
     async def aclose(self) -> None:
         """Async version of close; idempotent and lock-safe.
 
-        Serialises against concurrent async init callers via ``_ainit_lock`` and
-        resets lifecycle state under the shared sync ``_init_lock`` (off the event
-        loop) so init/close can never race and leave a half-closed adapter that
-        reports ``_initialized`` while its stores are shut.
+        Resets lifecycle state under the shared sync ``_init_lock`` (off the
+        event loop) so init/close can never race and leave a half-closed adapter
+        that reports ``_initialized`` while its stores are shut. No instance-
+        cached asyncio.Lock is used, so a shared adapter is safe to close from a
+        different loop than the one that initialised it (e.g. scoped_bridge).
         """
         # Flush any fire-and-forget writes submitted from a running loop before
         # tearing stores down, so a shutting-down worker does not drop in-flight
         # persistence. Runs off the event loop to avoid blocking it.
         await asyncio.to_thread(self.flush_pending_writes)
 
-        if self._ainit_lock is None:
-            self._ainit_lock = asyncio.Lock()
+        def _snapshot_and_reset():
+            with self._init_lock:
+                snapshot = (
+                    self._conversation_store,
+                    self._state_store,
+                    self._knowledge_store,
+                )
+                self._conversation_store = None
+                self._state_store = None
+                self._knowledge_store = None
+                self._initialized = False
+                self._init_failed = None
+                self._init_failed_at = 0.0
+                return snapshot
 
-        async with self._ainit_lock:
-            def _snapshot_and_reset():
-                with self._init_lock:
-                    snapshot = (
-                        self._conversation_store,
-                        self._state_store,
-                        self._knowledge_store,
-                    )
-                    self._conversation_store = None
-                    self._state_store = None
-                    self._knowledge_store = None
-                    self._initialized = False
-                    self._init_failed = None
-                    self._init_failed_at = 0.0
-                    return snapshot
-
-            stores = await asyncio.to_thread(_snapshot_and_reset)
+        stores = await asyncio.to_thread(_snapshot_and_reset)
 
         for store in stores:
             if store is None:
@@ -1549,8 +1580,21 @@ class TursoDB(PraisonAIDB):
             raise ValueError(
                 "Turso database URL required. Provide database_url or set TURSO_DATABASE_URL."
             )
-        options["auth_token"] = token
-        super().__init__(database_url=url, **options)
+        # Scope the auth token to the conversation store only. Stuffing it into
+        # the shared **options bag would leak it into an unrelated state/knowledge
+        # store factory as an unexpected kwarg.
+        conversation_options = dict(options.pop("conversation_options", None) or {})
+        # Only override when we actually resolved a token, and never clobber a
+        # token the caller already placed in conversation_options — otherwise a
+        # None from the (turso_auth_token / TURSO_AUTH_TOKEN) lookup would wipe
+        # an explicitly-supplied credential.
+        if token is not None:
+            conversation_options["auth_token"] = token
+        super().__init__(
+            database_url=url,
+            conversation_options=conversation_options,
+            **options,
+        )
 
 
 # Backward-compatible aliases

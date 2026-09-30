@@ -60,7 +60,8 @@ class _FakeSyncEngine:
         content: bytes,
         *,
         mime_type: str | None = None,
-        visibility: str = "personal",
+        published_to_web: bool | None = None,
+        shown_to: str | None = None,
         change_summary: str | None = None,
         metadata: dict | None = None,
     ) -> _FakeSyncResult:
@@ -69,7 +70,8 @@ class _FakeSyncEngine:
                 "file_path": file_path,
                 "size": len(content),
                 "mime_type": mime_type,
-                "visibility": visibility,
+                "published_to_web": published_to_web,
+                "shown_to": shown_to,
                 "metadata": metadata or {},
             }
         )
@@ -185,6 +187,9 @@ async def test_normalize_uploads_master_and_strips_base64(fake_fm) -> None:
     assert writes[0]["size"] == len(_PNG_BYTES)
     assert writes[0]["mime_type"] == "image/png"
     assert "tool-images" in writes[0]["file_path"]
+    # T-13: the master is written unpublished and shown only to its maker — explicitly.
+    assert writes[0]["published_to_web"] is False
+    assert writes[0]["shown_to"] == "only_me"
 
     # Output rewritten to image_ref shape, base64 stripped.
     assert rewritten["kind"] == "image_ref"

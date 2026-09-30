@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class CreateServiceReply(BaseModel):
     """
     CreateServiceReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     service: Optional[Service] = None
     __properties: ClassVar[List[str]] = ["service"]
 
@@ -37,7 +39,6 @@ class CreateServiceReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class CreateServiceReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -72,7 +72,7 @@ class CreateServiceReply(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of service
         if self.service:
-            _dict['service'] = self.service.to_dict()
+            _dict["service"] = self.service.to_dict()
         return _dict
 
     @classmethod
@@ -84,9 +84,11 @@ class CreateServiceReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "service": Service.from_dict(obj["service"]) if obj.get("service") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "service": Service.from_dict(obj["service"])
+                if obj.get("service") is not None
+                else None
+            }
+        )
         return _obj
-
-

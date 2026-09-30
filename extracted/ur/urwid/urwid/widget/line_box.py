@@ -1,3 +1,5 @@
+"""LineBox: a decoration that draws a line border and title around a widget."""
+
 from __future__ import annotations
 
 import typing
@@ -24,6 +26,8 @@ class LineBox(
     WidgetDecoration[WrappedWidget],
     delegate_to_widget_mixin("_wrapped_widget"),  # type: ignore[misc]
 ):
+    """Box widget decoration that draws a line border, with an optional title, around another widget."""
+
     Symbols = BOX_SYMBOLS
 
     def __init__(
@@ -106,7 +110,6 @@ class LineBox(
 
         :raises ValueError: a *title* is given while *tline* is empty, or *title_align* is not a supported alignment.
         """
-
         w_lline = SolidFill(lline)
         w_rline = SolidFill(rline)
 
@@ -179,6 +182,7 @@ class LineBox(
 
     @property
     def original_widget(self) -> WrappedWidget:
+        """Return the widget wrapped by the line box."""
         return super().original_widget
 
     @original_widget.setter
@@ -195,6 +199,7 @@ class LineBox(
         return self._wrapped_widget
 
     def format_title(self, text: str) -> str:
+        """Return ``text`` padded with spaces for display in the box's top border, or an empty string if unset."""
         if text:
             return f" {text} "
 

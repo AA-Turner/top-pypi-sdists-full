@@ -1,18 +1,34 @@
 # type: ignore
+import sys
+from decimal import Decimal
 from fractions import Fraction
-from numbers import Rational
+from numbers import Rational, Real
 
 import cython
 from cython.cimports import libav as lib
 
 _INT32_MAX: cython.longlong = 2147483647
+_INF: cython.double = float("inf")
+_HASH_INF = sys.hash_info.inf
+_C_NEG_INF: cython.int = -1
+_C_FINITE: cython.int = 0
+_C_POS_INF: cython.int = 1
+_C_UNDEF: cython.int = 2
+_C_NAN: cython.int = 100  # foreign NaN: unordered, every comparison is False
+_C_UNKNOWN: cython.int = 101  # not a real number: NotImplemented
+
+_LT: cython.int = 0
+_LE: cython.int = 1
+_GT: cython.int = 2
+_GE: cython.int = 3
 
 
+@cython.final
 @cython.cclass
 class AVRational:
     """
     An exact rational number stored as two int32s, mirroring FFmpeg's
-    ``AVRational``.
+    ``AVRational``. It is a final class and cannot be subclassed.
 
     Values are always reduced to lowest terms with a positive denominator.
     Arithmetic between two :class:`AVRational` uses FFmpeg's ``av_mul_q``
@@ -75,78 +91,143 @@ class AVRational:
 
     def __hash__(self):
         if self.den == 0:
-            return hash((self.num, 0))
+            # ``1/0 == float("inf")``, so the two must hash alike.
+            if self.num == 0:
+                return hash((0, 0))
+            return _HASH_INF if self.num > 0 else -_HASH_INF
         return hash(Fraction(self.num, self.den))
 
     def __reduce__(self):
         return (AVRational, (self.num, self.den))
 
     def __eq__(self, other):
-        if isinstance(other, AVRational):
+        if type(other) is AVRational:
             o: AVRational = other
             return self.num == o.num and self.den == o.den
         if self.den == 0:
-            return False
-        return Fraction(self.num, self.den) == other
+            cb: cython.int = _order_class(other)
+            if cb == _C_UNKNOWN:
+                return NotImplemented
+            return _order_class(self) == cb
+        return Fraction(self.num, self.den).__eq__(other)
 
     def __lt__(self, other):
-        return Fraction(self.num, self.den) < other
+        cb: cython.int = _order_class(other)
+        if self.den == 0 or cb != _C_FINITE:
+            return _cmp(self, cb, _LT)
+        return Fraction(self.num, self.den).__lt__(other)
 
     def __le__(self, other):
-        return Fraction(self.num, self.den) <= other
+        cb: cython.int = _order_class(other)
+        if self.den == 0 or cb != _C_FINITE:
+            return _cmp(self, cb, _LE)
+        return Fraction(self.num, self.den).__le__(other)
 
     def __gt__(self, other):
-        return Fraction(self.num, self.den) > other
+        cb: cython.int = _order_class(other)
+        if self.den == 0 or cb != _C_FINITE:
+            return _cmp(self, cb, _GT)
+        return Fraction(self.num, self.den).__gt__(other)
 
     def __ge__(self, other):
-        return Fraction(self.num, self.den) >= other
+        cb: cython.int = _order_class(other)
+        if self.den == 0 or cb != _C_FINITE:
+            return _cmp(self, cb, _GE)
+        return Fraction(self.num, self.den).__ge__(other)
 
     def __neg__(self):
         return AVRational(-self.num, self.den)
 
     def __mul__(self, other):
-        if isinstance(other, AVRational):
+        if type(other) is AVRational:
             o: AVRational = other
             return from_avrational(lib.av_mul_q(self._q(), o._q()))
-        return Fraction(self.num, self.den) * other
+        return Fraction(self.num, self.den).__mul__(other)
 
     def __rmul__(self, other):
-        return other * Fraction(self.num, self.den)
+        return Fraction(self.num, self.den).__rmul__(other)
 
     def __truediv__(self, other):
-        if isinstance(other, AVRational):
+        if type(other) is AVRational:
             o: AVRational = other
             if o.num == 0:
                 raise ZeroDivisionError(f"{self} / {other}")
             return from_avrational(lib.av_div_q(self._q(), o._q()))
-        return Fraction(self.num, self.den) / other
+        return Fraction(self.num, self.den).__truediv__(other)
 
     def __rtruediv__(self, other):
-        return other / Fraction(self.num, self.den)
+        return Fraction(self.num, self.den).__rtruediv__(other)
 
     def __add__(self, other):
-        if isinstance(other, AVRational):
+        if type(other) is AVRational:
             o: AVRational = other
             return from_avrational(lib.av_add_q(self._q(), o._q()))
-        return Fraction(self.num, self.den) + other
+        return Fraction(self.num, self.den).__add__(other)
 
     def __radd__(self, other):
-        return other + Fraction(self.num, self.den)
+        return Fraction(self.num, self.den).__radd__(other)
 
     def __sub__(self, other):
-        if isinstance(other, AVRational):
+        if type(other) is AVRational:
             o: AVRational = other
             return from_avrational(lib.av_sub_q(self._q(), o._q()))
-        return Fraction(self.num, self.den) - other
+        return Fraction(self.num, self.den).__sub__(other)
 
     def __rsub__(self, other):
-        return other - Fraction(self.num, self.den)
+        return Fraction(self.num, self.den).__rsub__(other)
+
+
+@cython.cfunc
+def _order_class(v) -> cython.int:
+    if type(v) is AVRational:
+        o: AVRational = v
+        if o.den != 0:
+            return _C_FINITE
+        if o.num == 0:
+            return _C_UNDEF
+        return _C_POS_INF if o.num > 0 else _C_NEG_INF
+    if isinstance(v, Rational):  # int, Fraction, ...
+        return _C_FINITE
+    if isinstance(v, Decimal):
+        if v.is_nan():
+            return _C_NAN
+        if v.is_infinite():
+            return _C_POS_INF if v > 0 else _C_NEG_INF
+        return _C_FINITE
+    if isinstance(v, Real):  # float, numpy scalars, ...
+        f: cython.double = v
+        if f != f:
+            return _C_NAN
+        if f == _INF:
+            return _C_POS_INF
+        if f == -_INF:
+            return _C_NEG_INF
+        return _C_FINITE
+    return _C_UNKNOWN
+
+
+# Returns object, not bint: NotImplemented must reach Python intact so the
+# reflected operator gets a turn.
+@cython.cfunc
+def _cmp(a: AVRational, cb: cython.int, op: cython.int):
+    if cb == _C_UNKNOWN:
+        return NotImplemented
+    if cb == _C_NAN:
+        return False
+    ca: cython.int = _order_class(a)
+    if op == _LT:
+        return ca < cb
+    if op == _LE:
+        return ca <= cb
+    if op == _GT:
+        return ca > cb
+    return ca >= cb
 
 
 @cython.cfunc
 def from_avrational(q: lib.AVRational) -> AVRational:
     obj: AVRational = AVRational.__new__(AVRational)
-    # FFmpeg does not guarantee reduced form; our invariant requires it.
+    # FFmpeg does not guarantee reduced form
     lib.av_reduce(
         cython.address(obj.num), cython.address(obj.den), q.num, q.den, _INT32_MAX
     )

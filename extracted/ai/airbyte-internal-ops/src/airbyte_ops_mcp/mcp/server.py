@@ -64,6 +64,13 @@ enable interactive login):
         `airbyte_ops_mcp.mcp._client_credentials`.
     AIRBYTE_MCP_AUTH_CLIENT_CREDENTIALS_TOKEN_URL: Token endpoint used for the
         exchange above (defaults to Airbyte Cloud; override for self-hosted).
+    AIRBYTE_MCP_AUTH_ACCEPT_USER_TOKENS: Set falsey to stop accepting Airbyte
+        Cloud *user* realm tokens as headless bearers (on by default). These
+        are tokens from the `airbyte` Keycloak realm — the same realm the
+        interactive `OIDCProxy` already trusts upstream — so this server can
+        accept a session token forwarded by a trusted sibling service (the
+        AG-UI chat server relaying the Ops Webapp cookie) and still delegate
+        it downstream, since it is a valid Cloud API bearer.
 """
 
 import asyncio
@@ -82,6 +89,9 @@ from fastmcp import FastMCP
 from fastmcp.server.auth import AuthProvider, MultiAuth
 from fastmcp.server.dependencies import get_access_token
 from fastmcp_extensions import (
+    # Re-exported so `server.ClientAllowlistJWTVerifier` stays importable for
+    # tests and callers patching the shared verifier.
+    ClientAllowlistJWTVerifier,  # noqa: F401
     JWTAuthConfig,
     MCPServerConfigArg,
     OIDCAuthConfig,
@@ -180,6 +190,17 @@ AIRBYTE_CLOUD_JWKS_URI = f"{AIRBYTE_CLOUD_ISSUER}/protocol/openid-connect/certs"
 AIRBYTE_CLOUD_AUDIENCE = "account"
 AIRBYTE_CLOUD_ALGORITHM = "RS256"
 
+# Airbyte Cloud *user* realm (`airbyte`) — the realm the interactive
+# `OIDCProxy` already trusts upstream. User session tokens forwarded by a
+# trusted sibling service are accepted as headless bearers; issuer plus JWKS
+# signature is the trust boundary (`audience` varies by issuing client), the
+# same boundary `OIDCProxy` uses when delegating the upstream token. Which
+# clients' user tokens are trusted is pinned by the `azp` allowlist below.
+AIRBYTE_CLOUD_USER_ISSUER = "https://cloud.airbyte.com/auth/realms/airbyte"
+AIRBYTE_CLOUD_USER_JWKS_URI = (
+    f"{AIRBYTE_CLOUD_USER_ISSUER}/protocol/openid-connect/certs"
+)
+
 # Upstream authorize scopes requested for the interactive OIDC flow. `openid` is
 # required: without it Keycloak issues an identity-only token that Airbyte Cloud
 # APIs reject with `401`, even though the user is otherwise valid (the working
@@ -225,6 +246,22 @@ OIDC_CONFIG_URL_ENV = "AIRBYTE_MCP_OIDC_CONFIG_URL"
 # issue without a redeploy. `OIDCAuthConfig.enable_cimd` defaults to `False`
 # upstream, so this server opts in explicitly.
 OIDC_ENABLE_CIMD_ENV = "AIRBYTE_MCP_OIDC_ENABLE_CIMD"
+
+# Accept Airbyte Cloud user-realm tokens as headless bearers (default on).
+# An operator can force it off to shrink the accepted-token surface without a
+# redeploy.
+USER_TOKENS_ENABLED_ENV = "AIRBYTE_MCP_AUTH_ACCEPT_USER_TOKENS"
+
+# Comma-separated `azp` allowlist for user-realm bearer tokens (which Keycloak
+# client issued them). Only the Ops Webapp client is trusted by default.
+USER_TOKEN_CLIENT_IDS_ENV = "AIRBYTE_MCP_AUTH_USER_TOKEN_CLIENT_IDS"
+DEFAULT_USER_TOKEN_CLIENT_IDS = frozenset({"airbyte-ops-webapp-client"})
+
+# Issuer/JWKS overrides for the user-realm verifier (self-hosted escape hatch,
+# matching the `AIRBYTE_MCP_AUTH_*` claim overrides above). The JWKS default
+# derives from the *configured* issuer when unset.
+USER_ISSUER_ENV = "AIRBYTE_MCP_AUTH_USER_ISSUER"
+USER_JWKS_URI_ENV = "AIRBYTE_MCP_AUTH_USER_JWKS_URI"
 
 # Human-facing landing page shown when a browser GETs the MCP endpoint.
 MCP_LANDING_TITLE = "Airbyte Ops MCP Server"
@@ -393,6 +430,11 @@ def _create_auth() -> AuthProvider | None:
     `OIDCProxy`, combined via `MultiAuth`. Because a JWKS default is always
     present, HTTP transport always verifies bearer tokens; the interactive path
     additionally activates once the OIDC client credentials are supplied.
+    Unless `AIRBYTE_MCP_AUTH_ACCEPT_USER_TOKENS` is set falsey, a second
+    verifier (`ClientAllowlistJWTVerifier` from `fastmcp_extensions`) also
+    accepts user session tokens issued by the `airbyte` realm, pinned to the
+    `azp` allowlist — no `aud` check, since Keycloak user-token audiences
+    vary by client and issuer plus signature is the trust boundary.
     """
     base_url = _env_or_default(MCP_SERVER_URL_ENV, DEFAULT_MCP_SERVER_URL)
 
@@ -444,7 +486,45 @@ def _create_auth() -> AuthProvider | None:
             ),
         )
 
-    return build_mcp_auth(oidc=oidc, jwt=jwt, base_url=base_url)
+    # Airbyte Cloud user-realm tokens (the Ops Webapp session token agui-server
+    # forwards) are accepted as bearers unless explicitly disabled. The
+    # `allowed_client_ids` config makes `build_mcp_auth` emit a
+    # `ClientAllowlistJWTVerifier` for this realm; `audience` stays unset —
+    # Keycloak user-token audiences vary by client.
+    jwt_configs = [jwt]
+    if _env_bool(USER_TOKENS_ENABLED_ENV, default=True):
+        user_issuer = _env_or_default(USER_ISSUER_ENV, AIRBYTE_CLOUD_USER_ISSUER)
+        user_jwks_uri = os.getenv(USER_JWKS_URI_ENV, "").strip() or (
+            f"{user_issuer}/protocol/openid-connect/certs"
+        )
+        jwt_configs.append(
+            JWTAuthConfig(
+                jwks_uri=user_jwks_uri,
+                issuer=user_issuer,
+                algorithm=AIRBYTE_CLOUD_ALGORITHM,
+                base_url=base_url,
+                allowed_client_ids=_user_token_client_ids(),
+            )
+        )
+
+    # One `build_mcp_auth` call composes the interactive `OIDCProxy` (when
+    # configured) with one verifier per JWT realm via `MultiAuth`; `oidc=None`
+    # yields the verifiers alone.
+    return build_mcp_auth(jwt=jwt_configs, oidc=oidc, base_url=base_url)
+
+
+def _user_token_client_ids() -> frozenset[str]:
+    """Parse `AIRBYTE_MCP_AUTH_USER_TOKEN_CLIENT_IDS` into the `azp` allowlist.
+
+    Comma-separated, whitespace-stripped, empty entries dropped; unset or
+    all-empty falls back to `DEFAULT_USER_TOKEN_CLIENT_IDS`.
+    """
+    parsed = frozenset(
+        entry.strip()
+        for entry in os.getenv(USER_TOKEN_CLIENT_IDS_ENV, "").split(",")
+        if entry.strip()
+    )
+    return parsed or DEFAULT_USER_TOKEN_CLIENT_IDS
 
 
 # Create the MCP server with built-in server info resource

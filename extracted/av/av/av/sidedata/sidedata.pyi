@@ -34,6 +34,10 @@ class Type(Enum):
     DYNAMIC_HDR_VIVID = cast(ClassVar[Type], ...)
     AMBIENT_VIEWING_ENVIRONMENT = cast(ClassVar[Type], ...)
     VIDEO_HINT = cast(ClassVar[Type], ...)
+    LCEVC = cast(ClassVar[Type], ...)
+    VIEW_ID = cast(ClassVar[Type], ...)
+    THREE_D_REFERENCE_DISPLAYS = cast(ClassVar[Type], ...)
+    EXIF = cast(ClassVar[Type], ...)
 
 class SideData(Buffer):
     type: Type
@@ -41,7 +45,7 @@ class SideData(Buffer):
 class SideDataContainer(Mapping):
     frame: Frame
     def __len__(self) -> int: ...
-    def __iter__(self) -> Iterator[SideData]: ...
+    def __iter__(self) -> Iterator[Type]: ...
     @overload
     def __getitem__(self, key: str | int | Type) -> SideData: ...
     @overload

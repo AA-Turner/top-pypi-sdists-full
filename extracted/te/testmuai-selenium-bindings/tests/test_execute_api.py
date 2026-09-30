@@ -229,17 +229,192 @@ def test_execute_api_generic_exception_returns_soft_400_dict():
     assert result == {"status": 400, "message": "API request failed boom"}
 
 
-def test_execute_api_proxy_error_returns_soft_400_dict():
+def test_execute_api_proxy_error_fails_with_cause():
     import httpx
 
+    # V2: proxy/connect failures FAIL the step with a message
+    # naming the cause — the server was never reached, so there is no response
+    # for a status assertion to judge. Other failures (e.g. ReadTimeout) stay soft.
     with patch("httpx.get", side_effect=httpx.ProxyError("tunnel down")):
-        result = execute_api(method="GET", url="https://example.com/api")
-    assert result == {"status": 400, "message": "API request failed tunnel down"}
+        with pytest.raises(httpx.ProxyError, match="API request failed — proxy could not reach the server: tunnel down"):
+            execute_api(method="GET", url="https://example.com/api")
 
 
-def test_execute_api_connect_error_returns_soft_400_dict():
+def test_execute_api_connect_error_fails_with_cause():
     import httpx
 
+    # V2: proxy/connect failures FAIL the step with a message
+    # naming the cause — the server was never reached, so there is no response
+    # for a status assertion to judge. Other failures (e.g. ReadTimeout) stay soft.
     with patch("httpx.get", side_effect=httpx.ConnectError("refused")):
-        result = execute_api(method="GET", url="https://example.com/api")
-    assert result == {"status": 400, "message": "API request failed refused"}
+        with pytest.raises(httpx.ConnectError, match="API request failed — could not connect to the server: refused"):
+            execute_api(method="GET", url="https://example.com/api")
+
+
+# ---------------------------------------------------------------------------
+# V2 — multipart bodies
+# ---------------------------------------------------------------------------
+
+def _wire(method):
+    """Spy that builds the request exactly as httpx would and records it."""
+    import httpx
+    seen = {}
+
+    def spy(url, **kw):
+        req = httpx.Request(method, url, headers=kw.get("headers"),
+                            data=kw.get("data"), files=kw.get("files"))
+        seen["content_type"] = req.headers.get("content-type", "")
+        seen["body"] = req.read()
+        return httpx.Response(200, json={"ok": True}, request=req)
+    return spy, seen
+
+
+def test_multipart_dict_body_is_sent_as_real_multipart():
+    # Stripping the header alone left httpx form-URL-encoding the dict.
+    spy, seen = _wire("POST")
+    with patch("httpx.post", spy):
+        execute_api(method="POST", url="https://example.com/api",
+                    headers={"Content-Type": "multipart/form-data; boundary=authored"},
+                    body='{"name": "parth"}')
+    assert seen["content_type"].startswith("multipart/form-data; boundary=")
+    # The authored boundary cannot match the client-built body, so it is dropped.
+    assert "boundary=authored" not in seen["content_type"]
+    assert b'name="name"\r\n\r\nparth' in seen["body"]
+
+
+def test_multipart_coerces_non_string_values():
+    # httpx calls .read() on anything that is not str/bytes.
+    spy, seen = _wire("POST")
+    with patch("httpx.post", spy):
+        execute_api(method="POST", url="https://example.com/api",
+                    headers={"Content-Type": "multipart/form-data"},
+                    body={"age": 30, "meta": {"a": 1}})
+    assert b'name="age"\r\n\r\n30' in seen["body"]
+    assert b'{"a": 1}' in seen["body"]
+
+
+def test_urlencoded_body_is_unchanged():
+    spy, seen = _wire("POST")
+    with patch("httpx.post", spy):
+        execute_api(method="POST", url="https://example.com/api",
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    body={"q": "1"})
+    assert seen["content_type"] == "application/x-www-form-urlencoded"
+
+
+# ---------------------------------------------------------------------------
+# An empty params dict must never reach httpx
+#
+# httpx >= 0.28 treats params={} as "replace the query string", so a URL that
+# already carries ?key=value loses it. The reported symptom was an API returning
+# 401 instead of 302 because its auth query parameter had been stripped.
+# pyproject allows httpx>=0.27.0, so both behaviours are in range — the binding
+# normalises the empty case to None rather than pinning the dependency.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("params", [None, {}, "", "{}", "not-json"])
+def test_empty_params_are_passed_as_none_not_empty_dict(params):
+    fake_resp = _mock_response(status=200, json_body={"ok": True})
+    with patch("httpx.get", return_value=fake_resp) as mock_get:
+        execute_api(method="GET", url="https://example.com/api?key=value", params=params)
+    assert mock_get.call_args.kwargs["params"] is None, (
+        "an empty params must reach httpx as None; {} strips the URL's query string"
+    )
+
+
+def test_real_params_are_still_forwarded():
+    fake_resp = _mock_response(status=200, json_body={"ok": True})
+    with patch("httpx.get", return_value=fake_resp) as mock_get:
+        execute_api(method="GET", url="https://example.com/api", params={"a": "1"})
+    assert mock_get.call_args.kwargs["params"] == {"a": "1"}
+
+
+def test_url_query_string_survives_an_empty_params():
+    """End-to-end on the real httpx URL builder — this is the actual bug."""
+    import httpx
+
+    url = "https://example.com/api?key=value"
+    assert str(httpx.Request("GET", url, params={}).url) == "https://example.com/api", (
+        "guard: this test is meaningless if httpx stops stripping on {}"
+    )
+    assert str(httpx.Request("GET", url, params=None).url) == url
+# x-www-form-urlencoded bodies
+#
+# Two defects, one root cause. The re-encode ran BEFORE template resolution, so
+# it percent-encoded the template's own braces ("phone={{phone}}" ->
+# "phone=%7B%7Bphone%7D%7D") and the resolver could never match them. And the
+# round-trip was plus-decoding, so a resolved E.164 number ("+9198…") had its
+# "+" read as a space.
+# ---------------------------------------------------------------------------
+
+_FORM_CT = {"Content-Type": "application/x-www-form-urlencoded"}
+
+
+def _sent_body(body):
+    fake_resp = _mock_response(status=200, json_body={"ok": True})
+    with patch("httpx.post", return_value=fake_resp) as mock_post:
+        execute_api(method="POST", url="https://example.com/api",
+                    headers=dict(_FORM_CT), body=body)
+    return mock_post.call_args.kwargs.get("data")
+
+
+def test_template_in_urlencoded_body_is_resolved():
+    set_var("phone", "+919876543210")
+    assert _sent_body("phone={{phone}}") == "phone=%2B919876543210"
+
+
+def test_resolved_literal_plus_is_percent_encoded_not_turned_into_a_space():
+    """The reported bug: an E.164 prefix arriving at the API as ' 9198…'."""
+    set_var("phone", "+919876543210")
+    sent = _sent_body("phone={{phone}}")
+    assert "%2B" in sent
+    assert "phone=+" not in sent, "a bare '+' decodes to a space server-side"
+
+
+def test_pre_encoded_plus_survives_unchanged():
+    assert _sent_body("phone=%2B919876543210") == "phone=%2B919876543210"
+
+
+def test_multiple_pairs_and_spaces():
+    set_var("phone", "+91")
+    assert _sent_body("a=1&phone={{phone}}&c=hi there") == "a=1&phone=%2B91&c=hi%20there"
+
+
+def test_key_without_value_is_preserved():
+    assert _sent_body("flag&a=1") == "flag&a=1"
+
+
+def test_malformed_body_is_returned_unchanged_rather_than_raising():
+    from testmu_selenium._helpers.execute_api import _reencode_urlencoded_body
+    with patch("testmu_selenium._helpers.execute_api.unquote",
+               side_effect=ValueError("boom")):
+        assert _reencode_urlencoded_body("a=1") == "a=1"
+
+
+def test_non_form_content_type_body_is_untouched():
+    fake_resp = _mock_response(status=200, json_body={"ok": True})
+    with patch("httpx.post", return_value=fake_resp) as mock_post:
+        execute_api(method="POST", url="https://example.com/api",
+                    headers={"Content-Type": "text/plain"}, body="a+b c")
+    assert mock_post.call_args.kwargs.get("data") == "a+b c"
+
+
+# --- V2: opt-in nested-JSON unwrap --------------------------
+
+
+def test_json_splitter_unwraps_nested_json_only_when_enabled():
+    import httpx
+    import json as _json
+    payload = {"data": _json.dumps({"id": 7, "tags": _json.dumps(["a"])}), "plain": "{not json", "n": "7"}
+
+    def fake_get(url, **kw):
+        return httpx.Response(200, json=payload, request=httpx.Request("GET", url))
+
+    with patch("httpx.get", fake_get):
+        off = execute_api(method="GET", url="https://example.com/api")
+        on = execute_api(method="GET", url="https://example.com/api",
+                         settings={"enable_json_splitter": True})
+    assert isinstance(off["response_body"]["data"], str)          # V2 default: opt-in
+    assert on["response_body"]["data"] == {"id": 7, "tags": ["a"]}  # recursive
+    assert on["response_body"]["plain"] == "{not json"            # malformed kept
+    assert on["response_body"]["n"] == "7"                        # only {/[ strings

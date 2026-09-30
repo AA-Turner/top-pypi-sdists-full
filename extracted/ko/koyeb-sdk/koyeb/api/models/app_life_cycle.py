@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class AppLifeCycle(BaseModel):
     """
     AppLifeCycle
-    """ # noqa: E501
+    """  # noqa: E501
+
     delete_when_empty: Optional[StrictBool] = None
     __properties: ClassVar[List[str]] = ["delete_when_empty"]
 
@@ -36,7 +38,6 @@ class AppLifeCycle(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -61,8 +62,7 @@ class AppLifeCycle(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -80,9 +80,5 @@ class AppLifeCycle(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "delete_when_empty": obj.get("delete_when_empty")
-        })
+        _obj = cls.model_validate({"delete_when_empty": obj.get("delete_when_empty")})
         return _obj
-
-

@@ -45,6 +45,7 @@ YAML manifest ``identity`` section:
 
 If ``whitelist`` is empty, "matched" = "has any recognized identity".
 """
+
 from __future__ import annotations
 
 import logging
@@ -52,7 +53,6 @@ from typing import Any
 
 from ..base_processor import BaseMetricProcessor, MetricEntry
 from ..schemas import ProcessorAggregationOutput
-
 
 logger = logging.getLogger(__name__)
 
@@ -81,9 +81,7 @@ class IdentityProcessor(BaseMetricProcessor):
 
         # Which detection field carries the recognized identity string?
         # For LPR this is "plate_text"; for FR it's "face_id".
-        self._identity_field: str = str(
-            identity_section.get("identity_field", "plate_text")
-        )
+        self._identity_field: str = str(identity_section.get("identity_field", "plate_text"))
         self._confidence_field: str = str(
             identity_section.get("confidence_field", "identity_confidence")
         )
@@ -183,7 +181,6 @@ class IdentityProcessor(BaseMetricProcessor):
                 self._window_total_ids.add(tid)
                 if bucket == "matched":
                     self._window_matched_ids.add(tid)
-                    self._window_matched_ids.discard  # no-op, clarity
                     if text:
                         self._window_matched_texts.add(str(text).strip().upper())
                 elif bucket == "blacklist":
@@ -316,9 +313,7 @@ class IdentityProcessor(BaseMetricProcessor):
                 unknown += 1
 
         zone_prefix = (
-            f"Zone {self._zone_id} — "
-            if self._zone_id and self._zone_id != "global"
-            else ""
+            f"Zone {self._zone_id} — " if self._zone_id and self._zone_id != "global" else ""
         )
         lines = [
             f"{zone_prefix}CURRENT FRAME:",

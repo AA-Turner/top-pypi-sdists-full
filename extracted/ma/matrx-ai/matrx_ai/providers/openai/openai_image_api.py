@@ -543,7 +543,8 @@ class OpenAIImageGeneration(BaseMediaGeneration):
                     "file_name": persisted.file_name,
                     "mime_type": persisted.mime_type,
                     "size_bytes": persisted.size_bytes,
-                    "visibility": persisted.visibility,
+                    "published_to_web": persisted.published_to_web,
+                    "shown_to": persisted.shown_to,
                     "metadata": metadata,
                 }
                 url_set = {

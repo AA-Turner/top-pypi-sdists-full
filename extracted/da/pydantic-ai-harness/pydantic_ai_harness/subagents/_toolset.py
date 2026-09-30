@@ -8,7 +8,9 @@ import time
 from collections.abc import Coroutine, Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
-from typing import Any, Generic, cast
+from typing import Any, Generic
+
+from typing_extensions import TypeIs
 
 from pydantic_ai.agent import AbstractAgent, AgentRunResult, EventStreamHandler
 from pydantic_ai.capabilities import AgentCapability, HookTimeoutError
@@ -33,7 +35,6 @@ from pydantic_ai.toolsets import AbstractToolset, FunctionToolset
 # toolsets apart from the agent's own in `agent.toolsets`.
 from pydantic_ai.toolsets._capability_owned import CapabilityOwnedToolset
 from pydantic_ai.usage import RunUsage, UsageLimits
-
 from pydantic_ai_harness.subagents._events import (
     DelegationEndEvent,
     DelegationOutcome,
@@ -67,6 +68,12 @@ def at_max_depth(max_depth: int) -> bool:
 _MODEL_ARG = 'model'
 """Name of the delegate tool's model-selection argument, shared by the function
 signature and the schema rewrite that shapes it to the configured menu."""
+
+
+def _is_request_response_model(model: object) -> TypeIs[Model]:
+    """Narrow a model without losing its provider client type."""
+    return isinstance(model, Model)
+
 
 # Signals that must always reach the parent run, even when a delegate has
 # `contain_errors` on. Containing the first five would break the agent graph
@@ -126,10 +133,9 @@ class SubAgent(Generic[AgentDepsT]):
     usage_limits: UsageLimits | None = None
     """Request/token budget for one delegation. When set, the child runs with
     its own usage accounting so the budget counts only the child's own requests
-    and tokens (not the parent's or siblings'), even when `forward_usage=True`.
-    The tradeoff: that child's tokens no longer aggregate into the parent's
-    `usage`. Hitting this budget is a soft outcome (steering message), not a
-    run-stopping `UsageLimitExceeded`."""
+    and tokens (not the parent's or siblings'). When `forward_usage=True`, that
+    usage is added to the parent's usage after the delegation. Hitting this budget
+    is a soft outcome (steering message), not a run-stopping `UsageLimitExceeded`."""
 
     timeout_seconds: float | None = None
     """Wall-clock budget for one delegation. When the child exceeds it, the run
@@ -234,8 +240,9 @@ class SubAgentToolset(FunctionToolset[AgentDepsT]):
         models: Mapping[str, ModelOption] | None = None,
         include_self: bool = False,
         max_depth: int = DEFAULT_MAX_DEPTH,
+        id: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(id=id)
         self._agents: dict[str, SubAgent[AgentDepsT]] = dict(agents)
         self._forward_usage = forward_usage
         self._inherit_tools = inherit_tools
@@ -251,7 +258,18 @@ class SubAgentToolset(FunctionToolset[AgentDepsT]):
         # Run-scoped delegation counts, keyed by run_id then sub-agent name.
         # Shared with the capability, which clears each run's entry in wrap_run.
         self._call_counts = call_counts
-        self.add_function(self.delegate_task, name=tool_name, retries=tool_retries, prepare=self._prepare_delegate)
+        # A delegation to the running agent alone, on its own model, runs the child on the same
+        # durable agent, so under Temporal it runs in the workflow, where the child's model requests
+        # and tools become activities; an activity cannot run an agent (`ctx.model` is unavailable there).
+        # Any other delegate would make its model requests in workflow code, so it stays an activity.
+        self_only = include_self and not self._agents and not self._models
+        self.add_function(
+            self.delegate_task,
+            name=tool_name,
+            retries=tool_retries,
+            prepare=self._prepare_delegate,
+            metadata={'temporal': False} if self_only else None,
+        )
 
     def _prepare_delegate(self, ctx: RunContext[AgentDepsT], tool_def: ToolDefinition) -> ToolDefinition | None:
         """Shape the delegate tool's `model` argument to the configured menu, or hide it at `max_depth`.
@@ -440,13 +458,11 @@ class SubAgentToolset(FunctionToolset[AgentDepsT]):
             # `ctx.model` is an `AbstractModel`; only a request-response `Model` can drive a
             # sub-agent run. When the parent run uses something else (a realtime model), fall
             # back to `None` so the sub-agent uses its own default rather than being handed a
-            # model it cannot run with. Bind to a local, then `cast` to recover `Model[Any]`
-            # from the generic `Model` (which `isinstance` narrows to `Model[Unknown]`),
-            # mirroring core's own `reinject_system_prompt` idiom.
+            # model it cannot run with.
             ctx_model = ctx.model
             run_model = (
-                cast('Model[Any]', ctx_model)
-                if (is_self or sub_agent.agent.model is None) and isinstance(ctx_model, Model)
+                ctx_model
+                if (is_self or sub_agent.agent.model is None) and _is_request_response_model(ctx_model)
                 else None
             )
             settings = None
@@ -459,6 +475,7 @@ class SubAgentToolset(FunctionToolset[AgentDepsT]):
             usage_limits=usage_limits,
             toolsets=toolsets,
             capabilities=capabilities,
+            workspace=ctx.workspace,
             event_stream_handler=self._event_stream_handler,
         )
         token = _depth.set(_depth.get() + 1)
@@ -466,6 +483,8 @@ class SubAgentToolset(FunctionToolset[AgentDepsT]):
             ended = await self._settle(agent_name, sub_agent, run, own_budget=own_budget)
         finally:
             _depth.reset(token)
+            if child_usage is not None and self._forward_usage:
+                ctx.usage.incr(child_usage)
         if emits:
             text, truncated = bounded_text(ended.output)
             await ctx.emit(

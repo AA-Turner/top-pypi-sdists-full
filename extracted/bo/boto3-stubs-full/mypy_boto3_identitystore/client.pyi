@@ -30,6 +30,7 @@ from .paginator import (
     ListGroupMembershipsForMemberPaginator,
     ListGroupMembershipsPaginator,
     ListGroupsPaginator,
+    ListIdentityStoresPaginator,
     ListUsersPaginator,
 )
 from .type_defs import (
@@ -46,6 +47,8 @@ from .type_defs import (
     DescribeGroupMembershipResponseTypeDef,
     DescribeGroupRequestTypeDef,
     DescribeGroupResponseTypeDef,
+    DescribeIdentityStoreRequestTypeDef,
+    DescribeIdentityStoreResponseTypeDef,
     DescribeUserRequestTypeDef,
     DescribeUserResponseTypeDef,
     GetGroupIdRequestTypeDef,
@@ -62,10 +65,16 @@ from .type_defs import (
     ListGroupMembershipsResponseTypeDef,
     ListGroupsRequestTypeDef,
     ListGroupsResponseTypeDef,
+    ListIdentityStoresRequestTypeDef,
+    ListIdentityStoresResponseTypeDef,
     ListUsersRequestTypeDef,
     ListUsersResponseTypeDef,
     UpdateGroupRequestTypeDef,
+    UpdateGroupResponseTypeDef,
+    UpdateIdentityStoreRequestTypeDef,
+    UpdateIdentityStoreResponseTypeDef,
     UpdateUserRequestTypeDef,
+    UpdateUserResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -196,6 +205,17 @@ class IdentityStoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#describe_group_membership)
         """
 
+    def describe_identity_store(
+        self, **kwargs: Unpack[DescribeIdentityStoreRequestTypeDef]
+    ) -> DescribeIdentityStoreResponseTypeDef:
+        """
+        Retrieves details about the specified identity store, including its Amazon
+        Resource Name (ARN) and network configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/describe_identity_store.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#describe_identity_store)
+        """
+
     def describe_user(
         self, **kwargs: Unpack[DescribeUserRequestTypeDef]
     ) -> DescribeUserResponseTypeDef:
@@ -276,6 +296,16 @@ class IdentityStoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#list_groups)
         """
 
+    def list_identity_stores(
+        self, **kwargs: Unpack[ListIdentityStoresRequestTypeDef]
+    ) -> ListIdentityStoresResponseTypeDef:
+        """
+        Lists the identity stores that you have access to.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/list_identity_stores.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#list_identity_stores)
+        """
+
     def list_users(self, **kwargs: Unpack[ListUsersRequestTypeDef]) -> ListUsersResponseTypeDef:
         """
         Lists all users in the identity store.
@@ -284,7 +314,9 @@ class IdentityStoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#list_users)
         """
 
-    def update_group(self, **kwargs: Unpack[UpdateGroupRequestTypeDef]) -> dict[str, Any]:
+    def update_group(
+        self, **kwargs: Unpack[UpdateGroupRequestTypeDef]
+    ) -> UpdateGroupResponseTypeDef:
         """
         Updates the specified group metadata and attributes in the specified identity
         store.
@@ -293,7 +325,18 @@ class IdentityStoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#update_group)
         """
 
-    def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> dict[str, Any]:
+    def update_identity_store(
+        self, **kwargs: Unpack[UpdateIdentityStoreRequestTypeDef]
+    ) -> UpdateIdentityStoreResponseTypeDef:
+        """
+        Updates the configuration of the specified identity store, including its
+        network configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/update_identity_store.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#update_identity_store)
+        """
+
+    def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> UpdateUserResponseTypeDef:
         """
         Updates the specified user metadata and attributes in the specified identity
         store.
@@ -328,6 +371,17 @@ class IdentityStoreClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_groups"]
     ) -> ListGroupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_identity_stores"]
+    ) -> ListIdentityStoresPaginator:
         """
         Create a paginator for an operation.
 

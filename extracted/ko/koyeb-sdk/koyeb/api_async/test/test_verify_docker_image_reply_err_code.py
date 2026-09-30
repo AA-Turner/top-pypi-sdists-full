@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.verify_docker_image_reply_err_code import VerifyDockerImageReplyErrCode
+from koyeb.api_async.models.verify_docker_image_reply_err_code import (
+    VerifyDockerImageReplyErrCode,
+)
+
 
 class TestVerifyDockerImageReplyErrCode(unittest.TestCase):
     """VerifyDockerImageReplyErrCode unit test stubs"""
@@ -29,5 +32,6 @@ class TestVerifyDockerImageReplyErrCode(unittest.TestCase):
         """Test VerifyDockerImageReplyErrCode"""
         # inst = VerifyDockerImageReplyErrCode()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnigent
-Version: 0.15.0
+Version: 0.16.0
 Summary: Omnigent: declarative agent authoring and runtime framework
 Author: Databricks, Inc.
 Keywords: agents,llm,ai,databricks,cli
@@ -14,8 +14,8 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: omnigent-client==0.15.0
-Requires-Dist: omnigent-ui-sdk==0.15.0
+Requires-Dist: omnigent-client==0.16.0
+Requires-Dist: omnigent-ui-sdk==0.16.0
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: json5<1,>=0.10
 Requires-Dist: openai<2.45,>=1.0
@@ -126,7 +126,7 @@ Requires-Dist: hindsight-client>=0.4.0; extra == "hindsight"
 Provides-Extra: nimble
 Requires-Dist: nimble-python<2,>=1.2.0; extra == "nimble"
 Provides-Extra: slack
-Requires-Dist: omnigent-slack==0.15.0; extra == "slack"
+Requires-Dist: omnigent-slack==0.16.0; extra == "slack"
 Provides-Extra: postgres
 Requires-Dist: psycopg[binary]<4,>=3.1; extra == "postgres"
 Provides-Extra: databricks
@@ -153,7 +153,7 @@ Omnigent is an open-source **meta-harness** that gives you a common orchestratio
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/omnigent)
 ![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)
 
-[omnigent.ai](https://omnigent.ai) · **[⬇️ Download the macOS desktop app](https://omnigent.ai/download/mac)**
+[omnigent.ai](https://omnigent.ai) · **[⬇️ Download the macOS desktop app](https://omnigent.ai/quickstart/install#install-the-desktop-app)**
 
 </div>
 
@@ -405,7 +405,7 @@ also launches a local web UI at `http://localhost:6767` that shows the same
 session in the browser, or on a phone on your network (step 4). The
 [desktop app](https://omnigent.ai/docs/interact/desktop) wraps that same UI
 in a native window and adds OS notifications (with a configurable sound) and a dock badge —
-[download it for macOS](https://omnigent.ai/download/mac).
+[download it for macOS](https://omnigent.ai/quickstart/install#install-the-desktop-app).
 
 > [!NOTE]
 > The install puts two names for the same CLI on your PATH: `omnigent` and
@@ -430,6 +430,7 @@ omnigent agy                         # Antigravity
 omnigent opencode                    # OpenCode
 omnigent hermes                      # Hermes Agent (Nous Research)
 omnigent pi                          # Pi
+omnigent copilot                     # GitHub Copilot (SDK harness, via `omnigent run`)
 ```
 
 `omnigent agy` requires agy 1.1.13 or newer. When `GEMINI_API_KEY` is set,

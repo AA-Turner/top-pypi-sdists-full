@@ -48,9 +48,7 @@ class ModelDeploymentServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def CallModel(self, request, context):
-        """CallModel synchronously invokes a model deployed to a scaling group, forwarding the request to the
-        container's RemoteCallService over gRPC.
-        """
+        """CallModel synchronously invokes a model scaling group or asynchronously enqueues a model call."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")

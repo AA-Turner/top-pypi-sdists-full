@@ -25,10 +25,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class InstanceListItem(BaseModel):
     """
     InstanceListItem
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -43,8 +45,27 @@ class InstanceListItem(BaseModel):
     datacenter: Optional[StrictStr] = None
     status: Optional[InstanceStatus] = InstanceStatus.ALLOCATING
     messages: Optional[List[StrictStr]] = None
-    xyz_deployment_id: Optional[StrictStr] = Field(default=None, description="WARNING: Please don't use the following attribute. Koyeb doesn't guarantee backwards compatible breaking change and reserve the right to completely drop it without notice. USE AT YOUR OWN RISK.")
-    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "organization_id", "app_id", "service_id", "regional_deployment_id", "allocation_id", "type", "replica_index", "region", "datacenter", "status", "messages", "xyz_deployment_id"]
+    xyz_deployment_id: Optional[StrictStr] = Field(
+        default=None,
+        description="WARNING: Please don't use the following attribute. Koyeb doesn't guarantee backwards compatible breaking change and reserve the right to completely drop it without notice. USE AT YOUR OWN RISK.",
+    )
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "created_at",
+        "updated_at",
+        "organization_id",
+        "app_id",
+        "service_id",
+        "regional_deployment_id",
+        "allocation_id",
+        "type",
+        "replica_index",
+        "region",
+        "datacenter",
+        "status",
+        "messages",
+        "xyz_deployment_id",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -52,7 +73,6 @@ class InstanceListItem(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -77,8 +97,7 @@ class InstanceListItem(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -96,23 +115,25 @@ class InstanceListItem(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "created_at": obj.get("created_at"),
-            "updated_at": obj.get("updated_at"),
-            "organization_id": obj.get("organization_id"),
-            "app_id": obj.get("app_id"),
-            "service_id": obj.get("service_id"),
-            "regional_deployment_id": obj.get("regional_deployment_id"),
-            "allocation_id": obj.get("allocation_id"),
-            "type": obj.get("type"),
-            "replica_index": obj.get("replica_index"),
-            "region": obj.get("region"),
-            "datacenter": obj.get("datacenter"),
-            "status": obj.get("status") if obj.get("status") is not None else InstanceStatus.ALLOCATING,
-            "messages": obj.get("messages"),
-            "xyz_deployment_id": obj.get("xyz_deployment_id")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "created_at": obj.get("created_at"),
+                "updated_at": obj.get("updated_at"),
+                "organization_id": obj.get("organization_id"),
+                "app_id": obj.get("app_id"),
+                "service_id": obj.get("service_id"),
+                "regional_deployment_id": obj.get("regional_deployment_id"),
+                "allocation_id": obj.get("allocation_id"),
+                "type": obj.get("type"),
+                "replica_index": obj.get("replica_index"),
+                "region": obj.get("region"),
+                "datacenter": obj.get("datacenter"),
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else InstanceStatus.ALLOCATING,
+                "messages": obj.get("messages"),
+                "xyz_deployment_id": obj.get("xyz_deployment_id"),
+            }
+        )
         return _obj
-
-

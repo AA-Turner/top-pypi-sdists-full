@@ -65,6 +65,7 @@ from .literals import (
     ThreatStatusType,
     ValidationModeType,
     ValidationStatusType,
+    WebhookActionType,
 )
 
 if sys.version_info >= (3, 12):
@@ -92,6 +93,10 @@ __all__ = (
     "AssetsTypeDef",
     "AssetsUnionTypeDef",
     "AuthenticationTypeDef",
+    "AzureDevOpsIntegrationInputTypeDef",
+    "AzureDevOpsRepositoryMetadataTypeDef",
+    "AzureDevOpsRepositoryResourceTypeDef",
+    "AzureDevOpsResourceCapabilitiesTypeDef",
     "BatchCreateSecurityRequirementResultTypeDef",
     "BatchCreateSecurityRequirementsInputTypeDef",
     "BatchCreateSecurityRequirementsOutputTypeDef",
@@ -137,6 +142,7 @@ __all__ = (
     "BatchSecurityRequirementErrorTypeDef",
     "BatchUpdateSecurityRequirementsInputTypeDef",
     "BatchUpdateSecurityRequirementsOutputTypeDef",
+    "BitbucketDataCenterIntegrationInputTypeDef",
     "BitbucketIntegrationInputTypeDef",
     "BitbucketRepositoryMetadataTypeDef",
     "BitbucketRepositoryResourceTypeDef",
@@ -378,6 +384,8 @@ __all__ = (
     "UpdateCodeReviewOutputTypeDef",
     "UpdateFindingInputTypeDef",
     "UpdateIntegratedResourcesInputTypeDef",
+    "UpdateIntegrationInputTypeDef",
+    "UpdateIntegrationOutputTypeDef",
     "UpdatePentestInputTypeDef",
     "UpdatePentestOutputTypeDef",
     "UpdatePrivateConnectionCertificateInputTypeDef",
@@ -492,6 +500,32 @@ class IntegratedRepositoryTypeDef(TypedDict):
 
 class SourceCodeRepositoryTypeDef(TypedDict):
     s3Location: NotRequired[str]
+
+
+class AzureDevOpsIntegrationInputTypeDef(TypedDict):
+    code: str
+    state: str
+    organizationName: str
+
+
+class AzureDevOpsRepositoryMetadataTypeDef(TypedDict):
+    name: str
+    providerResourceId: str
+    organization: str
+    project: NotRequired[str]
+    projectId: NotRequired[str]
+    accessType: NotRequired[AccessTypeType]
+
+
+class AzureDevOpsRepositoryResourceTypeDef(TypedDict):
+    name: str
+    organization: str
+    project: NotRequired[str]
+
+
+class AzureDevOpsResourceCapabilitiesTypeDef(TypedDict):
+    leaveComments: NotRequired[bool]
+    remediateCode: NotRequired[bool]
 
 
 class BatchCreateSecurityRequirementResultTypeDef(TypedDict):
@@ -644,6 +678,12 @@ class UpdateSecurityRequirementEntryTypeDef(TypedDict):
     domain: NotRequired[str]
     evaluation: NotRequired[str]
     remediation: NotRequired[str]
+
+
+class BitbucketDataCenterIntegrationInputTypeDef(TypedDict):
+    targetUrl: str
+    code: str
+    state: str
 
 
 class BitbucketIntegrationInputTypeDef(TypedDict):
@@ -999,6 +1039,10 @@ class HttpVerificationTypeDef(TypedDict):
 
 class InitiateProviderRegistrationInputTypeDef(TypedDict):
     provider: ProviderType
+    targetUrl: NotRequired[str]
+    organizationName: NotRequired[str]
+    clientId: NotRequired[str]
+    clientSecret: NotRequired[str]
 
 
 class IntegrationFilterTypeDef(TypedDict):
@@ -1013,6 +1057,7 @@ class IntegrationSummaryTypeDef(TypedDict):
     providerType: ProviderTypeType
     displayName: str
     targetUrl: NotRequired[str]
+    webhookUrl: NotRequired[str]
     privateConnectionName: NotRequired[str]
 
 
@@ -1411,6 +1456,11 @@ class UpdateFindingInputTypeDef(TypedDict):
     customerNote: NotRequired[str]
 
 
+class UpdateIntegrationInputTypeDef(TypedDict):
+    integrationId: str
+    webhookAction: WebhookActionType
+
+
 class UpdatePrivateConnectionCertificateInputTypeDef(TypedDict):
     privateConnectionName: str
     certificate: str
@@ -1594,6 +1644,7 @@ class GetIntegrationOutputTypeDef(TypedDict):
     displayName: str
     kmsKeyId: str
     targetUrl: str
+    webhookUrl: str
     privateConnectionName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1670,6 +1721,13 @@ class StartThreatModelJobOutputTypeDef(TypedDict):
 
 class UpdateApplicationResponseTypeDef(TypedDict):
     applicationId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateIntegrationOutputTypeDef(TypedDict):
+    integrationId: str
+    webhookUrl: str
+    secret: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1973,6 +2031,8 @@ class ProviderInputTypeDef(TypedDict):
     gitlab: NotRequired[GitLabIntegrationInputTypeDef]
     bitbucket: NotRequired[BitbucketIntegrationInputTypeDef]
     confluence: NotRequired[ConfluenceIntegrationInputTypeDef]
+    azureDevOps: NotRequired[AzureDevOpsIntegrationInputTypeDef]
+    bitbucketDataCenter: NotRequired[BitbucketDataCenterIntegrationInputTypeDef]
 
 
 class IntegratedResourceMetadataTypeDef(TypedDict):
@@ -1980,6 +2040,7 @@ class IntegratedResourceMetadataTypeDef(TypedDict):
     gitlabRepository: NotRequired[GitLabRepositoryMetadataTypeDef]
     bitbucketRepository: NotRequired[BitbucketRepositoryMetadataTypeDef]
     confluenceDocument: NotRequired[ConfluenceDocumentMetadataTypeDef]
+    azureDevOpsRepository: NotRequired[AzureDevOpsRepositoryMetadataTypeDef]
 
 
 class IntegratedResourceTypeDef(TypedDict):
@@ -1987,6 +2048,7 @@ class IntegratedResourceTypeDef(TypedDict):
     gitlabRepository: NotRequired[GitLabRepositoryResourceTypeDef]
     bitbucketRepository: NotRequired[BitbucketRepositoryResourceTypeDef]
     confluenceDocument: NotRequired[ConfluenceDocumentResourceTypeDef]
+    azureDevOpsRepository: NotRequired[AzureDevOpsRepositoryResourceTypeDef]
 
 
 class ProviderResourceCapabilitiesTypeDef(TypedDict):
@@ -1994,6 +2056,7 @@ class ProviderResourceCapabilitiesTypeDef(TypedDict):
     gitlab: NotRequired[GitLabResourceCapabilitiesTypeDef]
     bitbucket: NotRequired[BitbucketResourceCapabilitiesTypeDef]
     confluence: NotRequired[ConfluenceResourceCapabilitiesTypeDef]
+    azureDevOps: NotRequired[AzureDevOpsResourceCapabilitiesTypeDef]
 
 
 class VerificationDetailsTypeDef(TypedDict):

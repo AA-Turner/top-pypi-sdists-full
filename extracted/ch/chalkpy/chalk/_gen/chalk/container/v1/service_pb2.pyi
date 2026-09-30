@@ -165,6 +165,7 @@ class ChalkContainerSpec(_message.Message):
         "restart_policy",
         "chalk_workload_identity",
         "managed_ssh",
+        "restore_from_snapshot_id",
     )
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -214,6 +215,7 @@ class ChalkContainerSpec(_message.Message):
     RESTART_POLICY_FIELD_NUMBER: _ClassVar[int]
     CHALK_WORKLOAD_IDENTITY_FIELD_NUMBER: _ClassVar[int]
     MANAGED_SSH_FIELD_NUMBER: _ClassVar[int]
+    RESTORE_FROM_SNAPSHOT_ID_FIELD_NUMBER: _ClassVar[int]
     name: str
     image: str
     entrypoint: _containers.RepeatedScalarFieldContainer[str]
@@ -236,6 +238,7 @@ class ChalkContainerSpec(_message.Message):
     restart_policy: RestartPolicy
     chalk_workload_identity: ChalkWorkloadIdentity
     managed_ssh: _containers.MessageMap[str, ManagedSshDestination]
+    restore_from_snapshot_id: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -260,6 +263,7 @@ class ChalkContainerSpec(_message.Message):
         restart_policy: _Optional[_Union[RestartPolicy, str]] = ...,
         chalk_workload_identity: _Optional[_Union[ChalkWorkloadIdentity, _Mapping]] = ...,
         managed_ssh: _Optional[_Mapping[str, ManagedSshDestination]] = ...,
+        restore_from_snapshot_id: _Optional[str] = ...,
     ) -> None: ...
 
 class StartupProbe(_message.Message):
@@ -481,6 +485,9 @@ class ContainerResponse(_message.Message):
         "ssh_host",
         "ssh_port",
         "health_check",
+        "region",
+        "created_by",
+        "status_details",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -496,6 +503,9 @@ class ContainerResponse(_message.Message):
     SSH_HOST_FIELD_NUMBER: _ClassVar[int]
     SSH_PORT_FIELD_NUMBER: _ClassVar[int]
     HEALTH_CHECK_FIELD_NUMBER: _ClassVar[int]
+    REGION_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     status: str
@@ -510,6 +520,9 @@ class ContainerResponse(_message.Message):
     ssh_host: str
     ssh_port: int
     health_check: HealthCheck
+    region: str
+    created_by: str
+    status_details: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -526,6 +539,9 @@ class ContainerResponse(_message.Message):
         ssh_host: _Optional[str] = ...,
         ssh_port: _Optional[int] = ...,
         health_check: _Optional[_Union[HealthCheck, _Mapping]] = ...,
+        region: _Optional[str] = ...,
+        created_by: _Optional[str] = ...,
+        status_details: _Optional[str] = ...,
     ) -> None: ...
 
 class RunContainerRequest(_message.Message):
@@ -930,21 +946,27 @@ class ContainerHostInfo(_message.Message):
     def __init__(self, host_id: _Optional[str] = ...) -> None: ...
 
 class UpdateContainerStatusRequest(_message.Message):
-    __slots__ = ("container_id", "status", "status_message", "host_info")
+    __slots__ = ("container_id", "status", "status_message", "host_info", "observed_at", "status_details")
     CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     STATUS_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     HOST_INFO_FIELD_NUMBER: _ClassVar[int]
+    OBSERVED_AT_FIELD_NUMBER: _ClassVar[int]
+    STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
     container_id: str
     status: str
     status_message: str
     host_info: ContainerHostInfo
+    observed_at: _timestamp_pb2.Timestamp
+    status_details: str
     def __init__(
         self,
         container_id: _Optional[str] = ...,
         status: _Optional[str] = ...,
         status_message: _Optional[str] = ...,
         host_info: _Optional[_Union[ContainerHostInfo, _Mapping]] = ...,
+        observed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        status_details: _Optional[str] = ...,
     ) -> None: ...
 
 class UpdateContainerStatusResponse(_message.Message):

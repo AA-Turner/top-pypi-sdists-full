@@ -18,6 +18,8 @@
 # Urwid web site: https://urwid.org/
 
 
+"""ListBox: a scrolling box container of widgets supplied by a list walker."""
+
 from __future__ import annotations
 
 import operator
@@ -74,7 +76,7 @@ __all__ = (
 
 
 class ListBoxError(Exception):
-    pass
+    """ListBox related errors."""
 
 
 class VisibleInfoMiddle(typing.NamedTuple):
@@ -109,11 +111,14 @@ class VisibleInfoTopBottom(typing.NamedTuple):
     ) -> Self:
         """Construct from not typed data.
 
-        Useful for overridden cases."""
+        Useful for overridden cases.
+        """
         return cls(trim=trim, fill=[VisibleInfoFillItem(*item) for item in fill])  # pragma: no cover
 
 
 class VisibleInfo(typing.NamedTuple):
+    """Named tuple for ListBox internals."""
+
     middle: VisibleInfoMiddle
     top: VisibleInfoTopBottom
     bottom: VisibleInfoTopBottom
@@ -137,9 +142,7 @@ class VisibleInfo(typing.NamedTuple):
 
 
 class ListBox(Widget, WidgetContainerMixin[_K]):
-    """
-    Vertically stacked list of widgets
-    """
+    """Vertically stacked list of widgets."""
 
     _selectable = True
     _sizing = frozenset([Sizing.BOX])
@@ -160,7 +163,8 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         self,
         body: ListWalker[_K, AbstractFlowWidget] | Iterable[AbstractFlowWidget],
     ) -> None:
-        """
+        """Create the ListBox widget.
+
         :param body: a ListWalker subclass such as :class:`SimpleFocusListWalker`
             that contains widgets to be displayed inside the list box
         """
@@ -205,9 +209,9 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
     @property
     def body(self) -> ListWalker[_K, AbstractFlowWidget]:
-        """
-        a ListWalker subclass such as :class:`SimpleFocusListWalker` that contains
-        widgets to be displayed inside the list box
+        """A ListWalker subclass such as :class:`SimpleFocusListWalker` that contains widgets.
+
+        The widgets are to be displayed inside the list box.
         """
         return typing.cast("ListWalker[_K, AbstractFlowWidget]", self._body)
 
@@ -263,9 +267,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         size: tuple[int, int],
         focus: bool = False,
     ) -> VisibleInfo | tuple[None, None, None]:
-        """
-        Returns the widgets that would be displayed in
-        the ListBox given the current *size* and *focus*.
+        """Return the widgets that would be displayed in the ListBox given the current *size* and *focus*.
 
         see :meth:`Widget.render` for parameter details
 
@@ -415,7 +417,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
             raise ListBoxError("Body is wrapped around. Scroll position calculation is undefined.")
 
     def get_scrollpos(self, size: tuple[int, int] | None = None, focus: bool = False) -> int:
-        """Current scrolling position."""
+        """Return the current scrolling position."""
         self._check_support_scrolling()
 
         if not self._body:
@@ -475,6 +477,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         return isinstance(self._body, (Sized, EstimatedSized)) and (size[1] * 3 < operator.length_hint(self.body))
 
     def get_first_visible_pos(self, size: tuple[int, int], focus: bool = False) -> int:
+        """Return the index of the first visible item."""
         self._check_support_scrolling()
 
         if not self._body:
@@ -495,6 +498,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         return over
 
     def get_visible_amount(self, size: tuple[int, int], focus: bool = False) -> int:
+        """Return the number of items currently visible."""
         self._check_support_scrolling()
 
         if not self._body:
@@ -623,9 +627,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         return final_canvas
 
     def get_cursor_coords(self, size: tuple[int, int]) -> tuple[int, int] | None:
-        """
-        See :meth:`Widget.get_cursor_coords` for details
-        """
+        """See :meth:`Widget.get_cursor_coords` for details."""
         (maxcol, maxrow) = size
 
         middle, _top, _bottom = self.calculate_visible((maxcol, maxrow), True)
@@ -698,19 +700,18 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
     @property
     def focus(self) -> AbstractFlowWidget | None:
         """
-        the child widget in focus or None when ListBox is empty.
+        The child widget in focus or None when ListBox is empty.
 
         Return the widget in focus according to our :obj:`list walker <ListWalker>`.
         """
         return self._body.get_focus()[0]
 
     def _get_focus_position(self) -> _K:
-        """
-        Return the list walker position of the widget in focus. The type
-        of value returned depends on the :obj:`list walker <ListWalker>`.
+        """Return the list walker position of the widget in focus.
+
+        The type of value returned depends on the :obj:`list walker <ListWalker>`.
 
         :raises IndexError: the ListBox is empty.
-
         """
         w, pos = self._body.get_focus()
         if w is None:
@@ -732,6 +733,8 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
     def _contents(self) -> ListBoxContentsProto[_K]:
         # noinspection PyMethodParameters
         class ListBoxContents(Sized):
+            """Mapping-like view onto this ListBox's items, indexed by position."""
+
             # pylint: disable=no-self-argument
 
             __getitem__ = self._contents__getitem__
@@ -790,10 +793,9 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
     @property
     def contents(self) -> ListBoxContentsProto[_K]:
-        """
-        An object that allows reading widgets from the ListBox's list
-        walker as a `(widget, options)` tuple. `None` is currently the only
-        value for options.
+        """An object that allows reading widgets from the ListBox's list walker.
+
+        Widgets are read as a `(widget, options)` tuple. `None` is currently the only value for options.
 
         .. warning::
 
@@ -938,8 +940,8 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         return None
 
     def shift_focus(self, size: tuple[int, int], offset_inset: int) -> None:
-        """
-        Move the location of the current focus relative to the top.
+        """Move the location of the current focus relative to the top.
+
         This is used internally by methods that know the widget's *size*.
 
         See also :meth:`.set_focus_valign`.
@@ -997,8 +999,8 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         cursor_coords: tuple[int | str, int] | tuple[int | str] | None = None,
         snap_rows: int | None = None,
     ) -> None:
-        """
-        Change the current focus widget.
+        """Change the current focus widget.
+
         This is used internally by methods that know the widget's *size*.
 
         See also :meth:`.set_focus`.
@@ -1161,9 +1163,9 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         size: tuple[int, int],  # type: ignore[override]
         key: str,
     ) -> str | None:
-        """Move selection through the list elements scrolling when
-        necessary. Keystrokes are first passed to widget in focus
-        in case that widget can handle them.
+        """Move selection through the list elements scrolling when necessary.
+
+        Keystrokes are first passed to widget in focus in case that widget can handle them.
 
         Keystrokes handled by this widget are:
 
@@ -1797,8 +1799,8 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         row: int,
         focus: bool,
     ) -> bool | None:
-        """
-        Pass the event to the contained widgets.
+        """Pass the event to the contained widgets.
+
         May change focus on button 1 press.
         """
         from urwid.util import is_mouse_press
@@ -1891,7 +1893,6 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         the focus up to the top.  This is the best we can do with
         a minimal list walker implementation.
         """
-
         if positions_fn := getattr(self._body, "positions", None):
             yield from positions_fn()
             return
@@ -1922,7 +1923,6 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         reverse of what `__iter__()` produces, but this is the best we can
         do with a minimal list walker implementation.
         """
-
         if positions_fn := getattr(self._body, "positions", None):
             yield from positions_fn(reverse=True)
             return

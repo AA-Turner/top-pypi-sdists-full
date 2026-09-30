@@ -31,10 +31,11 @@ Authorization (see ``kind_shared``): any user may create kinds in their own
 org; every read is gated at ``viewer`` and every schema/example/skill/block
 write at ``editor`` through the live ``iam.has_access_for`` SECURITY DEFINER
 function (owner fast-path in code) — org membership alone never unlocks a
-``visibility='personal'`` kind. New kinds are therefore created ``internal``
-(org platform data), NOT ``personal``: a personal kind is editable only by the
-one account that created it, which strands every other member — including org
-admins and super admins — at viewer.
+kind locked to one person. New kinds are therefore created as org platform
+data (not published to the web, no ``only_me`` list filter), never locked to
+their creator: such a kind was editable only by the one account that created
+it, which stranded every other member — including org admins and super
+admins — at viewer.
 
 Platform mints: ``kind_create(platform_kind=true)`` is the ONE sanctioned way
 a PLATFORM kind is born — admin-gated (``AppContext.is_admin``, refused
@@ -50,6 +51,8 @@ import json
 import logging
 import traceback
 from typing import Any
+
+from matrx_utils.row_access import is_published, publish_columns
 
 from matrx_ai.db._registry import get_model as get_db_model
 from matrx_ai.tools.implementations.kind_shared import (
@@ -68,6 +71,7 @@ from matrx_ai.tools.implementations.kind_shared import (
     ensure_can_edit_kind,
     ensure_can_view_kind,
     ensure_root_marker,
+    enum_str,
     err,
     example_summary,
     fields_from_json_schema,
@@ -87,15 +91,6 @@ from matrx_ai.tools.implementations.kind_shared import (
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 
 logger = logging.getLogger(__name__)
-
-
-def _visibility_value(vis: Any, default: str = "internal") -> str:
-    """The plain string value of a visibility that may be an Enum member, a
-    string, or None. str(member) on a (str, Enum) mixin yields the repr
-    'Visibility.INTERNAL' — never use it for serialization."""
-    if vis is None:
-        return default
-    return str(getattr(vis, "value", vis)) or default
 
 
 def _wire_output(output: Any) -> Any:
@@ -267,8 +262,8 @@ async def _create_single_kind(
     same one-shape form.
 
     ``platform=True`` (admin-gated in ``kind_create`` — never set it from any
-    other path) mints a PLATFORM kind: ``visibility='public'`` instead of
-    ``'internal'``. The caller passes the system org as ``org_id``; every
+    other path) mints a PLATFORM kind: published to the web instead of
+    unpublished org data. The caller passes the system org as ``org_id``; every
     downstream row (example, component, edge, skill, content block) inherits
     ``kd.organization_id``, so the whole composed create lands in the system
     org with no manual promotion step.
@@ -311,14 +306,13 @@ async def _create_single_kind(
         "emitted_block_schema": block_schema,
         "emitted_fingerprint": fingerprint,
         "is_active": False,
-        # 'internal', never 'personal': a kind definition is org platform
-        # data, not one person's private row. 'personal' locked every
-        # agent-created kind to its creator — org admins and super admins
-        # got viewer and were refused every edit (2026-07-25 incident).
-        # Admin platform mints (platform_kind=true) are 'public' in the
-        # system org instead — the state the manual SQL promotions used to
-        # produce by hand (B6, 2026-08-23).
-        "visibility": "public" if platform else "internal",
+        # Org platform data, never one person's private row: locking every
+        # agent-created kind to its creator left org admins and super admins
+        # at viewer, refused every edit (2026-07-25 incident). Admin platform
+        # mints (platform_kind=true) are published to the web in the system
+        # org instead — the state the manual SQL promotions used to produce
+        # by hand (B6, 2026-08-23). Always written explicitly (T-13).
+        **publish_columns(platform, user_id),
         "created_by": user_id,
         "metadata": metadata,
     }
@@ -557,8 +551,8 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     the definition, its NEW child kinds, and every row the composed create
     writes (examples, edges, seeded input component, and later the
     skill/content block/components, which all inherit the definition's org)
-    land in the Matrx System organization with ``visibility='public'``,
-    instead of caller-org/internal. This replaces the manual SQL promotion
+    land in the Matrx System organization published to the web,
+    instead of caller-org/unpublished. This replaces the manual SQL promotion
     step every platform build needed. Refused loudly for non-admin callers —
     a personal kind never needs it and never gets it.
     """
@@ -592,8 +586,8 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return err(
             "forbidden",
             "platform_kind=true is an admin action: it mints the kind (and every row "
-            "the composed create writes) into the Matrx System organization with "
-            "visibility='public', so it works only for a platform admin from the "
+            "the composed create writes) into the Matrx System organization, published "
+            "to the web, so it works only for a platform admin from the "
             "admin app or the admin MCP, never from a normal chat.",
             "Retry without platform_kind to create a normal kind in your own "
             "organization.",
@@ -811,7 +805,8 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 label=label,
                 version=kd.version,
                 organization_id=str(kd.organization_id),
-                visibility=_visibility_value(kd.visibility),
+                published_to_web=bool(getattr(kd, "published_to_web", False)),
+                shown_to=enum_str(getattr(kd, "shown_to", None)),
                 platform_kind=platform_kind,
                 is_active=False,
                 canonical_example_id=str(example.id) if example else None,
@@ -1417,10 +1412,11 @@ async def kind_create_content_block(args: dict[str, Any], ctx: ToolContext) -> T
                     skill_id=str(skill_row.id) if skill_row else None,
                     organization_id=str(kd.organization_id),
                     created_by=ctx_user_id(ctx),
-                    # Serialize the enum by VALUE — str(member) on a (str, Enum) mixin
-                    # yields the repr 'Visibility.INTERNAL', which the RenderDefinition
-                    # EnumField rejects (this killed every wave-4 content-block write).
-                    visibility=_visibility_value(getattr(kd, "visibility", None)),
+                    # The block follows its kind's web lane and list filter. Enums are
+                    # serialized by VALUE — str(member) on a (str, Enum) mixin yields the
+                    # repr, which the EnumField rejects (this killed every wave-4 write).
+                    **publish_columns(is_published(kd), ctx_user_id(ctx)),
+                    **({"shown_to": enum_str(kd.shown_to)} if getattr(kd, "shown_to", None) else {}),
                     metadata={"kind_definition_id": str(kd.id), "created_via": "kind_create_content_block"},
                 )
         except WriteRefused as exc:

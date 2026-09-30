@@ -19,6 +19,7 @@ Unique counts are derived from the base class's track-ID confirmation
 state (``_per_cat_new``), so flickering / unconfirmed detections are
 automatically excluded.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,7 +27,6 @@ from typing import Any
 
 from ..base_processor import BaseMetricProcessor, MetricEntry
 from ..schemas import ProcessorAggregationOutput
-
 
 logger = logging.getLogger(__name__)
 
@@ -144,20 +144,16 @@ class QualityProcessor(BaseMetricProcessor):
         # ── Per-frame raw counts ───────────────────────────────────────
         if self._inspection_classes is not None:
             total_inspected = sum(
-                1 for det in detections
-                if det.get("category", "") in self._inspection_classes
+                1 for det in detections if det.get("category", "") in self._inspection_classes
             )
         else:
             total_inspected = len(detections)
 
         defect_count = sum(
-            1 for det in detections
-            if det.get("category", "") in self._defect_classes
+            1 for det in detections if det.get("category", "") in self._defect_classes
         )
 
-        defect_rate = (
-            defect_count / total_inspected if total_inspected > 0 else 0.0
-        )
+        defect_rate = defect_count / total_inspected if total_inspected > 0 else 0.0
 
         self._window_peak_inspected = max(self._window_peak_inspected, total_inspected)
         self._window_peak_defect = max(self._window_peak_defect, defect_count)
@@ -171,15 +167,11 @@ class QualityProcessor(BaseMetricProcessor):
 
         if self._inspection_classes is not None:
             for cat in self._inspection_classes:
-                self._window_inspection_ids.update(
-                    self._per_cat_new.get(cat, set())
-                )
+                self._window_inspection_ids.update(self._per_cat_new.get(cat, set()))
         else:
             # Fallback: treat every target category as an "inspected" item.
             for cat in self.target_categories:
-                self._window_inspection_ids.update(
-                    self._per_cat_new.get(cat, set())
-                )
+                self._window_inspection_ids.update(self._per_cat_new.get(cat, set()))
 
         # ── Build MetricEntry list driven by manifest config ───────────
         computed: dict[str, float] = {
@@ -230,9 +222,7 @@ class QualityProcessor(BaseMetricProcessor):
         if unique_defects == 0 and self._window_peak_defect > 0:
             unique_defects = self._window_peak_defect
 
-        window_defect_rate = (
-            unique_defects / unique_inspected if unique_inspected > 0 else 0.0
-        )
+        window_defect_rate = unique_defects / unique_inspected if unique_inspected > 0 else 0.0
 
         window_values: dict[str, float] = {
             "defect_count": float(unique_defects),
@@ -273,20 +263,16 @@ class QualityProcessor(BaseMetricProcessor):
     ) -> str:
         """Build per-frame human text for defect detection."""
         if self._inspection_classes is not None:
-            total = sum(
-                1 for d in detections
-                if d.get("category", "") in self._inspection_classes
-            )
+            total = sum(1 for d in detections if d.get("category", "") in self._inspection_classes)
         else:
             total = len(detections)
 
-        defects = sum(
-            1 for d in detections
-            if d.get("category", "") in self._defect_classes
-        )
+        defects = sum(1 for d in detections if d.get("category", "") in self._defect_classes)
         rate_pct = (defects / total * 100) if total > 0 else 0.0
 
-        zone_prefix = f"Zone {self._zone_id} — " if self._zone_id and self._zone_id != "global" else ""
+        zone_prefix = (
+            f"Zone {self._zone_id} — " if self._zone_id and self._zone_id != "global" else ""
+        )
         lines = [
             f"{zone_prefix}CURRENT FRAME:",
             f"\t- Defects detected: {defects}",

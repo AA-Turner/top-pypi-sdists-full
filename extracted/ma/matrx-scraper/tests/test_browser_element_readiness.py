@@ -161,7 +161,7 @@ async def test_the_readiness_definition_lives_in_exactly_one_place(intake_page) 
 
     source = importlib.import_module("pathlib").Path(actions.__file__).read_text(encoding="utf-8")
     assert 'state="visible"' not in source, (
-        "a visibility wait outside readiness.py is a second readiness definition"
+        "a visible-state wait outside readiness.py is a second readiness definition"
     )
     assert "bounding_box()" not in source, (
         "a bare bounding_box readiness check outside readiness.py is a second definition"

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import glob
 import os
 import sqlite3
@@ -7,16 +8,19 @@ import sys
 import threading
 import time
 import traceback
+import uuid
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
     Generator,
+    Iterator,
     Optional,
     Tuple,
     TypeVar,
     cast,
 )
+from unittest import mock
 
 T = TypeVar("T")
 from pathlib import Path
@@ -35,6 +39,7 @@ from opentelemetry.sdk._logs.export import (
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
+import dbos._workflow_commands as workflow_commands
 from dbos import (
     DBOS,
     DBOSClient,
@@ -382,6 +387,22 @@ def pytest_collection_modifyitems(session: Any, config: Any, items: Any) -> None
         item._nodeid = "\n" + item.nodeid + "\n"
 
 
+@contextlib.contextmanager
+def keep_datasource_checkpoints() -> Iterator[None]:
+    """Skip the datasource checkpoint cleanup at workflow completion."""
+    with (
+        mock.patch.object(
+            workflow_commands, "delete_completed_datasource_checkpoints", mock.Mock()
+        ),
+        mock.patch.object(
+            workflow_commands,
+            "delete_completed_datasource_checkpoints_async",
+            mock.AsyncMock(),
+        ),
+    ):
+        yield
+
+
 def set_workflow_status(sys_db: SystemDatabase, workflow_id: str, status: str) -> None:
     # Force a workflow's status directly, bypassing the guards in
     # update_workflow_outcome (which only finalizes PENDING workflows).
@@ -395,11 +416,17 @@ def set_workflow_status(sys_db: SystemDatabase, workflow_id: str, status: str) -
 
 
 def reexecute_workflow_by_id(dbos: DBOS, wfid: str) -> "WorkflowHandle[Any]":
-    """Dispatch a workflow off its persisted row, exactly as a queue claim does."""
-    set_workflow_status(dbos._sys_db, wfid, "PENDING")
+    """Dispatch a workflow off its persisted row, exactly as a queue claim does, taking ownership of it."""
+    owner_xid = str(uuid.uuid4())
+    with dbos._sys_db.engine.begin() as c:
+        c.execute(
+            sa.update(SystemSchema.workflow_status)
+            .values(status="PENDING", owner_xid=owner_xid)
+            .where(SystemSchema.workflow_status.c.workflow_uuid == wfid)
+        )
     status = dbos._sys_db.get_workflow_status(wfid)
     assert status is not None
-    return execute_dequeued_workflow(dbos, status)
+    return execute_dequeued_workflow(dbos, status, owner_xid)
 
 
 def queue_entries_are_cleaned_up(dbos: DBOS) -> bool:

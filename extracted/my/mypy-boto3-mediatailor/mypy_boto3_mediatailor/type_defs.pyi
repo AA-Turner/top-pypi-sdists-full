@@ -29,7 +29,9 @@ from .literals import (
     AdsInteractionPublishOptInEventTypeType,
     AlertCategoryType,
     ApsRegionType,
+    BeaconEventTypeType,
     ChannelStateType,
+    ClientSideBeaconingModeType,
     CompressionMethodType,
     EventNameType,
     FillPolicyType,
@@ -88,9 +90,14 @@ __all__ = (
     "AwsServiceRequestConfigurationOutputTypeDef",
     "AwsServiceRequestConfigurationTypeDef",
     "AwsServiceRequestConfigurationUnionTypeDef",
+    "BeaconingConfigurationOutputTypeDef",
+    "BeaconingConfigurationTypeDef",
+    "BeaconingConfigurationUnionTypeDef",
     "BumperTypeDef",
     "CdnConfigurationTypeDef",
     "ChannelTypeDef",
+    "ClientSideBeaconingConfigurationOutputTypeDef",
+    "ClientSideBeaconingConfigurationTypeDef",
     "ClipRangeTypeDef",
     "ConcurrentExecutorConfigurationOutputTypeDef",
     "ConcurrentExecutorConfigurationTypeDef",
@@ -378,6 +385,14 @@ AwsServiceRequestConfigurationTypeDef = TypedDict(
         "Headers": NotRequired[Mapping[str, str]],
     },
 )
+
+class ClientSideBeaconingConfigurationOutputTypeDef(TypedDict):
+    ReportingMode: ClientSideBeaconingModeType
+    AdditionalEventTypes: NotRequired[list[BeaconEventTypeType]]
+
+class ClientSideBeaconingConfigurationTypeDef(TypedDict):
+    ReportingMode: ClientSideBeaconingModeType
+    AdditionalEventTypes: NotRequired[Sequence[BeaconEventTypeType]]
 
 class BumperTypeDef(TypedDict):
     EndUrl: NotRequired[str]
@@ -741,6 +756,12 @@ AwsServiceRequestConfigurationUnionTypeDef = Union[
     AwsServiceRequestConfigurationTypeDef, AwsServiceRequestConfigurationOutputTypeDef
 ]
 
+class BeaconingConfigurationOutputTypeDef(TypedDict):
+    ClientSide: NotRequired[ClientSideBeaconingConfigurationOutputTypeDef]
+
+class BeaconingConfigurationTypeDef(TypedDict):
+    ClientSide: NotRequired[ClientSideBeaconingConfigurationTypeDef]
+
 class ConcurrentExecutorConfigurationOutputTypeDef(TypedDict):
     Runtime: Literal["JSONATA"]
     Output: dict[str, str]
@@ -1095,6 +1116,9 @@ class UpdateSourceLocationResponseTypeDef(TypedDict):
 AdDecisionServerConfigurationUnionTypeDef = Union[
     AdDecisionServerConfigurationTypeDef, AdDecisionServerConfigurationOutputTypeDef
 ]
+BeaconingConfigurationUnionTypeDef = Union[
+    BeaconingConfigurationTypeDef, BeaconingConfigurationOutputTypeDef
+]
 ConcurrentExecutorConfigurationUnionTypeDef = Union[
     ConcurrentExecutorConfigurationTypeDef, ConcurrentExecutorConfigurationOutputTypeDef
 ]
@@ -1337,6 +1361,7 @@ class GetPlaybackConfigurationResponseTypeDef(TypedDict):
     FunctionMapping: dict[EventNameType, str]
     AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
     AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef
+    BeaconingConfiguration: BeaconingConfigurationOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PlaybackConfigurationTypeDef(TypedDict):
@@ -1368,6 +1393,7 @@ class PlaybackConfigurationTypeDef(TypedDict):
     FunctionMapping: NotRequired[dict[EventNameType, str]]
     AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
     AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
+    BeaconingConfiguration: NotRequired[BeaconingConfigurationOutputTypeDef]
 
 class PutPlaybackConfigurationRequestTypeDef(TypedDict):
     Name: str
@@ -1391,6 +1417,7 @@ class PutPlaybackConfigurationRequestTypeDef(TypedDict):
     FunctionMapping: NotRequired[Mapping[EventNameType, str]]
     AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
     AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
+    BeaconingConfiguration: NotRequired[BeaconingConfigurationUnionTypeDef]
 
 class PutPlaybackConfigurationResponseTypeDef(TypedDict):
     AdDecisionServerUrl: str
@@ -1421,6 +1448,7 @@ class PutPlaybackConfigurationResponseTypeDef(TypedDict):
     FunctionMapping: dict[EventNameType, str]
     AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
     AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef
+    BeaconingConfiguration: BeaconingConfigurationOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePrefetchScheduleResponseTypeDef(TypedDict):

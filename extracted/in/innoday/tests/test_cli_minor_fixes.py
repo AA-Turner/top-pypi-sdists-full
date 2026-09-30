@@ -18,7 +18,7 @@ from src.domain.cli_token import CLIToken
 
 
 class TestDescribeException:
-    """`✗ Error:` with nothing after it -- observed from `board sync-status`.
+    """`✗ Error:` with nothing after it -- observed from the old `board sync-status`.
 
     The CLI's top-level handler interpolates the exception into an error
     template. `str(exc)` is empty for anything raised without arguments, so the

@@ -4,7 +4,7 @@ Saves AI-generated media (audio, images, video, PDFs) to cloud storage
 and returns the canonical asset envelope for the frontend.
 
 Public API:
-    save_media_envelope_async(content, mime_type, ..., visibility=None)
+    save_media_envelope_async(content, mime_type, ..., published_to_web=None, shown_to=None)
         -> MediaPersistResult — preferred. Returns the full envelope:
         {file_id, url, cdn_url, download_url, mime_type, storage_uri}.
         Every URL is durable; FE re-resolves by file_id via the
@@ -21,7 +21,7 @@ Public API:
 URL contract: every URL comes from
 ``SyncEngine.build_urls_for_record_async`` — the single source of truth
 that decides CDN vs authenticated-download based on the record's
-visibility, and that returns only durable URLs (``url`` / ``cdn_url`` /
+``published_to_web``, and that returns only durable URLs (``url`` / ``cdn_url`` /
 ``download_url``). We **never** call ``_router.get_url_async``
 directly here (banned anti-pattern per CLAUDE.md "Asset uploads" rule).
 
@@ -41,14 +41,15 @@ import uuid
 from dataclasses import dataclass
 from typing import Literal
 
-from matrx_utils import VisibilityLiteral, vcprint
+from matrx_utils import vcprint
 from matrx_utils.ctx import public_media_scope as public_media_scope
 from matrx_utils.ctx import public_media_scope_active as public_media_scope_active
+from matrx_utils.row_access import ShownToLiteral
 
 from matrx_ai._ext import get_ext, has_ext
 
-# Features whose generated assets are BORN PUBLIC (durable CDN URL, never an
-# expiring signed URL) when the caller does not pass an explicit visibility.
+# Features whose generated assets are BORN PUBLISHED TO THE WEB (durable CDN URL,
+# never an expiring signed URL) when the caller does not say ``published_to_web``.
 #
 # Why ``ai_audio``: agent-generated TTS/audio delivered into a conversation is
 # content the user replays indefinitely — a personal file mints a signed S3 URL
@@ -58,12 +59,12 @@ from matrx_ai._ext import get_ext, has_ext
 #
 # Deliberately NOT ``ai_images`` / ``ai_video`` / ``ai_documents`` — flipping
 # those would make every AI image/video on the platform public, a privacy
-# regression. An explicit ``visibility=`` argument always wins over this map.
+# regression. An explicit ``published_to_web=`` argument always wins over this map.
 BORN_PUBLIC_FEATURES: frozenset[str] = frozenset({"ai_audio"})
 
 
 # THE PUBLISHED-MEDIA SCOPE now lives in ``matrx_utils.ctx`` — one layer down,
-# beside ``system_file_access`` and ``VisibilityLiteral``.
+# beside ``system_file_access``.
 #
 # It moved there because it was unreachable from where it was most needed. A
 # publishing WORKFLOW (podcast W7's visual-asset fan-out) runs in matrx-graph,
@@ -74,21 +75,27 @@ BORN_PUBLIC_FEATURES: frozenset[str] = frozenset({"ai_audio"})
 # caller already uses.
 
 
-def resolve_default_visibility(
-    feature: str,
-    visibility: VisibilityLiteral | None,
-) -> VisibilityLiteral:
-    """Resolve the effective visibility for a persisted AI asset.
+def resolve_published_to_web(feature: str, published_to_web: bool | None) -> bool:
+    """Resolve whether a persisted AI asset is published to the web.
 
     Explicit caller choice always wins; otherwise, in precedence order:
-    an active :func:`public_media_scope` → ``public``,
-    ``BORN_PUBLIC_FEATURES`` → ``public``, everything else → ``personal``.
+    an active :func:`public_media_scope` → published,
+    ``BORN_PUBLIC_FEATURES`` → published, everything else → not published.
     """
-    if visibility is not None:
-        return visibility
+    if published_to_web is not None:
+        return bool(published_to_web)
     if public_media_scope_active():
-        return "public"
-    return "public" if feature in BORN_PUBLIC_FEATURES else "personal"
+        return True
+    return feature in BORN_PUBLIC_FEATURES
+
+
+def resolve_shown_to(published_to_web: bool, shown_to: str | None) -> str | None:
+    """The list filter for a persisted AI asset: explicit wins; an unpublished asset is
+    shown only to its maker (what a personal generation always was); a published one
+    leaves the type's knob in charge."""
+    if shown_to is not None:
+        return shown_to
+    return None if published_to_web else "only_me"
 
 
 @dataclass(frozen=True)
@@ -108,7 +115,8 @@ class MediaPersistResult:
     url: str | None = None  # inline-render URL (CDN if public, authenticated route otherwise)
     cdn_url: str | None = None  # permanent CDN URL (public only)
     download_url: str | None = None  # durable attachment-disposition URL
-    visibility: str = "personal"
+    published_to_web: bool = False
+    shown_to: str | None = "only_me"
     file_name: str | None = None
     size_bytes: int | None = None
     # Phase 3b: intrinsic dimensions/duration/page_count probed at write
@@ -165,7 +173,8 @@ class AIMediaHandler:
             path,
             body,
             mime_type=effective_mime,
-            visibility="personal",
+            published_to_web=False,
+            shown_to="only_me",
             change_summary="AI-generated media",
             metadata={"source": "ai_media", "mime_type": effective_mime},
         )
@@ -173,7 +182,7 @@ class AIMediaHandler:
         urls = fm.sync_engine.build_urls_for_record(
             {
                 "id": result.file_id,
-                "visibility": "personal",
+                "published_to_web": False,
                 "storage_uri": result.storage_uri,
                 "checksum": result.checksum,
                 "file_name": path.rsplit("/", 1)[-1],
@@ -189,7 +198,8 @@ class AIMediaHandler:
         mime_type: str,
         audio_format: str | None = None,
         *,
-        visibility: VisibilityLiteral | None = None,
+        published_to_web: bool | None = None,
+        shown_to: ShownToLiteral | None = None,
         prompt: str | None = None,
         model: str | None = None,
         provider: str | None = None,
@@ -216,11 +226,13 @@ class AIMediaHandler:
         video / document generation so the file lands under the right
         ``generations/<feature>/`` root.
 
-        ``visibility=None`` (the default) resolves per feature via
-        :func:`resolve_default_visibility` — ``ai_audio`` is born public
-        (durable CDN URL; D1 chat-audio fix), everything else personal.
+        ``published_to_web=None`` (the default) resolves per feature via
+        :func:`resolve_published_to_web` — ``ai_audio`` is born published
+        (durable CDN URL; D1 chat-audio fix), everything else unpublished and
+        shown only to its maker (:func:`resolve_shown_to`).
         """
-        visibility = resolve_default_visibility(feature, visibility)
+        published_to_web = resolve_published_to_web(feature, published_to_web)
+        shown_to = resolve_shown_to(published_to_web, shown_to)
         raw_bytes = await self._resolve_to_bytes_async(content)
         loop = asyncio.get_event_loop()
         body, effective_mime, _legacy_path, new_file_id = await loop.run_in_executor(
@@ -281,7 +293,8 @@ class AIMediaHandler:
             file_path=path,
             user_id=fm.sync_engine.user_id,
             mime_type=effective_mime,
-            visibility=visibility,
+            published_to_web=published_to_web,
+            shown_to=shown_to,
             change_summary="AI-generated media",
             metadata=meta,
             auto_thumbnail=True,
@@ -295,7 +308,8 @@ class AIMediaHandler:
         if record is None:
             record = {
                 "id": result.file_id,
-                "visibility": visibility,
+                "published_to_web": published_to_web,
+                "shown_to": shown_to,
                 "storage_uri": result.storage_uri,
                 "canonical_storage_uri": result.storage_uri,
                 "checksum": result.checksum,
@@ -320,7 +334,7 @@ class AIMediaHandler:
                 "id": result.file_id,
                 "owner_id": fm.sync_engine.user_id,
                 "storage_uri": result.storage_uri,
-                "visibility": visibility,
+                "published_to_web": published_to_web,
             }
         )
         # Hoisted from inside the try-block (Phase 3b) so the probed
@@ -414,7 +428,8 @@ class AIMediaHandler:
             url=urls.get("url"),
             cdn_url=urls.get("cdn_url"),
             download_url=urls.get("download_url"),
-            visibility=visibility,
+            published_to_web=published_to_web,
+            shown_to=shown_to,
             file_name=(record.get("file_name") if isinstance(record, dict) else None) or filename,
             size_bytes=(record.get("size_bytes") if isinstance(record, dict) else None),
             width=probed.get("width"),
@@ -751,7 +766,8 @@ async def save_media_envelope_async(
     mime_type: str,
     *,
     audio_format: str | None = None,
-    visibility: VisibilityLiteral | None = None,
+    published_to_web: bool | None = None,
+    shown_to: ShownToLiteral | None = None,
     prompt: str | None = None,
     model: str | None = None,
     provider: str | None = None,
@@ -770,15 +786,17 @@ async def save_media_envelope_async(
     Pass ``feature`` to pick the right ``generations/<feature>/`` root
     (``ai_images`` / ``ai_audio`` / ``ai_video`` / ``ai_documents``).
 
-    ``visibility=None`` (the default) resolves per feature —
-    ``ai_audio`` is born public/durable (chat-audio D1 fix), all other
-    features stay personal. Pass an explicit visibility to override.
+    ``published_to_web=None`` (the default) resolves per feature —
+    ``ai_audio`` is born published/durable (chat-audio D1 fix), all other
+    features stay unpublished and shown only to their maker. Pass an explicit
+    ``published_to_web`` / ``shown_to`` to override.
     """
     return await AIMediaHandler.get_instance().save_response_media_envelope_async(
         content,
         mime_type,
         audio_format=audio_format,
-        visibility=visibility,
+        published_to_web=published_to_web,
+        shown_to=shown_to,
         prompt=prompt,
         model=model,
         provider=provider,

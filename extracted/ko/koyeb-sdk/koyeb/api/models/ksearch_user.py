@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class KsearchUser(BaseModel):
     """
     KsearchUser
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     email: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
@@ -39,7 +41,6 @@ class KsearchUser(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +65,7 @@ class KsearchUser(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,12 +83,12 @@ class KsearchUser(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "email": obj.get("email"),
-            "name": obj.get("name"),
-            "github_user": obj.get("github_user")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "email": obj.get("email"),
+                "name": obj.get("name"),
+                "github_user": obj.get("github_user"),
+            }
+        )
         return _obj
-
-

@@ -37,19 +37,24 @@ class DockerHelperApi:
             api_client = ApiClient.get_default()
         self.api_client = api_client
 
-
     @validate_call
     async def verify_docker_image(
         self,
-        image: Annotated[Optional[StrictStr], Field(description="The full image uri to be verified")] = None,
-        secret_id: Annotated[Optional[StrictStr], Field(description="(Optional) the id of the secret to use to authenticate to the registry")] = None,
+        image: Annotated[
+            Optional[StrictStr], Field(description="The full image uri to be verified")
+        ] = None,
+        secret_id: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) the id of the secret to use to authenticate to the registry"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -84,7 +89,7 @@ class DockerHelperApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._verify_docker_image_serialize(
             image=image,
@@ -92,21 +97,21 @@ class DockerHelperApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "VerifyDockerImageReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "VerifyDockerImageReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -114,19 +119,24 @@ class DockerHelperApi:
             response_types_map=_response_types_map,
         ).data
 
-
     @validate_call
     async def verify_docker_image_with_http_info(
         self,
-        image: Annotated[Optional[StrictStr], Field(description="The full image uri to be verified")] = None,
-        secret_id: Annotated[Optional[StrictStr], Field(description="(Optional) the id of the secret to use to authenticate to the registry")] = None,
+        image: Annotated[
+            Optional[StrictStr], Field(description="The full image uri to be verified")
+        ] = None,
+        secret_id: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) the id of the secret to use to authenticate to the registry"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -161,7 +171,7 @@ class DockerHelperApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._verify_docker_image_serialize(
             image=image,
@@ -169,21 +179,21 @@ class DockerHelperApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "VerifyDockerImageReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "VerifyDockerImageReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -191,19 +201,24 @@ class DockerHelperApi:
             response_types_map=_response_types_map,
         )
 
-
     @validate_call
     async def verify_docker_image_without_preload_content(
         self,
-        image: Annotated[Optional[StrictStr], Field(description="The full image uri to be verified")] = None,
-        secret_id: Annotated[Optional[StrictStr], Field(description="(Optional) the id of the secret to use to authenticate to the registry")] = None,
+        image: Annotated[
+            Optional[StrictStr], Field(description="The full image uri to be verified")
+        ] = None,
+        secret_id: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) the id of the secret to use to authenticate to the registry"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -238,7 +253,7 @@ class DockerHelperApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._verify_docker_image_serialize(
             image=image,
@@ -246,24 +261,23 @@ class DockerHelperApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "VerifyDockerImageReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "VerifyDockerImageReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _verify_docker_image_serialize(
         self,
@@ -274,11 +288,9 @@ class DockerHelperApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -292,35 +304,25 @@ class DockerHelperApi:
         # process the path parameters
         # process the query parameters
         if image is not None:
-            
-            _query_params.append(('image', image))
-            
+            _query_params.append(("image", image))
+
         if secret_id is not None:
-            
-            _query_params.append(('secret_id', secret_id))
-            
+            _query_params.append(("secret_id", secret_id))
+
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/docker-helper/verify',
+            method="GET",
+            resource_path="/v1/docker-helper/verify",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -330,7 +332,5 @@ class DockerHelperApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-

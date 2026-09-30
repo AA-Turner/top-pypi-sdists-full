@@ -26,8 +26,12 @@ from chalk._gen.chalk.volume.v2.volume_pb2 import (
     GetFileResponse,
     GetVolumeRequest,
     GetVolumeResponse,
+    GetVolumeStatsRequest,
+    GetVolumeStatsResponse,
     ListFilesRequest,
     ListFilesResponse,
+    ListMountFilesRequest,
+    ListMountFilesResponse,
     ListRefsRequest,
     ListRefsResponse,
     ListVolumeVersionsRequest,
@@ -58,6 +62,10 @@ class VolumeServiceStub:
     GetVolume: UnaryUnaryMultiCallable[
         GetVolumeRequest,
         GetVolumeResponse,
+    ]
+    GetVolumeStats: UnaryUnaryMultiCallable[
+        GetVolumeStatsRequest,
+        GetVolumeStatsResponse,
     ]
     ListVolumes: UnaryUnaryMultiCallable[
         ListVolumesRequest,
@@ -103,6 +111,10 @@ class VolumeServiceStub:
         ListFilesRequest,
         ListFilesResponse,
     ]
+    ListMountFiles: UnaryUnaryMultiCallable[
+        ListMountFilesRequest,
+        ListMountFilesResponse,
+    ]
     GetFile: UnaryUnaryMultiCallable[
         GetFileRequest,
         GetFileResponse,
@@ -126,6 +138,12 @@ class VolumeServiceServicer(metaclass=ABCMeta):
         request: GetVolumeRequest,
         context: ServicerContext,
     ) -> GetVolumeResponse: ...
+    @abstractmethod
+    def GetVolumeStats(
+        self,
+        request: GetVolumeStatsRequest,
+        context: ServicerContext,
+    ) -> GetVolumeStatsResponse: ...
     @abstractmethod
     def ListVolumes(
         self,
@@ -192,6 +210,12 @@ class VolumeServiceServicer(metaclass=ABCMeta):
         request: ListFilesRequest,
         context: ServicerContext,
     ) -> ListFilesResponse: ...
+    @abstractmethod
+    def ListMountFiles(
+        self,
+        request: ListMountFilesRequest,
+        context: ServicerContext,
+    ) -> ListMountFilesResponse: ...
     @abstractmethod
     def GetFile(
         self,

@@ -229,6 +229,11 @@ class TestStreams:
             packet.pts = i
             packet.stream = data_stream
             container1.mux(packet)
+
+        # Test string representation, while the container is still open.
+        repr = f"{data_stream}"
+        assert repr.startswith("<av.DataStream #0") and repr.endswith(">")
+
         container1.close()
 
         # Test reading back the data stream
@@ -247,10 +252,6 @@ class TestStreams:
         assert len(packets) == len(test_data)
         for read_packet, original_data in zip(packets, test_data):
             assert bytes(read_packet) == original_data
-
-        # Test string representation
-        repr = f"{data_stream}"
-        assert repr.startswith("<av.DataStream #0") and repr.endswith(">")
 
         container.close()
 
@@ -407,3 +408,33 @@ class TestStreams:
             stream = container.streams[0]
             assert stream.type == "unknown"
             assert type(stream) is av.stream.Stream
+
+    def test_stream_after_close(self) -> None:
+        container = av.open(fate_suite("h264/interlaced_crop.mp4"))
+        stream = container.streams.video[0]
+        assert stream.time_base and stream.index == 0
+
+        container.close()
+
+        for name in (
+            "id",
+            "index",
+            "time_base",
+            "start_time",
+            "duration",
+            "frames",
+            "disposition",
+            "discard",
+            "type",
+            "average_rate",
+            "base_rate",
+            "guessed_rate",
+        ):
+            with pytest.raises(AssertionError):
+                getattr(stream, name)
+
+        with pytest.raises(AssertionError):
+            stream.time_base = 1
+
+        # Still describable, so a traceback or debugger does not blow up.
+        assert "container closed" in repr(stream)

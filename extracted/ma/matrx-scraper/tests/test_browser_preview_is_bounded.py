@@ -199,7 +199,7 @@ async def test_a_readiness_probe_never_costs_more_than_the_timeout_it_was_given(
 async def test_the_wait_leaves_room_to_measure_what_it_waited_for(slow_page, monkeypatch) -> None:
     """The edge a whole-budget wait creates, and why the wait gets a share.
 
-    The probe is bounded end to end. If the visibility wait were handed the
+    The probe is bounded end to end. If the visible-state wait were handed the
     WHOLE budget, an element that appears late — but inside it — would still be
     reported unusable, because nothing would be left to scroll it into view and
     read its box. The probe would fail precisely the case it exists to catch.

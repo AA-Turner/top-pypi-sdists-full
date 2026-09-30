@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.trigger_git_deployment_metadata_provider import TriggerGitDeploymentMetadataProvider
+from koyeb.api_async.models.trigger_git_deployment_metadata_provider import (
+    TriggerGitDeploymentMetadataProvider,
+)
+
 
 class TestTriggerGitDeploymentMetadataProvider(unittest.TestCase):
     """TriggerGitDeploymentMetadataProvider unit test stubs"""
@@ -29,5 +32,6 @@ class TestTriggerGitDeploymentMetadataProvider(unittest.TestCase):
         """Test TriggerGitDeploymentMetadataProvider"""
         # inst = TriggerGitDeploymentMetadataProvider()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

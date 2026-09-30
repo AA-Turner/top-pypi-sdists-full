@@ -24,14 +24,24 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class KgitproxyListRepositoriesReply(BaseModel):
     """
     KgitproxyListRepositoriesReply
-    """ # noqa: E501
-    repositories: Optional[List[KgitproxyRepository]] = Field(default=None, description="The collection of repositories.")
-    limit: Optional[StrictInt] = Field(default=None, description="The limit in the request.")
-    offset: Optional[StrictInt] = Field(default=None, description="The offset in the request.")
-    count: Optional[StrictInt] = Field(default=None, description="The total number of items.")
+    """  # noqa: E501
+
+    repositories: Optional[List[KgitproxyRepository]] = Field(
+        default=None, description="The collection of repositories."
+    )
+    limit: Optional[StrictInt] = Field(
+        default=None, description="The limit in the request."
+    )
+    offset: Optional[StrictInt] = Field(
+        default=None, description="The offset in the request."
+    )
+    count: Optional[StrictInt] = Field(
+        default=None, description="The total number of items."
+    )
     __properties: ClassVar[List[str]] = ["repositories", "limit", "offset", "count"]
 
     model_config = ConfigDict(
@@ -40,7 +50,6 @@ class KgitproxyListRepositoriesReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +74,7 @@ class KgitproxyListRepositoriesReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,9 +85,12 @@ class KgitproxyListRepositoriesReply(BaseModel):
         _items = []
         if self.repositories:
             for _item_repositories in self.repositories:
-                if _item_repositories:
-                    _items.append(_item_repositories.to_dict())
-            _dict['repositories'] = _items
+                _items.append(
+                    _item_repositories.to_dict()
+                    if _item_repositories is not None
+                    else None
+                )
+            _dict["repositories"] = _items
         return _dict
 
     @classmethod
@@ -91,12 +102,17 @@ class KgitproxyListRepositoriesReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "repositories": [KgitproxyRepository.from_dict(_item) for _item in obj["repositories"]] if obj.get("repositories") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset"),
-            "count": obj.get("count")
-        })
+        _obj = cls.model_validate(
+            {
+                "repositories": [
+                    KgitproxyRepository.from_dict(_item)
+                    for _item in obj["repositories"]
+                ]
+                if obj.get("repositories") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+                "count": obj.get("count"),
+            }
+        )
         return _obj
-
-

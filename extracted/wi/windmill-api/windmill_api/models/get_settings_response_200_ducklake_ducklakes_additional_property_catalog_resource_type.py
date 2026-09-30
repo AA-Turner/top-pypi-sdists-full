@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class GetSettingsResponse200DucklakeDucklakesAdditionalPropertyCatalogResourceType(str, Enum):
+    EXTERNAL_INSTANCE = "external_instance"
     INSTANCE = "instance"
     MYSQL = "mysql"
     POSTGRESQL = "postgresql"

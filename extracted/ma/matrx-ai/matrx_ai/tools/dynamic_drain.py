@@ -397,7 +397,7 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
             if _msg_metadata:
                 _delivered.metadata.update(_msg_metadata)
         config.messages.append(_delivered)
-        # Echo the text + visibility on the event so a client that didn't
+        # Echo the text + is_visible_to_user on the event so a client that didn't
         # originate the queue (reopened panel, other device) can render the
         # delivered bubble without its own local record.
         consumed.append(

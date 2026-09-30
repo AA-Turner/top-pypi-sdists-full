@@ -452,6 +452,7 @@ from lusid.models.core_rule_values import CoreRuleValues
 from lusid.models.core_string_cross_tolerance import CoreStringCrossTolerance
 from lusid.models.corporate_action import CorporateAction
 from lusid.models.corporate_action_source import CorporateActionSource
+from lusid.models.corporate_action_source_entity import CorporateActionSourceEntity
 from lusid.models.corporate_action_transition import CorporateActionTransition
 from lusid.models.corporate_action_transition_component import CorporateActionTransitionComponent
 from lusid.models.corporate_action_transition_component_request import CorporateActionTransitionComponentRequest
@@ -568,6 +569,7 @@ from lusid.models.decimal_compliance_parameter import DecimalComplianceParameter
 from lusid.models.decimal_list import DecimalList
 from lusid.models.decimal_list_compliance_parameter import DecimalListComplianceParameter
 from lusid.models.decorated_compliance_run_summary import DecoratedComplianceRunSummary
+from lusid.models.decorated_compliance_run_summary_request import DecoratedComplianceRunSummaryRequest
 from lusid.models.delete_accounts_response import DeleteAccountsResponse
 from lusid.models.delete_custodian_accounts_response import DeleteCustodianAccountsResponse
 from lusid.models.delete_data_quality_rule import DeleteDataQualityRule
@@ -1550,6 +1552,7 @@ from lusid.models.set_transaction_configuration_alias import SetTransactionConfi
 from lusid.models.set_transaction_configuration_source_request import SetTransactionConfigurationSourceRequest
 from lusid.models.settle_expected_activity_rule_names import SettleExpectedActivityRuleNames
 from lusid.models.settle_expected_activity_writeback_configuration import SettleExpectedActivityWritebackConfiguration
+from lusid.models.settle_expected_activity_writeback_suggestion import SettleExpectedActivityWritebackSuggestion
 from lusid.models.settlement_activity import SettlementActivity
 from lusid.models.settlement_activity_query import SettlementActivityQuery
 from lusid.models.settlement_configuration_category import SettlementConfigurationCategory
@@ -1887,6 +1890,7 @@ from lusid.models.workspace_visibility import WorkspaceVisibility
 from lusid.models.worthless_event import WorthlessEvent
 from lusid.models.writeback_configuration import WritebackConfiguration
 from lusid.models.writeback_result_pattern import WritebackResultPattern
+from lusid.models.writeback_suggestion import WritebackSuggestion
 from lusid.models.year_month_day import YearMonthDay
 from lusid.models.yield_curve_data import YieldCurveData
 
@@ -2329,6 +2333,7 @@ __all__ = [
     "CoreStringCrossTolerance",
     "CorporateAction",
     "CorporateActionSource",
+    "CorporateActionSourceEntity",
     "CorporateActionTransition",
     "CorporateActionTransitionComponent",
     "CorporateActionTransitionComponentRequest",
@@ -2445,6 +2450,7 @@ __all__ = [
     "DecimalList",
     "DecimalListComplianceParameter",
     "DecoratedComplianceRunSummary",
+    "DecoratedComplianceRunSummaryRequest",
     "DeleteAccountsResponse",
     "DeleteCustodianAccountsResponse",
     "DeleteDataQualityRule",
@@ -3427,6 +3433,7 @@ __all__ = [
     "SetTransactionConfigurationSourceRequest",
     "SettleExpectedActivityRuleNames",
     "SettleExpectedActivityWritebackConfiguration",
+    "SettleExpectedActivityWritebackSuggestion",
     "SettlementActivity",
     "SettlementActivityQuery",
     "SettlementConfigurationCategory",
@@ -3764,6 +3771,7 @@ __all__ = [
     "WorthlessEvent",
     "WritebackConfiguration",
     "WritebackResultPattern",
+    "WritebackSuggestion",
     "YearMonthDay",
     "YieldCurveData",
     "ApiClient",

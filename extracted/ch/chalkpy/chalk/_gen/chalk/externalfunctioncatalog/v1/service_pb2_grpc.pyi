@@ -18,6 +18,8 @@ from chalk._gen.chalk.externalfunctioncatalog.v1.service_pb2 import (
     DeleteExternalFunctionResponse,
     DeleteExternalFunctionVersionRequest,
     DeleteExternalFunctionVersionResponse,
+    EnsureExternalFunctionRequest,
+    EnsureExternalFunctionResponse,
     GetExternalFunctionRequest,
     GetExternalFunctionResponse,
     GetExternalFunctionVersionRequest,
@@ -42,6 +44,10 @@ from grpc import (
 
 class ExternalFunctionCatalogServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    EnsureExternalFunction: UnaryUnaryMultiCallable[
+        EnsureExternalFunctionRequest,
+        EnsureExternalFunctionResponse,
+    ]
     CreateExternalFunction: UnaryUnaryMultiCallable[
         CreateExternalFunctionRequest,
         CreateExternalFunctionResponse,
@@ -104,6 +110,12 @@ class ExternalFunctionCatalogServiceStub:
     ]
 
 class ExternalFunctionCatalogServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def EnsureExternalFunction(
+        self,
+        request: EnsureExternalFunctionRequest,
+        context: ServicerContext,
+    ) -> EnsureExternalFunctionResponse: ...
     @abstractmethod
     def CreateExternalFunction(
         self,

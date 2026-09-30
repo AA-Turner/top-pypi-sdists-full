@@ -17,6 +17,7 @@ from selenium.common.exceptions import (
     NoSuchWindowException,
 )
 
+from testmu_selenium._helpers.element_bounds import send_element_bounds, send_point_bounds
 from testmu_selenium._errors import AutohealExhausted
 from testmu_selenium._helpers.find_element import findElement
 from testmu_selenium._heal_cascade import _heal_cascade
@@ -139,6 +140,10 @@ def _run_action(
         try:
             el = findElement(driver, selector, description=description, allow_autoheal=False,
                              search_root=search_root)
+            # Report the element's rect BEFORE the verb runs, so the run
+            # UI can annotate the pre-action screenshot with what was interacted
+            # with. Best-effort — never fails the action.
+            send_element_bounds(driver, el)
             ctx = {'driver': driver, 'frame_info': frame_info, **runner_kwargs}
             return spec.runner(el, ctx)
         except spec.recoverable_exceptions as exc:
@@ -157,6 +162,7 @@ def _run_action(
                     type(exc).__name__, pending_coord_fallback,
                 )
                 ctx = {'driver': driver, 'frame_info': frame_info, **runner_kwargs}
+                send_point_bounds(driver, x, y)
                 return spec.coord_runner(driver, x, y, ctx)
             if attempt == max_attempts - 1:
                 raise exc from first_exc
@@ -188,6 +194,7 @@ def _run_action(
                         type(heal_exc).__name__, fallback_coordinates,
                     )
                     ctx = {'driver': driver, 'frame_info': frame_info, **runner_kwargs}
+                    send_point_bounds(driver, x, y)
                     return spec.coord_runner(driver, x, y, ctx)
                 raise
             # Coordinates-only path: the resolver derived no xpath (shadow DOM /
@@ -207,6 +214,7 @@ def _run_action(
                     )
                 ctx = {'driver': driver, 'frame_info': heal_result.frame_info, **runner_kwargs}
                 x, y = heal_result.coordinates
+                send_point_bounds(driver, x, y)
                 return spec.coord_runner(driver, x, y, ctx)
             # Derived-xpath path: act through the standard runner; keep this
             # round's fresh coordinates as the fallback for the NEXT failure.

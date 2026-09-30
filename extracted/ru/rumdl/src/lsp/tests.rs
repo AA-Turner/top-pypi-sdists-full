@@ -612,13 +612,13 @@ async fn test_document_formatting() {
     let edits = result.unwrap();
     assert!(!edits.is_empty());
 
-    // The new text should have trailing spaces removed from ALL lines
-    // because trim_trailing_whitespace: Some(true) is set
     let edit = &edits[0];
     // The formatted text should have:
-    // - Trailing spaces removed from ALL lines (trim_trailing_whitespace)
+    // - Trailing spaces removed except where they are a hard break
     // - Exactly one final newline (trim_final_newlines + insert_final_newline)
-    let expected = "# Test\n\nThis is a test\nWith trailing spaces\n";
+    // The first line's two spaces are a hard break inside the paragraph and
+    // stay; the last line's render as nothing and go.
+    let expected = "# Test\n\nThis is a test  \nWith trailing spaces\n";
     assert_eq!(edit.new_text, expected);
 }
 
@@ -1750,11 +1750,19 @@ fn test_apply_formatting_options_insert_final_newline() {
     };
 
     // Content without final newline should get one added
-    let result = RumdlLanguageServer::apply_formatting_options("hello".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello\n");
 
     // Content with final newline should stay the same
-    let result = RumdlLanguageServer::apply_formatting_options("hello\n".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello\n".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello\n");
 }
 
@@ -1770,11 +1778,19 @@ fn test_apply_formatting_options_trim_final_newlines() {
     };
 
     // Multiple trailing newlines should be removed
-    let result = RumdlLanguageServer::apply_formatting_options("hello\n\n\n".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello\n\n\n".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello");
 
     // Single trailing newline should also be removed (trim_final_newlines removes ALL)
-    let result = RumdlLanguageServer::apply_formatting_options("hello\n".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello\n".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello");
 }
 
@@ -1791,15 +1807,27 @@ fn test_apply_formatting_options_trim_and_insert_combined() {
     };
 
     // Multiple trailing newlines -> exactly one
-    let result = RumdlLanguageServer::apply_formatting_options("hello\n\n\n".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello\n\n\n".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello\n");
 
     // No trailing newline -> add one
-    let result = RumdlLanguageServer::apply_formatting_options("hello".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello\n");
 
     // Already has exactly one -> unchanged
-    let result = RumdlLanguageServer::apply_formatting_options("hello\n".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello\n".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello\n");
 }
 
@@ -1815,8 +1843,89 @@ fn test_apply_formatting_options_trim_trailing_whitespace() {
     };
 
     // Trailing whitespace on lines should be removed
-    let result = RumdlLanguageServer::apply_formatting_options("hello  \nworld\t\n".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello \nworld\t\n".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello\nworld\n");
+}
+
+/// Trimming trailing whitespace leaves the blank lines at the end of the
+/// document alone; removing them is `trim_final_newlines`' job.
+#[test]
+fn test_apply_formatting_options_trim_keeps_trailing_blank_lines() {
+    let trim_only = FormattingOptions {
+        tab_size: 4,
+        insert_spaces: true,
+        properties: HashMap::new(),
+        trim_trailing_whitespace: Some(true),
+        insert_final_newline: None,
+        trim_final_newlines: None,
+    };
+    for (content, expected) in [
+        ("text\n\n", "text\n\n"),
+        ("text \n\n\n", "text\n\n\n"),
+        ("text\n  \n", "text\n\n"),
+        ("text \n", "text\n"),
+        ("text ", "text"),
+    ] {
+        let result = RumdlLanguageServer::apply_formatting_options(
+            content.to_string(),
+            &trim_only,
+            crate::config::MarkdownFlavor::Standard,
+        );
+        assert_eq!(result, expected, "{content:?}");
+    }
+}
+
+/// Trimming trailing whitespace must not change what the document renders:
+/// two or more trailing spaces inside a continuing paragraph are a hard line
+/// break, and trailing whitespace in code, math, HTML and front matter is
+/// content. Everywhere else, including headings and the last line of a
+/// paragraph, trailing whitespace renders as nothing and is removed.
+#[test]
+fn test_apply_formatting_options_trim_keeps_rendered_whitespace() {
+    let trim_only = FormattingOptions {
+        tab_size: 4,
+        insert_spaces: true,
+        properties: HashMap::new(),
+        trim_trailing_whitespace: Some(true),
+        insert_final_newline: None,
+        trim_final_newlines: None,
+    };
+    let format = |content: &str| {
+        RumdlLanguageServer::apply_formatting_options(
+            content.to_string(),
+            &trim_only,
+            crate::config::MarkdownFlavor::Standard,
+        )
+    };
+
+    // Hard breaks stay, in a paragraph, a list item and a blockquote.
+    assert_eq!(format("foo  \nbar\n"), "foo  \nbar\n");
+    assert_eq!(format("foo   \nbar\n"), "foo   \nbar\n");
+    assert_eq!(format("- foo  \n  bar\n"), "- foo  \n  bar\n");
+    assert_eq!(format("> foo  \n> bar\n"), "> foo  \n> bar\n");
+
+    // Verbatim content stays.
+    let fenced = "```\ncode  \ntab\t\n```\n";
+    assert_eq!(format(fenced), fenced);
+    let front_matter = "---\ntitle: x  \n---\n\nText\n";
+    assert_eq!(format(front_matter), front_matter);
+    let html = "<div>\n  inner  \n</div>\n";
+    assert_eq!(format(html), html);
+
+    // Whitespace that renders as nothing goes.
+    assert_eq!(format("# Heading  \n\nText  \n"), "# Heading\n\nText\n");
+    assert_eq!(format("foo \nbar\n"), "foo\nbar\n");
+    assert_eq!(format("foo\t\nbar\n"), "foo\nbar\n");
+    assert_eq!(format("foo  \n\nbar\n"), "foo\n\nbar\n");
+    assert_eq!(format("foo  \n- item\n"), "foo\n- item\n");
+    assert_eq!(format("   \ntext\n"), "\ntext\n");
+
+    // CRLF documents get the same treatment and keep their endings.
+    assert_eq!(format("foo  \r\nbar  \r\n"), "foo  \r\nbar\r\n");
 }
 
 #[test]
@@ -1835,18 +1944,30 @@ fn test_apply_formatting_options_issue_265_scenario() {
     };
 
     // Scenario 1: Editor sends content with multiple trailing newlines
-    let result = RumdlLanguageServer::apply_formatting_options("hello foobar hello.\n\n\n".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello foobar hello.\n\n\n".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(
         result, "hello foobar hello.\n",
         "Should have exactly one trailing newline"
     );
 
     // Scenario 2: Editor sends content with trailing newlines stripped
-    let result = RumdlLanguageServer::apply_formatting_options("hello foobar hello.".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello foobar hello.".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello foobar hello.\n", "Should add final newline");
 
     // Scenario 3: Content is already correct
-    let result = RumdlLanguageServer::apply_formatting_options("hello foobar hello.\n".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello foobar hello.\n".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello foobar hello.\n", "Should remain unchanged");
 }
 
@@ -1863,7 +1984,11 @@ fn test_apply_formatting_options_no_options() {
     };
 
     let content = "hello  \nworld\n\n\n";
-    let result = RumdlLanguageServer::apply_formatting_options(content.to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        content.to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, content, "Content should be unchanged when no options set");
 }
 
@@ -1879,11 +2004,19 @@ fn test_apply_formatting_options_empty_content() {
     };
 
     // Empty content should stay empty (no newline added to truly empty documents)
-    let result = RumdlLanguageServer::apply_formatting_options("".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "");
 
     // Just newlines should become single newline (content existed, so gets final newline)
-    let result = RumdlLanguageServer::apply_formatting_options("\n\n\n".to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "\n\n\n".to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "\n");
 }
 
@@ -1899,7 +2032,11 @@ fn test_apply_formatting_options_multiline_content() {
     };
 
     let content = "# Heading  \n\nParagraph  \n- List item  \n\n\n";
-    let result = RumdlLanguageServer::apply_formatting_options(content.to_string(), &options);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        content.to_string(),
+        &options,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "# Heading\n\nParagraph\n- List item\n");
 }
 
@@ -1912,7 +2049,11 @@ fn test_apply_formatting_options_multiline_content() {
 fn test_apply_formatting_options_keep_crlf_line_endings() {
     let all = editor_formatting_options();
     let content = "# Heading  \r\n\r\nParagraph  \r\n- List item  \r\n\r\n\r\n";
-    let result = RumdlLanguageServer::apply_formatting_options(content.to_string(), &all);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        content.to_string(),
+        &all,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "# Heading\r\n\r\nParagraph\r\n- List item\r\n");
 
     let insert_only = FormattingOptions {
@@ -1923,7 +2064,11 @@ fn test_apply_formatting_options_keep_crlf_line_endings() {
         insert_final_newline: Some(true),
         trim_final_newlines: Some(false),
     };
-    let result = RumdlLanguageServer::apply_formatting_options("hello\r\nworld".to_string(), &insert_only);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello\r\nworld".to_string(),
+        &insert_only,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello\r\nworld\r\n");
 
     let trim_final_only = FormattingOptions {
@@ -1934,11 +2079,19 @@ fn test_apply_formatting_options_keep_crlf_line_endings() {
         insert_final_newline: Some(false),
         trim_final_newlines: Some(true),
     };
-    let result = RumdlLanguageServer::apply_formatting_options("hello\r\n\r\n\r\n".to_string(), &trim_final_only);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello\r\n\r\n\r\n".to_string(),
+        &trim_final_only,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello");
 
     // A document the options leave alone comes back byte-identical.
-    let result = RumdlLanguageServer::apply_formatting_options("hello\r\nworld\r\n".to_string(), &all);
+    let result = RumdlLanguageServer::apply_formatting_options(
+        "hello\r\nworld\r\n".to_string(),
+        &all,
+        crate::config::MarkdownFlavor::Standard,
+    );
     assert_eq!(result, "hello\r\nworld\r\n");
 }
 
@@ -2131,10 +2284,9 @@ fn test_detect_code_fence_language_position_nested_code_blocks() {
     let (_, current_text) = result.unwrap();
     assert_eq!(current_text, "markdown");
 
-    // Inner opening fence - should be treated as content (we're inside outer block)
-    // Note: This is actually content of the outer block, not a real code fence
-    // The detection is line-based and doesn't have full context, so it will detect it
-    // This is acceptable behavior - editors typically don't complete inside code blocks anyway
+    // The inner fence is content of the outer block, not a fence of its own.
+    let pos = Position { line: 1, character: 9 };
+    assert!(RumdlLanguageServer::detect_code_fence_language_position(text, pos).is_none());
 }
 
 #[test]
@@ -2166,6 +2318,50 @@ fn test_detect_code_fence_language_position_with_info_string() {
     let result = RumdlLanguageServer::detect_code_fence_language_position(text, pos);
     // Should return None because cursor is after a space
     assert!(result.is_none());
+}
+
+/// A fence opens a code block inside a blockquote or list item too, and the
+/// language completes at the column after the fence characters.
+#[test]
+fn test_detect_code_fence_language_position_in_containers() {
+    for (text, line, col, start) in [
+        ("> ```py\n> code\n> ```\n", 0, 7, 5),
+        ("- ```py\n  code\n  ```\n", 0, 7, 5),
+        ("1. ```py\n   code\n   ```\n", 0, 8, 6),
+        ("> - ```py\n>   code\n", 0, 9, 7),
+        ("- item\n\n  > ~~~py\n", 2, 9, 7),
+    ] {
+        let pos = Position { line, character: col };
+        assert_eq!(
+            RumdlLanguageServer::detect_code_fence_language_position(text, pos),
+            Some((start, "py".to_string())),
+            "{text:?}"
+        );
+    }
+}
+
+/// Backticks in an indented code block, or on a closing fence inside a
+/// container, are not an opening fence.
+#[test]
+fn test_detect_code_fence_language_position_not_an_opener() {
+    for (text, line, col) in [
+        ("Text.\n\n    ```py\n", 2, 9),
+        ("> ```py\n> code\n> ```\n", 2, 5),
+        ("- ```py\n  code\n  ```\n", 2, 5),
+        // Content of a tilde block, and a backtick line with an info string,
+        // which cannot close a block and so is content too.
+        ("~~~\n```py\n~~~\n", 1, 5),
+        ("```\ncode\n```py\n", 2, 5),
+        // Inline backticks, with a real fence further down.
+        ("Text ```py here\n\n```js\n", 0, 10),
+    ] {
+        let pos = Position { line, character: col };
+        assert_eq!(
+            RumdlLanguageServer::detect_code_fence_language_position(text, pos),
+            None,
+            "{text:?} line {line}"
+        );
+    }
 }
 
 #[test]
@@ -2483,82 +2679,6 @@ async fn test_completion_ignores_an_invalid_preferred_alias() {
             .iter()
             .any(|item| item.label == "zsh" && item.detail.as_deref() == Some("Shell (GitHub Linguist)")),
         "a valid preference is offered"
-    );
-}
-
-#[test]
-fn test_is_closing_fence_basic() {
-    // Opening fence only - the next fence IS a closing fence
-    // (markdown spec: opening fence creates a code block that needs closing)
-    let lines = vec!["```python"];
-    assert!(
-        RumdlLanguageServer::is_closing_fence(&lines, '`', 3),
-        "After opening fence, next fence is closing"
-    );
-}
-
-#[test]
-fn test_is_closing_fence_with_content() {
-    // Opening fence with content - next fence would be closing
-    let lines = vec!["```python", "some code"];
-    assert!(
-        RumdlLanguageServer::is_closing_fence(&lines, '`', 3),
-        "After opening fence with content, next fence is closing"
-    );
-}
-
-#[test]
-fn test_is_closing_fence_no_prior_fence() {
-    // No prior fence - next fence is opening
-    let lines: Vec<&str> = vec!["# Hello", "Some text"];
-    assert!(
-        !RumdlLanguageServer::is_closing_fence(&lines, '`', 3),
-        "With no prior fence, next fence is opening"
-    );
-}
-
-#[test]
-fn test_is_closing_fence_already_closed() {
-    // Closed code block - next fence would be opening
-    let lines = vec!["```python", "some code", "```"];
-    assert!(
-        !RumdlLanguageServer::is_closing_fence(&lines, '`', 3),
-        "After closed code block, next fence is opening"
-    );
-}
-
-#[test]
-fn test_is_closing_fence_extended() {
-    // Extended fence - needs matching or longer fence to close
-    let lines = vec!["````python", "some code"];
-    // 3 backticks won't close 4-backtick fence
-    assert!(
-        !RumdlLanguageServer::is_closing_fence(&lines, '`', 3),
-        "3 backticks cannot close 4-backtick fence"
-    );
-    // 4 backticks will close
-    assert!(
-        RumdlLanguageServer::is_closing_fence(&lines, '`', 4),
-        "4 backticks can close 4-backtick fence"
-    );
-    // 5 backticks will also close (>= rule)
-    assert!(
-        RumdlLanguageServer::is_closing_fence(&lines, '`', 5),
-        "5 backticks can close 4-backtick fence"
-    );
-}
-
-#[test]
-fn test_is_closing_fence_mixed_chars() {
-    // Tilde fence cannot be closed by backtick fence
-    let lines = vec!["~~~python", "some code"];
-    assert!(
-        !RumdlLanguageServer::is_closing_fence(&lines, '`', 3),
-        "Backtick fence cannot close tilde fence"
-    );
-    assert!(
-        RumdlLanguageServer::is_closing_fence(&lines, '~', 3),
-        "Tilde fence can close tilde fence"
     );
 }
 
@@ -3939,6 +4059,80 @@ async fn test_content_roots_applied_via_did_change_configuration() {
     );
 }
 
+#[tokio::test]
+async fn test_did_change_configuration_applies_a_setting_set_back_to_its_default() {
+    let server = create_test_server();
+
+    for (key, off, on) in [
+        ("enableAutoFix", true, false),
+        ("enableLinting", false, true),
+        ("enableLinkCompletions", false, true),
+        ("enableLinkNavigation", false, true),
+        ("enableSymbols", false, true),
+    ] {
+        for value in [off, on] {
+            server
+                .did_change_configuration(DidChangeConfigurationParams {
+                    settings: serde_json::json!({ key: value }),
+                })
+                .await;
+            let config = serde_json::to_value(&*server.config.read().await).unwrap();
+            assert_eq!(config[key], value, "{{\"{key}\": {value}}} must apply");
+        }
+    }
+
+    // The same holds for the Neovim-style payload nested under "rumdl".
+    for value in [true, false] {
+        server
+            .did_change_configuration(DidChangeConfigurationParams {
+                settings: serde_json::json!({ "rumdl": { "enableAutoFix": value } }),
+            })
+            .await;
+        assert_eq!(server.config.read().await.enable_auto_fix, value);
+    }
+}
+
+#[tokio::test]
+async fn test_did_change_configuration_keeps_rule_settings_across_unrelated_updates() {
+    let server = create_test_server();
+
+    server
+        .did_change_configuration(DidChangeConfigurationParams {
+            settings: serde_json::json!({ "disable": ["MD009"] }),
+        })
+        .await;
+    let disabled = || async {
+        server
+            .config
+            .read()
+            .await
+            .settings
+            .as_ref()
+            .and_then(|s| s.disable.clone())
+    };
+    assert_eq!(disabled().await, Some(vec!["MD009".to_string()]));
+
+    // Neither a flag set to its default nor a payload with no key rumdl knows
+    // replaces the rule settings.
+    for settings in [
+        serde_json::json!({ "enableAutoFix": false }),
+        serde_json::json!({ "configurationPreference": "editorFirst" }),
+        serde_json::json!({ "someOtherExtensionKey": 1 }),
+        serde_json::json!({}),
+    ] {
+        server
+            .did_change_configuration(DidChangeConfigurationParams {
+                settings: settings.clone(),
+            })
+            .await;
+        assert_eq!(
+            disabled().await,
+            Some(vec!["MD009".to_string()]),
+            "{settings} must not reset the rule settings"
+        );
+    }
+}
+
 #[test]
 fn test_link_navigation_config_serde_roundtrip() {
     // Verify `enableLinkNavigation: false` round-trips correctly through serde
@@ -4939,6 +5133,67 @@ async fn test_goto_definition_cursor_not_on_link() {
 
     let result = server.handle_goto_definition(&uri, position).await;
     assert!(result.is_none(), "Should return None when cursor is not on a link");
+}
+
+/// Index columns count characters, so a reference from a line with multibyte
+/// text before the link has to be converted by character, not sliced by byte.
+#[tokio::test]
+async fn test_find_references_positions_links_after_multibyte_text() {
+    use crate::lsp::index_worker::cross_file_rules;
+
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().resolve_like_server();
+    let target_file = root.join("t.md");
+    let source_file = root.join("s.md");
+    let target = "## Sub Part \u{1F600}\n\nText.\n";
+    let source = "\u{1F600}\u{1F600} \u{e9} [x](t.md#sub-part-) tail\n";
+    std::fs::write(&target_file, target).unwrap();
+    std::fs::write(&source_file, source).unwrap();
+
+    let server = create_test_server();
+    let target_uri = Url::from_file_path(&target_file).unwrap();
+    server.documents.write().await.insert(
+        target_uri.clone(),
+        DocumentEntry {
+            content: target.to_string(),
+            version: Some(1),
+            from_disk: false,
+        },
+    );
+    {
+        let rules = cross_file_rules(&Config::default());
+        let mut index = server.workspace_index.write().await;
+        for (path, content) in [(&target_file, target), (&source_file, source)] {
+            let file_index = crate::build_file_index_only(
+                content,
+                &rules,
+                crate::config::MarkdownFlavor::Standard,
+                Some(path.clone()),
+            );
+            index.insert_file(path.clone(), file_index);
+        }
+    }
+
+    // On the heading, and on body text, which lists every link to the file.
+    for cursor in [Position { line: 0, character: 5 }, Position { line: 2, character: 1 }] {
+        let locations = server
+            .handle_references(&target_uri, cursor)
+            .await
+            .expect("the link references the file and its heading");
+
+        // `[` follows two surrogate pairs, a space, `é` and a space: UTF-16 column 7.
+        let source_uri = Url::from_file_path(&source_file).unwrap();
+        let starts: Vec<_> = locations
+            .iter()
+            .filter(|location| location.uri == source_uri)
+            .map(|location| location.range.start)
+            .collect();
+        assert_eq!(
+            starts,
+            [Position { line: 0, character: 7 }],
+            "{cursor:?}: {locations:?}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -10323,6 +10578,29 @@ async fn test_apply_all_fixes_keeps_the_documents_line_endings() {
     assert_eq!(server.apply_all_fixes(&uri, clean_crlf).await.unwrap(), None);
 }
 
+/// A buffer with mixed endings keeps each untouched line's ending through
+/// both formatting phases; a line the fixes insert takes the ending of the
+/// line it follows, which is what `rumdl fmt` writes for the same file.
+#[tokio::test]
+async fn test_formatting_keeps_each_line_ending_of_a_mixed_document() {
+    let server = create_test_server();
+    let uri = Url::parse("file:///format-mixed.md").unwrap();
+
+    let fixed = server
+        .apply_all_fixes(&uri, "# Title\r\nText\n- item\r\n")
+        .await
+        .unwrap()
+        .expect("MD022 and MD032 must fix the mixed document");
+    assert_eq!(fixed, "# Title\r\n\r\nText\n\n- item\r\n");
+
+    let formatted = RumdlLanguageServer::apply_formatting_options(
+        "Text \nmore \r\nend\n\n\n".to_string(),
+        &editor_formatting_options(),
+        crate::config::MarkdownFlavor::Standard,
+    );
+    assert_eq!(formatted, "Text\nmore\r\nend\n");
+}
+
 /// "Format Document" on a CRLF buffer must keep it CRLF through both phases:
 /// the rule fixes and the editor's formatting options.
 #[tokio::test]
@@ -11940,8 +12218,10 @@ async fn test_hover_preview_of_a_multi_line_setext_heading_starts_at_its_text() 
         panic!("expected markup hover contents");
     };
     assert!(
-        markup.value.starts_with("Installation Guide\nfor rumdl\n---"),
-        "the preview begins with the heading: got {}",
+        markup
+            .value
+            .starts_with("**guide.md**\n\nInstallation Guide\nfor rumdl\n---"),
+        "the preview names the file, then begins with the heading: got {}",
         markup.value
     );
     assert!(
@@ -12036,4 +12316,709 @@ async fn test_merge_conflict_suppression_allows_editor_formatting() {
             assert!(edits.is_empty());
         }
     }
+}
+
+/// A document open in the editor is indexed before it is ever saved. A link to
+/// it has no file on disk to resolve to, which MD057 reports, but its fragment
+/// can still only mean one of the open document's headings.
+#[tokio::test]
+async fn test_a_fragment_into_an_unsaved_open_document_is_checked() {
+    use std::fs;
+    use tempfile::tempdir;
+    use tower_lsp::LanguageServer;
+
+    let temp = tempdir().unwrap();
+    let root = temp.path().resolve_like_server();
+    let user_config_dir = root.join("userconfig");
+    let home_dir = root.join("fakehome");
+    fs::create_dir_all(&user_config_dir).unwrap();
+    fs::create_dir_all(&home_dir).unwrap();
+    fs::write(root.join(".rumdl.toml"), "[global]\nenable = [\"MD051\", \"MD057\"]\n").unwrap();
+
+    let doc_path = root.join("readme.md");
+    let text = "# Readme\n\n[broken](unsaved.md#missing) and [valid](unsaved.md#setup)\n";
+    fs::write(&doc_path, text).unwrap();
+    let unsaved_path = root.join("unsaved.md");
+
+    let server = create_test_server();
+    *server.workspace_roots.write().await = vec![root.clone()];
+    server
+        .load_configuration_impl(false, Some(&user_config_dir), Some(&home_dir))
+        .await;
+    assert!(server.queue_index_update(IndexUpdate::FullRescan).await);
+    wait_for_index_ready(&server).await;
+
+    for (path, content) in [(&unsaved_path, "# Setup\n"), (&doc_path, text)] {
+        server
+            .did_open(DidOpenTextDocumentParams {
+                text_document: TextDocumentItem {
+                    uri: Url::from_file_path(path).unwrap(),
+                    language_id: "markdown".to_string(),
+                    version: 1,
+                    text: content.to_string(),
+                },
+            })
+            .await;
+    }
+    wait_for_index_entry(&server, &unsaved_path, |index| !index.headings.is_empty()).await;
+    wait_for_index_entry(&server, &doc_path, |index| !index.cross_file_links.is_empty()).await;
+    assert!(!unsaved_path.exists(), "the open document must not be on disk");
+
+    let report = server
+        .diagnostic(DocumentDiagnosticParams {
+            text_document: TextDocumentIdentifier {
+                uri: Url::from_file_path(&doc_path).unwrap(),
+            },
+            identifier: None,
+            previous_result_id: None,
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        })
+        .await
+        .expect("diagnostic request should succeed");
+    let DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(report)) = report else {
+        panic!("expected a full diagnostic report");
+    };
+
+    let md051: Vec<&str> = report
+        .full_document_diagnostic_report
+        .items
+        .iter()
+        .filter(|d| d.code == Some(NumberOrString::String("MD051".to_string())))
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(
+        md051,
+        ["Link fragment 'missing' not found in 'unsaved.md'"],
+        "only #missing is absent from the open document"
+    );
+}
+
+/// Closing a document without saving discards its buffer, so the index must
+/// return to what the workspace scan would record for that path: the file on
+/// disk, or no entry when the scan would not index it.
+#[tokio::test]
+async fn test_did_close_returns_the_index_to_the_file_on_disk() {
+    use std::fs;
+    use tempfile::tempdir;
+    use tower_lsp::LanguageServer;
+
+    let temp = tempdir().unwrap();
+    let base = temp.path().resolve_like_server();
+    let root = base.join("ws");
+    fs::create_dir_all(&root).unwrap();
+    let saved = root.join("saved.md");
+    fs::write(&saved, "# Disk Heading\n").unwrap();
+    let never_saved = root.join("never-saved.md");
+    let outside = base.join("outside.md");
+    fs::write(&outside, "# Outside\n").unwrap();
+
+    let server = create_test_server();
+    *server.workspace_roots.write().await = vec![root.clone()];
+    assert!(server.queue_index_update(IndexUpdate::FullRescan).await);
+    wait_for_index_ready(&server).await;
+
+    let heading_is = |text: &'static str| {
+        move |file: &crate::workspace_index::FileIndex| file.headings.first().is_some_and(|h| h.text == text)
+    };
+
+    for path in [&saved, &never_saved, &outside] {
+        server
+            .did_open(DidOpenTextDocumentParams {
+                text_document: TextDocumentItem {
+                    uri: Url::from_file_path(path).unwrap(),
+                    language_id: "markdown".to_string(),
+                    version: 1,
+                    text: "# Buffer Heading\n".to_string(),
+                },
+            })
+            .await;
+        wait_for_index_entry(&server, path, heading_is("Buffer Heading")).await;
+        server
+            .did_close(DidCloseTextDocumentParams {
+                text_document: TextDocumentIdentifier {
+                    uri: Url::from_file_path(path).unwrap(),
+                },
+            })
+            .await;
+    }
+
+    wait_for_index_entry(&server, &saved, heading_is("Disk Heading")).await;
+    for gone in [&never_saved, &outside] {
+        let mut removed = false;
+        for _ in 0..1000 {
+            if server.workspace_index.read().await.get_file(gone).is_none() {
+                removed = true;
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert!(
+            removed,
+            "{} is not in the workspace scan, so closing it must drop its entry",
+            gone.display()
+        );
+    }
+}
+
+/// A link destination is a URL: `my%20notes.md` names the file `my notes.md`,
+/// and a query string is not part of the file name. Navigation and anchor
+/// completion must resolve a destination to the same file MD057 checks.
+#[tokio::test]
+async fn test_navigation_resolves_percent_encoded_destinations() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    let temp = tempdir().unwrap();
+    let root = temp.path().resolve_like_server();
+    fs::create_dir_all(root.join("sub dir")).unwrap();
+    let target = root.join("sub dir").join("my notes.md");
+    fs::write(&target, "# Notes\n\n## Sub Part\n\nBody\n").unwrap();
+    let current = root.join("index.md");
+    let content = "# Index\n\n\
+        [a](sub%20dir/my%20notes.md#sub-part)\n\
+        [b](<sub dir/my notes.md#sub-part>)\n\
+        [c](sub%20dir/my%20notes.md?plain=1#sub-part)\n\
+        [d](/sub%20dir/my%20notes.md#sub-part)\n\
+        [e](sub%20dir/my%20notes.md#)\n";
+    fs::write(&current, content).unwrap();
+
+    let server = create_test_server();
+    *server.workspace_roots.write().await = vec![root.clone()];
+    assert!(server.queue_index_update(IndexUpdate::FullRescan).await);
+    wait_for_index_ready(&server).await;
+    let uri = Url::from_file_path(&current).unwrap();
+    server.documents.write().await.insert(
+        uri.clone(),
+        DocumentEntry {
+            content: content.to_string(),
+            version: Some(1),
+            from_disk: false,
+        },
+    );
+
+    for line in 2..=5 {
+        let position = Position { line, character: 8 };
+        let Some(GotoDefinitionResponse::Scalar(location)) = server.handle_goto_definition(&uri, position).await else {
+            panic!("line {line}: no definition");
+        };
+        assert_eq!(location.uri, Url::from_file_path(&target).unwrap(), "line {line}");
+        assert_eq!(location.range.start.line, 2, "line {line} must reach the heading");
+
+        let hover = server.handle_hover(&uri, position).await;
+        assert!(
+            format!("{hover:?}").contains("Sub Part"),
+            "line {line}: hover must preview the heading: {hover:?}"
+        );
+    }
+
+    let anchors = server
+        .get_anchor_completions(
+            &uri,
+            "sub%20dir/my%20notes.md",
+            "",
+            30,
+            Position { line: 6, character: 30 },
+        )
+        .await;
+    assert!(
+        anchors
+            .iter()
+            .any(|item| item.insert_text.as_deref() == Some("sub-part")),
+        "anchor completion must list the target's headings: {anchors:?}"
+    );
+}
+
+/// Decoding must not turn an encoded `..` into a way out of the content roots.
+#[tokio::test]
+async fn test_root_relative_link_cannot_escape_the_content_root_by_encoding() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    let temp = tempdir().unwrap();
+    let base = temp.path().resolve_like_server();
+    let root = base.join("site");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(base.join("secret.md"), "# Secret\n").unwrap();
+    let current = root.join("index.md");
+
+    let server = create_test_server();
+    *server.workspace_roots.write().await = vec![root.clone()];
+    for spelling in ["/../secret.md", "/%2E%2E/secret.md", "/%2e%2e%2fsecret.md"] {
+        assert_eq!(
+            server.resolve_link_path(&current, spelling).await,
+            None,
+            "{spelling} must not resolve outside the content root"
+        );
+    }
+}
+
+/// An accepted file completion must leave a link: `[d](my notes.md)` is plain
+/// text in CommonMark, so a path is inserted percent-encoded, and it must
+/// resolve back to the file it was offered for. What the user has typed
+/// matches in either spelling.
+#[tokio::test]
+async fn test_file_completion_inserts_a_destination_that_links_to_the_file() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    let temp = tempdir().unwrap();
+    let root = temp.path().resolve_like_server();
+    let names = ["my notes.md", "50%.md", "a(b).md", "c#.md", "sub dir/deep.md"];
+    fs::create_dir_all(root.join("sub dir")).unwrap();
+    for name in names {
+        fs::write(root.join(name), "# T\n").unwrap();
+    }
+    let current = root.join("index.md");
+    fs::write(&current, "").unwrap();
+
+    let server = create_test_server();
+    *server.workspace_roots.write().await = vec![root.clone()];
+    server.config.write().await.link_completion_content_roots = vec![root.to_string_lossy().into_owned()];
+    assert!(server.queue_index_update(IndexUpdate::FullRescan).await);
+    wait_for_index_ready(&server).await;
+    let uri = Url::from_file_path(&current).unwrap();
+
+    let inserted = |item: &CompletionItem| match &item.text_edit {
+        Some(CompletionTextEdit::Edit(edit)) => edit.new_text.clone(),
+        other => panic!("expected a text edit: {other:?}"),
+    };
+    let position = Position { line: 0, character: 4 };
+
+    let relative = server.get_file_completions(&uri, "", 4, position).await.items;
+    let mut absolute = Vec::new();
+    for dir in ["/", "/sub%20dir/"] {
+        absolute.extend(server.get_file_completions(&uri, dir, 4, position).await.items);
+    }
+    for (name, prefix) in names.iter().map(|n| (*n, "")).chain(names.iter().map(|n| (*n, "/"))) {
+        let items = if prefix.is_empty() { &relative } else { &absolute };
+        let destination = items
+            .iter()
+            .map(inserted)
+            .find(|text| crate::workspace_index::link_path_part(text) == format!("{prefix}{name}"))
+            .unwrap_or_else(|| {
+                panic!(
+                    "no completion names {prefix}{name}: {:?}",
+                    items.iter().map(inserted).collect::<Vec<_>>()
+                )
+            });
+
+        let link = format!("[d]({destination})\n");
+        let ctx = crate::lint_context::LintContext::new(&link, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(
+            ctx.links().iter().map(|l| l.url.as_ref()).collect::<Vec<_>>(),
+            vec![destination.as_str()],
+            "{link:?} must parse as one link to the inserted destination"
+        );
+        assert_eq!(
+            server.resolve_link_path(&current, &destination).await,
+            Some(root.join(name)),
+            "{destination} must navigate to {name}"
+        );
+    }
+
+    // A typed prefix narrows in the spelling it was typed in.
+    for typed in ["my n", "my%20n", "sub%20dir/d", "sub dir/d"] {
+        let items = server.get_file_completions(&uri, typed, 4, position).await.items;
+        assert_eq!(
+            items.len(),
+            1,
+            "{typed:?}: {:?}",
+            items.iter().map(inserted).collect::<Vec<_>>()
+        );
+    }
+    let items = server
+        .get_file_completions(&uri, "/sub%20dir/de", 4, position)
+        .await
+        .items;
+    assert_eq!(
+        items.iter().map(inserted).collect::<Vec<_>>(),
+        vec!["/sub%20dir/deep.md"]
+    );
+}
+
+/// `only` names kinds hierarchically: a kind matches itself and the kinds
+/// beneath it after a `.`, never a longer or shorter spelling of a segment.
+#[tokio::test]
+async fn test_code_action_only_matches_whole_kind_segments() {
+    let server = create_test_server();
+    let uri = Url::from_file_path(test_temp_path("rumdl-code-action-only/doc.md")).unwrap();
+    server.documents.write().await.insert(
+        uri.clone(),
+        DocumentEntry {
+            content: "#  Heading\n".to_string(),
+            version: Some(1),
+            from_disk: false,
+        },
+    );
+
+    let kinds_for = |only: &[&str]| {
+        let server = server.clone();
+        let uri = uri.clone();
+        let only = only.iter().map(|kind| CodeActionKind::from(kind.to_string())).collect();
+        async move {
+            let params = CodeActionParams {
+                text_document: TextDocumentIdentifier { uri },
+                range: Range {
+                    start: Position { line: 0, character: 0 },
+                    end: Position { line: 0, character: 10 },
+                },
+                context: CodeActionContext {
+                    diagnostics: vec![],
+                    only: Some(only),
+                    trigger_kind: None,
+                },
+                work_done_progress_params: WorkDoneProgressParams::default(),
+                partial_result_params: PartialResultParams::default(),
+            };
+            let mut kinds: Vec<String> = server
+                .code_action(params)
+                .await
+                .unwrap()
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|action| match action {
+                    CodeActionOrCommand::CodeAction(action) => action.kind.map(|kind| kind.as_str().to_string()),
+                    CodeActionOrCommand::Command(_) => None,
+                })
+                .collect();
+            kinds.sort();
+            kinds.dedup();
+            kinds
+        }
+    };
+
+    // Positive controls: the exact kinds, their parents and the empty root kind.
+    assert_eq!(kinds_for(&[""]).await, ["quickfix", "source.fixAll.rumdl"]);
+    assert_eq!(kinds_for(&["quickfix"]).await, ["quickfix"]);
+    assert_eq!(kinds_for(&["source"]).await, ["source.fixAll.rumdl"]);
+    assert_eq!(kinds_for(&["source.fixAll"]).await, ["source.fixAll.rumdl"]);
+    assert_eq!(kinds_for(&["source.fixAll.rumdl"]).await, ["source.fixAll.rumdl"]);
+
+    // A kind is not a string prefix.
+    for only in [
+        "quick",
+        "source.fix",
+        "source.fixAll.rumd",
+        "quickfixes",
+        "source.fixAll.rumdl.more",
+    ] {
+        assert!(kinds_for(&[only]).await.is_empty(), "{only}");
+    }
+}
+
+/// Format a range of `text` and return the edits, the way an editor's
+/// "Format Selection" asks for them.
+async fn range_format(text: &str, start: (u32, u32), end: (u32, u32)) -> Vec<TextEdit> {
+    let server = create_test_server();
+    let uri = Url::parse("file:///range.md").unwrap();
+    server.documents.write().await.insert(
+        uri.clone(),
+        DocumentEntry {
+            content: text.to_string(),
+            version: Some(1),
+            from_disk: false,
+        },
+    );
+    let params = DocumentRangeFormattingParams {
+        text_document: TextDocumentIdentifier { uri },
+        range: Range {
+            start: Position {
+                line: start.0,
+                character: start.1,
+            },
+            end: Position {
+                line: end.0,
+                character: end.1,
+            },
+        },
+        options: editor_formatting_options(),
+        work_done_progress_params: WorkDoneProgressParams::default(),
+    };
+    server.range_formatting(params).await.unwrap().unwrap()
+}
+
+fn line_edit(start: (u32, u32), end: (u32, u32), new_text: &str) -> TextEdit {
+    TextEdit {
+        range: Range {
+            start: Position {
+                line: start.0,
+                character: start.1,
+            },
+            end: Position {
+                line: end.0,
+                character: end.1,
+            },
+        },
+        new_text: new_text.to_string(),
+    }
+}
+
+/// Range formatting changes only the lines the range touches. It used to
+/// return the whole formatted document, so "Format Selection" (and format on
+/// save of modified lines) rewrote text far outside the selection.
+#[tokio::test]
+async fn test_range_formatting_edits_only_the_requested_lines() {
+    let text = "# T\n\ntrailing   \n\n*  item\n\nfoo\n";
+
+    // A range inside line 2 fixes line 2 and nothing else.
+    assert_eq!(
+        range_format(text, (2, 0), (2, 11)).await,
+        vec![line_edit((2, 0), (3, 0), "trailing\n")]
+    );
+    // A selection that ends at the start of the next line does not include it.
+    assert_eq!(
+        range_format(text, (2, 0), (4, 0)).await,
+        vec![line_edit((2, 0), (3, 0), "trailing\n")]
+    );
+    assert_eq!(
+        range_format(text, (4, 3), (4, 3)).await,
+        vec![line_edit((4, 0), (5, 0), "* item\n")]
+    );
+    // Nothing to change in the range: no edits, even though the document has fixes.
+    assert_eq!(range_format(text, (0, 0), (1, 0)).await, Vec::new());
+    // A range spanning both changes gets both.
+    assert_eq!(
+        range_format(text, (0, 0), (6, 3)).await,
+        vec![
+            line_edit((2, 0), (3, 0), "trailing\n"),
+            line_edit((4, 0), (5, 0), "* item\n"),
+        ]
+    );
+}
+
+/// A change at the end of a document with no final newline replaces up to the
+/// end of the text, and a range away from it leaves it alone.
+#[tokio::test]
+async fn test_range_formatting_final_newline() {
+    let text = "# T\n\ntext";
+    assert_eq!(
+        range_format(text, (2, 0), (2, 4)).await,
+        vec![line_edit((2, 0), (2, 4), "text\n")]
+    );
+    assert_eq!(range_format(text, (0, 0), (0, 3)).await, Vec::new());
+}
+
+/// An inserted line sits between two lines and belongs to both: the blank
+/// line MD022 adds below a heading comes with a range on either of them.
+#[tokio::test]
+async fn test_range_formatting_insertion_touches_both_neighbors() {
+    let text = "# T\ntext\n\nmore\n";
+    let insert = vec![line_edit((1, 0), (1, 0), "\n")];
+    assert_eq!(range_format(text, (0, 0), (0, 3)).await, insert);
+    assert_eq!(range_format(text, (1, 0), (1, 4)).await, insert);
+    assert_eq!(range_format(text, (3, 0), (3, 4)).await, Vec::new());
+}
+
+/// Hover over a link to `target_name#fragment` (or the bare file) in a document
+/// beside it, with the target indexed the way the workspace index builds it,
+/// and return the preview text.
+async fn hover_preview(dir: &str, target_name: &str, target_content: &str, link_target: &str) -> String {
+    let server = create_test_server();
+    let docs_dir = test_temp_path(dir);
+    let current_uri = Url::from_file_path(docs_dir.join("index.md")).unwrap();
+    let target_file = docs_dir.join(target_name);
+    let target_uri = Url::from_file_path(&target_file).unwrap();
+    let content = format!("See [x]({link_target}).\n");
+    for (uri, text) in [(&current_uri, content.as_str()), (&target_uri, target_content)] {
+        server.documents.write().await.insert(
+            uri.clone(),
+            DocumentEntry {
+                content: text.to_string(),
+                version: Some(1),
+                from_disk: false,
+            },
+        );
+    }
+    let rules = crate::rules::all_rules(&crate::config::Config::default());
+    let index = crate::build_file_index_only(
+        target_content,
+        &rules,
+        crate::config::MarkdownFlavor::Standard,
+        Some(target_file.clone()),
+    );
+    server.workspace_index.write().await.insert_file(target_file, index);
+
+    let hover = server
+        .handle_hover(&current_uri, Position { line: 0, character: 9 })
+        .await
+        .expect("hover over the link");
+    let HoverContents::Markup(markup) = hover.contents else {
+        panic!("Expected Markup hover contents");
+    };
+    markup.value
+}
+
+/// A file preview starts at the document's content: front matter would render
+/// as a thematic break and a Setext heading.
+#[tokio::test]
+async fn test_hover_file_preview_skips_front_matter() {
+    let target = "---\ntitle: Guide\ntags: [a]\n---\n\n# Guide\n\nIntro.\n";
+    let preview = hover_preview("rumdl-hover-fm/docs", "guide.md", target, "guide.md").await;
+    assert_eq!(preview, "**guide.md**\n\n# Guide\n\nIntro.");
+}
+
+/// The lines `line 1` through `line {n}`, each ending in a newline.
+fn numbered_lines(n: usize) -> String {
+    use std::fmt::Write;
+    (1..=n).fold(String::new(), |mut acc, i| {
+        let _ = writeln!(acc, "line {i}");
+        acc
+    })
+}
+
+/// A preview cut off inside a fenced code block closes the fence, keeping the
+/// opener's container prefix, so the truncation marker and anything the editor
+/// shows after it do not render as code.
+#[tokio::test]
+async fn test_hover_file_preview_closes_a_truncated_fence() {
+    let code = numbered_lines(20);
+    let target = format!("# Guide\n\n````rust\n{code}````\n");
+    let preview = hover_preview("rumdl-hover-fence/docs", "guide.md", &target, "guide.md").await;
+    let shown = numbered_lines(12);
+    assert_eq!(
+        preview,
+        format!("**guide.md**\n\n# Guide\n\n````rust\n{shown}````\n\n...")
+    );
+
+    let target = format!("# Guide\n\n- item\n\n  ~~~\n{}  ~~~\n", "  code\n".repeat(20));
+    let preview = hover_preview("rumdl-hover-fence-list/docs", "guide.md", &target, "guide.md").await;
+    assert!(
+        preview.ends_with("  code\n  ~~~\n\n..."),
+        "the fence closes inside the list item: {preview:?}"
+    );
+
+    // A fence opened on the list marker's line closes at the item's content column.
+    let target = format!("# Guide\n\n> 1. ```\n{}>    ```\n", ">    code\n".repeat(20));
+    let preview = hover_preview("rumdl-hover-fence-marker/docs", "guide.md", &target, "guide.md").await;
+    assert!(
+        preview.ends_with(">    code\n>    ```\n\n..."),
+        "the fence closes inside the blockquoted list item: {preview:?}"
+    );
+
+    // A cut right after the closing fence adds no second one.
+    let target = format!("# Guide\n\n```\n{}```\n\nMore.\n", "code\n".repeat(11));
+    let preview = hover_preview("rumdl-hover-fence-closed/docs", "guide.md", &target, "guide.md").await;
+    assert!(preview.ends_with("code\n```\n\n..."), "{preview:?}");
+}
+
+/// The anchor preview names its file like the file and line previews do,
+/// closes a fence it cuts off, and ends its section at a Setext heading too.
+#[tokio::test]
+async fn test_hover_anchor_preview_header_fence_and_setext_end() {
+    let code = "x\n".repeat(20);
+    let target = format!("# Guide\n\n## Setup\n\n```\n{code}```\n");
+    let preview = hover_preview("rumdl-hover-anchor/docs", "guide.md", &target, "guide.md#setup").await;
+    let shown = "x\n".repeat(13);
+    assert_eq!(preview, format!("**guide.md**\n\n## Setup\n\n```\n{shown}```\n\n..."));
+
+    let target = "# Guide\n\n## Setup\n\nText.\n\nNext\n----\n\nOther.\n";
+    let preview = hover_preview("rumdl-hover-setext/docs", "guide.md", target, "guide.md#setup").await;
+    assert_eq!(preview, "**guide.md**\n\n## Setup\n\nText.\n");
+}
+
+/// Open `text` at a throwaway URI, send one didChange carrying `changes`, and
+/// return what the server then holds for the document.
+async fn content_after_changes(text: &str, changes: Vec<TextDocumentContentChangeEvent>) -> String {
+    let server = create_test_server();
+    let uri = Url::from_file_path(test_temp_path("rumdl-did-change/doc.md")).unwrap();
+    server
+        .did_open(DidOpenTextDocumentParams {
+            text_document: TextDocumentItem {
+                uri: uri.clone(),
+                language_id: "markdown".to_string(),
+                version: 1,
+                text: text.to_string(),
+            },
+        })
+        .await;
+    server
+        .did_change(DidChangeTextDocumentParams {
+            text_document: VersionedTextDocumentIdentifier {
+                uri: uri.clone(),
+                version: 2,
+            },
+            content_changes: changes,
+        })
+        .await;
+    server
+        .get_document_content(&uri)
+        .await
+        .expect("document should be open")
+}
+
+fn ranged_change(start: (u32, u32), end: (u32, u32), text: &str) -> TextDocumentContentChangeEvent {
+    TextDocumentContentChangeEvent {
+        range: Some(Range {
+            start: Position {
+                line: start.0,
+                character: start.1,
+            },
+            end: Position {
+                line: end.0,
+                character: end.1,
+            },
+        }),
+        range_length: None,
+        text: text.to_string(),
+    }
+}
+
+fn full_change(text: &str) -> TextDocumentContentChangeEvent {
+    TextDocumentContentChangeEvent {
+        range: None,
+        range_length: None,
+        text: text.to_string(),
+    }
+}
+
+#[tokio::test]
+async fn test_did_change_applies_ranged_changes_in_order() {
+    // The second change's positions refer to the document after the first.
+    let content = content_after_changes(
+        "# Title\n\nHello world\n",
+        vec![
+            ranged_change((2, 6), (2, 11), "rumdl"),
+            ranged_change((0, 2), (0, 7), "Doc"),
+        ],
+    )
+    .await;
+    assert_eq!(content, "# Doc\n\nHello rumdl\n");
+}
+
+#[tokio::test]
+async fn test_did_change_ranged_positions_count_utf16_code_units() {
+    // The emoji is two UTF-16 code units and four UTF-8 bytes.
+    let content = content_after_changes("# 😀 Title\n", vec![ranged_change((0, 5), (0, 10), "Name")]).await;
+    assert_eq!(content, "# 😀 Name\n");
+}
+
+#[tokio::test]
+async fn test_did_change_ranged_insert_across_lines_and_at_end() {
+    let content = content_after_changes(
+        "# A\r\n\r\nB\r\n",
+        vec![
+            ranged_change((0, 3), (2, 0), "\r\n\r\nC\r\n\r\n"),
+            // Past the last line: clamps to the end of the document.
+            ranged_change((9, 0), (9, 0), "D\n"),
+        ],
+    )
+    .await;
+    assert_eq!(content, "# A\r\n\r\nC\r\n\r\nB\r\nD\n");
+}
+
+#[tokio::test]
+async fn test_did_change_last_full_change_wins() {
+    let content = content_after_changes("# A\n", vec![full_change("# B\n"), full_change("# C\n")]).await;
+    assert_eq!(content, "# C\n");
+}
+
+#[tokio::test]
+async fn test_did_change_full_then_ranged_change() {
+    let content = content_after_changes(
+        "# A\n",
+        vec![full_change("# B\n\nText\n"), ranged_change((2, 0), (2, 4), "Body")],
+    )
+    .await;
+    assert_eq!(content, "# B\n\nBody\n");
 }

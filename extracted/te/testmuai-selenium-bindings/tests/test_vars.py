@@ -12,6 +12,9 @@ from testmu_selenium._vars import (
     resolve_variable,
 )
 from testmu_selenium._errors import TestmuConfigError
+import os
+import testmu_selenium._vars as _vars_mod
+
 
 
 @pytest.fixture(autouse=True)
@@ -307,3 +310,68 @@ class TestGlobalIsPersistSessionValue:
         ):
             result = var("{{global.MY_VAR}}")
         assert result == "regenerated_val"
+
+
+# ---------------------------------------------------------------------------
+# Date/time smart variables resolve in the SESSION's timezone
+#
+# They used to come off the runner VM's naive local clock, so a test authored
+# for a non-UTC org got {{smart.current_date}} from wherever the worker happened
+# to run — off by a day around midnight (Jonas Club). KANE_SESSION_TIMEZONE
+# carries the session's zone; UTC is the default.
+# ---------------------------------------------------------------------------
+
+class TestSessionTimezone:
+    @pytest.fixture(autouse=True)
+    def _clean_tz(self):
+        saved = os.environ.pop("KANE_SESSION_TIMEZONE", None)
+        yield
+        if saved is None:
+            os.environ.pop("KANE_SESSION_TIMEZONE", None)
+        else:
+            os.environ["KANE_SESSION_TIMEZONE"] = saved
+
+    def test_defaults_to_utc_not_the_host_clock(self):
+        assert _vars_mod._session_timezone_name() == "UTC"
+        assert _vars_mod._session_now().utcoffset().total_seconds() == 0
+
+    def test_honours_the_session_zone(self):
+        os.environ["KANE_SESSION_TIMEZONE"] = "Asia/Kolkata"
+        assert _vars_mod._session_timezone_name() == "Asia/Kolkata"
+        # +05:30
+        assert _vars_mod._session_now().utcoffset().total_seconds() == 5.5 * 3600
+
+    def test_date_variables_follow_the_zone(self):
+        """Two zones a day apart must not produce the same wall-clock hour."""
+        os.environ["KANE_SESSION_TIMEZONE"] = "UTC"
+        utc_hour = var("{{smart.current_hour}}")
+        os.environ["KANE_SESSION_TIMEZONE"] = "Asia/Kolkata"
+        ist_hour = var("{{smart.current_hour}}")
+        assert utc_hour != ist_hour, "the hour must shift with the session zone"
+
+    def test_current_timezone_reports_the_zone_name(self):
+        os.environ["KANE_SESSION_TIMEZONE"] = "America/New_York"
+        assert var("{{smart.current_timezone}}") == "America/New_York"
+
+    def test_unknown_zone_falls_back_to_utc_without_raising(self):
+        os.environ["KANE_SESSION_TIMEZONE"] = "Not/AZone"
+        assert _vars_mod._session_timezone_name() == "UTC"
+        assert _vars_mod._session_now().utcoffset().total_seconds() == 0
+
+    def test_reported_zone_never_disagrees_with_the_clock(self):
+        """An unknown zone must report UTC, because UTC is what it used."""
+        os.environ["KANE_SESSION_TIMEZONE"] = "Not/AZone"
+        assert var("{{smart.current_timezone}}") == "UTC"
+
+    def test_empty_env_var_is_treated_as_unset(self):
+        os.environ["KANE_SESSION_TIMEZONE"] = ""
+        assert _vars_mod._session_timezone_name() == "UTC"
+
+    def test_all_date_variables_still_resolve_under_a_zone(self):
+        os.environ["KANE_SESSION_TIMEZONE"] = "Asia/Kolkata"
+        for name in ("current_date", "current_day", "current_month_number",
+                     "current_year", "current_month", "current_hour",
+                     "current_minute", "current_timestamp", "next_day",
+                     "previous_day", "start_of_week", "end_of_week",
+                     "start_of_month", "end_of_month"):
+            assert var("{{smart." + name + "}}"), f"{name} resolved empty"

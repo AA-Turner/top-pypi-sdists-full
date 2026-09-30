@@ -86,7 +86,7 @@ class TestTheReaper:
             db_session.refresh(row)
             assert row.sync_status == SyncStatus.FAILED
             # `completed_at` is what makes it distinguishable from "still
-            # running" to every reader (`board sync-status`, the summary
+            # running" to every reader (`innoday status`, the summary
             # engine's freshness gate), so a status change alone is not enough.
             assert row.completed_at is not None
             assert row.error_message == ORPHANED_SYNC_ERROR
@@ -482,12 +482,10 @@ class TestTheCascadeShowsWhatTheServerSaid:
         # certified the broken advice they existed to guarantee. Fixed at four
         # print sites, with `test_printed_commands_parse.py` now checking the
         # whole CLI so the next one cannot be written.
-        assert "innoday board sync-status --board-id board-1" in printed
+        assert "Check status with: innoday status" in printed
 
     @pytest.mark.asyncio
-    async def test_board_sync_points_at_sync_status_instead_of_saying_wait(
-        self, capsys
-    ):
+    async def test_board_sync_points_at_status_instead_of_saying_wait(self, capsys):
         """`innoday board sync`'s own 429 branch, which said "please wait".
 
         That is the wrong advice when the blocker is a row a dead process left
@@ -514,7 +512,7 @@ class TestTheCascadeShowsWhatTheServerSaid:
         assert result == 1  # refused, not done (#622)
         printed = capsys.readouterr().out
         assert "abc-123" in printed
-        assert "innoday board sync-status --board-id board-1" in printed
+        assert "Check status with: innoday status" in printed
         assert "Please wait" not in printed
 
     @pytest.mark.asyncio
@@ -525,7 +523,7 @@ class TestTheCascadeShowsWhatTheServerSaid:
         twice, separately, in different words.
 
         They diverged on three things -- the body guard, the fallback text, and
-        whether the sync-status hint printed at all. Here the body is what a
+        whether the status hint printed at all. Here the body is what a
         proxy in front of the API returns (HTML, not JSON), which exercises the
         guard: neither may traceback, and both must say the same thing.
         """
@@ -566,4 +564,4 @@ class TestTheCascadeShowsWhatTheServerSaid:
 
         for printed in (cascade_output, board_output):
             assert "Sync already in progress for this board." in printed
-            assert "innoday board sync-status --board-id board-1" in printed
+            assert "Check status with: innoday status" in printed

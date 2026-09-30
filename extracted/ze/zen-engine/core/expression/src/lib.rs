@@ -60,18 +60,20 @@
 mod isolate;
 
 pub mod compiler;
+mod dates;
 mod exports;
 pub mod expression;
 pub mod functions;
 pub mod intellisense;
 pub mod lexer;
-pub mod nl;
 pub mod parser;
 pub mod scope;
+pub mod slot;
 pub mod validate;
 pub mod variable;
 pub mod vm;
 
+pub use dates::DateValue;
 pub use exports::{
     compile_expression, compile_unary_expression, evaluate_expression, evaluate_unary_expression,
 };

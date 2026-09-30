@@ -38,7 +38,6 @@ class CatalogRegionsApi:
             api_client = ApiClient.get_default()
         self.api_client = api_client
 
-
     @validate_call
     def get_region(
         self,
@@ -47,9 +46,8 @@ class CatalogRegionsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -81,29 +79,28 @@ class CatalogRegionsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_region_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetRegionReply",
+            "200": "GetRegionReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     def get_region_with_http_info(
@@ -113,9 +110,8 @@ class CatalogRegionsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -147,29 +143,28 @@ class CatalogRegionsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_region_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetRegionReply",
+            "200": "GetRegionReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     def get_region_without_preload_content(
@@ -179,9 +174,8 @@ class CatalogRegionsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -213,25 +207,24 @@ class CatalogRegionsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_region_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetRegionReply",
+            "200": "GetRegionReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _get_region_serialize(
         self,
@@ -241,11 +234,9 @@ class CatalogRegionsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -258,30 +249,22 @@ class CatalogRegionsApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/catalog/regions/{id}',
+            method="GET",
+            resource_path="/v1/catalog/regions/{id}",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -291,25 +274,29 @@ class CatalogRegionsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def list_regions(
         self,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for regions")] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        id: Annotated[
+            Optional[StrictStr], Field(description="(Optional) A filter for regions")
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -345,7 +332,7 @@ class CatalogRegionsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_regions_serialize(
             limit=limit,
@@ -354,15 +341,15 @@ class CatalogRegionsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListRegionsReply",
+            "200": "ListRegionsReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -370,20 +357,26 @@ class CatalogRegionsApi:
             response_types_map=_response_types_map,
         ).data
 
-
     @validate_call
     def list_regions_with_http_info(
         self,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for regions")] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        id: Annotated[
+            Optional[StrictStr], Field(description="(Optional) A filter for regions")
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -419,7 +412,7 @@ class CatalogRegionsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_regions_serialize(
             limit=limit,
@@ -428,15 +421,15 @@ class CatalogRegionsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListRegionsReply",
+            "200": "ListRegionsReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -444,20 +437,26 @@ class CatalogRegionsApi:
             response_types_map=_response_types_map,
         )
 
-
     @validate_call
     def list_regions_without_preload_content(
         self,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for regions")] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        id: Annotated[
+            Optional[StrictStr], Field(description="(Optional) A filter for regions")
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -493,7 +492,7 @@ class CatalogRegionsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_regions_serialize(
             limit=limit,
@@ -502,18 +501,17 @@ class CatalogRegionsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListRegionsReply",
+            "200": "ListRegionsReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _list_regions_serialize(
         self,
@@ -525,11 +523,9 @@ class CatalogRegionsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -543,39 +539,28 @@ class CatalogRegionsApi:
         # process the path parameters
         # process the query parameters
         if limit is not None:
-            
-            _query_params.append(('limit', limit))
-            
+            _query_params.append(("limit", limit))
+
         if offset is not None:
-            
-            _query_params.append(('offset', offset))
-            
+            _query_params.append(("offset", offset))
+
         if id is not None:
-            
-            _query_params.append(('id', id))
-            
+            _query_params.append(("id", id))
+
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/catalog/regions',
+            method="GET",
+            resource_path="/v1/catalog/regions",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -585,7 +570,5 @@ class CatalogRegionsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-

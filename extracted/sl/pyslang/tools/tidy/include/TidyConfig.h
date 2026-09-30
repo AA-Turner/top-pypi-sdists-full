@@ -9,9 +9,9 @@
 
 #include "TidyKind.h"
 #include <algorithm>
+#include <boost_regex.hpp>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
-#include <regex>
 #include <slang/util/TypeTraits.h>
 #include <string>
 #include <unordered_map>
@@ -28,7 +28,7 @@ public:
     struct CheckConfigs {
         std::string clkName;
         std::string clkNameRegexString;
-        std::regex clkNameRegexPattern;
+        boost::regex clkNameRegexPattern;
         std::string resetName;
         bool resetIsActiveHigh;
         std::vector<std::string> inputPortSuffix;
@@ -38,6 +38,21 @@ public:
         std::vector<std::string> inputPortPrefix;
         std::vector<std::string> outputPortPrefix;
         std::vector<std::string> inoutPortPrefix;
+        bool allowNestedAnon;
+        std::string covergroupRegexString;
+        boost::regex covergroupRegexPattern;
+        std::string coverpointRegexString;
+        boost::regex coverpointRegexPattern;
+        std::string crossRegexString;
+        boost::regex crossRegexPattern;
+        std::string enumRegexString;
+        boost::regex enumRegexPattern;
+        std::string structRegexString;
+        boost::regex structRegexPattern;
+        std::string unionRegexString;
+        boost::regex unionRegexPattern;
+        std::string typedefRegexString;
+        boost::regex typedefRegexPattern;
     };
 
     /// Default TidyConfig constructor which will set the default check's configuration values
@@ -86,6 +101,14 @@ public:
             {"inputPortPrefix", joinVec(cfg.inputPortPrefix)},
             {"outputPortPrefix", joinVec(cfg.outputPortPrefix)},
             {"inoutPortPrefix", joinVec(cfg.inoutPortPrefix)},
+            {"allowNestedAnon", cfg.allowNestedAnon ? "true" : "false"},
+            {"covergroupRegexString", cfg.covergroupRegexString},
+            {"coverpointRegexString", cfg.coverpointRegexString},
+            {"crossRegexString", cfg.crossRegexString},
+            {"enumRegexString", cfg.enumRegexString},
+            {"structRegexString", cfg.structRegexString},
+            {"unionRegexString", cfg.unionRegexString},
+            {"typedefRegexString", cfg.typedefRegexString},
         };
     }
 
@@ -140,7 +163,7 @@ private:
         }
         else if (configName == "clkNameRegexString") {
             visit(checkConfigs.clkNameRegexString);
-            checkConfigs.clkNameRegexPattern = std::regex(checkConfigs.clkNameRegexString);
+            checkConfigs.clkNameRegexPattern = boost::regex(checkConfigs.clkNameRegexString);
             return;
         }
         else if (configName == "resetIsActiveHigh") {
@@ -173,6 +196,45 @@ private:
         }
         else if (configName == "inoutPortPrefix") {
             visit(checkConfigs.inoutPortPrefix);
+            return;
+        }
+        else if (configName == "allowNestedAnon") {
+            visit(checkConfigs.allowNestedAnon);
+            return;
+        }
+        else if (configName == "covergroupRegexString") {
+            visit(checkConfigs.covergroupRegexString);
+            checkConfigs.covergroupRegexPattern = boost::regex(checkConfigs.covergroupRegexString);
+            return;
+        }
+        else if (configName == "coverpointRegexString") {
+            visit(checkConfigs.coverpointRegexString);
+            checkConfigs.coverpointRegexPattern = boost::regex(checkConfigs.coverpointRegexString);
+            return;
+        }
+        else if (configName == "crossRegexString") {
+            visit(checkConfigs.crossRegexString);
+            checkConfigs.crossRegexPattern = boost::regex(checkConfigs.crossRegexString);
+            return;
+        }
+        else if (configName == "enumRegexString") {
+            visit(checkConfigs.enumRegexString);
+            checkConfigs.enumRegexPattern = boost::regex(checkConfigs.enumRegexString);
+            return;
+        }
+        else if (configName == "structRegexString") {
+            visit(checkConfigs.structRegexString);
+            checkConfigs.structRegexPattern = boost::regex(checkConfigs.structRegexString);
+            return;
+        }
+        else if (configName == "unionRegexString") {
+            visit(checkConfigs.unionRegexString);
+            checkConfigs.unionRegexPattern = boost::regex(checkConfigs.unionRegexString);
+            return;
+        }
+        else if (configName == "typedefRegexString") {
+            visit(checkConfigs.typedefRegexString);
+            checkConfigs.typedefRegexPattern = boost::regex(checkConfigs.typedefRegexString);
             return;
         }
         SLANG_THROW(std::invalid_argument(fmt::format("The check: {} does not exist", configName)));

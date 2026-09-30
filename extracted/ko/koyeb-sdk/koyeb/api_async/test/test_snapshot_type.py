@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.snapshot_type import SnapshotType
 
+
 class TestSnapshotType(unittest.TestCase):
     """SnapshotType unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestSnapshotType(unittest.TestCase):
         """Test SnapshotType"""
         # inst = SnapshotType()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

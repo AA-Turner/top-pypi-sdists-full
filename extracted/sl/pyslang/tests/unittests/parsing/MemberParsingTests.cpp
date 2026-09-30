@@ -205,6 +205,7 @@ endproperty
 
 c1: cover property (@(posedge clk) a #-# p3);
 a1: assert property (@(posedge clk) a |-> p3);
+r1: restrict property (@(posedge clk) a);
 )";
 
     diagnostics.clear();
@@ -217,10 +218,13 @@ a1: assert property (@(posedge clk) a |-> p3);
     auto propertyDecl = parser.parseSingleMember(SyntaxKind::ModuleDeclaration);
     auto coverStatement = parser.parseSingleMember(SyntaxKind::ModuleDeclaration);
     auto assertStatement = parser.parseSingleMember(SyntaxKind::ModuleDeclaration);
+    auto restrictStatement = parser.parseSingleMember(SyntaxKind::ModuleDeclaration);
 
     REQUIRE(propertyDecl);
     REQUIRE(coverStatement);
     REQUIRE(assertStatement);
+    REQUIRE(restrictStatement);
+    CHECK(restrictStatement->kind == SyntaxKind::ConcurrentAssertionMember);
     CHECK_DIAGNOSTICS_EMPTY;
 }
 
@@ -1743,4 +1747,115 @@ endmodule
 
     REQUIRE(diagnostics.size() == 1);
     CHECK(diagnostics[0].code == diag::TypoKeyword);
+}
+
+TEST_CASE("Enum base type must be integer or named") {
+    parseCompilationUnit("module m; enum real { A } e; endmodule");
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::ExpectedEnumBase);
+}
+
+TEST_CASE("Type reference declaration without var keyword") {
+    parseCompilationUnit("module m; int x; type(x) y; endmodule");
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::TypeRefDeclVar);
+}
+
+TEST_CASE("Const function port requires ref direction") {
+    parseCompilationUnit("module m; function void f(const int x); endfunction endmodule");
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::ConstFunctionPortRequiresRef);
+}
+
+TEST_CASE("Modport port missing direction specifier") {
+    parseCompilationUnit("interface I; logic a; modport mp((* x *) a); endinterface");
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::MissingModportPortDirection);
+}
+
+TEST_CASE("Expected net strength keyword in drive strength") {
+    parseCompilationUnit("module m; wire (foo, strong0) w; endmodule");
+
+    REQUIRE(!diagnostics.empty());
+    CHECK(diagnostics[0].code == diag::ExpectedNetStrength);
+}
+
+TEST_CASE("Nettype not allowed in class") {
+    parseCompilationUnit("class C; nettype real nt; endclass");
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::NotAllowedInClass);
+}
+
+TEST_CASE("Unexpected qualifiers on class member") {
+    parseCompilationUnit("class C; local covergroup cg; coverpoint a; endgroup endclass");
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::UnexpectedQualifiers);
+}
+
+TEST_CASE("Invalid coverage option assignment") {
+    parseCompilationUnit("module m; covergroup cg; option = 1; endgroup endmodule");
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::InvalidCoverageOption);
+}
+
+TEST_CASE("Global clocking block cannot declare items") {
+    auto& text = R"(
+module m;
+    logic clk;
+    global clocking cb @(posedge clk); default input #0; endclocking
+endmodule
+)";
+    parseCompilationUnit(text);
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::GlobalClockingEmpty);
+}
+
+TEST_CASE("Delay3 not allowed on user-defined primitive instance") {
+    auto& text = R"(
+module m;
+    p (strong1, strong0) #(1, 2, 3) i1(x, y);
+endmodule
+)";
+    parseCompilationUnit(text);
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::Delay3UdpNotAllowed);
+}
+
+TEST_CASE("Implicit return type not allowed in modport import prototype") {
+    parseCompilationUnit("interface I; modport mp(import function f); endinterface");
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::ImplicitNotAllowed);
+}
+
+TEST_CASE("Nonstandard nested constraint block") {
+    parseCompilationUnit("class C; int x; constraint cc { { x > 0; } } endclass");
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::NonstandardConstraintBlock);
+}
+
+TEST_CASE("Type reference local variable declaration without var") {
+    auto& text = R"(
+module m;
+    int x;
+    property p;
+        type(x) y;
+        1;
+    endproperty
+endmodule
+)";
+    parseCompilationUnit(text);
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::TypeRefDeclVar);
 }

@@ -1,5 +1,3 @@
-import weakref
-
 import cython
 import cython.cimports.libav as lib
 from cython.cimports.av.audio.frame import alloc_audio_frame
@@ -7,7 +5,7 @@ from cython.cimports.av.dictionary import Dictionary
 from cython.cimports.av.error import err_check
 from cython.cimports.av.filter.link import alloc_filter_pads
 from cython.cimports.av.frame import Frame
-from cython.cimports.av.utils import avrational_to_fraction
+from cython.cimports.av.rational import from_avrational
 from cython.cimports.av.video.frame import alloc_video_frame
 
 _cinit_sentinel = cython.declare(object, object())
@@ -23,7 +21,7 @@ def wrap_filter_context(
     graph: Graph, filter: Filter, ptr: cython.pointer[lib.AVFilterContext]
 ) -> FilterContext:
     self: FilterContext = FilterContext(_cinit_sentinel)
-    self._graph = weakref.ref(graph)
+    self.graph = graph
     self.filter = filter
     self.ptr = ptr
 
@@ -108,15 +106,13 @@ class FilterContext:
     ):
         err_check(lib.avfilter_link(self.ptr, output_idx, input_.ptr, input_idx))
 
-    @property
-    def graph(self):
-        if graph := self._graph():
-            return graph
-        else:
-            raise RuntimeError("graph is unallocated")
-
     def push(self, frame: Frame | None):
         res: cython.int
+
+        # av_buffersrc_write_frame() dereferences graph internals that only
+        # exist after configuration; pushing first would segfault.
+        if self._kind == _KIND_SOURCE or frame is None:
+            self.graph.configure()
 
         if frame is None:
             with cython.nogil:
@@ -162,9 +158,7 @@ class FilterContext:
         err_check(res)
 
         frame._init_user_attributes()
-        frame.time_base = avrational_to_fraction(
-            cython.address(self.ptr.inputs[0].time_base)
-        )
+        frame.time_base = from_avrational(self.ptr.inputs[0].time_base)
         return frame
 
     def process_command(

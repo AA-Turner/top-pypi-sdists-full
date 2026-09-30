@@ -18,6 +18,8 @@ import google.auth
 import pytest
 from fastmcp.server.auth import AccessToken, MultiAuth
 from fastmcp.server.auth.auth import TokenVerifier
+from fastmcp.server.auth.oidc_proxy import OIDCProxy
+from fastmcp.server.auth.providers.jwt import JWTVerifier
 from fastmcp_extensions import JWTAuthConfig, OIDCAuthConfig
 from google.auth.credentials import AnonymousCredentials
 from key_value.aio.wrappers.encryption import FernetEncryptionWrapper
@@ -156,6 +158,10 @@ def _clear_all_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
         server.OIDC_CLIENT_SECRET_ENV,
         server.OIDC_CONFIG_URL_ENV,
         server.OIDC_ENABLE_CIMD_ENV,
+        server.USER_TOKENS_ENABLED_ENV,
+        server.USER_TOKEN_CLIENT_IDS_ENV,
+        server.USER_ISSUER_ENV,
+        server.USER_JWKS_URI_ENV,
         server.MCP_SERVER_URL_ENV,
         "AIRBYTE_MCP_OIDC_STORAGE",
     ):
@@ -174,6 +180,15 @@ def _capture_build_mcp_auth(
 
     monkeypatch.setattr(server, "build_mcp_auth", _capture)
     return captured
+
+
+def _first_jwt_config(captured: dict[str, object]) -> JWTAuthConfig:
+    """Return the app-realm `JWTAuthConfig` passed to `build_mcp_auth`."""
+    jwts = captured["jwt"]
+    assert isinstance(jwts, list) and jwts
+    jwt = jwts[0]
+    assert isinstance(jwt, JWTAuthConfig)
+    return jwt
 
 
 def test_create_auth_defaults_to_bearer_verification(
@@ -244,8 +259,7 @@ def test_create_auth_builds_cloud_jwt_defaults(
     captured = _capture_build_mcp_auth(monkeypatch)
     server._create_auth()
 
-    jwt = captured["jwt"]
-    assert isinstance(jwt, JWTAuthConfig)
+    jwt = _first_jwt_config(captured)
     assert jwt.jwks_uri == server.AIRBYTE_CLOUD_JWKS_URI
     assert jwt.public_key is None
     assert jwt.issuer == server.AIRBYTE_CLOUD_ISSUER
@@ -266,8 +280,7 @@ def test_create_auth_overrides_jwt_claims_from_branded_env(
     captured = _capture_build_mcp_auth(monkeypatch)
     server._create_auth()
 
-    jwt = captured["jwt"]
-    assert isinstance(jwt, JWTAuthConfig)
+    jwt = _first_jwt_config(captured)
     assert jwt.issuer == "https://self-hosted/realm"
     assert jwt.audience == "self-hosted-aud"
     assert jwt.algorithm == "ES256"
@@ -379,6 +392,111 @@ def test_create_auth_omits_oidc_without_credentials(
     captured = _capture_build_mcp_auth(monkeypatch)
     server._create_auth()
     assert captured["oidc"] is None
+
+
+def test_create_auth_accepts_user_realm_tokens_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Defaults yield a `MultiAuth` verifying both Cloud realms' bearer tokens."""
+    _clear_all_auth_env(monkeypatch)
+    auth = server._create_auth()
+
+    assert isinstance(auth, MultiAuth)
+    issuers = {
+        verifier.issuer
+        for verifier in auth.verifiers
+        if isinstance(verifier, JWTVerifier)
+    }
+    assert issuers == {server.AIRBYTE_CLOUD_ISSUER, server.AIRBYTE_CLOUD_USER_ISSUER}
+
+    user_verifier = next(
+        verifier
+        for verifier in auth.verifiers
+        if isinstance(verifier, server.ClientAllowlistJWTVerifier)
+    )
+    assert user_verifier.allowed_client_ids == server.DEFAULT_USER_TOKEN_CLIENT_IDS
+    assert user_verifier.jwks_uri == server.AIRBYTE_CLOUD_USER_JWKS_URI
+
+
+def test_create_auth_user_token_client_ids_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`AIRBYTE_MCP_AUTH_USER_TOKEN_CLIENT_IDS` replaces the `azp` allowlist."""
+    _clear_all_auth_env(monkeypatch)
+    monkeypatch.setenv(server.USER_TOKEN_CLIENT_IDS_ENV, "a, b")
+    auth = server._create_auth()
+
+    assert isinstance(auth, MultiAuth)
+    user_verifier = next(
+        verifier
+        for verifier in auth.verifiers
+        if isinstance(verifier, server.ClientAllowlistJWTVerifier)
+    )
+    assert user_verifier.allowed_client_ids == {"a", "b"}
+
+
+def test_create_auth_user_issuer_override_derives_jwks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`AIRBYTE_MCP_AUTH_USER_ISSUER` moves both `issuer` and the derived JWKS."""
+    _clear_all_auth_env(monkeypatch)
+    issuer = "https://self-hosted.example.com/realms/airbyte"
+    monkeypatch.setenv(server.USER_ISSUER_ENV, issuer)
+    auth = server._create_auth()
+
+    assert isinstance(auth, MultiAuth)
+    user_verifier = next(
+        verifier
+        for verifier in auth.verifiers
+        if isinstance(verifier, server.ClientAllowlistJWTVerifier)
+    )
+    assert user_verifier.issuer == issuer
+    assert user_verifier.jwks_uri == f"{issuer}/protocol/openid-connect/certs"
+
+
+def test_user_token_client_ids_parser_defaults_and_strips(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The `azp` allowlist parser strips entries and defaults when empty."""
+    monkeypatch.delenv(server.USER_TOKEN_CLIENT_IDS_ENV, raising=False)
+    assert server._user_token_client_ids() == server.DEFAULT_USER_TOKEN_CLIENT_IDS
+
+    monkeypatch.setenv(server.USER_TOKEN_CLIENT_IDS_ENV, " , ")
+    assert server._user_token_client_ids() == server.DEFAULT_USER_TOKEN_CLIENT_IDS
+
+    monkeypatch.setenv(server.USER_TOKEN_CLIENT_IDS_ENV, " a ,b,c ")
+    assert server._user_token_client_ids() == {"a", "b", "c"}
+
+
+def test_create_auth_user_tokens_disabled_restores_single_verifier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`AIRBYTE_MCP_AUTH_ACCEPT_USER_TOKENS=false` keeps only the Cloud verifier."""
+    _clear_all_auth_env(monkeypatch)
+    monkeypatch.setenv(server.USER_TOKENS_ENABLED_ENV, "false")
+    auth = server._create_auth()
+
+    assert isinstance(auth, JWTVerifier)
+    assert auth.issuer == server.AIRBYTE_CLOUD_ISSUER
+
+
+def test_create_auth_multiauth_with_oidc_and_user_verifier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OIDC creds yield a `MultiAuth` with an `OIDCProxy` server plus both JWTs."""
+    _clear_all_auth_env(monkeypatch)
+    monkeypatch.setenv(server.OIDC_CLIENT_ID_ENV, "cid")
+    monkeypatch.setenv(server.OIDC_CLIENT_SECRET_ENV, "sec")
+    auth = server._create_auth()
+
+    assert isinstance(auth, MultiAuth)
+    assert isinstance(auth.server, OIDCProxy)
+    issuers = {
+        verifier.issuer
+        for verifier in auth.verifiers
+        if isinstance(verifier, JWTVerifier)
+    }
+    assert issuers == {server.AIRBYTE_CLOUD_ISSUER, server.AIRBYTE_CLOUD_USER_ISSUER}
 
 
 class _FakeProvider(TokenVerifier):

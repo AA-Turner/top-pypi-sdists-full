@@ -14,7 +14,9 @@
 
 import unittest
 
-from koyeb.api_async.api.organization_confirmations_api import OrganizationConfirmationsApi
+from koyeb.api_async.api.organization_confirmations_api import (
+    OrganizationConfirmationsApi,
+)
 
 
 class TestOrganizationConfirmationsApi(unittest.IsolatedAsyncioTestCase):
@@ -34,5 +36,5 @@ class TestOrganizationConfirmationsApi(unittest.IsolatedAsyncioTestCase):
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

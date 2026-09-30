@@ -24,17 +24,41 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class Archive(BaseModel):
     """
     Archive
-    """ # noqa: E501
-    id: Optional[StrictStr] = Field(default=None, description="The archive id, that can be referenced when creating or updating a service.")
-    organization_id: Optional[StrictStr] = Field(default=None, description="Organization owning the archive.")
-    upload_url: Optional[StrictStr] = Field(default=None, description="The URL where to upload the archive. This URL is signed and can only be used to upload the archive until `valid_until`.")
-    size: Optional[StrictStr] = Field(default=None, description="The provisioned space for the archive.")
-    created_at: Optional[datetime] = Field(default=None, description="Date of creation of the archive.")
-    deleted_at: Optional[datetime] = Field(default=None, description="This field is automatically set by Koyeb when the archive is garbage collected.")
-    __properties: ClassVar[List[str]] = ["id", "organization_id", "upload_url", "size", "created_at", "deleted_at"]
+    """  # noqa: E501
+
+    id: Optional[StrictStr] = Field(
+        default=None,
+        description="The archive id, that can be referenced when creating or updating a service.",
+    )
+    organization_id: Optional[StrictStr] = Field(
+        default=None, description="Organization owning the archive."
+    )
+    upload_url: Optional[StrictStr] = Field(
+        default=None,
+        description="The URL where to upload the archive. This URL is signed and can only be used to upload the archive until `valid_until`.",
+    )
+    size: Optional[StrictStr] = Field(
+        default=None, description="The provisioned space for the archive."
+    )
+    created_at: Optional[datetime] = Field(
+        default=None, description="Date of creation of the archive."
+    )
+    deleted_at: Optional[datetime] = Field(
+        default=None,
+        description="This field is automatically set by Koyeb when the archive is garbage collected.",
+    )
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "organization_id",
+        "upload_url",
+        "size",
+        "created_at",
+        "deleted_at",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -42,7 +66,6 @@ class Archive(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -67,8 +90,7 @@ class Archive(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -86,14 +108,14 @@ class Archive(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "organization_id": obj.get("organization_id"),
-            "upload_url": obj.get("upload_url"),
-            "size": obj.get("size"),
-            "created_at": obj.get("created_at"),
-            "deleted_at": obj.get("deleted_at")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "organization_id": obj.get("organization_id"),
+                "upload_url": obj.get("upload_url"),
+                "size": obj.get("size"),
+                "created_at": obj.get("created_at"),
+                "deleted_at": obj.get("deleted_at"),
+            }
+        )
         return _obj
-
-

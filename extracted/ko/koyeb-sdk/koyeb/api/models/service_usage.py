@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ServiceUsage(BaseModel):
     """
     ServiceUsage
-    """ # noqa: E501
+    """  # noqa: E501
+
     service_id: Optional[StrictStr] = None
     service_name: Optional[StrictStr] = None
     regions: Optional[Dict[str, RegionUsage]] = None
@@ -39,7 +41,6 @@ class ServiceUsage(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +65,7 @@ class ServiceUsage(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -76,9 +76,12 @@ class ServiceUsage(BaseModel):
         _field_dict = {}
         if self.regions:
             for _key_regions in self.regions:
-                if self.regions[_key_regions]:
-                    _field_dict[_key_regions] = self.regions[_key_regions].to_dict()
-            _dict['regions'] = _field_dict
+                _field_dict[_key_regions] = (
+                    self.regions[_key_regions].to_dict()
+                    if self.regions[_key_regions] is not None
+                    else None
+                )
+            _dict["regions"] = _field_dict
         return _dict
 
     @classmethod
@@ -90,16 +93,15 @@ class ServiceUsage(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "service_id": obj.get("service_id"),
-            "service_name": obj.get("service_name"),
-            "regions": dict(
-                (_k, RegionUsage.from_dict(_v))
-                for _k, _v in obj["regions"].items()
-            )
-            if obj.get("regions") is not None
-            else None
-        })
+        _obj = cls.model_validate(
+            {
+                "service_id": obj.get("service_id"),
+                "service_name": obj.get("service_name"),
+                "regions": dict(
+                    (_k, RegionUsage.from_dict(_v)) for _k, _v in obj["regions"].items()
+                )
+                if obj.get("regions") is not None
+                else None,
+            }
+        )
         return _obj
-
-

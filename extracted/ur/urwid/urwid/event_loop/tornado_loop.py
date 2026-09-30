@@ -51,8 +51,8 @@ __all__ = ("TornadoEventLoop",)
 
 class TornadoEventLoop(EventLoop):
     """This is an Urwid-specific event loop to plug into its MainLoop.
-    It acts as an adaptor for Tornado's IOLoop which does all
-    heavy lifting except idle-callbacks.
+
+    It acts as an adaptor for Tornado's IOLoop which does all heavy lifting except idle-callbacks.
 
     .. note::
         :meth:`alarm`, :meth:`watch_file` and :meth:`enter_idle` accept an ``async def``
@@ -62,6 +62,7 @@ class TornadoEventLoop(EventLoop):
     """
 
     def __init__(self, loop: ioloop.IOLoop | None = None) -> None:
+        """Wrap `loop`, or Tornado's current IOLoop when none is given."""
         super().__init__()
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         if loop:
@@ -85,9 +86,7 @@ class TornadoEventLoop(EventLoop):
         self._background_tasks: set[asyncio.Task[typing.Any]] = set()
 
     def _also_call_idle(self, callback: Callable[_Spec, _T]) -> Callable[_Spec, _T | None]:
-        """
-        Wrap the callback to also call _entering_idle.
-        """
+        """Wrap the callback to also call _entering_idle."""
 
         @functools.wraps(callback)
         def wrapper(*args: _Spec.args, **kwargs: _Spec.kwargs) -> _T | None:
@@ -114,9 +113,7 @@ class TornadoEventLoop(EventLoop):
         return callback(*args, **kwargs)
 
     def _entering_idle(self) -> None:
-        """
-        Call all the registered idle callbacks.
-        """
+        """Call all the registered idle callbacks."""
         try:
             for callback in self._idle_callbacks.values():
                 self._run_callback(callback)
@@ -144,6 +141,8 @@ class TornadoEventLoop(EventLoop):
         )
 
     def alarm(self, seconds: float, callback: Callable[[], typing.Any]) -> object:
+        """Schedule *callback* to run after *seconds* and return a handle for :meth:`remove_alarm`."""
+
         @self._also_call_idle
         @functools.wraps(callback)
         def wrapped() -> None:
@@ -157,6 +156,7 @@ class TornadoEventLoop(EventLoop):
         return handle
 
     def remove_alarm(self, handle: object) -> bool:
+        """Cancel an alarm scheduled by :meth:`alarm`, returning whether it was still pending."""
         self._loop.remove_timeout(handle)
         try:
             del self._pending_alarms[handle]
@@ -166,6 +166,8 @@ class TornadoEventLoop(EventLoop):
         return True
 
     def watch_file(self, fd: int, callback: Callable[[], _T]) -> int:
+        """Call *callback* whenever *fd* is readable and return a handle for :meth:`remove_watch_file`."""
+
         @self._also_call_idle
         def handler(_fd: int, _events: int) -> None:
             self.handle_exit(callback)()
@@ -177,6 +179,7 @@ class TornadoEventLoop(EventLoop):
         return handle
 
     def remove_watch_file(self, handle: int) -> bool:
+        """Stop watching a file descriptor registered by :meth:`watch_file`, returning whether it was watched."""
         if (fd := self._watch_handles.pop(handle, None)) is not None:
             self._loop.remove_handler(fd)
             return True
@@ -235,6 +238,8 @@ class TornadoEventLoop(EventLoop):
             self._stop_after_error(exc)
 
     def handle_exit(self, f: Callable[_Spec, _T]) -> Callable[_Spec, _T | Literal[False] | None]:
+        """Wrap *f* so that a raised exception stops the loop instead of propagating."""
+
         @functools.wraps(f)
         def wrapper(*args: _Spec.args, **kwargs: _Spec.kwargs) -> _T | Literal[False] | None:
             try:

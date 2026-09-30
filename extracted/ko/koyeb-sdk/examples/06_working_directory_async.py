@@ -35,14 +35,20 @@ async def main():
         # Run command in specific directory
         result = await sandbox.exec("pwd", cwd="/tmp/my_project")
         print(result.stdout.strip())
+        assert result.exit_code == 0, result.stderr
+        assert result.stdout.strip() == "/tmp/my_project"
 
         # List files in working directory
         result = await sandbox.exec("ls -la", cwd="/tmp/my_project")
         print(result.stdout.strip())
+        assert result.exit_code == 0, result.stderr
+        assert "src" in result.stdout
 
         # Use relative paths
         result = await sandbox.exec("cat src/main.py", cwd="/tmp/my_project")
         print(result.stdout.strip())
+        assert result.exit_code == 0, result.stderr
+        assert 'print("hello")' in result.stdout
 
         return 0
 

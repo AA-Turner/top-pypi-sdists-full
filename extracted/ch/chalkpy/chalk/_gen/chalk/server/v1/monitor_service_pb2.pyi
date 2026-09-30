@@ -1,6 +1,7 @@
 from chalk._gen.chalk.artifacts.v1 import monitor_pb2 as _monitor_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import monitor_pb2 as _monitor_pb2_1
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -25,14 +26,25 @@ class GetMonitorRequest(_message.Message):
         self, monitor_id: _Optional[str] = ..., read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...
     ) -> None: ...
 
+class MonitorIncidentRef(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
 class GetMonitorResponse(_message.Message):
-    __slots__ = ("monitor", "has_active_incident")
+    __slots__ = ("monitor", "has_active_incident", "current_incident")
     MONITOR_FIELD_NUMBER: _ClassVar[int]
     HAS_ACTIVE_INCIDENT_FIELD_NUMBER: _ClassVar[int]
+    CURRENT_INCIDENT_FIELD_NUMBER: _ClassVar[int]
     monitor: _monitor_pb2.Monitor
     has_active_incident: bool
+    current_incident: MonitorIncidentRef
     def __init__(
-        self, monitor: _Optional[_Union[_monitor_pb2.Monitor, _Mapping]] = ..., has_active_incident: bool = ...
+        self,
+        monitor: _Optional[_Union[_monitor_pb2.Monitor, _Mapping]] = ...,
+        has_active_incident: bool = ...,
+        current_incident: _Optional[_Union[MonitorIncidentRef, _Mapping]] = ...,
     ) -> None: ...
 
 class GetMonitorEventsRequest(_message.Message):
@@ -101,6 +113,20 @@ class DeleteMonitorResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class MuteMonitorRequest(_message.Message):
+    __slots__ = ("monitor_id", "mute_duration")
+    MONITOR_ID_FIELD_NUMBER: _ClassVar[int]
+    MUTE_DURATION_FIELD_NUMBER: _ClassVar[int]
+    monitor_id: str
+    mute_duration: _duration_pb2.Duration
+    def __init__(
+        self, monitor_id: _Optional[str] = ..., mute_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...
+    ) -> None: ...
+
+class MuteMonitorResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class ListMonitorsRequest(_message.Message):
     __slots__ = ("limit", "cursor", "read_mask")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
@@ -117,7 +143,7 @@ class ListMonitorsRequest(_message.Message):
     ) -> None: ...
 
 class ListMonitorsResponse(_message.Message):
-    __slots__ = ("monitors", "cursor", "monitor_has_active_incident")
+    __slots__ = ("monitors", "cursor", "monitor_has_active_incident", "monitor_incidents")
     class MonitorHasActiveIncidentEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -126,15 +152,28 @@ class ListMonitorsResponse(_message.Message):
         value: bool
         def __init__(self, key: _Optional[str] = ..., value: bool = ...) -> None: ...
 
+    class MonitorIncidentsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: MonitorIncidentRef
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[MonitorIncidentRef, _Mapping]] = ...
+        ) -> None: ...
+
     MONITORS_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     MONITOR_HAS_ACTIVE_INCIDENT_FIELD_NUMBER: _ClassVar[int]
+    MONITOR_INCIDENTS_FIELD_NUMBER: _ClassVar[int]
     monitors: _containers.RepeatedCompositeFieldContainer[_monitor_pb2.Monitor]
     cursor: str
     monitor_has_active_incident: _containers.ScalarMap[str, bool]
+    monitor_incidents: _containers.MessageMap[str, MonitorIncidentRef]
     def __init__(
         self,
         monitors: _Optional[_Iterable[_Union[_monitor_pb2.Monitor, _Mapping]]] = ...,
         cursor: _Optional[str] = ...,
         monitor_has_active_incident: _Optional[_Mapping[str, bool]] = ...,
+        monitor_incidents: _Optional[_Mapping[str, MonitorIncidentRef]] = ...,
     ) -> None: ...

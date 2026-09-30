@@ -73,14 +73,22 @@ class TestSpanAssessments:
     @parametrize
     def test_method_retrieve(self, client: SGPClient) -> None:
         span_assessment = client.span_assessments.retrieve(
-            "span_assessment_id",
+            span_assessment_id="span_assessment_id",
+        )
+        assert_matches_type(SpanAssessment, span_assessment, path=["response"])
+
+    @parametrize
+    def test_method_retrieve_with_all_params(self, client: SGPClient) -> None:
+        span_assessment = client.span_assessments.retrieve(
+            span_assessment_id="span_assessment_id",
+            x_project_id="x-project-id",
         )
         assert_matches_type(SpanAssessment, span_assessment, path=["response"])
 
     @parametrize
     def test_raw_response_retrieve(self, client: SGPClient) -> None:
         response = client.span_assessments.with_raw_response.retrieve(
-            "span_assessment_id",
+            span_assessment_id="span_assessment_id",
         )
 
         assert response.is_closed is True
@@ -91,7 +99,7 @@ class TestSpanAssessments:
     @parametrize
     def test_streaming_response_retrieve(self, client: SGPClient) -> None:
         with client.span_assessments.with_streaming_response.retrieve(
-            "span_assessment_id",
+            span_assessment_id="span_assessment_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -105,7 +113,7 @@ class TestSpanAssessments:
     def test_path_params_retrieve(self, client: SGPClient) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `span_assessment_id` but received ''"):
             client.span_assessments.with_raw_response.retrieve(
-                "",
+                span_assessment_id="",
             )
 
     @parametrize
@@ -171,6 +179,7 @@ class TestSpanAssessments:
             assessment_type="comment",
             span_id="span_id",
             trace_id="trace_id",
+            x_project_id="x-project-id",
         )
         assert_matches_type(SyncAPIListPage[SpanAssessment], span_assessment, path=["response"])
 
@@ -290,14 +299,22 @@ class TestAsyncSpanAssessments:
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncSGPClient) -> None:
         span_assessment = await async_client.span_assessments.retrieve(
-            "span_assessment_id",
+            span_assessment_id="span_assessment_id",
+        )
+        assert_matches_type(SpanAssessment, span_assessment, path=["response"])
+
+    @parametrize
+    async def test_method_retrieve_with_all_params(self, async_client: AsyncSGPClient) -> None:
+        span_assessment = await async_client.span_assessments.retrieve(
+            span_assessment_id="span_assessment_id",
+            x_project_id="x-project-id",
         )
         assert_matches_type(SpanAssessment, span_assessment, path=["response"])
 
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncSGPClient) -> None:
         response = await async_client.span_assessments.with_raw_response.retrieve(
-            "span_assessment_id",
+            span_assessment_id="span_assessment_id",
         )
 
         assert response.is_closed is True
@@ -308,7 +325,7 @@ class TestAsyncSpanAssessments:
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncSGPClient) -> None:
         async with async_client.span_assessments.with_streaming_response.retrieve(
-            "span_assessment_id",
+            span_assessment_id="span_assessment_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -322,7 +339,7 @@ class TestAsyncSpanAssessments:
     async def test_path_params_retrieve(self, async_client: AsyncSGPClient) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `span_assessment_id` but received ''"):
             await async_client.span_assessments.with_raw_response.retrieve(
-                "",
+                span_assessment_id="",
             )
 
     @parametrize
@@ -388,6 +405,7 @@ class TestAsyncSpanAssessments:
             assessment_type="comment",
             span_id="span_id",
             trace_id="trace_id",
+            x_project_id="x-project-id",
         )
         assert_matches_type(AsyncAPIListPage[SpanAssessment], span_assessment, path=["response"])
 

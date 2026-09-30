@@ -28,6 +28,7 @@ from testmu._capability import (
     resolve_custom_headers,
 )
 from testmu._downloads_path import _resolve_downloads_dir
+from testmu._vars import device_name_from_capabilities
 from testmu._reporter import reporter
 
 _log = logging.getLogger("testmu")
@@ -56,6 +57,13 @@ def _export_smart_env_from_session(browser, caps: dict) -> None:
     os.environ["smart_browser_name"] = str(caps.get("browserName") or "")
     os.environ["smart_os"] = platform.system()
     os.environ["smart_os_version"] = platform.version()
+    # A requested deviceName is often a SELECTION REGEX
+    # ("^(?!.*(Tab|Fold)).*"), which must never be what {{smart.device_name}}
+    # asserts against. Prime the concrete name here, once, at session start.
+    device_name = device_name_from_capabilities(caps)
+    if device_name:
+        os.environ["smart_device_name"] = device_name
+        _log.info("[testmu] smart.device_name resolved from capabilities: %s", device_name)
 
 
 def _assert_sse_browser_supported(page) -> None:

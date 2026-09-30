@@ -1,11 +1,17 @@
 import datetime
-from typing import Any, Dict, List, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.list_flow_conversations_response_200_item_running_turn import (
+        ListFlowConversationsResponse200ItemRunningTurn,
+    )
+
 
 T = TypeVar("T", bound="ListFlowConversationsResponse200Item")
 
@@ -22,6 +28,9 @@ class ListFlowConversationsResponse200Item:
         created_by (str): Username who created the conversation
         is_test (bool): Started from the flow editor's test panel rather than a deployed run
         title (Union[Unset, None, str]): Optional title for the conversation
+        running_turn (Union[Unset, None, ListFlowConversationsResponse200ItemRunningTurn]): The turn the conversation is
+            still answering, set by the list endpoint: its newest user message, while the flow run it started is queued or
+            running. A run into this conversation is refused with 409 until the turn ends.
     """
 
     id: str
@@ -32,6 +41,7 @@ class ListFlowConversationsResponse200Item:
     created_by: str
     is_test: bool
     title: Union[Unset, None, str] = UNSET
+    running_turn: Union[Unset, None, "ListFlowConversationsResponse200ItemRunningTurn"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -45,6 +55,9 @@ class ListFlowConversationsResponse200Item:
         created_by = self.created_by
         is_test = self.is_test
         title = self.title
+        running_turn: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.running_turn, Unset):
+            running_turn = self.running_turn.to_dict() if self.running_turn else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -61,11 +74,17 @@ class ListFlowConversationsResponse200Item:
         )
         if title is not UNSET:
             field_dict["title"] = title
+        if running_turn is not UNSET:
+            field_dict["running_turn"] = running_turn
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.list_flow_conversations_response_200_item_running_turn import (
+            ListFlowConversationsResponse200ItemRunningTurn,
+        )
+
         d = src_dict.copy()
         id = d.pop("id")
 
@@ -83,6 +102,15 @@ class ListFlowConversationsResponse200Item:
 
         title = d.pop("title", UNSET)
 
+        _running_turn = d.pop("running_turn", UNSET)
+        running_turn: Union[Unset, None, ListFlowConversationsResponse200ItemRunningTurn]
+        if _running_turn is None:
+            running_turn = None
+        elif isinstance(_running_turn, Unset):
+            running_turn = UNSET
+        else:
+            running_turn = ListFlowConversationsResponse200ItemRunningTurn.from_dict(_running_turn)
+
         list_flow_conversations_response_200_item = cls(
             id=id,
             workspace_id=workspace_id,
@@ -92,6 +120,7 @@ class ListFlowConversationsResponse200Item:
             created_by=created_by,
             is_test=is_test,
             title=title,
+            running_turn=running_turn,
         )
 
         list_flow_conversations_response_200_item.additional_properties = d

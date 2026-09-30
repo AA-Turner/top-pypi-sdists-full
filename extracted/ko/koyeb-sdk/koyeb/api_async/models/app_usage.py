@@ -25,10 +25,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class AppUsage(BaseModel):
     """
     AppUsage
-    """ # noqa: E501
+    """  # noqa: E501
+
     app_id: Optional[StrictStr] = None
     app_name: Optional[StrictStr] = None
     services: Optional[List[ServiceUsage]] = None
@@ -41,7 +43,6 @@ class AppUsage(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,8 +67,7 @@ class AppUsage(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -78,16 +78,18 @@ class AppUsage(BaseModel):
         _items = []
         if self.services:
             for _item_services in self.services:
-                if _item_services:
-                    _items.append(_item_services.to_dict())
-            _dict['services'] = _items
+                _items.append(
+                    _item_services.to_dict() if _item_services is not None else None
+                )
+            _dict["services"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in databases (list)
         _items = []
         if self.databases:
             for _item_databases in self.databases:
-                if _item_databases:
-                    _items.append(_item_databases.to_dict())
-            _dict['databases'] = _items
+                _items.append(
+                    _item_databases.to_dict() if _item_databases is not None else None
+                )
+            _dict["databases"] = _items
         return _dict
 
     @classmethod
@@ -99,12 +101,18 @@ class AppUsage(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "app_id": obj.get("app_id"),
-            "app_name": obj.get("app_name"),
-            "services": [ServiceUsage.from_dict(_item) for _item in obj["services"]] if obj.get("services") is not None else None,
-            "databases": [DatabaseUsage.from_dict(_item) for _item in obj["databases"]] if obj.get("databases") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "app_id": obj.get("app_id"),
+                "app_name": obj.get("app_name"),
+                "services": [ServiceUsage.from_dict(_item) for _item in obj["services"]]
+                if obj.get("services") is not None
+                else None,
+                "databases": [
+                    DatabaseUsage.from_dict(_item) for _item in obj["databases"]
+                ]
+                if obj.get("databases") is not None
+                else None,
+            }
+        )
         return _obj
-
-

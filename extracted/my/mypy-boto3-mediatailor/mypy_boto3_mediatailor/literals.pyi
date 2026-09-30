@@ -29,7 +29,9 @@ __all__ = (
     "AdsInteractionPublishOptInEventTypeType",
     "AlertCategoryType",
     "ApsRegionType",
+    "BeaconEventTypeType",
     "ChannelStateType",
+    "ClientSideBeaconingModeType",
     "CompressionMethodType",
     "EventNameType",
     "FillPolicyType",
@@ -83,6 +85,7 @@ AdSequencingModeType = Literal[
 AdsInteractionExcludeEventTypeType = Literal[
     "AD_MARKER_FOUND",
     "BEACON_FIRED",
+    "BEACON_RECEIVED",
     "EMPTY_VAST_RESPONSE",
     "EMPTY_VMAP_RESPONSE",
     "ERROR_ADS_INVALID_RESPONSE",
@@ -143,7 +146,9 @@ AdsInteractionPublishOptInEventTypeType = Literal[
 ]
 AlertCategoryType = Literal["INFO", "PLAYBACK_WARNING", "SCHEDULING_ERROR"]
 ApsRegionType = Literal["AMERICAS", "ASIA_PACIFIC", "EUROPE"]
+BeaconEventTypeType = Literal["MUTE", "PAUSE", "SKIP", "UNMUTE"]
 ChannelStateType = Literal["RUNNING", "STOPPED"]
+ClientSideBeaconingModeType = Literal["DISABLED", "INSIGHTS"]
 CompressionMethodType = Literal["GZIP", "NONE"]
 EventNameType = Literal[
     "POST_ADS_RESPONSE", "PRE_ADS_REQUEST", "PRE_MANIFEST_INSERTION", "PRE_SESSION_INITIALIZATION"
@@ -306,6 +311,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -380,6 +386,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -503,6 +510,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

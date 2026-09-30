@@ -29,6 +29,7 @@ from .literals import (
     AZModeType,
     ChangeTypeType,
     ClusterModeType,
+    ConnectionTypeType,
     DataTieringStatusType,
     DestinationTypeType,
     DurabilityType,
@@ -1496,6 +1497,7 @@ class CreateServerlessCacheRequestTypeDef(TypedDict):
     SnapshotRetentionLimit: NotRequired[int]
     DailySnapshotTime: NotRequired[str]
     NetworkType: NotRequired[NetworkTypeType]
+    ConnectionType: NotRequired[ConnectionTypeType]
 
 
 class ModifyServerlessCacheRequestTypeDef(TypedDict):
@@ -1531,6 +1533,7 @@ class ServerlessCacheTypeDef(TypedDict):
     SnapshotRetentionLimit: NotRequired[int]
     DailySnapshotTime: NotRequired[str]
     NetworkType: NotRequired[NetworkTypeType]
+    ConnectionType: NotRequired[ConnectionTypeType]
 
 
 class DescribeUpdateActionsMessagePaginateTypeDef(TypedDict):

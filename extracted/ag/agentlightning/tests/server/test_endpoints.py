@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.server.conftest import MODEL_NAME
@@ -243,6 +244,48 @@ def test_triplet_events_keep_last_model_request_for_duplicate_prompt(client: Tes
     assert [event["data"]["response_token_ids"] for event in triplet_events[1:]] == [[20], [30]]
 
 
+@pytest.mark.parametrize("prompt_token_ids", [None, [], [[1]], ["1"], [True], [1.0], "bad-ids", {"token": 1}])
+def test_triplet_events_do_not_dedupe_without_valid_prompt_tokens(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    prompt_token_ids: object,
+):
+    rollout = _rollout(client, auth_headers)
+    rollout_id = rollout["rollout_id"]
+
+    def post_model_request(prompt_token_ids: object, response_token_ids: list[int]) -> None:
+        response = client.post(
+            f"/api/rollouts/{rollout_id}/attempt/0/events",
+            json={
+                "event_type": "model_request",
+                "data": {
+                    "response": {
+                        "prompt_token_ids": prompt_token_ids,
+                        "choices": [{"token_ids": response_token_ids}],
+                    },
+                    "server": {"model": MODEL_NAME, "version": 3},
+                },
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+
+    post_model_request(prompt_token_ids, [10])
+    post_model_request(prompt_token_ids, [20])
+    post_model_request([1, 2], [30])
+    post_model_request([1, 2], [40])
+    post_model_request([1, 2], [50])
+
+    response = client.get(
+        f"/api/rollouts/{rollout_id}/events",
+        params={"format": "triplet"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    model_requests = [event for event in response.json() if event["event_type"] == "model_request"]
+    assert [event["data"]["response_token_ids"] for event in model_requests] == [[10], [20], [50]]
+
+
 def test_model_endpoints(client: TestClient, auth_headers: dict[str, str]):
     created = client.post(
         "/api/models",
@@ -295,6 +338,24 @@ def test_proxy_completion_endpoint(client: TestClient, auth_headers: dict[str, s
     ).json()
     assert events[0]["data"]["prompt_token_ids"] == [1]
     assert events[0]["data"]["response_token_ids"] == [2]
+
+
+@pytest.mark.parametrize("payload", ['"bad"', "[]", "42", "null"])
+def test_proxy_rejects_non_object_json_body(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    payload: str,
+):
+    rollout = _rollout(client, auth_headers)
+
+    proxied = client.post(
+        f"/proxy/rollout/{rollout['rollout_id']}/attempt/0/mode/train/openai/v1/chat/completions",
+        content=payload,
+        headers={**auth_headers, "Content-Type": "application/json"},
+    )
+
+    assert proxied.status_code == 400
+    assert proxied.json() == {"detail": "Request body must be a JSON object"}
 
 
 def test_proxy_error_triplet_preserves_status(client: TestClient, auth_headers: dict[str, str], monkeypatch):

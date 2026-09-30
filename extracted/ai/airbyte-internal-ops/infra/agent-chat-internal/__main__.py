@@ -7,12 +7,21 @@ Architecture:
 IAP (Identity-Aware Proxy) on both load-balancer backends enforces @airbyte.io
 Google Workspace SSO before requests reach Cloud Run.
 
-Canonical host: `chat.internal.airbyte.ai`.
+Primary host: `ops.internal.airbyte.ai/chat` via the ops-webapp URL map
+(`/chat/api/*` -> agui-server, `/chat/*` -> agui-playground). The standalone
+`chat.internal.airbyte.ai` LB/DNS below stays as a secondary entrypoint.
 
 Container images are built and pushed by the publish workflows in
-`airbytehq/airbyte-agui-server` and `airbytehq/airbyte-agui-sdk`; this stack
-points each service at the tag configured in `Pulumi.prod.yaml`, so bumping the
-tag and applying is the deploy mechanism (no `ignore_changes` on image).
+`airbytehq/airbyte-agui-server` and `airbytehq/airbyte-agui-sdk`. The tags in
+`Pulumi.prod.yaml` only seed the first create — Pulumi ignores changes to the
+container image (`ignore_changes` on `template.containers[*].image`) and the
+`deploy-agui-command.yml` workflow manages the actual image via
+`gcloud run services update --image=<tag>`.
+
+Each service has a preview twin (`agui-server-preview`,
+`agui-playground-preview`) reached only via `preview.ops.internal.airbyte.ai`
+through the ops-webapp URL map — they are not attached to the standalone LB
+below.
 """
 
 from __future__ import annotations
@@ -26,7 +35,7 @@ config = pulumi.Config()
 gcp_config = pulumi.Config("gcp")
 
 PROJECT = gcp_config.require("project")
-PROJECT_NUMBER = gcp.organizations.get_project_output(project=PROJECT).number
+PROJECT_NUMBER = gcp.organizations.get_project_output(project_id=PROJECT).number
 REGION = gcp_config.get("region") or "us-west3"
 DOMAIN = config.get("domain") or "chat.internal.airbyte.ai"
 MIN_INSTANCES = int(config.get("min-instances") or "0")
@@ -38,6 +47,8 @@ AIRBYTE_DOMAIN = "airbyte.io"
 
 SERVER_SERVICE_NAME = "agui-server"
 PLAYGROUND_SERVICE_NAME = "agui-playground"
+SERVER_PREVIEW_SERVICE_NAME = "agui-server-preview"
+PLAYGROUND_PREVIEW_SERVICE_NAME = "agui-playground-preview"
 AR_REPO_ID = "airbyte-agui-internal"
 SERVER_IMAGE_TAG = config.require("server-image-tag")
 PLAYGROUND_IMAGE_TAG = config.require("playground-image-tag")
@@ -47,13 +58,12 @@ SERVER_IMAGE = (
 )
 PLAYGROUND_IMAGE = f"ghcr.io/airbytehq/airbyte-agui-playground:{PLAYGROUND_IMAGE_TAG}"
 
-PUBLISHER_GITHUB_REPO = "airbytehq/airbyte-agui-server"
-WIF_POOL_ID = "github-actions"
-
 MCP_URL = config.get("mcp-url") or "https://mcp.internal.airbyte.ai/ops-mcp"
 AGENT_MODEL = config.get("agent-model") or ""
 CHAT_ENABLED = config.get("chat-enabled") or "true"
 MCP_UI = config.get("mcp-ui") or "true"
+PATH_PREFIX = (config.get("path-prefix") or "").strip("/")
+MCP_AUTH_MODE = config.get("mcp-auth-mode") or "bearer"
 
 # Map of `AIRBYTE_AGUI_SERVER_*` env var -> Secret Manager container ID.
 # Empty IDs omit both the env var and the secret-access grant.
@@ -69,9 +79,13 @@ SECRET_ENVS = {
 # Expected IAP JWT audience for the agui-server backend service. The value
 # (`/projects/<number>/global/backendServices/<numeric backend id>`) only
 # exists after the backend is created, so it cannot be inlined into the
-# service env without a cycle — operators copy the `server_iap_audience`
-# stack output into `agent-chat-internal:server-iap-audience` after the first apply.
+# service env without a cycle — operators read the backend ID with gcloud after
+# the first apply and set `agent-chat-internal:server-iap-audience` (the ID is
+# not exported as a stack output: Pulumi carries numbers as float64, which
+# silently rounds the 19-digit ID — see BOOTSTRAP.md step 7).
 SERVER_IAP_AUDIENCE = config.get("server-iap-audience") or ""
+# Same for the `agui-server-preview` backend (preview.ops.internal.airbyte.ai).
+PREVIEW_SERVER_IAP_AUDIENCE = config.get("preview-server-iap-audience") or ""
 
 
 def _env(name: str, value: str) -> gcp.cloudrunv2.ServiceTemplateContainerEnvArgs:
@@ -116,77 +130,22 @@ def define_apis() -> list[gcp.projects.Service]:
     ]
 
 
-def define_publisher(
-    repository_id: pulumi.Input[str],
-    api_services: list[gcp.projects.Service],
-) -> gcp.serviceaccount.Account:
-    """Define the image-publisher service account and its WIF binding.
-
-    The `airbytehq/airbyte-agui-server` publish workflow impersonates this
-    account through the shared GitHub Actions workload identity pool.
-    """
-    publisher = gcp.serviceaccount.Account(
-        "airbyte-agui-publisher",
-        account_id="airbyte-agui-publisher",
-        display_name="Airbyte AG-UI image publisher",
-        project=PROJECT,
-        opts=pulumi.ResourceOptions(depends_on=api_services),
-    )
-    gcp.artifactregistry.RepositoryIamMember(
-        "airbyte-agui-publisher-writer",
-        repository=repository_id,
-        location=REGION,
-        project=PROJECT,
-        role="roles/artifactregistry.writer",
-        member=publisher.email.apply(lambda email: f"serviceAccount:{email}"),
-    )
-    gcp.serviceaccount.IAMMember(
-        "airbyte-agui-publisher-wif",
-        service_account_id=publisher.name,
-        project=PROJECT,
-        role="roles/iam.workloadIdentityUser",
-        member=PROJECT_NUMBER.apply(
-            lambda number: (
-                "principalSet://iam.googleapis.com"
-                f"/projects/{number}"
-                f"/locations/global/workloadIdentityPools/{WIF_POOL_ID}"
-                f"/attribute.repository/{PUBLISHER_GITHUB_REPO}"
-            )
-        ),
-    )
-    return publisher
-
-
 def define_runtime_service_account(
     api_services: list[gcp.projects.Service],
-) -> tuple[gcp.serviceaccount.Account, list[gcp.secretmanager.SecretIamMember]]:
-    """Define the agui-server runtime identity and its secret grants.
+) -> gcp.serviceaccount.Account:
+    """Define the agui-server runtime identity.
 
-    Secret containers are created out-of-band during bootstrap; this only
-    grants the runtime account read access to the configured ones. The grants
-    are returned so `agui-server` can depend on them — Cloud Run resolves
-    secret references at revision creation and fails if the grant is not yet
-    propagated.
+    Secret containers and this account's `secretAccessor` grants on them are
+    bootstrap-owned (see `BOOTSTRAP.md`), matching the other stacks in this
+    repo: the deployer SA cannot set IAM policy on secrets.
     """
-    account = gcp.serviceaccount.Account(
+    return gcp.serviceaccount.Account(
         "agui-server-sa",
         account_id="agui-server-sa",
         display_name="AG-UI server runtime service account",
         project=PROJECT,
         opts=pulumi.ResourceOptions(depends_on=api_services),
     )
-    secret_grants = [
-        gcp.secretmanager.SecretIamMember(
-            f"agui-server-sa-secret-{env_name.lower().replace('_', '-')}",
-            secret_id=secret_id,
-            project=PROJECT,
-            role="roles/secretmanager.secretAccessor",
-            member=account.email.apply(lambda email: f"serviceAccount:{email}"),
-        )
-        for env_name, secret_id in SECRET_ENVS.items()
-        if secret_id
-    ]
-    return account, secret_grants
 
 
 def _define_cloud_run_service(
@@ -234,8 +193,11 @@ def _define_cloud_run_service(
             delete_before_replace=False,
             depends_on=[*api_services, *(depends_on or [])],
             # Cloud Run auto-populates top-level `scaling` from template
-            # settings; ignoring it avoids perpetual refresh drift.
-            ignore_changes=["scaling"],
+            # settings; ignoring it avoids perpetual refresh drift. Image is
+            # ignored too: the deploy-agui workflow owns it via
+            # `gcloud run services update --image=<tag>`; the config tag only
+            # seeds the first create.
+            ignore_changes=["scaling", "template.containers[*].image"],
         ),
     )
     gcp.cloudrunv2.ServiceIamMember(
@@ -332,12 +294,30 @@ def define_load_balancer(
             gcp.compute.URLMapPathMatcherArgs(
                 name="chat",
                 default_service=playground_backend.self_link,
-                path_rules=[
-                    gcp.compute.URLMapPathRuleArgs(
-                        paths=["/api", "/api/*"],
-                        service=server_backend.self_link,
-                    )
-                ],
+                path_rules=(
+                    [
+                        gcp.compute.URLMapPathMatcherPathRuleArgs(
+                            paths=[f"/{PATH_PREFIX}/api", f"/{PATH_PREFIX}/api/*"],
+                            service=server_backend.self_link,
+                        ),
+                        gcp.compute.URLMapPathMatcherPathRuleArgs(
+                            paths=[f"/{PATH_PREFIX}", f"/{PATH_PREFIX}/*"],
+                            service=playground_backend.self_link,
+                            route_action=gcp.compute.URLMapPathMatcherPathRuleRouteActionArgs(
+                                url_rewrite=gcp.compute.URLMapPathMatcherPathRuleRouteActionUrlRewriteArgs(
+                                    path_prefix_rewrite="/",
+                                ),
+                            ),
+                        ),
+                    ]
+                    if PATH_PREFIX
+                    else [
+                        gcp.compute.URLMapPathMatcherPathRuleArgs(
+                            paths=["/api", "/api/*"],
+                            service=server_backend.self_link,
+                        )
+                    ]
+                ),
             )
         ],
     )
@@ -398,19 +378,34 @@ def define_dns(lb_ip: gcp.compute.GlobalAddress) -> gcp.dns.RecordSet:
     )
 
 
+def _server_envs(
+    iap_audience: str,
+) -> list[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs]:
+    """Build the agui-server env list shared by the prod and preview services."""
+    envs = [
+        _env("AIRBYTE_AGUI_SERVER_ENABLED", CHAT_ENABLED),
+        _env("AIRBYTE_AGUI_SERVER_AGENT_MODEL", AGENT_MODEL),
+        _env("AIRBYTE_AGUI_SERVER_MCP_URL", MCP_URL),
+        _env("AIRBYTE_AGUI_SERVER_MCP_AUTH_MODE", MCP_AUTH_MODE),
+        _env("AIRBYTE_AGUI_SERVER_MCP_UI", MCP_UI),
+    ]
+    if PATH_PREFIX:
+        envs.append(_env("AIRBYTE_AGUI_SERVER_PATH_PREFIX", PATH_PREFIX))
+    if iap_audience:
+        envs.append(_env("AIRBYTE_AGUI_SERVER_IAP_AUDIENCE", iap_audience))
+    for env_name, secret_id in SECRET_ENVS.items():
+        if secret_id:
+            envs.append(_secret_env(env_name, secret_id))
+    return envs
+
+
 def main() -> None:
     """Define and export all AG-UI chat infrastructure."""
     api_services = define_apis()
-    # The Artifact Registry repo is bootstrap-owned (see BOOTSTRAP.md) —
-    # Pulumi references it read-only so bootstrap can publish the first
-    # image before the stack exists.
-    repository = gcp.artifactregistry.get_repository_output(
-        location=REGION,
-        repository_id=AR_REPO_ID,
-        project=PROJECT,
-    )
-    publisher = define_publisher(repository.repository_id, api_services)
-    service_account, secret_grants = define_runtime_service_account(api_services)
+    # The Artifact Registry repo, the identity that publishes to it, and its
+    # IAM are bootstrap-owned (see BOOTSTRAP.md); the stack only consumes
+    # the image by tag.
+    service_account = define_runtime_service_account(api_services)
 
     iap_identity = gcp.projects.ServiceIdentity(
         "iap-service-identity",
@@ -419,36 +414,41 @@ def main() -> None:
         opts=pulumi.ResourceOptions(depends_on=api_services),
     )
 
-    server_envs = [
-        _env("AIRBYTE_AGUI_SERVER_ENABLED", CHAT_ENABLED),
-        _env("AIRBYTE_AGUI_SERVER_AGENT_MODEL", AGENT_MODEL),
-        _env("AIRBYTE_AGUI_SERVER_MCP_URL", MCP_URL),
-        _env("AIRBYTE_AGUI_SERVER_MCP_AUTH_MODE", "bearer"),
-        _env("AIRBYTE_AGUI_SERVER_MCP_UI", MCP_UI),
-    ]
-    if SERVER_IAP_AUDIENCE:
-        server_envs.append(
-            _env("AIRBYTE_AGUI_SERVER_IAP_AUDIENCE", SERVER_IAP_AUDIENCE)
-        )
-    for env_name, secret_id in SECRET_ENVS.items():
-        if secret_id:
-            server_envs.append(_secret_env(env_name, secret_id))
-
     server_service = _define_cloud_run_service(
         SERVER_SERVICE_NAME,
         SERVER_IMAGE,
         "1Gi",
-        server_envs,
+        _server_envs(SERVER_IAP_AUDIENCE),
         api_services,
         service_account=service_account,
         iap_identity=iap_identity,
-        depends_on=secret_grants,
     )
     playground_service = _define_cloud_run_service(
         PLAYGROUND_SERVICE_NAME,
         PLAYGROUND_IMAGE,
         "512Mi",
-        [_env("AGUI_BASE_URL", "")],
+        [_env("AGUI_BASE_URL", f"/{PATH_PREFIX}" if PATH_PREFIX else "")],
+        api_services,
+        service_account=None,
+        iap_identity=iap_identity,
+    )
+
+    # Preview twins, reached only via preview.ops.internal.airbyte.ai through
+    # the ops-webapp URL map (not attached to the standalone LB below).
+    server_preview_service = _define_cloud_run_service(
+        SERVER_PREVIEW_SERVICE_NAME,
+        SERVER_IMAGE,
+        "1Gi",
+        _server_envs(PREVIEW_SERVER_IAP_AUDIENCE),
+        api_services,
+        service_account=service_account,
+        iap_identity=iap_identity,
+    )
+    playground_preview_service = _define_cloud_run_service(
+        PLAYGROUND_PREVIEW_SERVICE_NAME,
+        PLAYGROUND_IMAGE,
+        "512Mi",
+        [_env("AGUI_BASE_URL", f"/{PATH_PREFIX}" if PATH_PREFIX else "")],
         api_services,
         service_account=None,
         iap_identity=iap_identity,
@@ -458,6 +458,10 @@ def main() -> None:
     playground_backend = _define_neg_and_backend(
         PLAYGROUND_SERVICE_NAME, playground_service
     )
+    server_preview_backend = _define_neg_and_backend(
+        SERVER_PREVIEW_SERVICE_NAME, server_preview_service
+    )
+    _define_neg_and_backend(PLAYGROUND_PREVIEW_SERVICE_NAME, playground_preview_service)
     lb_ip = define_load_balancer(server_backend, playground_backend, api_services)
     dns_record = define_dns(lb_ip)
 
@@ -469,14 +473,21 @@ def main() -> None:
         "artifact_registry_repository": (
             f"{REGION}-docker.pkg.dev/{PROJECT}/{AR_REPO_ID}"
         ),
-        "publisher_service_account": publisher.email,
         "lb_ip": lb_ip.address,
-        "url": f"https://{DOMAIN}",
-        "server_iap_audience": pulumi.Output.concat(
-            "/projects/",
-            PROJECT_NUMBER,
-            "/global/backendServices/",
-            server_backend.generated_id,
+        "url": f"https://{DOMAIN}/{PATH_PREFIX}"
+        if PATH_PREFIX
+        else f"https://{DOMAIN}",
+        "server_backend_service": server_backend.name,
+        "preview_server_service": server_preview_service.name,
+        "preview_playground_service": playground_preview_service.name,
+        "preview_server_backend_service": server_preview_backend.name,
+        "ops_webapp_url": (
+            f"https://ops.internal.airbyte.ai/{PATH_PREFIX}" if PATH_PREFIX else ""
+        ),
+        "preview_ops_webapp_url": (
+            f"https://preview.ops.internal.airbyte.ai/{PATH_PREFIX}"
+            if PATH_PREFIX
+            else ""
         ),
         "dns_record": dns_record.name,
     }

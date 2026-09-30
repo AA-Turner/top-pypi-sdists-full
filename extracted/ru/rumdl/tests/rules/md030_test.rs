@@ -17,8 +17,8 @@ mod tests {
 
     #[test]
     fn test_combined_narrowing_tightens_continuation_default() {
-        // MD030 narrows the marker, leaving the continuation over-indented; MD077 then
-        // tightens it to the new content column. Neither rule alone gets there.
+        // MD030 narrows the marker and moves the continuation with it, so MD077 then
+        // finds the continuation already at the new content column.
         let md030 = MD030ListMarkerSpace::default();
         let md077 = MD077ListContinuationIndent::default();
         let out = fix_pipeline("*   item\n    continuation\n", &[&md030 as &dyn Rule, &md077]);
@@ -320,16 +320,22 @@ mod tests {
 
     #[test]
     fn test_fix_preserves_indentation() {
-        // The parser only recognizes items 1 and 3 as list items (lines with 2- and 6-space
-        // indentation). Item 2 (`    -   Deeply indented`) is at 4-space indent without a
-        // blank-line separator, so the parser treats it as list continuation rather than a
-        // new list item. MD030 applies only to parser-recognized list items.
+        // `    -   Deeply indented` sits one column short of item 1's content, so
+        // it is paragraph text. Narrowing item 1's marker would move the content
+        // column onto it and turn it into a list, so the list's fixes are
+        // withheld.
         let rule = MD030ListMarkerSpace::default();
         let content = "  *  Indented item\n    -   Deeply indented\n      +    Very deep";
         let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
-        let expected = "  * Indented item\n    -   Deeply indented\n      + Very deep";
-        assert_eq!(fixed, expected);
+        assert_eq!(fixed, content);
+
+        // With the text at the content column, it is a nested list and the
+        // spacing fixes keep every line where it belongs.
+        let content = "  *  Indented item\n     -   Deeply indented\n         +    Very deep";
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(fixed, "  * Indented item\n    - Deeply indented\n      + Very deep");
     }
 
     #[test]
@@ -362,7 +368,8 @@ mod tests {
             "*  Normal item\n\n    *  Loose nested item\n    1.   Loose nested ordered\n\n-   Another normal item";
         let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
-        let expected = "* Normal item\n\n    * Loose nested item\n    1. Loose nested ordered\n\n- Another normal item";
+        // The nested items move left with their parent's narrowed marker.
+        let expected = "* Normal item\n\n   * Loose nested item\n   1. Loose nested ordered\n\n- Another normal item";
         assert_eq!(fixed, expected);
         crate::utils::assert_fix_resolves_all_violations(&rule, content, rumdl_lib::config::MarkdownFlavor::Standard);
     }
@@ -449,16 +456,15 @@ mod tests {
 
     #[test]
     fn test_fix_complex_nested_structure() {
-        // The parser recognizes lines 1, 2, 4, 5 as list items. Line 3 (`    *   Deep nested`)
-        // is at 4-space indent without a blank-line separator; the parser treats it as list
-        // continuation rather than a new list item. MD030 does not touch it.
+        // `    *   Deep nested` sits one column short of `Nested level`'s
+        // content, so it is paragraph text inside that item. Narrowing the
+        // marker would move the content column onto it and turn it into a list,
+        // so the list's fixes are withheld.
         let rule = MD030ListMarkerSpace::default();
         let content = "*  Top level\n  *  Nested level\n    *   Deep nested\n      1.  Ordered nested\n        2.   Very deep ordered";
         let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
-        let expected =
-            "* Top level\n  * Nested level\n    *   Deep nested\n      1. Ordered nested\n        2. Very deep ordered";
-        assert_eq!(fixed, expected);
+        assert_eq!(fixed, content);
     }
 
     #[test]
@@ -611,18 +617,14 @@ mod tests {
         let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
-        // Two marker violations (lines 2 and 5), each followed by a continuation
-        // (lines 3 and 6) that must follow the widened marker.
-        assert_eq!(result.len(), 4, "Got: {result:?}");
+        // Two marker violations (lines 2 and 5). Each fix also moves the item's
+        // continuation (lines 3 and 6) so it follows the widened marker.
+        assert_eq!(result.len(), 2, "Got: {result:?}");
 
         assert_eq!(result[0].line, 2);
         assert!(result[0].message.contains("Expected: 3") && result[0].message.contains("Actual: 2"));
-        assert_eq!(result[1].line, 3);
-        assert!(result[1].message.contains("align with the list marker"));
-        assert_eq!(result[2].line, 5);
-        assert!(result[2].message.contains("Expected: 4") && result[2].message.contains("Actual: 3"));
-        assert_eq!(result[3].line, 6);
-        assert!(result[3].message.contains("align with the list marker"));
+        assert_eq!(result[1].line, 5);
+        assert!(result[1].message.contains("Expected: 4") && result[1].message.contains("Actual: 3"));
 
         // The fix widens the markers and re-indents the continuations to match.
         let fixed = rule.fix(&ctx).unwrap();
@@ -649,17 +651,14 @@ mod tests {
         let result = rule.check(&ctx).unwrap();
 
         // First item is multi-line (has continuation), so its marker expects 3 spaces
-        // (ul_multi); widening it drags `more text` right to stay attached.
-        assert_eq!(result.len(), 2, "Got: {result:?}");
+        // (ul_multi); its fix drags `more text` right to stay attached.
+        assert_eq!(result.len(), 1, "Got: {result:?}");
         assert_eq!(result[0].line, 1, "Marker warning on line 1");
         assert!(
             result[0].message.contains("Expected: 3"),
             "Should expect ul_multi (3) spaces. Got: {}",
             result[0].message
         );
-        assert_eq!(result[1].line, 2, "Continuation re-indent on line 2");
-        assert!(result[1].message.contains("align with the list marker"));
-
         // The fix keeps `more text` aligned under `First item` inside the blockquote.
         assert_eq!(
             rule.fix(&ctx).unwrap(),
@@ -1805,8 +1804,8 @@ Text.[^note]
     #[test]
     fn test_combined_narrowing_tightens_continuation_aligned() {
         // A too-wide ordered marker narrows to the aligned column (MD030,
-        // ol-align-column = 4); MD077 then tightens the continuation to that column, so
-        // continuation indentation lands on the align-based amount.
+        // ol-align-column = 4) and the continuation moves with it, so continuation
+        // indentation lands on the align-based amount.
         let md030 = rule_from_toml("[MD030]\nol-align-column = 4\n");
         let md077 = MD077ListContinuationIndent::default();
         let out = fix_pipeline("1.    text\n      cont\n", &[&md030 as &dyn Rule, &md077]);
@@ -1873,5 +1872,16 @@ Text.[^note]
             rule.check(&ctx).unwrap().is_empty(),
             "Default config should not require column alignment"
         );
+    }
+
+    #[test]
+    fn fix_that_would_move_a_lazy_item_out_of_the_quote_is_declined() {
+        // Narrowing the quoted item's marker spacing moves its content column left
+        // of `2) item`, which would then start a list outside the blockquote.
+        let content = "> 2)  item\n    2) item\n";
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let rule = MD030ListMarkerSpace::default();
+        assert!(!rule.check(&ctx).unwrap().is_empty());
+        assert_eq!(rule.fix(&ctx).unwrap(), content);
     }
 }

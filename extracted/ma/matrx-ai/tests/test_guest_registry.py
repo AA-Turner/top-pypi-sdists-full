@@ -6,7 +6,18 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from matrx_ai import _ext
 from matrx_ai.db import _guest_registry_impl as guest_registry
+
+
+@pytest.fixture(autouse=True)
+def _guest_mint_ceiling_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The host binds the auth.guest_identity ceiling; these tests stay under it."""
+
+    async def reader() -> tuple[int, int]:
+        return 30, 60
+
+    monkeypatch.setitem(_ext._registry, "guest_mint_limit_reader", reader)
 
 
 class _GuestManager:
@@ -39,11 +50,18 @@ class _FirstVisitRaceManager:
         self.winner_auth_user_id = winner_auth_user_id
         self.reads = 0
 
-    async def filter_all_guest_executions(self, *, fingerprint: str) -> list[object]:
+    async def filter_all_guest_executions(self, **_: str) -> list[object]:
         self.reads += 1
         if self.reads == 1:
             return []
-        return [SimpleNamespace(auth_user_id=self.winner_auth_user_id)]
+        return [SimpleNamespace(id="winner-row", auth_user_id=self.winner_auth_user_id)]
+
+    async def count(self, **_: object) -> int:
+        return 0
+
+    async def update_where(self, filters: dict[str, object], **_: object) -> SimpleNamespace:
+        # The winner's row already holds an identity: the claim matches nothing.
+        return SimpleNamespace(rows_affected=0, updated_rows=[])
 
     async def create_guest_executions(self, **data: object) -> None:
         raise RuntimeError("unique fingerprint race")
@@ -108,7 +126,7 @@ async def test_concurrent_first_visit_adopts_the_registry_winner(
     resolved = await guest_registry.resolve_guest_uuid("browser-fingerprint")
 
     assert resolved == winner_auth_user_id
-    assert manager.reads == 2
+    assert manager.reads == 3  # first look, collision re-read, post-claim re-read
 
 
 class _RecordingGuestManager:
@@ -120,11 +138,19 @@ class _RecordingGuestManager:
         self.updates: list[tuple[str, dict[str, object]]] = []
         self.create_error: Exception | None = None
 
-    async def filter_all_guest_executions(self, *, fingerprint: str) -> list[object]:
+    async def filter_all_guest_executions(self, **_: str) -> list[object]:
         self.reads += 1
         if self.reads > 1 and self.reread is not None:
             return self.reread
         return self.rows
+
+    async def count(self, **_: object) -> int:
+        return 0
+
+    async def update_where(self, filters: dict[str, object], **updates: object) -> SimpleNamespace:
+        # The atomic claim: this double's rows are unclaimed, so it wins.
+        self.updates.append((str(filters["id"]), updates))
+        return SimpleNamespace(rows_affected=1, updated_rows=[])
 
     async def create_guest_executions(self, **data: object) -> None:
         if self.create_error is not None:

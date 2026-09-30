@@ -20,16 +20,20 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api_async.models.regional_deployment_definition import RegionalDeploymentDefinition
+from koyeb.api_async.models.regional_deployment_definition import (
+    RegionalDeploymentDefinition,
+)
 from koyeb.api_async.models.regional_deployment_status import RegionalDeploymentStatus
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class RegionalDeploymentListItem(BaseModel):
     """
     RegionalDeploymentListItem
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -38,7 +42,16 @@ class RegionalDeploymentListItem(BaseModel):
     messages: Optional[List[StrictStr]] = None
     definition: Optional[RegionalDeploymentDefinition] = None
     instance_snapshot_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "region", "status", "messages", "definition", "instance_snapshot_id"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "created_at",
+        "updated_at",
+        "region",
+        "status",
+        "messages",
+        "definition",
+        "instance_snapshot_id",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -46,7 +59,6 @@ class RegionalDeploymentListItem(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -71,8 +83,7 @@ class RegionalDeploymentListItem(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,7 +92,7 @@ class RegionalDeploymentListItem(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of definition
         if self.definition:
-            _dict['definition'] = self.definition.to_dict()
+            _dict["definition"] = self.definition.to_dict()
         return _dict
 
     @classmethod
@@ -93,16 +104,20 @@ class RegionalDeploymentListItem(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "created_at": obj.get("created_at"),
-            "updated_at": obj.get("updated_at"),
-            "region": obj.get("region"),
-            "status": obj.get("status") if obj.get("status") is not None else RegionalDeploymentStatus.PENDING,
-            "messages": obj.get("messages"),
-            "definition": RegionalDeploymentDefinition.from_dict(obj["definition"]) if obj.get("definition") is not None else None,
-            "instance_snapshot_id": obj.get("instance_snapshot_id")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "created_at": obj.get("created_at"),
+                "updated_at": obj.get("updated_at"),
+                "region": obj.get("region"),
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else RegionalDeploymentStatus.PENDING,
+                "messages": obj.get("messages"),
+                "definition": RegionalDeploymentDefinition.from_dict(obj["definition"])
+                if obj.get("definition") is not None
+                else None,
+                "instance_snapshot_id": obj.get("instance_snapshot_id"),
+            }
+        )
         return _obj
-
-

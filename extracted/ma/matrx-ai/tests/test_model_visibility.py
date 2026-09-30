@@ -154,7 +154,7 @@ def test_sanitize_names_visibility_when_all_messages_are_hidden() -> None:
     )
     ml = MessageList([hidden])
 
-    with pytest.raises(MessageSanitizationError, match="emptying_pass=visibility"):
+    with pytest.raises(MessageSanitizationError, match="emptying_pass=model_visibility"):
         ml.sanitize()
 
 

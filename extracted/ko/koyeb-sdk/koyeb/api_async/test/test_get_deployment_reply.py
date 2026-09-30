@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.get_deployment_reply import GetDeploymentReply
 
+
 class TestGetDeploymentReply(unittest.TestCase):
     """GetDeploymentReply unit test stubs"""
 
@@ -27,9 +28,9 @@ class TestGetDeploymentReply(unittest.TestCase):
 
     def make_instance(self, include_optional) -> GetDeploymentReply:
         """Test GetDeploymentReply
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `GetDeploymentReply`
         """
         model = GetDeploymentReply()
@@ -231,5 +232,6 @@ class TestGetDeploymentReply(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

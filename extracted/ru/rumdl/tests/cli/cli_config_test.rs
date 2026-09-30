@@ -393,3 +393,130 @@ fn test_config_get_alias_reflects_project_config_override() {
         "Alias query should show project config provenance, got:\n{stdout}"
     );
 }
+
+/// Split `rumdl config` output into sections of `(text, annotation column)`
+/// pairs, where the column is the display width before the `[from ...]` label.
+fn annotated_sections(stdout: &str) -> Vec<Vec<(String, Option<usize>)>> {
+    use unicode_width::UnicodeWidthStr;
+    let mut sections = vec![Vec::new()];
+    for line in stdout.lines() {
+        if line.is_empty() {
+            sections.push(Vec::new());
+            continue;
+        }
+        let entry = match line.rfind(" [from ") {
+            Some(idx) => (line[..idx].trim_end().to_string(), Some(line[..=idx].width())),
+            None => (line.to_string(), None),
+        };
+        sections.last_mut().unwrap().push(entry);
+    }
+    sections.retain(|section| !section.is_empty());
+    sections
+}
+
+fn assert_aligned_per_section(stdout: &str) {
+    use unicode_width::UnicodeWidthStr;
+    for line in stdout.lines() {
+        assert_eq!(line, line.trim_end(), "trailing whitespace in {line:?}");
+    }
+    for section in annotated_sections(stdout) {
+        let columns: Vec<(usize, usize)> = section
+            .iter()
+            .filter_map(|(text, column)| column.map(|column| (text.width(), column)))
+            .filter(|(width, _)| *width <= 60)
+            .collect();
+        let Some(widest) = columns.iter().map(|(width, _)| *width).max() else {
+            continue;
+        };
+        for (text, column) in &section {
+            if let Some(column) = column
+                && text.width() <= 60
+            {
+                assert_eq!(
+                    *column,
+                    widest + 1,
+                    "label for {text:?} should sit one column past the widest entry in {section:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn test_config_aligns_provenance_per_section_without_trailing_padding() {
+    let dir = tempdir().unwrap();
+    let output = Command::new(rumdl_bin())
+        .args(["config", "--no-config", "--color", "never"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert_aligned_per_section(&stdout);
+    // A long MD063 word list elsewhere must not push short lines far right.
+    let cache = stdout.lines().find(|line| line.starts_with("cache = ")).unwrap();
+    assert!(
+        cache.len() < 40,
+        "`cache` line is padded to {} columns: {cache:?}",
+        cache.len()
+    );
+}
+
+#[test]
+fn test_config_no_defaults_aligns_wide_characters_by_display_width() {
+    let dir = tempdir().unwrap();
+    fs::write(
+        dir.path().join(".rumdl.toml"),
+        "[MD044]\nnames = [\"日本語のテキスト\"]\ncode-blocks = true\n",
+    )
+    .unwrap();
+    let output = Command::new(rumdl_bin())
+        .args(["config", "--no-defaults", "--color", "never"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("日本語のテキスト"), "{stdout}");
+
+    assert_aligned_per_section(&stdout);
+}
+
+#[test]
+fn test_config_long_help_keeps_each_example_on_its_own_line() {
+    let output = Command::new(rumdl_bin()).args(["check", "--help"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for example in ["- Rule option:", "- Global option:", "- Explicit global section:"] {
+        let line = stdout
+            .lines()
+            .find(|line| line.contains(example))
+            .unwrap_or_else(|| panic!("{example} missing from --help: {stdout}"));
+        assert!(
+            line.trim_start().starts_with(example) && line.matches("--config '").count() == 1,
+            "{example} is not on its own line: {line:?}"
+        );
+    }
+}
+
+#[test]
+fn test_rule_counts_agree_with_a_single_rule() {
+    let output = Command::new(rumdl_bin())
+        .args(["rule", "--list-categories"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("image (1 rule)\n"), "{stdout}");
+    assert!(stdout.lines().any(|line| line.ends_with(" rules)")), "{stdout}");
+    assert!(!stdout.contains("(1 rules)"), "{stdout}");
+
+    let output = Command::new(rumdl_bin())
+        .args(["rule", "--category", "image"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.trim_end().ends_with("Total: 1 rule"), "{stdout}");
+}

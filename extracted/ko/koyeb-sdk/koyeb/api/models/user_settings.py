@@ -23,14 +23,20 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class UserSettings(BaseModel):
     """
     UserSettings
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     user_id: Optional[StrictStr] = None
     failed_deployment_email_notification: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = ["id", "user_id", "failed_deployment_email_notification"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "user_id",
+        "failed_deployment_email_notification",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -38,7 +44,6 @@ class UserSettings(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,8 +68,7 @@ class UserSettings(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -82,11 +86,13 @@ class UserSettings(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "user_id": obj.get("user_id"),
-            "failed_deployment_email_notification": obj.get("failed_deployment_email_notification")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "user_id": obj.get("user_id"),
+                "failed_deployment_email_notification": obj.get(
+                    "failed_deployment_email_notification"
+                ),
+            }
+        )
         return _obj
-
-

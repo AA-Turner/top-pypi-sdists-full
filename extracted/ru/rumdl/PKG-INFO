@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.2.77
+Version: 0.2.78
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -102,6 +102,7 @@ It offers:
 - ⚡️ **Built for fast feedback** with a native Rust binary and result caching
 - 🔍 **<!-- RULE_COUNT -->88<!-- /RULE_COUNT --> lint rules** covering common Markdown issues
 - 🛠️ **Automatic formatting** with `--fix` for files and stdin/stdout
+- 🦀 **[Rust doc comments](https://rumdl.dev/rust-doc-comments/)** - lint and fix the Markdown in `///` and `//!` comments
 - 📦 **Zero dependencies** - single binary with no runtime requirements
 - 🔧 **Highly configurable** with TOML-based config files
 - 🎯 **Built-in Markdown flavors** - [GFM, MkDocs, MDX, Quarto, MyST, and more](docs/flavors.md), with auto-detection for supported file names
@@ -256,7 +257,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.2.77
+mise use rumdl@0.2.78
 ```
 
 ### Using Nix (macOS/Linux)
@@ -488,7 +489,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.77
+    rev: v0.2.78
     hooks:
       - id: rumdl      # Lint only; add args [--fix] to auto-fix
       - id: rumdl-fmt  # Pure format, exits 0 on violations
@@ -504,7 +505,7 @@ This mirrors the `ruff` + `ruff-format` split: the linter hook reports by defaul
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.77
+    rev: v0.2.78
     hooks:
       - id: rumdl
         args: [--fix]  # Auto-fix violations in place
@@ -521,7 +522,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.77
+    rev: v0.2.78
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -1189,7 +1190,13 @@ rumdl init
 
 # Create or update a pyproject.toml file with rumdl configuration (for Python projects)
 rumdl init --pyproject
+
+# Append to an existing pyproject.toml without being asked (scripts, CI)
+rumdl init --pyproject --yes
 ```
+
+Run from a script, `init` never offers to install an editor extension, and
+appending to an existing `pyproject.toml` needs `--yes` (or a `y` on stdin).
 
 ### Configuration in pyproject.toml
 

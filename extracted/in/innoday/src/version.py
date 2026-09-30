@@ -127,6 +127,51 @@ def compute_version_from_tags() -> str:
     return f"{VERSION_MAJOR}.{VERSION_MINOR}.{_computed_patch()}{VERSION_SUFFIX}"
 
 
+def _git_lines(*args: str) -> list[str]:
+    """Non-empty output lines of a git command in the repo, [] if git fails."""
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def compute_build_version() -> str:
+    """Version a container image built from this checkout should report.
+
+    The Dockerfile bakes this into .innoday_version. The deploy workflow runs
+    on the same push as version-bump.yml, so the image can be built either
+    before or after that commit's release tag exists:
+
+    - Tag already on HEAD (version-bump won the race, or a rebuild): report
+      that tag. Counting tags here would give one too many. If a commit
+      somehow carries two tags, the highest wins.
+    - No tag on HEAD yet: report the version version-bump.yml is about to
+      tag and publish to PyPI for this commit -- compute_version_from_tags().
+    - No tag on HEAD, but a later commit is already tagged (an old SHA
+      redeployed, or the loser of two racing merges): the tag count belongs
+      to newer commits, so report `git describe` instead -- the nearest
+      release plus how far past it, e.g. 0.1.370-beta-3-gabc1234.
+    """
+    prefix = f"v{VERSION_MAJOR}.{VERSION_MINOR}."
+    tags = _git_lines(
+        "tag", "--points-at", "HEAD", "--sort=-v:refname", "--list", f"{prefix}*"
+    )
+    if tags:
+        return tags[0].removeprefix("v")
+    if _git_lines("tag", "--contains", "HEAD", "--list", f"{prefix}*"):
+        described = _git_lines("describe", "--tags", "--match", f"{prefix}*")
+        if described:
+            return described[0].removeprefix("v")
+    return compute_version_from_tags()
+
+
 def get_version() -> str:
     """Get the full version string.
 
@@ -158,7 +203,7 @@ def get_version() -> str:
     return compute_version_from_tags()
 
 
-__version__ = "0.1.375-beta"  # frozen for this CI build only, never committed
+__version__ = "0.1.380-beta"  # frozen for this CI build only, never committed
 
 
 def get_display_version() -> str:

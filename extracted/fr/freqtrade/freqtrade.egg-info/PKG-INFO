@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: freqtrade
-Version: 2026.8
+Version: 2026.9
 Summary: Freqtrade - Crypto Trading Bot
 Author: Freqtrade Team
 Author-email: Freqtrade Team <freqtrade@protonmail.com>
@@ -21,7 +21,7 @@ Classifier: Topic :: Office/Business :: Financial :: Investment
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ccxt>=4.5.4
+Requires-Dist: ccxt>=4.5.76
 Requires-Dist: SQLAlchemy>=2.0.6
 Requires-Dist: python-telegram-bot>=20.1
 Requires-Dist: humanize>=4.0.0
@@ -36,7 +36,7 @@ Requires-Dist: numpy<3.0,>2.0
 Requires-Dist: pandas<4.0,>=2.2.0
 Requires-Dist: bottleneck>=1.5.0
 Requires-Dist: numexpr>=2.14.0
-Requires-Dist: TA-Lib<0.8
+Requires-Dist: TA-Lib<0.9
 Requires-Dist: ft-pandas-ta
 Requires-Dist: technical
 Requires-Dist: tabulate
@@ -47,6 +47,7 @@ Requires-Dist: jinja2
 Requires-Dist: questionary
 Requires-Dist: prompt-toolkit
 Requires-Dist: joblib>=1.2.0
+Requires-Dist: cloudpickle<4.0,>=3.1.2
 Requires-Dist: rich
 Requires-Dist: pyarrow; platform_machine != "armv7l"
 Requires-Dist: fastapi

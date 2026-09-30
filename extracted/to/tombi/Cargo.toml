@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
 
 [workspace.package]
-version = "1.5.8"  # We use git tags for versioning. This is just a placeholder.
+version = "1.6.1"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"
@@ -32,6 +32,9 @@ itertools = "0.14.0"
 js-sys = "0.3.77"
 log = "0.4.22"
 memchr = "2.7.5"
+napi = { version = "3.13.0", default-features = false, features = ["napi4", "serde-json"] }
+napi-build = "2.5.0"
+napi-derive = "3.6.9"
 nu-ansi-term = "0.50.1"
 parking_lot = "0.12.5"
 pep508_rs = "0.9"
@@ -39,6 +42,9 @@ percent-encoding = "2.3.1"
 pretty_assertions = "1.4.1"
 proc-macro-crate = "3.4.0"
 proc-macro2 = "1.0.95"
+pyo3 = { version = "0.29.2", features = ["abi3-py312"] }
+pyo3-async-runtimes = { version = "0.29.0", features = ["tokio-runtime"] }
+pythonize = "0.29.0"
 quote = "1.0.40"
 rayon = "1.10.0"
 reqwest = { version = "0.12.15", default-features = false, features = [
@@ -92,6 +98,7 @@ tombi-json-lexer = { path = "crates/tombi-json-lexer" }
 tombi-json-syntax = { path = "crates/tombi-json-syntax" }
 tombi-json-value = { path = "crates/tombi-json-value" }
 tombi-lexer = { path = "crates/tombi-lexer" }
+tombi-lib = { path = "rust/tombi-lib", default-features = false }
 tombi-linter = { path = "crates/tombi-linter" }
 tombi-lsp = { path = "crates/tombi-lsp", default-features = false }
 tombi-parser = { path = "crates/tombi-parser" }

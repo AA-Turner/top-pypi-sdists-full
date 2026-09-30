@@ -327,6 +327,26 @@ def _looks_like_json(value: str) -> bool:
     return stripped.startswith(("{", "["))
 
 
+def _is_legacy_garth_tokenstore(path: str) -> bool:
+    """Return True if path is a directory holding only old garth-format tokens.
+
+    Versions before 0.3 saved sessions with garth (oauth1_token.json and
+    oauth2_token.json). Those tokens cannot be converted, so callers use this
+    to explain why the tokenstore did not load instead of a generic error.
+    """
+    token_dir = Path(path).expanduser()
+    try:
+        return token_dir.is_dir() and (
+            not (token_dir / "garmin_tokens.json").exists()
+            and (
+                (token_dir / "oauth1_token.json").exists()
+                or (token_dir / "oauth2_token.json").exists()
+            )
+        )
+    except OSError:
+        return False
+
+
 def _extract_status_code(exc: BaseException) -> int | None:
     """Best-effort extraction of an HTTP status code from an exception.
 
@@ -682,6 +702,12 @@ class Garmin:
             "/metrics-service/metrics/trainingreadiness"
         )
 
+        self.garmin_connect_training_load_balance_url = (
+            "/metrics-service/metrics/trainingloadbalance"
+        )
+        self.garmin_connect_daily_training_status_url = (
+            "/metrics-service/metrics/trainingstatus/daily"
+        )
         self.garmin_connect_race_predictor_url = (
             "/metrics-service/metrics/racepredictions"
         )
@@ -885,6 +911,15 @@ class Garmin:
             if not tokens_loaded:
                 # Validate credentials before attempting login
                 if not self.username or not self.password:
+                    if tokenstore_path is not None and _is_legacy_garth_tokenstore(
+                        tokenstore_path
+                    ):
+                        raise GarminConnectAuthenticationError(
+                            "Found old garth-format tokens (oauth1_token.json/"
+                            "oauth2_token.json), which are no longer supported. "
+                            "Log in once with username and password to create "
+                            "new tokens."
+                        )
                     raise GarminConnectAuthenticationError(
                         "Username and password are required"
                     )
@@ -2036,7 +2071,7 @@ class Garmin:
 
     def get_badge_challenges(self, start: int, limit: int) -> dict[str, Any]:
         """Return badge challenges for the current user."""
-        start = _validate_non_negative_integer(start, "start")
+        start = _validate_positive_integer(start, "start")
         limit = _validate_positive_integer(limit, "limit")
         url = self.garmin_connect_badge_challenges_url
         params = {"start": str(start), "limit": str(limit)}
@@ -2046,7 +2081,7 @@ class Garmin:
 
     def get_available_badge_challenges(self, start: int, limit: int) -> dict[str, Any]:
         """Return available badge challenges."""
-        start = _validate_non_negative_integer(start, "start")
+        start = _validate_positive_integer(start, "start")
         limit = _validate_positive_integer(limit, "limit")
         url = self.garmin_connect_available_badge_challenges_url
         params = {"start": str(start), "limit": str(limit)}
@@ -2058,7 +2093,7 @@ class Garmin:
         self, start: int, limit: int
     ) -> dict[str, Any]:
         """Return badge non-completed challenges for current user."""
-        start = _validate_non_negative_integer(start, "start")
+        start = _validate_positive_integer(start, "start")
         limit = _validate_positive_integer(limit, "limit")
         url = self.garmin_connect_non_completed_badge_challenges_url
         params = {"start": str(start), "limit": str(limit)}
@@ -2306,6 +2341,29 @@ class Garmin:
             return data[0]
 
         return morning_entry
+
+    def get_training_four_week_load_balance(self, cdate: str) -> dict[str, Any]:
+        """Return training load balance (load focus) data for the current user.
+
+        The date identifies the end of the trailing four-week load-focus period.
+        """
+        cdate = _validate_date_format(cdate, "cdate")
+        url = f"{self.garmin_connect_training_load_balance_url}/latest/{cdate}"
+        logger.debug("Requesting training load balance data")
+
+        return self.connectapi(url)
+
+    def get_daily_training_status(self, cdate: str) -> dict[str, Any]:
+        """Return the training status for a single day for the current user.
+
+        Includes the training status phrase and the acute/chronic training
+        load (ACWR) as of the given date.
+        """
+        cdate = _validate_date_format(cdate, "cdate")
+        url = f"{self.garmin_connect_daily_training_status_url}/{cdate}"
+        logger.debug("Requesting daily training status data")
+
+        return self.connectapi(url)
 
     def get_endurance_score(
         self, startdate: str, enddate: str | None = None
@@ -2919,18 +2977,58 @@ class Garmin:
         )
         return self.connectapi(url, params=params)
 
+    def get_training_load_activities(
+        self,
+        startdate: str,
+        enddate: str,
+        *,
+        metrics: list[str] | None = None,
+        activitytype: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch individual activities and their training load metrics for a date range.
+
+        :param startdate: range start "YYYY-MM-DD"
+        :param enddate: range end "YYYY-MM-DD"
+        :param metrics: metric fields to request; None uses defaults and [] is preserved
+        :param activitytype: optional activity type filter
+        :return: list of activities with the requested metrics
+        """
+        startdate, enddate = _validate_date_range(startdate, enddate)
+        url = f"{self.garmin_connect_fitnessstats}/all"
+        requested_metrics = (
+            [
+                "activityTrainingLoad",
+                "trainingEffectLabel",
+                "trainingEffectLabelSrvrCalc",
+            ]
+            if metrics is None
+            else metrics
+        )
+        params: dict[str, Any] = {
+            "startDate": startdate,
+            "endDate": enddate,
+            "metric": requested_metrics,
+        }
+        if activitytype:
+            params["activityType"] = activitytype
+
+        logger.debug(
+            "Requesting training load activities from %s to %s", startdate, enddate
+        )
+        return self.connectapi(url, params=params)
+
     def get_activity_types(self) -> dict[str, Any]:
         url = self.garmin_connect_activity_types
         logger.debug("Requesting activity types")
         return self.connectapi(url)
 
     def get_goals(
-        self, status: str = "active", start: int = 0, limit: int = 30
+        self, status: str = "active", start: int = 1, limit: int = 30
     ) -> list[dict[str, Any]]:
         """Fetch all goals based on status
         :param status: Status of goals (valid options are "active", "future", or "past")
         :type status: str
-        :param start: Initial goal index
+        :param start: 1-based index of the first goal to retrieve
         :type start: int
         :param limit: Pagination limit when retrieving goals
         :type limit: int
@@ -2941,7 +3039,7 @@ class Garmin:
         valid_statuses = {"active", "future", "past"}
         if status not in valid_statuses:
             raise ValueError(f"status must be one of {valid_statuses}")
-        start = _validate_non_negative_integer(start, "start")
+        start = _validate_positive_integer(start, "start")
         limit = _validate_positive_integer(limit, "limit")
         params = {
             "status": status,

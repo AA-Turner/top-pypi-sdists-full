@@ -25,34 +25,22 @@ Configuration options:
 """
 
 import asyncio
+import base64
 import json
 import logging
 import os
 import re
-import subprocess
-from pathlib import Path
-
-cmd = ["pip", "install", "httpx"]
-with open("pip_jetson_btii.log", "w") as log_file:
-    subprocess.run(
-        cmd,
-        stdout=log_file,
-        stderr=subprocess.STDOUT,
-        # preexec_fn=os.setpgrp
-    )
-
-import base64  # noqa: E402
-import threading  # noqa: E402
-import time  # noqa: E402
-from collections import deque  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
-from typing import Any, Dict, List, NamedTuple, Tuple  # noqa: E402
+import threading
+import time
+from collections import deque
+from datetime import datetime, timezone
+from typing import Any, Dict, List, NamedTuple, Tuple
 
 try:
     import cv2
 except ImportError:
     cv2 = None
-import numpy as np  # noqa: E402
+import numpy as np
 
 try:
     from matrice_common.session import Session
@@ -78,31 +66,37 @@ except ImportError:
     redis_sync = None  # type: ignore[assignment]
     HAS_REDIS_SYNC = False
 
-from dataclasses import dataclass, field  # noqa: E402
+from dataclasses import dataclass, field
 
-from ..core.base import (  # noqa: E402
+from ...clients import bootstrap, identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.fr_client import FRClient
+from ...clients.response import CallFailure
+from ..core.base import (
     BaseProcessor,
     ConfigProtocol,
     ProcessingContext,
     ProcessingResult,
 )
-from ..core.config import AlertConfig, BaseConfig  # noqa: E402
-from ..utils import (  # noqa: E402
+from ..core.config import AlertConfig, BaseConfig
+from ..utils import (
     apply_category_mapping,
     filter_by_categories,
     filter_by_confidence,
     match_results_structure,
 )
-from ..utils.format_utils import face_landmarks  # noqa: E402
-from ..utils.geometry_utils import (  # noqa: E402
+from ..utils.format_utils import face_landmarks
+from ..utils.geometry_utils import (
     bbox_is_normalized,
     bbox_xyxy_pixels,
     resolve_frame_dims,
 )
-from ..utils.location_name_cache import LocationNameCache  # noqa: E402
-from .embedding_manager import EmbeddingConfig, EmbeddingManager  # noqa: E402
-from .face_recognition_client import FacialRecognitionClient  # noqa: E402
-from .people_activity_logging import PeopleActivityLogging  # noqa: E402
+from ..utils.location_name_cache import LocationNameCache
+from ..utils.post_processing_config_client import is_resolvable_location_id
+from ..utils.public_ip import resolve_public_ip_once
+from . import bounded_state
+from .embedding_manager import EmbeddingConfig, EmbeddingManager
+from .people_activity_logging import PeopleActivityLogging
 
 # Cache for location names to avoid repeated API calls
 _location_name_cache = LocationNameCache()
@@ -173,7 +167,6 @@ class RedisFaceMatchResult(NamedTuple):
 class RedisFaceMatcher:
     """Handles Redis-based face similarity search."""
 
-    ACTION_ID_PATTERN = re.compile(r"^[0-9a-f]{8,}$", re.IGNORECASE)
     # Shared sync Redis client per-process. The caller (py_inference) drives one
     # persistent loop with run_until_complete per frame, not asyncio.run, so the loop
     # does not actually change -- but a sync client is loop-agnostic either way and
@@ -220,7 +213,7 @@ class RedisFaceMatcher:
         self._redis_connection_params: Dict[str, Any] | None = None
         self._app_deployment_id = os.getenv("APP_DEPLOYMENT_ID")
         self._application_id = ""
-        self._action_id = os.getenv("ACTION_ID") or os.getenv("MATRISE_ACTION_ID") or self._discover_action_id()
+        self._action_id = bootstrap.get_action_id()
         self._redis_server_id = os.getenv("REDIS_SERVER_ID")
         # Locks will be created per-loop to avoid cross-loop issues
         self._app_dep_lock: asyncio.Lock | None = None
@@ -895,7 +888,7 @@ class RedisFaceMatcher:
             if self._app_deployment_id:
                 return self._app_deployment_id
 
-            action_id = self._action_id or self._discover_action_id()
+            action_id = self._action_id or bootstrap.scrape_action_id()
             if not action_id:
                 self.logger.warning("Unable to determine action_id for Redis face matcher")
                 return None
@@ -906,13 +899,12 @@ class RedisFaceMatcher:
 
             # Use run_in_executor for Python 3.8 compatibility (asyncio.to_thread requires 3.9+)
             loop = asyncio.get_running_loop()
-            response = await loop.run_in_executor(None, self._fetch_action_details_sync, session, action_id)
-            if not response or not response.get("success", False):
+            action_details = await loop.run_in_executor(
+                None, self._fetch_action_details_sync, session, action_id
+            )
+            if action_details is None:
                 self.logger.warning("Failed to fetch action details for action_id=%s", action_id)
                 return None
-
-            action_doc = response.get("data", {})
-            action_details = action_doc.get("actionDetails", {})
             app_dep_id = action_details.get("app_deployment_id") or action_details.get("appDepId")
             redis_server_id = (
                 action_details.get("redis_server_id")
@@ -954,20 +946,14 @@ class RedisFaceMatcher:
             if self._session:
                 return self._session
 
-            access_key = os.getenv("MATRICE_ACCESS_KEY_ID")
-            secret_key = os.getenv("MATRICE_SECRET_ACCESS_KEY")
-            account_number = os.getenv("MATRICE_ACCOUNT_NUMBER", "")
-
-            if not access_key or not secret_key:
+            if not os.getenv("MATRICE_ACCESS_KEY_ID") or not os.getenv("MATRICE_SECRET_ACCESS_KEY"):
                 self.logger.warning("Missing Matrice credentials; cannot initialize session for Redis matcher")
                 return None
 
             try:
-                self._session = Session(
-                    account_number=account_number,
-                    access_key=access_key,
-                    secret_key=secret_key,
-                )
+                # The process session, not a new one: this container has one set of
+                # credentials, so every consumer can share one session.
+                self._session = bootstrap.get_session("the FR Redis face matcher")
                 self.logger.info("Initialized Matrice session for Redis face matcher")
             except Exception as exc:
                 self.logger.error(
@@ -1102,7 +1088,7 @@ class RedisFaceMatcher:
         await self._ensure_app_deployment_id()
 
         try:
-            response = await self.face_client.get_redis_details()
+            response = await self.face_client.fetch_redis_details()
         except Exception as exc:
             self.logger.error(
                 "Failed to fetch Redis details from facial recognition server: %s",
@@ -1111,76 +1097,42 @@ class RedisFaceMatcher:
             )
             return None
 
-        if not response or not response.get("success", False):
-            self.logger.warning(
-                "Redis details API returned failure: %s",
-                response,
-            )
+        if response is None:
+            self.logger.warning("Redis details API returned failure")
             return None
 
-        data = response.get("data", {})
-        host = data.get("REDIS_IP")
-        port = data.get("REDIS_PORT")
-        password = data.get("REDIS_PASSWORD")
-
-        if not host or not port:
+        if not response.host or not response.port:
             self.logger.warning("Redis details missing REDIS_IP or REDIS_PORT")
             return None
 
-        try:
-            params = {
-                "host": host,
-                "port": int(port),
-                "password": password or None,
-                "username": None,
-                "db": 0,
-                "connection_timeout": 120,
-                "socket_timeout": 120,
-                "ssl": False,
-            }
-        except Exception as exc:
-            self.logger.error(
-                "Invalid Redis connection config: %s",
-                exc,
-                exc_info=True,
-            )
-            return None
-
-        self._redis_connection_params = params
+        # ``port`` is already an int -- the model declares it, so the int() that used to
+        # guard a string from the wire, and the try/except around it, are both gone.
+        self._redis_connection_params = {
+            "host": response.host,
+            "port": response.port,
+            "password": response.password or None,
+            "username": None,
+            "db": 0,
+            "connection_timeout": 120,
+            "socket_timeout": 120,
+            "ssl": False,
+        }
         return self._redis_connection_params
 
-    @classmethod
-    def _discover_action_id(cls) -> str | None:
-        candidates: List[str] = []
-        try:
-            cwd = Path.cwd()
-            candidates.append(cwd.name)
-            for parent in cwd.parents:
-                candidates.append(parent.name)
-        except Exception:  # noqa: BLE001 - cwd inspection is one of several action_id sources; absence is normal
-            # Non-fatal: cwd is only one of several action_id candidate sources.
-            logging.getLogger(__name__).debug("cwd scan for action_id candidates failed", exc_info=True)
-
-        try:
-            usr_src = Path("/usr/src")
-            if usr_src.exists():
-                for child in usr_src.iterdir():
-                    if child.is_dir():
-                        candidates.append(child.name)
-        except Exception:  # noqa: BLE001 - /usr/src is absent outside the container image
-            # Non-fatal: /usr/src is absent outside the container image.
-            logging.getLogger(__name__).debug("/usr/src scan for action_id candidates failed", exc_info=True)
-
-        for candidate in candidates:
-            if candidate and len(candidate) >= 8 and cls.ACTION_ID_PATTERN.match(candidate):
-                return candidate
-        return None
-
     def _fetch_action_details_sync(self, session, action_id: str) -> Dict[str, Any] | None:
-        url = f"/v1/actions/action/{action_id}/details"
+        """The action's own details, or ``None`` if the record could not be read.
+
+        Blocking, and called through ``run_in_executor`` for that reason.
+
+        Returns the ``actionDetails`` mapping rather than the reply envelope:
+        the client has already decided whether the call succeeded, so a caller
+        re-reading a ``success`` flag would judge the same thing twice. An empty
+        mapping is a record that carried no details, and stays distinguishable
+        from ``None``.
+        """
         try:
-            return session.rpc.get(url)
-        except Exception as exc:
+            record = AnalyticsClient(session=session).actions.get_action_details(action_id)
+        except CallFailure as exc:
             self.logger.error(
                 "Failed to fetch action details for action_id=%s: %s",
                 action_id,
@@ -1188,6 +1140,7 @@ class RedisFaceMatcher:
                 exc_info=True,
             )
             return None
+        return record.action_details
 
 
 ## Removed FaceTracker fallback (using AdvancedTracker only)
@@ -1203,7 +1156,7 @@ class TemporalIdentityManager:
 
     def __init__(
         self,
-        face_client: FacialRecognitionClient,
+        face_client: FRClient,
         embedding_manager=None,
         redis_matcher: RedisFaceMatcher | None = None,
         recognition_threshold: float = 0.15,
@@ -1214,6 +1167,8 @@ class TemporalIdentityManager:
         sticky_id: bool = False,
         high_confidence_thresh: float = 0.0,
         sticky_min_votes: int = 3,
+        max_tracks: int = bounded_state.FACE_TRACK_MAX,
+        track_ttl_s: float = bounded_state.FACE_TRACK_TTL_S,
     ) -> None:
         self.logger = logging.getLogger(__name__)
         self.face_client = face_client
@@ -1239,6 +1194,8 @@ class TemporalIdentityManager:
         # still cutting false unknowns by 177.
         self.sticky_min_votes = max(1, int(sticky_min_votes))
         self.tracks: Dict[Any, Dict[str, object]] = {}
+        # Tracks idle for track_ttl_s, or beyond max_tracks (least recent first), are dropped.
+        self._track_index = bounded_state.IdleEvictionIndex(max_tracks, track_ttl_s)
         self.emb_run = False
 
     def _switch_score_bar(self) -> float:
@@ -1271,6 +1228,7 @@ class TemporalIdentityManager:
         return votes >= self.sticky_min_votes
 
     def _ensure_track(self, track_id: Any) -> None:
+        bounded_state.touch_and_prune(self._track_index, track_id, self.tracks)
         if track_id not in self.tracks:
             self.tracks[track_id] = {
                 "stable_staff_id": None,
@@ -1794,8 +1752,8 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
         self._unknown_track_ids = set()
         self._tracking_lock = threading.Lock()
 
-        # Person tracking: {person_id: [{"camera_id": str, "timestamp": str}, ...]}
-        self.person_tracking: Dict[str, List[Dict[str, str]]] = {}
+        # Person tracking: {person_id: deque([{"camera_id": str, "timestamp": str}, ...])}, bounded
+        self.person_tracking: Dict[str, Any] = {}
 
         self.face_client = None
 
@@ -2221,7 +2179,6 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
         # Use matched camera_info (if found) to set camera_name/location_id
         if matched_ci:
             camera_name = _dict_get_str(matched_ci, "camera_name", "cameraName", "name")
-            location_id = _dict_get_str(matched_ci, "location", "location_id", "locationId")
 
         if not camera_name:
             camera_name = (
@@ -2237,19 +2194,15 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                     if camera_name:
                         break
 
-        if not location_id:
-            location_id = (
-                _dict_get_str(camera_info_root, "location", "location_id", "locationId")
-                or _dict_get_str(camera_info_input_settings, "location", "location_id", "locationId")
-                or _dict_get_str(camera_info_input_stream, "location", "location_id", "locationId")
-                or _dict_get_str(stream_info, "location_id", "location", "locationId")
-                or _dict_get_str(input_settings, "location_id", "location", "locationId")
-            )
-            if not location_id:
-                for ci in camera_info_input_streams:
-                    location_id = _dict_get_str(ci, "location", "location_id", "locationId")
-                    if location_id:
-                        break
+        location_id, location_name = identity.resolve_location(
+            matched_ci,
+            camera_info_root,
+            camera_info_input_settings,
+            camera_info_input_stream,
+            stream_info,
+            input_settings,
+            *camera_info_input_streams,
+        )
 
         self.logger.debug(
             "Extracted camera info - camera_name: '%s', camera_id: '%s', location_id: '%s'",
@@ -2262,7 +2215,13 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
             "camera_name": camera_name,
             "camera_id": camera_id,
             "location_id": location_id,
+            "location_name": location_name,
         }
+
+    async def _location_name_for(self, camera_info: Dict[str, Any]) -> str:
+        """The stream's site name (resolved by the post-processor), else the API's for its id."""
+        name = camera_info.get("location_name", "")
+        return name or await self._fetch_location_name(camera_info.get("location_id", ""))
 
     async def _fetch_location_name(self, location_id: str) -> str:
         """
@@ -2279,6 +2238,12 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
 
         if not location_id:
             self.logger.debug(f"[LOCATION] No location_id provided, using default: '{default_location}'")
+            return default_location
+
+        # Only a real site id is worth the round trip: a name or the all-zero placeholder
+        # is a 400 or a known miss.
+        if not is_resolvable_location_id(location_id):
+            self.logger.debug(f"[LOCATION] '{location_id}' is not a location id, using default: '{default_location}'")
             return default_location
 
         # Check cache first
@@ -2299,43 +2264,34 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
             return default_location
 
         try:
-            endpoint = f"/v1/inference/get_location/{location_id}"
-            self.logger.info(f"[LOCATION] Fetching location name from API: {endpoint}")
-
-            response = self.face_client.session.rpc.get(endpoint)
-
-            if response and isinstance(response, dict):
-                success = response.get("success", False)
-                if success:
-                    data = response.get("data", {})
-                    location_name = data.get("locationName", default_location)
-                    self.logger.info(
-                        f"[LOCATION] ✓ Fetched location name: '{location_name}' for location_id: '{location_id}'"
-                    )
-
-                    # Cache the result
-                    _location_name_cache.store(location_id, location_name)
-                    return location_name
-                else:
-                    self.logger.warning(
-                        f"[LOCATION] API returned success=false for location_id '{location_id}': "
-                        f"{response.get('message', 'Unknown error')}"
-                    )
-            else:
-                self.logger.warning(f"[LOCATION] Invalid response format from API: {response}")
-
-        except Exception as e:
-            self.logger.error(
-                f"[LOCATION] Error fetching location name for '{location_id}': {e}",
-                exc_info=True,
+            self.logger.info(f"[LOCATION] Fetching location name for location_id: {location_id}")
+            site = (
+                AnalyticsClient(session=self.face_client.session)
+                .inference.fetch_location(location_id)
             )
+            location_name = site.location_name if site else ""
+
+            if location_name:
+                self.logger.info(
+                    f"[LOCATION] ✓ Fetched location name: '{location_name}' "
+                    f"for location_id: '{location_id}'"
+                )
+                _location_name_cache.store(location_id, location_name)
+                return location_name
+
+            self.logger.warning(f"[LOCATION] No location name for location_id '{location_id}'")
+
+        except CallFailure as exc:
+            # An ERROR, because the endpoint failed; no traceback, because the failure was
+            # already filed with its stack where it happened. The default below is the fallback.
+            self.logger.error(f"[LOCATION] Error fetching location name for '{location_id}': {exc}")
 
         # Use default on any failure
         self.logger.info(f"[LOCATION] Using default location name: '{default_location}'")
         _location_name_cache.note_failure(location_id)
         return default_location
 
-    async def _get_facial_recognition_client(self, config: FaceRecognitionEmbeddingConfig) -> FacialRecognitionClient:
+    async def _get_facial_recognition_client(self, config: FaceRecognitionEmbeddingConfig) -> FRClient:
         """Get facial recognition client and update deployment"""
         # Initialize face recognition client if not already done
         if self.face_client is None:
@@ -2344,29 +2300,48 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
             )
             print(f"=============== CONFIG: {config} ===============")
             print(f"=============== CONFIG.SESSION: {config.session} ===============")
-            account_number = os.getenv("MATRICE_ACCOUNT_NUMBER", "")
-            access_key_id = os.getenv("MATRICE_ACCESS_KEY_ID", "")
-            secret_key = os.getenv("MATRICE_SECRET_ACCESS_KEY", "")
             project_id = os.getenv("MATRICE_PROJECT_ID", "")
 
             self.logger.info(f"[PROJECT_ID] Initial project_id from env: '{project_id}'")
 
-            self.session1 = Session(
-                account_number=account_number,
-                access_key=access_key_id,
-                secret_key=secret_key,
-                project_id=project_id,
-            )
-            self.face_client = FacialRecognitionClient(
-                server_id=config.facial_recognition_server_id, session=self.session1
+            # The process session, not a new one: this container has one set of credentials,
+            # so the FR client, the location lookup and the Redis matcher share one session.
+            self.session1 = bootstrap.get_session("the FR use case")
+            # public_ip decides co-location: when the sidecar's record names this very
+            # host, the address collapses to loopback instead of hairpinning out to our
+            # own public address and back. Resolved here because the client package
+            # makes no outbound request of its own; the lookup is shared and cached, and
+            # returns "localhost" on failure, which simply misses the comparison.
+            # project_id is passed rather than left to the client: the client resolves from
+            # the launch action record and then the server record, and neither is the
+            # session or $MATRICE_PROJECT_ID. The client package documents that the session
+            # is not one of its sources and that a caller holding one reads its own first,
+            # so the ordering -- session, then environment, then the client's two -- is
+            # assembled here, which is the only place that has all four.
+            self.face_client = FRClient(
+                config.facial_recognition_server_id,
+                session=self.session1,
+                public_ip=resolve_public_ip_once(self.logger),
+                project_id=getattr(self.session1, "project_id", "") or project_id,
             )
             self.logger.info("Face recognition client initialized")
 
-            # After FacialRecognitionClient initialization, it may have fetched project_id from action details
-            # and updated MATRICE_PROJECT_ID env var. Update session1 with the correct project_id.
+            # The client resolves its project id from the facial-recognition server record
+            # the first time it is asked. Update session1 with whatever it settled on.
             updated_project_id = self.face_client.project_id or os.getenv("MATRICE_PROJECT_ID", "")
-            if updated_project_id and updated_project_id != project_id:
-                self.logger.info(f"[PROJECT_ID] Project ID updated by FacialRecognitionClient: '{updated_project_id}'")
+            if updated_project_id:
+                # Published here rather than by the client. Five sites outside this file
+                # read $MATRICE_PROJECT_ID -- business metrics, incidents and the plate
+                # logger among them -- and the client package documents that it never
+                # sets it: the variable is a convention between the components sharing
+                # this container, not a property of the platform. Something on this side
+                # has to publish it, and this is the one place that resolves it.
+                os.environ["MATRICE_PROJECT_ID"] = updated_project_id
+            # Compared with the session's own project, not the environment's: the session is
+            # the process's, so a second camera's use case finds the project already applied
+            # and does not rebuild the shared RPC while frames are flowing.
+            if updated_project_id and updated_project_id != (getattr(self.session1, "project_id", None) or ""):
+                self.logger.info(f"[PROJECT_ID] Project ID updated by the client: '{updated_project_id}'")
                 try:
                     self.session1.update(updated_project_id)
                     self.logger.info(f"[PROJECT_ID] Updated session1 with project_id: '{updated_project_id}'")
@@ -2389,13 +2364,8 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
 
                     if app_deployment_id:
                         self.logger.info(f"Updating deployment action with app_deployment_id: {app_deployment_id}")
-                        response = await self.face_client.update_deployment_action(app_deployment_id)
-                        if response:
-                            self.logger.info(f"Successfully updated deployment action {app_deployment_id}")
-                        else:
-                            self.logger.warning(
-                                f"Failed to update deployment: {response.get('error', 'Unknown error')}"
-                            )
+                        await self.face_client.update_deployment(app_deployment_id)
+                        self.logger.info(f"Successfully updated deployment action {app_deployment_id}")
                     else:
                         self.logger.warning("Could not resolve app_deployment_id, skipping deployment action update")
 
@@ -2558,7 +2528,6 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
         camera_info_extracted = self._extract_camera_info_from_stream(stream_info)
         camera_name = camera_info_extracted.get("camera_name", "")
         camera_id = camera_info_extracted.get("camera_id", "")
-        location_id = camera_info_extracted.get("location_id", "")
         application_id = self.extract_deployment_ids(stream_info).get("application_id", "")
         # Hand the id to the Redis matcher before any matching runs this frame. The match
         # path (_compute_best_identity -> match_embedding) does not carry stream_info, so
@@ -2569,8 +2538,8 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
         if _matcher is not None:
             _matcher.set_application_id(application_id)
 
-        # Fetch actual location name from API
-        location_name = await self._fetch_location_name(location_id)
+        # The stream's own site name first; the API only for an id that came without one
+        location_name = await self._location_name_for(camera_info_extracted)
         self.logger.debug(
             f"Using location_name: '{location_name}', camera_name: '{camera_name}', camera_id: '{camera_id}'"
         )
@@ -2683,7 +2652,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                 "business_analytics": business_analytics,
                 "alerts": alerts,
                 "human_text": summary,
-                "person_tracking": self.get_person_tracking_summary(),
+                "person_tracking": self.get_person_tracking_summary(recognized_persons),
             }
         }
 
@@ -2863,6 +2832,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
             frame_dims = (int(current_frame.shape[1]), int(current_frame.shape[0]))
 
         final_detections = []
+        bounded_state.begin_frame()  # person_tracking reports only this frame's sightings
         # Process detections sequentially to preserve order
         for detection in detections:
             # Process each detection sequentially with await to preserve order
@@ -2882,9 +2852,6 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                 application_id=application_id,
                 frame_dims=frame_dims,
             )
-            # print("------------------WHOLE FACE RECOG PROCESSING DETECTION----------------------------")
-            # print("LATENCY:",(time.time() - st1)*1000,"| Throughput fps:",(1.0 / (time.time() - st1)) if (time.time() - st1) > 0 else None)
-            # print("------------------WHOLE FACE RECOG PROCESSING DETECTION----------------------------")
 
             # Include both known and unknown faces in final detections (maintains original order)
             if processed_detection:
@@ -2937,9 +2904,6 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
 
         # Internal tracker-provided ID (from AdvancedTracker; ignore upstream IDs entirely)
         track_id = detection.get("track_id")
-        # print("------------------FACE RECOG EMBEDDING EXTRACTION----------------------------")
-        # print("LATENCY:",(time.time() - st2)*1000,"| Throughput fps:",(1.0 / (time.time() - st2)) if (time.time() - st2) > 0 else None)
-        # print("------------------FACE RECOG EMBEDDING EXTRACTION----------------------------")
 
         # Determine if detection is eligible for recognition (similar to compare_similarity gating)
         w_box, h_box = self._recognition_box_size(detection.get("bounding_box", {}) or {}, frame_dims)
@@ -2962,6 +2926,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                 - int(self._track_first_seen.get(track_id, 0))
                 + 1
             )
+            bounded_state.prune_track_state(self, track_id, self._track_first_seen)
         else:
             age_frames = 1
 
@@ -3096,9 +3061,6 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                 )
         except Exception as e:  # noqa: BLE001 - activity-logging failure must not drop the frame
             self.logger.error(f"Error enqueueing detection for activity logging: {e}")
-        # print("------------------PROCESS FACE LATENCY TOTAL----------------------------")
-        # print("LATENCY:",(time.time() - st2)*1000,"| Throughput fps:",(1.0 / (time.time() - st2)) if (time.time() - st2) > 0 else None)
-        # print("------------------PROCESS FACE LATENCY TOTAL----------------------------")
 
         return detection
 
@@ -3122,20 +3084,14 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
         return detection
 
     def _track_person(self, person_id: str, camera_id: str = "") -> None:
-        """Track person with camera ID and UTC timestamp"""
-        if person_id not in self.person_tracking:
-            self.person_tracking[person_id] = []
+        """Record a sighting with camera ID and UTC timestamp; history is bounded per person."""
+        timestamp = datetime.utcnow().isoformat() + "Z"
+        detection_record = {"camera_id": camera_id or "", "timestamp": timestamp}
+        bounded_state.record_sighting(self, person_id, detection_record)
 
-        # Add current detection with actual camera_id
-        detection_record = {
-            "camera_id": camera_id or "",
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-        }
-        self.person_tracking[person_id].append(detection_record)
-
-    def get_person_tracking_summary(self) -> Dict:
-        """Get summary of tracked persons with camera IDs and timestamps"""
-        return dict(self.person_tracking)
+    def get_person_tracking_summary(self, frame_counts: Dict[str, int] | None = None) -> Dict:
+        """Recent sightings per person; with frame_counts, only this frame's sightings."""
+        return bounded_state.sightings_summary(self.person_tracking, frame_counts)
 
     def get_unknown_faces_storage(self) -> Dict[str, bytes]:
         """Get stored unknown face images as bytes"""
@@ -3179,7 +3135,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                     "total_unknown": total_unknown,
                     "total_processed": total_recognized + total_unknown,
                 },
-                "person_tracking": self.get_person_tracking_summary(),
+                "person_tracking": self.get_person_tracking_summary(recognized_persons),
             }
         }
 

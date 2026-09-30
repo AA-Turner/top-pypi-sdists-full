@@ -5,7 +5,6 @@ Handles project management operations including listing, creating, updating, and
 """
 
 import argparse
-import json
 from typing import Any, Dict, List
 
 from rich.prompt import Confirm, Prompt
@@ -15,14 +14,12 @@ from src.cli.config import CLIConfig
 from src.cli.utils import guidance
 from src.cli.utils.formatters import (
     OutputFormatter,
-    ProgressReporter,
     describe_error,
     format_error,
     format_info,
     format_success,
     format_warning,
 )
-from src.cli.utils.health_table import health_table
 from src.cli.utils.presentation import make_console
 from src.domain.project import ProjectPriority, ProjectStatus
 
@@ -157,33 +154,6 @@ class ProjectCommands:
             help="Show full overview with repositories and issues",
         )
 
-        # Projects health
-        health_parser = subparsers.add_parser(
-            "health",
-            help="Is this project working — database, boards, credentials",
-            description=(
-                "One call for the database, every board registered to this "
-                "project, and how long ago each really synced. Add --probe to "
-                "contact the boards themselves."
-            ),
-        )
-        health_parser.add_argument(
-            "--project-id",
-            default=argparse.SUPPRESS,
-            dest="project_id",
-            help="Project ID or alias (resolved from cwd's .innoday/project.yml when omitted)",
-        )
-        health_parser.add_argument(
-            "--no-probe",
-            action="store_true",
-            dest="no_probe",
-            help=(
-                "Skip contacting the boards. Without this, every active board is "
-                "asked — a health check that never leaves the database cannot "
-                "answer the question."
-            ),
-        )
-
         # Projects create
         create_parser = subparsers.add_parser(
             "create",
@@ -293,8 +263,6 @@ class ProjectCommands:
             return await ProjectCommands._handle_list(args, config)
         elif command == "show":
             return await ProjectCommands._handle_show(args, config)
-        elif command == "health":
-            return await ProjectCommands._handle_health(args, config)
         elif command == "create":
             return await ProjectCommands._handle_create(args, config)
         elif command == "update":
@@ -305,7 +273,7 @@ class ProjectCommands:
             console.print(format_error("No project command specified"))
             console.print(
                 format_info(
-                    "Available: list, show, health, create, update, delete — "
+                    "Available: list, show, create, update, delete — "
                     "use 'innoday projects --help' for details"
                 )
             )
@@ -483,96 +451,6 @@ class ProjectCommands:
             return 1
         except Exception as e:
             console.print(format_error(f"Unexpected error -- {describe_error(e)}"))
-            return 1
-
-    @staticmethod
-    async def _handle_health(args: argparse.Namespace, config: CLIConfig) -> int:
-        """Print the project's composite health.
-
-        `reachable` is three-valued and rendered as such: a dash means the board
-        was never contacted (no --probe, inactive, or no credential stored), not
-        that it failed. A cross is the board actually saying no.
-        """
-        try:
-            org_alias = config.get_current_organization()
-            if not org_alias:
-                console.print(format_error("No organization selected"))
-                console.print(
-                    format_info(
-                        "Run this from a directory with .innoday/project.yml, "
-                        "or pass --organization <alias> explicitly"
-                    )
-                )
-                return 1
-
-            org_id = config.get_organization_id(org_alias) or org_alias
-            project_id = (
-                getattr(args, "project_id", None) or config.get_current_project_id()
-            )
-            if not project_id:
-                console.print(format_error("No project specified"))
-                console.print(
-                    format_info(
-                        "Pass --project-id, or run this command from inside "
-                        "a project directory (one with .innoday/project.yml)"
-                    )
-                )
-                return 1
-
-            api_client = InnoDayAPIClient(config)
-            probe = not getattr(args, "no_probe", False)
-            endpoint = f"/organizations/{org_id}/projects/{project_id}/health"
-            if not probe:
-                endpoint += "?probe=false"
-
-            with ProgressReporter(
-                "Probing boards..." if probe else "Checking project health..."
-            ):
-                response = await api_client.get(endpoint)
-
-            if response.status_code == 404:
-                console.print(format_error(f"Project '{project_id}' not found"))
-                return 1
-            if response.status_code == 403:
-                console.print(
-                    format_error("Forbidden — this needs the DEVELOPER role or above")
-                )
-                return 1
-            if response.status_code != 200:
-                console.print(
-                    format_error(
-                        f"Failed to get project health: {response.status_code}"
-                    )
-                )
-                return 1
-
-            health = response.json()
-
-            if getattr(args, "format", None) == "json":
-                print(json.dumps(health, indent=2))
-                return 0 if health.get("status") == "healthy" else 1
-
-            status = health.get("status", "unknown")
-            colour = {"healthy": "green", "degraded": "yellow"}.get(status, "red")
-            console.print(
-                f"\n[bold]Project {health.get('project_alias', project_id)}:[/bold] "
-                f"[{colour}]{status.upper()}[/{colour}]"
-            )
-
-            console.print(health_table(health))
-
-            if not (health.get("boards") or []):
-                console.print("[yellow]No boards registered for this project[/yellow]")
-            if not probe:
-                console.print(
-                    "[dim]Boards not contacted (--no-probe). Reachability is "
-                    "unknown, not healthy.[/dim]"
-                )
-
-            return 0 if status == "healthy" else 1
-
-        except Exception as e:
-            console.print(format_error(f"Failed to get project health: {e}"))
             return 1
 
     @staticmethod

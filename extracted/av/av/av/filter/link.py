@@ -1,5 +1,3 @@
-import weakref
-
 import cython
 import cython.cimports.libav as lib
 from cython.cimports.av.filter.graph import Graph
@@ -15,16 +13,7 @@ class FilterLink:
             raise RuntimeError("cannot instantiate FilterLink")
 
     @property
-    def graph(self) -> Graph:
-        if g := self._graph():
-            return g
-        else:
-            raise RuntimeError("graph is unallocated")
-
-    @property
     def input(self):
-        if self._input:
-            return self._input
         cctx: cython.pointer[lib.AVFilterContext] = self.ptr.src
         i: cython.Py_ssize_t
         for i in range(cctx.nb_outputs):
@@ -32,15 +21,11 @@ class FilterLink:
                 break
         else:  # nobreak
             raise RuntimeError("could not find link in context")
-        graph: Graph = self.graph
-        ctx = graph._context_by_ptr[cython.cast(cython.size_t, cctx)]
-        self._input = ctx.outputs[i]
-        return self._input
+        ctx = self.graph._context_by_ptr[cython.cast(cython.size_t, cctx)]
+        return ctx.outputs[i]
 
     @property
     def output(self):
-        if self._output:
-            return self._output
         cctx: cython.pointer[lib.AVFilterContext] = self.ptr.dst
         i: cython.Py_ssize_t
         for i in range(cctx.nb_inputs):
@@ -55,14 +40,13 @@ class FilterLink:
             raise RuntimeError(
                 "could not find context in graph", (cctx.name, cctx.filter.name)
             )
-        self._output = ctx.inputs[i]
-        return self._output
+        return ctx.inputs[i]
 
 
 @cython.cfunc
 def wrap_filter_link(graph: Graph, ptr: cython.pointer[lib.AVFilterLink]) -> FilterLink:
     link: FilterLink = FilterLink(_cinit_sentinel)
-    link._graph = weakref.ref(graph)
+    link.graph = graph
     link.ptr = ptr
     return link
 
@@ -88,6 +72,13 @@ class FilterPad:
     @property
     def name(self):
         return lib.avfilter_pad_get_name(self.base_ptr, self.index)
+
+    @property
+    def type(self):
+        media_type = lib.av_get_media_type_string(
+            lib.avfilter_pad_get_type(self.base_ptr, self.index)
+        )
+        return "unknown" if media_type == cython.NULL else media_type
 
 
 @cython.final
@@ -126,11 +117,11 @@ def alloc_filter_pads(
     ptr: cython.pointer[cython.const[lib.AVFilterPad]],
     is_input: cython.bint,
     context: FilterContext | None = None,
-) -> tuple:
+) -> tuple[FilterPad, ...]:
     if not ptr:
         return ()
 
-    pads: list = []
+    pads: list[FilterPad] = []
 
     # We need to be careful and check our bounds if we know what they are,
     # since the arrays on a AVFilterContext are not NULL terminated.

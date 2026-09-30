@@ -83,6 +83,16 @@ class DatasetMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.ListMaterializedAggregateTileTimelinesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.ListMaterializedAggregateTileTimelinesResponse.FromString,
         )
+        self.GetMaterializedAggregateTileFacets = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileFacets",
+            request_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetsResponse.FromString,
+        )
+        self.GetMaterializedAggregateTileFacetValues = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileFacetValues",
+            request_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesResponse.FromString,
+        )
         self.ListMaterializedAggregateTilesForTimeline = channel.unary_unary(
             "/chalk.server.v1.DatasetMetadataService/ListMaterializedAggregateTilesForTimeline",
             request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTilesForTimelineRequest.SerializeToString,
@@ -97,6 +107,16 @@ class DatasetMetadataServiceStub(object):
             "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileRowCountChart",
             request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartResponse.FromString,
+        )
+        self.GetMaterializedAggregateTileValues = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileValues",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileValuesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileValuesResponse.FromString,
+        )
+        self.GetMaterializedAggregateTileDownloadLinks = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileDownloadLinks",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileDownloadLinksRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileDownloadLinksResponse.FromString,
         )
         self.DeleteMaterializedAggregateTile = channel.unary_unary(
             "/chalk.server.v1.DatasetMetadataService/DeleteMaterializedAggregateTile",
@@ -225,6 +245,18 @@ class DatasetMetadataServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetMaterializedAggregateTileFacets(self, request, context):
+        """The TilesTimeline filter vocabulary, so the client keeps no parallel copy of it."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetMaterializedAggregateTileFacetValues(self, request, context):
+        """Facet values and counts for the TilesTimeline filter menu."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def ListMaterializedAggregateTilesForTimeline(self, request, context):
         """Full tile manifests for one timeline (one materialization_key_hash)."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -243,6 +275,23 @@ class DatasetMetadataServiceServicer(object):
         the value is the total stored row count of the newest manifest covering
         that window, i.e. the number of distinct (primary key, group, bucket)
         rows materialized for the window.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetMaterializedAggregateTileValues(self, request, context):
+        """Returns one extracted aggregate value per bucket for a primary key over a
+        bounded range. This endpoint intentionally does not accept arbitrary SQL.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetMaterializedAggregateTileDownloadLinks(self, request, context):
+        """Signed download URLs for the raw parquet files a tile manifest points at.
+        The URIs are read from the manifest's own file rows, scoped to the caller's
+        environment, so a caller cannot ask the server to sign an arbitrary object.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -368,6 +417,16 @@ def add_DatasetMetadataServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.ListMaterializedAggregateTileTimelinesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.ListMaterializedAggregateTileTimelinesResponse.SerializeToString,
         ),
+        "GetMaterializedAggregateTileFacets": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMaterializedAggregateTileFacets,
+            request_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetsResponse.SerializeToString,
+        ),
+        "GetMaterializedAggregateTileFacetValues": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMaterializedAggregateTileFacetValues,
+            request_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesResponse.SerializeToString,
+        ),
         "ListMaterializedAggregateTilesForTimeline": grpc.unary_unary_rpc_method_handler(
             servicer.ListMaterializedAggregateTilesForTimeline,
             request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTilesForTimelineRequest.FromString,
@@ -382,6 +441,16 @@ def add_DatasetMetadataServiceServicer_to_server(servicer, server):
             servicer.GetMaterializedAggregateTileRowCountChart,
             request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartResponse.SerializeToString,
+        ),
+        "GetMaterializedAggregateTileValues": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMaterializedAggregateTileValues,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileValuesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileValuesResponse.SerializeToString,
+        ),
+        "GetMaterializedAggregateTileDownloadLinks": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMaterializedAggregateTileDownloadLinks,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileDownloadLinksRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileDownloadLinksResponse.SerializeToString,
         ),
         "DeleteMaterializedAggregateTile": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteMaterializedAggregateTile,
@@ -807,6 +876,64 @@ class DatasetMetadataService(object):
         )
 
     @staticmethod
+    def GetMaterializedAggregateTileFacets(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileFacets",
+            chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetMaterializedAggregateTileFacetValues(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileFacetValues",
+            chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def ListMaterializedAggregateTilesForTimeline(
         request,
         target,
@@ -883,6 +1010,64 @@ class DatasetMetadataService(object):
             "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileRowCountChart",
             chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetMaterializedAggregateTileValues(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileValues",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileValuesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileValuesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetMaterializedAggregateTileDownloadLinks(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileDownloadLinks",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileDownloadLinksRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileDownloadLinksResponse.FromString,
             options,
             channel_credentials,
             insecure,

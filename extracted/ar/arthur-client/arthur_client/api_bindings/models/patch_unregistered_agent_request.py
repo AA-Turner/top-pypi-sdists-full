@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class PatchUnregisteredAgentRequest(BaseModel):
     """
-    Request body for partially updating an unregistered agent.
+    Request body for partially updating an unregistered agent.  The single-agent route the inventory has always called. It does not require a reason to mute: the deployed UI sends `muted_until` alone, and requiring one here broke every mute from it (UP-5089). The bulk endpoints, which the inventory moves to with a reason prompt, are where a reason is required.
     """ # noqa: E501
     muted_until: Optional[datetime] = None
     mute_reason: Optional[Annotated[str, Field(strict=True, max_length=1000)]] = None

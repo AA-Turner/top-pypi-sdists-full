@@ -6,6 +6,9 @@
         "extra_compile_args": [
             "-O3"
         ],
+        "extra_link_args": [
+            "-Wl,--strip-all"
+        ],
         "name": "querysource.types.typedefs",
         "sources": [
             "querysource/types/typedefs.pyx"

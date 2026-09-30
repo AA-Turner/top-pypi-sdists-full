@@ -28,6 +28,11 @@ class VolumeServiceStub(object):
             request_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeRequest.SerializeToString,
             response_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeResponse.FromString,
         )
+        self.GetVolumeStats = channel.unary_unary(
+            "/chalk.volume.v2.VolumeService/GetVolumeStats",
+            request_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeStatsRequest.SerializeToString,
+            response_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeStatsResponse.FromString,
+        )
         self.ListVolumes = channel.unary_unary(
             "/chalk.volume.v2.VolumeService/ListVolumes",
             request_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.ListVolumesRequest.SerializeToString,
@@ -83,6 +88,11 @@ class VolumeServiceStub(object):
             request_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.ListFilesRequest.SerializeToString,
             response_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.ListFilesResponse.FromString,
         )
+        self.ListMountFiles = channel.unary_unary(
+            "/chalk.volume.v2.VolumeService/ListMountFiles",
+            request_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.ListMountFilesRequest.SerializeToString,
+            response_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.ListMountFilesResponse.FromString,
+        )
         self.GetFile = channel.unary_unary(
             "/chalk.volume.v2.VolumeService/GetFile",
             request_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetFileRequest.SerializeToString,
@@ -103,6 +113,12 @@ class VolumeServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetVolume(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetVolumeStats(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -174,6 +190,12 @@ class VolumeServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListMountFiles(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetFile(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -192,6 +214,11 @@ def add_VolumeServiceServicer_to_server(servicer, server):
             servicer.GetVolume,
             request_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeRequest.FromString,
             response_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeResponse.SerializeToString,
+        ),
+        "GetVolumeStats": grpc.unary_unary_rpc_method_handler(
+            servicer.GetVolumeStats,
+            request_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeStatsRequest.FromString,
+            response_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeStatsResponse.SerializeToString,
         ),
         "ListVolumes": grpc.unary_unary_rpc_method_handler(
             servicer.ListVolumes,
@@ -247,6 +274,11 @@ def add_VolumeServiceServicer_to_server(servicer, server):
             servicer.ListFiles,
             request_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.ListFilesRequest.FromString,
             response_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.ListFilesResponse.SerializeToString,
+        ),
+        "ListMountFiles": grpc.unary_unary_rpc_method_handler(
+            servicer.ListMountFiles,
+            request_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.ListMountFilesRequest.FromString,
+            response_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.ListMountFilesResponse.SerializeToString,
         ),
         "GetFile": grpc.unary_unary_rpc_method_handler(
             servicer.GetFile,
@@ -313,6 +345,35 @@ class VolumeService(object):
             "/chalk.volume.v2.VolumeService/GetVolume",
             chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeRequest.SerializeToString,
             chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetVolumeStats(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.volume.v2.VolumeService/GetVolumeStats",
+            chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeStatsRequest.SerializeToString,
+            chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeStatsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -632,6 +693,35 @@ class VolumeService(object):
             "/chalk.volume.v2.VolumeService/ListFiles",
             chalk_dot_volume_dot_v2_dot_volume__pb2.ListFilesRequest.SerializeToString,
             chalk_dot_volume_dot_v2_dot_volume__pb2.ListFilesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListMountFiles(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.volume.v2.VolumeService/ListMountFiles",
+            chalk_dot_volume_dot_v2_dot_volume__pb2.ListMountFilesRequest.SerializeToString,
+            chalk_dot_volume_dot_v2_dot_volume__pb2.ListMountFilesResponse.FromString,
             options,
             channel_credentials,
             insecure,

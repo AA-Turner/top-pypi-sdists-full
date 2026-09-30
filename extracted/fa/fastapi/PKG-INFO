@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi
-Version: 0.141.1
+Version: 0.142.1
 Summary: FastAPI framework, high performance, easy to learn, fast to code, ready for production
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 License-Expression: MIT
@@ -42,7 +42,13 @@ Requires-Dist: pydantic>=2.9.0
 Requires-Dist: typing-extensions>=4.8.0
 Requires-Dist: typing-inspection>=0.4.2
 Requires-Dist: annotated-doc>=0.0.2
+Requires-Dist: opentelemetry-api>=1.44.0
+Provides-Extra: opentelemetry
+Requires-Dist: opentelemetry-sdk>=1.44.0; extra == "opentelemetry"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == "opentelemetry"
 Provides-Extra: standard
+Requires-Dist: opentelemetry-sdk>=1.44.0; extra == "standard"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == "standard"
 Requires-Dist: fastapi-cli[standard]>=0.0.32; extra == "standard"
 Requires-Dist: fastar>=0.9.0; extra == "standard"
 Requires-Dist: httpx<1.0.0,>=0.23.0; extra == "standard"
@@ -53,6 +59,8 @@ Requires-Dist: uvicorn[standard]>=0.12.0; extra == "standard"
 Requires-Dist: pydantic-settings>=2.0.0; extra == "standard"
 Requires-Dist: pydantic-extra-types>=2.0.0; extra == "standard"
 Provides-Extra: standard-no-fastapi-cloud-cli
+Requires-Dist: opentelemetry-sdk>=1.44.0; extra == "standard-no-fastapi-cloud-cli"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == "standard-no-fastapi-cloud-cli"
 Requires-Dist: fastapi-cli[standard-no-fastapi-cloud-cli]>=0.0.32; extra == "standard-no-fastapi-cloud-cli"
 Requires-Dist: httpx<1.0.0,>=0.23.0; extra == "standard-no-fastapi-cloud-cli"
 Requires-Dist: jinja2>=3.1.5; extra == "standard-no-fastapi-cloud-cli"
@@ -62,6 +70,8 @@ Requires-Dist: uvicorn[standard]>=0.12.0; extra == "standard-no-fastapi-cloud-cl
 Requires-Dist: pydantic-settings>=2.0.0; extra == "standard-no-fastapi-cloud-cli"
 Requires-Dist: pydantic-extra-types>=2.0.0; extra == "standard-no-fastapi-cloud-cli"
 Provides-Extra: all
+Requires-Dist: opentelemetry-sdk>=1.44.0; extra == "all"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == "all"
 Requires-Dist: fastapi-cli[standard]>=0.0.32; extra == "all"
 Requires-Dist: httpx<1.0.0,>=0.23.0; extra == "all"
 Requires-Dist: jinja2>=3.1.5; extra == "all"
@@ -140,7 +150,6 @@ The key features are:
 
 <a href="https://databento.com/?utm_source=fastapi&utm_medium=sponsor&utm_content=display" target="_blank" title="Pay as you go for market data"><img src="https://fastapi.tiangolo.com/img/sponsors/databento.svg"></a>
 <a href="https://www.svix.com/" target="_blank" title="Svix - Webhooks as a service"><img src="https://fastapi.tiangolo.com/img/sponsors/svix.svg"></a>
-<a href="https://www.permit.io/blog/implement-authorization-in-fastapi?utm_source=github&utm_medium=referral&utm_campaign=fastapi" target="_blank" title="Fine-Grained Authorization for FastAPI"><img src="https://fastapi.tiangolo.com/img/sponsors/permit.png"></a>
 <a href="https://dribia.com/en/" target="_blank" title="Dribia - Data Science within your reach"><img src="https://fastapi.tiangolo.com/img/sponsors/dribia.png"></a>
 <a href="https://www.bairesdev.com/" target="_blank" title="BairesDev | Nearshore Software Development & Staff Augmentation Company"><img src="https://fastapi.tiangolo.com/img/sponsors/bairesdev.svg"></a>
 <a href="https://tutorcruncher.com/?utm_source=fastapi" target="_blank" title="TutorCruncher"><img src="https://fastapi.tiangolo.com/img/sponsors/tutorcruncher.png"></a>
@@ -180,12 +189,6 @@ The key features are:
 ---
 
 </div>
-
-## FastAPI Conf
-
-[**FastAPI Conf '26**](https://fastapiconf.com) is happening on **October 28, 2026** in **Amsterdam, NL**. All about FastAPI, right from the source. 🎤
-
-<a class="fastapi-feature-banner" href="https://fastapiconf.com"><img src="https://fastapi.tiangolo.com/img/fastapi-conf.jpeg" alt="FastAPI Conf '26 - October 28, 2026 - Amsterdam, NL"></a>
 
 ## FastAPI mini documentary
 

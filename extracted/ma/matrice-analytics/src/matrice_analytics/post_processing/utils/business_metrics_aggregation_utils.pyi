@@ -1,6 +1,9 @@
 """Auto-generated stub for module: business_metrics_aggregation_utils."""
 from typing import Any, Dict, List, Optional, Set
 
+from ...clients import identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.response import CallFailure
 from .business_metrics_manager_utils import BusinessMetricsManagerFactory
 from .location_name_cache import LocationNameCache
 from .post_processing_config_client import is_null_object_id, is_resolvable_location_id
@@ -10,6 +13,7 @@ from .post_processing_config_client import is_resolvable_location_id, normalize_
 AGGREGATION_TYPES: List[Any]
 DEFAULT_AGGREGATION_INTERVAL: int
 DEFAULT_METRICS_CONFIG: Dict[Any, Any]
+LOCATION_LOOKUP_TIMEOUT_S: int
 
 # Classes
 class BUSINESS_METRICS_MANAGER:

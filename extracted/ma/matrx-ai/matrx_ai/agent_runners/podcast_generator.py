@@ -2761,7 +2761,7 @@ AssetCallback = Callable[[str, int, str, "StageResult"], Awaitable[None]]
 # Persisting public up front removes the whole class: there is never a
 # non-durable URL to emit, checkpoint, persist, or heal. Audio is already born
 # public via ``BORN_PUBLIC_FEATURES``; the composed official video passes
-# ``visibility="public"`` explicitly.
+# ``published_to_web=True`` explicitly.
 # ---------------------------------------------------------------------------
 
 
@@ -3311,7 +3311,7 @@ async def _compose_official_video(
         envelope = await save_media_envelope_async(
             mp4_bytes,
             "video/mp4",
-            visibility="public",
+            published_to_web=True,
             prompt=(title or "podcast official video"),
             feature="ai_video",
             extra_metadata={"source": "podcast_official_video"},

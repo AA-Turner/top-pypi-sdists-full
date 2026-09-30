@@ -20,6 +20,7 @@ from chalk.workflows._temporal.runtime import (
     connect_workflow_orchestrator,
     create_worker,
     start_workflow,
+    wait_for_result,
 )
 
 __all__ = (
@@ -28,4 +29,5 @@ __all__ = (
     "connect_workflow_orchestrator",
     "create_worker",
     "start_workflow",
+    "wait_for_result",
 )

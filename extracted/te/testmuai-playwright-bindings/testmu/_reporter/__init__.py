@@ -36,6 +36,7 @@ class Reporter(Protocol):
         ok: bool,
         error: Optional[Exception] = None,
         instruction_id: Optional[str] = None,
+        on_failure: Optional[str] = None,
     ) -> None: ...
     async def warn_step(self, description: str, error: BaseException) -> None: ...
     async def send_element_bounds(

@@ -30,10 +30,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class OrganizationSummary(BaseModel):
     """
     OrganizationSummary
-    """ # noqa: E501
+    """  # noqa: E501
+
     organization_id: Optional[StrictStr] = None
     instances: Optional[InstancesSummary] = None
     apps: Optional[AppsSummary] = None
@@ -42,7 +44,16 @@ class OrganizationSummary(BaseModel):
     secrets: Optional[SecretsSummary] = None
     neon_postgres: Optional[NeonPostgresSummary] = None
     members: Optional[MembersSummary] = None
-    __properties: ClassVar[List[str]] = ["organization_id", "instances", "apps", "services", "domains", "secrets", "neon_postgres", "members"]
+    __properties: ClassVar[List[str]] = [
+        "organization_id",
+        "instances",
+        "apps",
+        "services",
+        "domains",
+        "secrets",
+        "neon_postgres",
+        "members",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -50,7 +61,6 @@ class OrganizationSummary(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -75,8 +85,7 @@ class OrganizationSummary(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -85,29 +94,32 @@ class OrganizationSummary(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of instances
         if self.instances:
-            _dict['instances'] = self.instances.to_dict()
+            _dict["instances"] = self.instances.to_dict()
         # override the default output from pydantic by calling `to_dict()` of apps
         if self.apps:
-            _dict['apps'] = self.apps.to_dict()
+            _dict["apps"] = self.apps.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each value in services (dict)
         _field_dict = {}
         if self.services:
             for _key_services in self.services:
-                if self.services[_key_services]:
-                    _field_dict[_key_services] = self.services[_key_services].to_dict()
-            _dict['services'] = _field_dict
+                _field_dict[_key_services] = (
+                    self.services[_key_services].to_dict()
+                    if self.services[_key_services] is not None
+                    else None
+                )
+            _dict["services"] = _field_dict
         # override the default output from pydantic by calling `to_dict()` of domains
         if self.domains:
-            _dict['domains'] = self.domains.to_dict()
+            _dict["domains"] = self.domains.to_dict()
         # override the default output from pydantic by calling `to_dict()` of secrets
         if self.secrets:
-            _dict['secrets'] = self.secrets.to_dict()
+            _dict["secrets"] = self.secrets.to_dict()
         # override the default output from pydantic by calling `to_dict()` of neon_postgres
         if self.neon_postgres:
-            _dict['neon_postgres'] = self.neon_postgres.to_dict()
+            _dict["neon_postgres"] = self.neon_postgres.to_dict()
         # override the default output from pydantic by calling `to_dict()` of members
         if self.members:
-            _dict['members'] = self.members.to_dict()
+            _dict["members"] = self.members.to_dict()
         return _dict
 
     @classmethod
@@ -119,21 +131,33 @@ class OrganizationSummary(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "organization_id": obj.get("organization_id"),
-            "instances": InstancesSummary.from_dict(obj["instances"]) if obj.get("instances") is not None else None,
-            "apps": AppsSummary.from_dict(obj["apps"]) if obj.get("apps") is not None else None,
-            "services": dict(
-                (_k, ServiceSummary.from_dict(_v))
-                for _k, _v in obj["services"].items()
-            )
-            if obj.get("services") is not None
-            else None,
-            "domains": DomainsSummary.from_dict(obj["domains"]) if obj.get("domains") is not None else None,
-            "secrets": SecretsSummary.from_dict(obj["secrets"]) if obj.get("secrets") is not None else None,
-            "neon_postgres": NeonPostgresSummary.from_dict(obj["neon_postgres"]) if obj.get("neon_postgres") is not None else None,
-            "members": MembersSummary.from_dict(obj["members"]) if obj.get("members") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "organization_id": obj.get("organization_id"),
+                "instances": InstancesSummary.from_dict(obj["instances"])
+                if obj.get("instances") is not None
+                else None,
+                "apps": AppsSummary.from_dict(obj["apps"])
+                if obj.get("apps") is not None
+                else None,
+                "services": dict(
+                    (_k, ServiceSummary.from_dict(_v))
+                    for _k, _v in obj["services"].items()
+                )
+                if obj.get("services") is not None
+                else None,
+                "domains": DomainsSummary.from_dict(obj["domains"])
+                if obj.get("domains") is not None
+                else None,
+                "secrets": SecretsSummary.from_dict(obj["secrets"])
+                if obj.get("secrets") is not None
+                else None,
+                "neon_postgres": NeonPostgresSummary.from_dict(obj["neon_postgres"])
+                if obj.get("neon_postgres") is not None
+                else None,
+                "members": MembersSummary.from_dict(obj["members"])
+                if obj.get("members") is not None
+                else None,
+            }
+        )
         return _obj
-
-

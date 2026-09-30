@@ -38,9 +38,7 @@ class ModelDeploymentServiceStub:
         CallModelRequest,
         CallModelResponse,
     ]
-    """CallModel synchronously invokes a model deployed to a scaling group, forwarding the request to the
-    container's RemoteCallService over gRPC.
-    """
+    """CallModel synchronously invokes a model scaling group or asynchronously enqueues a model call."""
 
 class ModelDeploymentServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -63,8 +61,6 @@ class ModelDeploymentServiceServicer(metaclass=ABCMeta):
         request: CallModelRequest,
         context: ServicerContext,
     ) -> CallModelResponse:
-        """CallModel synchronously invokes a model deployed to a scaling group, forwarding the request to the
-        container's RemoteCallService over gRPC.
-        """
+        """CallModel synchronously invokes a model scaling group or asynchronously enqueues a model call."""
 
 def add_ModelDeploymentServiceServicer_to_server(servicer: ModelDeploymentServiceServicer, server: Server) -> None: ...

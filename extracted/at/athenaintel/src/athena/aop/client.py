@@ -74,6 +74,7 @@ class AopClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.aop.get_batch_status(
@@ -160,6 +161,7 @@ class AopClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.aop.create(
@@ -213,6 +215,7 @@ class AopClient:
         from athena import AopExecuteRequestIn, Athena, RunBudget
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.aop.execute(
@@ -259,6 +262,7 @@ class AopClient:
         from athena import AopExecuteRequestIn, Athena, RunBudget
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.aop.execute_async(
@@ -320,6 +324,7 @@ class AopClient:
         from athena import AopBatchRunIn, Athena, RunBudget
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.aop.execute_batch(
@@ -374,6 +379,7 @@ class AopClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.aop.get_config(
@@ -444,6 +450,7 @@ class AopClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.aop.update_config(
@@ -526,6 +533,7 @@ class AsyncAopClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -620,6 +628,7 @@ class AsyncAopClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -681,6 +690,7 @@ class AsyncAopClient:
         from athena import AopExecuteRequestIn, AsyncAthena, RunBudget
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -735,6 +745,7 @@ class AsyncAopClient:
         from athena import AopExecuteRequestIn, AsyncAthena, RunBudget
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -804,6 +815,7 @@ class AsyncAopClient:
         from athena import AopBatchRunIn, AsyncAthena, RunBudget
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -866,6 +878,7 @@ class AsyncAopClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -944,6 +957,7 @@ class AsyncAopClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 

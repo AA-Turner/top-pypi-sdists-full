@@ -1,6 +1,7 @@
 from chalk._gen.chalk.aggregate.v1 import backfill_pb2 as _backfill_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
+from chalk._gen.chalk.common.v1 import resources_pb2 as _resources_pb2
 from chalk._gen.chalk.server.v1 import batch_pb2 as _batch_pb2
 from chalk._gen.chalk.server.v1 import scheduled_query_run_pb2 as _scheduled_query_run_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2

@@ -18,6 +18,8 @@
 /* specific prior written permission of the institution or contributor.       */
 /******************************************************************************/
 
+#include "XrdVersion.hh"
+
 #include "XrdClS3Factory.hh"
 #include "XrdClS3File.hh"
 #include "XrdClS3Filesystem.hh"
@@ -851,7 +853,7 @@ Factory::TrimView(const std::string_view input_view) {
 
 extern "C"
 {
-    void *XrdClGetPlugIn(const void*)
+    XrdEXPORT void *XrdClGetPlugIn(const void*)
     {
         return static_cast<void*>(new Factory());
     }

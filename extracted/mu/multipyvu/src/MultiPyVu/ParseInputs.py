@@ -99,7 +99,7 @@ def parse_input(input_args_list: List[str]) -> ParsedInputs:
         -ip=<host address> to specify the host IP
             address (default = '0.0.0.0' which accepts all incoming
             connections)
-        -p(ort)=.port number. to specify the port (default is 5000)
+        -p(ort)=.port number. to specify the port (default is 27183)
         -v(erbose) to turn on the verbose text when the server
             sends/receives info
         -get_ip
@@ -227,33 +227,33 @@ def help_text(additional_help_info='') -> str:
     help_text = f"""
 INPUT OPTIONS:
 To display this help text:
-    $ python {program_name} -h
+    > python {program_name} -h
 To run the scaffolding (python is simulating MultiVu)
 and test the server (must also specify the MultiVu flavor):
-    $ python {program_name} -s
+    > python {program_name} -s
 To specify the host IP address (default = '0.0.0.0'):
-    $ python {program_name} -ip=<host IP address>
-To specify the port (default = 5000):
-    $ python {program_name} -p=<port number>
+    > python {program_name} -ip=<host IP address>
+To specify the port (default = 27183):
+    > python {program_name} -p=<port number>
     Note that non-privileged ports are 1023 < 65535
 To run in verbose mode and have the server print to the
 command line all of the data it sends/receives:
-    $ python {program_name} -v
+    > python {program_name} -v
 
 There are also a few commands that can be run from the module
 level, python -m:
 To run the gui:
-    $ python -m MultiPyVu
+    > python -m MultiPyVu
 For help:
-    $ python -m MultiPyVu -h
+    > python -m MultiPyVu -h
 To get the computer's IP address:
-    $ python -m MultiPyVu -get_ip
+    > python -m MultiPyVu -get_ip
 To see if the server is running:
-    $ python -m MultiPyVu -running
+    > python -m MultiPyVu -running
 To get the server status:
-    $ python -m MultiPyVu -status
+    > python -m MultiPyVu -status
 To force quit the server:
-    $ python -m MultiPyVu -quit
+    > python -m MultiPyVu -quit
 Note that the IP address and port can be specified using the -ip=
 and -p= commands as described above.
 
@@ -266,7 +266,7 @@ options:"""
     for i in InstrumentList.__members__.values():
         if i.name != InstrumentList.na.name:
             instr_name = i.name.capitalize()
-            help_text += f'\n\t$ python {program_name} {instr_name}'
+            help_text += f'\n\t> python {program_name} {instr_name}'
 
     help_text += """
 

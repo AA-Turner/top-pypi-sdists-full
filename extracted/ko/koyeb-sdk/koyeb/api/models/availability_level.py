@@ -26,14 +26,12 @@ class AvailabilityLevel(str, Enum):
     """
     allowed enum values
     """
-    UNKNOWN = 'UNKNOWN'
-    LOW = 'LOW'
-    MEDIUM = 'MEDIUM'
-    HIGH = 'HIGH'
+    UNKNOWN = "UNKNOWN"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of AvailabilityLevel from a JSON string"""
         return cls(json.loads(json_str))
-
-

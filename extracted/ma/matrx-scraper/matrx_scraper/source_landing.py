@@ -183,7 +183,6 @@ def page_landing(
     origin_client: str,
     capture_method: str | None = None,
     keep: bool = False,
-    visibility: str = "internal",
     attach_to: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """The door's ``SourceLanding`` for one successful server parse, or ``None`` when the parse
@@ -224,7 +223,8 @@ def page_landing(
         "attach_to": list(attach_to or []),
         "content_already_clean": False,
         "keep": bool(keep),
-        "visibility": visibility,
+        # Every Source is the organization's: never published to the web (written explicitly).
+        "published_to_web": False,
         "organization_id": organization_id,
     }
 
@@ -241,7 +241,6 @@ async def land_page_result(
     origin_client: str,
     capture_method: str | None = None,
     keep: bool = False,
-    visibility: str = "internal",
     attach_to: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Land one scrape result at a route's result boundary.
@@ -282,7 +281,6 @@ async def land_page_result(
         origin_client=origin_client,
         capture_method=capture_method,
         keep=keep,
-        visibility=visibility,
         attach_to=attach_to,
     )
     if landing is None:
@@ -397,7 +395,7 @@ def crawl_snapshot_landing(
         ),
         "content_already_clean": False,
         "keep": False,
-        "visibility": "internal",
+        "published_to_web": False,
         "organization_id": organization_id,
     }
 

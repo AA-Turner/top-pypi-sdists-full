@@ -62,6 +62,42 @@ class DeployBranchResponse(_message.Message):
         deployment_warnings: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
+class DeployBranchFromVolumeRequest(_message.Message):
+    __slots__ = ("branch_name", "volume_name", "reset_branch", "is_hot_deploy")
+    BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_NAME_FIELD_NUMBER: _ClassVar[int]
+    RESET_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    IS_HOT_DEPLOY_FIELD_NUMBER: _ClassVar[int]
+    branch_name: str
+    volume_name: str
+    reset_branch: bool
+    is_hot_deploy: bool
+    def __init__(
+        self,
+        branch_name: _Optional[str] = ...,
+        volume_name: _Optional[str] = ...,
+        reset_branch: bool = ...,
+        is_hot_deploy: bool = ...,
+    ) -> None: ...
+
+class DeployBranchFromVolumeResponse(_message.Message):
+    __slots__ = ("deployment", "volume_version", "files", "bytes")
+    DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_VERSION_FIELD_NUMBER: _ClassVar[int]
+    FILES_FIELD_NUMBER: _ClassVar[int]
+    BYTES_FIELD_NUMBER: _ClassVar[int]
+    deployment: DeployBranchResponse
+    volume_version: int
+    files: int
+    bytes: int
+    def __init__(
+        self,
+        deployment: _Optional[_Union[DeployBranchResponse, _Mapping]] = ...,
+        volume_version: _Optional[int] = ...,
+        files: _Optional[int] = ...,
+        bytes: _Optional[int] = ...,
+    ) -> None: ...
+
 class CreateBranchFromSourceDeploymentRequest(_message.Message):
     __slots__ = (
         "branch_name",

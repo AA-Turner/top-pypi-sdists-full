@@ -180,12 +180,12 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
 
         # The business-metrics-manager (5-minute Redis/Kafka aggregate publish)
         # integration was removed here (INC pending). It never initialized in
-        # this deployment shape: BusinessMetricsManagerFactory._discover_action_id
-        # only scans cwd / /usr/src for a directory NAMED like an action id, but
-        # this container's action id only ever arrives via the ACTION_RECORD_ID
-        # env var -- so the manager was permanently None and every frame paid the
-        # init attempt and logging for nothing. The per-frame business_metrics
-        # values still reach consumers unconditionally via
+        # this deployment shape: the factory could not discover this container's
+        # action id, so the manager was permanently None and every frame paid the
+        # init attempt and logging for nothing. The factory has since moved to the
+        # shared lookup, which reads $MATRICE_ACTION_ID, $ACTION_ID and sys.argv
+        # before the filesystem, so re-measure before bringing this back. The
+        # per-frame business_metrics values still reach consumers via
         # business_analytics.business_metrics in agg_summary (_calculate_analytics);
         # this only removed the separate, never-working 5-min-aggregate publish
         # path. customer_service.py / license_plate_monitoring.py keep their own

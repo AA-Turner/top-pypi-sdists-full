@@ -50,6 +50,21 @@ class DashboardServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardResponse.FromString,
         )
+        self.GetContextualDashboard = channel.unary_unary(
+            "/chalk.server.v1.DashboardService/GetContextualDashboard",
+            request_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.GetContextualDashboardRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.GetContextualDashboardResponse.FromString,
+        )
+        self.UpsertContextualDashboard = channel.unary_unary(
+            "/chalk.server.v1.DashboardService/UpsertContextualDashboard",
+            request_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpsertContextualDashboardRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpsertContextualDashboardResponse.FromString,
+        )
+        self.ResetContextualDashboard = channel.unary_unary(
+            "/chalk.server.v1.DashboardService/ResetContextualDashboard",
+            request_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ResetContextualDashboardRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ResetContextualDashboardResponse.FromString,
+        )
 
 
 class DashboardServiceServicer(object):
@@ -97,6 +112,24 @@ class DashboardServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetContextualDashboard(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpsertContextualDashboard(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ResetContextualDashboard(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_DashboardServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -134,6 +167,21 @@ def add_DashboardServiceServicer_to_server(servicer, server):
             servicer.ImportDashboard,
             request_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardResponse.SerializeToString,
+        ),
+        "GetContextualDashboard": grpc.unary_unary_rpc_method_handler(
+            servicer.GetContextualDashboard,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.GetContextualDashboardRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.GetContextualDashboardResponse.SerializeToString,
+        ),
+        "UpsertContextualDashboard": grpc.unary_unary_rpc_method_handler(
+            servicer.UpsertContextualDashboard,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpsertContextualDashboardRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpsertContextualDashboardResponse.SerializeToString,
+        ),
+        "ResetContextualDashboard": grpc.unary_unary_rpc_method_handler(
+            servicer.ResetContextualDashboard,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ResetContextualDashboardRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ResetContextualDashboardResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.DashboardService", rpc_method_handlers)
@@ -337,6 +385,93 @@ class DashboardService(object):
             "/chalk.server.v1.DashboardService/ImportDashboard",
             chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetContextualDashboard(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DashboardService/GetContextualDashboard",
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.GetContextualDashboardRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.GetContextualDashboardResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpsertContextualDashboard(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DashboardService/UpsertContextualDashboard",
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpsertContextualDashboardRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpsertContextualDashboardResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ResetContextualDashboard(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DashboardService/ResetContextualDashboard",
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ResetContextualDashboardRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ResetContextualDashboardResponse.FromString,
             options,
             channel_credentials,
             insecure,

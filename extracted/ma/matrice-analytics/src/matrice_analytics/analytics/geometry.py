@@ -7,11 +7,12 @@ by VolumeProcessor for entry/exit counting.
 Also provides zone-assignment utilities for partitioning detections into
 named polygon zones (used by per-zone volume analytics).
 """
+
 from __future__ import annotations
 
 import copy
 import logging
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Union
 
 import cv2
 import numpy as np
@@ -22,7 +23,6 @@ from ..post_processing.utils.counting_utils import (
     parse_line_config,
     polygon_offset_inward,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -129,9 +129,7 @@ def create_counter_from_zone_config(
     if method == "abline":
         line_values = list(lines_px.values()) if isinstance(lines_px, dict) else []
         if len(line_values) < 2:
-            raise ValueError(
-                f"abline method requires at least 2 lines, got {len(line_values)}"
-            )
+            raise ValueError(f"abline method requires at least 2 lines, got {len(line_values)}")
         line_a = parse_line_config(line_values[0])
         line_b = parse_line_config(line_values[1])
         logger.info("Creating ABLineCounter (in_direction=%s)", in_direction)

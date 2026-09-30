@@ -172,3 +172,80 @@ class TestGetVersionInfo:
         assert info["major"] == 1
         assert info["minor"] == 0
         assert info["patch"] == 0
+
+
+class TestComputeBuildVersion:
+    """compute_build_version() is what the Dockerfile bakes (PF-475). The
+    deploy races version-bump.yml on the same push, so it must give the same
+    answer whether or not this commit's tag exists yet."""
+
+    def setup_method(self):
+        version_module._computed_patch.cache_clear()
+
+    def teardown_method(self):
+        version_module._computed_patch.cache_clear()
+
+    def test_uses_tag_on_head_when_already_tagged(self):
+        fake_result = MagicMock()
+        fake_result.stdout = "v0.1.7-beta\n"
+        with (
+            patch("src.version.subprocess.run", return_value=fake_result),
+            patch("src.version._computed_patch", return_value=8),
+        ):
+            assert version_module.compute_build_version() == "0.1.7-beta"
+
+    def test_uses_upcoming_version_when_head_untagged(self):
+        fake_result = MagicMock()
+        fake_result.stdout = ""
+        with (
+            patch("src.version.subprocess.run", return_value=fake_result),
+            patch("src.version._computed_patch", return_value=7),
+        ):
+            assert version_module.compute_build_version() == "0.1.7-beta"
+
+    def test_falls_back_to_tag_count_when_git_fails(self):
+        with (
+            patch("src.version.subprocess.run", side_effect=OSError("no git")),
+            patch("src.version._computed_patch", return_value=7),
+        ):
+            assert version_module.compute_build_version() == "0.1.7-beta"
+
+    @staticmethod
+    def _git(points_at="", contains="", describe=""):
+        """Fake subprocess.run answering each git query the function makes."""
+
+        def run(cmd, **kwargs):
+            out = MagicMock()
+            if "--points-at" in cmd:
+                out.stdout = points_at
+            elif "--contains" in cmd:
+                out.stdout = contains
+            elif "describe" in cmd:
+                out.stdout = describe
+            else:
+                out.stdout = ""
+            return out
+
+        return run
+
+    def test_highest_tag_wins_when_head_has_two(self):
+        # git sorts with --sort=-v:refname; the fake returns that order.
+        with patch(
+            "src.version.subprocess.run",
+            side_effect=self._git(points_at="v0.1.10-beta\nv0.1.9-beta\n"),
+        ) as run:
+            assert version_module.compute_build_version() == "0.1.10-beta"
+        assert "--sort=-v:refname" in run.call_args_list[0].args[0]
+
+    def test_old_untagged_commit_reports_describe_not_tag_count(self):
+        with (
+            patch(
+                "src.version.subprocess.run",
+                side_effect=self._git(
+                    contains="v0.1.371-beta\n",
+                    describe="v0.1.370-beta-2-gabc1234\n",
+                ),
+            ),
+            patch("src.version._computed_patch", return_value=372),
+        ):
+            assert version_module.compute_build_version() == "0.1.370-beta-2-gabc1234"

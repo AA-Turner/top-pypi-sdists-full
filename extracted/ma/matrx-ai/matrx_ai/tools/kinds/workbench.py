@@ -42,6 +42,9 @@ class TaskToolResult(KindModel):
     parent_task_id: str | None = None
     assignee_id: str | None = None
     is_public: bool | None = None
+    published_to_web: bool | None = None
+    shown_to: str | None = None
+    organization_id: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
     #: `update` — immutable fields the manager ignored.

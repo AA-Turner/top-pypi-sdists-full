@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-api-core
-Version: 2.39.0
+Version: 2.40.0
 Summary: Google API client core library
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache 2.0
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Requires-Python: >=3.10

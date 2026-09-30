@@ -236,7 +236,7 @@ class RawComputerClient:
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[SshAccessInfoOut]:
         """
-        Return the SSH gateway host, port, username, and ready-made command for connecting to a computer with a registered SSH public key (see `add_ssh_key`). The username is the computer's asset id; the gateway authorizes the connection against your current edit permission on the computer and starts it if it is stopped. Unlike `create_ssh_access`, this mints nothing and never wakes the computer. Returns 409 when the computer's provider does not support SSH.
+        Return the SSH gateway host, port, username, and ready-made command for connecting to a computer with a registered SSH public key (see `add_ssh_key`). The username is the computer's asset id; the gateway authorizes the connection against your current edit permission on the computer and starts it if it is stopped. Unlike `create_ssh_access`, this mints nothing and never wakes the computer. `key_auth_enabled` is false where the environment's gateway accepts tokens only. Returns 409 when the computer's provider does not support SSH.
 
         Parameters
         ----------
@@ -921,7 +921,7 @@ class AsyncRawComputerClient:
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[SshAccessInfoOut]:
         """
-        Return the SSH gateway host, port, username, and ready-made command for connecting to a computer with a registered SSH public key (see `add_ssh_key`). The username is the computer's asset id; the gateway authorizes the connection against your current edit permission on the computer and starts it if it is stopped. Unlike `create_ssh_access`, this mints nothing and never wakes the computer. Returns 409 when the computer's provider does not support SSH.
+        Return the SSH gateway host, port, username, and ready-made command for connecting to a computer with a registered SSH public key (see `add_ssh_key`). The username is the computer's asset id; the gateway authorizes the connection against your current edit permission on the computer and starts it if it is stopped. Unlike `create_ssh_access`, this mints nothing and never wakes the computer. `key_auth_enabled` is false where the environment's gateway accepts tokens only. Returns 409 when the computer's provider does not support SSH.
 
         Parameters
         ----------

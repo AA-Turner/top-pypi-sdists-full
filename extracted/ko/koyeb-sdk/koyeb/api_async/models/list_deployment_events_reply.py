@@ -24,16 +24,24 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ListDeploymentEventsReply(BaseModel):
     """
     ListDeploymentEventsReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     events: Optional[List[DeploymentEvent]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
     order: Optional[StrictStr] = None
     has_next: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = ["events", "limit", "offset", "order", "has_next"]
+    __properties: ClassVar[List[str]] = [
+        "events",
+        "limit",
+        "offset",
+        "order",
+        "has_next",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -41,7 +49,6 @@ class ListDeploymentEventsReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,8 +73,7 @@ class ListDeploymentEventsReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -78,9 +84,10 @@ class ListDeploymentEventsReply(BaseModel):
         _items = []
         if self.events:
             for _item_events in self.events:
-                if _item_events:
-                    _items.append(_item_events.to_dict())
-            _dict['events'] = _items
+                _items.append(
+                    _item_events.to_dict() if _item_events is not None else None
+                )
+            _dict["events"] = _items
         return _dict
 
     @classmethod
@@ -92,13 +99,15 @@ class ListDeploymentEventsReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "events": [DeploymentEvent.from_dict(_item) for _item in obj["events"]] if obj.get("events") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset"),
-            "order": obj.get("order"),
-            "has_next": obj.get("has_next")
-        })
+        _obj = cls.model_validate(
+            {
+                "events": [DeploymentEvent.from_dict(_item) for _item in obj["events"]]
+                if obj.get("events") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+                "order": obj.get("order"),
+                "has_next": obj.get("has_next"),
+            }
+        )
         return _obj
-
-

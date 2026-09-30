@@ -1,6 +1,6 @@
 import logging
 
-from selenium.common.exceptions import ElementClickInterceptedException
+from selenium.common.exceptions import ElementClickInterceptedException, WebDriverException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -124,10 +124,36 @@ def _modifier_click(element, driver, modifiers):
     return True
 
 
+def _is_checkbox_or_radio(element):
+    """True for an <input type="checkbox"> / <input type="radio">.
+
+    Never raises: a stale/detached element must fall through to the normal
+    clickability wait rather than aborting the click.
+    """
+    try:
+        if (element.tag_name or "").lower() != "input":
+            return False
+        return (element.get_attribute("type") or "").lower() in ("checkbox", "radio")
+    except WebDriverException:
+        return False
+
+
 def _selenium_click(element, driver=None, timeout=MAX_WAIT_UNTILTIME):
-    """Standard Selenium click with clickability wait when driver is provided."""
+    """Standard Selenium click with clickability wait when driver is provided.
+
+    Checkbox and radio inputs skip the wait. Custom-styled ones are
+    routinely sized 0x0 or moved off-screen behind a styled label, so
+    ``element_to_be_clickable`` never reports them clickable: the click burns
+    the FULL timeout before the JS tier rescues it, making every such step slow
+    and flaky. They are directly clickable when enabled, so click them straight
+    away and keep the wait for everything else.
+    """
     if driver is not None:
-        WebDriverWait(driver, timeout).until(EC.element_to_be_clickable(element)).click()
+        if _is_checkbox_or_radio(element) and element.is_enabled():
+            _log.debug("    [click] checkbox/radio (enabled) — skipping the clickability wait")
+            element.click()
+        else:
+            WebDriverWait(driver, timeout).until(EC.element_to_be_clickable(element)).click()
     else:
         element.click()
     return True

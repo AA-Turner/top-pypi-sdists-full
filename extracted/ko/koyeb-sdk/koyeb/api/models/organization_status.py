@@ -26,17 +26,15 @@ class OrganizationStatus(str, Enum):
     """
     allowed enum values
     """
-    WARNING = 'WARNING'
-    LOCKED = 'LOCKED'
-    ACTIVE = 'ACTIVE'
-    DEACTIVATING = 'DEACTIVATING'
-    DEACTIVATED = 'DEACTIVATED'
-    DELETING = 'DELETING'
-    DELETED = 'DELETED'
+    WARNING = "WARNING"
+    LOCKED = "LOCKED"
+    ACTIVE = "ACTIVE"
+    DEACTIVATING = "DEACTIVATING"
+    DEACTIVATED = "DEACTIVATED"
+    DELETING = "DELETING"
+    DELETED = "DELETED"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of OrganizationStatus from a JSON string"""
         return cls(json.loads(json_str))
-
-

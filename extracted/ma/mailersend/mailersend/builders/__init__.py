@@ -5,7 +5,7 @@ The builder pattern provides a fluent, chainable API for constructing
 complex email requests with intelligent defaults and validation.
 """
 
-from .email import EmailBuilder
+from .email import EmailBuilder, EmailsBuilder
 from .activity import ActivityBuilder, SingleActivityBuilder
 from .analytics import AnalyticsBuilder
 from .domains import DomainsBuilder
@@ -27,9 +27,11 @@ from .sms_recipients import SmsRecipientsBuilder
 from .sms_webhooks import SmsWebhooksBuilder
 from .sms_inbounds import SmsInboundsBuilder
 from .dmarc_monitoring import DmarcMonitoringBuilder
+from .whatsapp import WhatsAppBuilder
 
 __all__ = [
     "EmailBuilder",
+    "EmailsBuilder",
     "ActivityBuilder",
     "SingleActivityBuilder",
     "AnalyticsBuilder",
@@ -52,4 +54,5 @@ __all__ = [
     "SmsWebhooksBuilder",
     "SmsInboundsBuilder",
     "DmarcMonitoringBuilder",
+    "WhatsAppBuilder",
 ]

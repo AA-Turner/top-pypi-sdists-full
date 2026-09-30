@@ -27,6 +27,16 @@ if platform == 'win32':
         raise PythoncomImportError
 
 
+# Appended to a set command's result when MultiVu accepted the command
+# but never reported the new set point back.  The set itself worked; the
+# confirmation did not, so a wait issued straight afterwards may judge
+# stability against the previous target.  The client turns this into a
+# warning, because the log entry the server writes is on the server,
+# which for a remote setup is not the machine running the script.  See
+# ICommandImp._confirm_set_point().
+SET_POINT_UNCONFIRMED = 'SET_POINT_UNCONFIRMED'
+
+
 class CommandMultiVuBase():
     """
     This class is a factory method which is used as a getter and a
@@ -145,6 +155,15 @@ class CommandMultiVuBase():
         except MultiPyVuError as e:
             raise MultiPyVuError(e.value) from e
         else:
+            if command == 'WAITFOR' and isinstance(err, int):
+                # A wait which runs out of time is a legitimate outcome
+                # the caller may want to branch on, not a server-side
+                # failure, so hand the status code back instead of
+                # raising.  WaitForStatus in CommandWaitFor.py names the
+                # values; they are MultiVu's own WaitFor() codes.
+                self.set_state_error_number = 0
+                return f'{command} Command Received,{int(err)}'
+
             if isinstance(err, int):
                 if err == 0:
                     self.set_state_error_number = 0
@@ -163,6 +182,14 @@ class CommandMultiVuBase():
                     msg = f'Error when setting the {command} {arg_string}: '
                     msg += f'{can_error_msg}'
                     raise MultiPyVuError(msg)
+
+        # MultiVu took the command but never reported the set point back
+        # (see ICommandImp._confirm_set_point()).  Not an error -- the
+        # set itself succeeded -- but the client is told, because the
+        # log entry the server wrote is on the server, which for a
+        # remote setup is not the machine running the script.
+        if not getattr(mv_command, 'set_point_confirmed', True):
+            result += f',{SET_POINT_UNCONFIRMED}'
         return result
 
 

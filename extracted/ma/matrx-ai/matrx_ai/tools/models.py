@@ -72,6 +72,15 @@ class ToolOutputContractError(ValueError):
 _GOOGLE_MISSING_ITEMS_WARNED: set[str] = set()
 
 
+#: Every function tool we send to the OpenAI Responses API declares this.
+#: The API turns an OMITTED ``strict`` into strict mode when it can normalize the
+#: schema (developers.openai.com function-calling guide, "Strict mode"), and
+#: strict mode requires every property — so optional arguments stop being
+#: optional and the model fills them with placeholders. Our tools rely on
+#: omitted arguments meaning "use the default / the knob".
+OPENAI_FUNCTION_STRICT = False
+
+
 def _choice_text(values: list[Any]) -> str:
     return ", ".join(v if isinstance(v, str) else json.dumps(v) for v in values)
 
@@ -521,6 +530,28 @@ def build_agent_media_content(output: Any, media_refs: list[dict]) -> list[Any] 
     return blocks
 
 
+def _append_model_notices(content: Any, notices: list[str], tool_name: str | None) -> Any:
+    """Put the executor's notices where the model reads them, for every content shape."""
+    text = "\n".join(notices)
+    if content is None or content == "":
+        return text
+    if isinstance(content, str):
+        return f"{content}\n\n{text}"
+    if isinstance(content, list):
+        from matrx_ai.config import TextContent
+
+        return [*content, TextContent(text=text)]
+    # A provider-native payload we cannot extend safely: never drop the notice
+    # quietly — say so where an operator will see it.
+    logger.warning(
+        "[ToolResult] %s: could not attach model notice(s) to a %s result: %s",
+        tool_name,
+        type(content).__name__,
+        text,
+    )
+    return content
+
+
 def _build_image_ref_blocks(output: dict[str, Any]) -> list[Any]:
     """Convert an ``image_ref`` output dict into a list of typed content
     blocks suitable for ``ToolResultContent.content``.
@@ -709,6 +740,10 @@ class ToolResult(BaseModel):
     success: bool
     output: Any = None
     error: ToolError | None = None
+    # Short notices the MODEL must read on this result (arguments the executor
+    # ignored, decoded or inferred). Rendered after the content for every
+    # output shape by ``to_tool_result_content``; never part of ``output``.
+    model_notices: list[str] = Field(default_factory=list)
 
     # Process-private provider boundary override. Local executors use this to
     # hand a model typed media blocks sourced from durable local bytes while
@@ -964,6 +999,9 @@ class ToolResult(BaseModel):
                 content = f"{error_text}\n\n--- output ---\n{output_text}"
             else:
                 content = error_text
+
+        if self.model_notices:
+            content = _append_model_notices(content, self.model_notices, self.tool_name)
 
         payload: dict[str, Any] = {
             "tool_use_id": self.call_id,
@@ -1223,6 +1261,7 @@ class CustomTool(CustomToolBase):
                 "name": self.name,
                 "description": self.description,
                 "parameters": schema,
+                "strict": OPENAI_FUNCTION_STRICT,  # see ToolDefinition.to_openai_responses_format
             }
         if provider in ("cerebras", "xai", "together", "groq", "generic_openai"):
             return {
@@ -1843,6 +1882,12 @@ class ToolDefinition(BaseModel):
             "name": self.name,
             "description": self.description,
             "parameters": self._build_json_schema(strip_openai_unsupported=True),
+            # Explicit, never omitted: the Responses API normalizes an omitted
+            # ``strict`` INTO strict mode, which makes every property required,
+            # so the model fills each optional argument (center {0,0}, "" ids,
+            # radius_km over the knob, other actions' fields) and overrides the
+            # tool's defaults and knobs. Non-strict keeps optional truly optional.
+            "strict": OPENAI_FUNCTION_STRICT,
         }
 
     def to_google_format(self) -> dict[str, Any]:

@@ -1,8 +1,10 @@
 """Stub file for runtime directory."""
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..clients.bootstrap import open_session
+from ..clients.analytics_client import AnalyticsClient
+from ..clients.bootstrap import get_session
 from ..clients.bootstrap import resolve_action_id
+from ..clients.identity import APP_DEPLOYMENT_ID_KEYS, APPLICATION_ID_KEYS, APPLICATION_VERSION_KEYS, config_get, first_str
 from ..clients.response import CallFailure, _is_not_found
 from ..clients.transport import _bases_for, _describe, backend_base_url
 from ..clients.transport import _rpc
@@ -38,9 +40,6 @@ from .zone_source import ZoneGeometryResolver
 from .zone_source import merge_zone_configs
 
 # Constants
-ACTION_DETAILS_PATH: str = ...  # From app_bundle
-APPLICATION_VERSION_PATH: str = ...  # From app_bundle
-APP_DEPLOYMENT_PATH: str = ...  # From app_bundle
 ENV_ALLOW_PUBLISHED_VERSION: str = ...  # From app_bundle
 ENV_BUNDLE_REF: str = ...  # From app_bundle
 ENV_LICENSE_KEY: str = ...  # From app_bundle
@@ -61,19 +60,6 @@ logger: Any = ...  # From zone_source
 
 # Functions
 # From app_bundle
-def config_get(config: Any, keys: Any[str]) -> Optional[str]:
-    """
-    First non-empty string among ``keys``, from a dict or an attribute-bearing object.
-    
-        Both shapes are real and this is why the function exists: ``PostProcRunner`` passes the raw
-        ``post_processing_config`` dict, while ``PostProcessor`` passes a *parsed* config object. A
-        dict-only reader -- which is what ``backends._config_value`` is -- would make the two SDK entry
-        points disagree about whether an app has a bundle, and keeping them in agreement is the entire
-        reason ``select_engine_backend`` is a single function.
-    """
-    ...
-
-# From app_bundle
 def fetch_action_job_params(action_id: str) -> Dict[str, Any]:
     """
     ``jobParams`` off this worker's action record.
@@ -89,7 +75,7 @@ def fetch_application_published_version(application_id: str) -> Optional[str]:
     """
     The application's **published** version -- deliberately not the deployed one.
     
-        This is the mirror image of :func:`fetch_deployment_app_version`, and the thing that
+        This is the mirror image of :func:`fetch_deployment_app_identity`, and the thing that
         function documents itself as refusing to be. The same 2026-08-03 live check applies:
         ``INF-M4-Testing`` was deployed on ``v1.8`` while its application's
         ``publishedVersion`` was ``v2.1``. So this value may well not be what a given worker
@@ -126,13 +112,6 @@ def fetch_deployment_app_identity(app_deployment_id: str) -> Tuple[Optional[str]
         version's bundle for a running worker. ``None`` here means "unknown", and unknown must stay
         legacy rather than guess. See :func:`fetch_application_published_version` for the last-resort
         route that knowingly relaxes that rule, and only after this one has been tried.
-    """
-    ...
-
-# From app_bundle
-def fetch_deployment_app_version(app_deployment_id: str) -> Optional[str]:
-    """
-    The version an app deployment actually runs. See :func:`fetch_deployment_app_identity`.
     """
     ...
 

@@ -26,6 +26,7 @@ __all__ = (
     "ListGroupMembershipsForMemberPaginatorName",
     "ListGroupMembershipsPaginatorName",
     "ListGroupsPaginatorName",
+    "ListIdentityStoresPaginatorName",
     "ListUsersPaginatorName",
     "PaginatorName",
     "RegionName",
@@ -37,6 +38,7 @@ __all__ = (
 ListGroupMembershipsForMemberPaginatorName = Literal["list_group_memberships_for_member"]
 ListGroupMembershipsPaginatorName = Literal["list_group_memberships"]
 ListGroupsPaginatorName = Literal["list_groups"]
+ListIdentityStoresPaginatorName = Literal["list_identity_stores"]
 ListUsersPaginatorName = Literal["list_users"]
 UserStatusType = Literal["DISABLED", "ENABLED"]
 IdentityStoreServiceName = Literal["identitystore"]
@@ -479,7 +481,11 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "list_group_memberships", "list_group_memberships_for_member", "list_groups", "list_users"
+    "list_group_memberships",
+    "list_group_memberships_for_member",
+    "list_groups",
+    "list_identity_stores",
+    "list_users",
 ]
 RegionName = Literal[
     "af-south-1",

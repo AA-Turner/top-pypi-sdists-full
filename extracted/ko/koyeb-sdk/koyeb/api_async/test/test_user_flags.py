@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.user_flags import UserFlags
 
+
 class TestUserFlags(unittest.TestCase):
     """UserFlags unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestUserFlags(unittest.TestCase):
         """Test UserFlags"""
         # inst = UserFlags()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -54,11 +54,25 @@ class GKEPodSnapshot(_message.Message):
     storage_path: str
     def __init__(self, storage_bucket: _Optional[str] = ..., storage_path: _Optional[str] = ...) -> None: ...
 
+class HypervisorSnapshot(_message.Message):
+    __slots__ = ("storage_uri", "snapshot_id")
+    STORAGE_URI_FIELD_NUMBER: _ClassVar[int]
+    SNAPSHOT_ID_FIELD_NUMBER: _ClassVar[int]
+    storage_uri: str
+    snapshot_id: str
+    def __init__(self, storage_uri: _Optional[str] = ..., snapshot_id: _Optional[str] = ...) -> None: ...
+
 class SandboxSnapshotSpec(_message.Message):
-    __slots__ = ("gke_pod_snapshot",)
+    __slots__ = ("gke_pod_snapshot", "hypervisor_snapshot")
     GKE_POD_SNAPSHOT_FIELD_NUMBER: _ClassVar[int]
+    HYPERVISOR_SNAPSHOT_FIELD_NUMBER: _ClassVar[int]
     gke_pod_snapshot: GKEPodSnapshot
-    def __init__(self, gke_pod_snapshot: _Optional[_Union[GKEPodSnapshot, _Mapping]] = ...) -> None: ...
+    hypervisor_snapshot: HypervisorSnapshot
+    def __init__(
+        self,
+        gke_pod_snapshot: _Optional[_Union[GKEPodSnapshot, _Mapping]] = ...,
+        hypervisor_snapshot: _Optional[_Union[HypervisorSnapshot, _Mapping]] = ...,
+    ) -> None: ...
 
 class SandboxSnapshot(_message.Message):
     __slots__ = (

@@ -25,6 +25,7 @@ from .literals import (
     DataSourceSportType,
     DictionaryLanguageType,
     DictionaryStatusType,
+    ExtendedAnalysisModeType,
     FeedStatusType,
     OutputStatusType,
     ProfanityFilterModeType,
@@ -135,6 +136,7 @@ class CompetitorTypeDef(TypedDict):
 
 class ContextualMetadataConfigTypeDef(TypedDict):
     summaryGeneration: NotRequired[SummaryGenerationModeType]
+    extendedAnalysis: NotRequired[ExtendedAnalysisModeType]
 
 
 class CreateDictionaryRequestTypeDef(TypedDict):

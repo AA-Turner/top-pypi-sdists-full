@@ -168,7 +168,9 @@ FlowExecutionEventTypeType = Literal["Flow", "Node"]
 FlowExecutionStatusType = Literal["Aborted", "Failed", "Running", "Succeeded", "TimedOut"]
 FlowNodeIODataTypeType = Literal["Array", "Boolean", "Number", "Object", "String"]
 FlowNodeInputCategoryType = Literal["ExitLoop", "LoopCondition", "ReturnValueToLoopStart"]
-FoundationModelConfigurationTypeType = Literal["BEDROCK_FOUNDATION_MODEL"]
+FoundationModelConfigurationTypeType = Literal[
+    "BEDROCK_FOUNDATION_MODEL", "MANTLE_FOUNDATION_MODEL"
+]
 FoundationModelTypeType = Literal["CUSTOM", "MANAGED"]
 GeneratedQueryTypeType = Literal["REDSHIFT_SQL"]
 GetAgentMemoryPaginatorName = Literal["get_agent_memory"]

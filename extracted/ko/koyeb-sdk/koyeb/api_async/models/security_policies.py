@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class SecurityPolicies(BaseModel):
     """
     SecurityPolicies
-    """ # noqa: E501
+    """  # noqa: E501
+
     basic_auths: Optional[List[BasicAuthPolicy]] = None
     api_keys: Optional[List[StrictStr]] = None
     __properties: ClassVar[List[str]] = ["basic_auths", "api_keys"]
@@ -38,7 +40,6 @@ class SecurityPolicies(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,8 +64,7 @@ class SecurityPolicies(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -75,9 +75,12 @@ class SecurityPolicies(BaseModel):
         _items = []
         if self.basic_auths:
             for _item_basic_auths in self.basic_auths:
-                if _item_basic_auths:
-                    _items.append(_item_basic_auths.to_dict())
-            _dict['basic_auths'] = _items
+                _items.append(
+                    _item_basic_auths.to_dict()
+                    if _item_basic_auths is not None
+                    else None
+                )
+            _dict["basic_auths"] = _items
         return _dict
 
     @classmethod
@@ -89,10 +92,14 @@ class SecurityPolicies(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "basic_auths": [BasicAuthPolicy.from_dict(_item) for _item in obj["basic_auths"]] if obj.get("basic_auths") is not None else None,
-            "api_keys": obj.get("api_keys")
-        })
+        _obj = cls.model_validate(
+            {
+                "basic_auths": [
+                    BasicAuthPolicy.from_dict(_item) for _item in obj["basic_auths"]
+                ]
+                if obj.get("basic_auths") is not None
+                else None,
+                "api_keys": obj.get("api_keys"),
+            }
+        )
         return _obj
-
-

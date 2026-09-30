@@ -6,8 +6,13 @@ A comprehensive Python SDK for the MailerSend API.
 
 from .client import MailerSendClient
 
+try:
+    from .async_client import AsyncMailerSendClient
+except ImportError:
+    AsyncMailerSendClient = None  # type: ignore[assignment,misc]
+
 # Import all builders for better UX - users can import everything from main module
-from .builders.email import EmailBuilder
+from .builders.email import EmailBuilder, EmailsBuilder
 from .builders.activity import ActivityBuilder, SingleActivityBuilder
 from .builders.analytics import AnalyticsBuilder
 from .builders.domains import DomainsBuilder
@@ -30,6 +35,7 @@ from .builders.sms_recipients import SmsRecipientsBuilder
 from .builders.sms_webhooks import SmsWebhooksBuilder
 from .builders.sms_inbounds import SmsInboundsBuilder
 from .builders.dmarc_monitoring import DmarcMonitoringBuilder
+from .builders.whatsapp import WhatsAppBuilder
 from .resources.email import Email
 from .resources.activity import Activity
 from .resources.analytics import Analytics
@@ -41,6 +47,11 @@ from .models.email import (
     EmailRequest,
     EmailTrackingSettings,
     EmailHeader,
+    EmailActivityEvent,
+    EmailListItem,
+    EmailsListQueryParams,
+    EmailsListRequest,
+    EmailGetRequest,
 )
 from .models.activity import (
     ActivityRecipient,
@@ -62,13 +73,17 @@ from .exceptions import (
     ValidationError,
 )
 
-__version__ = "2.0.0"
+from .constants import __version__
 
 __all__ = [
-    # Core client
+    # Package metadata
+    "__version__",
+    # Core clients
     "MailerSendClient",
+    "AsyncMailerSendClient",
     # Builders - All available from main module for better UX
     "EmailBuilder",
+    "EmailsBuilder",
     "ActivityBuilder",
     "SingleActivityBuilder",
     "AnalyticsBuilder",
@@ -92,6 +107,7 @@ __all__ = [
     "SmsWebhooksBuilder",
     "SmsInboundsBuilder",
     "DmarcMonitoringBuilder",
+    "WhatsAppBuilder",
     # Resources
     "Email",
     "Activity",
@@ -104,6 +120,11 @@ __all__ = [
     "EmailRequest",
     "EmailTrackingSettings",
     "EmailHeader",
+    "EmailActivityEvent",
+    "EmailListItem",
+    "EmailsListQueryParams",
+    "EmailsListRequest",
+    "EmailGetRequest",
     # Activity models
     "ActivityRecipient",
     "ActivityEmail",

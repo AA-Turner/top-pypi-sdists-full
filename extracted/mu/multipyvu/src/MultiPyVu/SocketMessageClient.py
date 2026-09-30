@@ -60,12 +60,26 @@ class ClientMessage(Message):
         self.addr = self.sock.getsockname()
         options_dict = self._str_to_start_options(response_dict['query'])
         self.server_version = options_dict['version']
+        self.mvu_version = options_dict['mvu_version']
         self.verbose = options_dict['verbose']
         self.scaffolding = options_dict['scaffolding']
         self.server_threading = options_dict['threading']
         resp = response_dict.get('result', '')
         search = r'Connected to ([\w]*) MultiVuServer'
         self.mvu_flavor = re.findall(search, resp)[0]
+        # Rewrite the server's result to say what this client is
+        # connected to.  The caller logs the result, so this replaces
+        # that message rather than adding another one.  The server's
+        # address is asked for directly because .addr was set above to
+        # this end of the socket.
+        host, port = self.sock.getpeername()[:2]
+        msg = f'Connected to MultiVuServer running {self.mvu_flavor}'
+        if self.scaffolding:
+            msg += ' (scaffolding)'
+        elif self.mvu_version:
+            msg += f' ver {self.mvu_version}'
+        msg += f' ({host}, {port})'
+        response_dict['result'] = msg
         # the Instrument class is used to hold info and
         # can be instantiated with scaffolding mode so that
         # it does not try to connect with a running MultiVu
@@ -210,6 +224,8 @@ class ClientMessage(Message):
             self.server_threading = False
         if hasattr(self, 'mvu_flavor'):
             self.mvu_flavor = ''
+        if hasattr(self, 'mvu_version'):
+            self.mvu_version = ''
 
         # Keep addr and socket_timeout as they are configuration parameters
 

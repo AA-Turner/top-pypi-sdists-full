@@ -7363,6 +7363,7 @@ UpsertRedshiftTargetOptionsUnionTypeDef = Union[
 
 class ViewDefinitionInputTypeDef(TypedDict):
     IsProtected: NotRequired[bool]
+    IsManaged: NotRequired[bool]
     Definer: NotRequired[str]
     Representations: NotRequired[Sequence[ViewRepresentationInputTypeDef]]
     ViewVersionId: NotRequired[int]
@@ -7377,6 +7378,7 @@ class ViewDefinitionInputTypeDef(TypedDict):
 
 class ViewDefinitionTypeDef(TypedDict):
     IsProtected: NotRequired[bool]
+    IsManaged: NotRequired[bool]
     Definer: NotRequired[str]
     ViewVersionId: NotRequired[int]
     ViewVersionToken: NotRequired[str]

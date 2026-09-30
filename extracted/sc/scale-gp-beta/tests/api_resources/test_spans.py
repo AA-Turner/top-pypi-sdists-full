@@ -234,7 +234,7 @@ class TestSpans:
     @parametrize
     def test_method_search_with_all_params(self, client: SGPClient) -> None:
         span = client.spans.search(
-            allow_short_pages=True,
+            allow_partial_results=True,
             ending_before="ending_before",
             from_ts=parse_datetime("2019-12-27T18:11:19.117Z"),
             limit=1,
@@ -564,7 +564,7 @@ class TestAsyncSpans:
     @parametrize
     async def test_method_search_with_all_params(self, async_client: AsyncSGPClient) -> None:
         span = await async_client.spans.search(
-            allow_short_pages=True,
+            allow_partial_results=True,
             ending_before="ending_before",
             from_ts=parse_datetime("2019-12-27T18:11:19.117Z"),
             limit=1,

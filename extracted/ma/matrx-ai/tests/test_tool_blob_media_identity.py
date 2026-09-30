@@ -58,7 +58,8 @@ def _envelope(file_id: str | None = FILE_ID, mime: str = "audio/mpeg") -> MediaP
         url=SIGNED_URL,
         cdn_url=None,
         download_url=SIGNED_URL,
-        visibility="personal",
+        published_to_web=False,
+        shown_to="only_me",
         file_name="clip.mp3",
         size_bytes=6,
     )

@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DatabaseUsageDetails(BaseModel):
     """
     DatabaseUsageDetails
-    """ # noqa: E501
+    """  # noqa: E501
+
     organization_id: Optional[StrictStr] = None
     app_id: Optional[StrictStr] = None
     app_name: Optional[StrictStr] = None
@@ -37,7 +39,17 @@ class DatabaseUsageDetails(BaseModel):
     data_storage_megabytes_hour: Optional[StrictInt] = None
     started_at: Optional[datetime] = None
     terminated_at: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["organization_id", "app_id", "app_name", "service_id", "service_name", "compute_time_seconds", "data_storage_megabytes_hour", "started_at", "terminated_at"]
+    __properties: ClassVar[List[str]] = [
+        "organization_id",
+        "app_id",
+        "app_name",
+        "service_id",
+        "service_name",
+        "compute_time_seconds",
+        "data_storage_megabytes_hour",
+        "started_at",
+        "terminated_at",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -45,7 +57,6 @@ class DatabaseUsageDetails(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -70,8 +81,7 @@ class DatabaseUsageDetails(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -89,17 +99,17 @@ class DatabaseUsageDetails(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "organization_id": obj.get("organization_id"),
-            "app_id": obj.get("app_id"),
-            "app_name": obj.get("app_name"),
-            "service_id": obj.get("service_id"),
-            "service_name": obj.get("service_name"),
-            "compute_time_seconds": obj.get("compute_time_seconds"),
-            "data_storage_megabytes_hour": obj.get("data_storage_megabytes_hour"),
-            "started_at": obj.get("started_at"),
-            "terminated_at": obj.get("terminated_at")
-        })
+        _obj = cls.model_validate(
+            {
+                "organization_id": obj.get("organization_id"),
+                "app_id": obj.get("app_id"),
+                "app_name": obj.get("app_name"),
+                "service_id": obj.get("service_id"),
+                "service_name": obj.get("service_name"),
+                "compute_time_seconds": obj.get("compute_time_seconds"),
+                "data_storage_megabytes_hour": obj.get("data_storage_megabytes_hour"),
+                "started_at": obj.get("started_at"),
+                "terminated_at": obj.get("terminated_at"),
+            }
+        )
         return _obj
-
-

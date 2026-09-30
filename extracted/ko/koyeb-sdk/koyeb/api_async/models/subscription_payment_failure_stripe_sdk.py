@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class SubscriptionPaymentFailureStripeSDK(BaseModel):
     """
     SubscriptionPaymentFailureStripeSDK
-    """ # noqa: E501
+    """  # noqa: E501
+
     client_secret_key: Optional[StrictStr] = None
     raw_json: Optional[StrictStr] = None
     __properties: ClassVar[List[str]] = ["client_secret_key", "raw_json"]
@@ -37,7 +39,6 @@ class SubscriptionPaymentFailureStripeSDK(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class SubscriptionPaymentFailureStripeSDK(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,10 +81,10 @@ class SubscriptionPaymentFailureStripeSDK(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "client_secret_key": obj.get("client_secret_key"),
-            "raw_json": obj.get("raw_json")
-        })
+        _obj = cls.model_validate(
+            {
+                "client_secret_key": obj.get("client_secret_key"),
+                "raw_json": obj.get("raw_json"),
+            }
+        )
         return _obj
-
-

@@ -963,6 +963,7 @@ primitive p2 (output c, input a, b);
 endprimitive
 
 module top;
+    wire a, b, c;
     f foo(c, a, b);
     bar bar(c, a, b);
 endmodule
@@ -979,6 +980,23 @@ endmodule
     CHECK(diags[1].code == diag::ConfigParamsForPrimitive);
 }
 
+TEST_CASE("Invalid top module with unknown library") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+endmodule
+)");
+
+    CompilationOptions options;
+    options.topModules.emplace("nolib.foo");
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::InvalidTopModule);
+}
+
 TEST_CASE("Config target multiple primitives") {
     auto tree = SyntaxTree::fromText(R"(
 config cfg1;
@@ -992,6 +1010,7 @@ primitive p1 (output c, input a, b);
 endprimitive
 
 module top;
+    wire a, b, c;
     bar b1(c, a, b), b2(c, a, b);
 endmodule
 )");
@@ -1045,6 +1064,7 @@ primitive p1 (output c, input a, b);
 endprimitive
 
 module top;
+    wire a, b, c;
     bar (supply0, pull1) b1(c, a, b), b2(c, a, b);
 endmodule
 )");
@@ -1132,6 +1152,7 @@ endconfig
 
     auto topSv = SyntaxTree::fromText(R"(
 module top();
+    logic rst;
     interconnect aBus[0:3][0:1];
     logic [0:3] dBus;
     driver driverArray[0:3](aBus);

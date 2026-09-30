@@ -1,3 +1,5 @@
+"""Pile: a container that stacks widgets vertically."""
+
 from __future__ import annotations
 
 import itertools
@@ -64,9 +66,7 @@ class Pile(
         ]
     ],
 ):
-    """
-    A pile of widgets stacked vertically from top to bottom
-    """
+    """A pile of widgets stacked vertically from top to bottom."""
 
     def sizing(self) -> frozenset[Sizing]:
         """Sizing supported by widget.
@@ -200,7 +200,8 @@ class Pile(
         ],
         focus_item: AbstractWidget | int | None = None,
     ) -> None:
-        """
+        """Build the pile from a list of child widgets.
+
         :param widget_list: child widgets
         :param focus_item: child widget that gets the focus initially.
             Chooses the first selectable widget if unset.
@@ -317,6 +318,7 @@ class Pile(
         return remove_defaults(attrs, Pile.__init__)
 
     def __rich_repr__(self) -> Iterator[tuple[str | None, typing.Any] | typing.Any]:
+        """Yield this widget's constructor arguments as `(name, value)` pairs, for `rich`'s repr protocol."""
         widget_list: list[
             AbstractWidget
             | tuple[Literal[WHSettings.PACK] | int, AbstractWidget]
@@ -338,6 +340,7 @@ class Pile(
         yield "focus_item", self.focus_position if self._contents else None
 
     def __len__(self) -> int:
+        """Return the number of widgets in the pile."""
         return len(self._contents)
 
     def _contents_modified(self) -> None:
@@ -577,7 +580,6 @@ class Pile(
             ``'fixed'`` or a weight value (number) for ``'weight'``
         :raises PileError: *height_type* and *height_amount* are not a valid combination.
         """
-
         if height_type == WHSettings.PACK:
             return (WHSettings.PACK, None)
         if height_type in {WHSettings.GIVEN, WHSettings.WEIGHT} and height_amount is not None:
@@ -586,7 +588,7 @@ class Pile(
 
     @property
     def focus(self) -> AbstractWidget | None:
-        """the child widget in focus or None when Pile is empty"""
+        """The child widget in focus or None when Pile is empty."""
         if not self.contents:
             return None
         return self.contents[self.focus_position][0]
@@ -660,8 +662,8 @@ class Pile(
 
     @property
     def focus_position(self) -> int:
-        """
-        index of child widget in focus.
+        """Index of child widget in focus.
+
         Raises :exc:`IndexError` if read when Pile is empty, or when set to an invalid index.
 
         :raises IndexError: the Pile is empty.
@@ -706,7 +708,7 @@ class Pile(
         item_rows: list[int] | None = None,
     ) -> tuple[()] | tuple[int] | tuple[int, int]:
         """
-        Return a size appropriate for passing to self.contents[i][0].render
+        Return a size appropriate for passing to self.contents[i][0].render.
 
         :raises PileError: the item uses a height rule that needs size information the caller did not provide, or a
             height rule that is not supported.
@@ -749,7 +751,7 @@ class Pile(
         self,
         focus: bool = False,
     ) -> tuple[tuple[int, ...], tuple[int, ...], tuple[tuple[int, int] | tuple[int] | tuple[()], ...]]:
-        """Get rows widths, heights and render size parameters
+        """Get rows widths, heights and render size parameters.
 
         Fixed case expect widget sizes calculation with several cycles for unknown height cases.
 
@@ -853,7 +855,7 @@ class Pile(
         size: tuple[int],
         focus: bool = False,
     ) -> tuple[tuple[int, ...], tuple[int, ...], tuple[tuple[int, int] | tuple[int] | tuple[()], ...]]:
-        """Get rows widths, heights and render size parameters
+        """Get rows widths, heights and render size parameters.
 
         Flow case is the simplest one: minimum cycles in the logic and no widgets manipulation.
         Here we can make some shortcuts
@@ -903,7 +905,7 @@ class Pile(
         size: tuple[int, int] | tuple[int] | tuple[()],
         focus: bool = False,
     ) -> tuple[tuple[int, ...], tuple[int, ...], tuple[tuple[int, int] | tuple[int] | tuple[()], ...]]:
-        """Get rows widths, heights and render size parameters"""
+        """Get rows widths, heights and render size parameters."""
         if not size:
             return self._get_fixed_rows_sizes(focus=focus)
         if len(size) == 1:
@@ -1025,7 +1027,7 @@ class Pile(
         return (max(widths), sum(heights))
 
     def get_item_rows(self, size: tuple[int] | tuple[int, int], focus: bool) -> list[int]:
-        """A list of the number of rows used by each widget in self.contents.
+        """Return the number of rows used by each widget in self.contents.
 
         This method is a normally used only by `get_item_size` for the BOX case..
         """
@@ -1086,6 +1088,7 @@ class Pile(
         return None
 
     def rows(self, size: tuple[int], focus: bool = False) -> int:
+        """Return the total number of rows occupied by all of the pile's widgets."""
         return sum(self.get_rows_sizes(size, focus)[1])
 
     def keypress(self, size: tuple[()] | tuple[int] | tuple[int, int], key: str) -> str | None:
@@ -1139,7 +1142,6 @@ class Pile(
 
     def _update_pref_col_from_focus(self, w_size: tuple[()] | tuple[int] | tuple[int, int]) -> None:
         """Update self.pref_col from the focus widget."""
-
         if (get_pref_col := getattr(self.focus, "get_pref_col", None)) is not None:  # noqa: SIM102
             if (pref_col := get_pref_col(w_size)) is not None:  # pylint: disable=not-callable
                 self.pref_col = pref_col

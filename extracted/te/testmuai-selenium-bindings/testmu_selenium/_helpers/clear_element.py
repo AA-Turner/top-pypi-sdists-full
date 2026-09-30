@@ -16,6 +16,23 @@ from selenium.webdriver.common.keys import Keys
 _log = logging.getLogger(__name__)
 
 
+def _contenteditable_has_text(driver, element) -> bool:
+    """True when a contenteditable holds any text.
+
+    the Selection reset below (selectNodeContents + DELETE) wipes the
+    editor's *pending toolbar marks* — a user who clicks Bold on an empty editor
+    has formatting armed but no text, and re-selecting the range drops it. On an
+    already-empty editor the clear achieves nothing anyway, so skip it.
+
+    A probe failure returns True so the clear still runs: leaving stale text
+    behind would corrupt the typed value, which is worse than losing a mark.
+    """
+    try:
+        return bool(driver.execute_script(
+            "return ((arguments[0].textContent || '').length > 0);", element))
+    except Exception:  # noqa: BLE001 — probe failure must not skip a needed clear
+        return True
+
 def clear_element(driver, element):
     """Clear input/textarea/contenteditable element value (web-only V2 parity).
 
@@ -39,7 +56,8 @@ def clear_element(driver, element):
             for _ in range(n):
                 element.send_keys(Keys.BACKSPACE)
 
-        if element.get_attribute("contenteditable") == "true":
+        if element.get_attribute("contenteditable") == "true" and \
+                _contenteditable_has_text(driver, element):
             driver.execute_script(
                 """
                 const element = arguments[0];

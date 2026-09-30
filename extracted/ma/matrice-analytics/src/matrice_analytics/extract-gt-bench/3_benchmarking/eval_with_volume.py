@@ -34,13 +34,11 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from analytics.processors.volume import VolumeProcessor  # noqa: E402
-
 from detection_loader import (  # noqa: E402
     iter_frames,
     load_detection_json,
     match_frame_fp_fn,
 )
-
 
 AGG_INTERVAL_SEC = 60.0
 
@@ -202,12 +200,8 @@ def _summarise(
     total_fp: int,
     total_fn: int,
 ) -> dict[str, Any]:
-    per_frame_acc = _avg_accuracy(
-        [(r["gt_count"], r["pred_count"]) for r in per_frame_rows]
-    )
-    minute_acc = _avg_accuracy(
-        [(r["gt_unique"], r["pred_unique"]) for r in minute_rows]
-    )
+    per_frame_acc = _avg_accuracy([(r["gt_count"], r["pred_count"]) for r in per_frame_rows])
+    minute_acc = _avg_accuracy([(r["gt_unique"], r["pred_unique"]) for r in minute_rows])
     video_acc = _pair_accuracy(gt_video_unique, pred_video_unique)
 
     return {

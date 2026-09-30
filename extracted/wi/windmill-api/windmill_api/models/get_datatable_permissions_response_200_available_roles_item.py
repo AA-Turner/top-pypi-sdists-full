@@ -3,6 +3,10 @@ from typing import Any, Dict, List, Type, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.get_datatable_permissions_response_200_available_roles_item_cluster import (
+    GetDatatablePermissionsResponse200AvailableRolesItemCluster,
+)
+
 T = TypeVar("T", bound="GetDatatablePermissionsResponse200AvailableRolesItem")
 
 
@@ -13,17 +17,22 @@ class GetDatatablePermissionsResponse200AvailableRolesItem:
         id (str):
         name (str):
         enabled (bool):
+        cluster (GetDatatablePermissionsResponse200AvailableRolesItemCluster): The Windmill-managed Postgres cluster a
+            data table role is a login on: Windmill's own (behind `instance` data tables) or the external instance cluster
+            (behind `external_instance` ones). Defaults to `instance`.
     """
 
     id: str
     name: str
     enabled: bool
+    cluster: GetDatatablePermissionsResponse200AvailableRolesItemCluster
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         id = self.id
         name = self.name
         enabled = self.enabled
+        cluster = self.cluster.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -32,6 +41,7 @@ class GetDatatablePermissionsResponse200AvailableRolesItem:
                 "id": id,
                 "name": name,
                 "enabled": enabled,
+                "cluster": cluster,
             }
         )
 
@@ -46,10 +56,13 @@ class GetDatatablePermissionsResponse200AvailableRolesItem:
 
         enabled = d.pop("enabled")
 
+        cluster = GetDatatablePermissionsResponse200AvailableRolesItemCluster(d.pop("cluster"))
+
         get_datatable_permissions_response_200_available_roles_item = cls(
             id=id,
             name=name,
             enabled=enabled,
+            cluster=cluster,
         )
 
         get_datatable_permissions_response_200_available_roles_item.additional_properties = d

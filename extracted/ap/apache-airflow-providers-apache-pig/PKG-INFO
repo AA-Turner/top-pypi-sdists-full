@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: apache-airflow-providers-apache-pig
-Version: 4.8.5
+Version: 4.9.0
 Summary: Provider package apache-airflow-providers-apache-pig for Apache Airflow
 Keywords: airflow-provider,apache.pig,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -26,12 +26,16 @@ License-File: NOTICE
 Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.10.1
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-pig/4.8.5/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-pig/4.8.5
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-pig/4.9.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-pig/4.9.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
+Import-Name: airflow.providers.apache.pig
+Import-Namespace: airflow
+Import-Namespace: airflow.providers
+Import-Namespace: airflow.providers.apache
 
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -58,7 +62,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-apache-pig``
 
-Release: ``4.8.5``
+Release: ``4.9.0``
 
 
 `Apache Pig <https://pig.apache.org/>`__
@@ -71,7 +75,7 @@ This is a provider package for ``apache.pig`` provider. All classes for this pro
 are in ``airflow.providers.apache.pig`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-pig/4.8.5/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-pig/4.9.0/>`_.
 
 Installation
 ------------
@@ -92,25 +96,6 @@ PIP package                                 Version required
 ``apache-airflow-providers-common-compat``  ``>=1.10.1``
 ==========================================  ==================
 
-Cross provider package dependencies
------------------------------------
-
-Those are dependencies that might be needed in order to use all the features of the package.
-You need to install the specified providers in order to use them.
-
-You can install such cross-provider dependencies when installing from PyPI. For example:
-
-.. code-block:: bash
-
-    pip install apache-airflow-providers-apache-pig[common.compat]
-
-
-==================================================================================================================  =================
-Dependent package                                                                                                   Extra
-==================================================================================================================  =================
-`apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_  ``common.compat``
-==================================================================================================================  =================
-
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-pig/4.8.5/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-pig/4.9.0/changelog.html>`_.
 

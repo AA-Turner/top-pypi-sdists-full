@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.secret import Secret
 
+
 class TestSecret(unittest.TestCase):
     """Secret unit test stubs"""
 
@@ -27,9 +28,9 @@ class TestSecret(unittest.TestCase):
 
     def make_instance(self, include_optional) -> Secret:
         """Test Secret
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `Secret`
         """
         model = Secret()
@@ -80,5 +81,6 @@ class TestSecret(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

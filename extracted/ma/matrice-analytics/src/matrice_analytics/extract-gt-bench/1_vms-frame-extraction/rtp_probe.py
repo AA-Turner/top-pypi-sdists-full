@@ -32,6 +32,7 @@ import os
 import sys
 import time
 from collections import Counter
+from itertools import pairwise
 
 import redis as redis_lib
 
@@ -119,12 +120,14 @@ def probe(rows: list[dict]) -> dict:
         return report
 
     rtp_cont = unwrap_rtp(rtp_raw)
-    deltas = [b - a for a, b in zip(rtp_cont, rtp_cont[1:])]
+    deltas = [b - a for a, b in pairwise(rtp_cont)]
 
     # Loop resets: backward jumps that are not uint32 wraps.
     resets = [i for i, d in enumerate(deltas) if d <= -RESET_BACKWARD_TICKS]
     report["loop_resets_seen"] = len(resets)
-    report["case"] = "A (rtp resets each loop)" if resets else "B (continuous rtp, no reset observed)"
+    report["case"] = (
+        "A (rtp resets each loop)" if resets else "B (continuous rtp, no reset observed)"
+    )
 
     pos_deltas = [d for d in deltas if d > 0]
     report["rtp_delta_hist"] = dict(Counter(pos_deltas).most_common(8))
@@ -148,7 +151,7 @@ def probe(rows: list[dict]) -> dict:
             if c0 is not None and c1 is not None:
                 report["loop_period_outputs"] = c1 - c0
         # media-time span of one loop = max rtp within the first loop segment
-        seg = rtp_cont[resets[0] + 1: (resets[1] + 1 if len(resets) >= 2 else len(rtp_cont))]
+        seg = rtp_cont[resets[0] + 1 : (resets[1] + 1 if len(resets) >= 2 else len(rtp_cont))]
         if seg:
             span = seg[-1] - seg[0]
             report["loop_period_seconds"] = round(span / RTP_CLOCK_HZ, 3)
@@ -157,7 +160,7 @@ def probe(rows: list[dict]) -> dict:
 
     # Dropped outputs: counter gaps (>1).
     counters = [r["counter"] for r in rows if r["counter"] is not None]
-    cgaps = [(a, b, b - a) for a, b in zip(counters, counters[1:]) if b - a > 1]
+    cgaps = [(a, b, b - a) for a, b in pairwise(counters) if b - a > 1]
     report["counter_gaps"] = len(cgaps)
     report["counter_dropped_total"] = sum(g[2] - 1 for g in cgaps)
 
@@ -177,9 +180,15 @@ def probe(rows: list[dict]) -> dict:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--seconds", type=float, default=80.0, help="How long to tail the stream (default 80).")
-    ap.add_argument("--fixture", default=None, help="Optional path to dump observed messages as JSONL.")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--seconds", type=float, default=80.0, help="How long to tail the stream (default 80)."
+    )
+    ap.add_argument(
+        "--fixture", default=None, help="Optional path to dump observed messages as JSONL."
+    )
     args = ap.parse_args()
 
     def req(name: str) -> str:
@@ -200,7 +209,7 @@ def main() -> int:
     print(f"[probe] PING {r.ping()}  stream={key}  tailing {args.seconds:.0f}s ...")
 
     rows: list[dict] = []
-    fx = open(args.fixture, "w") if args.fixture else None
+    fx = open(args.fixture, "w") if args.fixture else None  # noqa: SIM115 - closed in the finally below
     last_id = "$"
     deadline = time.monotonic() + args.seconds
     try:

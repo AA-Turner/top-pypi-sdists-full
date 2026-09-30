@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class Project(BaseModel):
     """
     Project
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
     description: Optional[StrictStr] = None
@@ -35,7 +37,15 @@ class Project(BaseModel):
     updated_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     service_count: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "name", "description", "organization_id", "updated_at", "created_at", "service_count"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "name",
+        "description",
+        "organization_id",
+        "updated_at",
+        "created_at",
+        "service_count",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -43,7 +53,6 @@ class Project(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -68,8 +77,7 @@ class Project(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -87,15 +95,15 @@ class Project(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "name": obj.get("name"),
-            "description": obj.get("description"),
-            "organization_id": obj.get("organization_id"),
-            "updated_at": obj.get("updated_at"),
-            "created_at": obj.get("created_at"),
-            "service_count": obj.get("service_count")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "name": obj.get("name"),
+                "description": obj.get("description"),
+                "organization_id": obj.get("organization_id"),
+                "updated_at": obj.get("updated_at"),
+                "created_at": obj.get("created_at"),
+                "service_count": obj.get("service_count"),
+            }
+        )
         return _obj
-
-

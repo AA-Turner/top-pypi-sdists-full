@@ -14,7 +14,7 @@ from ..types import (
     span_assessment_update_params,
 )
 from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from .._utils import path_template, maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, strip_not_given, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -142,6 +142,7 @@ class SpanAssessmentsResource(SyncAPIResource):
         self,
         span_assessment_id: str,
         *,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -157,6 +158,9 @@ class SpanAssessmentsResource(SyncAPIResource):
         that id exists for the caller's account. Use the list endpoint instead when you
         have a span or trace id rather than an assessment id.
 
+        `x-project-id` answers 404 for an assessment on a trace outside that project,
+        when `PROJECT_SCOPED_SPAN_LISTING` is on for the account.
+
         Args:
           extra_headers: Send extra headers
 
@@ -168,6 +172,7 @@ class SpanAssessmentsResource(SyncAPIResource):
         """
         if not span_assessment_id:
             raise ValueError(f"Expected a non-empty value for `span_assessment_id` but received {span_assessment_id!r}")
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._get(
             path_template("/v5/span-assessments/{span_assessment_id}", span_assessment_id=span_assessment_id),
             options=make_request_options(
@@ -257,6 +262,7 @@ class SpanAssessmentsResource(SyncAPIResource):
         assessment_type: AssessmentType | Omit = omit,
         span_id: str | Omit = omit,
         trace_id: str | Omit = omit,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -273,6 +279,9 @@ class SpanAssessmentsResource(SyncAPIResource):
         trace, whereas span_id returns only that span's assessments; an optional
         assessment_type narrows the results to a single type. Use the get-by-id endpoint
         when you already have a specific assessment id.
+
+        `x-project-id` narrows the result to assessments on traces whose root span
+        carries that project, when `PROJECT_SCOPED_SPAN_LISTING` is on for the account.
 
         Args:
           assessment_type: Filter by assessment type
@@ -291,6 +300,7 @@ class SpanAssessmentsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._get_api_list(
             "/v5/span-assessments",
             page=SyncAPIListPage[SpanAssessment],
@@ -460,6 +470,7 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         self,
         span_assessment_id: str,
         *,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -475,6 +486,9 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         that id exists for the caller's account. Use the list endpoint instead when you
         have a span or trace id rather than an assessment id.
 
+        `x-project-id` answers 404 for an assessment on a trace outside that project,
+        when `PROJECT_SCOPED_SPAN_LISTING` is on for the account.
+
         Args:
           extra_headers: Send extra headers
 
@@ -486,6 +500,7 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         """
         if not span_assessment_id:
             raise ValueError(f"Expected a non-empty value for `span_assessment_id` but received {span_assessment_id!r}")
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return await self._get(
             path_template("/v5/span-assessments/{span_assessment_id}", span_assessment_id=span_assessment_id),
             options=make_request_options(
@@ -575,6 +590,7 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         assessment_type: AssessmentType | Omit = omit,
         span_id: str | Omit = omit,
         trace_id: str | Omit = omit,
+        x_project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -591,6 +607,9 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         trace, whereas span_id returns only that span's assessments; an optional
         assessment_type narrows the results to a single type. Use the get-by-id endpoint
         when you already have a specific assessment id.
+
+        `x-project-id` narrows the result to assessments on traces whose root span
+        carries that project, when `PROJECT_SCOPED_SPAN_LISTING` is on for the account.
 
         Args:
           assessment_type: Filter by assessment type
@@ -609,6 +628,7 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"x-project-id": x_project_id}), **(extra_headers or {})}
         return self._get_api_list(
             "/v5/span-assessments",
             page=AsyncAPIListPage[SpanAssessment],

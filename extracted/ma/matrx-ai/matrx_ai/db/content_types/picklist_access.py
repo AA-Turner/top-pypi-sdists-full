@@ -29,6 +29,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from matrx_utils.row_access import publish_columns
+
 from matrx_ai.db._registry import get_model
 
 #: Choice columns a person may set.
@@ -350,7 +352,8 @@ async def create_list_as_the_person(
 ) -> str:
     """Create a list (and its first choices) as the person; the INSERT policies decide.
 
-    Born at the table's starting level (``internal`` — the organization can see it).
+    Born not published to the web (written explicitly, never the table default); the
+    type's ``shown_to`` knob decides who sees it in lists.
     Returns the new list id; a refusal raises ``PermissionError`` naming the organization.
     """
     async with _person(app_ctx):
@@ -363,7 +366,7 @@ async def create_list_as_the_person(
                 organization_id=str(organization_id),
                 is_public=is_public,
                 public_read=public_read,
-                visibility="internal",
+                **publish_columns(False, str(user_id)),
             )
             for item in items or []:
                 values = {k: v for k, v in item.items() if k in WRITABLE_CHOICE_COLUMNS and v is not None}

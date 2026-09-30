@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class PrivateRegistryConfiguration(BaseModel):
     """
     PrivateRegistryConfiguration
-    """ # noqa: E501
+    """  # noqa: E501
+
     username: Optional[StrictStr] = None
     password: Optional[StrictStr] = None
     url: Optional[StrictStr] = None
@@ -38,7 +40,6 @@ class PrivateRegistryConfiguration(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,8 +64,7 @@ class PrivateRegistryConfiguration(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -82,11 +82,11 @@ class PrivateRegistryConfiguration(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "username": obj.get("username"),
-            "password": obj.get("password"),
-            "url": obj.get("url")
-        })
+        _obj = cls.model_validate(
+            {
+                "username": obj.get("username"),
+                "password": obj.get("password"),
+                "url": obj.get("url"),
+            }
+        )
         return _obj
-
-

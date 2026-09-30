@@ -52,6 +52,8 @@ class Permission(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PERMISSION_QUERY_OFFLINE_READ: _ClassVar[Permission]
     PERMISSION_INTERNAL_RESOURCE_SHARE_VIEW: _ClassVar[Permission]
     PERMISSION_INTERNAL_EXCHANGE_TOKEN_RENEW: _ClassVar[Permission]
+    PERMISSION_AGENTS_WRITE: _ClassVar[Permission]
+    PERMISSION_AGENTS_READ: _ClassVar[Permission]
 
 PERMISSION_PRINCIPAL_UNSPECIFIED: PermissionPrincipal
 PERMISSION_PRINCIPAL_SERVICE_TOKEN: PermissionPrincipal
@@ -94,6 +96,8 @@ PERMISSION_BILLING_WRITE: Permission
 PERMISSION_QUERY_OFFLINE_READ: Permission
 PERMISSION_INTERNAL_RESOURCE_SHARE_VIEW: Permission
 PERMISSION_INTERNAL_EXCHANGE_TOKEN_RENEW: Permission
+PERMISSION_AGENTS_WRITE: Permission
+PERMISSION_AGENTS_READ: Permission
 DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
 description: _descriptor.FieldDescriptor
 SLUG_FIELD_NUMBER: _ClassVar[int]

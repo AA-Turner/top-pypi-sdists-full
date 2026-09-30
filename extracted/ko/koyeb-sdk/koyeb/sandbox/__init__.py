@@ -4,7 +4,7 @@
 Koyeb Sandbox - Interactive execution environment for running arbitrary code on Koyeb
 """
 
-__version__ = "1.5.2"
+__version__ = "1.5.5"
 
 from koyeb.api.models.config_file import ConfigFile
 from koyeb.api.models.instance_status import InstanceStatus as SandboxStatus
@@ -18,12 +18,32 @@ from .exec import (
     SandboxExecutor,
 )
 from .filesystem import FileInfo, SandboxFilesystem
+from .pool import (
+    AsyncServicePool,
+    ClaimResult,
+    ServicePool,
+    claim,
+    claim_async,
+    get_claim,
+    get_claim_async,
+    list_claims,
+    list_claims_async,
+    wait_claim_ready,
+    wait_claim_ready_async,
+)
 from .sandbox import AsyncSandbox, ExposedPort, ProcessInfo, Sandbox
 from .snapshot import DeclarativeSnapshot, Snapshot, SnapshotStatus, SnapshotType
-from .utils import (
+from .errors import (
     EgressPolicyError,
+    PoolClaimError,
+    ServicePoolError,
+    ServiceTerminalStateError,
+    InvalidPortError,
+    MissingApiTokenError,
+    NoSandboxSecretError,
     SandboxDeploymentError,
     SandboxError,
+    SandboxRequestError,
     SandboxServiceError,
     SandboxTimeoutError,
 )
@@ -38,9 +58,27 @@ __all__ = [
     "AsyncSandboxExecutor",
     "FileInfo",
     "SandboxStatus",
+    "AsyncServicePool",
+    "ClaimResult",
+    "ServicePool",
+    "claim",
+    "claim_async",
+    "get_claim",
+    "get_claim_async",
+    "list_claims",
+    "list_claims_async",
+    "wait_claim_ready",
+    "wait_claim_ready_async",
     "EgressPolicyError",
+    "PoolClaimError",
+    "ServicePoolError",
+    "ServiceTerminalStateError",
+    "InvalidPortError",
+    "MissingApiTokenError",
+    "NoSandboxSecretError",
     "SandboxDeploymentError",
     "SandboxError",
+    "SandboxRequestError",
     "SandboxServiceError",
     "SandboxTimeoutError",
     "CommandResult",

@@ -41,6 +41,7 @@ from ._version import __version__
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
+    from typing import Self
 
 
 __author__ = "Amr Hassan, hugovk, Mice Pápai"
@@ -79,6 +80,22 @@ STATUS_DEPRECATED = 27
 # 28 : This error is not documented
 STATUS_RATE_LIMIT_EXCEEDED = 29
 
+# WSError statuses that a retry might resolve: transient service problems,
+# plus the HTTP 5xx codes _download_response turns into WSErrors.
+_RETRYABLE_STATUSES = frozenset(
+    str(status)
+    for status in (
+        STATUS_OPERATION_FAILED,
+        STATUS_OFFLINE,
+        STATUS_TEMPORARILY_UNAVAILABLE,
+        STATUS_RATE_LIMIT_EXCEEDED,
+        500,
+        502,
+        503,
+        504,
+    )
+)
+
 PERIOD_OVERALL = "overall"
 PERIOD_7DAYS = "7day"
 PERIOD_1MONTH = "1month"
@@ -112,7 +129,6 @@ IMAGES_ORDER_DATE = "dateadded"
 # Delay time in seconds from section 4.4 of https://www.last.fm/api/tos
 DELAY_TIME = 0.2
 
-# Python >3.4 has sane defaults
 SSL_CONTEXT = ssl.create_default_context()
 
 HEADERS = {
@@ -648,10 +664,7 @@ class _Network:
                     arg in tracks_to_scrobble[i]
                     and tracks_to_scrobble[i][arg] is not None
                 ):
-                    if arg in args_map_to:
-                        maps_to = args_map_to[arg]
-                    else:
-                        maps_to = arg
+                    maps_to = args_map_to.get(arg, arg)
 
                     params[f"{maps_to}[{i}]"] = tracks_to_scrobble[i][arg]
 
@@ -817,10 +830,11 @@ class _ShelfCacheBackend:
     """Used as a backend for caching cacheable requests."""
 
     def __init__(self, file_path=None, flag=None) -> None:
+        # The shelf stays open for the backend's lifetime
         if flag is not None:
-            self.shelf = shelve.open(file_path, flag=flag)
+            self.shelf = shelve.open(file_path, flag=flag)  # noqa: SIM115
         else:
-            self.shelf = shelve.open(file_path)
+            self.shelf = shelve.open(file_path)  # noqa: SIM115
         self.cache_keys = set(self.shelf.keys())
 
     def __contains__(self, key) -> bool:
@@ -837,7 +851,7 @@ class _ShelfCacheBackend:
         self.shelf[key] = xml_string
 
     @classmethod
-    def create_shelf(cls) -> _ShelfCacheBackend:
+    def create_shelf(cls) -> Self:
         file_descriptor, file_path = tempfile.mkstemp(prefix="pylast_tmp_")
         os.close(file_descriptor)
         return cls(file_path=file_path, flag="n")
@@ -873,7 +887,7 @@ class _Request:
     def sign_it(self) -> None:
         """Sign this request."""
 
-        if "api_sig" not in self.params.keys():
+        if "api_sig" not in self.params:
             self.params["api_sig"] = self._get_signature()
 
     @staticmethod
@@ -893,32 +907,20 @@ class _Request:
         """
         Returns a 32-character hexadecimal md5 hash of the signature string.
         """
-        keys = list(self.params.keys())
-        keys.sort()
+        string = "".join(f"{name}{self.params[name]}" for name in sorted(self.params))
 
-        string = ""
-
-        for name in keys:
-            string += name
-            string += self.params[name]
-
-        string += self.api_secret
-
-        return md5(string)
+        return md5(string + self.api_secret)
 
     def _get_cache_key(self) -> str:
         """
         The cache key is a string of concatenated sorted names and values.
         """
 
-        keys = list(self.params.keys())
-        keys.sort()
-
-        cache_key = ""
-
-        for key in keys:
-            if key != "api_sig" and key != "api_key" and key != "sk":
-                cache_key += key + self.params[key]
+        cache_key = "".join(
+            f"{key}{self.params[key]}"
+            for key in sorted(self.params)
+            if key not in ("api_sig", "api_key", "sk")
+        )
 
         return hashlib.sha1(cache_key.encode("utf-8")).hexdigest()
 
@@ -1010,8 +1012,8 @@ class SessionKeyGenerator:
         e. session_key = sg.get_web_auth_session_key(url)
     2) Username and Password Authentication:
         a. network = get_*_network(API_KEY, API_SECRET)
-        b. username = raw_input("Please enter your username: ")
-        c. password_hash = pylast.md5(raw_input("Please enter your password: ")
+        b. username = input("Please enter your username: ")
+        c. password_hash = pylast.md5(input("Please enter your password: "))
         d. session_key = SessionKeyGenerator(network).get_session_key(username,
             password_hash)
 
@@ -1069,7 +1071,7 @@ class SessionKeyGenerator:
         Retrieves the session key/username of a web authorization process by its URL.
         """
 
-        if url in self.web_auth_tokens.keys():
+        if url in self.web_auth_tokens:
             token = self.web_auth_tokens[url]
 
         request = _Request(self.network, "auth.getSession", {"token": token})
@@ -1263,11 +1265,10 @@ class _Chartable(_BaseObject):
 
         doc = self._request(self.ws_prefix + ".getWeeklyChartList", True)
 
-        seq = []
-        for node in doc.getElementsByTagName("chart"):
-            seq.append((node.getAttribute("from"), node.getAttribute("to")))
-
-        return seq
+        return [
+            (node.getAttribute("from"), node.getAttribute("to"))
+            for node in doc.getElementsByTagName("chart")
+        ]
 
     def get_weekly_album_charts(self, from_date=None, to_date=None):
         """
@@ -1373,11 +1374,7 @@ class _Taggable(_BaseObject):
 
         doc = self._request(self.ws_prefix + ".getTags", False, params)
         tag_names = _extract_all(doc, "name")
-        tags = []
-        for tag in tag_names:
-            tags.append(Tag(tag, self.network))
-
-        return tags
+        return [Tag(tag, self.network) for tag in tag_names]
 
     def remove_tags(self, tags) -> None:
         """Removes one or several tags from this object.
@@ -1402,9 +1399,6 @@ class _Taggable(_BaseObject):
         c_new_tags = []
         new_tags = []
 
-        to_remove = []
-        to_add = []
-
         tags_on_server = self.get_tags()
 
         for tag in tags_on_server:
@@ -1415,13 +1409,12 @@ class _Taggable(_BaseObject):
             c_new_tags.append(tag.lower())
             new_tags.append(tag)
 
-        for i in range(len(old_tags)):
-            if c_old_tags[i] not in c_new_tags:
-                to_remove.append(old_tags[i])
-
-        for i in range(len(new_tags)):
-            if c_new_tags[i] not in c_old_tags:
-                to_add.append(new_tags[i])
+        to_remove = [
+            old_tags[i] for i in range(len(old_tags)) if c_old_tags[i] not in c_new_tags
+        ]
+        to_add = [
+            new_tags[i] for i in range(len(new_tags)) if c_new_tags[i] not in c_old_tags
+        ]
 
         self.remove_tags(to_remove)
         self.add_tags(to_add)
@@ -1560,7 +1553,7 @@ class _Opus(_Taggable):
 
         return (
             f"pylast.{self.ws_prefix.title()}"
-            f"({repr(self.artist.name)}, {repr(self.title)}, {repr(self.network)})"
+            f"({self.artist.name!r}, {self.title!r}, {self.network!r})"
         )
 
     def __str__(self) -> str:
@@ -1578,9 +1571,6 @@ class _Opus(_Taggable):
         c = self.get_artist().get_name().lower()
         d = other.get_artist().get_name().lower()
         return (a == b) and (c == d)
-
-    def __ne__(self, other) -> bool:
-        return not self == other
 
     def _get_params(self):
         return {
@@ -1743,7 +1733,7 @@ class Artist(_Taggable):
         self.info = info
 
     def __repr__(self) -> str:
-        return f"pylast.Artist({repr(self.get_name())}, {repr(self.network)})"
+        return f"pylast.Artist({self.get_name()!r}, {self.network!r})"
 
     def __str__(self) -> str:
         return self.get_name()
@@ -1753,9 +1743,6 @@ class Artist(_Taggable):
             return self.get_name().lower() == other.get_name().lower()
         else:
             return False
-
-    def __ne__(self, other) -> bool:
-        return not self == other
 
     def _get_params(self):
         return {self.ws_prefix: self.get_name()}
@@ -1859,13 +1846,10 @@ class Artist(_Taggable):
         names = _extract_all(doc, "name")
         matches = _extract_all(doc, "match")
 
-        artists = []
-        for i in range(len(names)):
-            artists.append(
-                SimilarItem(Artist(names[i], self.network), _number(matches[i]))
-            )
-
-        return artists
+        return [
+            SimilarItem(Artist(names[i], self.network), _number(matches[i]))
+            for i in range(len(names))
+        ]
 
     def get_top_albums(self, limit=None, cacheable: bool = True, stream: bool = False):
         """Returns a list of the top albums."""
@@ -1919,7 +1903,7 @@ class Country(_BaseObject):
         self.name = name
 
     def __repr__(self) -> str:
-        return f"pylast.Country({repr(self.name)}, {repr(self.network)})"
+        return f"pylast.Country({self.name!r}, {self.network!r})"
 
     def __str__(self) -> str:
         return self.get_name()
@@ -1930,10 +1914,7 @@ class Country(_BaseObject):
         else:
             return False
 
-    def __ne__(self, other) -> bool:
-        return not self == other
-
-    def _get_params(self):  # TODO can move to _BaseObject
+    def _get_params(self):
         return {"country": self.get_name()}
 
     def get_name(self):
@@ -1999,7 +1980,7 @@ class Library(_BaseObject):
             self.user = User(user, self.network)
 
     def __repr__(self) -> str:
-        return f"pylast.Library({repr(self.user)}, {repr(self.network)})"
+        return f"pylast.Library({self.user!r}, {self.network!r})"
 
     def __str__(self) -> str:
         return repr(self.get_user()) + "'s Library"
@@ -2046,7 +2027,7 @@ class Tag(_Chartable):
         self.name = name
 
     def __repr__(self) -> str:
-        return f"pylast.Tag({repr(self.name)}, {repr(self.network)})"
+        return f"pylast.Tag({self.name!r}, {self.network!r})"
 
     def __str__(self) -> str:
         return self.get_name()
@@ -2056,9 +2037,6 @@ class Tag(_Chartable):
             return self.get_name().lower() == other.get_name().lower()
         else:
             return False
-
-    def __ne__(self, other) -> bool:
-        return not self == other
 
     def _get_params(self):
         return {self.ws_prefix: self.get_name()}
@@ -2246,7 +2224,7 @@ class User(_Chartable):
         self.name = user_name
 
     def __repr__(self) -> str:
-        return f"pylast.User({repr(self.name)}, {repr(self.network)})"
+        return f"pylast.User({self.name!r}, {self.network!r})"
 
     def __str__(self) -> str:
         return self.get_name()
@@ -2256,9 +2234,6 @@ class User(_Chartable):
             return self.get_name() == other.get_name()
         else:
             return False
-
-    def __ne__(self, other) -> bool:
-        return not self == other
 
     def _get_params(self):
         return {self.ws_prefix: self.get_name()}
@@ -2392,7 +2367,7 @@ class User(_Chartable):
         large amount of data.
         """
 
-        def _get_recent_tracks() -> Generator[PlayedTrack, None, None]:
+        def _get_recent_tracks() -> Generator[PlayedTrack]:
             params = self._get_params()
             if limit:
                 params["limit"] = limit + 1  # in case we remove the now playing track
@@ -2556,15 +2531,10 @@ class User(_Chartable):
 
         doc = self._request(self.ws_prefix + ".getTopTags", cacheable, params)
 
-        seq = []
-        for node in doc.getElementsByTagName("tag"):
-            seq.append(
-                TopItem(
-                    Tag(_extract(node, "name"), self.network), _extract(node, "count")
-                )
-            )
-
-        return seq
+        return [
+            TopItem(Tag(_extract(node, "name"), self.network), _extract(node, "count"))
+            for node in doc.getElementsByTagName("tag")
+        ]
 
     def get_top_tracks(
         self,
@@ -2686,12 +2656,7 @@ class _Search(_BaseObject):
         self._last_page_index = 0
 
     def _get_params(self) -> dict:
-        params = {}
-
-        for key in self.search_terms.keys():
-            params[key] = self.search_terms[key]
-
-        return params
+        return dict(self.search_terms)
 
     def get_total_result_count(self):
         """Returns the total count of all the results."""
@@ -2730,16 +2695,15 @@ class AlbumSearch(_Search):
 
         master_node = self._retrieve_next_page()
 
-        seq = []
-        for node in master_node.getElementsByTagName("album"):
-            seq.append(
-                Album(
-                    _extract(node, "artist"),
-                    _extract(node, "name"),
-                    self.network,
-                    info={"image": _extract_all(node, "image")},
-                )
+        seq = [
+            Album(
+                _extract(node, "artist"),
+                _extract(node, "name"),
+                self.network,
+                info={"image": _extract_all(node, "image")},
             )
+            for node in master_node.getElementsByTagName("album")
+        ]
 
         return seq
 
@@ -2820,6 +2784,17 @@ def cleanup_nodes(doc):
     return doc
 
 
+def _can_retry(exception: Exception) -> bool:
+    """
+    Returns True if a failed request may succeed if tried again:
+    network hiccups and transient service errors are worth retrying,
+    deterministic API errors (such as login required, invalid API key) are not.
+    """
+    if isinstance(exception, WSError):
+        return str(exception.status) in _RETRYABLE_STATUSES
+    return True
+
+
 def _collect_nodes(
     limit, sender, method_name, cacheable, params=None, stream: bool = False
 ):
@@ -2834,7 +2809,7 @@ def _collect_nodes(
         page = 1
         end_of_pages = False
 
-        while not end_of_pages and (not limit or (limit and node_count < limit)):
+        while not end_of_pages and (not limit or node_count < limit):
             params["page"] = str(page)
 
             tries = 1
@@ -2843,7 +2818,11 @@ def _collect_nodes(
                     doc = sender._request(method_name, cacheable, params)
                     break  # success
                 except Exception as e:
+                    if not _can_retry(e):
+                        raise
                     if tries >= 3:
+                        if isinstance(e, PyLastError):
+                            raise
                         raise PyLastError() from e
                     # Wait and try again
                     time.sleep(1)
@@ -2865,7 +2844,7 @@ def _collect_nodes(
                 raise PyLastError(msg)
 
             for node in main.childNodes:
-                if not node.nodeType == Node.TEXT_NODE and (
+                if node.nodeType != Node.TEXT_NODE and (
                     not limit or (node_count < limit)
                 ):
                     node_count += 1
@@ -2905,7 +2884,6 @@ def _extract_all(node, name, limit_count=None):
 
 
 def _extract_top_artists(doc: minidom.Document, network) -> list[TopItem]:
-    # TODO Maybe include the _request here too?
     seq = []
     for node in doc.getElementsByTagName("artist"):
         name = _extract(node, "name")
@@ -2917,7 +2895,6 @@ def _extract_top_artists(doc: minidom.Document, network) -> list[TopItem]:
 
 
 def _extract_top_albums(doc: minidom.Document, network) -> list[TopItem]:
-    # TODO Maybe include the _request here too?
     seq = []
     for node in doc.getElementsByTagName("album"):
         name = _extract(node, "name")
@@ -2931,10 +2908,10 @@ def _extract_top_albums(doc: minidom.Document, network) -> list[TopItem]:
 
 
 def _extract_artists(doc: minidom.Document, network) -> list[Artist]:
-    seq = []
-    for node in doc.getElementsByTagName("artist"):
-        seq.append(Artist(_extract(node, "name"), network))
-    return seq
+    return [
+        Artist(_extract(node, "name"), network)
+        for node in doc.getElementsByTagName("artist")
+    ]
 
 
 def _extract_albums(doc: minidom.Document, network) -> list[Album]:

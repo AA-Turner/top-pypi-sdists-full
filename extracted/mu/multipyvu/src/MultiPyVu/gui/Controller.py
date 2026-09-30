@@ -5,17 +5,15 @@ pattern for MultiPyVu.py
 @author: djackson
 """
 
-
 import re
-import subprocess
 import os
-from sys import platform
 from types import MethodType
 from typing import List
 
 from .IController import IController
 from .ViewFactory import ViewType, ViewFactory
 from ..IEventManager import IObserver
+from ..scripts.helper_scripts import get_ip
 from ..instrument import InstrumentList
 from ..MultiVuServer import Server
 from ..ParseInputs import inputs_from_command_line
@@ -67,13 +65,10 @@ class Controller(IController):
         super().__init__()
         flag_info = inputs_from_command_line(flags)
         self._scaffolding = flag_info.scaffolding_mode
-        self._flags = []
-        self._flags.append(f'-ip={flag_info.host}')
-        self._flags.append(f'-p={flag_info.port}')
-        if flag_info.scaffolding_mode:
-            self._flags.append('-s')
-        if flag_info.instrument_str:
-            self._flags.append(f'{flag_info.instrument_str}')
+        if flag_info.host in ['', '0.0.0.0']:
+            self._ip_address = get_ip()
+        else:
+            self._ip_address = flag_info.host
 
         self.model = Server(flags)
         self.view = ViewFactory().create(ViewType.tk, self)
@@ -150,39 +145,6 @@ class Controller(IController):
         --------
         String with the IP address
         """
-        ip_output_str = ''
-        search_str = r'([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3})'
-        if platform == 'win32':
-            ip_addr_script = '../scripts/whats_my_ip_address.cmd'
-            ip_addr_script = self.absolute_path(ip_addr_script)
-            proc = subprocess.run([ip_addr_script],
-                                  capture_output=True,
-                                  text=True)
-            if proc.returncode != 0:
-                print(proc.stderr)
-                raise Exception(proc.stderr)
-            ip_result = re.findall(search_str, proc.stdout)
-            if len(ip_result) == 1:
-                self._ip_address = ip_result[0]
-        else:
-            # using this suggestion:
-            # https://apple.stackexchange.com/questions/20547/how-do-i-find-my-ip-address-from-the-command-line
-            ifconfig_proc = subprocess.Popen(["ifconfig"],
-                                             stdout=subprocess.PIPE,
-                                             text=True)
-            grep_proc = subprocess.Popen(["grep", "inet"],
-                                         stdin=ifconfig_proc.stdout,
-                                         stdout=subprocess.PIPE,
-                                         text=True)
-            ip_output_str, err = grep_proc.communicate()
-            if err is not None:
-                print(err)
-                raise Exception(grep_proc.stderr)
-            ip_result = re.findall(search_str, ip_output_str)
-            if '127.0.0.1' in ip_result:
-                ip_result.remove('127.0.0.1')
-            if len(ip_result) >= 1:
-                self._ip_address = ip_result[0]
         return self._ip_address
 
     @ip_address.setter

@@ -1,3 +1,5 @@
+"""Bar graph widgets and the helpers that compute their display."""
+
 from __future__ import annotations
 
 import typing
@@ -27,7 +29,7 @@ class BarGraphMeta(WidgetMeta):
         Call :meth:`BarGraph.set_data` instead, so that the rendered canvas can be cached.
     """
 
-    def __init__(
+    def __init__(  # noqa: D107 -- BarGraphMeta is deprecated for backwards compatibility only
         cls,
         name: str,
         bases: tuple[type, ...],
@@ -50,18 +52,18 @@ def nocache_bargraph_get_data(
         tuple[Sequence[Sequence[float | int]], float, Sequence[float | int] | None],
     ],
 ) -> None:
-    """
-    Disable caching on this bargraph because get_data_fn needs to be polled to get the latest data.
-    """
+    """Disable caching on this bargraph because get_data_fn needs to be polled to get the latest data."""
     self.render = nocache_widget_render_instance(self)  # type: ignore[assignment]
     self._get_data = get_data_fn  # type: ignore[assignment]  # pylint: disable=protected-access
 
 
 class BarGraphError(WidgetError):
-    pass
+    """BarGraph related errors."""
 
 
 class BarGraph(Widget, metaclass=BarGraphMeta):
+    """Box widget that renders a bar graph from a sequence of data values."""
+
     _sizing = frozenset([Sizing.BOX])
 
     ignore_focus = True
@@ -75,9 +77,9 @@ class BarGraph(Widget, metaclass=BarGraphMeta):
         hatt: list[str] | None = None,
         satt: Mapping[tuple[int, int], str] | None = None,
     ) -> None:
-        """
-        Create a bar graph with the passed display characteristics.
-        see set_segment_attributes for a description of the parameters.
+        """Create a bar graph with the passed display characteristics.
+
+        See :meth:`set_segment_attributes` for a description of the parameters.
         """
         super().__init__()
         self.set_segment_attributes(attlist, hatt, satt)
@@ -90,7 +92,8 @@ class BarGraph(Widget, metaclass=BarGraphMeta):
         hatt: list[str] | None = None,
         satt: Mapping[tuple[int, int], str] | None = None,
     ) -> None:
-        """
+        """Set the display attributes to use for the bar graph's segments.
+
         :param attlist: list containing display attribute or
                         (display attribute, character) tuple for background,
                         first segment, and optionally following segments.
@@ -197,7 +200,7 @@ class BarGraph(Widget, metaclass=BarGraphMeta):
         size: tuple[int, int],
     ) -> tuple[Sequence[Sequence[float | int]], float, Sequence[float | int] | None]:
         """
-        Return (bardata, top, hlines)
+        Return (bardata, top, hlines).
 
         This function is called by render to retrieve the data for the graph.
         It may be overloaded to create a dynamic bar graph.
@@ -255,21 +258,18 @@ class BarGraph(Widget, metaclass=BarGraphMeta):
         return widths
 
     def selectable(self) -> Literal[False]:
-        """
-        Return False.
-        """
+        """Return False."""
         return False
 
     def use_smoothed(self) -> bool:
+        """Return whether smoothed (sub-character resolution) rendering can be used."""
         return bool(self.satt and get_encoding_mode() == "utf8")
 
     def calculate_display(
         self,
         size: tuple[int, int],
     ) -> list[tuple[int, list[tuple[int | tuple[int, int] | tuple[int, int, int], int]]]]:
-        """
-        Calculate display data.
-        """
+        """Calculate display data."""
         (maxcol, maxrow) = size
         bardata, top, hlines = self._get_data((maxcol, maxrow))
         widths = self.calculate_bar_widths((maxcol, maxrow), bardata)
@@ -292,12 +292,10 @@ class BarGraph(Widget, metaclass=BarGraphMeta):
         hlines: Sequence[float | int],
         maxrow: int,
     ) -> list[tuple[int, list[tuple[int | tuple[int, int] | tuple[int, int, int], int]]]]:
-        """
-        Add hlines to display structure represented as bar_type tuple values:
-        (bg, 0-5)
-        bg is the segment that has the hline on it
-        0-5 is the hline graphic to use where 0 is a regular underscore
-        and 1-5 are the UTF-8 horizontal scan line characters.
+        """Add hlines to display structure represented as bar_type tuple values.
+
+        The tuple is ``(bg, 0-5)`` where bg is the segment that has the hline on it, and 0-5 is the hline
+        graphic to use where 0 is a regular underscore and 1-5 are the UTF-8 horizontal scan line characters.
         """
         if self.use_smoothed():
             shiftr = 0.0
@@ -369,11 +367,10 @@ class BarGraph(Widget, metaclass=BarGraphMeta):
         self,
         disp: list[tuple[int, list[tuple[int, int]]]],
     ) -> list[tuple[int, list[tuple[int | tuple[int, int] | tuple[int, int, int], int]]]]:
-        """
-        smooth (col, row*8) display into (col, row) display using
-        UTF vertical eighth characters represented as bar_type tuple values:
-        ( fg, bg, 1-7 )
-        where fg is the lower segment, bg is the upper segment and 1-7 is the vertical eighth character to use.
+        """Smooth (col, row*8) display into (col, row) display using UTF vertical eighth characters.
+
+        The characters are represented as bar_type tuple values ``(fg, bg, 1-7)`` where fg is the lower
+        segment, bg is the upper segment and 1-7 is the vertical eighth character to use.
 
         :raises BarGraphError: the smoothed rows do not add up to the graph height.
         """
@@ -505,9 +502,7 @@ def calculate_bargraph_display(
     bar_widths: list[int],
     maxrow: int,
 ) -> list[tuple[int, list[tuple[int, int]]]]:
-    """
-    Calculate a rendering of the bar graph described by data, bar_widths
-    and height.
+    """Calculate a rendering of the bar graph described by data, bar_widths and height.
 
     :param bardata: bar information with same structure as BarGraph.data
     :param top: maximal value for bardata segments
@@ -530,7 +525,6 @@ def calculate_bargraph_display(
     This function should complete in approximately O(n+m) time, where
     n is the number of bars displayed and m is the number of rows.
     """
-
     if len(bardata) != len(bar_widths):
         raise BarGraphError
 
@@ -656,6 +650,8 @@ def calculate_bargraph_display(
 
 
 class GraphVScale(Widget):
+    """Box widget that renders a vertical scale of labels for a :class:`BarGraph`."""
+
     _sizing = frozenset([Sizing.BOX])
 
     def __init__(
@@ -687,7 +683,6 @@ class GraphVScale(Widget):
             for that label
         :param top: top y position
         """
-
         labels = sorted(labels[:], reverse=True)  # shallow copy
 
         self.pos = []
@@ -698,9 +693,7 @@ class GraphVScale(Widget):
         self.top = top
 
     def selectable(self) -> Literal[False]:
-        """
-        Return False.
-        """
+        """Return False."""
         return False
 
     def render(
@@ -708,9 +701,7 @@ class GraphVScale(Widget):
         size: tuple[int, int],  # type: ignore[override]
         focus: bool = False,
     ) -> SolidCanvas | CompositeCanvas:
-        """
-        Render GraphVScale.
-        """
+        """Render GraphVScale."""
         (maxcol, maxrow) = size
         pl = scale_bar_values(self.pos, self.top, maxrow)
 
@@ -744,7 +735,5 @@ def scale_bar_values(
     top: float,
     maxrow: int,
 ) -> list[int]:
-    """
-    Return a list of bar values aliased to integer values of maxrow.
-    """
+    """Return a list of bar values aliased to integer values of maxrow."""
     return [maxrow - int(float(v) * maxrow / top + 0.5) for v in bar]

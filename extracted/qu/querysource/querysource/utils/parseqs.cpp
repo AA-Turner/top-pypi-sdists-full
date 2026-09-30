@@ -7,6 +7,9 @@
         "extra_compile_args": [
             "-O3"
         ],
+        "extra_link_args": [
+            "-Wl,--strip-all"
+        ],
         "language": "c++",
         "name": "querysource.utils.parseqs",
         "sources": [

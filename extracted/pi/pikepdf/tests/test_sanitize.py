@@ -265,6 +265,75 @@ def test_cyclic_next_guard(pal):
     remove_external_access(pal)  # must terminate, not hang or overflow
 
 
+def test_deep_next_chain_fails_closed(pal):
+    # A JavaScript action buried past the /Next recursion cap must not survive:
+    # a pathological inline chain that is too deep to examine is severed, not
+    # left in place (and not grafted upward).
+    node = Dictionary(S=Name.JavaScript, JS=String("app.alert('pwn')"))
+    for _ in range(80):
+        node = Dictionary(S=Name.GoTo, Next=node)
+    top = Dictionary(S=Name.Named, N=Name.NextPage, Next=node)
+    annot = pal.make_indirect(Dictionary(Type=Name.Annot, Subtype=Name.Link, A=top))
+    pal.pages[0].obj.Annots = Array([annot])
+
+    remove_javascript(pal)
+
+    def has_js(action):
+        while isinstance(action, Dictionary):
+            if action.get(Name.S) == Name.JavaScript:
+                return True
+            nxt = action.get(Name.Next)
+            if isinstance(nxt, Array):
+                return any(has_js(child) for child in nxt)
+            action = nxt
+        return False
+
+    assert not has_js(annot.A)
+
+
+def _link_with_next(pdf, next_value):
+    action = Dictionary(S=Name.GoTo, D=Array([pdf.pages[0].obj, Name.Fit]))
+    action.Next = next_value
+    annot = pdf.make_indirect(Dictionary(Type=Name.Annot, Subtype=Name.Link, A=action))
+    pdf.pages[0].obj.Annots = Array([annot])
+    return annot
+
+
+def test_next_nested_array_fails_closed(pal):
+    # /Next must hold an action or an array of actions. A nested array cannot
+    # be examined as an action, so it is dropped rather than passed through.
+    js = Dictionary(S=Name.JavaScript, JS=String('app.alert(1)'))
+    annot = _link_with_next(pal, Array([Array([js])]))
+    remove_javascript(pal)
+    assert Name.Next not in annot.A
+
+
+def test_next_nested_array_dropped_beside_benign_action(pal):
+    benign = Dictionary(S=Name.Named, N=Name.NextPage)
+    js = Dictionary(S=Name.JavaScript, JS=String('app.alert(1)'))
+    annot = _link_with_next(pal, Array([benign, Array([js])]))
+    remove_javascript(pal)
+    assert annot.A.Next.S == Name.Named
+
+
+@pytest.mark.parametrize(
+    'junk',
+    [
+        pytest.param(lambda pdf: 42, id='integer'),
+        pytest.param(lambda pdf: Array([42]), id='array-of-integer'),
+        pytest.param(lambda pdf: Array([True, 1.5, None]), id='array-of-scalars'),
+        pytest.param(lambda pdf: Name.Foo, id='name'),
+        pytest.param(lambda pdf: String('x'), id='string'),
+        pytest.param(lambda pdf: Dictionary(Foo=1), id='non-action-dict'),
+        pytest.param(lambda pdf: pdf.make_indirect(7), id='indirect-integer'),
+    ],
+)
+def test_next_non_action_members_dropped(pal, junk):
+    annot = _link_with_next(pal, junk(pal))
+    remove_javascript(pal)
+    assert Name.Next not in annot.A
+
+
 def test_removes_gotoe_embedded_action(pal):
     annot = pal.make_indirect(
         Dictionary(
@@ -357,6 +426,98 @@ def test_outline_cyclic_guard(pal):
     remove_javascript(pal)  # must terminate
     assert Name.A not in a
     assert Name.A not in b
+
+
+# --- form field actions --------------------------------------------------
+
+
+def _field(pdf, name, action, **kwargs):
+    return pdf.make_indirect(
+        Dictionary(FT=Name.Tx, T=String(name), AA=Dictionary(K=action), **kwargs)
+    )
+
+
+def _widget(pdf, parent, **kwargs):
+    return pdf.make_indirect(
+        Dictionary(
+            Type=Name.Annot,
+            Subtype=Name.Widget,
+            Parent=parent,
+            Rect=Array([0, 0, 100, 20]),
+            **kwargs,
+        )
+    )
+
+
+def test_removes_js_from_field_split_from_widget(pal):
+    field = _field(pal, 'f', _js_action(pal))
+    widget = _widget(pal, field)
+    field.Kids = Array([widget])
+    pal.Root.AcroForm = Dictionary(Fields=Array([field]))
+    pal.pages[0].obj.Annots = Array([widget])
+    remove_javascript(pal)
+    assert Name.AA not in field
+
+
+def test_removes_js_from_hidden_field(pal):
+    hidden = _field(pal, 'h', _js_action(pal))
+    pal.Root.AcroForm = Dictionary(Fields=Array([hidden]), CO=Array([hidden]))
+    remove_javascript(pal)
+    assert Name.AA not in hidden
+
+
+def test_removes_js_from_nested_field_tree(pal):
+    grandchild = _field(pal, 'gc', _js_action(pal))
+    child = _field(pal, 'c', _js_action(pal), Kids=Array([grandchild]))
+    parent = _field(pal, 'p', _js_action(pal), Kids=Array([child]))
+    pal.Root.AcroForm = Dictionary(Fields=Array([parent]))
+    remove_javascript(pal)
+    for node in (parent, child, grandchild):
+        assert Name.AA not in node
+
+
+def test_removes_external_access_from_hidden_field(pal):
+    submit = Dictionary(S=Name.SubmitForm, F=String('https://evil.example/'))
+    kid = _field(pal, 'kid', submit)
+    parent = pal.make_indirect(Dictionary(T=String('p'), Kids=Array([kid])))
+    pal.Root.AcroForm = Dictionary(Fields=Array([parent]))
+    remove_external_access(pal)
+    assert Name.AA not in kid
+
+
+def test_removes_action_from_widget_not_on_any_page(pal):
+    field = _field(pal, 'f', _js_action(pal))
+    widget = _widget(pal, field, A=_js_action(pal), AA=Dictionary(E=_js_action(pal)))
+    field.Kids = Array([widget])
+    pal.Root.AcroForm = Dictionary(Fields=Array([field]))
+    remove_javascript(pal)
+    assert Name.A not in widget
+    assert Name.AA not in widget
+
+
+def test_field_tree_cyclic_guard(pal):
+    child = _field(pal, 'c', _js_action(pal))
+    parent = _field(pal, 'p', _js_action(pal), Kids=Array([child]))
+    child.Kids = Array([parent])  # cycle
+    pal.Root.AcroForm = Dictionary(Fields=Array([parent, parent]))
+    remove_javascript(pal)  # must terminate
+    assert Name.AA not in parent
+    assert Name.AA not in child
+
+
+def test_field_preserves_non_targeted_action(pal):
+    reset = Dictionary(S=Name.ResetForm)
+    field = _field(pal, 'f', reset)
+    pal.Root.AcroForm = Dictionary(Fields=Array([field]))
+    remove_javascript(pal)
+    assert field.AA.K.S == Name.ResetForm
+
+
+def test_malformed_acroform_fields_tolerated(pal):
+    pal.Root.AcroForm = Dictionary(Fields=Array([Name.Bogus, 42]))
+    remove_javascript(pal)
+    pal.Root.AcroForm = Dictionary(Fields=Name.Bogus)
+    remove_javascript(pal)
 
 
 # --- remove_attachments --------------------------------------------------
@@ -772,6 +933,122 @@ def test_sanitizer_empty_is_noop(pal):
     before = len(pal.pages)
     Sanitizer().apply(pal)
     assert len(pal.pages) == before
+
+
+# --- malformed input -----------------------------------------------------
+
+
+def _annot(pdf, **kwargs):
+    annot = pdf.make_indirect(Dictionary(Type=Name.Annot, **kwargs))
+    pdf.pages[0].obj.Annots = Array([annot])
+    return annot
+
+
+def _set_root(key, value):
+    def setter(pdf):
+        pdf.Root[key] = value(pdf) if callable(value) else value
+
+    return setter
+
+
+def _set_page(key, value):
+    def setter(pdf):
+        pdf.pages[0].obj[key] = value
+
+    return setter
+
+
+# Each entry corrupts one place the sanitizer reads with a value of the wrong
+# type. Scalars are the interesting case: in implicit conversion mode they come
+# back as Python int/bool/Decimal, which lack the pikepdf.Object interface.
+_MALFORMED = {
+    'openaction-int': _set_root(Name.OpenAction, 42),
+    'catalog-aa-int': _set_root(Name.AA, 42),
+    'catalog-aa-event-int': _set_root(Name.AA, Dictionary(O=42)),
+    'page-aa-int': _set_page(Name.AA, 42),
+    'page-aa-event-bool': _set_page(Name.AA, Dictionary(O=True)),
+    'annots-int': _set_page(Name.Annots, 42),
+    'annots-member-int': _set_page(Name.Annots, Array([42, 1.5, Name.Foo])),
+    'annot-a-int': lambda pdf: _annot(pdf, Subtype=Name.Link, A=42),
+    'annot-aa-int': lambda pdf: _annot(pdf, Subtype=Name.Link, AA=42),
+    'annot-subtype-int': lambda pdf: _annot(pdf, Subtype=42),
+    'annot-subtype-missing': lambda pdf: _annot(pdf),
+    'outlines-int': _set_root(Name.Outlines, 42),
+    'outlines-first-int': _set_root(Name.Outlines, Dictionary(First=42)),
+    'outline-item-next-int': _set_root(
+        Name.Outlines,
+        lambda pdf: Dictionary(First=pdf.make_indirect(Dictionary(Next=42, A=42))),
+    ),
+    'acroform-int': _set_root(Name.AcroForm, 42),
+    'fields-member-int': _set_root(Name.AcroForm, Dictionary(Fields=Array([42]))),
+    'field-kids-int': _set_root(
+        Name.AcroForm,
+        lambda pdf: Dictionary(Fields=Array([Dictionary(Kids=42, A=42, AA=42)])),
+    ),
+    'field-kids-member-int': _set_root(
+        Name.AcroForm, lambda pdf: Dictionary(Fields=Array([Dictionary(Kids=[42])]))
+    ),
+    'names-int': _set_root(Name.Names, 42),
+    'names-js-int': _set_root(Name.Names, Dictionary(JavaScript=42)),
+    'pieceinfo-int': _set_root(Name.PieceInfo, 42),
+    'page-pieceinfo-int': _set_page(Name.PieceInfo, 42),
+    'af-int': _set_root(Name.AF, 42),
+    'af-member-int': _set_root(Name.AF, Array([42, Dictionary(EF=42)])),
+    'indirect-scalars': lambda pdf: pdf.Root.__setitem__(
+        Name('/Junk'), Array([pdf.make_indirect(42), pdf.make_indirect(1.5)])
+    ),
+}
+
+
+def _full_sanitizer():
+    return (
+        Sanitizer()
+        .remove_javascript()
+        .remove_external_access()
+        .remove_attachments()
+        .remove_thumbnails()
+        .remove_search_index()
+        .remove_multimedia()
+        .remove_web_capture()
+        .remove_private_app_data()
+        .remove_collection()
+    )
+
+
+_ALL_OPERATIONS = [
+    remove_javascript,
+    remove_external_access,
+    remove_attachments,
+    remove_thumbnails,
+    remove_search_index,
+    remove_multimedia,
+    remove_web_capture,
+    remove_private_app_data,
+    remove_collection,
+    lambda pdf: _full_sanitizer().apply(pdf),
+]
+
+
+@pytest.mark.parametrize('corrupt', _MALFORMED.values(), ids=_MALFORMED.keys())
+def test_malformed_input_tolerated(pal, corrupt):
+    corrupt(pal)
+    for operation in _ALL_OPERATIONS:
+        operation(pal)
+
+
+@pytest.mark.parametrize('mode', ['implicit', 'explicit'])
+def test_sanitizer_independent_of_conversion_mode(resources, mode):
+    with Pdf.open(resources / 'pal.pdf', conversion_mode=mode) as pdf:
+        annot = _link_with_next(pdf, Array([42, _js_action(pdf)]))
+        _full_sanitizer().apply(pdf)
+        assert Name.Next not in annot.A
+
+
+def test_sanitizer_restores_caller_conversion_mode(pal):
+    before = pikepdf.get_object_conversion_mode()
+    _full_sanitizer().apply(pal)
+    remove_javascript(pal)
+    assert pikepdf.get_object_conversion_mode() == before
 
 
 # --- cross-cutting -------------------------------------------------------

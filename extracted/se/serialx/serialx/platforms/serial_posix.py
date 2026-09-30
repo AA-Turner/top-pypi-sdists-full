@@ -26,11 +26,14 @@ from ..common import (
     ModemPins,
     Parity,
     PinState,
+    PortSettingsUpdate,
     StopBits,
     UnsupportedSetting,
+    measure_time,
     register_uri_handler,
 )
 from ..descriptor_transport import DescriptorTransport
+from ._termios_api import tcdrain, tcflush, tcgetattr, tcsetattr
 
 LOGGER = logging.getLogger(__name__)
 
@@ -116,7 +119,7 @@ class PosixSerial(BaseSerial):
             raise ValueError("Serial port is already open")
 
         assert self._path is not None
-        self._fileno = os.open(self._path, os.O_RDWR | os.O_NOCTTY)
+        self._fileno = os.open(self._path, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
         self._auto_close = True
 
         if self._exclusive:
@@ -276,14 +279,15 @@ class PosixSerial(BaseSerial):
     def _after_configure_port(self) -> None:
         pass
 
-    def _configure_port(self) -> None:
+    def _reconfigure_port(self, update: PortSettingsUpdate) -> None:
         """Configure the serial port settings."""
+        # termios applies the whole struct at once, so rebuild it from `self._*`
         LOGGER.debug("Configuring serial port %r", self._path)
 
         if self._fileno is None:
             raise ValueError("Cannot configure, serial port is not open")
 
-        tcsetattr = self._build_tcsetattr_flags()
+        tcsetattr_flags = self._build_tcsetattr_flags()
 
         # We need to overwrite VMIN and VTIME in the CC array
         (
@@ -294,24 +298,24 @@ class PosixSerial(BaseSerial):
             _ispeed,
             _ospeed,
             cc,
-        ) = termios.tcgetattr(self._fileno)
+        ) = tcgetattr(self._fileno)
 
-        cc[termios.VMIN] = tcsetattr.cc_vmin
-        cc[termios.VTIME] = tcsetattr.cc_vtime
+        cc[termios.VMIN] = tcsetattr_flags.cc_vmin
+        cc[termios.VTIME] = tcsetattr_flags.cc_vtime
 
-        LOGGER.debug("Configuring serial port: %r + cc=%r", tcsetattr, cc)
+        LOGGER.debug("Configuring serial port: %r + cc=%r", tcsetattr_flags, cc)
 
         # Finally, set up the serial port
-        termios.tcsetattr(
+        tcsetattr(
             self._fileno,
             termios.TCSANOW,  # TODO: should we use TCSADRAIN or TCSAFLUSH instead?
             [
-                tcsetattr.iflag,
-                tcsetattr.oflag,
-                tcsetattr.cflag,
-                tcsetattr.lflag,
-                tcsetattr.ispeed,
-                tcsetattr.ospeed,
+                tcsetattr_flags.iflag,
+                tcsetattr_flags.oflag,
+                tcsetattr_flags.cflag,
+                tcsetattr_flags.lflag,
+                tcsetattr_flags.ispeed,
+                tcsetattr_flags.ospeed,
                 cc,
             ],
         )
@@ -321,7 +325,7 @@ class PosixSerial(BaseSerial):
         self.set_modem_pins(self._modem_pins_on_open())
 
         # Flush input and output buffers to discard stale data
-        termios.tcflush(self._fileno, termios.TCIOFLUSH)
+        tcflush(self._fileno, termios.TCIOFLUSH)
 
     def _get_modem_pins(self) -> ModemPins:
         """Get current modem control bits."""
@@ -383,7 +387,7 @@ class PosixSerial(BaseSerial):
         """Flush write buffers, waiting until all data is written."""
         assert self._fileno is not None
         LOGGER.debug("Flushing file descriptor %r", self._fileno)
-        termios.tcdrain(self._fileno)
+        tcdrain(self._fileno)
 
     def _close(self) -> None:
         """Close the serial port."""
@@ -403,12 +407,15 @@ class PosixSerial(BaseSerial):
             """Read bytes from serial port into buffer."""
             assert self._fileno is not None
 
-            if timeout is not None:
-                ready, _, _ = select.select([self._fileno], [], [], timeout)
-                if not ready:
-                    return 0
+            ready, _, _ = select.select([self._fileno], [], [], timeout)
+            if not ready:
+                return 0
 
-            n = os.readinto(self._fileno, b)
+            try:
+                n = os.readinto(self._fileno, b)
+            except BlockingIOError:
+                return 0
+
             LOGGER.debug("Read %d bytes", n)
 
             if n == 0:
@@ -427,16 +434,18 @@ class PosixSerial(BaseSerial):
             """Read bytes from serial port into buffer."""
             assert self._fileno is not None
 
-            if timeout is not None:
-                ready, _, _ = select.select([self._fileno], [], [], timeout)
-                if not ready:
-                    return 0
+            ready, _, _ = select.select([self._fileno], [], [], timeout)
+            if not ready:
+                return 0
 
             m = memoryview(b).cast("B")
             size = len(m)
             LOGGER.debug("Reading up to %d bytes", size)
 
-            chunk = os.read(self._fileno, size)
+            try:
+                chunk = os.read(self._fileno, size)
+            except BlockingIOError:
+                return 0
 
             n = len(chunk)
             m[:n] = chunk
@@ -457,12 +466,28 @@ class PosixSerial(BaseSerial):
         LOGGER.debug("Writing %d bytes: %r", len(data), data)  # type: ignore[arg-type]
         assert self._fileno is not None
 
-        if timeout is not None:
-            _, ready, _ = select.select([], [self._fileno], [], timeout)
+        view = memoryview(data).cast("B")
+        remaining_timeout = timeout
+        written = 0
+
+        while written < len(view):
+            with measure_time() as get_elapsed:
+                _, ready, _ = select.select([], [self._fileno], [], remaining_timeout)
+
             if not ready:
                 raise TimeoutError("Write timeout")
 
-        return os.write(self._fileno, data)
+            if remaining_timeout is not None:
+                remaining_timeout = max(remaining_timeout - get_elapsed(), 0)
+
+            try:
+                n = os.write(self._fileno, view[written:])
+            except BlockingIOError:
+                continue
+
+            written += n
+
+        return written
 
     def num_unread_bytes(self) -> int:
         """Return the number of bytes waiting to be read."""
@@ -485,12 +510,12 @@ class PosixSerial(BaseSerial):
     def _reset_read_buffer(self) -> None:
         """Reset the read buffer."""
         assert self._fileno is not None
-        termios.tcflush(self._fileno, termios.TCIFLUSH)
+        tcflush(self._fileno, termios.TCIFLUSH)
 
     def _reset_write_buffer(self) -> None:
         """Reset the write buffer."""
         assert self._fileno is not None
-        termios.tcflush(self._fileno, termios.TCOFLUSH)
+        tcflush(self._fileno, termios.TCOFLUSH)
 
 
 class PosixSerialTransport(DescriptorTransport):
@@ -521,7 +546,9 @@ class PosixSerialTransport(DescriptorTransport):
 
         await asyncio.sleep(AFTER_OPEN_DELAY)
 
-        await self._loop.run_in_executor(None, self._serial.configure_port)
+        await self._loop.run_in_executor(
+            None, self._serial._reconfigure_port, self._serial._all_settings()
+        )
 
         if self.is_closing():
             # If we are closing, we should not call `connection_made`
@@ -554,6 +581,10 @@ class PosixSerialTransport(DescriptorTransport):
         """Set modem control bits, internal."""
         assert self._serial is not None
         await self._loop.run_in_executor(None, self._serial.set_modem_pins, modem_pins)
+
+    async def _reconfigure_port(self, update: PortSettingsUpdate) -> None:
+        assert self._serial is not None
+        await self._loop.run_in_executor(None, self._serial._reconfigure_port, update)
 
 
 register_uri_handler(

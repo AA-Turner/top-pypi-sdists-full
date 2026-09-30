@@ -25,17 +25,24 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class CreateDomain(BaseModel):
     """
     CreateDomain
-    """ # noqa: E501
+    """  # noqa: E501
+
     name: Optional[StrictStr] = None
     type: Optional[DomainType] = DomainType.AUTOASSIGNED
     app_id: Optional[StrictStr] = None
     cloudflare: Optional[Dict[str, Any]] = None
     koyeb: Optional[DomainLoadBalancerKoyeb] = None
-    project_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["name", "type", "app_id", "cloudflare", "koyeb", "project_id"]
+    __properties: ClassVar[List[str]] = [
+        "name",
+        "type",
+        "app_id",
+        "cloudflare",
+        "koyeb",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -43,7 +50,6 @@ class CreateDomain(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -68,8 +74,7 @@ class CreateDomain(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -78,7 +83,7 @@ class CreateDomain(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of koyeb
         if self.koyeb:
-            _dict['koyeb'] = self.koyeb.to_dict()
+            _dict["koyeb"] = self.koyeb.to_dict()
         return _dict
 
     @classmethod
@@ -90,14 +95,17 @@ class CreateDomain(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "type": obj.get("type") if obj.get("type") is not None else DomainType.AUTOASSIGNED,
-            "app_id": obj.get("app_id"),
-            "cloudflare": obj.get("cloudflare"),
-            "koyeb": DomainLoadBalancerKoyeb.from_dict(obj["koyeb"]) if obj.get("koyeb") is not None else None,
-            "project_id": obj.get("project_id")
-        })
+        _obj = cls.model_validate(
+            {
+                "name": obj.get("name"),
+                "type": obj.get("type")
+                if obj.get("type") is not None
+                else DomainType.AUTOASSIGNED,
+                "app_id": obj.get("app_id"),
+                "cloudflare": obj.get("cloudflare"),
+                "koyeb": DomainLoadBalancerKoyeb.from_dict(obj["koyeb"])
+                if obj.get("koyeb") is not None
+                else None,
+            }
+        )
         return _obj
-
-

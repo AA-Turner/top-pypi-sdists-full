@@ -34,7 +34,6 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 TOOL_EXECUTION_CONTEXT_PATH = Path("/tmp/plato-tool-execution-context.json")
-TOOL_START_SPOOL_PATH = Path("/tmp/plato-tool-starts.jsonl")
 
 
 def _snapshot_mtimes(watch_paths: list[str], patterns: list[str]) -> dict[str, float]:
@@ -55,32 +54,14 @@ def _snapshot_mtimes(watch_paths: list[str], patterns: list[str]) -> dict[str, f
 
 
 def _read_span_context() -> dict[str, str]:
-    """Read current span/trace context from tool execution files."""
+    """Read the agent-level span/trace context from the tool execution context file."""
     result: dict[str, str] = {"span_id": "", "trace_id": "", "tool_name": ""}
 
-    # Base context (agent-level span)
     if TOOL_EXECUTION_CONTEXT_PATH.exists():
         try:
             ctx = json.loads(TOOL_EXECUTION_CONTEXT_PATH.read_text())
             result["span_id"] = ctx.get("span_id", "")
             result["trace_id"] = ctx.get("trace_id", "")
-        except Exception:
-            pass
-
-    # Try to find the most recent tool start for better span attribution
-    if TOOL_START_SPOOL_PATH.exists():
-        try:
-            text = TOOL_START_SPOOL_PATH.read_text()
-            lines = text.strip().splitlines()
-            if lines:
-                # Last line is most recent tool start
-                last = json.loads(lines[-1])
-                if last.get("span_id"):
-                    result["span_id"] = last["span_id"]
-                if last.get("trace_id"):
-                    result["trace_id"] = last["trace_id"]
-                if last.get("tool_name"):
-                    result["tool_name"] = last["tool_name"]
         except Exception:
             pass
 

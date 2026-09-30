@@ -417,11 +417,11 @@ class AgentRunCommonInput(BaseModel):
         description="Maximum provider retries allowed within one agent iteration.",
     )
 
-    # --- skill visibility override ---
+    # --- skill exposure override ---
     skill_config: dict[str, JsonValue] | None = Field(
         default=None,
         description=(
-            "Per-request skill visibility override (Smart Input additive "
+            "Per-request skill exposure override (Smart Input additive "
             "picks). Validated against the host's skill-config shape on entry."
         ),
         json_schema_extra=field_extras(widget="json"),

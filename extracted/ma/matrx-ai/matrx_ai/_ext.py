@@ -871,3 +871,22 @@ _EDITED_ANSWER_VISIBILITY_RESOLVER_KEY = "edited_answer_visibility_resolver"
 def get_edited_answer_visibility_resolver() -> Any:
     """Return the host-injected edited-answer resolver, or None when unset."""
     return _registry.get(_EDITED_ANSWER_VISIBILITY_RESOLVER_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Guest identity minting ceiling (per client IP)
+# ---------------------------------------------------------------------------
+#
+# The host injects ``async reader() -> tuple[int, int]`` answering the
+# platform-locked ``auth.guest_identity`` knobs: (new identities allowed per
+# client IP, window in minutes). REQUIRED on the mint path: a guest resolver
+# with no reader bound refuses to mint (``GuestIdentityUnavailableError``) —
+# a missing limit is never "unlimited". Consumer + contract:
+# ``matrx_ai/db/_guest_registry_impl.py``.
+
+_GUEST_MINT_LIMIT_READER_KEY = "guest_mint_limit_reader"
+
+
+def get_guest_mint_limit_reader() -> Any:
+    """Return the host-injected guest-mint ceiling reader, or None when unset."""
+    return _registry.get(_GUEST_MINT_LIMIT_READER_KEY)

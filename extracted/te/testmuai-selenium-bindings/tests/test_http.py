@@ -65,6 +65,38 @@ def test_5xx_retries_then_succeeds():
 
 
 @respx.mock
+def test_500_is_transient_and_retries():
+    """automind returns 500 for transient internal failures — a vision
+    call briefly erroring with "'thought' must be a non-empty string" is the
+    reported case. Before this, a single blip failed the step outright."""
+    route = respx.get("https://example.com/five-hundred").mock(side_effect=[
+        httpx.Response(500),
+        httpx.Response(200, json={"ok": True}),
+    ])
+    resp = make_http_request_with_retry(
+        "GET", "https://example.com/five-hundred", silent=True,
+        retry_on_server_error=True,
+    )
+    assert resp.status_code == 200
+    assert route.call_count == 2
+
+
+@respx.mock
+def test_500_is_not_retried_without_the_opt_in():
+    """The heal tiers own a better retry (fresh screenshot per attempt) and rely
+    on a plain 500 returning immediately — so 500 must stay non-transient by
+    default."""
+    route = respx.get("https://example.com/plain-500").mock(
+        return_value=httpx.Response(500)
+    )
+    resp = make_http_request_with_retry(
+        "GET", "https://example.com/plain-500", silent=True
+    )
+    assert resp.status_code == 500
+    assert route.call_count == 1
+
+
+@respx.mock
 def test_4xx_does_not_retry():
     route = respx.get("https://example.com/notfound").mock(
         return_value=httpx.Response(404)

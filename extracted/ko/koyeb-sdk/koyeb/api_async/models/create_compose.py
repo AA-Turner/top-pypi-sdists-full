@@ -25,10 +25,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class CreateCompose(BaseModel):
     """
     CreateCompose
-    """ # noqa: E501
+    """  # noqa: E501
+
     app: Optional[CreateApp] = None
     services: Optional[List[CreateService]] = None
     __properties: ClassVar[List[str]] = ["app", "services"]
@@ -39,7 +41,6 @@ class CreateCompose(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +65,7 @@ class CreateCompose(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -74,14 +74,15 @@ class CreateCompose(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of app
         if self.app:
-            _dict['app'] = self.app.to_dict()
+            _dict["app"] = self.app.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in services (list)
         _items = []
         if self.services:
             for _item_services in self.services:
-                if _item_services:
-                    _items.append(_item_services.to_dict())
-            _dict['services'] = _items
+                _items.append(
+                    _item_services.to_dict() if _item_services is not None else None
+                )
+            _dict["services"] = _items
         return _dict
 
     @classmethod
@@ -93,10 +94,16 @@ class CreateCompose(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "app": CreateApp.from_dict(obj["app"]) if obj.get("app") is not None else None,
-            "services": [CreateService.from_dict(_item) for _item in obj["services"]] if obj.get("services") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "app": CreateApp.from_dict(obj["app"])
+                if obj.get("app") is not None
+                else None,
+                "services": [
+                    CreateService.from_dict(_item) for _item in obj["services"]
+                ]
+                if obj.get("services") is not None
+                else None,
+            }
+        )
         return _obj
-
-

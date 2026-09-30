@@ -30,10 +30,14 @@ async def main():
         # Simple command
         result = await sandbox.exec("echo 'Hello World'")
         print(result.stdout.strip())
+        assert result.exit_code == 0, result.stderr
+        assert result.stdout.strip() == "Hello World"
 
         # Python command
         result = await sandbox.exec("python3 -c 'print(2 + 2)'")
         print(result.stdout.strip())
+        assert result.exit_code == 0, result.stderr
+        assert result.stdout.strip() == "4"
 
         # Multi-line Python script
         result = await sandbox.exec(
@@ -44,6 +48,9 @@ print(f'Platform: {sys.platform}')
 "'''
         )
         print(result.stdout.strip())
+        assert result.exit_code == 0, result.stderr
+        assert "Python version:" in result.stdout
+        assert "Platform:" in result.stdout
 
         return 0
     finally:

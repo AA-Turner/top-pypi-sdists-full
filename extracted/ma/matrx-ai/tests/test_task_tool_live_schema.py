@@ -2,8 +2,8 @@
 
 Verifier, 2026-09-26: the tool failed on every action with the ORM refusing
 ``Unknown field(s) on Tasks: ['is_public', 'user_id']``. workspace.tasks is a
-canonical entity now: the owner is ``created_by``, who can see it is
-``visibility`` (platform.visibility), it is soft-deleted through ``deleted_at``,
+canonical entity now: the owner is ``created_by``, the web lane is
+``published_to_web`` and the list filter ``shown_to``, it is soft-deleted through ``deleted_at``,
 and ``organization_id`` is NOT NULL. The old tests mocked ``create_item`` with a
 fake that accepted ANY keyword, so the dead column names sailed through.
 
@@ -27,12 +27,14 @@ from matrx_ai.tools.models import ToolContext
 ORG = "5b0e4a51-8d2f-4c52-9d0a-2f3c1e7a9b10"  # the clinic's organization
 PERSON = "0f6c2a3e-1b4d-4e5f-8a9b-7c6d5e4f3a21"  # the front-desk coordinator
 
-# workspace.tasks, live (information_schema.columns, 2026-09-26).
+# workspace.tasks, live (information_schema.columns, 2026-09-26; T-13 words 2026-09-28 —
+# the retiring row column is left out so a writer that still names it is refused).
 LIVE_TASK_COLUMNS = frozenset(
     {
         "id", "title", "description", "project_id", "status", "due_date",
         "created_at", "updated_at", "parent_task_id", "priority", "assignee_id",
-        "settings", "organization_id", "created_by", "visibility", "version",
+        "settings", "organization_id", "created_by", "published_to_web",
+        "published_to_web_at", "published_to_web_by", "shown_to", "version",
         "deleted_at", "metadata", "updated_by", "completed_at", "origin",
         "source_type", "source_id", "source_url", "source_label", "dedupe_key",
         "start_date", "due_time", "timezone", "recurrence_rule", "reminders",
@@ -73,7 +75,7 @@ class FakeTasksTable:
         self.seq += 1
         tid = f"7d1f0c3a-0000-4000-8000-{self.seq:012d}"
         row = {c: None for c in LIVE_TASK_COLUMNS}
-        row.update(visibility="internal", version=1, status="incomplete")
+        row.update(published_to_web=True, version=1, status="incomplete")  # a table default that would publish
         row.update(data)
         row.update(id=tid, created_at="2026-09-26T09:00:00Z", updated_at="2026-09-26T09:00:00Z")
         if not row.get("organization_id"):
@@ -189,7 +191,8 @@ async def test_every_task_action_works_against_the_live_columns(table, monkeypat
     stored = table.rows[tid]
     assert stored["created_by"] == PERSON
     assert stored["organization_id"] == ORG
-    assert stored["visibility"] == "internal"  # the table's default when not said
+    assert stored["published_to_web"] is False  # written explicitly, never the table default
+    assert stored["shown_to"] is None  # the type's list-filter knob decides
 
     listed = await _task({"action": "list"}, ctx)
     assert listed.success, _fail(listed)
@@ -199,7 +202,7 @@ async def test_every_task_action_works_against_the_live_columns(table, monkeypat
     got = await _task({"action": "get", "task_id": tid}, ctx)
     assert got.success, _fail(got)
     assert got.output["title"].startswith("Verify insurance for Maria Lopez")
-    assert got.output["visibility"] == "internal"
+    assert got.output["published_to_web"] is False
 
     updated = await _task(
         {
@@ -217,9 +220,15 @@ async def test_every_task_action_works_against_the_live_columns(table, monkeypat
     assert "Call Blue Shield PPO" in updated.surface_write.before
     assert "specialist copay $40" in updated.surface_write.after
 
+    # An older tool_def still offers the retiring level word — reconciled at the boundary.
     shared = await _task({"action": "update", "task_id": tid, "visibility": "personal"}, ctx)
     assert shared.success, _fail(shared)
-    assert table.rows[tid]["visibility"] == "personal"
+    assert table.rows[tid]["shown_to"] == "only_me"
+    assert table.rows[tid]["published_to_web"] is False
+    published = await _task({"action": "update", "task_id": tid, "visibility": "public"}, ctx)
+    assert published.success, _fail(published)
+    assert table.rows[tid]["published_to_web"] is True
+    assert table.rows[tid]["published_to_web_by"] == PERSON
 
     deleted = await _task({"action": "delete", "task_id": tid}, ctx)
     assert deleted.success, _fail(deleted)

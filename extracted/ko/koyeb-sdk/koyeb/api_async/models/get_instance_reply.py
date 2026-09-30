@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class GetInstanceReply(BaseModel):
     """
     GetInstanceReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     instance: Optional[Instance] = None
     __properties: ClassVar[List[str]] = ["instance"]
 
@@ -37,7 +39,6 @@ class GetInstanceReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class GetInstanceReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -72,7 +72,7 @@ class GetInstanceReply(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of instance
         if self.instance:
-            _dict['instance'] = self.instance.to_dict()
+            _dict["instance"] = self.instance.to_dict()
         return _dict
 
     @classmethod
@@ -84,9 +84,11 @@ class GetInstanceReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "instance": Instance.from_dict(obj["instance"]) if obj.get("instance") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "instance": Instance.from_dict(obj["instance"])
+                if obj.get("instance") is not None
+                else None
+            }
+        )
         return _obj
-
-

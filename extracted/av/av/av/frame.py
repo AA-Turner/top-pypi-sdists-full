@@ -1,9 +1,9 @@
 import cython
 from cython.cimports.av.error import err_check
 from cython.cimports.av.opaque import opaque_container
+from cython.cimports.av.rational import from_avrational
 from cython.cimports.av.utils import (
     avdict_to_dict,
-    avrational_to_fraction,
     to_avrational,
 )
 
@@ -30,7 +30,9 @@ class Frame:
         return f"<av.{self.__class__.__name__} pts={self.pts} at 0x{id(self):x}>"
 
     @cython.cfunc
-    def _copy_internal_attributes(self, source: Frame, data_layout: cython.bint = True):
+    def _copy_internal_attributes(
+        self, source: Frame, data_layout: cython.bint = True
+    ) -> cython.void:
         # Mimic another frame
         self._time_base = source._time_base
         lib.av_frame_copy_props(self.ptr, source.ptr)
@@ -42,11 +44,11 @@ class Frame:
             self.ptr.ch_layout = source.ptr.ch_layout
 
     @cython.cfunc
-    def _init_user_attributes(self):
+    def _init_user_attributes(self) -> cython.void:
         pass  # Dummy to match the API of the others.
 
     @cython.cfunc
-    def _rebase_time(self, dst: lib.AVRational):
+    def _rebase_time(self, dst: lib.AVRational) -> cython.void:
         if not dst.num:
             raise ValueError("Cannot rebase to zero time.")
 
@@ -139,10 +141,10 @@ class Frame:
         """
         The unit of time (in fractional seconds) in which timestamps are expressed.
 
-        :type: fractions.Fraction | None
+        :type: AVRational
         """
         if self._time_base.num:
-            return avrational_to_fraction(cython.address(self._time_base))
+            return from_avrational(self._time_base)
 
     @time_base.setter
     def time_base(self, value):
@@ -163,7 +165,8 @@ class Frame:
     def key_frame(self):
         """Is this frame a key frame?
 
-        Wraps :ffmpeg:`AVFrame.key_frame`.
+        Reads the ``AV_FRAME_FLAG_KEY`` bit of :ffmpeg:`AVFrame.flags`. FFmpeg
+        removed the ``AVFrame.key_frame`` field this used to wrap.
 
         """
         return bool(self.ptr.flags & lib.AV_FRAME_FLAG_KEY)
@@ -185,7 +188,7 @@ class Frame:
     @property
     def metadata(self):
         """Metadata attached to the frame by FFmpeg."""
-        return avdict_to_dict(self.ptr.metadata, "utf-8", "strict")
+        return avdict_to_dict(self.ptr.metadata)
 
     def make_writable(self):
         """

@@ -3217,6 +3217,18 @@ def test_markdown_wikilink_vault_fallback(tmp_path):
         assert e["target"] in node_ids, f"link target is a ghost node: {e}"
 
 
+@pytest.mark.parametrize("separator", ["|", "\\|"])
+def test_markdown_wikilink_alias_separator(tmp_path, separator):
+    r"""Obsidian table aliases escape the pipe as ``\|``."""
+    target = tmp_path / "target.md"
+    source = tmp_path / "source.md"
+    target.write_text("# Target\n")
+    source.write_text(f"| Link |\n| --- |\n| [[target{separator}Alias]] |\n")
+    refs = [e for e in extract_markdown(source)["edges"]
+            if e["relation"] == "references"]
+    assert [e.get("target_file") for e in refs] == [str(target)]
+
+
 def test_markdown_wikilink_fallback_path_qualified(tmp_path):
     """[[folder/name]] from a subfolder matches on the full segment suffix."""
     vault = tmp_path / "vault"
@@ -3718,6 +3730,23 @@ def test_razor_finds_code_block_methods():
     labels = _labels(r)
     assert any("IncrementCount" in l for l in labels)
     assert any("LoadData" in l for l in labels)
+
+def test_razor_finds_functions_block_methods(tmp_path):
+    # @functions is the Razor Pages / MVC (.cshtml) spelling of the Blazor
+    # @code block. Both compile to class members and this extractor serves both
+    # file types, but only @code was recognised, so .cshtml methods vanished.
+    page = tmp_path / "Page.cshtml"
+    page.write_text(
+        "@functions {\n"
+        "    public int Square(int x) { return x * x; }\n"
+        "    public string Greet() { return \"hi\"; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    r = extract_razor(page)
+    labels = _labels(r)
+    assert "Square" in labels
+    assert "Greet" in labels
 
 def test_razor_no_dangling_edges():
     r = extract_razor(FIXTURES / "sample.razor")

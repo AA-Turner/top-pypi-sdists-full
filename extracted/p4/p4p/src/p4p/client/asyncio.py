@@ -1,8 +1,10 @@
 
 import logging
 _log = logging.getLogger(__name__)
+import sys
 
 import asyncio
+import inspect
 
 from functools import partial, wraps
 
@@ -21,23 +23,13 @@ __all__ = [
     'timesout',
 ]
 
-if hasattr(asyncio, 'get_running_loop'): # py >=3.7
-    from asyncio import get_running_loop, create_task, all_tasks
+# https://github.com/python/cpython/issues/122858#issuecomment-2466239748
+if sys.version_info >= (3, 12):
+    iscoroutinefunction = inspect.iscoroutinefunction
 else:
-    from asyncio import _get_running_loop
-    from asyncio.tasks import Task
+    iscoroutinefunction = asyncio.iscoroutinefunction
 
-    def get_running_loop():
-        ret = _get_running_loop()
-        if ret is None:
-            raise RuntimeError('Thread has no running event loop')
-        return ret
-
-    def create_task(coro, *, name=None):
-        return get_running_loop().create_task(coro)
-
-    def all_tasks():
-        return Task.all_tasks(loop=get_running_loop())
+from asyncio import get_running_loop, create_task, all_tasks
 
 def timesout(deftimeout=5.0):
     """Decorate a coroutine to implement an overall timeout.
@@ -63,7 +55,7 @@ def timesout(deftimeout=5.0):
                 await dostuff(ctxt, timeout=5)
     """
     def decorate(fn):
-        assert asyncio.iscoroutinefunction(fn), "Place @timesout before @coroutine"
+        assert iscoroutinefunction(fn), "Place @timesout before @coroutine"
 
         @wraps(fn)
         async def wrapper(*args, timeout=deftimeout, **kws):
@@ -291,7 +283,7 @@ class Context(raw.Context):
         * A p4p.Value (Subject to :py:ref:`unwrap`)
         * A sub-class of Exception (Disconnected , RemoteError, or Cancelled)
         """
-        assert asyncio.iscoroutinefunction(cb), "monitor callback must be coroutine"
+        assert iscoroutinefunction(cb), "monitor callback must be coroutine"
         R = Subscription(name, cb, notify_disconnect=notify_disconnect)
         cb = partial(get_running_loop().call_soon_threadsafe, R._E.set)
 
@@ -329,16 +321,6 @@ class Subscription(object):
             self._run = False
             self._E.set()
 
-    @property
-    def done(self):
-        'Has all data for this subscription been received?'
-        return self._S is None or self._S.done()
-
-    @property
-    def empty(self):
-        'Is data pending in event queue?'
-        return self._S is None or self._S.empty()
-
     async def wait_closed(self):
         """Wait until subscription is closed.
         """
@@ -363,21 +345,16 @@ class Subscription(object):
                     if E is None:
                         break
 
-                    elif isinstance(E, Disconnected):
-                        _log.debug('Subscription notify for %s with %s', self.name, E)
+                    elif isinstance(E, Exception):
+                        _log.debug('Subscription notify for %r with %r', self.name, E)
                         if self._notify_disconnect:
                             await self._cb(E)
                         else:
-                            _log.info("Subscription disconnect %s", self.name)
-                        continue
+                            _log.info("Subscription exception skipped %r: %r", self.name, E)
 
-                    elif isinstance(E, RemoteError):
-                        _log.debug('Subscription notify for %s with %s', self.name, E)
-                        if self._notify_disconnect:
-                            await self._cb(E)
-                        elif isinstance(E, RemoteError):
-                            _log.error("Subscription Error %s", E)
-                        return
+                        if isinstance(E, Finished):
+                            return # last event
+                        continue
 
                     else:
                         await self._cb(E)
@@ -385,14 +362,6 @@ class Subscription(object):
                     i = (i + 1) % 4
                     if i == 0:
                         await asyncio.sleep(0)  # Not sure how necessary.  Ensure we go to the scheduler
-
-                    if S.done:
-                        _log.debug('Subscription complete %s', self.name)
-                        S.close()
-                        self._S = None
-                        if self._notify_disconnect:
-                            E = Finished()
-                            await self._cb(E)
 
 
         except asyncio.CancelledError:

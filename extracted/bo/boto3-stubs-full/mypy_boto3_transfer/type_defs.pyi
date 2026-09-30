@@ -28,6 +28,7 @@ from .literals import (
     CertificateStatusTypeType,
     CertificateTypeType,
     CertificateUsageTypeType,
+    CommunicationModeType,
     CompressionEnumType,
     ConnectorEgressTypeType,
     ConnectorsIpAddressTypeType,
@@ -253,6 +254,7 @@ __all__ = (
     "SftpConnectorConfigTypeDef",
     "SftpConnectorConfigUnionTypeDef",
     "SftpConnectorConnectionDetailsTypeDef",
+    "SftpPortWithOptionsTypeDef",
     "SshPublicKeyTypeDef",
     "StartDirectoryListingRequestTypeDef",
     "StartDirectoryListingResponseTypeDef",
@@ -742,6 +744,10 @@ class PosixProfileTypeDef(TypedDict):
 
 class ProxyConfigTypeDef(TypedDict):
     SftpMode: NotRequired[ProxyModeType]
+
+class SftpPortWithOptionsTypeDef(TypedDict):
+    SftpPort: int
+    CommunicationMode: NotRequired[CommunicationModeType]
 
 class S3TagTypeDef(TypedDict):
     Key: str
@@ -1293,6 +1299,7 @@ class ProtocolDetailsOutputTypeDef(TypedDict):
     PassiveIp: NotRequired[str]
     TlsSessionResumptionMode: NotRequired[TlsSessionResumptionModeType]
     SetStatOption: NotRequired[SetStatOptionType]
+    SftpPorts: NotRequired[list[SftpPortWithOptionsTypeDef]]
     As2Transports: NotRequired[list[Literal["HTTP"]]]
     ProxyConfig: NotRequired[ProxyConfigTypeDef]
 
@@ -1300,6 +1307,7 @@ class ProtocolDetailsTypeDef(TypedDict):
     PassiveIp: NotRequired[str]
     TlsSessionResumptionMode: NotRequired[TlsSessionResumptionModeType]
     SetStatOption: NotRequired[SetStatOptionType]
+    SftpPorts: NotRequired[Sequence[SftpPortWithOptionsTypeDef]]
     As2Transports: NotRequired[Sequence[Literal["HTTP"]]]
     ProxyConfig: NotRequired[ProxyConfigTypeDef]
 

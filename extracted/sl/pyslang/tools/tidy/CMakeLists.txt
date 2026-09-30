@@ -29,10 +29,22 @@ add_library(
   src/synthesis/AlwaysFFAssignmentOutsideConditional.cpp
   src/synthesis/UnusedSensitiveSignal.cpp
   src/synthesis/UndrivenRange.cpp
-  src/synthesis/LoopBeforeResetCheck.cpp)
+  src/synthesis/LoopBeforeResetCheck.cpp
+  src/style/NoCaseX.cpp
+  src/style/NoDefParam.cpp
+  src/style/TypedefEnums.cpp
+  src/style/TypedefStructUnion.cpp
+  src/style/CovergroupName.cpp
+  src/style/CoverpointName.cpp
+  src/style/CrossName.cpp
+  src/style/EnumName.cpp
+  src/style/StructName.cpp
+  src/style/UnionName.cpp
+  src/style/TypedefName.cpp
+  src/synthesis/StructFieldsInSameProcess.cpp)
 
 target_include_directories(slang_tidy_obj_lib PUBLIC include)
-target_link_libraries(slang_tidy_obj_lib PUBLIC slang::slang)
+target_link_libraries(slang_tidy_obj_lib PUBLIC slang::slang fmt::fmt)
 
 add_executable(slang_tidy src/tidy.cpp)
 add_executable(slang::tidy ALIAS slang_tidy)

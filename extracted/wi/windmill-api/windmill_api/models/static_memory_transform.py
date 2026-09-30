@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from ..models.static_memory_transform_value_type_1 import StaticMemoryTransformValueType1
     from ..models.static_memory_transform_value_type_2 import StaticMemoryTransformValueType2
     from ..models.static_memory_transform_value_type_3 import StaticMemoryTransformValueType3
+    from ..models.static_memory_transform_value_type_4 import StaticMemoryTransformValueType4
 
 
 T = TypeVar("T", bound="StaticMemoryTransform")
@@ -21,9 +22,9 @@ class StaticMemoryTransform:
 
     Attributes:
         value (Union['StaticMemoryTransformValueType0', 'StaticMemoryTransformValueType1',
-            'StaticMemoryTransformValueType2', 'StaticMemoryTransformValueType3']): Managed memory, stored by Windmill and
-            replayed with each request. The memory is named by a memory id, see `memory_id`. While it is off, a step can
-            supply its history in `previous_messages`.
+            'StaticMemoryTransformValueType2', 'StaticMemoryTransformValueType3', 'StaticMemoryTransformValueType4']):
+            Managed memory, stored by Windmill and replayed with each request. The memory is named by a memory id, see
+            `memory_id`. While it is off, a step can supply its history in `previous_messages`.
         type (StaticMemoryTransformType):
     """
 
@@ -32,6 +33,7 @@ class StaticMemoryTransform:
         "StaticMemoryTransformValueType1",
         "StaticMemoryTransformValueType2",
         "StaticMemoryTransformValueType3",
+        "StaticMemoryTransformValueType4",
     ]
     type: StaticMemoryTransformType
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -40,6 +42,7 @@ class StaticMemoryTransform:
         from ..models.static_memory_transform_value_type_0 import StaticMemoryTransformValueType0
         from ..models.static_memory_transform_value_type_1 import StaticMemoryTransformValueType1
         from ..models.static_memory_transform_value_type_2 import StaticMemoryTransformValueType2
+        from ..models.static_memory_transform_value_type_3 import StaticMemoryTransformValueType3
 
         value: Dict[str, Any]
 
@@ -50,6 +53,9 @@ class StaticMemoryTransform:
             value = self.value.to_dict()
 
         elif isinstance(self.value, StaticMemoryTransformValueType2):
+            value = self.value.to_dict()
+
+        elif isinstance(self.value, StaticMemoryTransformValueType3):
             value = self.value.to_dict()
 
         else:
@@ -74,6 +80,7 @@ class StaticMemoryTransform:
         from ..models.static_memory_transform_value_type_1 import StaticMemoryTransformValueType1
         from ..models.static_memory_transform_value_type_2 import StaticMemoryTransformValueType2
         from ..models.static_memory_transform_value_type_3 import StaticMemoryTransformValueType3
+        from ..models.static_memory_transform_value_type_4 import StaticMemoryTransformValueType4
 
         d = src_dict.copy()
 
@@ -84,6 +91,7 @@ class StaticMemoryTransform:
             "StaticMemoryTransformValueType1",
             "StaticMemoryTransformValueType2",
             "StaticMemoryTransformValueType3",
+            "StaticMemoryTransformValueType4",
         ]:
             try:
                 if not isinstance(data, dict):
@@ -109,11 +117,19 @@ class StaticMemoryTransform:
                 return value_type_2
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                value_type_3 = StaticMemoryTransformValueType3.from_dict(data)
+
+                return value_type_3
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            value_type_3 = StaticMemoryTransformValueType3.from_dict(data)
+            value_type_4 = StaticMemoryTransformValueType4.from_dict(data)
 
-            return value_type_3
+            return value_type_4
 
         value = _parse_value(d.pop("value"))
 

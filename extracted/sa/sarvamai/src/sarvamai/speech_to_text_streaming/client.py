@@ -50,6 +50,7 @@ class SpeechToTextStreamingClient:
         language_code: SpeechToTextStreamingLanguageCode,
         model: typing.Optional[SpeechToTextStreamingModel] = None,
         mode: typing.Optional[SpeechToTextStreamingMode] = None,
+        keyterms: typing.Optional[str] = None,
         sample_rate: typing.Optional[str] = None,
         high_vad_sensitivity: typing.Optional[SpeechToTextStreamingHighVadSensitivity] = None,
         positive_speech_threshold: typing.Optional[str] = None,
@@ -109,9 +110,9 @@ class SpeechToTextStreamingClient:
         model : typing.Optional[SpeechToTextStreamingModel]
             Specifies the model to use for speech-to-text conversion.
 
-            - **saaras:v3** (default, recommended): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
+            - **saaras:v4** (default, recommended, latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
 
-            - **saaras:v4** (latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
+            - **saaras:v3**: State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
 
         mode : typing.Optional[SpeechToTextStreamingMode]
             Mode of operation. **Only applicable when using saaras:v3 or saaras:v4 models.**
@@ -132,6 +133,16 @@ class SpeechToTextStreamingClient:
 
             - **codemix**: Code-mixed text with English words in English and Indic words in native script.
               - Output: `मेरा phone number है 9840950950`
+
+        keyterms : typing.Optional[str]
+            JSON-encoded array of up to 50 domain-specific terms (names, places,
+            brands, technical terms) to bias recognition toward, e.g.
+            `keyterms=["Sarvam","New Delhi","Vistaar"]`. Each keyterm can contain
+            up to 64 characters; put phrases such as `New Delhi` in one list item
+            and do not send comma-separated terms in one string. Keyterms bias
+            recognition — they do not guarantee that a term will appear in the
+            transcript. **Only supported with `model="saaras:v4"`.** Do not use
+            the older `keyterm` or `hotwords` fields.
 
         sample_rate : typing.Optional[str]
             Audio sample rate for the WebSocket connection. When specified as a connection parameter, only 16kHz and 8kHz are supported. 8kHz is only available via this connection parameter. If not specified, defaults to 16kHz.
@@ -209,6 +220,7 @@ class SpeechToTextStreamingClient:
                         "language-code": language_code,
                         "model": model,
                         "mode": mode,
+                        "keyterms": keyterms,
                         "sample_rate": sample_rate,
                         "high_vad_sensitivity": high_vad_sensitivity,
                         "positive_speech_threshold": positive_speech_threshold,
@@ -280,6 +292,7 @@ class AsyncSpeechToTextStreamingClient:
         language_code: SpeechToTextStreamingLanguageCode,
         model: typing.Optional[SpeechToTextStreamingModel] = None,
         mode: typing.Optional[SpeechToTextStreamingMode] = None,
+        keyterms: typing.Optional[str] = None,
         sample_rate: typing.Optional[str] = None,
         high_vad_sensitivity: typing.Optional[SpeechToTextStreamingHighVadSensitivity] = None,
         positive_speech_threshold: typing.Optional[str] = None,
@@ -339,9 +352,9 @@ class AsyncSpeechToTextStreamingClient:
         model : typing.Optional[SpeechToTextStreamingModel]
             Specifies the model to use for speech-to-text conversion.
 
-            - **saaras:v3** (default, recommended): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
+            - **saaras:v4** (default, recommended, latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
 
-            - **saaras:v4** (latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
+            - **saaras:v3**: State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
 
         mode : typing.Optional[SpeechToTextStreamingMode]
             Mode of operation. **Only applicable when using saaras:v3 or saaras:v4 models.**
@@ -362,6 +375,16 @@ class AsyncSpeechToTextStreamingClient:
 
             - **codemix**: Code-mixed text with English words in English and Indic words in native script.
               - Output: `मेरा phone number है 9840950950`
+
+        keyterms : typing.Optional[str]
+            JSON-encoded array of up to 50 domain-specific terms (names, places,
+            brands, technical terms) to bias recognition toward, e.g.
+            `keyterms=["Sarvam","New Delhi","Vistaar"]`. Each keyterm can contain
+            up to 64 characters; put phrases such as `New Delhi` in one list item
+            and do not send comma-separated terms in one string. Keyterms bias
+            recognition — they do not guarantee that a term will appear in the
+            transcript. **Only supported with `model="saaras:v4"`.** Do not use
+            the older `keyterm` or `hotwords` fields.
 
         sample_rate : typing.Optional[str]
             Audio sample rate for the WebSocket connection. When specified as a connection parameter, only 16kHz and 8kHz are supported. 8kHz is only available via this connection parameter. If not specified, defaults to 16kHz.
@@ -439,6 +462,7 @@ class AsyncSpeechToTextStreamingClient:
                         "language-code": language_code,
                         "model": model,
                         "mode": mode,
+                        "keyterms": keyterms,
                         "sample_rate": sample_rate,
                         "high_vad_sensitivity": high_vad_sensitivity,
                         "positive_speech_threshold": positive_speech_threshold,

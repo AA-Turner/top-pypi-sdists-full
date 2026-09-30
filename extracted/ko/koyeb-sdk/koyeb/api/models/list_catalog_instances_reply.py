@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ListCatalogInstancesReply(BaseModel):
     """
     ListCatalogInstancesReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     instances: Optional[List[CatalogInstanceListItem]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
@@ -40,7 +42,6 @@ class ListCatalogInstancesReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +66,7 @@ class ListCatalogInstancesReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,9 +77,10 @@ class ListCatalogInstancesReply(BaseModel):
         _items = []
         if self.instances:
             for _item_instances in self.instances:
-                if _item_instances:
-                    _items.append(_item_instances.to_dict())
-            _dict['instances'] = _items
+                _items.append(
+                    _item_instances.to_dict() if _item_instances is not None else None
+                )
+            _dict["instances"] = _items
         return _dict
 
     @classmethod
@@ -91,12 +92,17 @@ class ListCatalogInstancesReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "instances": [CatalogInstanceListItem.from_dict(_item) for _item in obj["instances"]] if obj.get("instances") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset"),
-            "count": obj.get("count")
-        })
+        _obj = cls.model_validate(
+            {
+                "instances": [
+                    CatalogInstanceListItem.from_dict(_item)
+                    for _item in obj["instances"]
+                ]
+                if obj.get("instances") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+                "count": obj.get("count"),
+            }
+        )
         return _obj
-
-

@@ -56,6 +56,9 @@ PktSideDataT = Literal[
     "lcevc",
     "3d_reference_displays",
     "rtcp_sr",
+    "exif",
+    "dynamic_hdr_smpte_2094_app5",
+    "hevc_conf",
 ]
 
 class PacketSideData(Buffer):
@@ -79,7 +82,10 @@ StreamT = TypeVar("StreamT", bound=Stream)
 class Packet(Buffer, Generic[StreamT]):
     stream: StreamT
     stream_index: int
-    time_base: Fraction
+    @property
+    def time_base(self) -> AVRational: ...
+    @time_base.setter
+    def time_base(self, value: AVRational | Fraction | int) -> None: ...
     pts: int | None
     dts: int | None
     pos: int | None

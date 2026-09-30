@@ -25,7 +25,7 @@ from rich.markup import escape
 from hcli.env import ENV
 from hcli.lib.console import stderr_console
 from hcli.lib.ida.version import parse_version_from_ida_binary
-from hcli.lib.util.io import NoSpaceError, check_free_space, get_os
+from hcli.lib.util.io import NoSpaceError, check_free_space, get_hcli_display_command, get_os
 from hcli.lib.venv import resolve_user_virtual_env
 
 logger = logging.getLogger(__name__)
@@ -786,6 +786,15 @@ PLUGIN_REPOSITORY_NAME_CHARS = "a-z0-9-"
 PLUGIN_REPOSITORY_NAME_RE = re.compile(rf"^[{PLUGIN_REPOSITORY_NAME_CHARS}]+$")
 
 
+def get_plugin_repository_sort_key(name: str) -> tuple[bool, str]:
+    """Order repositories alphabetically, with `community` last.
+
+    Every listing that spans repositories follows this order, so a plugin
+    group appears in the same place in `search`, `status`, and `repo list`.
+    """
+    return (name == COMMUNITY_REPO_NAME, name)
+
+
 class PluginRepositoryConfig(BaseModel):
     model_config = ConfigDict(serialize_by_alias=True, extra="allow")  # type: ignore
 
@@ -925,7 +934,7 @@ def _migrate_plugin_repositories(config: IDAConfigJson) -> bool:
 
 
 def get_plugin_repositories(config: IDAConfigJson | None = None) -> dict[str, PluginRepository]:
-    """The configured plugin repositories, keyed by name.
+    """The configured plugin repositories, keyed by name, in display order.
 
     Migrates a pre-0.23 config on first read. Reserved repositories are present
     by default (the migration creates them) but can be removed via ``repo remove``.
@@ -982,7 +991,7 @@ def get_plugin_repositories(config: IDAConfigJson | None = None) -> dict[str, Pl
             )
         repos[name] = PluginRepository(name=name, url=url, reserved=True)
 
-    return repos
+    return {name: repos[name] for name in sorted(repos, key=get_plugin_repository_sort_key)}
 
 
 def get_default_plugin_repository_name(config: IDAConfigJson | None = None) -> str:
@@ -1084,7 +1093,7 @@ def explain_missing_current_installation_directory(console: rich.console.Console
     console.print("")
     console.print("1. set the default value in $IDAUSR/ida-config.json, which you can do via:")
     console.print("")
-    console.print(f"     [grey69]{ENV.HCLI_BINARY_NAME} ida set-default /path/to/IDA/installation/[/grey69]")
+    console.print(f"     [grey69]{get_hcli_display_command()} ida set-default /path/to/IDA/installation/[/grey69]")
     console.print("")
     console.print("2. provide the HCLI_CURRENT_IDA_INSTALL_DIR environment variable, like:")
     console.print("")
@@ -1111,7 +1120,7 @@ def explain_failed_to_detect_ida_version(console: rich.console.Console):
     console.print("")
     console.print("2. also ensure IDA installation directory is configured:")
     console.print("")
-    console.print(f"     [grey69]{ENV.HCLI_BINARY_NAME} ida set-default /path/to/IDA/installation/[/grey69]")
+    console.print(f"     [grey69]{get_hcli_display_command()} ida set-default /path/to/IDA/installation/[/grey69]")
     console.print("")
     console.print("   or via environment variable:")
     console.print("")

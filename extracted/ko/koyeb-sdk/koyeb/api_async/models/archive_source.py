@@ -25,10 +25,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ArchiveSource(BaseModel):
     """
     ArchiveSource
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     buildpack: Optional[BuildpackBuilder] = None
     docker: Optional[DockerBuilder] = None
@@ -40,7 +42,6 @@ class ArchiveSource(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +66,7 @@ class ArchiveSource(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -75,10 +75,10 @@ class ArchiveSource(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of buildpack
         if self.buildpack:
-            _dict['buildpack'] = self.buildpack.to_dict()
+            _dict["buildpack"] = self.buildpack.to_dict()
         # override the default output from pydantic by calling `to_dict()` of docker
         if self.docker:
-            _dict['docker'] = self.docker.to_dict()
+            _dict["docker"] = self.docker.to_dict()
         return _dict
 
     @classmethod
@@ -90,11 +90,15 @@ class ArchiveSource(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "buildpack": BuildpackBuilder.from_dict(obj["buildpack"]) if obj.get("buildpack") is not None else None,
-            "docker": DockerBuilder.from_dict(obj["docker"]) if obj.get("docker") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "buildpack": BuildpackBuilder.from_dict(obj["buildpack"])
+                if obj.get("buildpack") is not None
+                else None,
+                "docker": DockerBuilder.from_dict(obj["docker"])
+                if obj.get("docker") is not None
+                else None,
+            }
+        )
         return _obj
-
-

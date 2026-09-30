@@ -70,6 +70,7 @@ class AsyncioEventLoop(EventLoop):
     """
 
     def __init__(self, *, loop: asyncio.AbstractEventLoop | None = None, **kwargs: typing.Any) -> None:
+        """Wrap `loop`, or the current asyncio event loop when none is given."""
         super().__init__()
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
@@ -123,6 +124,7 @@ class AsyncioEventLoop(EventLoop):
         self._background_tasks: set[asyncio.Task[typing.Any]] = set()
 
     def __del__(self) -> None:
+        """Restore the original event loop policy or close the runner, as appropriate for this Python version."""
         if sys.version_info[:2] < (3, 11):
             if self._event_loop_policy_altered:
                 asyncio.set_event_loop_policy(self._original_event_loop_policy)  # Restore default event loop policy
@@ -130,9 +132,7 @@ class AsyncioEventLoop(EventLoop):
             self._runner.close()
 
     def _also_call_idle(self, callback: Callable[_Spec, _T]) -> Callable[_Spec, _T | None]:
-        """
-        Wrap the callback to also call _entering_idle.
-        """
+        """Wrap the callback to also call _entering_idle."""
 
         @functools.wraps(callback)
         def wrapper(*args: _Spec.args, **kwargs: _Spec.kwargs) -> _T | None:
@@ -174,9 +174,7 @@ class AsyncioEventLoop(EventLoop):
             self._exception_handler(self._loop, {"exception": exc})
 
     def _entering_idle(self) -> None:
-        """
-        Call all the registered idle callbacks.
-        """
+        """Call all the registered idle callbacks."""
         try:
             for callback in self._idle_callbacks.values():
                 self._run_callback(callback)
@@ -201,11 +199,9 @@ class AsyncioEventLoop(EventLoop):
         return self._loop.run_in_executor(executor, functools.partial(func, *args, **kwargs))
 
     def alarm(self, seconds: float, callback: Callable[[], typing.Any]) -> asyncio.TimerHandle:
-        """
-        Call callback() a given time from now.  No parameters are
-        passed to callback.
+        """Call callback() a given time from now.
 
-        Returns a handle that may be passed to remove_alarm()
+        No parameters are passed to callback. Returns a handle that may be passed to remove_alarm().
 
         :param seconds: time in seconds to wait before calling callback
         :param callback: function to call from event loop
@@ -223,11 +219,9 @@ class AsyncioEventLoop(EventLoop):
         return existed
 
     def watch_file(self, fd: int, callback: Callable[[], typing.Any]) -> int:
-        """
-        Call callback() when fd has some data to read.  No parameters
-        are passed to callback.
+        """Call callback() when fd has some data to read.
 
-        Returns a handle that may be passed to remove_watch_file()
+        No parameters are passed to callback. Returns a handle that may be passed to remove_watch_file().
 
         :param fd: file descriptor to watch for input
         :param callback: function to call when input is available

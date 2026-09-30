@@ -27,7 +27,6 @@ import time
 from collections import Counter, OrderedDict, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 # External dependencies
@@ -37,6 +36,12 @@ except ImportError:
     cv2 = None
 import numpy as np
 
+from ...clients import identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.bootstrap import get_action_id, get_session
+from ...clients.lpr_client import LPRClient
+from ...clients.models import LprServer, build_detection
+from ...clients.response import CallFailure, ConnectionLost, RateLimited
 from ..core.base import (
     BaseProcessor,
     ConfigProtocol,
@@ -55,6 +60,7 @@ from ..utils import (
 # Import alert system utilities
 from ..utils.alert_instance_utils import ALERT_INSTANCE
 from ..utils.location_name_cache import LocationNameCache
+from ..utils.post_processing_config_client import is_resolvable_location_id
 
 # ANA-18: the public-IP lookup used to live here in two copies. It now lives in a
 # stdlib-only leaf so face_recognition_client and business_metrics_manager_utils --
@@ -115,6 +121,12 @@ _SEND_FAILURE_BREAKER_MAX_S = 60.0
 # half a minute per plate. One name, so lowering it again is one edit.
 _LPR_POST_TIMEOUT_DEFAULT_S = 5.0
 
+# Module level, matching the five other callers. It was a per-instance attribute, so
+# with one usecase instance per camera, twenty cameras in one building fetched the same
+# location name twenty times -- and each burned its own INC-2606 cool-off on a location
+# that was failing. Sharing the instance shares both the resolved names and the cool-off.
+_location_name_cache = LocationNameCache()
+
 # Cap on retained per-(camera, plate) create anchors. Each holds a full-frame base64
 # JPEG, and anchors are consumed within the frame that created them, so this is three
 # orders of magnitude above what is ever live at once.
@@ -124,38 +136,6 @@ _PLATE_ANCHOR_MAX = 256
 # 1.27 MB at 1080p and 51.4 ms / 5.1 MB at 4K; 90 is the conventional
 # visually-lossless point and roughly halves both.
 _PLATE_JPEG_QUALITY = 90
-
-
-class _LprBackpressureError(Exception):
-    """lpr-server is telling us to slow down. Pace against it; do not report it as a fault.
-
-    Subclassed rather than reported per-occurrence because one dense frame can make
-    dozens of plates eligible at once: a log line (let alone a stack trace) per
-    rejected plate buries the log without adding information beyond the first.
-    """
-
-    def __init__(self, message: str, retry_after: float = 0.0) -> None:
-        super().__init__(message)
-        self.retry_after = float(retry_after or 0.0)
-
-
-class _LprRateLimitedError(_LprBackpressureError):
-    """lpr-server answered 429.
-
-    Carries ``Retry-After`` when the server supplies it; callers fall back to their
-    own exponential backoff when it is absent (the current server sends no such
-    header, it just returns ``{"error": "rate limit exceeded"}``).
-    """
-
-
-class _LprConnectionLostError(_LprBackpressureError):
-    """The connection dropped, and the one retry on a fresh connection dropped too.
-
-    A single stale keep-alive is normal and the retry absorbs it silently. Two in a
-    row means the server is shedding connections rather than answering, which is the
-    same "slow down" signal as a 429 -- so it feeds the same global gate instead of
-    raising a traceback per plate.
-    """
 
 
 def _format_lpr_api_log_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -184,16 +164,6 @@ def _lpr_api_response_status(response: Any) -> int | None:
         except (TypeError, ValueError):
             return None
     return None
-
-
-def _format_lpr_api_response_for_log(response: Any) -> str:
-    """Serialize an RPC response for structured logging."""
-    if isinstance(response, (dict, list)):
-        try:
-            return json.dumps(response, default=str)
-        except (TypeError, ValueError):
-            pass
-    return repr(response)
 
 
 def _extract_lpr_exception_response_body(exc: Exception) -> str:
@@ -225,42 +195,6 @@ def _extract_lpr_exception_response_body(exc: Exception) -> str:
     body = getattr(exc, "body", None)
     if body is not None:
         return str(body)
-    return ""
-
-
-def _lpr_api_response_is_success(status: int | None, response: Any = None) -> bool:
-    """Return True when the LPR API response indicates success.
-
-    _pooled_post()/rpc.post_async() only return a body when the HTTP call
-    itself succeeded (2xx) — they raise otherwise, which callers handle
-    separately. Some lpr-server endpoints (e.g. create-detection) reply with
-    the raw created document and no "code"/"status" wrapper, so a response
-    with no recognizable status is success too, unless it carries an
-    explicit failure marker.
-    """
-    if status is not None:
-        return 200 <= status < 300
-    if isinstance(response, dict):
-        return response.get("success") is not False
-    return False
-
-
-def _extract_lpr_detection_id(response: Any) -> str:
-    """Best-effort extraction of lpr-server detection document id from an RPC response."""
-    if isinstance(response, dict):
-        for key in ("id", "_id", "detectionId", "detection_id"):
-            value = response.get(key)
-            if value not in (None, ""):
-                return str(value)
-        data = response.get("data")
-        if isinstance(data, dict):
-            for key in ("id", "_id", "detectionId", "detection_id"):
-                value = data.get(key)
-                if value not in (None, ""):
-                    return str(value)
-        elif data not in (None, ""):
-            if not isinstance(data, (dict, list)):
-                return str(data)
     return ""
 
 
@@ -843,15 +777,22 @@ def _extract_camera_id_from_frame_id(frame_id_val: Any) -> str:
 
 
 class LicensePlateMonitorLogger:
-    def __init__(self):
+    def __init__(self, client: Optional[LPRClient] = None):
+        """
+        Args:
+            client: The licence-plate client to reach the platform through. Absent one,
+                a client is built on the session and server id this logger already
+                resolves, so a caller that passes nothing sends the same request it
+                sent before.
+        """
         self.session = None
         self.logger = logging.getLogger(__name__)
         self.lpr_server_id = None
-        self.server_info = None
+        self._lpr_client = client
+        self.server_info: LprServer | None = None
         self.server_base_url = None
-        # Shared aiohttp session for lpr-server POSTs (created lazily on the
-        # sender loop; avoids a new ClientSession/TCP connection per POST).
-        self._http_session = None
+        # Total timeout for one lpr-server POST. Handed to the client when it is built,
+        # which is on the first send -- see the ordering note in _initialize_plate_logger.
         self._post_timeout_s = _LPR_POST_TIMEOUT_DEFAULT_S
         # Transport selection. "redis" publishes to the lpr-detections stream and
         # returns; "http" keeps the old POST-and-wait behaviour. Set from config in
@@ -890,17 +831,9 @@ class LicensePlateMonitorLogger:
                 self.logger.error("[LP_LOGGING] Matrice session module not available")
                 raise ImportError("Matrice session is required for License Plate Monitoring")
             try:
-                account_number = os.getenv("MATRICE_ACCOUNT_NUMBER", "")
-                access_key_id = os.getenv("MATRICE_ACCESS_KEY_ID", "")
-                secret_key = os.getenv("MATRICE_SECRET_ACCESS_KEY", "")
-                project_id = os.getenv("MATRICE_PROJECT_ID", "")
-
-                self.session = Session(
-                    account_number=account_number,
-                    access_key=access_key_id,
-                    secret_key=secret_key,
-                    project_id=project_id,
-                )
+                # The process session, not a new one: this container has one set of
+                # credentials, so every consumer can share one session.
+                self.session = get_session("the LPR plate logger")
             except Exception as e:
                 self.logger.error(
                     "[LP_LOGGING] Failed to initialize Matrice session: %s",
@@ -908,6 +841,10 @@ class LicensePlateMonitorLogger:
                     exc_info=True,
                 )
                 raise
+        # Hand it on, so the alert manager on the same config reuses it instead of opening
+        # its own.
+        if not config.session:
+            config.session = self.session
 
         # Fetch server connection info if lpr_server_id is provided
         if config.lpr_server_id:
@@ -916,18 +853,21 @@ class LicensePlateMonitorLogger:
             try:
                 self.server_info = self.get_server_connection_info()
                 if self.server_info:
-                    server_host = self.server_info.get("host", "localhost")
-                    server_port = self.server_info.get("port", 8200)
+                    # The model defaults both fields, so an absent host or port arrives
+                    # as "" / 0 rather than missing; the old `.get(key, default)` reads
+                    # are therefore written as falsy fallbacks, not as key lookups.
+                    server_host = self.server_info.host or "localhost"
+                    server_port = self.server_info.port or 8200
 
                     if server_host == self.public_ip:
                         self.server_base_url = f"http://localhost:{server_port}"
                     else:
                         self.server_base_url = f"http://{server_host}:{server_port}"
 
-                    self.session.update(self.server_info.get("projectID", ""))
+                    self.session.update(self.server_info.project_id)
                     self.logger.info(
                         "[LP_LOGGING] LPR server ready: name=%s url=%s",
-                        self.server_info.get("name", "Unknown"),
+                        self.server_info.name or "Unknown",
                         self.server_base_url,
                     )
                 else:
@@ -945,61 +885,50 @@ class LicensePlateMonitorLogger:
         """This host's public IP; see :func:`~..utils.public_ip.resolve_public_ip_once`."""
         return resolve_public_ip_once(self.logger)
 
-    def _get_backend_base_url(self) -> str:
-        """Resolve backend base URL based on ENV variable: prod/staging/dev."""
-        env = os.getenv("ENV", "prod").strip().lower()
-        if env in ("prod", "production"):
-            host = "prod.backend.app.matrice.ai"
-        elif env in ("dev", "development"):
-            host = "dev.backend.app.matrice.ai"
-        else:
-            host = "staging.backend.app.matrice.ai"
-        return f"https://{host}"
+    def _lpr(self) -> LPRClient:
+        """The client the lpr-server record is read through.
 
-    def get_server_connection_info(self) -> Dict[str, Any] | None:
-        """Fetch server connection info from RPC."""
+        The caller's when one was injected, otherwise one built on the session and
+        server id resolved above -- so the request is the same either way.
+        """
+        if self._lpr_client is None:
+            self._lpr_client = LPRClient(
+                self.lpr_server_id or "",
+                session=self.session,
+                public_ip=self.public_ip,
+                post_timeout_s=self._post_timeout_s,
+            )
+        return self._lpr_client
+
+    def get_server_connection_info(self) -> LprServer | None:
+        """The lpr-server's record: where it is, and which project it files under.
+
+        Returns ``None`` -- never raises -- when there is no server id or the read
+        fails, which the caller treats as "plate logging is unavailable".
+        """
         if not self.lpr_server_id:
             self.logger.warning("No lpr_server_id set, cannot fetch server connection info")
             return None
 
         try:
-            endpoint = f"/v1/actions/lpr_servers/{self.lpr_server_id}"
-            self.logger.info(f"Sending GET request to: {endpoint}")
-            response = self.session.rpc.get(endpoint)
-            self.logger.info(
-                f"Received response: success={response.get('success')}, code={response.get('code')}, message={response.get('message')}"
-            )
-
-            if response.get("success", False) and response.get("code") == 200:
-                # Response format:
-                # {'success': True,
-                # 'code': 200,
-                # 'message': 'Success',
-                # 'serverTime': '2025-10-19T04:58:04Z',
-                # 'data': {'id': '68f07e515cd5c6134a075384',  # pragma: allowlist secret
-                # 'name': 'lpr-server-1',
-                # 'host': '<redacted>',
-                # 'port': 8200,
-                # 'status': 'created',
-                # 'accountNumber': '<redacted>',
-                # 'projectID': '68ca6372ab79ba13ef699ba6',  # pragma: allowlist secret
-                # 'region': 'United States',
-                # 'isShared': False}}
-                data = response.get("data", {})
-                self.logger.info(
-                    f"Server connection info retrieved: name={data.get('name')}, host={data.get('host')}, port={data.get('port')}, status={data.get('status')}"
-                )
-                return data
-            else:
-                self.logger.warning(
-                    f"Failed to fetch server info: {response.get('message', 'Unknown error')}"
-                )
-                return None
-        except Exception as e:
-            self.logger.error(
-                f"Exception while fetching server connection info: {e}", exc_info=True
-            )
+            record = self._lpr().fetch_server()
+        except CallFailure as exc:
+            self.logger.error(f"Failed to fetch LPR server record: {exc}", exc_info=True)
             return None
+
+        # An empty document is not a record. The reply `{"success": true, "data": {}}`
+        # unwraps to a model with every field defaulted, which is truthy -- so without
+        # this the caller would accept it and build a base URL out of the defaults,
+        # where before it left plate logging switched off.
+        if record is None or not record.model_dump(by_alias=True, exclude_defaults=True):
+            self.logger.warning(f"No LPR server record for id={self.lpr_server_id}")
+            return None
+
+        self.logger.info(
+            f"Server connection info retrieved: name={record.name}, host={record.host}, "
+            f"port={record.port}, status={record.status}"
+        )
+        return record
 
     def _format_timestamp_rfc3339(self, timestamp: str) -> str:
         """Convert timestamp to RFC3339 format (2006-01-02T15:04:05Z).
@@ -1165,7 +1094,6 @@ class LicensePlateMonitorLogger:
         # Use matched camera_info (if found) to set camera_name/location_id
         if matched_ci:
             camera_name = _dict_get_str(matched_ci, "camera_name", "cameraName", "name")
-            location_id = _dict_get_str(matched_ci, "location", "location_id", "locationId")
 
         if not camera_name:
             camera_name = (
@@ -1181,21 +1109,15 @@ class LicensePlateMonitorLogger:
                     if camera_name:
                         break
 
-        if not location_id:
-            location_id = (
-                _dict_get_str(camera_info_root, "location", "location_id", "locationId")
-                or _dict_get_str(
-                    camera_info_input_settings, "location", "location_id", "locationId"
-                )
-                or _dict_get_str(camera_info_input_stream, "location", "location_id", "locationId")
-                or _dict_get_str(stream_info, "location_id", "location", "locationId")
-                or _dict_get_str(input_settings, "location_id", "location", "locationId")
-            )
-            if not location_id:
-                for ci in camera_info_input_streams:
-                    location_id = _dict_get_str(ci, "location", "location_id", "locationId")
-                    if location_id:
-                        break
+        location_id, location_name = identity.resolve_location(
+            matched_ci,
+            camera_info_root,
+            camera_info_input_settings,
+            camera_info_input_stream,
+            stream_info,
+            input_settings,
+            *camera_info_input_streams,
+        )
 
         self.logger.debug(
             "Extracted camera info - camera_name: '%s', camera_id: '%s', location_id: '%s'",
@@ -1208,6 +1130,7 @@ class LicensePlateMonitorLogger:
             "camera_name": camera_name,
             "camera_id": camera_id,
             "location_id": location_id,
+            "location_name": location_name,
         }
 
     def _extract_application_id_from_stream(self, stream_info: Dict[str, Any] | None) -> str:
@@ -1257,8 +1180,12 @@ class LicensePlateMonitorLogger:
         camera_info = self._extract_camera_info_from_stream(stream_info)
         camera_id = camera_info.get("camera_id", "")
         camera_name = camera_info.get("camera_name", "default_camera")
-        location = camera_info.get("location_id", "") or camera_info.get(
-            "location", "default_location"
+        # Unchanged on the wire: the stream's ``location`` value (the site name once the stream
+        # is enriched, the id before), which the extractor now reports as name or id.
+        location = (
+            camera_info.get("location_name", "")
+            or camera_info.get("location_id", "")
+            or "default_location"
         )
         application_id = self._extract_application_id_from_stream(stream_info)
         input_settings = (
@@ -1296,7 +1223,7 @@ class LicensePlateMonitorLogger:
         except (TypeError, ValueError):
             rtp_number_int = 0
 
-        project_id = self.server_info.get("projectID", "") if self.server_info else ""
+        project_id = self.server_info.project_id if self.server_info else ""
         rfc3339_timestamp = self._format_timestamp_rfc3339(timestamp)
 
         payload: Dict[str, Any] = {
@@ -1316,7 +1243,10 @@ class LicensePlateMonitorLogger:
         if api_bbox is not None:
             payload["bbox"] = api_bbox
         if ocr_confidence is not None:
-            payload["ocr_confidence"] = float(ocr_confidence)
+            # `confidence` is the name the producer declares; `ocr_confidence` appears
+            # in its schema zero times, so the value was being sent under a key
+            # lpr-server does not read.
+            payload["confidence"] = float(ocr_confidence)
 
         return {
             "payload": payload,
@@ -1393,7 +1323,7 @@ class LicensePlateMonitorLogger:
         bbox = api_payload.get("bbox")
         if bbox is not None:
             payload["bbox"] = bbox
-        confidence = api_payload.get("ocr_confidence")
+        confidence = api_payload.get("confidence")
         if confidence is not None:
             payload["confidence"] = confidence
         return payload
@@ -1438,157 +1368,19 @@ class LicensePlateMonitorLogger:
             )
             return False
 
-    def _get_http_session(self, aiohttp_mod):
-        """Return the shared aiohttp session, creating it lazily.
-
-        The session must be created (and used) on the plate-sync sender loop;
-        it is bound to whichever running loop first uses its connector.
-
-        ``_post_timeout_s`` is read once, here, and baked into the session's
-        ``ClientTimeout``: a later re-assignment does not reach an already-created
-        session. See the ordering note in ``_initialize_plate_logger``.
-        """
-        session = self._http_session
-        if session is None or session.closed:
-            session = aiohttp_mod.ClientSession(
-                timeout=aiohttp_mod.ClientTimeout(total=float(self._post_timeout_s))
-            )
-            self._http_session = session
-        return session
-
-    async def _pooled_post(
-        self, session, url: str, headers: Dict[str, str], payload: Dict[str, Any]
-    ) -> Any:
-        """POST once via the pooled session; mimic ``rpc.post_async`` semantics.
-
-        Returns the parsed JSON body on 2xx; raises on non-2xx (same as the
-        rpc path, whose exception is handled by the existing call sites).
-        """
-        async with session.post(
-            url, json=payload, headers=headers, allow_redirects=True
-        ) as response:
-            status = response.status
-            try:
-                body = await response.json(content_type=None)
-            except Exception:  # noqa: BLE001 - reading the body is best effort; status handling continues regardless
-                body = await response.text()
-            if status == 429:
-                # Backpressure, not a fault: lpr-server is telling us to slow down.
-                # Raised as a distinct type so callers can throttle instead of
-                # logging a stack trace per rejected plate -- a dense-traffic frame
-                # can make dozens of plates eligible at once, and treating each
-                # rejection as an error buried the log in tracebacks.
-                retry_after = 0.0
-                header_value = response.headers.get("Retry-After")
-                if header_value:
-                    try:
-                        retry_after = float(header_value)
-                    except (TypeError, ValueError):
-                        retry_after = 0.0
-                raise _LprRateLimitedError(
-                    f"LPR rate limited: url={url} response_body={body!r}",
-                    retry_after=retry_after,
-                )
-            if not (200 <= status < 300):
-                raise Exception(  # noqa: TRY002 - parity with rpc.post_async failure behavior
-                    f"LPR pooled POST failed: status={status} url={url} response_body={body!r}"
-                )
-            return body
-
-    async def _post_async_pooled(self, endpoint: str, payload: Dict[str, Any]) -> Any:
-        """POST to the lpr-server reusing ONE shared aiohttp session.
-
-        Replicates the auth preamble of ``matrice_common.rpc.async_send_request``
-        (token refresh, bearer header, sdk_version header, projectId query
-        param) but keeps the TCP connection pool alive across calls. On any
-        structural failure (missing aiohttp, mocked/unusable rpc internals,
-        non-string token, ...) it degrades to the legacy per-call
-        ``session.rpc.post_async`` path instead of breaking plate logging.
-        """
-        try:
-            import aiohttp
-
-            rpc = self.session.rpc
-            rpc.refresh_token()
-            auth_token = rpc.AUTH_TOKEN
-            auth_token.set_bearer_token()
-            bearer = auth_token.bearer_token
-            if not isinstance(bearer, str) or not bearer:
-                raise TypeError("bearer token unavailable or not a string")
-            url = rpc.add_project_id(f"{self.server_base_url}{endpoint}")
-            if not isinstance(url, str):
-                raise TypeError("request url is not a string")
-            headers = {
-                "Authorization": bearer,
-                "sdk_version": str(getattr(rpc, "sdk_version", "0.0.0")),
-            }
-            http_session = self._get_http_session(aiohttp)
-        except Exception as e:  # noqa: BLE001 - pooled HTTP is optional; falls back to session.rpc.post_async
-            self.logger.warning(
-                "[LP_LOGGING] Pooled HTTP path unavailable (%s: %s); falling back to session.rpc.post_async",
-                type(e).__name__,
-                e,
-            )
-            return await self.session.rpc.post_async(
-                endpoint, payload=payload, base_url=self.server_base_url
-            )
-
-        try:
-            return await self._pooled_post(http_session, url, headers, payload)
-        except RuntimeError as e:
-            # e.g. "Session is closed" / "Event loop is closed": recreate once.
-            if "closed" not in str(e).lower():
-                raise
-            try:
-                await http_session.close()
-            except Exception:  # noqa: BLE001 - the session/loop is already closed, which is why we are here
-                # Expected: the session/loop is already closed, which is why we are here.
-                self.logger.debug("[LP_LOGGING] closing stale http session failed", exc_info=True)
-            self._http_session = None
-            http_session = self._get_http_session(aiohttp)
-            return await self._pooled_post(http_session, url, headers, payload)
-        except aiohttp.ClientConnectionError as e:  # noqa: F841 - reused in the nested handler
-            # A pooled keep-alive connection the server had already closed: the
-            # failure surfaces only when we try to reuse it, so the request never
-            # reached lpr-server and retrying it once on a fresh connection is
-            # safe. Retrying is also safe *semantically*: the create endpoint is
-            # idempotent on (licensePlate, projectId, teamId), so a retry can
-            # never duplicate a detection.
-            #
-            # Only RuntimeError("...closed") was handled before, which covers a
-            # closed session/loop but not ServerDisconnectedError -- so every
-            # server-side keep-alive expiry lost a detection outright.
-            self.logger.debug(
-                "[LP_LOGGING] Pooled connection dropped (%s: %s); retrying once on a fresh connection",
-                type(e).__name__,
-                e,
-            )
-            try:
-                await http_session.close()
-            except Exception:  # noqa: BLE001 - non-fatal: the session is dropped and rebuilt regardless
-                # Non-fatal: the session is dropped and rebuilt regardless.
-                self.logger.debug("[LP_LOGGING] closing dropped http session failed", exc_info=True)
-            self._http_session = None
-            http_session = self._get_http_session(aiohttp)
-            try:
-                return await self._pooled_post(http_session, url, headers, payload)
-            except aiohttp.ClientConnectionError as retry_exc:
-                # Two dropped connections back to back is not a stale keep-alive,
-                # it is the server refusing to serve. Convert to backpressure so it
-                # feeds the same global pause as a 429 and is logged once per
-                # window, instead of raising a per-plate traceback.
-                raise _LprConnectionLostError(f"connection lost twice: {retry_exc}") from retry_exc
-
     async def aclose(self) -> None:
-        """Close the shared aiohttp session (call from the loop that owns it)."""
-        session = self._http_session
-        self._http_session = None
-        if session is not None and not session.closed:
-            try:
-                await session.close()
-            except Exception:  # noqa: BLE001 - non-fatal: the reference is already dropped, so the session cannot leak
-                # Non-fatal: the reference is already dropped, so the session cannot leak.
-                self.logger.debug("[LP_LOGGING] aclose of http session failed", exc_info=True)
+        """Close the detection connection pool (call from the loop that sent on it).
+
+        Delegates to the client, which owns the pool. Nothing to close when this logger
+        never built a client, which is the case for a Redis-mode logger.
+        """
+        client, self._lpr_client = self._lpr_client, None
+        if client is None:
+            return
+        try:
+            await client.aclose()
+        except Exception:  # noqa: BLE001 - non-fatal: the reference is dropped, so the pool cannot leak
+            self.logger.debug("[LP_LOGGING] aclose of the detection pool failed", exc_info=True)
 
     def note_rate_limited(self, retry_after: float = 0.0, plate_text: str = "") -> None:
         """Record a 429 and open a global send window in the future.
@@ -1671,39 +1463,29 @@ class LicensePlateMonitorLogger:
 
     async def _execute_lpr_api_call(
         self,
-        method: str,
-        endpoint: str,
         payload: Dict[str, Any],
         plate_text: str,
         action_label: str,
     ) -> Any:
-        """Execute an lpr-server RPC call with concise request/response logging."""
-        full_url = f"{self.server_base_url}{endpoint}"
+        """File one sighting on lpr-server, with concise request/response logging.
 
-        response = await self._post_async_pooled(endpoint, payload)
+        The request is built and sent by :meth:`~...clients.lpr_client.LPRClient.create_detection`
+        over a kept-alive pool. The method and endpoint this used to take are gone with it: one
+        route does both create and append, and the client owns its path.
 
-        response_status = _lpr_api_response_status(response)
-        if not _lpr_api_response_is_success(response_status, response):
-            self.logger.warning(
-                "[LP_LOGGING] API %s failed (%s): url=%s status=%s plate=%s response=%s",
-                method,
-                action_label,
-                full_url,
-                response_status if response_status is not None else "unknown",
-                plate_text,
-                _format_lpr_api_response_for_log(response),
-            )
-            return None
+        Returns the created or updated ``Detection``, or ``None`` when the server answered
+        successfully with no document. A refusal raises rather than returning ``None``, and the
+        two callers below tell the cases apart.
+        """
+        detection = await self._lpr().create_detection(build_detection(payload))
 
         self.logger.info(
-            "[LP_LOGGING] API %s ok (%s): plate=%s status=%s response=%s",
-            method,
+            "[LP_LOGGING] API POST ok (%s): plate=%s detection=%s",
             action_label,
             plate_text,
-            response_status,
-            _format_lpr_api_response_for_log(response),
+            getattr(detection, "id", None),
         )
-        return response
+        return detection
 
     async def log_plate(
         self,
@@ -1743,20 +1525,16 @@ class LicensePlateMonitorLogger:
                 ocr_confidence=ocr_confidence,
             )
             payload = ctx["payload"]
-            project_id = ctx["project_id"]
 
-            endpoint = f"/v1/lpr-server/detections?projectId={project_id}"
-            response = await self._execute_lpr_api_call(
-                "POST",
-                endpoint,
+            detection = await self._execute_lpr_api_call(
                 payload,
                 plate_text,
                 action_label="create_detection",
             )
-            if response is None:
+            if detection is None:
                 return None
 
-            detection_id = _extract_lpr_detection_id(response)
+            detection_id = detection.id
             self.note_send_ok()
             self.logger.info(
                 "[LP_LOGGING] Created detection plate=%s detection_id=%s camera=%s",
@@ -1766,10 +1544,12 @@ class LicensePlateMonitorLogger:
             )
             return detection_id or None
 
-        except _LprBackpressureError as e:
-            # Expected backpressure (429 or repeated connection loss) -- pace and
-            # move on; no stack trace, one warning per backoff window.
-            self.note_rate_limited(e.retry_after, plate_text)
+        except (RateLimited, ConnectionLost) as e:
+            # Expected backpressure -- pace and move on; no stack trace, one warning per
+            # backoff window. Two client errors rather than one base class, because
+            # "slow down" and "could not connect twice" are different facts and treating
+            # both as backpressure is this caller's policy, not the transport's.
+            self.note_rate_limited(getattr(e, "retry_after", 0.0), plate_text)
             return None
         except Exception as e:
             err_status = _lpr_api_response_status(getattr(e, "response", None))
@@ -1862,20 +1642,15 @@ class LicensePlateMonitorLogger:
                 bbox=bbox,
                 ocr_confidence=ocr_confidence,
             )
-            project_id = ctx["project_id"]
-
-            # Same endpoint and payload shape as log_plate(): the server decides
-            # create-vs-append itself, so the two calls are deliberately identical
-            # on the wire apart from the omitted image.
-            endpoint = f"/v1/lpr-server/detections?projectId={project_id}"
-            response = await self._execute_lpr_api_call(
-                "POST",
-                endpoint,
+            # Same payload shape as log_plate(): the server decides create-vs-append
+            # itself, so the two calls are deliberately identical on the wire apart
+            # from the omitted image.
+            detection = await self._execute_lpr_api_call(
                 ctx["payload"],
                 plate_text,
                 action_label="append_view_frame",
             )
-            if response is None:
+            if detection is None:
                 return False
 
             self.note_send_ok()
@@ -1887,10 +1662,12 @@ class LicensePlateMonitorLogger:
             )
             return True
 
-        except _LprBackpressureError as e:
-            # Expected backpressure (429 or repeated connection loss) -- pace and
-            # move on; no stack trace, one warning per backoff window.
-            self.note_rate_limited(e.retry_after, plate_text)
+        except (RateLimited, ConnectionLost) as e:
+            # Expected backpressure -- pace and move on; no stack trace, one warning per
+            # backoff window. Two client errors rather than one base class, because
+            # "slow down" and "could not connect twice" are different facts and treating
+            # both as backpressure is this caller's policy, not the transport's.
+            self.note_rate_limited(getattr(e, "retry_after", 0.0), plate_text)
             return False
         except Exception as e:
             # Before the log, so the breaker trips on the same failure that produced
@@ -2630,8 +2407,15 @@ class LicensePlateMonitorUseCase(BaseProcessor):
     _stable_frames_required = 1
     _ocr_confidence_threshold = 0.75
 
-    def __init__(self):
+    def __init__(self, client: Optional[AnalyticsClient] = None):
+        """
+        Args:
+            client: The platform client to make calls through. Absent one, a client is
+                built on the session the config carries, so a caller that passes
+                nothing sends exactly the requests it sent before.
+        """
         super().__init__("license_plate_monitor")
+        self._client = client
         self.category = "license_plate_monitor"
         self.target_categories = ["license_plate"]
         self.CASE_TYPE: str | None = "license_plate_monitor"
@@ -2746,50 +2530,26 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         self.alert_manager = alert_manager
         self.logger.info("Alert manager set for license plate monitoring")
 
-    def _discover_action_id(self) -> str | None:
-        """Discover action_id from current working directory name (and parents), similar to face_recognition flow."""
-        try:
-            import re as _re
+    def _platform(self, session: Any = None) -> AnalyticsClient:
+        """The client every platform call in this usecase goes through.
 
-            pattern = _re.compile(r"^[0-9a-f]{8,}$", _re.IGNORECASE)
-            candidates: List[str] = []
-            try:
-                cwd = Path.cwd()
-                candidates.append(cwd.name)
-                for parent in cwd.parents:
-                    candidates.append(parent.name)
-            except Exception:  # noqa: BLE001 - non-fatal: cwd is only one of several action_id candidate sources
-                # Non-fatal: cwd is only one of several action_id candidate sources.
-                self.logger.debug("[LP_LOGGING] cwd scan for action_id failed", exc_info=True)
+        The caller's when one was injected, otherwise one riding the session the
+        config carries -- so the requests are the same either way.
+        """
+        if self._client is None:
+            self._client = AnalyticsClient(session=session)
+        return self._client
 
-            try:
-                usr_src = Path("/usr/src")
-                if usr_src.exists():
-                    for child in usr_src.iterdir():
-                        if child.is_dir():
-                            candidates.append(child.name)
-            except Exception:  # noqa: BLE001 - non-fatal: /usr/src is absent outside the container image
-                # Non-fatal: /usr/src is absent outside the container image.
-                self.logger.debug("[LP_LOGGING] /usr/src scan for action_id failed", exc_info=True)
+    def _lpr(self, lpr_server_id: str, session: Any = None) -> LPRClient:
+        """The client the lpr-server record is read through.
 
-            for candidate in candidates:
-                if candidate and len(candidate) >= 8 and pattern.match(candidate):
-                    return candidate
-        except Exception:  # noqa: BLE001 - callers treat an unresolved action_id as 'not discoverable'
-            # Non-fatal: callers treat an unresolved action_id as "not discoverable".
-            self.logger.debug("[LP_LOGGING] action_id discovery failed", exc_info=True)
-        return None
-
-    def _get_backend_base_url(self) -> str:
-        """Resolve backend base URL based on ENV variable: prod/staging/dev."""
-        env = os.getenv("ENV", "prod").strip().lower()
-        if env in ("prod", "production"):
-            host = "prod.backend.app.matrice.ai"
-        elif env in ("dev", "development"):
-            host = "dev.backend.app.matrice.ai"
-        else:
-            host = "staging.backend.app.matrice.ai"
-        return f"https://{host}"
+        The plate logger's when it has one, so the two paths share a single record
+        rather than each fetching it -- see :meth:`_resolve_lpr_server_record`.
+        """
+        logger_client = getattr(getattr(self, "plate_logger", None), "_lpr_client", None)
+        if logger_client is not None:
+            return logger_client
+        return LPRClient(lpr_server_id, session=session, public_ip=self._get_public_ip())
 
     def _mask_value(self, value: str | None) -> str:
         """Mask sensitive values for logging/printing."""
@@ -2804,15 +2564,15 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         return resolve_public_ip_once(self.logger)
 
     def _fetch_location_name(self, location_id: str, session: Session | None = None) -> str:
-        """
-        Fetch location name from API using location_id.
+        """The site's display name for ``location_id``, or the default if it cannot be read.
 
         Args:
-            location_id: The location ID to look up
-            session: Matrice session for API calls
+            location_id: The site to look up.
+            session: The session to build a client on, when none was injected.
 
         Returns:
-            Location name string, or 'Entry Reception' as default if API fails
+            The site name, or ``'Entry Reception'`` when the id is absent, the
+            placeholder, or the lookup does not succeed.
         """
         default_location = "Entry Reception"
 
@@ -2823,11 +2583,15 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             )
             return default_location
 
-        # Check cache first
-        if not hasattr(self, "_location_name_cache"):
-            self._location_name_cache = LocationNameCache()
+        # Only a real site id is worth the round trip: a name is a 400 on every cool-off.
+        if not is_resolvable_location_id(location_id):
+            self.logger.debug(
+                f"[LOCATION] '{location_id}' is not a location id, using default: "
+                f"'{default_location}'"
+            )
+            return default_location
 
-        cached_name = self._location_name_cache.resolved(location_id)
+        cached_name = _location_name_cache.resolved(location_id)
         if cached_name is not None:
             self.logger.debug(
                 f"[LOCATION] Using cached location name for '{location_id}': '{cached_name}'"
@@ -2844,56 +2608,42 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         # caching the failure pinned the placeholder onto every plate record for this
         # location for the life of the process, and the API recovering changed nothing
         # (INC-2606).
-        if not self._location_name_cache.should_fetch(location_id):
+        if not _location_name_cache.should_fetch(location_id):
             return default_location
 
         try:
-            endpoint = f"/v1/inference/get_location/{location_id}"
-            self.logger.info(f"[LOCATION] Fetching location name from API: {endpoint}")
-
-            response = session.rpc.get(endpoint, timeout=3, raise_exception=False)
-
-            if response and isinstance(response, dict):
-                success = response.get("success", False)
-                if success:
-                    data = response.get("data", {})
-                    location_name = data.get("locationName", default_location)
-                    self.logger.info(
-                        f"[LOCATION] ✓ Fetched location name: '{location_name}' for location_id: '{location_id}'"
-                    )
-
-                    # Cache the result
-                    self._location_name_cache.store(location_id, location_name)
-                    return location_name
-                else:
-                    self.logger.warning(
-                        f"[LOCATION] API returned success=false for location_id '{location_id}': "
-                        f"{response.get('message', 'Unknown error')}"
-                    )
-            else:
-                self.logger.warning(f"[LOCATION] Invalid response format from API: {response}")
-
-        except Exception as e:
-            self.logger.error(
-                f"[LOCATION] Error fetching location name for '{location_id}': {e}",
-                exc_info=True,
-            )
+            site = self._platform(session).inference.fetch_location(location_id)
+            if site is not None and site.location_name:
+                self.logger.info(
+                    f"[LOCATION] ✓ Fetched location name: '{site.location_name}' "
+                    f"for location_id: '{location_id}'"
+                )
+                _location_name_cache.store(location_id, site.location_name)
+                return site.location_name
+            self.logger.warning(f"[LOCATION] No site record for location_id '{location_id}'")
+        except CallFailure as exc:
+            # A failing endpoint logs ERROR (operator rule). No traceback: py_common's
+            # @log_errors has already logged this failure with its stack, and the message
+            # names every attempt, so a second trace would only repeat it.
+            self.logger.error(f"[LOCATION] Error fetching location name for '{location_id}': {exc}")
 
         # Use default on any failure
         self.logger.info(f"[LOCATION] Using default location name: '{default_location}'")
-        self._location_name_cache.note_failure(location_id)
+        _location_name_cache.note_failure(location_id)
         return default_location
 
-    def _cached_lpr_server_info(self) -> Dict[str, Any] | None:
+    def _cached_lpr_server_info(self) -> LprServer | None:
         """The lpr-server record the plate logger already fetched, or None.
 
-        Returns None rather than an empty dict so "the logger has no copy" stays
+        Returns None rather than an empty record so "the logger has no copy" stays
         distinguishable from "the server returned nothing".
         """
         info = getattr(getattr(self, "plate_logger", None), "server_info", None)
-        return info if isinstance(info, dict) and info else None
+        return info if isinstance(info, LprServer) else None
 
-    def _resolve_lpr_server_record(self, rpc: Any, lpr_server_id: str) -> Dict[str, Any] | None:
+    def _resolve_lpr_server_record(
+        self, lpr_server_id: str, session: Any = None
+    ) -> LprServer | None:
         """The lpr-server record, fetching it only if nobody has it yet.
 
         ANA-16: ``get_server_connection_info`` and the alert-manager initialiser
@@ -2905,18 +2655,25 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         path its copy is already there and this costs nothing.
 
         The fetch is kept rather than deleted because it is the only path to
-        ``host`` when the logger has no copy: its own init failed, or the response
-        was not a 200 and it kept None.
+        ``host`` when the logger has no copy: its own init failed, or the read
+        did not succeed and it kept None.
         """
         cached = self._cached_lpr_server_info()
         if cached is not None:
             return cached
-        response = rpc.get(f"/v1/actions/lpr_servers/{lpr_server_id}")
-        if response.get("success", False) and response.get("data"):
-            return response.get("data", {})
-        return None
+        try:
+            record = self._lpr(lpr_server_id, session).fetch_server()
+        except CallFailure:
+            # A refusal is "no record" to this caller, which is what it was before the
+            # client existed. `_detect_localhost_environment` logs it and picks Cloud.
+            return None
+        # As in `get_server_connection_info`: an all-default model is the empty document
+        # the old `response.get("data")` gate rejected, not a record.
+        if record is None or not record.model_dump(by_alias=True, exclude_defaults=True):
+            return None
+        return record
 
-    def _detect_localhost_environment(self, rpc: Any, lpr_server_id: Any) -> bool:
+    def _detect_localhost_environment(self, session: Any, lpr_server_id: Any) -> bool:
         """Is lpr-server on this machine, or in the cloud?
 
         Lifted out of ``_initialize_alert_manager_once`` unchanged. The answer
@@ -2929,14 +2686,17 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             self.logger.info("[ALERT] No LPR server ID, defaulting to Cloud mode")
             return False
         try:
-            # One fetch per frame, shared with the plate logger -- ANA-16.
-            server_data = self._resolve_lpr_server_record(rpc, lpr_server_id)
-            if not server_data:
+            # Shared with the plate logger -- ANA-16. Once per process, not per frame:
+            # the only caller is `_initialize_alert_manager_once`, which returns early
+            # on `_alert_manager_initialized`, and this reuses the logger's record
+            # whenever it has one.
+            server_data = self._resolve_lpr_server_record(lpr_server_id, session)
+            if server_data is None:
                 self.logger.warning(
                     "[ALERT] Failed to fetch LPR server info for environment detection, defaulting to Cloud mode"
                 )
                 return False
-            server_host = server_data.get("host", "")
+            server_host = server_data.host
             public_ip = self._get_public_ip()
             # Check if server_host indicates localhost
             localhost_indicators = ["localhost", "127.0.0.1", "0.0.0.0"]  # nosec B104
@@ -2970,17 +2730,8 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
             # Use existing session from config (same pattern as plate_logger)
             if not config.session:
-                account_number = os.getenv("MATRICE_ACCOUNT_NUMBER", "")
-                access_key_id = os.getenv("MATRICE_ACCESS_KEY_ID", "")
-                secret_key = os.getenv("MATRICE_SECRET_ACCESS_KEY", "")
-                project_id = os.getenv("MATRICE_PROJECT_ID", "")
-
-                self.session = Session(
-                    account_number=account_number,
-                    access_key=access_key_id,
-                    secret_key=secret_key,
-                    project_id=project_id,
-                )
+                # The process session, shared with the plate logger and the config client.
+                self.session = get_session("the LPR alert manager")
                 config.session = self.session
                 if not self.session:
                     self.logger.warning(
@@ -2989,8 +2740,6 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                     self._alert_manager_initialized = True
                     return
 
-            rpc = config.session.rpc
-
             _cfg_repr = repr(config)
             self.logger.info(
                 "[ALERT] CONFIG-PRINT | config_type=%s repr_len=%d",
@@ -2998,12 +2747,12 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 len(_cfg_repr),
             )
             self.logger.debug("[ALERT] CONFIG-PRINT repr=%s", _cfg_repr)
-            is_localhost = self._detect_localhost_environment(rpc, config.lpr_server_id)
+            is_localhost = self._detect_localhost_environment(config.session, config.lpr_server_id)
 
             # ------------------------------------------------------------------
             # Discover action_id and fetch action details (STRICT API-DRIVEN)
             # ------------------------------------------------------------------
-            action_id = self._discover_action_id()
+            action_id = get_action_id()
             if not action_id:
                 self.logger.error(
                     "[ALERT] Could not discover action_id from working directory or parents"
@@ -3017,18 +2766,8 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 return
 
             try:
-                action_url = f"/v1/actions/action/{action_id}/details"
-                action_resp = rpc.get(action_url)
-                if not (action_resp and action_resp.get("success", False)):
-                    raise RuntimeError(
-                        action_resp.get("message", "Unknown error")
-                        if isinstance(action_resp, dict)
-                        else "Unknown error"
-                    )
-                action_doc = action_resp.get("data", {}) if isinstance(action_resp, dict) else {}
-                action_details = (
-                    action_doc.get("actionDetails", {}) if isinstance(action_doc, dict) else {}
-                )
+                record = self._platform(config.session).actions.get_action_details(action_id)
+                action_details = record.action_details
 
                 # server id and type extraction (robust to variants)
                 server_id = (
@@ -3049,7 +2788,12 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 self._deployment_id = action_details.get("_idDeployment") or action_details.get(
                     "deployment_id"
                 )
-                self._app_deployment_id = action_details.get("app_deployment_id")
+                self._app_deployment_id = identity.resolve_app_deployment_id(
+                    action_record=lambda: {
+                        "actionDetails": action_details,
+                        "jobParams": record.job_params,
+                    }
+                )
                 self._instance_id = action_details.get("instanceID") or action_details.get(
                     "instanceId"
                 )
@@ -3089,24 +2833,25 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                     )
                 else:
                     try:
-                        url = f"/v1/actions/get_redis_server_by_instance_id/{instance_id}"
                         self.logger.info(
                             f"[ALERT] Initializing Redis client via API for Localhost mode (instance_id={instance_id})"
                         )
-                        response = rpc.get(url)
-                        if isinstance(response, dict) and response.get("success", False):
-                            data = response.get("data", {})
-                            host = data.get("host")
-                            port = data.get("port")
-                            username = data.get("username")
-                            password = data.get("password", "")
-                            db_index = data.get("db", 0)
-                            conn_timeout = data.get("connection_timeout", 120)
-
-                            # Sentinel HA support
+                        server = self._platform(config.session).actions.fetch_redis_server(
+                            instance_id
+                        )
+                        if server is None:
+                            self.logger.warning(
+                                "[ALERT] Failed to fetch Redis server info: "
+                                f"no record for instance {instance_id}"
+                            )
+                        else:
+                            # username, db and connection_timeout are stated rather than
+                            # read: the producer's published schema for this route declares
+                            # none of the three, so the `.get(key, default)` reads they
+                            # replace resolved to exactly these values on every call.
                             sentinel_hosts = None
                             master_name = None
-                            sentinel_cfg = data.get("sentinelConfig") or {}
+                            sentinel_cfg = server.sentinel_config or {}
                             if sentinel_cfg.get("sentinelHosts"):
                                 sentinel_hosts = [(h, 26379) for h in sentinel_cfg["sentinelHosts"]]
                                 master_name = sentinel_cfg.get("masterName")
@@ -3117,34 +2862,23 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                                 else "no"
                             )
 
-                            self.logger.debug(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
-                                "[ALERT] Redis server params (credentials redacted) | instance_id=%s host=%s port=%s db=%s timeout=%s sentinel=%s has_user=%s",
-                                instance_id,
-                                host,
-                                port,
-                                db_index,
-                                conn_timeout,
-                                sentinel_str,
-                                bool(username),
-                            )
-
                             self.logger.info(
                                 "[ALERT] Redis server params | instance_id=%s, host=%s, port=%s, db=%s, sentinel=%s",
                                 instance_id,
-                                host,
-                                port,
-                                db_index,
+                                server.host,
+                                server.port,
+                                0,
                                 sentinel_str,
                             )
 
                             # Initialize with Sentinel support
                             stream_kwargs = dict(
-                                host=host,
-                                port=int(port),
-                                password=password,
-                                username=username,
-                                db=db_index,
-                                connection_timeout=conn_timeout,
+                                host=server.host,
+                                port=int(server.port),
+                                password=server.password,
+                                username=None,
+                                db=0,
+                                connection_timeout=120,
                             )
                             if sentinel_hosts and master_name:
                                 stream_kwargs["sentinel_hosts"] = sentinel_hosts
@@ -3152,10 +2886,6 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                             redis_client = MatriceStream(StreamType.REDIS, **stream_kwargs)
                             redis_client.setup("alert_instant_config_request")
                             self.logger.info("[ALERT] Redis client initialized successfully")
-                        else:
-                            self.logger.warning(
-                                f"[ALERT] Failed to fetch Redis server info: {response.get('message', 'Unknown error') if isinstance(response, dict) else 'Unknown error'}"
-                            )
                     except Exception as e:  # noqa: BLE001 - a redis init failure degrades alerting; it must not break the frame
                         self.logger.warning(f"[ALERT] Redis initialization failed: {e}")
 
@@ -3404,16 +3134,10 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 or ""
             )
 
-            # Extract location_id and fetch location_name from API
-            location_id = ""
-            if "camera_info" in stream_info:
-                location_id = stream_info.get("camera_info", {}).get("location", "")
-
-            if location_id:
-                # Fetch location name from API
+            # The stream's own site name first; the API (default for no id) only without one
+            location_id, location_name = identity.resolve_location(stream_info.get("camera_info"))
+            if not location_name:
                 location_name = self._fetch_location_name(location_id, config.session)
-            else:
-                location_name = "Entry Reception"  # Default if no location_id
         else:
             location_name = "Entry Reception"  # Default
 
@@ -3503,11 +3227,12 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             # independently of the dataclass default, so the documented 5 s was only
             # ever in force for a real LicensePlateMonitorConfig.
             #
-            # Ordering note (do not restructure): _get_http_session bakes this value
-            # into the ClientSession's ClientTimeout at creation, so re-assigning
-            # _post_timeout_s after that session exists is silently ignored. It is
-            # correct today only because the assignment happens here on frame 1 and
-            # the session is created lazily on the sender thread afterwards.
+            # Ordering note (do not restructure): the value is handed to the client when
+            # the client is built, and baked from there into the pooled session's
+            # ClientTimeout at creation -- so re-assigning _post_timeout_s after the
+            # first send is silently ignored. It is correct today only because the
+            # assignment happens here on frame 1 and both the client and its pool are
+            # created lazily on the sender thread afterwards.
             try:
                 self.plate_logger._post_timeout_s = float(
                     getattr(config, "lpr_post_timeout_s", _LPR_POST_TIMEOUT_DEFAULT_S)

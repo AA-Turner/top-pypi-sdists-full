@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::lint_context::{LineInfo, LintContext};
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
+use crate::utils::list_indent_shift::is_lazy_continuation;
 
 mod md077_config;
 use md077_config::MD077Config;
@@ -116,6 +117,48 @@ impl MD077ListContinuationIndent {
         (ch == b'`' || ch == b'~') && bytes[1] == ch && bytes[2] == ch
     }
 
+    /// Whether a line is the delimiter of a fenced code block. Inside an
+    /// indented code block, fence-like text is code content.
+    fn is_fence_delimiter(ctx: &LintContext, info: &LineInfo, trimmed: &str) -> bool {
+        let line_end = info.byte_offset + info.byte_len;
+        Self::is_code_fence(trimmed)
+            && ctx
+                .code_block_details
+                .iter()
+                .any(|b| b.is_fenced && b.start <= line_end && info.byte_offset < b.end)
+    }
+
+    /// Column of the `>` that opens a blockquote deeper than `depth`, if the
+    /// line has one.
+    fn deeper_quote_column(ctx: &LintContext, info: &LineInfo, depth: usize) -> Option<usize> {
+        if info.blockquote.as_ref()?.nesting_level <= depth {
+            return None;
+        }
+        // The prefix holds only whitespace and `>`, so the (depth + 1)th `>` is
+        // the one that opens the deeper quote.
+        info.content(ctx.content).match_indices('>').nth(depth).map(|(i, _)| i)
+    }
+
+    /// Whether moving a paragraph line from `from` to `to` turns its text into
+    /// the start of a block.
+    ///
+    /// Four or more columns past the content column a line cannot interrupt the
+    /// paragraph, so a fence, blockquote marker, setext underline, thematic break
+    /// or table row there is paragraph text. Moved closer than that, the same
+    /// text opens the block and swallows or splits what follows. Closer in, the
+    /// parser already reads such a line as its block, so only this crossing
+    /// changes what the line is.
+    fn opens_block_when_moved(trimmed: &str, content_col: usize, from: usize, to: usize) -> bool {
+        const MAX_BLOCK_INDENT: usize = 3;
+        from > content_col + MAX_BLOCK_INDENT
+            && to <= content_col + MAX_BLOCK_INDENT
+            && (Self::is_code_fence(trimmed)
+                || trimmed.starts_with('>')
+                || crate::lint_context::is_setext_underline_content(trimmed)
+                || crate::lint_context::is_horizontal_rule_content(trimmed)
+                || crate::utils::skip_context::is_table_line(trimmed))
+    }
+
     /// Check if a trimmed line starts with a list marker (*, -, +, or ordered).
     /// Used to avoid flagging deeply indented list items that the parser doesn't
     /// recognize as list items (e.g., with indent=8 configured in MD007).
@@ -131,20 +174,19 @@ impl MD077ListContinuationIndent {
         }
     }
 
-    /// Given the line number of a fenced code block opener, walk forward and
-    /// return the line number of the matching closer. Returns the opener itself
-    /// if no following line is in the code block (degenerate single-line block).
-    fn find_fence_closer(ctx: &LintContext, opener_line: usize) -> usize {
-        let mut closer_line = opener_line;
-        for peek in (opener_line + 1)..=ctx.lines.len() {
-            let Some(peek_info) = ctx.line_info(peek) else { break };
-            if peek_info.in_code_block {
-                closer_line = peek;
-            } else {
-                break;
-            }
+    /// When the line opens a fenced code block, the line number of the block's
+    /// last line (its closer, or the last line of an unclosed block). The
+    /// block's own byte range decides both, so an adjacent indented code block
+    /// on either side is never mistaken for part of it.
+    fn fenced_block_last_line(ctx: &LintContext, info: &LineInfo, trimmed: &str) -> Option<usize> {
+        if !Self::is_code_fence(trimmed) {
+            return None;
         }
-        closer_line
+        let line_end = info.byte_offset + info.byte_len;
+        ctx.code_block_details
+            .iter()
+            .find(|b| b.is_fenced && info.byte_offset <= b.start && b.start <= line_end)
+            .map(|b| ctx.offset_to_line_col(b.end.saturating_sub(1).max(b.start)).0)
     }
 
     /// Build an atomic fix that reindents a fenced code block from its opener
@@ -268,15 +310,29 @@ impl MD077ListContinuationIndent {
         // column but at-or-past its own level's, and must still be skipped
         // here so the owning level's walk evaluates it.
         let mut nested_stack: Vec<(usize, usize)> = Vec::new();
+        let item_info = ctx.line_info(item_line);
+        let item_quotes = item_info
+            .and_then(|i| i.blockquote.as_ref())
+            .map_or(0, |q| q.nesting_level);
+        let content_col = item_info
+            .and_then(|i| i.list_item.as_ref())
+            .map_or(marker_col + 1, |li| li.content_column);
 
         for line_num in (item_line + 1)..=range_end {
             let Some(info) = ctx.line_info(line_num) else {
                 continue;
             };
 
+            // A `>` left of the content column opens a blockquote outside the
+            // item, which ends the item (an empty quote line is not a blank line
+            // inside it).
+            if Self::deeper_quote_column(ctx, info, item_quotes).is_some_and(|col| col < content_col) {
+                break;
+            }
+
             let trimmed = info.content(ctx.content).trim_start();
 
-            if Self::should_skip_line(info, trimmed) {
+            if Self::should_skip_line(ctx, info, trimmed) {
                 continue;
             }
 
@@ -286,6 +342,12 @@ impl MD077ListContinuationIndent {
             }
 
             if let Some(ref li) = info.list_item {
+                // A marker left of the content column cannot nest inside this
+                // item: it closes the item and starts a list of its own, which
+                // then owns every line below it.
+                if li.marker_column > marker_col && li.marker_column < content_col {
+                    break;
+                }
                 if li.marker_column > marker_col {
                     // A sibling-or-shallower marker closes every nested item at
                     // or past its column before this one opens.
@@ -318,8 +380,15 @@ impl MD077ListContinuationIndent {
 
             let col = info.visual_indent;
 
-            // The line escapes every nested item whose content column it sits
-            // below; if any nested item stays open, the line is that item's
+            // A lazy continuation line continues the open paragraph of the
+            // innermost nested item without closing it, whatever its indent, so
+            // that item keeps owning the lines after it.
+            if !nested_stack.is_empty() && is_lazy_continuation(ctx, line_num - 1) {
+                continue;
+            }
+
+            // Any other line escapes every nested item whose content column it
+            // sits below; if any nested item stays open, the line is that item's
             // continuation and its own walk owns the judgement.
             while nested_stack.last().is_some_and(|&(_, c)| c > col) {
                 nested_stack.pop();
@@ -372,7 +441,7 @@ impl MD077ListContinuationIndent {
                     return false;
                 }
                 let trimmed = info.content(ctx.content).trim_start();
-                !Self::should_skip_line(info, trimmed)
+                !Self::should_skip_line(ctx, info, trimmed)
                     && (Self::starts_with_list_marker(trimmed)
                         || crate::utils::skip_context::is_table_line(trimmed)
                         || Self::is_latent_setext_underline(ctx, line_num, trimmed))
@@ -470,8 +539,8 @@ impl MD077ListContinuationIndent {
     /// list continuation, so its indentation is MD068's concern, not MD077's.
     /// Treating it as continuation produced false over-indent warnings and a
     /// damaging auto-fix that reindented the body and then tripped MD068.
-    fn should_skip_line(info: &crate::lint_context::LineInfo, trimmed: &str) -> bool {
-        if info.in_code_block && !Self::is_code_fence(trimmed) {
+    fn should_skip_line(ctx: &LintContext, info: &LineInfo, trimmed: &str) -> bool {
+        if info.in_code_block && !Self::is_fence_delimiter(ctx, info, trimmed) {
             return true;
         }
         info.in_front_matter
@@ -537,12 +606,9 @@ impl MD077ListContinuationIndent {
         message: String,
     ) -> UnderIndentOutcome {
         let line_content = line.info.content(ctx.content);
-        let is_fence_opener = line.info.in_code_block
-            && Self::is_code_fence(line.trimmed)
-            && ctx.line_info(line.line_num - 1).is_none_or(|p| !p.in_code_block);
+        let fence_closer = Self::fenced_block_last_line(ctx, line.info, line.trimmed);
 
-        let (fix, warn_end_line, warn_end_column, compound_closer) = if is_fence_opener {
-            let closer_line = Self::find_fence_closer(ctx, line.line_num);
+        let (fix, warn_end_line, warn_end_column, compound_closer) = if let Some(closer_line) = fence_closer {
             let fix = Self::build_compound_fence_fix(ctx, line.line_num, closer_line, line.actual, required);
             let end_column = ctx
                 .line_info(closer_line)
@@ -726,7 +792,7 @@ impl Rule for MD077ListContinuationIndent {
                     return false;
                 };
                 let trimmed = info.content(ctx.content).trim_start();
-                !Self::should_skip_line(info, trimmed)
+                !Self::should_skip_line(ctx, info, trimmed)
                     && !info.is_blank
                     && info.list_item.is_none()
                     && info.heading.is_none()
@@ -867,14 +933,16 @@ impl Rule for MD077ListContinuationIndent {
 
             Self::walk_item_continuation(ctx, item_line, range_end, marker_col, |line| {
                 let actual = line.actual;
-                if actual > required
-                    && !line.info.in_code_block
+                if actual <= required {
+                    return ControlFlow::Continue(());
+                }
+                let fix_target = Self::compute_fix_target(actual, required, task_col, uses_content_col, uses_task_col);
+                if !line.info.in_code_block
                     && Some(actual) != task_col
                     && !Self::starts_with_list_marker(line.trimmed)
+                    && !Self::opens_block_when_moved(line.trimmed, content_col, actual, fix_target)
                     && flagged_lines.insert(line.line_num)
                 {
-                    let fix_target =
-                        Self::compute_fix_target(actual, required, task_col, uses_content_col, uses_task_col);
                     let message = match task_col {
                         Some(t) => format!(
                             "Continuation line over-indented \
@@ -963,6 +1031,62 @@ mod tests {
         rule.fix(&ctx).unwrap()
     }
 
+    #[test]
+    fn test_blockquote_line_ends_the_item() {
+        // A `>` left of the content column opens a blockquote after the list,
+        // so the text below it is a paragraph of its own, not the item's.
+        for content in ["1.  item\n>\n  continuation text\n", "- item\n> quote\n\n text\n"] {
+            assert!(check(content).is_empty(), "{content:?}: {:?}", check(content));
+            assert_eq!(fix(content), content);
+        }
+        // A quote inside the item keeps the item open.
+        let inside = "- item\n\n  > quote\n\n text\n";
+        assert_eq!(check(inside).len(), 1);
+        assert_eq!(fix(inside), "- item\n\n  > quote\n\n  text\n");
+    }
+
+    #[test]
+    fn test_fence_after_an_indented_code_block_moves_as_one_block() {
+        // The fence opens right below an indented code block, so the whole
+        // fenced block, not just its opener, has to move into the item.
+        let content = " 2) item\n\n          ```\n   ```\n   code\n   ```\n";
+        let fixed = fix(content);
+        assert_eq!(fixed, " 2) item\n\n          ```\n    ```\n    code\n    ```\n");
+        assert_eq!(fix(&fixed), fixed);
+    }
+
+    #[test]
+    fn test_marker_left_of_the_content_column_ends_the_item() {
+        // `1.` sits left of the bullet's content column, so it starts a list of
+        // its own rather than nesting, and the text below continues it.
+        let content = "*  a\n 1.  b\n\n  text\n";
+        let warnings = check(content);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        let message = &warnings[0].message;
+        assert!(message.contains("needs 5 spaces"), "{message}");
+        let fixed = fix(content);
+        assert_eq!(fixed, "*  a\n 1.  b\n\n     text\n");
+        assert_eq!(fix(&fixed), fixed);
+
+        // At or left of that list's marker, the text is outside every item.
+        let outside = "- a\n 1.  b\n\n text\n";
+        assert!(check(outside).is_empty(), "{:?}", check(outside));
+    }
+
+    #[test]
+    fn test_fence_text_in_indented_code_is_not_a_fence() {
+        // Each last line is an indented code block whose text looks like a fence
+        // (4 columns past the top level, or past the outer item's content).
+        // Moving it would turn literal code into a fenced block.
+        for content in [
+            "  *  item\n     ```\n     ```\n\n    ```\n",
+            "   1. item\n        -  item\n\n          ```\n",
+        ] {
+            assert!(check(content).is_empty(), "{content:?}: {:?}", check(content));
+            assert_eq!(fix(content), content);
+        }
+    }
+
     fn aligned_rule() -> MD077ListContinuationIndent {
         MD077ListContinuationIndent::new(ContinuationStyle::Aligned)
     }
@@ -985,6 +1109,98 @@ mod tests {
     fn fix_aligned_quarto(content: &str) -> String {
         let ctx = LintContext::new(content, MarkdownFlavor::Quarto, None);
         aligned_rule().fix(&ctx).unwrap()
+    }
+
+    #[test]
+    fn html_block_opened_by_an_inline_level_tag_is_left_alone() {
+        // `<math>` names no block-level element, yet alone on its line it opens
+        // an HTML block, whose lines are raw HTML rather than continuation.
+        let content = "- item\n\n    <math display=\"block\">\n          <mi>x</mi>\n    </math>\n";
+        assert!(check(content).is_empty(), "{:?}", check(content));
+        assert_eq!(fix(content), content);
+    }
+
+    #[test]
+    fn html_block_in_an_item_is_left_alone_past_a_broken_tag() {
+        // The `>` closing a tag broken across lines is HTML text, so the lines
+        // after it stay inside the HTML block rather than becoming continuation.
+        let content = "- item\n\n    <table>\n      <td>\n        <a\n          >a</a\n        >\n        text after\n      </td>\n    </table>\n";
+        assert!(check(content).is_empty(), "{:?}", check(content));
+        assert_eq!(fix(content), content);
+    }
+
+    #[test]
+    fn lazy_continuation_does_not_close_the_nested_item() {
+        // `    lazy` continues `b`'s paragraph below its content column without
+        // closing `b`, so `para` at column 8 is `b`'s content, correctly indented.
+        // Attributing it to `a` (content column 4) and snapping it there would move
+        // the paragraph out of `b`.
+        for content in [
+            "*   a\n\n    *   b\n    lazy\n\n        para\n",
+            "*   a\n\n    *   b\n    lazy\n\n        ```\n        x\n        ```\n\n        para\n",
+            "* a\n\n  * b\n  lazy\n  lazy again\n\n    para\n",
+        ] {
+            assert!(check(content).is_empty(), "{content:?}: {:?}", check(content));
+            assert_eq!(fix(content), content);
+        }
+    }
+
+    #[test]
+    fn paragraph_text_that_would_open_a_block_keeps_its_indent() {
+        // Four or more columns past the content column these lines cannot
+        // interrupt the paragraph, so they are its text. At the content column
+        // each would open a block instead: a fence, a blockquote, a setext
+        // heading, a thematic break or a table.
+        for construct in [
+            "```",
+            "```rust",
+            "~~~",
+            "> q",
+            "---",
+            "===",
+            "***",
+            "_ _ _",
+            "| x | y |\n      | - | - |",
+        ] {
+            let content = format!("- a\n      {construct}\n");
+            assert!(check(&content).is_empty(), "{content:?}: {:?}", check(&content));
+            assert_eq!(fix(&content), content);
+        }
+    }
+
+    #[test]
+    fn paragraph_text_past_the_threshold_is_still_snapped_back() {
+        let content = "- a\n      text\n";
+        assert_eq!(check(content).len(), 1);
+        assert_eq!(fix(content), "- a\n  text\n");
+        // Block-like text is still snapped back when its target column keeps it
+        // four or more columns past the content column, where it stays text.
+        let rule = MD077ListContinuationIndent::from_config_struct(MD077Config {
+            indent: Some(6),
+            ..Default::default()
+        });
+        let content = "- a\n         > q\n";
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert_eq!(rule.fix(&ctx).unwrap(), "- a\n      > q\n");
+        // Within three columns of the content column the line already is the
+        // block, so moving it keeps it the same block.
+        let content = "- a\n\n   > q\n";
+        assert_eq!(check(content).len(), 1);
+        assert_eq!(fix(content), "- a\n\n  > q\n");
+    }
+
+    #[test]
+    fn over_indent_after_a_lazy_line_is_measured_against_the_nested_item() {
+        let content = "* a\n\n  * b\n  lazy\n\n       para\n";
+        let warnings = check(content);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(warnings[0].line, 6);
+        assert!(
+            warnings[0].message.contains("expected 4, found 7"),
+            "{}",
+            warnings[0].message
+        );
+        assert_eq!(fix(content), "* a\n\n  * b\n  lazy\n\n    para\n");
     }
 
     #[test]
@@ -1049,16 +1265,20 @@ mod tests {
         // A blank line above the underline is the same answer for the same
         // reason, and needs no test of its own in the rule: stripped of its
         // markers it holds nothing, which is what the text predicate rejects.
+        assert_eq!(
+            check_aligned("- item\n wrap\n\n ===\n").len(),
+            2,
+            "nothing above the underline can become a heading's text line"
+        );
+        // A quote line left of the content column ends the item instead, so the
+        // underline after it is not the item's to align.
         for (label, content) in [
-            ("bare blank line", "- item\n wrap\n\n ===\n"),
             ("blank line in a quote", "- item\n wrap\n >\n ===\n"),
             ("quoted whitespace", "- item\n wrap\n >   \n ===\n"),
         ] {
-            assert_eq!(
-                check_aligned(content).len(),
-                2,
-                "{label}: nothing above the underline can become a heading's text line"
-            );
+            let warnings = check_aligned(content);
+            assert_eq!(warnings.len(), 1, "{label}: {warnings:?}");
+            assert_eq!(warnings[0].line, 2, "{label}");
         }
 
         // Paired control: prose above the underline IS latent structure, because
@@ -1955,12 +2175,16 @@ mod tests {
         // CommonMark, so simply prepending spaces before a tab would
         // silently no-op (the tab snaps back to column 4). The compound
         // fence fix must replace the leading whitespace with a fresh
-        // (visual_indent + delta) run of spaces. A `100. ` item has
-        // content_column = 5, so a tab-indented fence (visual col 4) is
-        // under-indented by 1 and must end up at 5 spaces after the fix.
-        let content = "100. ab\n\n\t```\n\tabcd\n\t```\n";
-        let expected = "100. ab\n\n     ```\n     abcd\n     ```\n";
+        // (visual_indent + delta) run of spaces. The fence (visual col 4)
+        // belongs to the outer item, short of the nested `100. ` item's
+        // content column 7, and must end up at 7 spaces after the fix.
+        let content = "- a\n\n  100. ab\n\n\t```\n\tabcd\n\t```\n";
+        let expected = "- a\n\n  100. ab\n\n       ```\n       abcd\n       ```\n";
         assert_eq!(fix(content), expected);
+        // At the top level the same lines are an indented code block holding
+        // fence-like text, which is not continuation of the item.
+        let code = "100. ab\n\n\t```\n\tabcd\n\t```\n";
+        assert_eq!(fix(code), code);
     }
 
     // ── Loose continuation (after a blank line): over-indent ──────────

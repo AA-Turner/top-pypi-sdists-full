@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toons
-Version: 0.8.0
+Version: 0.9.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Rust
@@ -13,7 +13,7 @@ Summary: A high-performance TOON (Token Oriented Object Notation) parser and ser
 Keywords: toon,serialization,llm,tokens,json
 Author-email: Alessio Sanfratello <sanfra90@gmail.com>
 License-Expression: Apache-2.0
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://github.com/alesanfra/toons/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://toons.readthedocs.io
@@ -24,7 +24,7 @@ Project-URL: Source, https://github.com/alesanfra/toons
 # TOONS - Token Oriented Object Notation Serializer
 
 [![PyPI version](https://badge.fury.io/py/toons.svg)](https://badge.fury.io/py/toons)
-[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Documentation Status](https://readthedocs.org/projects/toons/badge/?version=latest)](https://toons.readthedocs.io/en/latest/?badge=latest)
 [![CI](https://github.com/alesanfra/toons/workflows/CI/badge.svg)](https://github.com/alesanfra/toons/actions)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/toons?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/toons)

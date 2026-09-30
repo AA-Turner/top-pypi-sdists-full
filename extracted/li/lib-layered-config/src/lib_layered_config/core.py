@@ -8,6 +8,8 @@ JSON output and CLI wiring.
 Contents:
     - ``read_config`` / ``read_config_json`` / ``read_config_raw``: public APIs used
       by library consumers and the CLI.
+    - ``read_config_for_deploy``: the narrower read ``deploy_config`` uses to decide
+      modes (not exported from the package root).
     - ``LayerLoadError``: wraps adapter failures with a consistent exception type.
     - Private helpers for resolver/builder construction, JSON dumping, and
       configuration composition.
@@ -26,7 +28,7 @@ from typing import TYPE_CHECKING
 
 import orjson
 
-from ._layers import collect_layers, merge_or_empty
+from ._layers import collect_deploy_layers, collect_layers, merge_or_empty
 from .adapters.dotenv.default import DefaultDotEnvLoader
 from .adapters.env.default import DefaultEnvLoader, default_env_prefix
 from .adapters.path_resolvers.default import DefaultPathResolver
@@ -95,9 +97,30 @@ def read_config(
         ValueError: When profile name is invalid (too long, path traversal, etc.).
 
     Examples:
-        >>> from pathlib import Path
-        >>> tmp = Path('.')  # doctest: +SKIP (illustrative)
-        >>> config = read_config(vendor="Acme", app="Demo", slug="demo", start_dir=str(tmp))  # doctest: +SKIP
+        >>> import os
+        >>> from tempfile import TemporaryDirectory
+        >>> with TemporaryDirectory() as tmp:
+        ...     old_etc = os.environ.get("LIB_LAYERED_CONFIG_ETC")
+        ...     old_xdg = os.environ.get("XDG_CONFIG_HOME")
+        ...     os.environ["LIB_LAYERED_CONFIG_ETC"] = tmp
+        ...     os.environ["XDG_CONFIG_HOME"] = tmp
+        ...     try:
+        ...         config = read_config(
+        ...             vendor="Acme",
+        ...             app="Demo",
+        ...             slug="core-doctest-read-config",
+        ...             start_dir=tmp,
+        ...             dotenv_path=str(Path(tmp) / "missing.env"),
+        ...         )
+        ...     finally:
+        ...         if old_etc is None:
+        ...             del os.environ["LIB_LAYERED_CONFIG_ETC"]
+        ...         else:
+        ...             os.environ["LIB_LAYERED_CONFIG_ETC"] = old_etc
+        ...         if old_xdg is None:
+        ...             del os.environ["XDG_CONFIG_HOME"]
+        ...         else:
+        ...             os.environ["XDG_CONFIG_HOME"] = old_xdg
         >>> isinstance(config, Config)
         True
     """
@@ -221,6 +244,32 @@ def read_config_raw(
     return merge_or_empty(layers)
 
 
+def read_config_for_deploy(
+    *,
+    resolver: DefaultPathResolver,
+    default_file: Path,
+    skip: frozenset[Path],
+) -> Config:
+    """Merge what decides deploy modes; see :func:`lib_layered_config._layers.collect_deploy_layers`.
+
+    Unlike :func:`read_config` it takes the deploy's own resolver (so a ``platform`` override reads
+    that platform's paths), never reads ``.env``, skips the files the deploy writes, and leaves the
+    caller's bound trace id alone.
+
+    Raises:
+        LayerLoadError: A layer file cannot be decoded or parsed (a content-free message).
+        ValueError: The environment layer sets a key both as a scalar and as a table.
+    """
+    try:
+        layers = collect_deploy_layers(
+            resolver=resolver, default_file=str(default_file), env_loader=DefaultEnvLoader(), skip=skip
+        )
+        result = merge_or_empty(layers)
+    except InvalidFormatError as exc:
+        raise LayerLoadError(str(exc)) from exc
+    return _compose_config(result.data, result.provenance)
+
+
 def _compose_config(
     data: dict[str, object],
     raw_meta: dict[str, SourceInfoPayload],
@@ -319,8 +368,8 @@ def _stringify_path(value: str | Path | None) -> str | None:
         Stringified path or ``None`` when *value* is ``None``.
 
     Examples:
-        >>> _stringify_path(Path('/tmp/config.toml'))
-        '/tmp/config.toml'
+        >>> _stringify_path(Path('config.toml'))
+        'config.toml'
         >>> _stringify_path(None) is None
         True
     """
@@ -344,7 +393,7 @@ def _dump_json(payload: object, indent: int | None) -> str:
     Examples:
         >>> _dump_json({"a": 1}, indent=None)
         '{"a":1}'
-        >>> "\n" in _dump_json({"a": 1}, indent=2)
+        >>> "\\n" in _dump_json({"a": 1}, indent=2)
         True
     """
     option = orjson.OPT_INDENT_2 if indent is not None else 0

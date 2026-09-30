@@ -37,22 +37,46 @@ pub fn build_connection_info(
         _ => SslMode::Prefer,
     };
 
-    // For MSSQL: only set trust_server_certificate when the operator explicitly
-    // requests it via the "trust-server-certificate=true" param.
-    // Defaulting to trust=true bypasses TLS certificate validation entirely and
-    // enables MITM attacks against SQL Server connections.
-    let explicit_trust = params
-        .get("trust-server-certificate")
-        .map(|v| v == "true" || v == "1")
-        .unwrap_or(false);
-
-    let advanced_options = if db_type == DatabaseType::Mssql && explicit_trust {
-        Some(AdvancedOptions::Mssql(MssqlAdvancedOptions {
-            trust_server_certificate: Some(true),
-            ..Default::default()
-        }))
+    // For MSSQL: forward "trust-server-certificate" only when the operator sets it.
+    // When it is absent (or empty), advanced_options stays None and keeperdb applies
+    // its own default: SQL and Windows logins trust the server certificate (the wire
+    // is still encrypted, but the chain is not validated), while Azure AD logins
+    // validate. "false" is the only way to get strict validation for SQL and
+    // Windows logins, so it must reach keeperdb as Some(false), not be dropped.
+    // Any other value is rejected: falling back to the default would silently turn
+    // a mistyped strict request into trust.
+    let trust_server_certificate = if db_type == DatabaseType::Mssql {
+        match params
+            .get("trust-server-certificate")
+            .map(|v| v.trim().to_ascii_lowercase())
+            .as_deref()
+        {
+            None | Some("") => None,
+            Some("true") | Some("1") => Some(true),
+            Some("false") | Some("0") => Some(false),
+            Some(other) => {
+                return Err(DatabaseError::ConnectionError(format!(
+                    "invalid trust-server-certificate value '{other}': expected true or false"
+                )))
+            }
+        }
     } else {
         None
+    };
+
+    if trust_server_certificate == Some(false) && matches!(ssl_mode, SslMode::Disable) {
+        log::warn!(
+            "trust-server-certificate=false has no effect because tls-verify disables TLS \
+             for {host}; the connection will not be encrypted"
+        );
+    }
+
+    let advanced_options = match (db_type, trust_server_certificate) {
+        (DatabaseType::Mssql, Some(trust)) => Some(AdvancedOptions::Mssql(MssqlAdvancedOptions {
+            trust_server_certificate: Some(trust),
+            ..Default::default()
+        })),
+        _ => None,
     };
 
     Ok(ConnectionInfo {

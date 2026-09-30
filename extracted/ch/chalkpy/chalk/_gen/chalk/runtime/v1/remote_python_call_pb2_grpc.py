@@ -97,6 +97,11 @@ class AsyncRemoteCallServiceStub(object):
             request_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallRequest.SerializeToString,
             response_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallResponse.FromString,
         )
+        self.StreamRemoteCallBatch = channel.stream_stream(
+            "/chalk.runtime.v1.AsyncRemoteCallService/StreamRemoteCallBatch",
+            request_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.StreamRemoteCallBatchRequest.SerializeToString,
+            response_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.StreamRemoteCallBatchResponse.FromString,
+        )
         self.PurgeQueue = channel.unary_unary(
             "/chalk.runtime.v1.AsyncRemoteCallService/PurgeQueue",
             request_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PurgeQueueRequest.SerializeToString,
@@ -122,6 +127,14 @@ class AsyncRemoteCallServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def StreamRemoteCallBatch(self, request_iterator, context):
+        """Submit Arrow chunks containing many logical calls and receive per-call
+        acknowledgements and results without polling each call ID independently.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def PurgeQueue(self, request, context):
         """Drop pending items from one or all per-function queues for the tenant."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -140,6 +153,11 @@ def add_AsyncRemoteCallServiceServicer_to_server(servicer, server):
             servicer.PollRemoteCall,
             request_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallRequest.FromString,
             response_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallResponse.SerializeToString,
+        ),
+        "StreamRemoteCallBatch": grpc.stream_stream_rpc_method_handler(
+            servicer.StreamRemoteCallBatch,
+            request_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.StreamRemoteCallBatchRequest.FromString,
+            response_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.StreamRemoteCallBatchResponse.SerializeToString,
         ),
         "PurgeQueue": grpc.unary_unary_rpc_method_handler(
             servicer.PurgeQueue,
@@ -205,6 +223,35 @@ class AsyncRemoteCallService(object):
             "/chalk.runtime.v1.AsyncRemoteCallService/PollRemoteCall",
             chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallRequest.SerializeToString,
             chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def StreamRemoteCallBatch(
+        request_iterator,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.stream_stream(
+            request_iterator,
+            target,
+            "/chalk.runtime.v1.AsyncRemoteCallService/StreamRemoteCallBatch",
+            chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.StreamRemoteCallBatchRequest.SerializeToString,
+            chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.StreamRemoteCallBatchResponse.FromString,
             options,
             channel_credentials,
             insecure,

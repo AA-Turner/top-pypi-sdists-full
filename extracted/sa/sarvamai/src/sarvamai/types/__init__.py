@@ -252,6 +252,17 @@ if typing.TYPE_CHECKING:
     from .v2error_object import V2ErrorObject
     from .v2error_response import V2ErrorResponse
     from .v2model_ids import V2ModelIds
+    from .voice_cloning_language import VoiceCloningLanguage
+    from .voice_cloning_output_audio_codec import VoiceCloningOutputAudioCodec
+    from .voice_cloning_response import VoiceCloningResponse
+    from .voice_library_create_data import VoiceLibraryCreateData
+    from .voice_library_create_response import VoiceLibraryCreateResponse
+    from .voice_library_detail import VoiceLibraryDetail
+    from .voice_library_detail_response import VoiceLibraryDetailResponse
+    from .voice_library_list_data import VoiceLibraryListData
+    from .voice_library_list_response import VoiceLibraryListResponse
+    from .voice_library_preview_item import VoiceLibraryPreviewItem
+    from .voice_library_voice import VoiceLibraryVoice
 _dynamic_imports: typing.Dict[str, str] = {
     "AudioData": ".audio_data",
     "AudioMessage": ".audio_message",
@@ -499,6 +510,17 @@ _dynamic_imports: typing.Dict[str, str] = {
     "V2ErrorObject": ".v2error_object",
     "V2ErrorResponse": ".v2error_response",
     "V2ModelIds": ".v2model_ids",
+    "VoiceCloningLanguage": ".voice_cloning_language",
+    "VoiceCloningOutputAudioCodec": ".voice_cloning_output_audio_codec",
+    "VoiceCloningResponse": ".voice_cloning_response",
+    "VoiceLibraryCreateData": ".voice_library_create_data",
+    "VoiceLibraryCreateResponse": ".voice_library_create_response",
+    "VoiceLibraryDetail": ".voice_library_detail",
+    "VoiceLibraryDetailResponse": ".voice_library_detail_response",
+    "VoiceLibraryListData": ".voice_library_list_data",
+    "VoiceLibraryListResponse": ".voice_library_list_response",
+    "VoiceLibraryPreviewItem": ".voice_library_preview_item",
+    "VoiceLibraryVoice": ".voice_library_voice",
 }
 
 
@@ -770,4 +792,15 @@ __all__ = [
     "V2ErrorObject",
     "V2ErrorResponse",
     "V2ModelIds",
+    "VoiceCloningLanguage",
+    "VoiceCloningOutputAudioCodec",
+    "VoiceCloningResponse",
+    "VoiceLibraryCreateData",
+    "VoiceLibraryCreateResponse",
+    "VoiceLibraryDetail",
+    "VoiceLibraryDetailResponse",
+    "VoiceLibraryListData",
+    "VoiceLibraryListResponse",
+    "VoiceLibraryPreviewItem",
+    "VoiceLibraryVoice",
 ]

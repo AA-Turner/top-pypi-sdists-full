@@ -1,6 +1,8 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.common.v1 import column_profile_pb2 as _column_profile_pb2
+from chalk._gen.chalk.common.v1 import resources_pb2 as _resources_pb2
+from chalk._gen.chalk.common.v2 import table_pb2 as _table_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -49,15 +51,35 @@ class ExecuteSqlSyncQueryRequestOptions(_message.Message):
     def __init__(self, resource_group: _Optional[str] = ...) -> None: ...
 
 class ExecuteSqlAsyncQueryRequestOptions(_message.Message):
-    __slots__ = ("execution_mode", "resource_group")
+    __slots__ = ("execution_mode", "resource_group", "env_overrides", "resources", "enable_profiling", "branch")
+    class EnvOverridesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     EXECUTION_MODE_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    ENV_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
+    RESOURCES_FIELD_NUMBER: _ClassVar[int]
+    ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_FIELD_NUMBER: _ClassVar[int]
     execution_mode: ExecuteSqlAsyncExecutionMode
     resource_group: str
+    env_overrides: _containers.ScalarMap[str, str]
+    resources: _resources_pb2.ResourceRequests
+    enable_profiling: bool
+    branch: str
     def __init__(
         self,
         execution_mode: _Optional[_Union[ExecuteSqlAsyncExecutionMode, str]] = ...,
         resource_group: _Optional[str] = ...,
+        env_overrides: _Optional[_Mapping[str, str]] = ...,
+        resources: _Optional[_Union[_resources_pb2.ResourceRequests, _Mapping]] = ...,
+        enable_profiling: bool = ...,
+        branch: _Optional[str] = ...,
     ) -> None: ...
 
 class ExecuteSqlResultPersistenceSettings(_message.Message):
@@ -158,6 +180,7 @@ class ExecuteSqlQueryRequest(_message.Message):
         "async_options",
         "compilation_options",
         "column_profile_options",
+        "tables",
     )
     class CompilationOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -169,6 +192,16 @@ class ExecuteSqlQueryRequest(_message.Message):
             self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
         ) -> None: ...
 
+    class TablesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _table_pb2.Table
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_table_pb2.Table, _Mapping]] = ...
+        ) -> None: ...
+
     QUERY_FIELD_NUMBER: _ClassVar[int]
     CORRELATION_ID_FIELD_NUMBER: _ClassVar[int]
     PERSISTENCE_SETTINGS_FIELD_NUMBER: _ClassVar[int]
@@ -178,6 +211,7 @@ class ExecuteSqlQueryRequest(_message.Message):
     ASYNC_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     COMPILATION_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     COLUMN_PROFILE_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    TABLES_FIELD_NUMBER: _ClassVar[int]
     query: str
     correlation_id: str
     persistence_settings: ExecuteSqlResultPersistenceSettings
@@ -187,6 +221,7 @@ class ExecuteSqlQueryRequest(_message.Message):
     async_options: ExecuteSqlAsyncQueryRequestOptions
     compilation_options: _containers.MessageMap[str, _struct_pb2.Value]
     column_profile_options: _column_profile_pb2.ColumnProfileOptions
+    tables: _containers.MessageMap[str, _table_pb2.Table]
     def __init__(
         self,
         query: _Optional[str] = ...,
@@ -198,6 +233,7 @@ class ExecuteSqlQueryRequest(_message.Message):
         async_options: _Optional[_Union[ExecuteSqlAsyncQueryRequestOptions, _Mapping]] = ...,
         compilation_options: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         column_profile_options: _Optional[_Union[_column_profile_pb2.ColumnProfileOptions, _Mapping]] = ...,
+        tables: _Optional[_Mapping[str, _table_pb2.Table]] = ...,
     ) -> None: ...
 
 class SignedOutputUris(_message.Message):

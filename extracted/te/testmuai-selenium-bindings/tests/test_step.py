@@ -1,4 +1,6 @@
 """Test step context manager."""
+from unittest.mock import patch
+
 import pytest
 from testmu_selenium._step import step, _current_step, StepInfo
 
@@ -68,3 +70,55 @@ class TestStepEndPayload:
 
     def test_stepinfo_auto_heal_defaults_false(self):
         assert StepInfo(description="x").auto_heal is False
+
+
+# ---------------------------------------------------------------------------
+# The end hook must say WHY a failed step failed
+#
+# HPS maps a step to its commands and shows the per-step failure disposition;
+# without failure_condition the exported run loses that. The wire vocabulary is
+# the runtime's FailureCondition enum, which each binding names differently.
+# ---------------------------------------------------------------------------
+
+class TestFailureConditionOnEndHook:
+    def _end_payload(self, emit):
+        return [c.args[1] for c in emit.call_args_list
+                if c.args[0] == "lambda-testCase-end"][0]
+
+    def test_passing_step_sends_no_failure_condition(self):
+        from testmu_selenium._step import step
+        with patch("testmu_selenium._step._emit_step_hook") as emit:
+            with step("ok step"):
+                pass
+        assert "failure_condition" not in self._end_payload(emit)
+
+    def test_failing_step_defaults_to_fail_test_immediately(self):
+        from testmu_selenium._step import step
+        with patch("testmu_selenium._step._emit_step_hook") as emit:
+            with pytest.raises(RuntimeError):
+                with step("boom"):
+                    raise RuntimeError("boom")
+        assert self._end_payload(emit)["failure_condition"] == "FAIL_TEST_IMMEDIATELY"
+
+    def test_continue_maps_to_fail_but_continue(self):
+        from testmu_selenium._step import step
+        with patch("testmu_selenium._step._emit_step_hook") as emit:
+            with step("soft", on_failure="continue"):
+                raise RuntimeError("boom")
+        payload = self._end_payload(emit)
+        assert payload["status"] == "failed"
+        assert payload["failure_condition"] == "FAIL_BUT_CONTINUE_EXECUTING"
+
+    @pytest.mark.parametrize("token,expected", [
+        ("fail", "FAIL_TEST_IMMEDIATELY"),
+        ("continue", "FAIL_BUT_CONTINUE_EXECUTING"),
+        ("fail-continue", "FAIL_BUT_CONTINUE_EXECUTING"),
+        ("warn-continue", "WARN_BUT_CONTINUE_EXECUTING"),
+        ("FAIL", "FAIL_TEST_IMMEDIATELY"),
+        ("unknown", ""),
+        ("", ""),
+        (None, ""),
+    ])
+    def test_wire_vocabulary_mapping(self, token, expected):
+        from testmu_selenium._step import _wire_failure_condition
+        assert _wire_failure_condition(token) == expected

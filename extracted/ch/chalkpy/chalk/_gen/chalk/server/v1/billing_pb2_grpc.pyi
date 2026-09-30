@@ -16,6 +16,8 @@ from chalk._gen.chalk.server.v1.billing_pb2 import (
     GetCreditBundlesResponse,
     GetInstanceUsageRequest,
     GetInstanceUsageResponse,
+    GetMaterializedFeatureViewUsageRequest,
+    GetMaterializedFeatureViewUsageResponse,
     GetNodeDetailRequest,
     GetNodeDetailResponse,
     GetNodeTimeRangesRequest,
@@ -34,6 +36,8 @@ from chalk._gen.chalk.server.v1.billing_pb2 import (
     GetUtilizationRatesResponse,
     PublishNodeUsageRequest,
     PublishNodeUsageResponse,
+    PublishPodUsageRequest,
+    PublishPodUsageResponse,
     SyncUtilizationRequest,
     SyncUtilizationResponse,
 )
@@ -73,6 +77,11 @@ class BillingServiceStub:
         PublishNodeUsageResponse,
     ]
     """PublishNodeUsage republishes node usage messages to the billing Pub/Sub topic."""
+    PublishPodUsage: UnaryUnaryMultiCallable[
+        PublishPodUsageRequest,
+        PublishPodUsageResponse,
+    ]
+    """PublishPodUsage republishes pod usage messages to the billing Pub/Sub topic."""
     GetUsageChart: UnaryUnaryMultiCallable[
         GetUsageChartRequest,
         GetUsageChartResponse,
@@ -110,6 +119,11 @@ class BillingServiceStub:
         GetInstanceUsageRequest,
         GetInstanceUsageResponse,
     ]
+    GetMaterializedFeatureViewUsage: UnaryUnaryMultiCallable[
+        GetMaterializedFeatureViewUsageRequest,
+        GetMaterializedFeatureViewUsageResponse,
+    ]
+    """Internal attribution of compute used by materialized feature view work."""
     GetPodTimeRanges: UnaryUnaryMultiCallable[
         GetPodTimeRangesRequest,
         GetPodTimeRangesResponse,
@@ -178,6 +192,13 @@ class BillingServiceServicer(metaclass=ABCMeta):
     ) -> PublishNodeUsageResponse:
         """PublishNodeUsage republishes node usage messages to the billing Pub/Sub topic."""
     @abstractmethod
+    def PublishPodUsage(
+        self,
+        request: PublishPodUsageRequest,
+        context: ServicerContext,
+    ) -> PublishPodUsageResponse:
+        """PublishPodUsage republishes pod usage messages to the billing Pub/Sub topic."""
+    @abstractmethod
     def GetUsageChart(
         self,
         request: GetUsageChartRequest,
@@ -228,6 +249,13 @@ class BillingServiceServicer(metaclass=ABCMeta):
         request: GetInstanceUsageRequest,
         context: ServicerContext,
     ) -> GetInstanceUsageResponse: ...
+    @abstractmethod
+    def GetMaterializedFeatureViewUsage(
+        self,
+        request: GetMaterializedFeatureViewUsageRequest,
+        context: ServicerContext,
+    ) -> GetMaterializedFeatureViewUsageResponse:
+        """Internal attribution of compute used by materialized feature view work."""
     @abstractmethod
     def GetPodTimeRanges(
         self,

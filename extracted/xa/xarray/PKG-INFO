@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray
-Version: 2026.7.0
+Version: 2026.9.0
 Summary: N-D labeled arrays and datasets in Python
 Author-email: xarray Developers <xarray@googlegroups.com>
 License-Expression: Apache-2.0
@@ -27,7 +27,7 @@ Requires-Dist: pandas>=2.2
 Provides-Extra: accel
 Requires-Dist: scipy>=1.15; extra == "accel"
 Requires-Dist: bottleneck; extra == "accel"
-Requires-Dist: numbagg>=0.9; extra == "accel"
+Requires-Dist: numbagg!=0.9.5,>=0.9; extra == "accel"
 Requires-Dist: numba>=0.62; extra == "accel"
 Requires-Dist: flox>=0.10; extra == "accel"
 Requires-Dist: opt_einsum; extra == "accel"
@@ -35,13 +35,15 @@ Provides-Extra: complete
 Requires-Dist: xarray[accel,etc,io,parallel,viz]; extra == "complete"
 Provides-Extra: io
 Requires-Dist: netCDF4>=1.6.0; extra == "io"
-Requires-Dist: h5netcdf[h5py]>=1.5.0; extra == "io"
+Requires-Dist: h5netcdf[h5py]>=1.8.0; extra == "io"
 Requires-Dist: pydap; extra == "io"
 Requires-Dist: scipy>=1.15; extra == "io"
 Requires-Dist: zarr>=3.0; extra == "io"
 Requires-Dist: fsspec; extra == "io"
 Requires-Dist: cftime; extra == "io"
 Requires-Dist: pooch; extra == "io"
+Provides-Extra: arrow
+Requires-Dist: pyarrow; extra == "arrow"
 Provides-Extra: etc
 Requires-Dist: sparse>=0.15; extra == "etc"
 Provides-Extra: parallel
@@ -58,12 +60,14 @@ Requires-Dist: types-colorama; extra == "types"
 Requires-Dist: types-decorator; extra == "types"
 Requires-Dist: types-defusedxml; extra == "types"
 Requires-Dist: types-docutils; extra == "types"
+Requires-Dist: types-gevent; extra == "types"
 Requires-Dist: types-networkx; extra == "types"
 Requires-Dist: types-openpyxl; extra == "types"
 Requires-Dist: types-pexpect; extra == "types"
 Requires-Dist: types-psutil; extra == "types"
 Requires-Dist: types-pycurl; extra == "types"
 Requires-Dist: types-Pygments; extra == "types"
+Requires-Dist: types-pysocks; extra == "types"
 Requires-Dist: types-python-dateutil; extra == "types"
 Requires-Dist: types-pytz; extra == "types"
 Requires-Dist: types-PyYAML; extra == "types"

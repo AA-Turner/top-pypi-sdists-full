@@ -1,6 +1,10 @@
 """Auto-generated stub for module: post_processing_config_client."""
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.bootstrap import get_session
+from ...clients.models import Camera
+from ...clients.response import CallFailure
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from .location_name_cache import LocationNameCache
 
@@ -34,7 +38,21 @@ class PostProcessingConfigClient:
     # Wrapper for Matrice post-processing config: session, stream identifiers,
     # REST fetch by app deployment, and config filtering by camera_id.
 
-    def __init__(self: Any, session: Optional[Any] = None, access_key: Optional[str] = None, secret_key: Optional[str] = None, account_number: Optional[str] = None, logger: Optional[Any.Any] = None) -> None: ...
+    def __init__(self: Any, session: Optional[Any] = None, access_key: Optional[str] = None, secret_key: Optional[str] = None, account_number: Optional[str] = None, logger: Optional[Any.Any] = None, client: Optional[Any] = None) -> None:
+        """
+        Args:
+            session: An open ``matrice_common`` session. Absent one, a session is built
+                from the access/secret keys when both are available.
+            access_key: Matrice access key; falls back to ``MATRICE_ACCESS_KEY_ID``.
+            secret_key: Matrice secret key; falls back to ``MATRICE_SECRET_ACCESS_KEY``.
+            account_number: The account whose cameras this client reads; falls back to
+                ``MATRICE_ACCOUNT_NUMBER``, then to the session's own.
+            logger: Python logger instance.
+            client: The platform client to make calls through. Absent one, a client is
+                built on the session resolved here, so a caller that passes nothing sends
+                exactly the requests it sent before.
+        """
+        ...
 
     def denormalize_config(self: Any, config: Union[Dict[str, Any], List[Dict[str, Any]]], width: int, height: int) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """
@@ -56,7 +74,7 @@ class PostProcessingConfigClient:
 
     def get_camera_metadata(self: Any, camera_id: str) -> Dict[str, str]:
         """
-        Look up human-readable camera fields by id via CameraManagement API.
+        Look up human-readable camera fields by id via the platform API.
         """
         ...
 
@@ -69,6 +87,11 @@ class PostProcessingConfigClient:
     def get_post_processing_configs_by_app_deployment(self: Any, app_deployment_id: str) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str], Optional[str]]:
         """
         Fetch all post-processing configs for an app deployment via Matrice API.
+        
+                Returns:
+                    ``(configs, error, message)``. The configs are the producer's documents as
+                    dictionaries, which is the shape :meth:`filter_configs_by_camera_id`,
+                    :meth:`set_config_cache_from_api` and :meth:`denormalize_config` all read.
         """
         ...
 

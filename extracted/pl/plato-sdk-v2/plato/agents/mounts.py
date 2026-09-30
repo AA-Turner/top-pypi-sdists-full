@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from plato.transports import NFSTransport, RsyncTransport, SSHFSTransport, Transport
 from plato.transports.fuse import FuseDirectTransport
 from plato.transports.git import GitTransport
-from plato.utils.tool_execution import tool_execution_spool_path
 
 if TYPE_CHECKING:
     from plato.v2.async_.environment import Environment
@@ -123,8 +122,6 @@ class AgentWorkspaceMount:
     git_checkout: GitCheckoutPolicy | None = None
     git_sync: GitSyncPolicy | None = None
     git_raise_on_conflict: bool = False
-    audit_run_id: str | None = None
-    audit_key: str | None = None
     # Mount this on the agent VM even under ``sandbox_tools_only``, which
     # otherwise puts every workspace on the sandbox. For state the agent *CLI
     # process* writes itself rather than through its file tools — transcripts,
@@ -223,43 +220,6 @@ class AgentWorkspaceMount:
                 if self.transport_kind == "git"
                 else None
             ),
-        )
-
-
-@dataclass(slots=True)
-class AuditedMount:
-    """Per-run audit metadata derived from a mounted workspace."""
-
-    mount: AgentWorkspaceMount
-    audit_run_id: str
-    audit_key: str
-
-    @property
-    def workspace_name(self) -> str:
-        return self.mount.workspace_name
-
-    @property
-    def root_path(self) -> Path:
-        return self.mount.world_root_path
-
-    @property
-    def mount_path(self) -> str:
-        return self.mount.agent_path
-
-    @property
-    def transport(self) -> Transport:
-        return self.mount.transport
-
-    @property
-    def spool_path(self) -> Path:
-        return self.root_path / ".plato" / "audit" / self.workspace_name / f"{self.audit_run_id}.jsonl"
-
-    @property
-    def tool_spool_path(self) -> Path:
-        return tool_execution_spool_path(
-            self.root_path / ".plato",
-            workspace_name=self.workspace_name,
-            audit_run_id=self.audit_run_id,
         )
 
 

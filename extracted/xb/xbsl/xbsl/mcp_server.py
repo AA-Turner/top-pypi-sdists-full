@@ -16,6 +16,13 @@ Registration in Claude Code:
 
 from __future__ import annotations
 
+# An `xbsl-mcp` stub made by an older release imports this module to start the bare server.
+# The supervisor takes over its process here, before anything of the engine is imported
+# (xbsl/mcp_supervisor.py); every other import of the module goes on as usual.
+from xbsl import mcp_supervisor
+
+mcp_supervisor.hand_over_from_old_stub()
+
 import argparse
 import difflib
 import functools
@@ -78,16 +85,19 @@ mcp = _new_server()
 # the version on disk with the one in memory - one small file per call - and then the engine's
 # code files with the ones of the start, which a pull between two releases changes under the
 # same number - a stat of their few folders per call, a walk over the files when a folder
-# changed or every few seconds. On either change the tool refuses, naming the cure, instead of
-# running on a mix. A tool that fails while the check still passed (a plugin's code changed, or
-# an editor rewrote a file a moment ago) is checked against the fingerprint of all the sources
-# taken at start. The server never exits over it: a client such as Codex does not start a
-# failed server again. The first sighting of each state goes into the journal, where
-# `xbsl mcp-log` shows it.
+# changed or every few seconds - and last the platform data files the server has read, a stat
+# per file: a module takes constants from the term pairs at import, so a data file replaced
+# under the server leaves it answering from the old one. On any change the tool refuses, naming
+# the cure, instead of running on a mix. A tool that fails while the check still passed (a
+# plugin's code changed, or an editor rewrote a file a moment ago) is checked against the
+# fingerprint of all the sources taken at start. The server never exits over it: a client such
+# as Codex does not start a failed server again. The first sighting of each state goes into the
+# journal, where `xbsl mcp-log` shows it.
 #
 # Only the client can restart the server, and an agent calling the tools cannot. A new process
-# can run the new code, though, so the refusal of a tool the CLI can run carries `cli`: the
-# command line of the same call (xbsl/mcpcli.py), started by this server's interpreter.
+# can run the new code and read the new data, though, so the refusal of a tool the CLI can run
+# carries `cli`: the command line of the same call (xbsl/mcpcli.py), started by this server's
+# interpreter.
 #
 # Nor does the server restart itself: it speaks over the stdio of the process the client
 # started, and exec does not keep that conversation. On Windows `os.execv` starts a NEW process
@@ -170,10 +180,8 @@ def _stale_guard(fn):
         found = freshness.call_state()
         if found is not None:
             _journal_stale(found, fn.__name__)
-            return _stale_answer(
-                found, i18n.t("freshness.refusal", state=freshness.describe(found)),
-                same_call(args, kwargs), ran=False,
-            )
+            return _stale_answer(found, freshness.refusal(found), same_call(args, kwargs),
+                                 ran=False)
         freshness.take_noted()  # a crash an earlier call noted is not this call's
         try:
             answer = fn(*args, **kwargs)
@@ -183,9 +191,8 @@ def _stale_guard(fn):
                 raise
             error = f"{type(exc).__name__}: {exc}"
             _journal_stale(found, fn.__name__, error)
-            return _stale_answer(found, i18n.t(
-                "freshness.failure", state=freshness.describe(found), error=error),
-                same_call(args, kwargs), ran=True)
+            return _stale_answer(found, freshness.failure(found, error),
+                                 same_call(args, kwargs), ran=True)
         noted = freshness.take_noted()
         if noted is not None:
             _journal_stale(noted, fn.__name__)
@@ -304,11 +311,15 @@ def version_info() -> dict:
     even when it differs from `engine`, and then it carries `stale`: the others refuse until the
     server is restarted, since the modules it would load next are from another version. The
     same holds when the engine's code files changed on disk under the same number (reason
-    `sources`). The refusal of a tool the CLI can run (lint_paths, lint_source, baseline_prune,
-    list_rules, translate_*, meta_fold_comments and the readers meta_project_info,
-    meta_object_info, meta_localization_info, meta_component_tree, meta_resource_references,
+    `sources`), and when a platform data file the server read changed, appeared or vanished
+    since (reason `data`: `changed` lists the files under `root`, each "modified", "added" or
+    "removed", and `loaded` and `on_disk` name the data versions). The refusal of a tool the
+    CLI can run (lint_paths, lint_source, baseline_prune, list_rules, translate_*,
+    meta_fold_comments and the readers meta_project_info, meta_object_info,
+    meta_localization_info, meta_component_tree, meta_resource_references,
     meta_unused_resources) carries `cli`: the command line of the same call for a POSIX shell
-    (Git Bash on Windows), which runs this server's interpreter on the code now on disk. A
+    (Git Bash on Windows), which runs this server's interpreter on the code and the data now on
+    disk. A
     reader's command prints the tool's data without the `root` and `file` the tool repeats.
     `cli_note` names the file the command reads data from - the text of lint_source, the inline
     edits of translate_set.
@@ -325,11 +336,13 @@ def version_info() -> dict:
     except Exception as exc:  # noqa: BLE001 - the diagnostic tool answers whatever the disk is like
         info["plugins_on_disk"] = {"error": f"{type(exc).__name__}: {exc}"}
     found = freshness.call_state()  # what the other tools refuse over
-    key = "freshness.refusal"
-    if found is None:
-        found, key = freshness.plugins_state(), "freshness.plugins-warning"
     if found is not None:
-        info["stale"] = {**found, "message": i18n.t(key, state=freshness.describe(found))}
+        info["stale"] = {**found, "message": freshness.refusal(found)}
+        return info
+    found = freshness.plugins_state()
+    if found is not None:
+        info["stale"] = {**found, "message": i18n.t(
+            "freshness.plugins-warning", state=freshness.describe(found))}
     return info
 
 
@@ -1153,6 +1166,9 @@ def meta_new_object(
     presentation: str | None = None,
     base: str | None = None,
     root: str | None = None,
+    object_presentation: str | None = None,
+    record_presentation: str | None = None,
+    periodicity: str | None = None,
 ) -> dict:
     """Create a configuration object: <Имя>.yaml (+ <Имя>.xbsl for kinds with a module).
 
@@ -1168,13 +1184,27 @@ def meta_new_object(
     routes like "GET /, POST /, GET /{id}" (handlers are stubbed in the module);
     report_spec - for Report: {source, rows: [...], columns: [...], measures: [{expr, title}], title};
     presentation - the caption of the element, written where the kind keeps it: the top-level
-    Presentation of a report, a command or a constants set; for a catalog, a document, an
-    exchange plan, an integrable application and a settings storage - whose top-level
-    Presentation is the NAME of a string attribute, a caption there fails to compile - the
-    list caption `Interface.List.Presentation` (the notes name the object caption beside it),
-    as for a register, which has no top-level one; `Interface.Presentation` of a processing.
-    Pass it: without one the very first lint of the
-    new file answers naming/presentation.
+    Presentation of a report or a command; for a catalog, a document, an exchange plan, an
+    integrable application and a settings storage - whose top-level Presentation is the NAME
+    of a string attribute, a caption there fails to compile - the list caption
+    `Interface.List.Presentation` (the notes name the object caption beside it), as for a
+    register, which has no top-level one; `Interface.Record.Presentation` of a constants set
+    (its top-level Presentation names a constant), the list caption of a periodic one;
+    `Interface.Presentation` of a processing.
+    Pass it: without one the very first lint of the new file answers naming/presentation.
+    object_presentation - the object caption in the singular, `Interface.Object.Presentation`,
+    of a kind with the pair of interface captions (a catalog, a document, an exchange plan, a
+    settings storage), where presentation is the list caption in the plural; any other kind
+    refuses it. The tool cannot derive the singular from the plural, and naming/presentation
+    asks such a kind for both: given both, the new object lints clean.
+    record_presentation - the record caption in the singular, `Interface.Record.Presentation`,
+    of an information register or a periodic constants set, beside the list caption
+    presentation writes; any other kind refuses it (a constants set that is not periodic takes
+    its record caption as presentation).
+    periodicity - a constants set only: Day, Month, Quarter or Year, in either language
+    (NonPeriodic writes the default). A periodic set has a list beside its record, so
+    presentation becomes the list caption in the plural and record_presentation the record
+    one in the singular; given both, the new set lints clean.
     base - for an InterfaceComponent, what the component inherits: "Form" (the default, with
     the form-template wrapper), "Group", "StandardCard", "CustomComponent", a generic like
     "ListForm<Undefined>" - a group is the most common base in a real project, and the default
@@ -1192,6 +1222,8 @@ def meta_new_object(
         _under(root_dir, directory), kind, name,
         scope=scope, environment=environment, access=access,
         routes=routes, report=report_spec, presentation=presentation, base=base,
+        object_presentation=object_presentation, record_presentation=record_presentation,
+        periodicity=periodicity,
     )
 
 
@@ -1906,7 +1938,9 @@ def meta_resource_references(root: str, resource_path: str, limit: int = 100) ->
     the project's resources: seed data names a picture by its code, and the code adds the
     extension at run time.
     For a folder, every file under it counts. `total` is the number of places; `references`
-    holds the first `limit` of them, sorted by file and position.
+    holds the first `limit` of them, sorted by file and position, and `hasMore` is true when
+    the limit left some out - then the list is not all of them, and a call with `limit` at
+    `total` lists the rest.
     root - the caller's project or repository root (absolute): references are looked for under
     it, relative paths resolve against it, and the answer names it as `root`.
 
@@ -2949,12 +2983,15 @@ _forbid_unknown_arguments()
 def main() -> None:
     # The server takes no flags, but --help must still answer as a command: without a parser
     # `xbsl mcp --help` started the server and waited on stdin - a hang, not a help screen.
-    i18n.ArgumentParser(
+    parser = i18n.ArgumentParser(
         prog="xbsl mcp",
         description=i18n.t("cli.help.mcp.description"),
         epilog=i18n.t("cli.help.mcp.epilog"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
-    ).parse_args()
+    )
+    # `xbsl-mcp --no-supervisor` reaches this parser through a stub made by an older release.
+    parser.add_argument(mcp_supervisor.NO_SUPERVISOR, action="store_true", help=argparse.SUPPRESS)
+    parser.parse_args()
     # The journal answers what "Transport closed" on the client side cannot: whether the
     # server failed, the client closed its end, or a self-update stopped the process.
     mcpjournal.record("start", version=__version__, parent=os.getppid(), executable=sys.executable)

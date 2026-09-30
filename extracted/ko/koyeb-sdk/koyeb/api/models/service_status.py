@@ -26,19 +26,17 @@ class ServiceStatus(str, Enum):
     """
     allowed enum values
     """
-    STARTING = 'STARTING'
-    HEALTHY = 'HEALTHY'
-    DEGRADED = 'DEGRADED'
-    UNHEALTHY = 'UNHEALTHY'
-    DELETING = 'DELETING'
-    DELETED = 'DELETED'
-    PAUSING = 'PAUSING'
-    PAUSED = 'PAUSED'
-    RESUMING = 'RESUMING'
+    STARTING = "STARTING"
+    HEALTHY = "HEALTHY"
+    DEGRADED = "DEGRADED"
+    UNHEALTHY = "UNHEALTHY"
+    DELETING = "DELETING"
+    DELETED = "DELETED"
+    PAUSING = "PAUSING"
+    PAUSED = "PAUSED"
+    RESUMING = "RESUMING"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of ServiceStatus from a JSON string"""
         return cls(json.loads(json_str))
-
-

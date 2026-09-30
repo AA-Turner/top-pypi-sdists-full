@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.credential_type import CredentialType
 
+
 class TestCredentialType(unittest.TestCase):
     """CredentialType unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestCredentialType(unittest.TestCase):
         """Test CredentialType"""
         # inst = CredentialType()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

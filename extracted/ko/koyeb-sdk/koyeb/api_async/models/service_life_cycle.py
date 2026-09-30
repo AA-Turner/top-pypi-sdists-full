@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ServiceLifeCycle(BaseModel):
     """
     ServiceLifeCycle
-    """ # noqa: E501
+    """  # noqa: E501
+
     delete_after_sleep: Optional[StrictInt] = None
     delete_after_create: Optional[StrictInt] = None
     __properties: ClassVar[List[str]] = ["delete_after_sleep", "delete_after_create"]
@@ -37,7 +39,6 @@ class ServiceLifeCycle(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class ServiceLifeCycle(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,10 +81,10 @@ class ServiceLifeCycle(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "delete_after_sleep": obj.get("delete_after_sleep"),
-            "delete_after_create": obj.get("delete_after_create")
-        })
+        _obj = cls.model_validate(
+            {
+                "delete_after_sleep": obj.get("delete_after_sleep"),
+                "delete_after_create": obj.get("delete_after_create"),
+            }
+        )
         return _obj
-
-

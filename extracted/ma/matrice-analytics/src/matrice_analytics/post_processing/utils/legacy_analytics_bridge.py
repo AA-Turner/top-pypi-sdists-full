@@ -60,7 +60,8 @@ def _get_location_client() -> Any:
             return None
         _location_client = client
         return client
-    except Exception:
+    except Exception:  # noqa: BLE001 - last-resort net: an optional location lookup
+        # must never break publishing, and the SDK client can fail many ways.
         logger.warning("[LEGACY_ANALYTICS] could not create location-lookup client", exc_info=True)
         return None
 
@@ -178,6 +179,14 @@ _PIPE_METRIC_ROLES: Dict[str, str] = {
 # publishes defect_rate as a 0-1 RATIO, whereas these four declare
 # `unit: percent` and publish 0-100. Folding them together would silently change
 # car damage's published defect_rate by 100x.
+#: app key -> the LegacyAnalyticsSession method that ingests its per-window block.
+#: Same role as _PIPE_DEFECT_BLOCKS below, for apps whose hook takes no block name.
+_SINGLE_APP_INGEST: Dict[str, str] = {
+    "assembly_line_detection": "_ingest_assembly_volume",
+    "illegal_parking_detection": "_ingest_illegal_parking",
+    "vehicle_speed_estimation": "_ingest_vehicle_speeds",
+}
+
 _INSPECTION_QUALITY_APPS: frozenset = frozenset(
     {
         "bottle_defect_detection",
@@ -1229,6 +1238,32 @@ _LEGACY_PROFILES: Dict[str, LegacyAnalyticsProfile] = {
         publish_incidents=True,
         occupancy_mode="last_primary",
     ),
+    "vehicle_speed_estimation": LegacyAnalyticsProfile(
+        application_key_name="vehicle_speed_estimation",
+        default_application_name="Vehicle Speed Estimation",
+        # SAFETY metrics matching the app's metrics.json, all custom, resolved in
+        # _resolve_metric_value from tracking_stats["speed_analytics"]["frame_vehicles"]:
+        #   speeding_vehicles  -- unique vehicles over the limit (with the configured
+        #                         tolerance) at any point this ~60s window (sum).
+        #   max_speed / max_over_limit_pct -- the highest of the window's vehicles (max).
+        #   avg_speed          -- mean over the window's vehicles, one reading each (mean),
+        #                         so a queued car seen for a minute weighs the same as one
+        #                         that crossed in two seconds.
+        # Each vehicle's reading is its LAST one in the window: a speed fit sharpens as
+        # its track grows, so the last reading is the best one.
+        volume_metrics=(
+            VolumeMetricSpec("speeding_vehicles", "sum", "SAFETY"),
+            VolumeMetricSpec("max_speed", "max", "SAFETY"),
+            VolumeMetricSpec("avg_speed", "mean", "SAFETY"),
+            VolumeMetricSpec("max_over_limit_pct", "max", "SAFETY"),
+        ),
+        default_tracking_categories=("car", "truck", "bus", "motorcycle"),
+        primary_category="car",
+        # INCIDENT is published by the use case's IncidentManager (this is the
+        # fallback only -- the bridge skips it when incident_published_via_manager).
+        publish_incidents=True,
+        occupancy_mode="last_primary",
+    ),
     "running_detection": LegacyAnalyticsProfile(
         application_key_name="running_detection",
         default_application_name="Running Detection",
@@ -1326,7 +1361,8 @@ def _discover_registered_usecases() -> frozenset[str]:
         from ..core.base import registry
 
         return frozenset(name for names in registry.list_use_cases().values() for name in names)
-    except Exception:  # pragma: no cover - registry always importable in practice
+    except Exception:  # noqa: BLE001 - degrade to empty, explicit profiles still
+        # work; pragma: no cover - registry always importable in practice
         return frozenset()
 
 
@@ -1426,7 +1462,9 @@ def _filter_count_map(counts: Mapping[str, int], categories: Tuple[str, ...]) ->
     return {cat: int(count) for cat, count in counts.items() if cat.lower() in allowed}
 
 
-def _restore_canonical_casing(items: List[Dict[str, Any]], categories: Tuple[str, ...]) -> List[Dict[str, Any]]:
+def _restore_canonical_casing(
+    items: List[Dict[str, Any]], categories: Tuple[str, ...]
+) -> List[Dict[str, Any]]:
     """Re-key a count list from lowercase back to its real display casing.
 
     _count_list_to_map/_filter_count_map unconditionally lowercase every
@@ -1475,7 +1513,10 @@ def extract_stream_context(
     app_version: str = "1.0",
 ) -> Dict[str, str]:
     """Resolve camera / deployment identity fields for Redis envelopes."""
-    from ...analytics.engine_session import resolve_camera_fields_from_stream_info, resolve_location_for_publish
+    from ...analytics.engine_session import (
+        resolve_camera_fields_from_stream_info,
+        resolve_location_for_publish,
+    )
 
     si = stream_info or {}
     inp = si.get("input_settings") if isinstance(si.get("input_settings"), dict) else {}
@@ -1485,7 +1526,11 @@ def extract_stream_context(
     cam_fields = resolve_camera_fields_from_stream_info(si)
 
     camera_id = str(
-        cam_fields.get("camera_id") or si.get("camera_id") or inp.get("camera_id") or si.get("stream_key") or "camera"
+        cam_fields.get("camera_id")
+        or si.get("camera_id")
+        or inp.get("camera_id")
+        or si.get("stream_key")
+        or "camera"
     )
     camera_name = str(cam_fields.get("camera_name") or "")
     loc = resolve_location_for_publish(si)
@@ -1801,6 +1846,11 @@ class LegacyAnalyticsSession:
     # tracking_stats["wrong_way_analytics"] block (not a standard current_counts
     # category, so it's read separately — same pattern as last_hazard_analytics).
     last_wrong_way_analytics: Dict[str, Any] = field(default_factory=dict)
+    # vehicle_speed_estimation SAFETY window: each measured vehicle's last speed and
+    # overage this window, keyed by track id, and the ids flagged as speeding.
+    window_vehicle_speeds: Dict[Any, float] = field(default_factory=dict)
+    window_vehicle_over_pct: Dict[Any, float] = field(default_factory=dict)
+    window_speeding_ids: set = field(default_factory=set)
 
     latest_tracking: Dict[str, Any] = field(default_factory=dict)
     latest_totals: Dict[str, int] = field(default_factory=dict)
@@ -1840,7 +1890,8 @@ class LegacyAnalyticsSession:
             _count_list_to_map(tracking.get("total_counts")), profile.default_tracking_categories
         )
         new = _filter_count_map(
-            _count_list_to_map(tracking.get("current_new_counts")), profile.default_tracking_categories
+            _count_list_to_map(tracking.get("current_new_counts")),
+            profile.default_tracking_categories,
         )
 
         # accident_detection: current_new_counts["accident"] fires exactly once per
@@ -1851,7 +1902,10 @@ class LegacyAnalyticsSession:
         # tracking_stats, since severity isn't a tracking_stats field.
         if profile.application_key_name == "accident_detection" and new.get("accident", 0) > 0:
             incident_data = frame_data.get("incidents")
-            if isinstance(incident_data, dict) and str(incident_data.get("severity_level", "")).lower() == "critical":
+            if (
+                isinstance(incident_data, dict)
+                and str(incident_data.get("severity_level", "")).lower() == "critical"
+            ):
                 self.window_critical_accidents += 1
 
         total_current = _filter_count_map(
@@ -1921,7 +1975,9 @@ class LegacyAnalyticsSession:
                 corridor_now = int(tracking.get("corridor_occupancy", 0) or 0)
             except (TypeError, ValueError):
                 corridor_now = 0
-            self.window_corridor_occupancy_peak = max(self.window_corridor_occupancy_peak, corridor_now)
+            self.window_corridor_occupancy_peak = max(
+                self.window_corridor_occupancy_peak, corridor_now
+            )
 
         # parking_lot_analytics: cumulative line-crossing totals (max across
         # lines, matching the frame-migration derivation) + parking dwell stats.
@@ -1942,7 +1998,9 @@ class LegacyAnalyticsSession:
         parking = tracking.get("parking_analytics")
         if isinstance(parking, dict):
             try:
-                self.last_avg_parking_time = float(parking.get("average_dwell_time_seconds", 0.0) or 0.0)
+                self.last_avg_parking_time = float(
+                    parking.get("average_dwell_time_seconds", 0.0) or 0.0
+                )
             except (TypeError, ValueError):
                 self.last_avg_parking_time = 0.0
             try:
@@ -2008,21 +2066,26 @@ class LegacyAnalyticsSession:
         # Industrial inspection family — one hook, one shared block name.
         if profile.application_key_name in _INSPECTION_QUALITY_APPS:
             self._ingest_inspection_quality(tracking)
-        if profile.application_key_name == "assembly_line_detection":
-            self._ingest_assembly_volume(tracking)
-        if profile.application_key_name == "illegal_parking_detection":
-            self._ingest_illegal_parking(tracking)
+        # One app, one ingest hook — a dict, so a new app costs a row rather
+        # than two more branches in this already-oversized function.
+        _single_ingest = _SINGLE_APP_INGEST.get(profile.application_key_name)
+        if _single_ingest:
+            getattr(self, _single_ingest)(tracking)
         # hazard_zone_entry: latest snapshot + windowed mean of the entry share.
         hazard = tracking.get("hazard_analytics")
         if isinstance(hazard, dict):
             self.last_hazard_analytics = dict(hazard)
             if self.hazard_window_start_entrants is None:
                 try:
-                    self.hazard_window_start_entrants = int(hazard.get("unique_zone_entrants", 0) or 0)
+                    self.hazard_window_start_entrants = int(
+                        hazard.get("unique_zone_entrants", 0) or 0
+                    )
                 except (TypeError, ValueError):
                     self.hazard_window_start_entrants = 0
             try:
-                self.window_hazard_pct_sum += float(hazard.get("hazard_entry_percentage", 0.0) or 0.0)
+                self.window_hazard_pct_sum += float(
+                    hazard.get("hazard_entry_percentage", 0.0) or 0.0
+                )
                 self.window_hazard_pct_frames += 1
             except (TypeError, ValueError):
                 pass
@@ -2033,11 +2096,15 @@ class LegacyAnalyticsSession:
             self.last_intrusion_analytics = dict(intrusion)
             if self.intrusion_window_start_intruders is None:
                 try:
-                    self.intrusion_window_start_intruders = int(intrusion.get("unique_intruders", 0) or 0)
+                    self.intrusion_window_start_intruders = int(
+                        intrusion.get("unique_intruders", 0) or 0
+                    )
                 except (TypeError, ValueError):
                     self.intrusion_window_start_intruders = 0
             try:
-                self.window_intrusion_pct_sum += float(intrusion.get("intrusion_percentage", 0.0) or 0.0)
+                self.window_intrusion_pct_sum += float(
+                    intrusion.get("intrusion_percentage", 0.0) or 0.0
+                )
                 self.window_intrusion_pct_frames += 1
             except (TypeError, ValueError):
                 pass
@@ -2056,11 +2123,15 @@ class LegacyAnalyticsSession:
         if isinstance(tailgating, dict):
             self.last_tailgating_analytics = dict(tailgating)
             try:
-                self.window_tailgating_events_sum += int(tailgating.get("tailgating_events", 0) or 0)
+                self.window_tailgating_events_sum += int(
+                    tailgating.get("tailgating_events", 0) or 0
+                )
             except (TypeError, ValueError):
                 pass
             try:
-                self.window_tailgating_pct_sum += float(tailgating.get("tailgating_percentage", 0.0) or 0.0)
+                self.window_tailgating_pct_sum += float(
+                    tailgating.get("tailgating_percentage", 0.0) or 0.0
+                )
                 self.window_tailgating_pct_frames += 1
             except (TypeError, ValueError):
                 pass
@@ -2078,7 +2149,9 @@ class LegacyAnalyticsSession:
             self.window_occupancy_sum += occ_now
             self.window_occupancy_frames += 1
             try:
-                self.window_occupancy_pct_sum += float(overcrowding.get("occupancy_percentage", 0.0) or 0.0)
+                self.window_occupancy_pct_sum += float(
+                    overcrowding.get("occupancy_percentage", 0.0) or 0.0
+                )
                 self.window_occupancy_pct_frames += 1
             except (TypeError, ValueError):
                 pass
@@ -2112,48 +2185,12 @@ class LegacyAnalyticsSession:
         # flood_detection: snapshot of flood_analytics block.
         flood = tracking.get("flood_analytics")
         if isinstance(flood, dict):
-            try:
-                self.last_flood_detection_count = int(flood.get("flood_detection_count", 0) or 0)
-            except (TypeError, ValueError):
-                self.last_flood_detection_count = 0
-            try:
-                frame_pct = float(flood.get("max_flood_area_pct", 0.0) or 0.0)
-            except (TypeError, ValueError):
-                frame_pct = 0.0
-            self.last_max_flood_area_pct = frame_pct
-            # avg_flood_area_percentage: windowed mean over every frame
-            # (including 0%-coverage frames when no flood is present).
-            self.window_flood_pct_sum += frame_pct
-            self.window_flood_pct_frames += 1
-            try:
-                self.last_total_flood_area_pct = float(flood.get("total_flood_area_pct", 0.0) or 0.0)
-            except (TypeError, ValueError):
-                self.last_total_flood_area_pct = 0.0
-            # floods_occurred is resolved directly from window_new_sum["flood"]
-            # (see the generic current_new_counts accumulation above) — no
-            # extra bookkeeping needed here.
+            self._ingest_flood(flood)
 
         # landslide_detection: snapshot of landslide_analytics block.
         landslide = tracking.get("landslide_analytics")
         if isinstance(landslide, dict):
-            try:
-                self.last_landslide_detection_count = int(landslide.get("landslide_detection_count", 0) or 0)
-            except (TypeError, ValueError):
-                self.last_landslide_detection_count = 0
-            try:
-                frame_pct = float(landslide.get("max_landslide_area_pct", 0.0) or 0.0)
-            except (TypeError, ValueError):
-                frame_pct = 0.0
-            self.last_max_landslide_area_pct = frame_pct
-            # avg_surface_displacement_percentage: windowed mean over every frame.
-            self.window_landslide_pct_sum += frame_pct
-            self.window_landslide_pct_frames += 1
-            try:
-                self.last_total_landslide_area_pct = float(landslide.get("total_landslide_area_pct", 0.0) or 0.0)
-            except (TypeError, ValueError):
-                self.last_total_landslide_area_pct = 0.0
-            # landslides_occurred is resolved directly from
-            # window_new_sum["landslide"] — no extra bookkeeping needed here.
+            self._ingest_landslide(landslide)
 
         # vehicle_monitoring_wrong_way: side-channel snapshot, not a
         # current_counts category — read directly (mirrors hazard/intrusion/
@@ -2170,7 +2207,9 @@ class LegacyAnalyticsSession:
                 self.last_stopped_vehicle_count = int(tracking.get("stopped_vehicle_count", 0) or 0)
             except (TypeError, ValueError):
                 self.last_stopped_vehicle_count = 0
-            self.window_stopped_peak = max(self.window_stopped_peak, self.last_stopped_vehicle_count)
+            self.window_stopped_peak = max(
+                self.window_stopped_peak, self.last_stopped_vehicle_count
+            )
             sva = frame_data.get("stopped_vehicle_analytics")
             if isinstance(sva, dict):
                 try:
@@ -2180,8 +2219,12 @@ class LegacyAnalyticsSession:
 
         primary = profile.primary_category.lower()
         if profile.occupancy_mode == "max_weapon_person":
-            self.window_weapon_max = max(self.window_weapon_max, self.latest_current.get("weapon", 0))
-            self.window_person_max = max(self.window_person_max, self.latest_current.get("person", 0))
+            self.window_weapon_max = max(
+                self.window_weapon_max, self.latest_current.get("weapon", 0)
+            )
+            self.window_person_max = max(
+                self.window_person_max, self.latest_current.get("person", 0)
+            )
             self.last_occupancy = self.window_weapon_max + self.window_person_max
         else:
             self.last_occupancy = self.latest_current.get(primary, 0)
@@ -2411,7 +2454,9 @@ class LegacyAnalyticsSession:
         if is_active:
             self.insp_window_active_frames += 1
 
-        self.insp_max_continuous_seconds = max(self.insp_max_continuous_seconds, _as_float("max_continuous_seconds"))
+        self.insp_max_continuous_seconds = max(
+            self.insp_max_continuous_seconds, _as_float("max_continuous_seconds")
+        )
 
     def _ingest_assembly_volume(self, tracking: Mapping[str, Any]) -> None:
         """Accumulate VOLUME window state from ``assembly_analytics``.
@@ -2458,7 +2503,9 @@ class LegacyAnalyticsSession:
             self.window_violation_ids.update(violation_ids)
 
         try:
-            self.window_peak_tracked = max(self.window_peak_tracked, int(ipa.get("total_vehicles_tracked", 0) or 0))
+            self.window_peak_tracked = max(
+                self.window_peak_tracked, int(ipa.get("total_vehicles_tracked", 0) or 0)
+            )
         except (TypeError, ValueError):
             pass
         try:
@@ -2477,6 +2524,172 @@ class LegacyAnalyticsSession:
                     continue
                 self.window_dwell_count += 1
 
+    def _ingest_flood(self, flood: Mapping[str, Any]) -> None:
+        """flood_detection: snapshot of the flood_analytics block.
+
+        Extracted from ``ingest_agg_summary`` verbatim -- that function is over the org
+        complexity cap, so the gate refuses to let it grow by even a line.
+        """
+        try:
+            self.last_flood_detection_count = int(flood.get("flood_detection_count", 0) or 0)
+        except (TypeError, ValueError):
+            self.last_flood_detection_count = 0
+        try:
+            frame_pct = float(flood.get("max_flood_area_pct", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            frame_pct = 0.0
+        self.last_max_flood_area_pct = frame_pct
+        # avg_flood_area_percentage: windowed mean over every frame
+        # (including 0%-coverage frames when no flood is present).
+        self.window_flood_pct_sum += frame_pct
+        self.window_flood_pct_frames += 1
+        try:
+            self.last_total_flood_area_pct = float(flood.get("total_flood_area_pct", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            self.last_total_flood_area_pct = 0.0
+        # floods_occurred is resolved directly from window_new_sum["flood"]
+        # (see the generic current_new_counts accumulation above) — no
+        # extra bookkeeping needed here.
+
+    def _ingest_landslide(self, landslide: Mapping[str, Any]) -> None:
+        """landslide_detection: snapshot of the landslide_analytics block.
+
+        Extracted from ``ingest_agg_summary`` verbatim, for the same reason as
+        ``_ingest_flood``.
+        """
+        try:
+            self.last_landslide_detection_count = int(
+                landslide.get("landslide_detection_count", 0) or 0
+            )
+        except (TypeError, ValueError):
+            self.last_landslide_detection_count = 0
+        try:
+            frame_pct = float(landslide.get("max_landslide_area_pct", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            frame_pct = 0.0
+        self.last_max_landslide_area_pct = frame_pct
+        # avg_surface_displacement_percentage: windowed mean over every frame.
+        self.window_landslide_pct_sum += frame_pct
+        self.window_landslide_pct_frames += 1
+        try:
+            self.last_total_landslide_area_pct = float(
+                landslide.get("total_landslide_area_pct", 0.0) or 0.0
+            )
+        except (TypeError, ValueError):
+            self.last_total_landslide_area_pct = 0.0
+        # landslides_occurred is resolved directly from
+        # window_new_sum["landslide"] — no extra bookkeeping needed here.
+
+    def _resolve_stopped_vehicle_metric(self, key: str) -> float:
+        """stopped_vehicle_monitoring metrics, moved out of _resolve_metric_value verbatim.
+
+        Resolved from the side-channel snapshot populated in ingest_agg_summary
+        (``tracking_stats["stopped_vehicle_count"]`` and the sibling
+        ``stopped_vehicle_analytics["total_events"]``), not from latest_current -- stopped
+        counts are not a current_counts category.
+        """
+        if key == "stopped_vehicle_count":
+            return float(self.last_stopped_vehicle_count)
+        if key == "peak_stopped_vehicle_count":
+            return float(self.window_stopped_peak)
+        if key == "total_stopped_events":
+            return float(self.last_stopped_total_events)
+        return 0.0
+
+    def _resolve_running_metric(self, key: str) -> float:
+        """running_detection metrics, moved out of _resolve_metric_value verbatim.
+
+        "running" is this app's only tracked category, so current/peak/entry-sum all
+        resolve from the generic latest_current / window_peak_occupancy /
+        window_entry_total state (primary_category="running").
+        """
+        if key == "current_running_count":
+            return float(self.latest_current.get("running", 0))
+        if key == "peak_running_count":
+            return float(self.window_peak_occupancy)
+        if key == "total_running_events":
+            return float(self.window_entry_total)
+        return 0.0
+
+    def _ingest_vehicle_speeds(self, tracking: Mapping[str, Any]) -> None:
+        """Accumulate SAFETY window state from the ``speed_analytics`` block."""
+        block = tracking.get("speed_analytics")
+        vehicles = block.get("frame_vehicles") if isinstance(block, dict) else None
+        if not isinstance(vehicles, list):
+            return
+        for vehicle in vehicles:
+            if not isinstance(vehicle, dict) or vehicle.get("track_id") is None:
+                continue
+            track_id = vehicle["track_id"]
+            try:
+                speed = float(vehicle.get("speed", 0.0) or 0.0)
+                over_pct = float(vehicle.get("over_limit_pct", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                continue
+            self.window_vehicle_speeds[track_id] = speed
+            self.window_vehicle_over_pct[track_id] = over_pct
+            if vehicle.get("speeding"):
+                self.window_speeding_ids.add(track_id)
+
+    def _resolve_speed_metric(self, key: str) -> float:
+        """The four vehicle_speed_estimation SAFETY metrics.
+
+        Extracted from ``_resolve_metric_value`` rather than added to it: that function
+        is over the org complexity cap, so the gate refuses to let it grow.
+        """
+        speeds = list(self.window_vehicle_speeds.values())
+        if key == "speeding_vehicles":
+            return float(len(self.window_speeding_ids))
+        if key == "max_speed":
+            return round(max(speeds), 1) if speeds else 0.0
+        if key == "avg_speed":
+            return round(sum(speeds) / len(speeds), 1) if speeds else 0.0
+        if key == "max_over_limit_pct":
+            overages = list(self.window_vehicle_over_pct.values())
+            return round(max(overages), 1) if overages else 0.0
+        return 0.0
+
+    def _resolve_wrong_way_metric(self, key: str) -> float:
+        """The vehicle_monitoring_wrong_way metrics, moved out verbatim.
+
+        current_wrong_way_count / current_suspect_count / total_wrong_way_events are
+        resolved from the side-channel snapshot populated in ingest_agg_summary
+        (``tracking_stats["wrong_way_analytics"]``), not from latest_current — that dict
+        is never a current_counts category.
+        """
+        w = self.last_wrong_way_analytics
+        if key == "current_wrong_way_count":
+            return float(w.get("current_wrong_way_count", 0) or 0)
+        if key == "current_suspect_count":
+            return float(w.get("current_suspect_count", 0) or 0)
+        if key == "total_wrong_way_events":
+            return float(w.get("total_wrong_way_count", 0) or 0)
+        if key == "vehicle_count":
+            return float(sum(self.latest_current.values()))
+        return 0.0
+
+    def _reset_speed_window(self) -> None:
+        """Clear the vehicle_speed_estimation per-window accumulators."""
+        self.window_vehicle_speeds.clear()
+        self.window_vehicle_over_pct.clear()
+        self.window_speeding_ids.clear()
+
+    def _reset_pipe_window(self) -> None:
+        """Clear the pipe-inspection per-window accumulators only.
+
+        pipe_last_current / pipe_last_total_unique / pipe_max_continuous_seconds are
+        deliberately NOT cleared — they are "last known value" snapshots that every
+        ingested frame overwrites, so preserving them only matters when a window passes
+        with no frames ingested (quiet stream). Zeroing them there would make a
+        cumulative total and a longest-streak metric visibly regress to 0 on the
+        dashboard.
+        """
+        self.pipe_window_new_ids.clear()
+        self.pipe_window_peak = 0
+        self.pipe_window_active_frames = 0
+        self.pipe_window_total_frames = 0
+        self.pipe_window_active_seconds = 0.0
+
     def _resolve_metric_value(self, key: str, profile: LegacyAnalyticsProfile) -> float:
         # New VOLUME+INCIDENT apps are resolved first, gated by profile, so their
         # keys (e.g. "current_occupancy") never collide with the generic keys
@@ -2489,7 +2702,13 @@ class LegacyAnalyticsSession:
                 # over the 60s window (agg_type sum). Every entrant first appears
                 # as "person" (at_risk is a relabel of the same track), so the
                 # person delta counts distinct new people without double counting.
-                return float(max(0, self.latest_totals.get("person", 0) - self.window_start_totals.get("person", 0)))
+                return float(
+                    max(
+                        0,
+                        self.latest_totals.get("person", 0)
+                        - self.window_start_totals.get("person", 0),
+                    )
+                )
             if key == "people_at_risk":
                 # NEW at-risk this interval — growth in cumulative unique zone
                 # entrants over the window (agg_type sum). unique_zone_entrants is
@@ -2500,7 +2719,11 @@ class LegacyAnalyticsSession:
                 # fabricating the whole session's count now that last_hazard_analytics
                 # carries forward across idle windows.
                 current = int(h.get("unique_zone_entrants", 0) or 0)
-                start = self.hazard_window_start_entrants if self.hazard_window_start_entrants is not None else current
+                start = (
+                    self.hazard_window_start_entrants
+                    if self.hazard_window_start_entrants is not None
+                    else current
+                )
                 return float(max(0, current - start))
             if key == "active_people_at_risk":
                 # Instantaneous count of people confirmed in the hazard zone now
@@ -2564,7 +2787,12 @@ class LegacyAnalyticsSession:
                 "total_customers_served",
             ):
                 return _snap_int(key)
-            if key in ("avg_wait_seconds", "max_wait_seconds", "avg_service_seconds", "max_service_seconds"):
+            if key in (
+                "avg_wait_seconds",
+                "max_wait_seconds",
+                "avg_service_seconds",
+                "max_service_seconds",
+            ):
                 return _snap_float(key)
 
             # windowed means
@@ -2645,7 +2873,9 @@ class LegacyAnalyticsSession:
                 return float(max(0, current - start))
             if key == "intrusion_percentage":
                 if self.window_intrusion_pct_frames > 0:
-                    return round(self.window_intrusion_pct_sum / self.window_intrusion_pct_frames, 2)
+                    return round(
+                        self.window_intrusion_pct_sum / self.window_intrusion_pct_frames, 2
+                    )
                 return 0.0
             if key == "avg_intrusion_time_seconds":
                 return round(float(i.get("avg_intrusion_time_seconds", 0.0) or 0.0), 2)
@@ -2668,7 +2898,9 @@ class LegacyAnalyticsSession:
                 return float(t.get("unique_tailgaters", 0) or 0)
             if key == "tailgating_percentage":
                 if self.window_tailgating_pct_frames > 0:
-                    return round(self.window_tailgating_pct_sum / self.window_tailgating_pct_frames, 2)
+                    return round(
+                        self.window_tailgating_pct_sum / self.window_tailgating_pct_frames, 2
+                    )
                 return 0.0
             return 0.0
         if app == "overcrowding_detection":
@@ -2687,7 +2919,9 @@ class LegacyAnalyticsSession:
                 return 0.0
             if key == "occupancy_percentage":
                 if self.window_occupancy_pct_frames > 0:
-                    return round(self.window_occupancy_pct_sum / self.window_occupancy_pct_frames, 2)
+                    return round(
+                        self.window_occupancy_pct_sum / self.window_occupancy_pct_frames, 2
+                    )
                 return 0.0
             if key == "unique_visitors":
                 return float(o.get("unique_visitors", 0) or 0)
@@ -2706,7 +2940,11 @@ class LegacyAnalyticsSession:
                 return float(self.window_peak_occupancy)
             if key == "avg_occupancy":
                 if self.area_util_window_occupancy_frames > 0:
-                    return round(self.area_util_window_occupancy_sum / self.area_util_window_occupancy_frames, 2)
+                    return round(
+                        self.area_util_window_occupancy_sum
+                        / self.area_util_window_occupancy_frames,
+                        2,
+                    )
                 return 0.0
             if key == "occupancy_percentage":
                 # Capacity is the literal 10 baked into this app version's
@@ -2716,7 +2954,11 @@ class LegacyAnalyticsSession:
                 # Duty cycle: share of this window's frames with anyone present.
                 if self.area_util_window_occupancy_frames > 0:
                     return round(
-                        (self.area_util_window_occupied_frames / self.area_util_window_occupancy_frames) * 100.0,
+                        (
+                            self.area_util_window_occupied_frames
+                            / self.area_util_window_occupancy_frames
+                        )
+                        * 100.0,
                         2,
                     )
                 return 0.0
@@ -2738,7 +2980,9 @@ class LegacyAnalyticsSession:
         if app == "landslide_detection":
             if key == "avg_surface_displacement_percentage":
                 if self.window_landslide_pct_frames > 0:
-                    return round(self.window_landslide_pct_sum / self.window_landslide_pct_frames, 4)
+                    return round(
+                        self.window_landslide_pct_sum / self.window_landslide_pct_frames, 4
+                    )
                 return 0.0
             # landslides_occurred: sum of current_new_counts["landslide"] across
             # the window, same generic window_new_sum pipeline as flood above.
@@ -2942,45 +3186,14 @@ class LegacyAnalyticsSession:
                     return round(self.window_dwell_sum / self.window_dwell_count, 2)
                 return 0.0
             return 0.0
+        if app == "vehicle_speed_estimation":
+            return self._resolve_speed_metric(key)
         if app == "vehicle_monitoring_wrong_way":
-            # current_wrong_way_count / current_suspect_count / total_wrong_way_events
-            # are resolved from the side-channel snapshot populated in
-            # ingest_agg_summary (tracking_stats["wrong_way_analytics"]), not
-            # from latest_current — that dict is never a current_counts category.
-            w = self.last_wrong_way_analytics
-            if key == "current_wrong_way_count":
-                return float(w.get("current_wrong_way_count", 0) or 0)
-            if key == "current_suspect_count":
-                return float(w.get("current_suspect_count", 0) or 0)
-            if key == "total_wrong_way_events":
-                return float(w.get("total_wrong_way_count", 0) or 0)
-            if key == "vehicle_count":
-                return float(sum(self.latest_current.values()))
-            return 0.0
+            return self._resolve_wrong_way_metric(key)
         if app == "stopped_vehicle_monitoring":
-            # Resolved from the side-channel snapshot populated in
-            # ingest_agg_summary (tracking_stats["stopped_vehicle_count"] and the
-            # sibling stopped_vehicle_analytics["total_events"]), not from
-            # latest_current — stopped counts are not a current_counts category.
-            if key == "stopped_vehicle_count":
-                return float(self.last_stopped_vehicle_count)
-            if key == "peak_stopped_vehicle_count":
-                return float(self.window_stopped_peak)
-            if key == "total_stopped_events":
-                return float(self.last_stopped_total_events)
-            return 0.0
+            return self._resolve_stopped_vehicle_metric(key)
         if app == "running_detection":
-            # "running" is this app's only tracked category, so current/peak/
-            # entry-sum all resolve from the generic latest_current /
-            # window_peak_occupancy / window_entry_total state already
-            # maintained above (primary_category="running").
-            if key == "current_running_count":
-                return float(self.latest_current.get("running", 0))
-            if key == "peak_running_count":
-                return float(self.window_peak_occupancy)
-            if key == "total_running_events":
-                return float(self.window_entry_total)
-            return 0.0
+            return self._resolve_running_metric(key)
         if app == "vehicle_monitoring":
             # Per-minute THROUGHPUT keys: the number of NEW unique vehicles that
             # entered the frame across the 60s window (window_new_sum, accumulated
@@ -2995,7 +3208,9 @@ class LegacyAnalyticsSession:
             if key == "vehicle_count":
                 return float(self.window_entry_total)
             if key == "heavy_vehicle_count":
-                return float(self.window_new_sum.get("bus", 0) + self.window_new_sum.get("truck", 0))
+                return float(
+                    self.window_new_sum.get("bus", 0) + self.window_new_sum.get("truck", 0)
+                )
             if key == "car_count":
                 return float(self.window_new_sum.get("car", 0))
             if key == "truck_count":
@@ -3009,7 +3224,9 @@ class LegacyAnalyticsSession:
             if key == "bicycle_count":
                 return float(self.window_new_sum.get("bicycle", 0))
             if key == "two_wheel_vehicle_count":
-                return float(self.window_new_sum.get("motorcycle", 0) + self.window_new_sum.get("bicycle", 0))
+                return float(
+                    self.window_new_sum.get("motorcycle", 0) + self.window_new_sum.get("bicycle", 0)
+                )
             # Cumulative unique per-class totals (from the use case's total_counts).
             if key == "total_car_count":
                 return float(self.latest_totals.get("car", 0))
@@ -3071,7 +3288,8 @@ class LegacyAnalyticsSession:
                 return float(
                     max(
                         0,
-                        self.latest_totals.get("person", 0) - self.window_start_totals.get("person", 0),
+                        self.latest_totals.get("person", 0)
+                        - self.window_start_totals.get("person", 0),
                     )
                 )
             if key == "loitering_count_total":
@@ -3080,9 +3298,15 @@ class LegacyAnalyticsSession:
                 # window delta, unlike loitering_unique_count above.
                 return float(self.latest_totals.get("loitering_person", 0) or 0)
             if key == "avg_loiter_time_seconds":
-                return round(float(self.last_loitering_analytics.get("avg_loiter_time_seconds", 0.0) or 0.0), 2)
+                return round(
+                    float(self.last_loitering_analytics.get("avg_loiter_time_seconds", 0.0) or 0.0),
+                    2,
+                )
             if key == "max_loiter_time_seconds":
-                return round(float(self.last_loitering_analytics.get("max_loiter_time_seconds", 0.0) or 0.0), 2)
+                return round(
+                    float(self.last_loitering_analytics.get("max_loiter_time_seconds", 0.0) or 0.0),
+                    2,
+                )
             return 0.0
         if key == "entry_count":
             if profile.application_key_name == "ppe_compliance":
@@ -3091,12 +3315,20 @@ class LegacyAnalyticsSession:
         if key == "exit_count":
             return float(self.window_exit_total)
         if key == "in_footfall":
-            return float(max(0, self.latest_totals.get("in", 0) - self.window_start_totals.get("in", 0)))
+            return float(
+                max(0, self.latest_totals.get("in", 0) - self.window_start_totals.get("in", 0))
+            )
         if key == "out_footfall":
-            return float(max(0, self.latest_totals.get("out", 0) - self.window_start_totals.get("out", 0)))
+            return float(
+                max(0, self.latest_totals.get("out", 0) - self.window_start_totals.get("out", 0))
+            )
         if key == "current_occupancy_footfall":
-            delta_in = max(0, self.latest_totals.get("in", 0) - self.window_start_totals.get("in", 0))
-            delta_out = max(0, self.latest_totals.get("out", 0) - self.window_start_totals.get("out", 0))
+            delta_in = max(
+                0, self.latest_totals.get("in", 0) - self.window_start_totals.get("in", 0)
+            )
+            delta_out = max(
+                0, self.latest_totals.get("out", 0) - self.window_start_totals.get("out", 0)
+            )
             return float(delta_in + delta_out)
         # --------------------------------------------------------------------------
         if key == "current_occupancy":
@@ -3211,9 +3443,17 @@ class LegacyAnalyticsSession:
         # (all distinct people seen across the full 60s window) rather than the
         # last-frame snapshot, giving a more accurate per-minute headcount.
         if key == "visitors_in_zone":
-            return float(len(self.window_visitor_ids)) if self.window_visitor_ids else float(self.last_visitors_in_zone)
+            return (
+                float(len(self.window_visitor_ids))
+                if self.window_visitor_ids
+                else float(self.last_visitors_in_zone)
+            )
         if key == "active_dwellers":
-            return float(len(self.window_dweller_ids)) if self.window_dweller_ids else float(self.last_active_dwellers)
+            return (
+                float(len(self.window_dweller_ids))
+                if self.window_dweller_ids
+                else float(self.last_active_dwellers)
+            )
         if key == "unique_dwellers":
             return float(self.last_unique_dwellers)
         if key == "dwell_percentage":
@@ -3272,16 +3512,20 @@ class LegacyAnalyticsSession:
             current_counts = _map_to_count_list(
                 _filter_count_map(self.latest_frame_current, cats)
             ) or _default_count_list(cats)
-            current_new_counts = _map_to_count_list(_filter_count_map(self.latest_new, cats)) or _default_count_list(
-                cats
-            )
-            total_counts = _map_to_count_list(_filter_count_map(self.latest_totals, cats)) or _default_count_list(cats)
+            current_new_counts = _map_to_count_list(
+                _filter_count_map(self.latest_new, cats)
+            ) or _default_count_list(cats)
+            total_counts = _map_to_count_list(
+                _filter_count_map(self.latest_totals, cats)
+            ) or _default_count_list(cats)
             total_current_counts = (
                 _map_to_count_list(_filter_count_map(self.window_total_current_max, cats))
                 or _map_to_count_list(_filter_count_map(self.latest_current, cats))
                 or list(current_counts)
             )
-            total_current_counts = _ensure_total_current_at_least_current(current_counts, total_current_counts)
+            total_current_counts = _ensure_total_current_at_least_current(
+                current_counts, total_current_counts
+            )
             return {
                 "input_timestamp": input_ts,
                 "current_counts": _restore_canonical_casing(current_counts, cats),
@@ -3310,7 +3554,9 @@ class LegacyAnalyticsSession:
             total_current_counts.append({"category": cat, "count": prev_last + new_arrivals})
         if not total_current_counts:
             total_current_counts = _default_count_list(cats)
-        total_current_counts = _ensure_total_current_at_least_current(current_counts, total_current_counts)
+        total_current_counts = _ensure_total_current_at_least_current(
+            current_counts, total_current_counts
+        )
 
         return {
             "input_timestamp": input_ts,
@@ -3438,19 +3684,9 @@ class LegacyAnalyticsSession:
         self.window_peak_defect = 0
         self.window_peak_inspected = 0
         self.last_wrong_way_analytics = {}
+        self._reset_speed_window()
         self.last_quality_analytics = {}
-        # Pipe inspection family: clear the per-window accumulators only.
-        # pipe_last_current / pipe_last_total_unique / pipe_max_continuous_seconds
-        # are deliberately NOT cleared — they are "last known value" snapshots
-        # that every ingested frame overwrites, so preserving them only matters
-        # when a window passes with no frames ingested (quiet stream). Zeroing
-        # them there would make a cumulative total and a longest-streak metric
-        # visibly regress to 0 on the dashboard.
-        self.pipe_window_new_ids.clear()
-        self.pipe_window_peak = 0
-        self.pipe_window_active_frames = 0
-        self.pipe_window_total_frames = 0
-        self.pipe_window_active_seconds = 0.0
+        self._reset_pipe_window()
         # Industrial inspection family: per-window accumulators only.
         # insp_last_total_unique / insp_max_continuous_seconds are deliberately
         # NOT cleared — they are "last known value" snapshots that every ingested
@@ -3501,7 +3737,9 @@ class LegacyAnalyticsSession:
 
         ctx = extract_stream_context(stream_info, usecase=usecase, app_name=app_name)
         cid = camera_id or ctx["camera_id"]
-        payload = build_incident_message(incident_data, stream_info, usecase=usecase, app_name=app_name, camera_id=cid)
+        payload = build_incident_message(
+            incident_data, stream_info, usecase=usecase, app_name=app_name, camera_id=cid
+        )
         ok = bool(publisher.publish_incident(cid, payload))
         if ok:
             wire_level = "info" if is_close else level
@@ -3535,7 +3773,11 @@ class LegacyAnalyticsSession:
         if not self.saw_tracking:
             return False
         now = time.time()
-        if not force and self.last_agg_publish_ts and (now - self.last_agg_publish_ts) < AGGREGATION_INTERVAL_SEC:
+        if (
+            not force
+            and self.last_agg_publish_ts
+            and (now - self.last_agg_publish_ts) < AGGREGATION_INTERVAL_SEC
+        ):
             return False
 
         input_ts = _utc_now_iso_z()

@@ -23,15 +23,22 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class CheckCouponReply(BaseModel):
     """
     CheckCouponReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     name: Optional[StrictStr] = None
     percent_off: Optional[Union[StrictFloat, StrictInt]] = None
     amount_off: Optional[StrictStr] = None
     currency: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["name", "percent_off", "amount_off", "currency"]
+    __properties: ClassVar[List[str]] = [
+        "name",
+        "percent_off",
+        "amount_off",
+        "currency",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -39,7 +46,6 @@ class CheckCouponReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +70,7 @@ class CheckCouponReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,12 +88,12 @@ class CheckCouponReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "percent_off": obj.get("percent_off"),
-            "amount_off": obj.get("amount_off"),
-            "currency": obj.get("currency")
-        })
+        _obj = cls.model_validate(
+            {
+                "name": obj.get("name"),
+                "percent_off": obj.get("percent_off"),
+                "amount_off": obj.get("amount_off"),
+                "currency": obj.get("currency"),
+            }
+        )
         return _obj
-
-

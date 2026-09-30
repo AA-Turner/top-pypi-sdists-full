@@ -231,7 +231,7 @@ class _StoredMediaPartBase(_MessagePartBase):
     # lane. Declared here because a stored block carrying them failed the
     # generated MessagePart guard and the whole assistant message rendered as
     # "This section could not be displayed" (2026-09-22).
-    visibility: str | None = None
+    visibility: str | None = None  # T-13 transitional wire echo (derived from published_to_web / shown_to)
     cdn_url: str | None = None
 
     @classmethod

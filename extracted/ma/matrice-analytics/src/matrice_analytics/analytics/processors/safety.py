@@ -25,6 +25,7 @@ This processor supports two deployment shapes:
     confirmed track IDs accumulated across the window via
     ``self._per_cat_new`` (populated by the base class).
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,7 +33,6 @@ from typing import Any
 
 from ..base_processor import BaseMetricProcessor
 from ..schemas import MetricEntry, ProcessorAggregationOutput
-
 
 logger = logging.getLogger(__name__)
 
@@ -128,9 +128,7 @@ class SafetyProcessor(BaseMetricProcessor):
         self._window_person_ids: set[Any] = set()
         self._window_violator_ids: set[Any] = set()
         # Unique IDs per PPE item across the window.
-        self._window_ppe_ids: dict[str, set[Any]] = {
-            item: set() for item in self._ppe_classes
-        }
+        self._window_ppe_ids: dict[str, set[Any]] = {item: set() for item in self._ppe_classes}
         # Per-frame compliance values for window-level mean.
         self._per_frame_compliance: list[float] = []
 
@@ -189,13 +187,9 @@ class SafetyProcessor(BaseMetricProcessor):
         it belongs to (upstream harness assigns this during dedupe).
         """
         # ── Partition detections by role ────────────────────────────
-        persons = [
-            d for d in detections if d.get("category", "") in self._person_classes
-        ]
+        persons = [d for d in detections if d.get("category", "") in self._person_classes]
         ppe_dets = [d for d in detections if d.get("category", "") in self._ppe_classes]
-        violation_dets = [
-            d for d in detections if d.get("category", "") in self._violation_classes
-        ]
+        violation_dets = [d for d in detections if d.get("category", "") in self._violation_classes]
 
         total_persons = len(persons)
 
@@ -214,9 +208,7 @@ class SafetyProcessor(BaseMetricProcessor):
             if tid is not None:
                 direct_violator_ids.add(tid)
 
-        person_tids = {
-            p.get("track_id") for p in persons if p.get("track_id") is not None
-        }
+        person_tids = {p.get("track_id") for p in persons if p.get("track_id") is not None}
 
         # ── Per-person compliance check ─────────────────────────────
         compliant_count = 0
@@ -250,14 +242,13 @@ class SafetyProcessor(BaseMetricProcessor):
             frame_violator_ids = direct_ids
         else:
             orphan_count, orphan_ids = self._count_direct_violations(
-                violation_dets, exclude_track_ids=person_tids,
+                violation_dets,
+                exclude_track_ids=person_tids,
             )
             violation_count += orphan_count
             frame_violator_ids |= orphan_ids
 
-        compliance_pct = (
-            (compliant_count / total_persons * 100.0) if total_persons > 0 else 0.0
-        )
+        compliance_pct = (compliant_count / total_persons * 100.0) if total_persons > 0 else 0.0
         self._per_frame_compliance.append(compliance_pct)
 
         # ── Per-PPE-item counts (after dedupe upstream, so just count) ──
@@ -277,9 +268,7 @@ class SafetyProcessor(BaseMetricProcessor):
             self._window_violator_ids.update(self._per_cat_new.get(vclass, set()))
 
         for item in self._ppe_classes:
-            self._window_ppe_ids.setdefault(item, set()).update(
-                self._per_cat_new.get(item, set())
-            )
+            self._window_ppe_ids.setdefault(item, set()).update(self._per_cat_new.get(item, set()))
 
         # ── Build MetricEntry list driven by manifest config ────────
         computed: dict[str, float] = {
@@ -383,14 +372,14 @@ class SafetyProcessor(BaseMetricProcessor):
         business_analytics: dict[str, Any],
     ) -> str:
         """Build per-frame human text for PPE compliance."""
-        total = sum(
-            1 for d in detections if d.get("category", "") in self._person_classes
-        )
+        total = sum(1 for d in detections if d.get("category", "") in self._person_classes)
         compliant = int(business_analytics.get("compliant_count", 0))
         violations = int(business_analytics.get("violation_count", 0))
         pct = float(business_analytics.get("compliance_pct", 0.0))
 
-        zone_prefix = f"Zone {self._zone_id} — " if self._zone_id and self._zone_id != "global" else ""
+        zone_prefix = (
+            f"Zone {self._zone_id} — " if self._zone_id and self._zone_id != "global" else ""
+        )
         lines = [
             f"{zone_prefix}CURRENT FRAME:",
             f"\t- Persons detected: {total}",

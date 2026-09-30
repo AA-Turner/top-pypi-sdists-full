@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class GithubInstallationReply(BaseModel):
     """
     GithubInstallationReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     app_name: Optional[StrictStr] = None
     app_id: Optional[StrictStr] = None
     url: Optional[StrictStr] = None
@@ -39,7 +41,6 @@ class GithubInstallationReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +65,7 @@ class GithubInstallationReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,12 +83,12 @@ class GithubInstallationReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "app_name": obj.get("app_name"),
-            "app_id": obj.get("app_id"),
-            "url": obj.get("url"),
-            "state": obj.get("state")
-        })
+        _obj = cls.model_validate(
+            {
+                "app_name": obj.get("app_name"),
+                "app_id": obj.get("app_id"),
+                "url": obj.get("url"),
+                "state": obj.get("state"),
+            }
+        )
         return _obj
-
-

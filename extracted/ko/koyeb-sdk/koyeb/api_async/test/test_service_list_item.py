@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.service_list_item import ServiceListItem
 
+
 class TestServiceListItem(unittest.TestCase):
     """ServiceListItem unit test stubs"""
 
@@ -27,9 +28,9 @@ class TestServiceListItem(unittest.TestCase):
 
     def make_instance(self, include_optional) -> ServiceListItem:
         """Test ServiceListItem
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `ServiceListItem`
         """
         model = ServiceListItem()
@@ -73,5 +74,6 @@ class TestServiceListItem(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: conan
-Version: 2.32.0
+Version: 2.33.0
 Summary: Conan C/C++ package manager
 Home-page: https://conan.io
 Author: JFrog LTD
@@ -15,14 +15,13 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: requests<3.0.0,>=2.25
@@ -34,6 +33,7 @@ Requires-Dist: fasteners>=0.15
 Requires-Dist: distro<2.0.0,>=1.4.0; platform_system == "Linux" or platform_system == "FreeBSD"
 Requires-Dist: Jinja2<4.0.0,>=3.0
 Requires-Dist: python-dateutil<3,>=2.8.0
+Requires-Dist: truststore<1.0,>=0.8; python_version >= "3.10"
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
@@ -57,6 +57,20 @@ Requires-Dist: pytest-cov; extra == "test"
 Provides-Extra: runners
 Requires-Dist: paramiko; extra == "runners"
 Requires-Dist: docker>=7.1.0; extra == "runners"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <picture>
   <!-- These are also used for https://github.com/conan-io/.github/blob/main/profile/README.md -->

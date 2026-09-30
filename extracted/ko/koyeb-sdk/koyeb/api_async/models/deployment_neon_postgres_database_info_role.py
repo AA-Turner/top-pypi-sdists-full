@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeploymentNeonPostgresDatabaseInfoRole(BaseModel):
     """
     DeploymentNeonPostgresDatabaseInfoRole
-    """ # noqa: E501
+    """  # noqa: E501
+
     name: Optional[StrictStr] = None
     secret_id: Optional[StrictStr] = None
     __properties: ClassVar[List[str]] = ["name", "secret_id"]
@@ -37,7 +39,6 @@ class DeploymentNeonPostgresDatabaseInfoRole(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class DeploymentNeonPostgresDatabaseInfoRole(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,10 +81,7 @@ class DeploymentNeonPostgresDatabaseInfoRole(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "secret_id": obj.get("secret_id")
-        })
+        _obj = cls.model_validate(
+            {"name": obj.get("name"), "secret_id": obj.get("secret_id")}
+        )
         return _obj
-
-

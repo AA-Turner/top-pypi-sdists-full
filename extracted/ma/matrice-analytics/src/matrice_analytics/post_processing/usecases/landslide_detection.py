@@ -39,6 +39,187 @@ from ..utils import (
     match_results_structure,
 )
 from ..utils.geometry_utils import get_bbox_bottom25_center, point_in_polygon
+from ..utils.post_processing_config_client import PostProcessingConfigClient
+
+#: Field names other trackers use for what this use case calls ``track_id``,
+#: in the order they are preferred when a detection carries several.
+_ALTERNATIVE_TRACK_ID_KEYS = (
+    "tracker_id",
+    "tracking_id",
+    "trackId",
+    "trackID",
+    "id",
+    "object_id",
+)
+
+
+def _bounding_box_from_detection(detection: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a detection's box as ``{xmin, ymin, xmax, ymax}``.
+
+    Accepts the four spellings a model or backend may send -- an already-shaped
+    ``bounding_box``, a ``bbox`` as dict or 4-sequence, corner ``xyxy``, and
+    centre-and-size ``xywh``, which is the only one needing conversion.
+
+    Args:
+        detection: One raw detection.
+
+    Returns:
+        The box, or ``{}`` when the detection carries none in any spelling.
+    """
+    if "bounding_box" in detection and isinstance(detection["bounding_box"], dict):
+        return detection["bounding_box"]
+    if "bbox" in detection:
+        bbox = detection["bbox"]
+        if isinstance(bbox, dict):
+            return bbox
+        if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+            x1, y1, x2, y2 = bbox[0], bbox[1], bbox[2], bbox[3]
+            return {"xmin": x1, "ymin": y1, "xmax": x2, "ymax": y2}
+    if (
+        "xyxy" in detection
+        and isinstance(detection["xyxy"], (list, tuple))
+        and len(detection["xyxy"]) >= 4
+    ):
+        x1, y1, x2, y2 = (
+            detection["xyxy"][0],
+            detection["xyxy"][1],
+            detection["xyxy"][2],
+            detection["xyxy"][3],
+        )
+        return {"xmin": x1, "ymin": y1, "xmax": x2, "ymax": y2}
+    if (
+        "xywh" in detection
+        and isinstance(detection["xywh"], (list, tuple))
+        and len(detection["xywh"]) >= 4
+    ):
+        cx, cy, w, h = (
+            detection["xywh"][0],
+            detection["xywh"][1],
+            detection["xywh"][2],
+            detection["xywh"][3],
+        )
+        x1, y1, x2, y2 = cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2
+        return {"xmin": x1, "ymin": y1, "xmax": x2, "ymax": y2}
+    return {}
+
+
+def _category_from_detection(
+    detection: Dict[str, Any],
+    index_to_category: Optional[Dict[int, str]],
+) -> Tuple[str, Optional[int]]:
+    """Return a detection's ``(category_name, category_id)``.
+
+    The class arrives under any of four keys and as either an index or a label.
+    An index keeps its numeric id and gains a name from ``index_to_category``
+    where the mapping has one; a label has no id to report.
+
+    Args:
+        detection: One raw detection.
+        index_to_category: Model index to label, when the config carries one.
+
+    Returns:
+        The name, and the numeric id when the class arrived as an index.
+    """
+    raw_cls = detection.get(
+        "category", detection.get("category_id", detection.get("class", detection.get("cls")))
+    )
+    label_name = detection.get("name")
+    if isinstance(raw_cls, int):
+        if index_to_category and raw_cls in index_to_category:
+            return index_to_category[raw_cls], raw_cls
+        return str(raw_cls), raw_cls
+    if isinstance(raw_cls, str):
+        return raw_cls, None
+    if label_name:
+        return str(label_name), None
+    return "unknown", None
+
+
+def _normalize_detection(
+    detection: Dict[str, Any],
+    index_to_category: Optional[Dict[int, str]],
+) -> Dict[str, Any]:
+    """Return one detection in the internal schema.
+
+    Mask, segmentation and identity fields are passed through untouched: this
+    normalises how a detection is addressed, not what it carries.
+
+    Args:
+        detection: One raw detection.
+        index_to_category: Model index to label, when the config carries one.
+
+    Returns:
+        The detection with ``category``, ``confidence`` and ``bounding_box``
+        always present, and ``category_id`` when the class arrived as an index.
+    """
+    category_name, category_id = _category_from_detection(detection, index_to_category)
+    confidence = detection.get("confidence", detection.get("conf", detection.get("score", 0.0)))
+    normalised: Dict[str, Any] = {
+        "category": category_name,
+        "confidence": confidence,
+        "bounding_box": _bounding_box_from_detection(detection),
+    }
+    if category_id is not None:
+        normalised["category_id"] = category_id
+    for key in (
+        "track_id",
+        "frame_id",
+        "masks",
+        "segmentation",
+        "mask_rle",
+        "shape",
+        "segmentation_area",
+        "class_id",
+        "detection_index",
+    ):
+        if key in detection and detection[key] is not None:
+            normalised[key] = detection[key]
+    return normalised
+
+
+def _adopt_alternative_track_ids(detections: List[Dict[str, Any]]) -> None:
+    """Copy the first vendor-specific track identifier onto ``track_id``, in place.
+
+    Trackers upstream of this use case spell the same field several ways. Every
+    stage downstream reads ``track_id`` only, so a detection that carries just
+    ``tracker_id`` would otherwise look untracked.
+
+    Args:
+        detections: Detection dicts to normalise. Entries that are not dicts, and
+            entries that already carry a non-``None`` ``track_id``, are left alone.
+    """
+    for detection in detections:
+        if not isinstance(detection, dict):
+            continue
+        if detection.get("track_id") is not None:
+            continue
+        for key in _ALTERNATIVE_TRACK_ID_KEYS:
+            candidate = detection.get(key)
+            if candidate is not None:
+                detection["track_id"] = candidate
+                break
+
+
+def _single_frame_number(stream_info: Optional[Dict[str, Any]]) -> Optional[int]:
+    """Return the frame number this batch covers, when it covers exactly one frame.
+
+    Args:
+        stream_info: Stream metadata, whose ``input_settings`` may carry a
+            ``start_frame``/``end_frame`` pair.
+
+    Returns:
+        The frame number when start and end name the same frame, else ``None``
+        (no stream info, missing bounds, or a genuine multi-frame range).
+    """
+    if not stream_info:
+        return None
+    input_settings = stream_info.get("input_settings", {})
+    start_frame = input_settings.get("start_frame")
+    end_frame = input_settings.get("end_frame")
+    if start_frame is not None and end_frame is not None and start_frame == end_frame:
+        return start_frame
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -82,7 +263,9 @@ class LandslideDetectionConfig(BaseConfig):
     landslide_area_percent: float = 50.0
 
     # Fire an alert as soon as ≥ 1 landslide detection is present.
-    alert_config: Optional[AlertConfig] = field(default_factory=lambda: AlertConfig(count_thresholds={"landslide": 1}))
+    alert_config: Optional[AlertConfig] = field(
+        default_factory=lambda: AlertConfig(count_thresholds={"landslide": 1})
+    )
 
     index_to_category: Optional[Dict[int, str]] = field(default_factory=lambda: {0: "landslide"})
 
@@ -101,7 +284,9 @@ class LandslideDetectionUseCase(BaseProcessor):
         """Return human-friendly category label for outputs."""
         return self.CATEGORY_DISPLAY.get(category, category)
 
-    def _init_tracker(self, config: LandslideDetectionConfig, stream_info: Optional[Dict[str, Any]]) -> None:
+    def _init_tracker(
+        self, config: LandslideDetectionConfig, stream_info: Optional[Dict[str, Any]]
+    ) -> None:
         """Initialize SORT or ByteTrack (same path as loitering_detection / area_utilization)."""
         if self.tracker is not None:
             return
@@ -116,7 +301,10 @@ class LandslideDetectionUseCase(BaseProcessor):
                 profile=TrackerProfile.DEFAULT,
                 **legacy_sort_tracker_overrides(config, method),
             )
-            self.logger.info("Landslide detection: initialized AdvancedTracker (seam) for legacy %s method", method)
+            self.logger.info(
+                "Landslide detection: initialized AdvancedTracker (seam) for legacy %s method",
+                method,
+            )
             return
 
         if method == "sort":
@@ -135,7 +323,7 @@ class LandslideDetectionUseCase(BaseProcessor):
                     fps_val = stream_info.get("input_settings", {}).get("original_fps")
                     if fps_val and float(fps_val) > 1e-6:
                         fps = float(fps_val)
-            except Exception:
+            except Exception:  # noqa: BLE001 - a stream's fps field can be any type; 30.0 is the fallback
                 fps = 30.0
 
             try:
@@ -158,52 +346,36 @@ class LandslideDetectionUseCase(BaseProcessor):
                 )
             return
 
-        self.logger.warning("Landslide detection: unknown tracking_method=%r; tracker disabled", method)
+        self.logger.warning(
+            "Landslide detection: unknown tracking_method=%r; tracker disabled", method
+        )
         self.tracker = None
 
     # ------------------------------------------------------------------
     # Camera resolution helpers
     # ------------------------------------------------------------------
 
-    def get_resolution(self, camera_id: str) -> Tuple[Optional[int], Optional[int]]:
-        """Fetch frame width/height for *camera_id* via CameraManagement API.
+    def _camera_config_client(self) -> "PostProcessingConfigClient":
+        """The client this usecase reads camera records through, built once.
 
-        Mirrors the same method in :class:`FootfallProcessor` so that landslide
-        detection can normalise segmentation-mask areas to a percentage of the
-        real frame.
+        Built without a session, so it rides the process session the container
+        already holds. Where there is none the lookup refuses and
+        :meth:`_resolve_resolution` falls back, which is what an analytics-only
+        container wants.
+        """
+        if self._config_client is None:
+            self._config_client = PostProcessingConfigClient(logger=self.logger)
+        return self._config_client
+
+    def get_resolution(self, camera_id: str) -> Tuple[Optional[int], Optional[int]]:
+        """Fetch frame width/height for *camera_id* from the camera record.
 
         Returns
         -------
-        tuple of (width, height) in pixels, or (None, None) on failure.
+        tuple of (width, height) in pixels, or (None, None) when the camera
+        record carries no usable frame size.
         """
-        try:
-            from matrice.camera_management import CameraManagement
-        except ImportError:
-            self.logger.warning("matrice.camera_management not available; install py_matrice for get_resolution")
-            return (None, None)
-        try:
-            camera_mgmt = CameraManagement(self.session)
-            all_cameras, fetch_error, _ = camera_mgmt.get_camera_streams_by_account()
-            if fetch_error or not all_cameras:
-                self.logger.warning("get_resolution: fetch_error=%s or no cameras", fetch_error)
-                return (None, None)
-            for cam in all_cameras:
-                cid = cam.get("id") or cam.get("_id")
-                if cid != camera_id:
-                    continue
-                settings = cam.get("customStreamSettings") or {}
-                if not isinstance(settings, dict):
-                    return (None, None)
-                w = settings.get("width")
-                h = settings.get("height")
-                if w is not None and h is not None:
-                    return (int(w), int(h))
-                return (None, None)
-            self.logger.warning("get_resolution: camera_id %s not found", camera_id)
-            return (None, None)
-        except Exception:
-            self.logger.exception("get_resolution failed for camera_id=%s", camera_id)
-            return (None, None)
+        return self._camera_config_client().get_resolution(camera_id)
 
     def _resolve_resolution(self, stream_info: Optional[Dict[str, Any]]) -> None:
         """Populate ``_frame_width`` / ``_frame_height`` from stream_info or API.
@@ -213,7 +385,8 @@ class LandslideDetectionUseCase(BaseProcessor):
 
         1. ``stream_info.input_settings.{width,height}``
         2. ``stream_info.{width,height}``
-        3. :meth:`get_resolution` via CameraManagement API (requires py_matrice)
+        3. :meth:`get_resolution`, which reads the camera record through
+           :class:`PostProcessingConfigClient` and needs a platform session
         4. Falls back to 1920 × 1080 if everything else fails.
         """
         if self._resolution_resolved:
@@ -299,8 +472,11 @@ class LandslideDetectionUseCase(BaseProcessor):
                 mask_space_area = total_frame_area
             try:
                 return min(100.0, (float(seg_area) / mask_space_area) * 100.0)
-            except (TypeError, ValueError, ZeroDivisionError):
-                pass
+            except (TypeError, ValueError, ZeroDivisionError) as exc:
+                # Not fatal: the polygon and bounding-box measurements below are
+                # the fallbacks for exactly this, so the reason is worth a line
+                # but the frame is still scored.
+                self.logger.debug("segmentation_area unusable (%s); trying polygon", exc)
 
         # Polygon / contour area from segmentation field
         seg = det.get("segmentation")
@@ -312,8 +488,9 @@ class LandslideDetectionUseCase(BaseProcessor):
 
                     area = float(cv2.contourArea(polygon_array))
                     return min(100.0, (area / total_frame_area) * 100.0)
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - cv2 raises its own error types
+                # Falls through to the bounding box, which needs no cv2 at all.
+                self.logger.debug("contour area unusable (%s); trying bounding box", exc)
 
         # Bounding-box area as last resort
         bbox = det.get("bounding_box", {})
@@ -366,7 +543,9 @@ class LandslideDetectionUseCase(BaseProcessor):
         single-detection coverage (retained for analytics consumers).
         """
         target_detections = [
-            d for d in counting_summary.get("detections", []) if d.get("category") in config.target_categories
+            d
+            for d in counting_summary.get("detections", [])
+            if d.get("category") in config.target_categories
         ]
         area_pcts = [float(d.get("mask_area_percentage", 0.0)) for d in target_detections]
         total_area_pct = sum(area_pcts)
@@ -388,6 +567,8 @@ class LandslideDetectionUseCase(BaseProcessor):
         self.CASE_TYPE: Optional[str] = "landslide_detection"
         self.CASE_VERSION: Optional[str] = "1.0"
 
+        self._config_client: Optional[PostProcessingConfigClient] = None
+
         self.target_categories: List[str] = ["landslide"]
 
         # Tracker state
@@ -405,9 +586,15 @@ class LandslideDetectionUseCase(BaseProcessor):
         self.start_timer: Optional[str] = None
 
         # Per-category cumulative and per-frame track-ID sets.
-        self._per_category_total_track_ids: Dict[str, set] = {cat: set() for cat in self.target_categories}
-        self._current_frame_track_ids: Dict[str, set] = {cat: set() for cat in self.target_categories}
-        self._new_track_ids_this_frame: Dict[str, set] = {cat: set() for cat in self.target_categories}
+        self._per_category_total_track_ids: Dict[str, set] = {
+            cat: set() for cat in self.target_categories
+        }
+        self._current_frame_track_ids: Dict[str, set] = {
+            cat: set() for cat in self.target_categories
+        }
+        self._new_track_ids_this_frame: Dict[str, set] = {
+            cat: set() for cat in self.target_categories
+        }
         self._tracked_in_zones: set = set()
         self._total_count: int = 0
         self._last_update_time: float = time.time()
@@ -441,6 +628,172 @@ class LandslideDetectionUseCase(BaseProcessor):
     # Public entry point
     # ------------------------------------------------------------------
 
+    def _filter_by_confidence_and_category(
+        self, data: Any, config: LandslideDetectionConfig
+    ) -> List[Dict[str, Any]]:
+        """Drop detections this use case will not score.
+
+        Applies, in order: the configured confidence floor, index-to-label
+        mapping, the caller's ``target_categories`` allow-list, and finally the
+        use case's own :attr:`target_categories` — which is the authority, so a
+        caller cannot widen the set beyond what landslide detection understands.
+
+        Args:
+            data: Detections in the internal schema.
+            config: Configuration carrying the thresholds and category sets.
+
+        Returns:
+            The surviving detections.
+        """
+        if config.confidence_threshold is not None:
+            processed_data = filter_by_confidence(data, config.confidence_threshold)
+            self.logger.debug(
+                f"Applied confidence filtering with threshold {config.confidence_threshold}"
+            )
+        else:
+            processed_data = data
+            self.logger.debug("Skipped confidence filtering – no threshold provided")
+
+        if config.index_to_category:
+            processed_data = apply_category_mapping(processed_data, config.index_to_category)
+
+        if config.target_categories:
+            processed_data = [
+                d for d in processed_data if d.get("category") in config.target_categories
+            ]
+            self.logger.debug("Applied target category filtering")
+
+        return [d for d in processed_data if d.get("category") in self.target_categories]
+
+    def _annotate_mask_area(
+        self, detections: List[Dict[str, Any]], total_frame_area: float
+    ) -> None:
+        """Record how much of the frame each detection's mask covers, in place.
+
+        Unlike flood detection, no detection is dropped here: landslide severity
+        is derived from the total covered area across the frame, so even a small
+        mask contributes.
+
+        Args:
+            detections: Detections to annotate with ``mask_area_percentage`` and
+                ``mask_area_pixels``.
+            total_frame_area: Frame area in pixels, used as the denominator.
+        """
+        for det in detections:
+            area_pct = self._calculate_mask_area_percentage(det, total_frame_area)
+            det["mask_area_percentage"] = round(area_pct, 4)
+            det["mask_area_pixels"] = int(area_pct / 100.0 * total_frame_area)
+
+    def _smooth_bounding_boxes(
+        self, detections: List[Dict[str, Any]], config: LandslideDetectionConfig
+    ) -> List[Dict[str, Any]]:
+        """Stabilise box coordinates across frames, when smoothing is enabled.
+
+        The tracker is built from ``config`` on first use and then reused, so its
+        window spans the whole stream rather than restarting each frame.
+
+        Args:
+            detections: Detections whose boxes may be smoothed.
+            config: Configuration carrying the smoothing settings.
+
+        Returns:
+            The smoothed detections, or ``detections`` unchanged when smoothing
+            is disabled.
+        """
+        if not config.enable_smoothing:
+            return detections
+        if self.smoothing_tracker is None:
+            smoothing_config = BBoxSmoothingConfig(
+                smoothing_algorithm=config.smoothing_algorithm,
+                window_size=config.smoothing_window_size,
+                cooldown_frames=config.smoothing_cooldown_frames,
+                confidence_threshold=config.confidence_threshold,
+                confidence_range_factor=config.smoothing_confidence_range_factor,
+                enable_smoothing=True,
+            )
+            self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+        return bbox_smoothing(detections, self.smoothing_tracker.config, self.smoothing_tracker)
+
+    def _assign_track_ids(
+        self,
+        detections: List[Dict[str, Any]],
+        config: LandslideDetectionConfig,
+        stream_info: Optional[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Give every detection a stable identity across frames.
+
+        Prefers the configured tracker (SORT or ByteTrack), which assigns IDs
+        without replacing the model's boxes; falls back to the simple tracker,
+        and finally to a per-frame synthetic ID so downstream stages always have
+        something to group by. A tracker failure is logged and leaves the
+        detections untracked rather than failing the frame.
+
+        Args:
+            detections: Detections to identify.
+            config: Configuration selecting which tracker to use.
+            stream_info: Stream metadata ByteTrack needs to key its state.
+
+        Returns:
+            The detections, each carrying a ``track_id``.
+        """
+        if getattr(config, "enable_tracking", True):
+            self._init_tracker(config, stream_info)
+            if self.tracker is not None:
+                try:
+                    if isinstance(self.tracker, ByteTrackWrapper):
+                        return self.tracker.update(detections, stream_info=stream_info)
+                    return self.tracker.update(detections)
+                except Exception as exc:  # noqa: BLE001 - a tracker fault costs identity, not the frame
+                    self.logger.warning(f"Landslide detection tracker update failed: {exc}")
+            return detections
+        if getattr(config, "enable_simple_tracker", False):
+            return self._simple_tracker_update(detections)
+        for idx, det in enumerate(detections):
+            if det.get("track_id") is None:
+                det["track_id"] = f"raw_{self._total_frame_counter}_{idx}"
+        return detections
+
+    def _analyze_zones(
+        self,
+        detections: List[Dict[str, Any]],
+        counting_summary: Dict[str, Any],
+        config: LandslideDetectionConfig,
+        stream_info: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Count detections per configured zone and enrich them with track history.
+
+        When zones produce counts, ``counting_summary`` is updated in place to
+        count unique tracks per category rather than raw detections, so an object
+        lingering in a zone is counted once.
+
+        Args:
+            detections: Detections to place into zones.
+            counting_summary: Frame counting summary, updated in place with
+                ``per_category_count`` and ``total_count``.
+            config: Configuration carrying ``zone_config``.
+            stream_info: Stream metadata used to scale zone polygons.
+
+        Returns:
+            Per-zone analysis, empty when no detection falls in any zone.
+        """
+        zone_analysis = count_objects_in_zones(detections, config.zone_config["zones"], stream_info)
+        if not zone_analysis:
+            return zone_analysis
+
+        enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, detections, config)
+        for zone_name, enhanced_data in enhanced_zone_analysis.items():
+            zone_analysis[zone_name] = enhanced_data
+
+        per_category_count = {
+            cat: len(self._current_frame_track_ids.get(cat, set()))
+            for cat in self.target_categories
+        }
+        counting_summary["per_category_count"] = {
+            k: v for k, v in per_category_count.items() if v > 0
+        }
+        counting_summary["total_count"] = sum(per_category_count.values())
+        return zone_analysis
+
     def process(
         self,
         data: Any = None,
@@ -459,7 +812,9 @@ class LandslideDetectionUseCase(BaseProcessor):
         Returns:
             :class:`ProcessingResult` containing ``agg_summary`` payload.
         """
-        processing_start = time.time()
+        # Monotonic, not wall clock: this is a duration, and an NTP step mid-frame
+        # would otherwise report a negative or absurd latency.
+        processing_start = time.monotonic()
 
         is_valid_config = isinstance(config, LandslideDetectionConfig) or (
             hasattr(config, "usecase")
@@ -497,75 +852,11 @@ class LandslideDetectionUseCase(BaseProcessor):
         context.confidence_threshold = config.confidence_threshold
         config.confidence_threshold = 0.25
 
-        # Confidence filtering
-        if config.confidence_threshold is not None:
-            processed_data = filter_by_confidence(data, config.confidence_threshold)
-            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
-        else:
-            processed_data = data
-            self.logger.debug("Skipped confidence filtering – no threshold provided")
+        processed_data = self._filter_by_confidence_and_category(data, config)
 
-        # Index-to-category label mapping
-        if config.index_to_category:
-            processed_data = apply_category_mapping(processed_data, config.index_to_category)
-
-        # Retain only target category detections
-        if config.target_categories:
-            processed_data = [d for d in processed_data if d.get("category") in config.target_categories]
-            self.logger.debug("Applied target category filtering")
-
-        processed_data = [d for d in processed_data if d.get("category") in self.target_categories]
-
-        # Normalise alternative track-ID field names to ``track_id``
-        for det in processed_data:
-            if not isinstance(det, dict):
-                continue
-            if det.get("track_id") is not None:
-                continue
-            for key in (
-                "tracker_id",
-                "tracking_id",
-                "trackId",
-                "trackID",
-                "id",
-                "object_id",
-            ):
-                candidate = det.get(key)
-                if candidate is not None:
-                    det["track_id"] = candidate
-                    break
-
-        # BBox smoothing
-        if config.enable_smoothing:
-            if self.smoothing_tracker is None:
-                smoothing_config = BBoxSmoothingConfig(
-                    smoothing_algorithm=config.smoothing_algorithm,
-                    window_size=config.smoothing_window_size,
-                    cooldown_frames=config.smoothing_cooldown_frames,
-                    confidence_threshold=config.confidence_threshold,
-                    confidence_range_factor=config.smoothing_confidence_range_factor,
-                    enable_smoothing=True,
-                )
-                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-
-        # Tracking: SORT / ByteTrack assign stable IDs without replacing model boxes.
-        if getattr(config, "enable_tracking", True):
-            self._init_tracker(config, stream_info)
-            if self.tracker is not None:
-                try:
-                    if isinstance(self.tracker, ByteTrackWrapper):
-                        processed_data = self.tracker.update(processed_data, stream_info=stream_info)
-                    else:
-                        processed_data = self.tracker.update(processed_data)
-                except Exception as exc:
-                    self.logger.warning(f"Landslide detection tracker update failed: {exc}")
-        elif getattr(config, "enable_simple_tracker", False):
-            processed_data = self._simple_tracker_update(processed_data)
-        else:
-            for idx, det in enumerate(processed_data):
-                if det.get("track_id") is None:
-                    det["track_id"] = f"raw_{self._total_frame_counter}_{idx}"
+        _adopt_alternative_track_ids(processed_data)
+        processed_data = self._smooth_bounding_boxes(processed_data, config)
+        processed_data = self._assign_track_ids(processed_data, config, stream_info)
 
         # ------------------------------------------------------------------
         # Resolve frame resolution (once per session) and annotate each
@@ -577,23 +868,12 @@ class LandslideDetectionUseCase(BaseProcessor):
         self._resolve_resolution(stream_info)
         total_frame_area = self._total_frame_area
         landslide_threshold = float(getattr(config, "landslide_area_percent", 50.0))
-
-        for det in processed_data:
-            area_pct = self._calculate_mask_area_percentage(det, total_frame_area)
-            det["mask_area_percentage"] = round(area_pct, 4)
-            det["mask_area_pixels"] = int(area_pct / 100.0 * total_frame_area)
+        self._annotate_mask_area(processed_data, total_frame_area)
 
         self._update_tracking_state(processed_data, _has_zones=has_zones)
         self._total_frame_counter += 1
 
-        # Resolve frame number from stream_info when available
-        frame_number: Optional[int] = None
-        if stream_info:
-            input_settings = stream_info.get("input_settings", {})
-            start_frame = input_settings.get("start_frame")
-            end_frame = input_settings.get("end_frame")
-            if start_frame is not None and end_frame is not None and start_frame == end_frame:
-                frame_number = start_frame
+        frame_number = _single_frame_number(stream_info)
 
         # Counting summaries
         counting_summary = self._count_categories(processed_data, config)
@@ -602,27 +882,19 @@ class LandslideDetectionUseCase(BaseProcessor):
         counting_summary["categories"] = {}
         for detection in processed_data:
             category = detection.get("category", "unknown")
-            counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
+            counting_summary["categories"][category] = (
+                counting_summary["categories"].get(category, 0) + 1
+            )
 
         # Attach area metadata for downstream methods.
         counting_summary["landslide_area_threshold"] = landslide_threshold
         counting_summary["total_frame_area"] = total_frame_area
 
-        # Zone analysis
         zone_analysis: Dict[str, Any] = {}
         if has_zones:
-            frame_data = processed_data
-            zone_analysis = count_objects_in_zones(frame_data, config.zone_config["zones"], stream_info)
-            if zone_analysis:
-                enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, processed_data, config)
-                for zone_name, enhanced_data in enhanced_zone_analysis.items():
-                    zone_analysis[zone_name] = enhanced_data
-
-                per_category_count = {
-                    cat: len(self._current_frame_track_ids.get(cat, set())) for cat in self.target_categories
-                }
-                counting_summary["per_category_count"] = {k: v for k, v in per_category_count.items() if v > 0}
-                counting_summary["total_count"] = sum(per_category_count.values())
+            zone_analysis = self._analyze_zones(
+                processed_data, counting_summary, config, stream_info
+            )
 
         # Downstream outputs
         alerts = self._check_alerts(counting_summary, zone_analysis, frame_number, config)
@@ -669,7 +941,7 @@ class LandslideDetectionUseCase(BaseProcessor):
             context=context,
         )
 
-        proc_time = time.time() - processing_start
+        proc_time = time.monotonic() - processing_start
         processing_latency_ms = proc_time * 1000.0
         processing_fps = (1.0 / proc_time) if proc_time > 0 else None
         print(
@@ -706,7 +978,9 @@ class LandslideDetectionUseCase(BaseProcessor):
         zones = config.zone_config["zones"]
 
         track_to_cat: Dict[Any, str] = {
-            det.get("track_id"): det.get("category") for det in detections if det.get("track_id") is not None
+            det.get("track_id"): det.get("category")
+            for det in detections
+            if det.get("track_id") is not None
         }
 
         current_frame_zone_tracks: Dict[str, set] = {}
@@ -833,7 +1107,12 @@ class LandslideDetectionUseCase(BaseProcessor):
                 if not bbox and mask_info:
                     raw_bbox = mask_info.get("bbox", [])
                     if isinstance(raw_bbox, (list, tuple)) and len(raw_bbox) >= 4:
-                        bbox = {"xmin": raw_bbox[0], "ymin": raw_bbox[1], "xmax": raw_bbox[2], "ymax": raw_bbox[3]}
+                        bbox = {
+                            "xmin": raw_bbox[0],
+                            "ymin": raw_bbox[1],
+                            "xmax": raw_bbox[2],
+                            "ymax": raw_bbox[3],
+                        }
 
                 merged_det: Dict[str, Any] = {
                     "category": det.get("category", "unknown"),
@@ -851,77 +1130,23 @@ class LandslideDetectionUseCase(BaseProcessor):
             data = merged
 
         # ------------------------------------------------------------------
-        # 2. Helpers for flat list / legacy dict normalisation
+        # 2. Flat list / legacy dict normalisation
         # ------------------------------------------------------------------
-
-        def to_bbox_dict(d: Dict[str, Any]) -> Dict[str, Any]:
-            if "bounding_box" in d and isinstance(d["bounding_box"], dict):
-                return d["bounding_box"]
-            if "bbox" in d:
-                bbox = d["bbox"]
-                if isinstance(bbox, dict):
-                    return bbox
-                if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
-                    x1, y1, x2, y2 = bbox[0], bbox[1], bbox[2], bbox[3]
-                    return {"xmin": x1, "ymin": y1, "xmax": x2, "ymax": y2}
-            if "xyxy" in d and isinstance(d["xyxy"], (list, tuple)) and len(d["xyxy"]) >= 4:
-                x1, y1, x2, y2 = d["xyxy"][0], d["xyxy"][1], d["xyxy"][2], d["xyxy"][3]
-                return {"xmin": x1, "ymin": y1, "xmax": x2, "ymax": y2}
-            if "xywh" in d and isinstance(d["xywh"], (list, tuple)) and len(d["xywh"]) >= 4:
-                cx, cy, w, h = d["xywh"][0], d["xywh"][1], d["xywh"][2], d["xywh"][3]
-                x1, y1, x2, y2 = cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2
-                return {"xmin": x1, "ymin": y1, "xmax": x2, "ymax": y2}
-            return {}
-
-        def resolve_category(d: Dict[str, Any]) -> Tuple[str, Optional[int]]:
-            raw_cls = d.get("category", d.get("category_id", d.get("class", d.get("cls"))))
-            label_name = d.get("name")
-            if isinstance(raw_cls, int):
-                if index_to_category and raw_cls in index_to_category:
-                    return index_to_category[raw_cls], raw_cls
-                return str(raw_cls), raw_cls
-            if isinstance(raw_cls, str):
-                return raw_cls, None
-            if label_name:
-                return str(label_name), None
-            return "unknown", None
-
-        def normalize_det(det: Dict[str, Any]) -> Dict[str, Any]:
-            category_name, category_id = resolve_category(det)
-            confidence = det.get("confidence", det.get("conf", det.get("score", 0.0)))
-            bbox = to_bbox_dict(det)
-            normalised: Dict[str, Any] = {
-                "category": category_name,
-                "confidence": confidence,
-                "bounding_box": bbox,
-            }
-            if category_id is not None:
-                normalised["category_id"] = category_id
-            # Pass through all mask/segmentation and identity fields unchanged.
-            for key in (
-                "track_id",
-                "frame_id",
-                "masks",
-                "segmentation",
-                "mask_rle",
-                "shape",
-                "segmentation_area",
-                "class_id",
-                "detection_index",
-            ):
-                if key in det and det[key] is not None:
-                    normalised[key] = det[key]
-            return normalised
-
         if isinstance(data, list):
-            return [normalize_det(d) if isinstance(d, dict) else d for d in data]
+            return [
+                _normalize_detection(d, index_to_category) if isinstance(d, dict) else d
+                for d in data
+            ]
         if isinstance(data, dict):
             normalised_dict: Dict[str, Any] = {}
             for k, v in data.items():
                 if isinstance(v, list):
-                    normalised_dict[k] = [normalize_det(d) if isinstance(d, dict) else d for d in v]
+                    normalised_dict[k] = [
+                        _normalize_detection(d, index_to_category) if isinstance(d, dict) else d
+                        for d in v
+                    ]
                 elif isinstance(v, dict):
-                    normalised_dict[k] = normalize_det(v)
+                    normalised_dict[k] = _normalize_detection(v, index_to_category)
                 else:
                     normalised_dict[k] = v
             return normalised_dict
@@ -971,7 +1196,10 @@ class LandslideDetectionUseCase(BaseProcessor):
         total_detections = summary.get("total_count", 0)
         per_category_count = summary.get("per_category_count", {})
 
-        if not (hasattr(config.alert_config, "count_thresholds") and config.alert_config.count_thresholds):
+        if not (
+            hasattr(config.alert_config, "count_thresholds")
+            and config.alert_config.count_thresholds
+        ):
             return alerts
 
         for category, threshold in config.alert_config.count_thresholds.items():
@@ -988,12 +1216,15 @@ class LandslideDetectionUseCase(BaseProcessor):
                         "alert_id": f"alert_{category}_{frame_key}",
                         "incident_category": self.CASE_TYPE,
                         "threshold_level": threshold,
-                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "ascending": get_trend(
+                            self._ascending_alert_list, lookback=900, threshold=0.8
+                        ),
                         "settings": {
                             t: v
                             for t, v in zip(
                                 getattr(config.alert_config, "alert_type", ["Default"]),
                                 getattr(config.alert_config, "alert_value", ["JSON"]),
+                                strict=False,
                             )
                         },
                     }
@@ -1003,6 +1234,103 @@ class LandslideDetectionUseCase(BaseProcessor):
     # ------------------------------------------------------------------
     # Incidents
     # ------------------------------------------------------------------
+
+    def _open_or_continue_episode(
+        self,
+        total_area_pct: float,
+        landslide_threshold: float,
+        start_timestamp: str,
+        current_timestamp: str,
+    ) -> None:
+        """Start a new landslide episode, or extend the one already open.
+
+        A brand-new landslide track appearing this frame opens a new episode
+        even while one is active: tracking has already decided the gap or
+        geometry break since the last qualifying detection was enough (see
+        :meth:`_merge_or_register_track`) to be a genuinely new occurrence, so
+        incident numbering follows the same signal as the count. Otherwise the
+        open episode keeps its id and only its rolling maximum and severity move.
+
+        Args:
+            total_area_pct: This frame's total landslide coverage, as a
+                percentage of the frame.
+            landslide_threshold: The percentage used as the severity reference.
+            start_timestamp: Stream start time, preferred for a new episode.
+            current_timestamp: This frame's time, used when there is no start.
+        """
+        is_new_occurrence = bool(self._new_track_ids_this_frame.get("landslide", set()))
+
+        if not self._landslide_incident_active or is_new_occurrence:
+            self._landslide_incident_active = True
+            self._landslide_episode_id += 1
+            self._landslide_episode_start_ts = start_timestamp or current_timestamp
+            self._landslide_episode_max_area_pct = total_area_pct
+            self._landslide_episode_severity = self._area_pct_to_severity(
+                total_area_pct, landslide_threshold
+            )
+            self.logger.info(
+                "Landslide episode #%d opened%s: total_area_pct=%.2f%%, severity=%s",
+                self._landslide_episode_id,
+                " (new landslide track)" if is_new_occurrence else "",
+                total_area_pct,
+                self._landslide_episode_severity,
+            )
+        elif total_area_pct > self._landslide_episode_max_area_pct:
+            self._landslide_episode_max_area_pct = total_area_pct
+            self._landslide_episode_severity = self._area_pct_to_severity(
+                total_area_pct, landslide_threshold
+            )
+
+    def _close_episode_if_cold(self, wall_now: float) -> None:
+        """Close the open landslide episode once it has been quiet for the cooldown.
+
+        Args:
+            wall_now: Current wall-clock time, in seconds.
+        """
+        if not self._landslide_incident_active:
+            return
+        elapsed_since_active = wall_now - self._landslide_last_active_wall
+        if elapsed_since_active >= self._landslide_incident_cooldown:
+            self.logger.info(
+                "Landslide episode #%d closed after %.1fs of inactivity",
+                self._landslide_episode_id,
+                elapsed_since_active,
+            )
+            self._landslide_incident_active = False
+
+    def _build_alert_settings(self, config: LandslideDetectionConfig) -> List[Dict[str, Any]]:
+        """The alert-settings block carried on an incident, or an empty list.
+
+        Args:
+            config: This run's configuration.
+
+        Returns:
+            A single-entry list when the config declares alert types, else ``[]``.
+        """
+        if not (config.alert_config and hasattr(config.alert_config, "alert_type")):
+            return []
+        return [
+            {
+                "alert_type": getattr(config.alert_config, "alert_type", ["Default"]),
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": (
+                    config.alert_config.count_thresholds
+                    if hasattr(config.alert_config, "count_thresholds")
+                    else {}
+                ),
+                "ascending": True,
+                "settings": {
+                    t: v
+                    # Types and values are paired positionally, and a config that
+                    # declares more of one than the other keeps the shorter pairing.
+                    for t, v in zip(
+                        getattr(config.alert_config, "alert_type", ["Default"]),
+                        getattr(config.alert_config, "alert_value", ["JSON"]),
+                        strict=False,
+                    )
+                },
+            }
+        ]
 
     def _generate_incidents(
         self,
@@ -1055,7 +1383,9 @@ class LandslideDetectionUseCase(BaseProcessor):
         _ = (_zone_analysis,)
 
         landslide_threshold = float(
-            counting_summary.get("landslide_area_threshold", getattr(config, "landslide_area_percent", 50.0))
+            counting_summary.get(
+                "landslide_area_threshold", getattr(config, "landslide_area_percent", 50.0)
+            )
         )
         current_timestamp = self._get_current_timestamp_str(stream_info)
         start_timestamp = self._get_start_timestamp_str(stream_info)
@@ -1073,62 +1403,13 @@ class LandslideDetectionUseCase(BaseProcessor):
 
         if landslide_active_this_frame:
             self._ascending_alert_list.append(1)
-
-            # A brand-new landslide track appearing this frame means tracking
-            # already decided the gap/geometry break since the last
-            # qualifying detection was enough (see _merge_or_register_track)
-            # to be a genuinely new occurrence -- open a new episode right
-            # away for that too, in addition to the original "incident was
-            # fully cold" case, so incident numbering tracks the same signal
-            # as the count.
-            new_track_ids_this_frame = self._new_track_ids_this_frame.get("landslide", set())
-            is_new_occurrence = bool(new_track_ids_this_frame)
-
-            # Open or continue episode.
-            if not self._landslide_incident_active or is_new_occurrence:
-                self._landslide_incident_active = True
-                self._landslide_episode_id += 1
-                self._landslide_episode_start_ts = start_timestamp or current_timestamp
-                self._landslide_episode_max_area_pct = total_area_pct
-                self._landslide_episode_severity = self._area_pct_to_severity(total_area_pct, landslide_threshold)
-                self.logger.info(
-                    "Landslide episode #%d opened%s: total_area_pct=%.2f%%, severity=%s",
-                    self._landslide_episode_id,
-                    " (new landslide track)" if is_new_occurrence else "",
-                    total_area_pct,
-                    self._landslide_episode_severity,
-                )
-            else:
-                # Update rolling max total coverage and escalate severity if needed.
-                if total_area_pct > self._landslide_episode_max_area_pct:
-                    self._landslide_episode_max_area_pct = total_area_pct
-                    self._landslide_episode_severity = self._area_pct_to_severity(total_area_pct, landslide_threshold)
-
+            self._open_or_continue_episode(
+                total_area_pct, landslide_threshold, start_timestamp, current_timestamp
+            )
             self._landslide_last_active_wall = wall_now
 
             level = self._area_pct_to_severity(total_area_pct, landslide_threshold)
-
-            alert_settings: List[Dict[str, Any]] = []
-            if config.alert_config and hasattr(config.alert_config, "alert_type"):
-                alert_settings.append(
-                    {
-                        "alert_type": getattr(config.alert_config, "alert_type", ["Default"]),
-                        "incident_category": self.CASE_TYPE,
-                        "threshold_level": (
-                            config.alert_config.count_thresholds
-                            if hasattr(config.alert_config, "count_thresholds")
-                            else {}
-                        ),
-                        "ascending": True,
-                        "settings": {
-                            t: v
-                            for t, v in zip(
-                                getattr(config.alert_config, "alert_type", ["Default"]),
-                                getattr(config.alert_config, "alert_value", ["JSON"]),
-                            )
-                        },
-                    }
-                )
+            alert_settings = self._build_alert_settings(config)
 
             human_text = (
                 f"LANDSLIDE INCIDENT DETECTED @ {current_timestamp}:\n"
@@ -1155,18 +1436,7 @@ class LandslideDetectionUseCase(BaseProcessor):
 
         else:
             self._ascending_alert_list.append(0)
-
-            # Close episode after cooldown.
-            if self._landslide_incident_active:
-                elapsed_since_active = wall_now - self._landslide_last_active_wall
-                if elapsed_since_active >= self._landslide_incident_cooldown:
-                    self.logger.info(
-                        "Landslide episode #%d closed after %.1fs of inactivity",
-                        self._landslide_episode_id,
-                        elapsed_since_active,
-                    )
-                    self._landslide_incident_active = False
-
+            self._close_episode_if_cold(wall_now)
             return [{}]
 
     # ------------------------------------------------------------------
@@ -1283,7 +1553,9 @@ class LandslideDetectionUseCase(BaseProcessor):
         total_counts_dict = counting_summary.get("total_counts", {})
         per_category_count = counting_summary.get("per_category_count", {})
         current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
-        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_start_timestamp = self._get_current_timestamp_str(
+            stream_info, precision=True
+        )
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
 
         new_counts_dict = self.get_new_counts_this_frame()
@@ -1307,10 +1579,12 @@ class LandslideDetectionUseCase(BaseProcessor):
         ]
         if not current_counts and total_detections > 0:
             current_counts = [
-                {"category": self._display_category(cat), "count": count} for cat, count in per_category_count.items()
+                {"category": self._display_category(cat), "count": count}
+                for cat, count in per_category_count.items()
             ]
         current_new_counts = [
-            {"category": self._display_category(cat), "count": count} for cat, count in new_counts_dict.items()
+            {"category": self._display_category(cat), "count": count}
+            for cat, count in new_counts_dict.items()
         ]
 
         curr_total = sum(c.get("count", 0) for c in current_counts)
@@ -1319,7 +1593,9 @@ class LandslideDetectionUseCase(BaseProcessor):
         print(f"[STATS] F{frame_number} | current={curr_total} new={new_total} total={total_total}")
 
         landslide_threshold = float(
-            counting_summary.get("landslide_area_threshold", getattr(config, "landslide_area_percent", 50.0))
+            counting_summary.get(
+                "landslide_area_threshold", getattr(config, "landslide_area_percent", 50.0)
+            )
         )
 
         detections_output: List[Dict[str, Any]] = []
@@ -1341,7 +1617,11 @@ class LandslideDetectionUseCase(BaseProcessor):
         # Build landslide_analytics summary block (severity from total frame coverage).
         max_area_pct = max(all_area_pcts) if all_area_pcts else 0.0
         total_area_pct = sum(all_area_pcts)
-        severity = self._area_pct_to_severity(total_area_pct, landslide_threshold) if all_area_pcts else "none"
+        severity = (
+            self._area_pct_to_severity(total_area_pct, landslide_threshold)
+            if all_area_pcts
+            else "none"
+        )
         landslide_analytics: Dict[str, Any] = {
             "landslide_detection_count": len(all_area_pcts),
             "max_landslide_area_pct": round(max_area_pct, 4),
@@ -1352,58 +1632,14 @@ class LandslideDetectionUseCase(BaseProcessor):
             "episode_id": self._landslide_episode_id,
         }
 
-        alert_settings: List[Dict[str, Any]] = []
-        if config.alert_config and hasattr(config.alert_config, "alert_type"):
-            alert_settings.append(
-                {
-                    "alert_type": getattr(config.alert_config, "alert_type", ["Default"]),
-                    "incident_category": self.CASE_TYPE,
-                    "threshold_level": (
-                        config.alert_config.count_thresholds if hasattr(config.alert_config, "count_thresholds") else {}
-                    ),
-                    "ascending": True,
-                    "settings": {
-                        t: v
-                        for t, v in zip(
-                            getattr(config.alert_config, "alert_type", ["Default"]),
-                            getattr(config.alert_config, "alert_value", ["JSON"]),
-                        )
-                    },
-                }
-            )
+        alert_settings = self._build_alert_settings(config)
+        human_text = self._frame_summary_text(
+            current_timestamp, zone_analysis, detection_count_by_category, new_counts_dict
+        )
 
-        human_text_lines: List[str] = [f"CURRENT FRAME @ {current_timestamp}:"]
-
-        if zone_analysis:
-            human_text_lines.append("\t- Landslides Detected by Zone:")
-            for zone_name, zone_data in zone_analysis.items():
-                if isinstance(zone_data, dict):
-                    if "current_count" in zone_data:
-                        zone_current = zone_data.get("current_count", 0)
-                    else:
-                        counts_dict = (
-                            zone_data.get("original_counts")
-                            if isinstance(zone_data.get("original_counts"), dict)
-                            else zone_data
-                        )
-                        zone_current = counts_dict.get(
-                            "total",
-                            sum(v for v in counts_dict.values() if isinstance(v, (int, float))),
-                        )
-                else:
-                    zone_current = 0
-                human_text_lines.append(f"\t\t- {zone_name}: {int(zone_current)}")
-        else:
-            for cat, count in detection_count_by_category.items():
-                display_cat = self._display_category(cat)
-                new_count = new_counts_dict.get(cat, 0)
-                human_text_lines.append(f"\t- Landslides in Frame ({display_cat}): {count}")
-                human_text_lines.append(f"\t- New Landslides (just entered) ({display_cat}): {new_count}")
-
-        human_text_lines.append("")
-        human_text = "\n".join(human_text_lines)
-
-        reset_settings = [{"interval_type": "daily", "reset_time": {"value": 0, "time_unit": "hour"}}]
+        reset_settings = [
+            {"interval_type": "daily", "reset_time": {"value": 0, "time_unit": "hour"}}
+        ]
         tracking_stat = self.create_tracking_stats(
             total_counts=total_counts,
             current_counts=current_counts,
@@ -1422,6 +1658,69 @@ class LandslideDetectionUseCase(BaseProcessor):
         tracking_stat["landslide_analytics"] = landslide_analytics
         tracking_stats.append(tracking_stat)
         return tracking_stats
+
+    def _frame_summary_text(
+        self,
+        current_timestamp: str,
+        zone_analysis: Dict[str, Any],
+        detection_count_by_category: Dict[str, int],
+        new_counts_dict: Dict[str, int],
+    ) -> str:
+        """The human-readable summary of what this frame saw.
+
+        Reports by zone where the config defines zones, and by category
+        otherwise, because a zoned deployment cares which zone slipped and an
+        unzoned one has only the frame total to report.
+
+        Args:
+            current_timestamp: This frame's time, as the heading.
+            zone_analysis: Per-zone counts, empty when no zones are configured.
+            detection_count_by_category: Frame totals per category.
+            new_counts_dict: Per-category count of tracks first seen this frame.
+
+        Returns:
+            The summary, one line per zone or category, newline-joined.
+        """
+        lines: List[str] = [f"CURRENT FRAME @ {current_timestamp}:"]
+
+        if zone_analysis:
+            lines.append("\t- Landslides Detected by Zone:")
+            for zone_name, zone_data in zone_analysis.items():
+                lines.append(f"\t\t- {zone_name}: {int(self._zone_current_count(zone_data))}")
+        else:
+            for cat, count in detection_count_by_category.items():
+                display_cat = self._display_category(cat)
+                new_count = new_counts_dict.get(cat, 0)
+                lines.append(f"\t- Landslides in Frame ({display_cat}): {count}")
+                lines.append(f"\t- New Landslides (just entered) ({display_cat}): {new_count}")
+
+        lines.append("")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _zone_current_count(zone_data: Any) -> float:
+        """This zone's current count, across the shapes a zone block arrives in.
+
+        A zone may report ``current_count`` directly, or carry raw counts under
+        ``original_counts``, or be the counts mapping itself. Where there is no
+        explicit total the numeric values are summed.
+
+        Args:
+            zone_data: One zone's entry from the zone analysis.
+
+        Returns:
+            The count, or ``0`` when the entry is not a mapping.
+        """
+        if not isinstance(zone_data, dict):
+            return 0
+        if "current_count" in zone_data:
+            return zone_data.get("current_count", 0)
+        counts = (
+            zone_data.get("original_counts")
+            if isinstance(zone_data.get("original_counts"), dict)
+            else zone_data
+        )
+        return counts.get("total", sum(v for v in counts.values() if isinstance(v, (int, float))))
 
     # ------------------------------------------------------------------
     # Business analytics
@@ -1490,14 +1789,18 @@ class LandslideDetectionUseCase(BaseProcessor):
             f"Application Version: {self.CASE_VERSION}",
         ]
         if incidents:
-            lines.append("Incidents: \n\t" + incidents[0].get("human_text", "No incidents detected"))
+            lines.append(
+                "Incidents: \n\t" + incidents[0].get("human_text", "No incidents detected")
+            )
         if tracking_stats:
             lines.append(
-                "Tracking Statistics: \t" + tracking_stats[0].get("human_text", "No tracking statistics detected")
+                "Tracking Statistics: \t"
+                + tracking_stats[0].get("human_text", "No tracking statistics detected")
             )
         if business_analytics:
             lines.append(
-                "Business Analytics: \t" + business_analytics[0].get("human_text", "No business analytics detected")
+                "Business Analytics: \t"
+                + business_analytics[0].get("human_text", "No business analytics detected")
             )
         if not incidents and not tracking_stats and not business_analytics:
             lines.append("Summary: No Summary Data")
@@ -1508,7 +1811,9 @@ class LandslideDetectionUseCase(BaseProcessor):
     # Tracking helpers
     # ------------------------------------------------------------------
 
-    def _update_tracking_state(self, detections: List[Dict[str, Any]], _has_zones: bool = False) -> None:
+    def _update_tracking_state(
+        self, detections: List[Dict[str, Any]], _has_zones: bool = False
+    ) -> None:
         """Update cumulative and per-frame track-ID sets.
 
         The update follows a strict ordering to ensure ``new`` counts are
@@ -1542,7 +1847,10 @@ class LandslideDetectionUseCase(BaseProcessor):
 
         # Step 2: Compute new track IDs (before updating total).
         self._new_track_ids_this_frame = {
-            cat: (self._current_frame_track_ids.get(cat, set()) - self._per_category_total_track_ids.get(cat, set()))
+            cat: (
+                self._current_frame_track_ids.get(cat, set())
+                - self._per_category_total_track_ids.get(cat, set())
+            )
             for cat in self.target_categories
         }
 
@@ -1575,15 +1883,21 @@ class LandslideDetectionUseCase(BaseProcessor):
                     f"instability or use-case recreation"
                 )
 
-        self._previous_frame_track_ids = {cat: set(ids) for cat, ids in self._current_frame_track_ids.items()}
+        self._previous_frame_track_ids = {
+            cat: set(ids) for cat, ids in self._current_frame_track_ids.items()
+        }
 
     def get_total_counts(self) -> Dict[str, int]:
         """Return cumulative unique detection counts per category."""
-        return {cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()}
+        return {
+            cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()
+        }
 
     def get_new_counts_this_frame(self) -> Dict[str, int]:
         """Return count of track IDs that appeared for the first time this frame."""
-        return {cat: len(ids) for cat, ids in getattr(self, "_new_track_ids_this_frame", {}).items()}
+        return {
+            cat: len(ids) for cat, ids in getattr(self, "_new_track_ids_this_frame", {}).items()
+        }
 
     def get_current_frame_counts(self) -> Dict[str, int]:
         """Return count of all track IDs currently visible in this frame."""
@@ -1591,7 +1905,9 @@ class LandslideDetectionUseCase(BaseProcessor):
 
     def _get_track_ids_info(self, detections: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Summarise track-ID statistics for diagnostics."""
-        frame_track_ids = {det.get("track_id") for det in detections if det.get("track_id") is not None}
+        frame_track_ids = {
+            det.get("track_id") for det in detections if det.get("track_id") is not None
+        }
         total_track_ids: set = set()
         for s in getattr(self, "_per_category_total_track_ids", {}).values():
             total_track_ids.update(s)
@@ -1712,7 +2028,9 @@ class LandslideDetectionUseCase(BaseProcessor):
     # Counting helpers
     # ------------------------------------------------------------------
 
-    def _count_categories(self, detections: List[Dict[str, Any]], _config: LandslideDetectionConfig) -> Dict[str, Any]:
+    def _count_categories(
+        self, detections: List[Dict[str, Any]], _config: LandslideDetectionConfig
+    ) -> Dict[str, Any]:
         """Count detections per category and build summary payload.
 
         Args:
@@ -1820,9 +2138,10 @@ class LandslideDetectionUseCase(BaseProcessor):
                 parts = timestamp_clean.split("-")
                 if len(parts) >= 4:
                     return f"{parts[0]}:{parts[1]}:{parts[2]} {'-'.join(parts[3:])}"
-        except Exception:
-            # Non-fatal: exception ignored here; execution continues per surrounding logic.
-            pass
+        except Exception as exc:  # noqa: BLE001 - any malformed stamp falls back
+            # The unparsed stamp is still the best answer available, so this
+            # reports rather than raises.
+            self.logger.debug("could not reformat timestamp %r (%s)", timestamp_clean, exc)
 
         return timestamp_clean
 
@@ -1856,18 +2175,22 @@ class LandslideDetectionUseCase(BaseProcessor):
             if frame_id:
                 start_time = int(frame_id) / input_settings.get("original_fps", 30)
             else:
-                start_time = input_settings.get("start_frame", 30) / input_settings.get("original_fps", 30)
+                start_time = input_settings.get("start_frame", 30) / input_settings.get(
+                    "original_fps", 30
+                )
             _ = self._format_timestamp_for_video(start_time)
             return self._format_timestamp(input_settings.get("stream_time", "NA"))
 
-        stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+        stream_time_str = (
+            stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+        )
         if stream_time_str:
             try:
                 ts_clean = stream_time_str.replace(" UTC", "")
                 dt = datetime.strptime(ts_clean, "%Y-%m-%d-%H:%M:%S.%f")
                 timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                 return self._format_timestamp_for_stream(timestamp)
-            except Exception:
+            except Exception:  # noqa: BLE001 - any unusable stamp falls back to now
                 return self._format_timestamp_for_stream(time.time())
         return self._format_timestamp_for_stream(time.time())
 
@@ -1912,10 +2235,10 @@ class LandslideDetectionUseCase(BaseProcessor):
                         ts_clean = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(ts_clean, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                        candidate = datetime.fromtimestamp(self._tracking_start_time, timezone.utc).strftime(
-                            "%Y-%m-%d-%H:%M:%S.%f UTC"
-                        )
-                    except Exception:
+                        candidate = datetime.fromtimestamp(
+                            self._tracking_start_time, timezone.utc
+                        ).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                    except Exception:  # noqa: BLE001 - any unusable stamp falls back to now
                         candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
                     candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
@@ -1931,8 +2254,10 @@ class LandslideDetectionUseCase(BaseProcessor):
                         ts_clean = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(ts_clean, "%Y-%m-%d-%H:%M:%S.%f")
                         ts = dt.replace(tzinfo=timezone.utc).timestamp()
-                        candidate = datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
-                    except Exception:
+                        candidate = datetime.fromtimestamp(ts, timezone.utc).strftime(
+                            "%Y-%m-%d-%H:%M:%S.%f UTC"
+                        )
+                    except Exception:  # noqa: BLE001 - any unusable stamp falls back to now
                         candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
                     candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
@@ -1949,7 +2274,7 @@ class LandslideDetectionUseCase(BaseProcessor):
                     ts_clean = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(ts_clean, "%Y-%m-%d-%H:%M:%S.%f")
                     self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                except Exception:
+                except Exception:  # noqa: BLE001 - any unusable stamp falls back to now
                     self._tracking_start_time = time.time()
             else:
                 self._tracking_start_time = time.time()

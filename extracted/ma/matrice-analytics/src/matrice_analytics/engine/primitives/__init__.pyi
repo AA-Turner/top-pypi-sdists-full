@@ -2745,6 +2745,14 @@ class UniqueCount:
     #         ``agg_type: last``, rather than summing ``new`` per frame and getting the right
     #         answer only once the window has actually closed.
     #
+    #     ``present_in_window``
+    #         Distinct ids seen at any point **so far this window**, whether or not this is their
+    #         first window -- read at the boundary, "how many distinct ones were here this
+    #         interval".  The denominator an interval rate needs: every id a downstream stage
+    #         flags this window was seen this window, so ``flagged / present_in_window`` is bounded
+    #         by 1.  Not additive across windows (someone present for three windows is in all
+    #         three), so it is a rate's operand, not a series to ``sum``.
+    #
     #     ``total``
     #         Distinct ids since process start (**FROZEN-4**).  A level, not an event: aggregate
     #         it with ``max`` or ``last``, never ``sum``.

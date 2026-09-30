@@ -26,6 +26,7 @@ from fastmcp_extensions._telemetry_middleware import (
     tool_telemetry_properties,
 )
 from fastmcp_extensions.auth import (
+    ClientAllowlistJWTVerifier,
     ClientCredentials,
     IntrospectionAuthConfig,
     JWTAuthConfig,
@@ -45,6 +46,7 @@ from fastmcp_extensions.capability_tokens import (
     decode_session_token,
     encode_capability_token,
     encode_session_token,
+    minted_session_token,
     session_token_from_headers,
 )
 from fastmcp_extensions.client_credentials_middleware import (
@@ -130,6 +132,7 @@ __all__ = [
     "AuthorizationRedactionFilter",
     "Capability",
     "CapabilityTokenMiddleware",
+    "ClientAllowlistJWTVerifier",
     "ClientCredentials",
     "ClientCredentialsExchangeMiddleware",
     "DecodedSessionState",
@@ -183,6 +186,7 @@ __all__ = [
     "mcp_resource",
     "mcp_server",
     "mcp_tool",
+    "minted_session_token",
     "redact_authorization",
     "register_landing_page",
     "register_mcp_prompts",

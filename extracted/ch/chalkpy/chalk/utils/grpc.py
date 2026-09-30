@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import dataclasses
+import math
+import os
+import random
 import threading
 import time
-from typing import TYPE_CHECKING, Awaitable, Callable, Literal, Protocol, Sequence, TypeVar, final
+from typing import TYPE_CHECKING, Awaitable, Callable, Literal, Optional, Protocol, Sequence, TypeVar, final
 
 import grpc
 import grpc.aio
@@ -12,6 +16,7 @@ import grpc.aio
 from chalk._gen.chalk.server.v1.auth_pb2 import GetTokenRequest, GetTokenResponse
 from chalk._gen.chalk.server.v1.auth_pb2_grpc import AuthServiceStub
 from chalk.client.client_headers import CHALK_ENV_ID_HEADER_LOWERCASE, CHALK_SERVER_HEADER_LOWERCASE
+from chalk.clogging import chalk_logger
 from chalk.config.web_identity import WebIdentityToken, get_web_identity_token
 
 if TYPE_CHECKING:
@@ -26,6 +31,72 @@ class _ClientCallDetails(grpc.ClientCallDetails):
     credentials: grpc.CallCredentials | None
 
 
+# Token refresh policy, shared by the sync and async refreshers.
+#
+# The exchange runs in the auth interceptor, before the caller's RPC and outside its deadline.
+# To keep it off the request path, refresh starts halfway through the token's lifetime and runs
+# in the background while the cached token keeps being served.
+
+_REFRESH_AT_FRACTION = 0.5
+# Per-refresher jitter on the refresh point, so processes started together don't refresh together.
+_REFRESH_JITTER_FRACTION = 0.1
+# Within this many seconds of expiry, callers wait for the refresh instead of using the cached token.
+_BLOCKING_FLOOR_SECONDS = 60.0
+_EXCHANGE_TIMEOUT_SECONDS = 10.0
+# Minimum time between successful exchanges, so an already-expired or very short-lived token
+# doesn't cause an exchange per request.
+_MIN_REFRESH_INTERVAL_SECONDS = 30.0
+# Exponential backoff between failed exchanges.
+_RETRY_BACKOFF_INITIAL_SECONDS = 1.0
+_RETRY_BACKOFF_MAX_SECONDS = 30.0
+# Refresh interval for tokens with no expires_at.
+_NO_EXPIRY_REFRESH_SECONDS = 60.0 * 60.0
+
+
+@dataclasses.dataclass(frozen=True)
+class _CachedToken:
+    """A token response and when to start refreshing it. Immutable so it can be read without a lock."""
+
+    response: GetTokenResponse
+    refresh_at: float
+
+    @property
+    def expires_at(self) -> float:
+        """Expiry in epoch seconds, or inf if unset."""
+        if not self.response.HasField("expires_at"):
+            return math.inf
+        return self.response.expires_at.seconds
+
+
+def _refresh_at(response: GetTokenResponse, issued_at: float, jitter: float) -> float:
+    if not response.HasField("expires_at"):
+        return issued_at + _NO_EXPIRY_REFRESH_SECONDS
+    lifetime = response.expires_at.seconds - issued_at
+    if lifetime <= 0:
+        # Already expired (or clock skew). Still serve it, but don't retry right away.
+        return issued_at + _MIN_REFRESH_INTERVAL_SECONDS
+    refresh_at = issued_at + lifetime * _REFRESH_AT_FRACTION * (1.0 + jitter)
+    return min(refresh_at, response.expires_at.seconds - _BLOCKING_FLOOR_SECONDS)
+
+
+def _retry_backoff(consecutive_failures: int, jitter: float) -> float:
+    # Jittered so processes that failed during the same outage don't retry in lockstep.
+    backoff = _RETRY_BACKOFF_INITIAL_SECONDS * 2.0 ** min(consecutive_failures - 1, 32)
+    return min(backoff, _RETRY_BACKOFF_MAX_SECONDS) * (1.0 + jitter)
+
+
+def _draw_jitter() -> float:
+    return random.uniform(-_REFRESH_JITTER_FRACTION, _REFRESH_JITTER_FRACTION)
+
+
+def _token_request(client_id: str, client_secret: str) -> GetTokenRequest:
+    return GetTokenRequest(
+        client_id=client_id,
+        client_secret=client_secret,
+        grant_type="client_credentials",
+    )
+
+
 @final
 class TokenRefresher:
     def __init__(
@@ -37,19 +108,90 @@ class TokenRefresher:
         self._auth_stub = auth_stub
         self._client_id = client_id
         self._client_secret = client_secret
-        self._auth_token: GetTokenResponse | None = None
+        self._cached: Optional[_CachedToken] = None
+        self._jitter = _draw_jitter()
+        # Guards _attempt. Never held during the exchange.
+        self._lock = threading.Lock()
+        # Latest exchange. Callers share it (including its failure) until it finishes and
+        # _next_attempt_at passes, so concurrent callers don't each run their own exchange.
+        self._attempt: Optional[concurrent.futures.Future[GetTokenResponse]] = None
+        self._owner_pid = os.getpid()
+        self._next_attempt_at = 0.0
+        self._consecutive_failures = 0
 
     def get_token(self) -> GetTokenResponse:
-        if self._auth_token is None or self._auth_token.expires_at.seconds - time.time() <= 60:
-            self._auth_token = self._auth_stub.GetToken(
-                GetTokenRequest(
-                    client_id=self._client_id,
-                    client_secret=self._client_secret,
-                    grant_type="client_credentials",
-                ),
-            )
+        cached = self._cached
+        now = time.time()
+        if cached is not None and now < cached.refresh_at:
+            return cached.response
+        attempt = self._get_or_start_attempt()
+        if cached is None or now >= cached.expires_at:
+            return attempt.result()
+        if now >= cached.expires_at - _BLOCKING_FLOOR_SECONDS:
+            # Near expiry: wait for the new token, but fall back to the still-valid one on failure.
+            try:
+                return attempt.result()
+            except Exception:
+                return cached.response
+        return cached.response
 
-        return self._auth_token
+    def _bind_process(self) -> None:
+        """Reset the lock and in-flight attempt after a fork.
+
+        Both can be inherited mid-refresh: the lock stays held and the attempt never resolves,
+        since the refresh thread doesn't exist in the child.
+        """
+        pid = os.getpid()
+        if pid == self._owner_pid:
+            return
+        self._owner_pid = pid
+        self._lock = threading.Lock()
+        self._attempt = None
+
+    def _get_or_start_attempt(self) -> concurrent.futures.Future[GetTokenResponse]:
+        # Must run before acquiring the lock, which may have been inherited locked.
+        self._bind_process()
+        with self._lock:
+            attempt = self._attempt
+            if attempt is not None and (not attempt.done() or time.time() < self._next_attempt_at):
+                return attempt
+            attempt = concurrent.futures.Future()
+            self._attempt = attempt
+            try:
+                threading.Thread(
+                    target=self._run_attempt,
+                    args=(attempt,),
+                    name="chalk-token-refresh",
+                    daemon=True,
+                ).start()
+            except BaseException as e:
+                # e.g. interpreter shutdown. Fail the attempt so waiters don't hang.
+                self._record_failure()
+                attempt.set_exception(e)
+            return attempt
+
+    def _run_attempt(self, attempt: concurrent.futures.Future[GetTokenResponse]) -> None:
+        issued_at = time.time()
+        try:
+            response = self._auth_stub.GetToken(
+                _token_request(self._client_id, self._client_secret),
+                timeout=_EXCHANGE_TIMEOUT_SECONDS,
+            )
+        except BaseException as e:
+            chalk_logger.warning("Chalk token refresh failed", exc_info=True)
+            # Before set_exception, so waiters see the updated backoff.
+            self._record_failure()
+            attempt.set_exception(e)
+            return
+        self._cached = _CachedToken(response, _refresh_at(response, issued_at, self._jitter))
+        self._consecutive_failures = 0
+        self._next_attempt_at = time.time() + _MIN_REFRESH_INTERVAL_SECONDS
+        attempt.set_result(response)
+
+    def _record_failure(self) -> None:
+        # Measured from when the attempt finished, not when it started.
+        self._consecutive_failures += 1
+        self._next_attempt_at = time.time() + _retry_backoff(self._consecutive_failures, self._jitter)
 
 
 class TokenProvider(Protocol):
@@ -228,7 +370,7 @@ class UnauthenticatedChalkClientInterceptor(
 
 @final
 class AsyncTokenRefresher:
-    """Async token refresher for use with grpc.aio channels."""
+    """Async token refresher for use with grpc.aio channels. Same refresh policy as `TokenRefresher`."""
 
     def __init__(
         self,
@@ -240,23 +382,71 @@ class AsyncTokenRefresher:
         self._async_auth_stub = async_auth_stub
         self._client_id = client_id
         self._client_secret = client_secret
-        self._auth_token: GetTokenResponse = initial_token
-        self._lock: asyncio.Lock = asyncio.Lock()
+        self._jitter = _draw_jitter()
+        self._cached = _CachedToken(initial_token, _refresh_at(initial_token, time.time(), self._jitter))
+        # Shared like TokenRefresher._attempt. No lock needed since starting one never awaits.
+        self._attempt: Optional[asyncio.Task[GetTokenResponse]] = None
+        self._next_attempt_at = 0.0
+        self._consecutive_failures = 0
 
     async def get_token(self) -> GetTokenResponse:
-        if self._auth_token.expires_at.seconds - time.time() > 60:
-            return self._auth_token
-        async with self._lock:
-            if self._auth_token.expires_at.seconds - time.time() > 60:
-                return self._auth_token
-            self._auth_token = await self._async_auth_stub.GetToken(  # pyright: ignore[reportGeneralTypeIssues]
-                GetTokenRequest(
-                    client_id=self._client_id,
-                    client_secret=self._client_secret,
-                    grant_type="client_credentials",
-                ),
+        cached = self._cached
+        now = time.time()
+        if now < cached.refresh_at:
+            return cached.response
+        attempt = self._get_or_start_attempt()
+        if now >= cached.expires_at:
+            # Shield so a cancelled caller doesn't cancel the shared exchange.
+            return await asyncio.shield(attempt)
+        if now >= cached.expires_at - _BLOCKING_FLOOR_SECONDS:
+            try:
+                return await asyncio.shield(attempt)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                return cached.response
+        return cached.response
+
+    def _get_or_start_attempt(self) -> asyncio.Task[GetTokenResponse]:
+        loop = asyncio.get_running_loop()
+        attempt = self._attempt
+        if (
+            attempt is not None
+            # A client reused across event loops (e.g. repeated asyncio.run) can hold a task
+            # from a closed loop, which will never finish.
+            and attempt.get_loop() is loop
+            # Cancelled means its loop shut down, not a failure to share.
+            and not attempt.cancelled()
+            and (not attempt.done() or time.time() < self._next_attempt_at)
+        ):
+            return attempt
+        attempt = loop.create_task(self._run_attempt())
+        # Retrieve the exception so an unawaited background failure isn't reported as
+        # "exception was never retrieved". _run_attempt already logs it.
+        attempt.add_done_callback(lambda t: t.cancelled() or t.exception())
+        self._attempt = attempt
+        return attempt
+
+    async def _run_attempt(self) -> GetTokenResponse:
+        issued_at = time.time()
+        try:
+            response: GetTokenResponse = (
+                await self._async_auth_stub.GetToken(  # pyright: ignore[reportGeneralTypeIssues]
+                    _token_request(self._client_id, self._client_secret),
+                    timeout=_EXCHANGE_TIMEOUT_SECONDS,
+                )
             )
-        return self._auth_token
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            chalk_logger.warning("Chalk token refresh failed", exc_info=True)
+            self._consecutive_failures += 1
+            self._next_attempt_at = time.time() + _retry_backoff(self._consecutive_failures, self._jitter)
+            raise
+        self._cached = _CachedToken(response, _refresh_at(response, issued_at, self._jitter))
+        self._consecutive_failures = 0
+        self._next_attempt_at = time.time() + _MIN_REFRESH_INTERVAL_SECONDS
+        return response
 
 
 @final

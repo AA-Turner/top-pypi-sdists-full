@@ -9,7 +9,7 @@ import time
 
 from koyeb import Sandbox
 from koyeb.api.models.create_app import CreateApp
-from koyeb.sandbox.utils import get_api_clients
+from koyeb.sandbox.clients import get_api_clients
 
 
 def main():
@@ -34,7 +34,12 @@ def main():
         app_name = f"my-sandbox-app-{int(time.time())}"
         print(f"  Creating app: {app_name}")
 
-        app_response = apps_api.create_app(app=CreateApp(name=app_name))
+        app_response = apps_api.create_app(
+            app=CreateApp(
+                name=app_name,
+                project_id=os.getenv("KOYEB_PROJECT_ID") or None,
+            )
+        )
         app_id = app_response.app.id
 
         print(f"  App created successfully!")
@@ -75,9 +80,12 @@ def main():
 
         is_healthy = sandbox.is_healthy()
         print(f"  Healthy: {is_healthy}")
+        assert is_healthy, "Sandbox should be healthy"
 
         result = sandbox.exec("echo 'Hello from sandbox in existing app!'")
         print(f"  Output: {result.stdout.strip()}")
+        assert result.exit_code == 0, result.stderr
+        assert result.stdout.strip() == "Hello from sandbox in existing app!"
         print()
 
         print("Demo completed successfully!")

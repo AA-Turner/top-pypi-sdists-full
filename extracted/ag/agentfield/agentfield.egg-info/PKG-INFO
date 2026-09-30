@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentfield
-Version: 0.1.140
+Version: 0.1.141
 Summary: Python SDK for the AgentField control plane
 Author: AgentField Maintainers
 License: Apache-2.0

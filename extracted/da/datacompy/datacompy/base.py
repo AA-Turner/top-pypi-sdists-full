@@ -24,6 +24,7 @@ two dataframes.
 import logging
 from abc import ABC, abstractmethod
 from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, TypedDict
 
@@ -37,7 +38,12 @@ LOG = logging.getLogger(__name__)
 
 
 class ColumnStat(TypedDict):
-    """Typed contract for per-column comparison statistics populated by each backend."""
+    """Typed contract for per-column comparison statistics populated by each backend.
+
+    ``max_diff`` and ``null_diff`` are ``None`` when the column is hidden via
+    :meth:`hide_sensitive_columns`, because those derived values are computed
+    from the raw data and would leak information about a masked column.
+    """
 
     column: str
     match_column: str
@@ -46,8 +52,8 @@ class ColumnStat(TypedDict):
     dtype1: str
     dtype2: str
     all_match: bool
-    max_diff: float
-    null_diff: int
+    max_diff: float | None
+    null_diff: int | None
     rel_tol: float
     abs_tol: float
 
@@ -116,6 +122,24 @@ class BaseCompare(ABC):
             LOG.warning(
                 f"sensitive columns not found in either df1 or df2 will be ignored: {unused}"
             )
+
+    def _mask_sensitive_column_stats(self) -> None:
+        """Blank out derived statistics for sensitive columns.
+
+        ``max_diff`` and ``null_diff`` are computed from the raw df1/df2
+        values before masking happens, so a hidden column's Max Diff can
+        reveal the underlying values when one side is already known (see
+        issue #565).  Backends call this from ``hide_sensitive_columns()``
+        after the row-level frames are masked; ``reveal_sensitive_columns()``
+        restores the statistics by re-running the comparison.
+        """
+        if not self.sensitive_columns:
+            return
+        sensitive = set(self.sensitive_columns)
+        for stat in self.column_stats:
+            if stat["column"] in sensitive:
+                stat["max_diff"] = None
+                stat["null_diff"] = None
 
     @abstractmethod
     def _validate_dataframe(
@@ -532,6 +556,79 @@ def _resolve_template_path(template_name: str) -> tuple[str, str]:
     )
 
 
+#: Spaces between adjacent columns of a report table.
+TABLE_GUTTER = "  "
+
+
+def fixed_width_table(
+    headers: Sequence[str],
+    rows: Sequence[Sequence[Any]],
+    align: str = "",
+) -> str:
+    """Lay out a plain text table, sizing every column to its widest cell.
+
+    Exposed to templates as ``fixed_width_table``. Cells are stringified but not
+    otherwise formatted, so the template stays in charge of how a number is
+    presented and this function stays in charge only of how wide the column is.
+    That split is what keeps the header rule, the separator, and the body
+    aligned no matter how long a dataset name or dtype turns out to be.
+
+    Parameters
+    ----------
+    headers : sequence of str
+        Column headings. Also the minimum width of each column.
+    rows : sequence of sequence
+        Body rows. Each row must have one cell per heading.
+    align : str, optional
+        One character per column, ``"l"`` for left and ``"r"`` for right.
+        Columns beyond the end of the string, and an omitted *align*, default
+        to left.
+
+    Returns
+    -------
+    str
+        The heading row, a separator row of dashes, and one row per entry,
+        newline separated and free of trailing whitespace.
+
+    Raises
+    ------
+    ValueError
+        If a row does not have one cell per heading.
+
+    Examples
+    --------
+    >>> print(fixed_width_table(["Name", "N"], [["ab", 1], ["cdefg", 22]], "lr"))
+    Name    N
+    -----  --
+    ab      1
+    cdefg  22
+    """
+    body = [[str(cell) for cell in row] for row in rows]
+    for index, row in enumerate(body):
+        if len(row) != len(headers):
+            raise ValueError(
+                f"row {index} has {len(row)} cells but there are {len(headers)} headers"
+            )
+
+    widths = [
+        max(len(header), *(len(row[column]) for row in body)) if body else len(header)
+        for column, header in enumerate(headers)
+    ]
+
+    def lay_out(cells: Sequence[str]) -> str:
+        padded = [
+            cell.rjust(width)
+            if align[column : column + 1] == "r"
+            else cell.ljust(width)
+            for column, (cell, width) in enumerate(zip(cells, widths, strict=True))
+        ]
+        return TABLE_GUTTER.join(padded).rstrip()
+
+    lines = [lay_out(headers), TABLE_GUTTER.join("-" * width for width in widths)]
+    lines.extend(lay_out(row) for row in body)
+    return "\n".join(lines)
+
+
 def render(template_name: str, **context: Any) -> str:
     """Render a template using Jinja2.
 
@@ -563,7 +660,11 @@ def render(template_name: str, **context: Any) -> str:
         autoescape=select_autoescape(),
         trim_blocks=True,
         lstrip_blocks=True,
+        # ``do`` lets the template assemble table rows in a loop, so cell
+        # formatting stays next to the table it belongs to.
+        extensions=["jinja2.ext.do"],
     )
+    env.globals["fixed_width_table"] = fixed_width_table
     template = env.get_template(template_file)
     return template.render(**context).strip()
 
@@ -632,22 +733,31 @@ def df_to_str(df: Any, sample_count: int | None = None, on_index: bool = False) 
     str
         String representation of the DataFrame
     """
-    # Handle pandas DataFrame
-    if hasattr(df, "to_string"):
-        if sample_count is not None and len(df) > sample_count:
-            df = df.head(sample_count)
-        if not on_index and hasattr(df, "reset_index"):
-            df = df.reset_index(drop=True)
-        return df.to_string()
-
-    # Handle Spark DataFrame and Snowflake DataFrame
-    if hasattr(df, "toPandas"):
+    # Handle Spark DataFrame and Snowflake DataFrame.
+    # This must come *before* the ``to_string`` check below: a Spark Connect
+    # DataFrame synthesizes a Column for any unknown attribute, so
+    # ``hasattr(df, "to_string")`` is True for it and it would otherwise take
+    # the pandas branch. Nothing else is caught here -- pandas has no
+    # ``toPandas`` and Polars exposes ``to_pandas``, not ``toPandas``.
+    #
+    # Every branch tests ``callable`` rather than mere existence, because the
+    # same attribute-synthesizing behaviour cuts both ways: ``df.toPandas`` on a
+    # pandas frame with a column of that name is a Series, not a method.
+    if callable(getattr(df, "toPandas", None)):
         if sample_count is not None:
             df = df.limit(sample_count)
         return df.toPandas().to_string()
 
+    # Handle pandas DataFrame
+    if callable(getattr(df, "to_string", None)):
+        if sample_count is not None and len(df) > sample_count:
+            df = df.head(sample_count)
+        if not on_index and callable(getattr(df, "reset_index", None)):
+            df = df.reset_index(drop=True)
+        return df.to_string()
+
     # Handle Polars DataFrame
-    if hasattr(df, "to_pandas"):
+    if callable(getattr(df, "to_pandas", None)):
         if sample_count is not None and len(df) > sample_count:
             df = df.head(sample_count)
         return str(df)
@@ -737,7 +847,7 @@ def validate_tolerance_parameter(
             col_key = str(col)
             if case_mode == "lower":
                 col_key = col_key.lower()
-            elif case_mode == "upper":
+            elif case_mode == "upper" and col_key != "default":
                 col_key = col_key.upper()
 
             result[col_key] = float(value)

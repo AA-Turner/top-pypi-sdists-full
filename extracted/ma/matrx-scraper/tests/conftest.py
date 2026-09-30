@@ -224,12 +224,14 @@ def _force_headless(method_name: str, original):
         async def _async_launch(self, *args, **kwargs):
             return await original(self, *args, **_record(kwargs))
 
+        _async_launch._matrx_headless_guard = True  # type: ignore[attr-defined]
         return _async_launch
 
     @functools.wraps(original)
     def _sync_launch(self, *args, **kwargs):
         return original(self, *args, **_record(kwargs))
 
+    _sync_launch._matrx_headless_guard = True  # type: ignore[attr-defined]
     return _sync_launch
 
 

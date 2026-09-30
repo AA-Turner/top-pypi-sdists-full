@@ -1,7 +1,96 @@
 import numpy as np
 import pytest
-from panel.pane import panel
-from panel_material_ui.widgets import AutocompleteInput, Select
+
+from panel_material_ui.widgets import (
+    AutocompleteInput,
+    CheckBoxGroup,
+    CheckButtonGroup,
+    CrossSelector,
+    MultiChoice,
+    RadioBoxGroup,
+    RadioButtonGroup,
+    Select,
+    ToggleGroup,
+)
+
+
+def test_radio_button_group_active_tracks_value_and_options(document, comm):
+    """Active exposes the selected index on both Python and the client model."""
+    group = RadioButtonGroup(options={'Low': 2, 'Medium': 5, 'High': 10}, value=5)
+    model = group.get_root(document, comm=comm)
+    assert group.active == model.data.active == 1
+
+    group.value = 10
+    assert group.active == model.data.active == 2
+
+    group.options = {'High': 10, 'Low': 2}
+    assert group.active == model.data.active == 0
+
+    group._process_events({'value': 'Low'})
+    assert group.value == 2
+    assert group.active == model.data.active == 1
+
+    group.options = ['Other']
+    assert group.value == 'Other'
+    assert group.active == model.data.active == 0
+
+    group.options = []
+    assert group.active is None
+    assert model.data.active is None
+
+
+def test_check_button_group_active_tracks_value_and_options(document, comm):
+    """Multiple selected values expose option-ordered indices to the client."""
+    group = CheckButtonGroup(options={'Low': 2, 'Medium': 5, 'High': 10}, value=[10, 2])
+    model = group.get_root(document, comm=comm)
+    assert group.active == model.data.active == [0, 2]
+
+    group.value = [5]
+    assert group.active == model.data.active == [1]
+
+    group.options = {'High': 10, 'Medium': 5}
+    assert group.active == model.data.active == [1]
+
+    group._process_events({'value': ['High', 'Medium']})
+    assert group.value == [10, 5]
+    assert group.active == model.data.active == [0, 1]
+
+    group.value = []
+    assert group.active == model.data.active == []
+
+
+@pytest.mark.parametrize('widget_type', [RadioButtonGroup, CheckButtonGroup])
+@pytest.mark.parametrize(('classic', 'material'), [('solid', 'contained'), ('outline', 'outlined')])
+def test_button_group_classic_variant_constructor(widget_type, classic, material):
+    """Classic button-group variants map to the corresponding Material appearance."""
+    assert widget_type(variant=classic).variant == material
+    assert widget_type(button_style=classic).variant == material
+    assert widget_type(variant=material).variant == material
+
+
+def test_cross_selector_filter_fn_and_selection_order(monkeypatch):
+    """Custom filtering runs on the server and order is exposed to the client."""
+    selector = CrossSelector(
+        options={'Alpha': 1, 'Beta': 2, 'Alpine': 3}, value=[3, 1],
+        definition_order=False, filter_fn=lambda query, label: label.startswith(query),
+    )
+    messages = []
+    monkeypatch.setattr(selector, '_send_msg', messages.append)
+    selector._handle_msg({'type': 'filter', 'side': 'left', 'query': 'Al'})
+    assert messages == [{'type': 'filter_response', 'side': 'left', 'query': 'Al', 'matches': ['Alpha', 'Alpine']}]
+    assert selector.definition_order is False
+    assert 'filter_fn' not in selector._process_param_change({'filter_fn': selector.filter_fn})
+
+
+def test_cross_selector_default_filter_and_invalid_pattern(monkeypatch):
+    """Default regex filtering follows the classic selector, including invalid patterns."""
+    selector = CrossSelector(options=['Alpha', 'Beta', 'Alpine'])
+    messages = []
+    monkeypatch.setattr(selector, '_send_msg', messages.append)
+    selector._handle_msg({'type': 'filter', 'side': 'right', 'query': '^Al'})
+    selector._handle_msg({'type': 'filter', 'side': 'right', 'query': '['})
+    assert messages[0]['matches'] == ['Alpha', 'Alpine']
+    assert messages[1]['matches'] == []
 
 
 @pytest.mark.parametrize('widget', [AutocompleteInput, Select])
@@ -147,6 +236,35 @@ def test_select_groups_dict_options(document, comm):
     select.value = groups['A']['a']
     assert widget.data.value == 'a'
 
+@pytest.mark.parametrize('kwargs', [
+    {'options': {'a': 1, 'b': 2, 'c': 3}},
+    {'groups': {'A': {'a': 1, 'b': 2}, 'B': {'c': 3}}},
+])
+def test_select_dict_disabled_options_sent_as_labels(kwargs, document, comm):
+    select = Select(value=1, disabled_options=[2], **kwargs)
+
+    widget = select.get_root(document, comm=comm)
+
+    assert widget.data.disabled_options == ['b']
+
+    select.disabled_options = [3]
+    assert widget.data.disabled_options == ['c']
+
+@pytest.mark.parametrize('widget_type', [Select, MultiChoice])
+def test_list_disabled_options_sent_unchanged(widget_type, document, comm):
+    select = widget_type(options=['a', 'b', 'c'], disabled_options=['b'])
+
+    widget = select.get_root(document, comm=comm)
+
+    assert widget.data.disabled_options == ['b']
+
+def test_multi_choice_dict_disabled_options_sent_as_labels(document, comm):
+    select = MultiChoice(options={'a': 1, 'b': 2, 'c': 3}, disabled_options=[2])
+
+    widget = select.get_root(document, comm=comm)
+
+    assert widget.data.disabled_options == ['b']
+
 def test_select_change_groups(document, comm):
     groups = dict(A=dict(a=1, b=2), B=dict(c=3))
     select = Select(value=groups['A']['a'], groups=groups, label='Select')
@@ -277,6 +395,29 @@ def test_autocomplete_dict_options_value_input():
     assert w.value_input == ""
 
 
+def test_autocomplete_icon_option_value_input():
+    widget = AutocompleteInput(options={
+        ':material/zoom_out_map: Full screen': 'fullscreen',
+        ':material/zoom_in: Zoom in': 'zoom_in',
+    }, value='fullscreen')
+    assert widget.value_input == 'Full screen'
+
+    widget.value = 'zoom_in'
+    assert widget.value_input == 'Zoom in'
+
+    widget.options = [':material/zoom_out: Zoom out']
+    widget.value = widget.options[0]
+    assert widget.value_input == 'Zoom out'
+
+
+def test_autocomplete_icon_option_lazy_search():
+    widget = AutocompleteInput(
+        options={':material/zoom_out_map: Full screen': 'fullscreen'},
+        lazy_search=True,
+    )
+    assert widget._filter_options('Full') == [':material/zoom_out_map: Full screen']
+
+
 def test_autocomplete_lazy_search_options_empty(document, comm):
     """Test that when lazy_search is True, model.data.options is None"""
     opts = {'A': 'a', '1': 1, 'B': 'b'}
@@ -300,3 +441,23 @@ def test_autocomplete_lazy_search_options_present(document, comm):
     assert model.data.value == str(opts['1'])
     # Options should be present when lazy_search is False
     assert model.data.options == list(opts)
+
+
+@pytest.mark.parametrize(('widget_type', 'behavior', 'expected'), [
+    ('button', 'check', CheckButtonGroup),
+    ('box', 'check', CheckBoxGroup),
+    ('button', 'radio', RadioButtonGroup),
+    ('box', 'radio', RadioBoxGroup),
+])
+def test_toggle_group_builds_material_widgets(widget_type, behavior, expected):
+    group = ToggleGroup(options=['a', 'b'], widget_type=widget_type, behavior=behavior)
+    assert type(group) is expected
+
+
+def test_toggle_group_validates_arguments():
+    with pytest.raises(ValueError, match='widget_type'):
+        ToggleGroup(options=['a'], widget_type='switch')
+    with pytest.raises(ValueError, match='behavior'):
+        ToggleGroup(options=['a'], behavior='toggle')
+    with pytest.raises(ValueError, match='single value'):
+        ToggleGroup(options=['a'], behavior='radio', value=['a'])

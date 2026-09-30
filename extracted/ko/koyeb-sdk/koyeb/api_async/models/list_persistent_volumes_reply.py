@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ListPersistentVolumesReply(BaseModel):
     """
     ListPersistentVolumesReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     volumes: Optional[List[PersistentVolume]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
@@ -40,7 +42,6 @@ class ListPersistentVolumesReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +66,7 @@ class ListPersistentVolumesReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,9 +77,10 @@ class ListPersistentVolumesReply(BaseModel):
         _items = []
         if self.volumes:
             for _item_volumes in self.volumes:
-                if _item_volumes:
-                    _items.append(_item_volumes.to_dict())
-            _dict['volumes'] = _items
+                _items.append(
+                    _item_volumes.to_dict() if _item_volumes is not None else None
+                )
+            _dict["volumes"] = _items
         return _dict
 
     @classmethod
@@ -91,12 +92,16 @@ class ListPersistentVolumesReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "volumes": [PersistentVolume.from_dict(_item) for _item in obj["volumes"]] if obj.get("volumes") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset"),
-            "has_next": obj.get("has_next")
-        })
+        _obj = cls.model_validate(
+            {
+                "volumes": [
+                    PersistentVolume.from_dict(_item) for _item in obj["volumes"]
+                ]
+                if obj.get("volumes") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+                "has_next": obj.get("has_next"),
+            }
+        )
         return _obj
-
-

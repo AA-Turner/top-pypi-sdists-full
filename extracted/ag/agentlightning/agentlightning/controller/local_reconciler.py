@@ -28,6 +28,10 @@ log = structlog.get_logger()
 _SHUTDOWN_WAIT_TIMEOUT = 5.0
 
 
+def _is_native_windows() -> bool:
+    return os.name == "nt"
+
+
 def _run_local_reconciler_worker(agent_class_path: str) -> int:
     try:
         if ":" in agent_class_path:
@@ -105,6 +109,10 @@ class LocalReconciler:
         self._stop = asyncio.Event()
 
     async def run(self) -> None:
+        if _is_native_windows():
+            raise RuntimeError(
+                "runner_type=local is not supported on native Windows; use Linux (for example, WSL) instead."
+            )
         log.info("LocalReconciler starting", pool_size=self._pool_size, tick=self._tick_interval)
         try:
             await self._reconcile_loop()
@@ -126,7 +134,7 @@ class LocalReconciler:
             except TimeoutError:
                 pass
 
-    async def _reconcile_once(self) -> None:
+    async def _reconcile_once(self, *, spawn_queued: bool = True) -> None:
         params = httpx.QueryParams()
         params = params.add("state_in", RolloutState.QUEUING.value)
         params = params.add("state_in", RolloutState.RUNNING.value)
@@ -141,7 +149,12 @@ class LocalReconciler:
             item = self._rid_to_proc.get(rollout.rollout_id)
 
             if item is None:
-                if rollout.status.state == RolloutState.QUEUING and live_count < self._pool_size:
+                if (
+                    spawn_queued
+                    and not self._stop.is_set()
+                    and rollout.status.state == RolloutState.QUEUING
+                    and live_count < self._pool_size
+                ):
                     if await self._spawn_for(rollout):
                         live_count += 1
                 elif rollout.status.state == RolloutState.RUNNING:
@@ -173,6 +186,9 @@ class LocalReconciler:
             patched = await self._patch(rollout.rollout_id, RolloutState.RUNNING, last_attempt_id=item.attempt_id)
             if not patched:
                 return False
+        # Normal timeouts reach here; shutdown kills happen after final reconciliation.
+        if item.killed:
+            return await self._patch(rollout.rollout_id, RolloutState.FAILED, "local subprocess timed out")
         if item.proc.returncode == 0:
             return await self._patch(rollout.rollout_id, RolloutState.SUCCEEDED, last_attempt_id=item.attempt_id)
         return await self._patch(
@@ -205,16 +221,15 @@ class LocalReconciler:
                 raise ValueError("invalid rollout config: missing config.local.agent_class")
             agent_class = rollout.config.local.agent_class
             mode = "train" if rollout.is_train else "val"
+            agent_url = self._config.agl_server.get("agent_url", None)
+            agent_base_url = str(agent_url or self._config.agl_server.url).rstrip("/")
             env = {
                 **os.environ,
                 "AGL_KEY": str(self._config.agl_server.key or ""),
                 "AGL_OPENAI_BASE_URL": (
-                    f"{self._config.agl_server.url}/proxy/rollout/{rollout.rollout_id}"
-                    f"/attempt/{attempt_id}/mode/{mode}/openai/v1"
+                    f"{agent_base_url}/proxy/rollout/{rollout.rollout_id}/attempt/{attempt_id}/mode/{mode}/openai/v1"
                 ),
-                "AGL_EVENT_URL": (
-                    f"{self._config.agl_server.url}/api/rollouts/{rollout.rollout_id}/attempt/{attempt_id}/events"
-                ),
+                "AGL_EVENT_URL": (f"{agent_base_url}/api/rollouts/{rollout.rollout_id}/attempt/{attempt_id}/events"),
             }
             env.update(_build_env_from_map(rollout.input, rollout.config.local.env_map))
             proc = await asyncio.create_subprocess_exec(
@@ -249,7 +264,7 @@ class LocalReconciler:
     async def _shutdown(self) -> None:
         """Kill live subprocesses and mark them failed."""
         try:
-            await self._reconcile_once()
+            await self._reconcile_once(spawn_queued=False)
         except Exception:
             log.exception("Final reconcile during shutdown failed")
 

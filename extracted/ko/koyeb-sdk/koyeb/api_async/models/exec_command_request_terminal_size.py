@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ExecCommandRequestTerminalSize(BaseModel):
     """
     ExecCommandRequestTerminalSize
-    """ # noqa: E501
+    """  # noqa: E501
+
     height: Optional[StrictInt] = None
     width: Optional[StrictInt] = None
     __properties: ClassVar[List[str]] = ["height", "width"]
@@ -37,7 +39,6 @@ class ExecCommandRequestTerminalSize(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class ExecCommandRequestTerminalSize(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,10 +81,7 @@ class ExecCommandRequestTerminalSize(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "height": obj.get("height"),
-            "width": obj.get("width")
-        })
+        _obj = cls.model_validate(
+            {"height": obj.get("height"), "width": obj.get("width")}
+        )
         return _obj
-
-

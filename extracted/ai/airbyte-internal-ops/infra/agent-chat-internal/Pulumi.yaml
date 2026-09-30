@@ -7,7 +7,7 @@ description: |
   Pulumi Infrastructure as Code for the Airbyte AG-UI chat services.
 
   This project manages:
-  - The WIF publisher service account and IAM for the bootstrap-owned airbyte-agui-internal Artifact Registry repository (looked up, not created)
+  - The agui-server runtime service account (images, publisher identity, and secret IAM are bootstrap-owned)
   - Cloud Run services for agui-server and agui-playground
   - External HTTPS load balancer with managed certificate and IAP
   - DNS A record for chat.internal.airbyte.ai in the internal.airbyte.ai Cloud DNS zone

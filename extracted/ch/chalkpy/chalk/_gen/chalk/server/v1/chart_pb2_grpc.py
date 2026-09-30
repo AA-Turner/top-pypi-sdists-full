@@ -70,6 +70,11 @@ class ChartsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.UpdateMetricConfigRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.UpdateMetricConfigResponse.FromString,
         )
+        self.DecompileMetricConfig = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/DecompileMetricConfig",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.DecompileMetricConfigRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.DecompileMetricConfigResponse.FromString,
+        )
         self.CreateChart = channel.unary_unary(
             "/chalk.server.v1.ChartsService/CreateChart",
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.CreateChartRequest.SerializeToString,
@@ -126,11 +131,16 @@ class ChartsServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def ListRawMetrics(self, request, context):
-        """ListRawMetrics, GetRawMetricLabelValues and QueryRawMetrics expose the raw
-        VictoriaMetrics series behind an environment's charts. They are gated on
-        PERMISSION_CHALK_ADMIN (granted implicitly to @chalk.ai agents) because VM
-        series names and labels are an internal implementation detail rather than a
-        stable customer-facing surface.
+        """The three introspection RPCs below expose the raw VictoriaMetrics series
+        behind an environment's charts. VM series names and labels are an internal
+        implementation detail rather than a stable customer-facing surface, but the
+        surface is useful enough to hand to a customer on request, so it carries
+        MONITORING_READ and the handlers scope every lookup to the caller's own
+        environment. Unscoped access — the whole instance, including cluster-scoped
+        series that carry no environment_id — needs either a self-hosted metadata plane
+        or PERMISSION_CHALK_ADMIN (granted implicitly to @chalk.ai agents). On Chalk's
+        shared plane one telemetry deployment serves many customers, so that scoping is
+        the tenant boundary, not a convenience.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -149,7 +159,13 @@ class ChartsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def QueryRawMetrics(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """QueryRawMetrics evaluates caller-authored MetricsQL, which Chalk cannot rewrite to
+        carry an environment scope. It therefore needs unscoped raw access, which the
+        handler grants on a self-hosted metadata plane (the VictoriaMetrics instance holds
+        only that customer's data) or to PERMISSION_CHALK_ADMIN. The annotation is
+        MONITORING_READ because on a self-hosted plane that is genuinely the bar; a caller
+        who does not clear the handler's check gets PermissionDenied.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -191,6 +207,12 @@ class ChartsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def UpdateMetricConfig(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DecompileMetricConfig(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -313,6 +335,11 @@ def add_ChartsServiceServicer_to_server(servicer, server):
             servicer.UpdateMetricConfig,
             request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.UpdateMetricConfigRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.UpdateMetricConfigResponse.SerializeToString,
+        ),
+        "DecompileMetricConfig": grpc.unary_unary_rpc_method_handler(
+            servicer.DecompileMetricConfig,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.DecompileMetricConfigRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.DecompileMetricConfigResponse.SerializeToString,
         ),
         "CreateChart": grpc.unary_unary_rpc_method_handler(
             servicer.CreateChart,
@@ -682,6 +709,35 @@ class ChartsService(object):
             "/chalk.server.v1.ChartsService/UpdateMetricConfig",
             chalk_dot_server_dot_v1_dot_chart__pb2.UpdateMetricConfigRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_chart__pb2.UpdateMetricConfigResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DecompileMetricConfig(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/DecompileMetricConfig",
+            chalk_dot_server_dot_v1_dot_chart__pb2.DecompileMetricConfigRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.DecompileMetricConfigResponse.FromString,
             options,
             channel_credentials,
             insecure,

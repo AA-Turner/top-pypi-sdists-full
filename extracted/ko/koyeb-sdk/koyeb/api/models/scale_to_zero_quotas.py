@@ -23,17 +23,26 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ScaleToZeroQuotas(BaseModel):
     """
     ScaleToZeroQuotas
-    """ # noqa: E501
+    """  # noqa: E501
+
     is_deep_sleep_enabled: Optional[StrictBool] = None
     deep_sleep_idle_delay_min: Optional[StrictInt] = None
     deep_sleep_idle_delay_max: Optional[StrictInt] = None
     is_light_sleep_enabled: Optional[StrictBool] = None
     light_sleep_idle_delay_min: Optional[StrictInt] = None
     light_sleep_idle_delay_max: Optional[StrictInt] = None
-    __properties: ClassVar[List[str]] = ["is_deep_sleep_enabled", "deep_sleep_idle_delay_min", "deep_sleep_idle_delay_max", "is_light_sleep_enabled", "light_sleep_idle_delay_min", "light_sleep_idle_delay_max"]
+    __properties: ClassVar[List[str]] = [
+        "is_deep_sleep_enabled",
+        "deep_sleep_idle_delay_min",
+        "deep_sleep_idle_delay_max",
+        "is_light_sleep_enabled",
+        "light_sleep_idle_delay_min",
+        "light_sleep_idle_delay_max",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -41,7 +50,6 @@ class ScaleToZeroQuotas(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,8 +74,7 @@ class ScaleToZeroQuotas(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -85,14 +92,14 @@ class ScaleToZeroQuotas(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "is_deep_sleep_enabled": obj.get("is_deep_sleep_enabled"),
-            "deep_sleep_idle_delay_min": obj.get("deep_sleep_idle_delay_min"),
-            "deep_sleep_idle_delay_max": obj.get("deep_sleep_idle_delay_max"),
-            "is_light_sleep_enabled": obj.get("is_light_sleep_enabled"),
-            "light_sleep_idle_delay_min": obj.get("light_sleep_idle_delay_min"),
-            "light_sleep_idle_delay_max": obj.get("light_sleep_idle_delay_max")
-        })
+        _obj = cls.model_validate(
+            {
+                "is_deep_sleep_enabled": obj.get("is_deep_sleep_enabled"),
+                "deep_sleep_idle_delay_min": obj.get("deep_sleep_idle_delay_min"),
+                "deep_sleep_idle_delay_max": obj.get("deep_sleep_idle_delay_max"),
+                "is_light_sleep_enabled": obj.get("is_light_sleep_enabled"),
+                "light_sleep_idle_delay_min": obj.get("light_sleep_idle_delay_min"),
+                "light_sleep_idle_delay_max": obj.get("light_sleep_idle_delay_max"),
+            }
+        )
         return _obj
-
-

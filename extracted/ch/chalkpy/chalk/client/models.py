@@ -659,7 +659,7 @@ class OfflineQueryInput(BaseModel):
 
 
 class OfflineQueryInputSql(BaseModel):
-    """Input to an offline query specified as a ChalkSQL query instead
+    """Input to an offline query specified as a Chalk SQL query instead
     of literal data.
 
     Alternative to OfflineQueryInput or OfflineQueryInputUri."""

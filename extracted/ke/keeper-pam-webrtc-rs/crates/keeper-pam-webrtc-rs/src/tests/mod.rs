@@ -41,6 +41,8 @@ mod drain_callback_tests;
 #[cfg(test)]
 pub mod guacd_handshake_tests;
 #[cfg(test)]
+mod handler_channel_tests;
+#[cfg(test)]
 mod misc_tests;
 #[cfg(test)]
 mod nat_keepalive_tests;

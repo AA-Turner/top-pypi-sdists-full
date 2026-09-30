@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.deployment_scaling_target_average_mem import DeploymentScalingTargetAverageMem
+from koyeb.api_async.models.deployment_scaling_target_average_mem import (
+    DeploymentScalingTargetAverageMem,
+)
+
 
 class TestDeploymentScalingTargetAverageMem(unittest.TestCase):
     """DeploymentScalingTargetAverageMem unit test stubs"""
@@ -27,9 +30,9 @@ class TestDeploymentScalingTargetAverageMem(unittest.TestCase):
 
     def make_instance(self, include_optional) -> DeploymentScalingTargetAverageMem:
         """Test DeploymentScalingTargetAverageMem
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `DeploymentScalingTargetAverageMem`
         """
         model = DeploymentScalingTargetAverageMem()
@@ -47,5 +50,6 @@ class TestDeploymentScalingTargetAverageMem(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -209,8 +209,21 @@ class CommandSdoImp(CommandSdoBase):
         python format of string, int, or float.
         """
         if sdo.val_type is val_type.string_t:
-            var_memory = val.value[0:length.value - 1]
-            return_val = bytes(var_memory).decode('utf-8')
+            raw = bytes(val.value[0:length.value])
+            # CANopen VISIBLE_STRING objects are often a fixed size
+            # padded with nulls, so the length the device reports can be
+            # longer than the text.  Cut at the first null before
+            # decoding:  the padding stays out of the string, and any
+            # uninitialized bytes past it cannot raise a
+            # UnicodeDecodeError.
+            #
+            # No terminator is assumed, which is why the whole reported
+            # length is used.  This used to read length.value - 1, and
+            # that dropped the last character of a string which filled
+            # its object exactly.  It also disagreed with the other
+            # direction:  _value_to_binary() writes val.encode() and
+            # adds no terminator, so none should be expected back.
+            return_val = raw.split(b'\x00', 1)[0].decode('utf-8')
         elif sdo.val_type in (val_type.short_t,
                               val_type.int_t,
                               val_type.long_t):

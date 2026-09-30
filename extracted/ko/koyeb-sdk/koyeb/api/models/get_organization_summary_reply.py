@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class GetOrganizationSummaryReply(BaseModel):
     """
     GetOrganizationSummaryReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     summary: Optional[OrganizationSummary] = None
     __properties: ClassVar[List[str]] = ["summary"]
 
@@ -37,7 +39,6 @@ class GetOrganizationSummaryReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class GetOrganizationSummaryReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -72,7 +72,7 @@ class GetOrganizationSummaryReply(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of summary
         if self.summary:
-            _dict['summary'] = self.summary.to_dict()
+            _dict["summary"] = self.summary.to_dict()
         return _dict
 
     @classmethod
@@ -84,9 +84,11 @@ class GetOrganizationSummaryReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "summary": OrganizationSummary.from_dict(obj["summary"]) if obj.get("summary") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "summary": OrganizationSummary.from_dict(obj["summary"])
+                if obj.get("summary") is not None
+                else None
+            }
+        )
         return _obj
-
-

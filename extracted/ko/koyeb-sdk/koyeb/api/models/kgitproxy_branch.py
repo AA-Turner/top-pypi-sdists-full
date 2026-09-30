@@ -24,18 +24,30 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class KgitproxyBranch(BaseModel):
     """
     KgitproxyBranch
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     organization_id: Optional[StrictStr] = None
     repository_id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
     is_default: Optional[StrictBool] = None
     is_protected: Optional[StrictBool] = None
-    provider: Optional[KgitproxyRepositoryProvider] = KgitproxyRepositoryProvider.INVALID_PROVIDER
-    __properties: ClassVar[List[str]] = ["id", "organization_id", "repository_id", "name", "is_default", "is_protected", "provider"]
+    provider: Optional[
+        KgitproxyRepositoryProvider
+    ] = KgitproxyRepositoryProvider.INVALID_PROVIDER
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "organization_id",
+        "repository_id",
+        "name",
+        "is_default",
+        "is_protected",
+        "provider",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -43,7 +55,6 @@ class KgitproxyBranch(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -68,8 +79,7 @@ class KgitproxyBranch(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -87,15 +97,17 @@ class KgitproxyBranch(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "organization_id": obj.get("organization_id"),
-            "repository_id": obj.get("repository_id"),
-            "name": obj.get("name"),
-            "is_default": obj.get("is_default"),
-            "is_protected": obj.get("is_protected"),
-            "provider": obj.get("provider") if obj.get("provider") is not None else KgitproxyRepositoryProvider.INVALID_PROVIDER
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "organization_id": obj.get("organization_id"),
+                "repository_id": obj.get("repository_id"),
+                "name": obj.get("name"),
+                "is_default": obj.get("is_default"),
+                "is_protected": obj.get("is_protected"),
+                "provider": obj.get("provider")
+                if obj.get("provider") is not None
+                else KgitproxyRepositoryProvider.INVALID_PROVIDER,
+            }
+        )
         return _obj
-
-

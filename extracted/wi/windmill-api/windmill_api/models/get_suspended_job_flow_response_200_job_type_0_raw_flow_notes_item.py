@@ -27,9 +27,10 @@ class GetSuspendedJobFlowResponse200JobType0RawFlowNotesItem:
     Attributes:
         id (str): Unique identifier for the note
         text (str): Content of the note
-        color (str): Color of the note (e.g., "yellow", "#ffff00")
-        type (GetSuspendedJobFlowResponse200JobType0RawFlowNotesItemType): Type of note - 'free' for standalone notes,
-            'group' for notes that group other nodes
+        color (str): Color of the note, one of: yellow, blue, green, purple, pink, orange, red, cyan, lime, gray. Any
+            other value renders unstyled.
+        type (GetSuspendedJobFlowResponse200JobType0RawFlowNotesItemType): Type of note - 'free' for standalone notes.
+            'group' notes are deprecated; segment a flow with FlowValue.groups instead.
         position (Union[Unset, GetSuspendedJobFlowResponse200JobType0RawFlowNotesItemPosition]): Position of the note in
             the flow editor
         size (Union[Unset, GetSuspendedJobFlowResponse200JobType0RawFlowNotesItemSize]): Size of the note in the flow

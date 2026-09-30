@@ -23,17 +23,26 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class UpdateUserRequestUserUpdateBody(BaseModel):
     """
     UpdateUserRequestUserUpdateBody
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     email: Optional[StrictStr] = None
     current_password: Optional[StrictStr] = None
     password: Optional[StrictStr] = None
     newsletter_subscribed: Optional[StrictBool] = None
     name: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "email", "current_password", "password", "newsletter_subscribed", "name"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "email",
+        "current_password",
+        "password",
+        "newsletter_subscribed",
+        "name",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -41,7 +50,6 @@ class UpdateUserRequestUserUpdateBody(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,8 +74,7 @@ class UpdateUserRequestUserUpdateBody(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -85,14 +92,14 @@ class UpdateUserRequestUserUpdateBody(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "email": obj.get("email"),
-            "current_password": obj.get("current_password"),
-            "password": obj.get("password"),
-            "newsletter_subscribed": obj.get("newsletter_subscribed"),
-            "name": obj.get("name")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "email": obj.get("email"),
+                "current_password": obj.get("current_password"),
+                "password": obj.get("password"),
+                "newsletter_subscribed": obj.get("newsletter_subscribed"),
+                "name": obj.get("name"),
+            }
+        )
         return _obj
-
-

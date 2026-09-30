@@ -11,7 +11,9 @@ from cython.cimports.av.packet import Packet
 @cython.cclass
 class AudioCodecContext(CodecContext):
     @cython.cfunc
-    def _prepare_frames_for_encode(self, input_frame: Frame | None) -> list:
+    def _prepare_frames_for_encode(
+        self, input_frame: Frame | None
+    ) -> list[Frame | None]:
         frame: AudioFrame | None = input_frame
         allow_var_frame_size: cython.bint = (
             self.ptr.codec.capabilities & lib.AV_CODEC_CAP_VARIABLE_FRAME_SIZE
@@ -37,7 +39,7 @@ class AudioCodecContext(CodecContext):
         return alloc_audio_frame()
 
     @cython.cfunc
-    def _setup_decoded_frame(self, frame: Frame, packet: Packet):
+    def _setup_decoded_frame(self, frame: Frame, packet: Packet) -> cython.void:
         CodecContext._setup_decoded_frame(self, frame, packet)
         aframe: AudioFrame = frame
         aframe._init_user_attributes()
@@ -107,3 +109,14 @@ class AudioCodecContext(CodecContext):
         self._assert_not_open("format")
         format: AudioFormat = AudioFormat(value)
         self.ptr.sample_fmt = format.sample_fmt
+
+    @property
+    def block_align(self):
+        """
+        Number of bytes per coded audio frame, for formats with a fixed one.
+
+        Wraps :ffmpeg:`AVCodecContext.block_align`.
+
+        :type: int
+        """
+        return self.ptr.block_align

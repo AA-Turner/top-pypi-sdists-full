@@ -6,7 +6,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np
 
-from .face_recognition_client import FacialRecognitionClient
+from ...clients.fr_client import FRClient
 
 
 class SearchResult(NamedTuple):
@@ -79,7 +79,7 @@ class EmbeddingManager:
     - _embeddings_loaded is set only after successful load under lock
     """
 
-    def __init__(self, config: EmbeddingConfig, face_client: FacialRecognitionClient = None):
+    def __init__(self, config: EmbeddingConfig, face_client: Optional[FRClient] = None):
         self.config = config
         self.face_client = face_client
         self.logger = logging.getLogger(__name__)
@@ -142,7 +142,9 @@ class EmbeddingManager:
             Dictionary with status information
         """
         with self._embeddings_lock:
-            matrix_shape = self.embeddings_matrix.shape if self.embeddings_matrix is not None else None
+            matrix_shape = (
+                self.embeddings_matrix.shape if self.embeddings_matrix is not None else None
+            )
 
         return {
             "embeddings_loaded": self._embeddings_loaded,
@@ -155,7 +157,7 @@ class EmbeddingManager:
             "is_ready": self.is_ready(),
         }
 
-    def set_face_client(self, face_client: FacialRecognitionClient):
+    def set_face_client(self, face_client: FRClient):
         """Set the face recognition client."""
         self.face_client = face_client
 
@@ -233,8 +235,8 @@ class EmbeddingManager:
         finally:
             try:
                 loop.close()
-            except Exception:
-                # Non-fatal: exception ignored here; execution continues per surrounding logic.
+            except Exception:  # noqa: BLE001, S110 - a spent loop that will not close is not
+                # worth failing the refresh thread over, and there is nobody left to tell.
                 pass
             self.logger.info("Background embedding refresh loop ended")
 
@@ -248,87 +250,49 @@ class EmbeddingManager:
         try:
             # self.logger.info("Loading staff embeddings from API...")
             # print("=============== LOADING STAFF EMBEDDINGS FROM API ===============")
-            response = await self.face_client.get_all_staff_embeddings()
-            # print(f"API RESPONSE TYPE: {type(response)}, IS_LIST: {isinstance(response, list)}, LEN: {len(response) if isinstance(response, list) else 'N/A'}")
-
-            # Robust response handling: accept dict with data or raw list
-            embeddings_data: List[Dict[str, Any]] = []
-            if isinstance(response, dict):
-                # Typical: { success: True, data: [...] }
-                if response.get("success", False) and isinstance(response.get("data"), list):
-                    embeddings_data = response.get("data", [])
-                # Alternate: { data: [...] } without success flag
-                elif isinstance(response.get("data"), list):
-                    embeddings_data = response.get("data", [])
-                # Fallback keys sometimes used
-                elif isinstance(response.get("items"), list):
-                    embeddings_data = response.get("items", [])
-                else:
-                    self.logger.error(f"Unexpected embeddings response shape (dict): keys={list(response.keys())}")
-                    return False
-            elif isinstance(response, list):
-                # Some deployments return raw list directly
-                embeddings_data = response
-            else:
-                self.logger.error(f"Unexpected embeddings response type: {type(response)}")
-                return False
+            rows = await self.face_client.fetch_staff_embeddings()
 
             self.staff_embeddings = []
             embeddings_list = []
             expected_dim: Optional[int] = None
             dims_observed: List[int] = []
-            mismatch_examples: List[Tuple[str, int]] = []  # (staffId, dim)
+            mismatch_examples: List[Tuple[str, int]] = []  # (staff_id, dim)
 
-            for item in embeddings_data:
-                # Skip inactive if provided
-                if isinstance(item, dict) and item.get("isActive") is False:
+            for row in rows:
+                # Wire-shape handling is gone: the rows arrive validated, so `embedding`
+                # is a list[float] and `is_active` is a bool. What stays is gallery
+                # policy, which no wire model can decide -- one dimension per gallery,
+                # because every row becomes a column-aligned entry in one numpy matrix.
+                if not row.is_active:
                     continue
 
-                raw_emb = []
-                try:
-                    raw_emb = item.get("embedding", []) if isinstance(item, dict) else []
-                except Exception:
-                    raw_emb = []
-                # Record observed dimension for debugging
-                try:
-                    dims_observed.append(len(raw_emb) if isinstance(raw_emb, list) else 0)
-                except Exception:
-                    dims_observed.append(0)
-
-                # Validate and coerce embedding list
-                if not isinstance(raw_emb, list) or len(raw_emb) == 0:
-                    continue
-                try:
-                    # Ensure numeric float32 list
-                    clean_emb = [float(v) for v in raw_emb]
-                except Exception:
+                dims_observed.append(len(row.embedding))
+                if not row.embedding:
                     continue
 
-                # Dimension consistency
                 if expected_dim is None:
-                    expected_dim = len(clean_emb)
-                if len(clean_emb) != expected_dim:
-                    # Collect a few examples to aid debugging
-                    try:
-                        mismatch_examples.append((str(item.get("staffId", "")), len(clean_emb)))
-                    except Exception:
-                        mismatch_examples.append(("", len(clean_emb)))
+                    expected_dim = len(row.embedding)
+                if len(row.embedding) != expected_dim:
+                    mismatch_examples.append((row.staff_id, len(row.embedding)))
                     self.logger.warning(
-                        f"Skipping embedding with mismatched dimension: got {len(clean_emb)} expected {expected_dim}"
+                        f"Skipping embedding with mismatched dimension: "
+                        f"got {len(row.embedding)} expected {expected_dim}"
                     )
                     continue
 
-                staff_embedding = StaffEmbedding(
-                    embedding_id=(item.get("embeddingId", "") if isinstance(item, dict) else ""),
-                    staff_id=(item.get("staffId", "") if isinstance(item, dict) else ""),
-                    embedding=clean_emb,
-                    employee_id=str(item.get("employeeId", "")) if isinstance(item, dict) else "",
-                    staff_details=(item.get("staffDetails", {}) if isinstance(item, dict) else {}),
-                    is_active=(item.get("isActive", True) if isinstance(item, dict) else True),
+                # A NamedTuple, not the wire row: this is retained for the process and
+                # feeds the matrix below, and nothing re-validates it.
+                self.staff_embeddings.append(
+                    StaffEmbedding(
+                        embedding_id=row.embedding_id,
+                        staff_id=row.staff_id,
+                        embedding=row.embedding,
+                        employee_id=row.employee_id,
+                        staff_details=row.staff_details,
+                        is_active=row.is_active,
+                    )
                 )
-
-                self.staff_embeddings.append(staff_embedding)
-                embeddings_list.append(clean_emb)
+                embeddings_list.append(row.embedding)
 
             # Create numpy matrix for fast similarity computation (thread-safe)
             with self._embeddings_lock:
@@ -401,7 +365,9 @@ class EmbeddingManager:
         except Exception as e:
             self.logger.error(f"Error adding embedding to local cache: {e}", exc_info=True)
 
-    def _find_best_local_match(self, query_embedding: List[float]) -> Optional[Tuple[StaffEmbedding, float]]:
+    def _find_best_local_match(
+        self, query_embedding: List[float]
+    ) -> Optional[Tuple[StaffEmbedding, float]]:
         """Find best matching staff member using optimized matrix operations (thread-safe)."""
         # Check if embeddings are loaded at all
         if not self._embeddings_loaded:
@@ -412,11 +378,15 @@ class EmbeddingManager:
         with self._embeddings_lock:
             if self.embeddings_matrix is None or len(self.embedding_metadata) == 0:
                 # print(f"ERROR: _find_best_local_match - embeddings_matrix is None={self.embeddings_matrix is None}, metadata_len={len(self.embedding_metadata)}, _embeddings_loaded={self._embeddings_loaded}")
-                self.logger.error(f"Embeddings matrix is None despite _embeddings_loaded={self._embeddings_loaded}")
+                self.logger.error(
+                    f"Embeddings matrix is None despite _embeddings_loaded={self._embeddings_loaded}"
+                )
                 return None
 
             # Create local copies to avoid issues with concurrent modifications
-            embeddings_matrix = self.embeddings_matrix.copy() if self.embeddings_matrix is not None else None
+            embeddings_matrix = (
+                self.embeddings_matrix.copy() if self.embeddings_matrix is not None else None
+            )
             embedding_metadata = self.embedding_metadata.copy()
 
         if embeddings_matrix is None:
@@ -430,7 +400,9 @@ class EmbeddingManager:
                 self.logger.warning(
                     f"Query embedding dim mismatch: query={query_array.shape[1]} staff={embeddings_matrix.shape[1]}"
                 )
-                print(f"ERROR: DIMENSION MISMATCH - query={query_array.shape[1]} staff={embeddings_matrix.shape[1]}")
+                print(
+                    f"ERROR: DIMENSION MISMATCH - query={query_array.shape[1]} staff={embeddings_matrix.shape[1]}"
+                )
                 return None
 
             # Normalize query embedding
@@ -462,7 +434,9 @@ class EmbeddingManager:
         with self._embeddings_lock:
             if self.embeddings_matrix is None or len(self.embedding_metadata) == 0:
                 return 0.0
-            embeddings_matrix = self.embeddings_matrix.copy() if self.embeddings_matrix is not None else None
+            embeddings_matrix = (
+                self.embeddings_matrix.copy() if self.embeddings_matrix is not None else None
+            )
         if embeddings_matrix is None:
             return 0.0
         try:
@@ -478,16 +452,21 @@ class EmbeddingManager:
             query_array = query_array / qn
             similarities = np.dot(embeddings_matrix, query_array.T).flatten()
             return float(np.max(similarities)) if similarities.size > 0 else 0.0
-        except Exception:
+        except Exception:  # noqa: BLE001 - a malformed gallery yields no similarity rather
+            # than aborting the frame; the caller treats 0.0 as "no match".
             return 0.0
 
-    def extract_embedding_from_detection(self, detection: Dict) -> Tuple[Dict, Optional[List[float]]]:
+    def extract_embedding_from_detection(
+        self, detection: Dict
+    ) -> Tuple[Dict, Optional[List[float]]]:
         """Extract and validate embedding from detection."""
         embedding = detection.get("embedding", [])
 
         # Validate embedding format and dimensions
         if not embedding:
-            self.logger.warning(f"Missing embedding in detection: {detection.get('track_id', 'unknown')}")
+            self.logger.warning(
+                f"Missing embedding in detection: {detection.get('track_id', 'unknown')}"
+            )
             return detection, None
 
         if not isinstance(embedding, list):
@@ -497,7 +476,9 @@ class EmbeddingManager:
             return detection, None
 
         if len(embedding) == 0:
-            self.logger.warning(f"Empty embedding in detection: {detection.get('track_id', 'unknown')}")
+            self.logger.warning(
+                f"Empty embedding in detection: {detection.get('track_id', 'unknown')}"
+            )
             return detection, None
 
         # Additional validation for embedding values
@@ -508,7 +489,8 @@ class EmbeddingManager:
                     f"Non-numeric values in embedding for detection: {detection.get('track_id', 'unknown')}"
                 )
                 return detection, None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - logged below; a bad embedding drops the
+            # detection, it does not stop the stream.
             self.logger.warning(
                 f"Error validating embedding values for detection {detection.get('track_id', 'unknown')}: {e}"
             )
@@ -546,7 +528,7 @@ class EmbeddingManager:
                     return cached_data["result"]
 
                 return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - logged; a cache miss is always a safe answer.
             self.logger.warning(f"Error checking track_id cache: {e}")
             return None
 
@@ -579,12 +561,17 @@ class EmbeddingManager:
                     "timestamp": current_time,
                 }
 
-                self.logger.debug(f"Updated cache for track_id {track_id} with similarity {similarity_score:.3f}")
+                self.logger.debug(
+                    f"Updated cache for track_id {track_id} with similarity {similarity_score:.3f}"
+                )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - logged; a failed cache write costs a repeat
+            # lookup, nothing more.
             self.logger.warning(f"Error updating track_id cache: {e}")
 
-    def _create_unknown_face_local(self, _embedding: List[float], _track_id: str = None) -> SearchResult:
+    def _create_unknown_face_local(
+        self, _embedding: List[float], _track_id: str = None
+    ) -> SearchResult:
         """Unknown face creation disabled - returns None"""
         _ = (_embedding, _track_id)
         return None
@@ -661,57 +648,74 @@ class EmbeddingManager:
         # Check cache and compare similarities (if caching enabled and track_id available)
         # BUT: For unknown faces, always re-check to allow for potential identification
         if self.config.enable_track_id_cache and track_id:
-            cached_result = self._check_track_id_cache(track_id)
-
-            # If current result is unknown, never cache it — every frame should
-            # re-attempt identification. The "upgrade unknown -> known" path
-            # below is the only way an unknown becomes cached.
-            if current_search_result.detection_type == "unknown":
-                self.logger.debug(
-                    f"Unknown face with track_id={track_id} - not caching, will re-check for potential identification"
-                )
-                return current_search_result
-
-            if cached_result:
-                cached_similarity = cached_result.similarity_score
-                current_similarity = current_search_result.similarity_score
-
-                # If cached result was unknown but current is known, always use current (upgrade)
-                if cached_result.detection_type == "unknown" and current_search_result.detection_type == "known":
-                    self.logger.info(
-                        f"Upgrading unknown face to known for track_id: {track_id} - similarity: {current_similarity:.3f}"
-                    )
-                    self._update_track_id_cache(track_id, current_search_result)
-                    return current_search_result
-                elif current_similarity > cached_similarity:
-                    # New result is better - update cache and return new result
-                    self.logger.debug(
-                        f"New similarity {current_similarity:.3f} > cached {cached_similarity:.3f} for track_id: {track_id} - updating cache"
-                    )
-                    self._update_track_id_cache(track_id, current_search_result)
-                    return current_search_result
-                else:
-                    # Cached result is better or equal - keep cache and return cached result
-                    self.logger.debug(
-                        f"Cached similarity {cached_similarity:.3f} >= new {current_similarity:.3f} for track_id: {track_id} - using cached result"
-                    )
-                    return cached_result
-            else:
-                # No cached result - add to cache and return current result (only for known faces)
-                if current_search_result.detection_type == "known":
-                    self.logger.debug(f"No cached result for track_id: {track_id} - adding known face to cache")
-                    self._update_track_id_cache(track_id, current_search_result)
-                return current_search_result
+            return self._reconcile_with_track_id_cache(track_id, current_search_result)
 
         # If caching is disabled, just return the current result
         return current_search_result
+
+    def _reconcile_with_track_id_cache(
+        self, track_id: str, current_search_result: SearchResult
+    ) -> SearchResult:
+        """Decide between a fresh result and the one cached against this track, and cache it.
+
+        Extracted from :meth:`search_face_embedding` unchanged; the caller applies the
+        ``enable_track_id_cache and track_id`` guard, so both are present here.
+        """
+        cached_result = self._check_track_id_cache(track_id)
+
+        # If current result is unknown, never cache it — every frame should
+        # re-attempt identification. The "upgrade unknown -> known" path
+        # below is the only way an unknown becomes cached.
+        if current_search_result.detection_type == "unknown":
+            self.logger.debug(
+                f"Unknown face with track_id={track_id} - not caching, will re-check for potential identification"
+            )
+            return current_search_result
+
+        if cached_result:
+            cached_similarity = cached_result.similarity_score
+            current_similarity = current_search_result.similarity_score
+
+            # If cached result was unknown but current is known, always use current (upgrade)
+            if (
+                cached_result.detection_type == "unknown"
+                and current_search_result.detection_type == "known"
+            ):
+                self.logger.info(
+                    f"Upgrading unknown face to known for track_id: {track_id} - similarity: {current_similarity:.3f}"
+                )
+                self._update_track_id_cache(track_id, current_search_result)
+                return current_search_result
+            elif current_similarity > cached_similarity:
+                # New result is better - update cache and return new result
+                self.logger.debug(
+                    f"New similarity {current_similarity:.3f} > cached {cached_similarity:.3f} for track_id: {track_id} - updating cache"
+                )
+                self._update_track_id_cache(track_id, current_search_result)
+                return current_search_result
+            else:
+                # Cached result is better or equal - keep cache and return cached result
+                self.logger.debug(
+                    f"Cached similarity {cached_similarity:.3f} >= new {current_similarity:.3f} for track_id: {track_id} - using cached result"
+                )
+                return cached_result
+        else:
+            # No cached result - add to cache and return current result (only for known faces)
+            if current_search_result.detection_type == "known":
+                self.logger.debug(
+                    f"No cached result for track_id: {track_id} - adding known face to cache"
+                )
+                self._update_track_id_cache(track_id, current_search_result)
+            return current_search_result
 
     def _extract_person_name(self, staff_details: Dict[str, Any]) -> str:
         """Extract person name from staff details."""
         return str(
             staff_details.get(
                 "name",
-                staff_details.get("firstName", "Unknown") + " " + staff_details.get("lastName", "Unknown"),
+                staff_details.get("firstName", "Unknown")
+                + " "
+                + staff_details.get("lastName", "Unknown"),
             )
         )
 
@@ -748,7 +752,9 @@ class EmbeddingManager:
         _ = (_embedding, _location, _timestamp, _track_id)
         return None
 
-    def update_detection_with_search_result(self, search_result: SearchResult, detection: Dict) -> Dict:
+    def update_detection_with_search_result(
+        self, search_result: SearchResult, detection: Dict
+    ) -> Dict:
         """Update detection object with search result data."""
         detection = detection.copy()  # Create a copy to avoid modifying original
 
@@ -761,7 +767,9 @@ class EmbeddingManager:
 
         if search_result.detection_type == "known":
             detection["enrolled"] = True
-            detection["category"] = f"{search_result.person_name.replace(' ', '_')}_{search_result.staff_id}"
+            detection["category"] = (
+                f"{search_result.person_name.replace(' ', '_')}_{search_result.staff_id}"
+            )
         elif search_result.detection_type == "unknown":
             detection["enrolled"] = False
             detection["category"] = "unrecognized"
@@ -781,6 +789,6 @@ class EmbeddingManager:
         """Cleanup when object is destroyed"""
         try:
             self.stop_background_refresh()
-        except Exception:
-            # Non-fatal: exception ignored here; execution continues per surrounding logic.
+        except Exception:  # noqa: BLE001, S110 - runs at interpreter teardown, where raising
+            # is reported as "ignored in __del__" and helps nobody.
             pass

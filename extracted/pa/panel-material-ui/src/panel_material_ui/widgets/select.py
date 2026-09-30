@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import typing as t
 
 import param
@@ -9,12 +10,14 @@ from panel.widgets.base import Widget
 from panel.widgets.select import NestedSelect as _PnNestedSelect
 from panel.widgets.select import Select as _PnSelect
 from panel.widgets.select import SingleSelectBase as _PnSingleSelectBase
+from panel.widgets.select import ToggleGroup as _PnToggleGroup
 from panel.widgets.select import _MultiSelectBase as _PnMultiSelectBase
 from typing_extensions import Self
 
+from .._utils import ICON_TOKEN_PATTERN
 from ..base import COLORS, ColorType, LoadingTransform, ThemedTransform
 from .base import MaterialWidget
-from .button import _ButtonLike
+from .button import _ButtonLike, _ButtonVariant
 
 
 class MaterialSingleSelectBase(MaterialWidget, _PnSingleSelectBase):
@@ -166,8 +169,15 @@ class AutocompleteInput(MaterialSingleSelectBase):
         with edit_readonly(self):
             if self.value is None:
                 self.value_input = ''
-            elif isinstance(self.options, dict) and isIn(self.value, self.values):
-                self.value_input = self.labels[indexOf(self.value, self.values)]
+            elif isIn(self.value, self.values):
+                label = self.labels[indexOf(self.value, self.values)]
+                if isinstance(label, str) and ICON_TOKEN_PATTERN.search(label):
+                    text = ' '.join(ICON_TOKEN_PATTERN.sub('', label).split())
+                    self.value_input = text or ' '.join(match.group(1).replace('_', ' ') for match in ICON_TOKEN_PATTERN.finditer(label))
+                elif isinstance(self.options, dict):
+                    self.value_input = label
+                else:
+                    self.value_input = self.value
             else:
                 self.value_input = self.value
 
@@ -225,13 +235,13 @@ class AutocompleteInput(MaterialSingleSelectBase):
         if not query or len(query) < self.min_characters:
             return []
 
-        options = self.values
+        options = self.labels
         if not case_sensitive:
             query = query.lower()
 
         filtered = []
         for opt in options:
-            opt_str = str(opt)
+            opt_str = ICON_TOKEN_PATTERN.sub('', str(opt)).strip()
             if not case_sensitive:
                 opt_str = opt_str.lower()
 
@@ -289,6 +299,19 @@ class _SelectDropdownBase(MaterialWidget):
 
     value_label = param.String(doc="Custom label to describe the current option(s).")
 
+    def _process_param_change(self, params):
+        props = super()._process_param_change(params)
+        # The frontend identifies options by label, so disabled values must be
+        # translated like the value itself.
+        # MultiChoice shares this base but has no groups.
+        if props.get('disabled_options') and (isinstance(self.options, dict) or getattr(self, 'groups', None)):
+            labels, values = self.labels, self.values
+            props['disabled_options'] = [
+                labels[indexOf(v, values)] if isIn(v, values) else v
+                for v in props['disabled_options']
+            ]
+        return props
+
     __abstract = True
 
 
@@ -337,6 +360,7 @@ class Select(MaterialSingleSelectBase, _PnSelect, _SelectDropdownBase):
     )  # type: ignore[assignment]
 
     _constants = {"multi": False, "loading_inset": -6}
+    _stylesheets: t.ClassVar[list[str]] = []
     _esm_base = "Select.jsx"
     _rename = {"name": None, "groups": None}
 
@@ -449,6 +473,10 @@ class _ButtonGroup(_ButtonLike):
         objects=["small", "medium", "large"], default="medium", doc="The size of the button group."
     )  # type: ignore[assignment]
 
+    variant: t.Literal['contained', 'outlined'] = _ButtonVariant(
+        objects=['contained', 'outlined'], default='contained', doc="Appearance of the button group."
+    )  # type: ignore[assignment]
+
     width = param.Integer(default=None)
 
     _esm_base = "ButtonGroup.jsx"
@@ -458,6 +486,19 @@ class _ButtonGroup(_ButtonLike):
     _rename = {"name": "name"}
 
     __abstract = True
+
+    def __init__(self, **params):
+        variant = params.get('variant', params.get('button_style'))
+        if variant is not None:
+            params['variant'] = {'solid': 'contained', 'outline': 'outlined'}.get(variant, variant)
+        if 'button_style' in params:
+            params['button_style'] = params['variant']
+        super().__init__(**params)
+
+    def _process_param_change(self, params):
+        params = super()._process_param_change(params)
+        params.pop('button_style', None)
+        return params
 
 
 class RadioButtonGroup(_ButtonGroup, MaterialSingleSelectBase):
@@ -482,9 +523,17 @@ class RadioButtonGroup(_ButtonGroup, MaterialSingleSelectBase):
     ... )
     """
 
+    active = param.Integer(default=None, readonly=True, doc="""
+        Zero-based index of the selected option, or None if none is selected.""")
+
     value = param.Parameter()
 
     _constants = {"exclusive": True, "loading_inset": -6}
+
+    @param.depends('value', 'options', watch=True, on_init=True)
+    def _sync_active(self):
+        with edit_readonly(self):
+            self.active = indexOf(self.value, self.values) if isIn(self.value, self.values) else None
 
 
 class CheckButtonGroup(_ButtonGroup, MaterialMultiSelectBase):
@@ -510,7 +559,48 @@ class CheckButtonGroup(_ButtonGroup, MaterialMultiSelectBase):
 
     """
 
+    active = param.List(default=[], item_type=int, readonly=True, doc="""
+        Zero-based indices of the selected options in option order.""")
+
     _constants = {"exclusive": False, "loading_inset": -6}
+
+    @param.depends('value', 'options', watch=True, on_init=True)
+    def _sync_active(self):
+        with edit_readonly(self):
+            self.active = [i for i, value in enumerate(self.values) if isIn(value, self.value)]
+
+
+class ToggleGroup(_PnToggleGroup):
+    """
+    A factory of Material toggle groups, a group of widgets which can be
+    switched on or off.
+
+    The `widget_type` selects between `'button'` (default) and `'box'` widgets
+    and the `behavior` between `'check'` (default), where any number of
+    options may be selected and the value is a list, and `'radio'`, where
+    exactly one option is selected.
+
+    :References:
+
+    - https://panel.holoviz.org/reference/widgets/ToggleGroup.html
+
+    :Example:
+
+    >>> ToggleGroup(
+    ...     label='Fruits', options=['Apple', 'Banana', 'Pear'], behavior='radio'
+    ... )
+    """
+
+    def __new__(cls, widget_type='button', behavior='check', **params):
+        if widget_type not in cls._widgets_type:
+            raise ValueError(f'widget_type {widget_type!r} is not valid. Valid options are {cls._widgets_type}')
+        if behavior not in cls._behaviors:
+            raise ValueError(f'behavior {behavior!r} is not valid. Valid options are {cls._behaviors}')
+        if behavior == 'check':
+            return (CheckButtonGroup if widget_type == 'button' else CheckBoxGroup)(**params)
+        if isinstance(params.get('value'), list):
+            raise ValueError(f'Radio buttons require a single value, found: {params["value"]}')
+        return (RadioButtonGroup if widget_type == 'button' else RadioBoxGroup)(**params)
 
 
 class MultiSelect(MaterialMultiSelectBase):
@@ -727,6 +817,10 @@ class CrossSelector(MaterialMultiSelectBase):
         objects=COLORS, default="primary", doc="The color of the cross selector widget."
     )  # type: ignore[assignment]
 
+    definition_order = param.Boolean(default=True, doc="Preserve option order when selecting values.")
+
+    filter_fn = param.Callable(default=re.search, doc="Function receiving a query and an option label.")
+
     searchable = param.Boolean(default=True, doc="Whether the dropdown is searchable")
 
     width = param.Integer(default=None, doc="Width of the widget")
@@ -740,6 +834,18 @@ class CrossSelector(MaterialMultiSelectBase):
     )  # type: ignore[assignment]
 
     _esm_base = "CrossSelector.jsx"
+
+    _rename = {"filter_fn": None}
+
+    def _handle_msg(self, msg: dict) -> None:
+        if msg.get('type') != 'filter':
+            return
+        query = msg['query']
+        try:
+            matches = [label for label in self.labels if self.filter_fn(query, label)]
+        except Exception:
+            matches = []
+        self._send_msg({'type': 'filter_response', 'side': msg['side'], 'query': query, 'matches': matches})
 
 
 class NestedSelect(_PnNestedSelect):
@@ -794,6 +900,7 @@ __all__ = [
     "CheckBoxGroup",
     "RadioButtonGroup",
     "CheckButtonGroup",
+    "ToggleGroup",
     "MultiSelect",
     "MultiChoice",
     "Pill",

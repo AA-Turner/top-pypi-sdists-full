@@ -16,6 +16,7 @@ there are no store_keys (skips the visual fallback).
 import base64
 import logging
 import os
+import re
 
 import aiohttp
 
@@ -73,6 +74,38 @@ async def _resolve_sub_checks(sub_checks):
             "json_path": sc.get("json_path"),
         })
     return result
+
+
+def _describe_claim(assertion_claim: str) -> str:
+    """Render an assertion claim for a failure message with variables RESOLVED.
+
+    a failure should read ``Galaxy S23 is the device`` rather than
+    ``{{smart.device_name}} is the device`` — the latter names the variable but
+    hides the value the comparison actually used, which is the one thing the
+    reader needs.
+
+    Substitution is per-token and only applied when a token actually resolves to
+    something. Whole-string resolution is wrong here: ``var()`` renders an
+    unknown variable as the empty string, which would silently DELETE the token
+    from the message and leave the reader with less than they started with. An
+    unresolvable token, an empty resolution, or a resolver error all keep the raw
+    ``{{...}}`` text, so a plain-text claim renders exactly as before.
+    """
+    text = assertion_claim or ""
+    if "{{" not in text and "${" not in text:
+        return text
+
+    def _sub(match):
+        token = match.group(0)
+        try:
+            from testmu._vars import var
+            resolved = var(token)
+        except Exception:  # noqa: BLE001 — diagnostics must never mask the failure
+            return token
+        rendered = resolved if isinstance(resolved, str) else str(resolved if resolved is not None else "")
+        return rendered or token
+
+    return re.sub(r"\{\{[^{}]*\}\}|\$\{[^{}]*\}", _sub, text)
 
 
 async def _evaluate_deterministic(claim, composite_op, sub_checks):
@@ -181,11 +214,11 @@ async def verify_assertion(page, claim: str, assertion_tree: dict = None) -> dic
             if os.environ.get("TESTMU_SKIP_ASSERTION_FAILURE"):
                 _log.warning(
                     "[ASSERTION WARN] %s — Ignoring assertion failure: %s",
-                    claim, result,
+                    _describe_claim(claim), result,
                 )
                 return result
             raise AssertionFailureError(
-                f"Assertion failed: {claim}", result=result,
+                f"Assertion failed: {_describe_claim(claim)}", result=result,
             )
         return result
 
@@ -206,11 +239,11 @@ async def verify_assertion(page, claim: str, assertion_tree: dict = None) -> dic
         if os.environ.get("TESTMU_SKIP_ASSERTION_FAILURE"):
             _log.warning(
                 "[ASSERTION WARN] %s — Ignoring assertion failure: %s",
-                assertion_claim, result,
+                _describe_claim(assertion_claim), result,
             )
             return result
         raise AssertionFailureError(
-            f"Assertion failed: {assertion_claim}", result=result,
+            f"Assertion failed: {_describe_claim(assertion_claim)}", result=result,
         )
     return result
 

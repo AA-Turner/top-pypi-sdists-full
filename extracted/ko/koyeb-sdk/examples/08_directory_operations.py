@@ -37,6 +37,7 @@ def main():
         # List directory
         contents = fs.list_dir("/tmp/my_project")
         print(f"Contents: {contents}")
+        assert "src" in contents
 
         # Create project structure
         fs.mkdir("/tmp/my_project/src")
@@ -49,6 +50,7 @@ def main():
         is_dir = fs.is_dir("/tmp/my_project")
         is_file = fs.is_file("/tmp/my_project/src/main.py")
         print(f"Exists: {exists}, Is dir: {is_dir}, Is file: {is_file}")
+        assert exists and is_dir and is_file
 
         return 0
 

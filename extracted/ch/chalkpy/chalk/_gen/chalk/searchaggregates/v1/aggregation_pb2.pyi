@@ -1,4 +1,5 @@
 from chalk._gen.chalk.numericutils.v1 import values_pb2 as _values_pb2
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -23,6 +24,13 @@ class AggregationFunction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     AGGREGATION_FUNCTION_MIN: _ClassVar[AggregationFunction]
     AGGREGATION_FUNCTION_MAX: _ClassVar[AggregationFunction]
     AGGREGATION_FUNCTION_PERCENTILE: _ClassVar[AggregationFunction]
+
+class RateReduction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RATE_REDUCTION_UNSPECIFIED: _ClassVar[RateReduction]
+    RATE_REDUCTION_MEAN: _ClassVar[RateReduction]
+    RATE_REDUCTION_MIN: _ClassVar[RateReduction]
+    RATE_REDUCTION_MAX: _ClassVar[RateReduction]
 
 class OtherRowMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -50,6 +58,10 @@ AGGREGATION_FUNCTION_AVG: AggregationFunction
 AGGREGATION_FUNCTION_MIN: AggregationFunction
 AGGREGATION_FUNCTION_MAX: AggregationFunction
 AGGREGATION_FUNCTION_PERCENTILE: AggregationFunction
+RATE_REDUCTION_UNSPECIFIED: RateReduction
+RATE_REDUCTION_MEAN: RateReduction
+RATE_REDUCTION_MIN: RateReduction
+RATE_REDUCTION_MAX: RateReduction
 OTHER_ROW_MODE_UNSPECIFIED: OtherRowMode
 OTHER_ROW_MODE_OMIT: OtherRowMode
 OTHER_ROW_MODE_FOLD: OtherRowMode
@@ -106,6 +118,18 @@ class AggregateOptions(_message.Message):
         other_row_mode: _Optional[_Union[OtherRowMode, str]] = ...,
         none_row_mode: _Optional[_Union[NoneRowMode, str]] = ...,
         order_by: _Optional[int] = ...,
+    ) -> None: ...
+
+class RateOptions(_message.Message):
+    __slots__ = ("interval", "reduction")
+    INTERVAL_FIELD_NUMBER: _ClassVar[int]
+    REDUCTION_FIELD_NUMBER: _ClassVar[int]
+    interval: _duration_pb2.Duration
+    reduction: RateReduction
+    def __init__(
+        self,
+        interval: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        reduction: _Optional[_Union[RateReduction, str]] = ...,
     ) -> None: ...
 
 class AggregateRow(_message.Message):

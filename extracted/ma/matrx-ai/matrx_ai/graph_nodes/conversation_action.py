@@ -167,7 +167,7 @@ class ConversationContinueInput(BaseModel):
     )
     skill_config: dict[str, JsonValue] | None = Field(
         default=None,
-        description="Per-request skill visibility override (Smart Input additive picks).",
+        description="Per-request skill exposure override (Smart Input additive picks).",
         json_schema_extra=field_extras(widget="json"),
     )
     cache_bypass: dict[str, JsonValue] | None = Field(

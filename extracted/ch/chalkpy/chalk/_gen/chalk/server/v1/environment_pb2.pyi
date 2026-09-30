@@ -29,6 +29,7 @@ class CloudProviderKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CLOUD_PROVIDER_KIND_GCP: _ClassVar[CloudProviderKind]
     CLOUD_PROVIDER_KIND_AWS: _ClassVar[CloudProviderKind]
     CLOUD_PROVIDER_KIND_AZURE: _ClassVar[CloudProviderKind]
+    CLOUD_PROVIDER_KIND_LOCAL: _ClassVar[CloudProviderKind]
 
 class VectorDBKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -97,6 +98,7 @@ CLOUD_PROVIDER_KIND_UNKNOWN: CloudProviderKind
 CLOUD_PROVIDER_KIND_GCP: CloudProviderKind
 CLOUD_PROVIDER_KIND_AWS: CloudProviderKind
 CLOUD_PROVIDER_KIND_AZURE: CloudProviderKind
+CLOUD_PROVIDER_KIND_LOCAL: CloudProviderKind
 VECTOR_DB_KIND_UNSPECIFIED: VectorDBKind
 VECTOR_DB_KIND_OPENSEARCH: VectorDBKind
 VECTOR_DB_KIND_PGVECTOR: VectorDBKind
@@ -233,6 +235,7 @@ class Environment(_message.Message):
         "primary_linked_cluster_class",
         "description",
         "default_engine_base_image",
+        "default_ai_provider_connection_id",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -348,6 +351,7 @@ class Environment(_message.Message):
     PRIMARY_LINKED_CLUSTER_CLASS_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_ENGINE_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_AI_PROVIDER_CONNECTION_ID_FIELD_NUMBER: _ClassVar[int]
     name: str
     project_id: str
     id: str
@@ -416,6 +420,7 @@ class Environment(_message.Message):
     primary_linked_cluster_class: _cluster_class_pb2.ClusterClass
     description: str
     default_engine_base_image: str
+    default_ai_provider_connection_id: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -486,6 +491,7 @@ class Environment(_message.Message):
         primary_linked_cluster_class: _Optional[_Union[_cluster_class_pb2.ClusterClass, str]] = ...,
         description: _Optional[str] = ...,
         default_engine_base_image: _Optional[str] = ...,
+        default_ai_provider_connection_id: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateEnvironmentV2Request(_message.Message):

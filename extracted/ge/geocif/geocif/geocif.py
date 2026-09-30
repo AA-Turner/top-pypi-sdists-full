@@ -4321,10 +4321,16 @@ class Geocif:
 
     def _add_engineered_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add engineered features (lag, median, analogous year, etc.)."""
-        df = fe.compute_last_year_yield(df, self.target)
-        
+        # Yield-history features hide the held-out season's yield: they are
+        # built on the full table before the LOOCV split, so later training
+        # rows would otherwise carry it (see fe.compute_lag_yield).
+        df = fe.compute_last_year_yield(
+            df, self.target, forecast_season=self.forecast_season
+        )
+
         df = fe.compute_median_statistics(
-            df, self.all_seasons_with_yield, self.number_median_years, self.target
+            df, self.all_seasons_with_yield, self.number_median_years, self.target,
+            forecast_season=self.forecast_season,
         )
         
         df = fe.compute_user_median_statistics(df, range(2018, 2023), self.target)

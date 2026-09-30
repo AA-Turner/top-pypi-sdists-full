@@ -3,13 +3,16 @@ from __future__ import annotations
 import io
 import os
 import time
+from contextlib import nullcontext
 from pathlib import Path
+from typing import Any
 
 import httpx
 from rich.align import Align
 from rich.console import Group
 from rich.prompt import Confirm
 from rich.status import Status
+from typing_extensions import Literal
 
 import coiled
 from coiled.cli.curl import sync_request
@@ -111,7 +114,7 @@ def download_from_filestore_with_ui(fs, into=".", name_includes=None):
             )
 
 
-def upload_to_filestore_with_ui(fs, local_dir, file_buffers=None):
+def upload_to_filestore_with_ui(fs, local_dir, file_buffers=None, cloud=None):
     # TODO (future enhancement) send write status
     #   this is tricky because status is stored on the "attachment" object, which might not exist yet
     #   because we want to be able to upload files before cluster has been created
@@ -160,7 +163,7 @@ def upload_to_filestore_with_ui(fs, local_dir, file_buffers=None):
             ])
 
             # files_for_upload is type list[dict] where each dict has "relative_path" key
-            upload_info = FilestoreManager.get_signed_upload_urls(fs["id"], files_for_upload=files)
+            upload_info = FilestoreManager.get_signed_upload_urls(fs["id"], files_for_upload=files, cloud=cloud)
 
             upload_urls = upload_info.get("urls")
             existing_blobs = upload_info.get("existing")
@@ -440,10 +443,41 @@ class FilestoreManagerWithoutHttp:
 class FilestoreManager(FilestoreManagerWithoutHttp):
     http2 = True
 
+    @classmethod
+    def get_or_create_filestores(cls, names, workspace, region, cloud=None):
+        return cls.make_req(
+            "/api/v2/filestore/list",
+            post=True,
+            data={"names": names, "workspace": workspace, "region": region},
+            cloud=cloud,
+        ).get("filestores")
+
+    @classmethod
+    def get_signed_upload_urls(cls, fs_id, files_for_upload, cloud=None):
+        paths = [f["relative_path"] for f in files_for_upload]  # relative paths
+        return cls.make_req(
+            f"/api/v2/filestore/fs/{fs_id}/signed-urls/upload",
+            post=True,
+            data={"paths": paths},
+            cloud=cloud,
+        )
+
+    @classmethod
+    def attach_filestores_to_cluster(cls, cluster_id, attachments, cloud=None):
+        return cls.make_req(
+            "/api/v2/filestore/attach",
+            post=True,
+            data={
+                "cluster_id": cluster_id,
+                "attachments": attachments,
+            },
+            cloud=cloud,
+        )
+
     @staticmethod
-    def make_req(api_path, post=False, data=None):
+    def make_req(api_path, post=False, data=None, cloud: coiled.Cloud[Literal[False]] | None = None) -> Any:
         workspace = (data or {}).get("workspace")
-        with coiled.Cloud(workspace=workspace) as cloud:
+        with coiled.Cloud(workspace=workspace) if cloud is None else nullcontext(cloud) as cloud:
             url = f"{cloud.server}{api_path}"
             response = sync_request(
                 cloud=cloud,

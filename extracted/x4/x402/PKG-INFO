@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: x402
-Version: 2.24.0
+Version: 2.25.0
 Summary: x402 Payment Protocol SDK for Python
 Project-URL: Homepage, https://github.com/x402-foundation/x402
 Project-URL: Documentation, https://x402.org
@@ -37,7 +37,7 @@ Requires-Dist: pytoniq-core>=0.1.36; extra == 'all'
 Requires-Dist: pytoniq>=0.1.39; extra == 'all'
 Requires-Dist: requests>=2.31.0; extra == 'all'
 Requires-Dist: signinwithethereum>=5.0.1; extra == 'all'
-Requires-Dist: solana>=0.36.0; extra == 'all'
+Requires-Dist: solana<0.40,>=0.36.0; extra == 'all'
 Requires-Dist: solders>=0.27.0; extra == 'all'
 Requires-Dist: starlette>=0.27.0; extra == 'all'
 Requires-Dist: web3>=7.0.0; extra == 'all'
@@ -73,7 +73,7 @@ Requires-Dist: httpx>=0.28.1; extra == 'mechanisms'
 Requires-Dist: pynacl>=1.5.0; extra == 'mechanisms'
 Requires-Dist: pytoniq-core>=0.1.36; extra == 'mechanisms'
 Requires-Dist: pytoniq>=0.1.39; extra == 'mechanisms'
-Requires-Dist: solana>=0.36.0; extra == 'mechanisms'
+Requires-Dist: solana<0.40,>=0.36.0; extra == 'mechanisms'
 Requires-Dist: solders>=0.27.0; extra == 'mechanisms'
 Requires-Dist: web3>=7.0.0; extra == 'mechanisms'
 Provides-Extra: requests
@@ -83,7 +83,7 @@ Requires-Dist: fastapi[standard]>=0.115.0; extra == 'servers'
 Requires-Dist: flask>=3.0.0; extra == 'servers'
 Requires-Dist: starlette>=0.27.0; extra == 'servers'
 Provides-Extra: svm
-Requires-Dist: solana>=0.36.0; extra == 'svm'
+Requires-Dist: solana<0.40,>=0.36.0; extra == 'svm'
 Requires-Dist: solders>=0.27.0; extra == 'svm'
 Provides-Extra: tvm
 Requires-Dist: httpx>=0.28.1; extra == 'tvm'

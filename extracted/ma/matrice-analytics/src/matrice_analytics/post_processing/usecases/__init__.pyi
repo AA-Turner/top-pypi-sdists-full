@@ -1,15 +1,22 @@
 """Stub file for post_processing.usecases directory."""
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from . import lpr_ocr_source
 from ...analytics.engine_session import map_detection_categories
 from ...analytics.redis_publisher import AnalyticsRedisPublisher
+from ...clients import identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.bootstrap import get_action_id, get_session
+from ...clients.lpr_client import LPRClient
+from ...clients.models import LprServer, build_detection
+from ...clients.response import CallFailure, ConnectionLost, RateLimited
 from ..Trackers import ConfigDrivenTracker, TrackerProfile
 from ..Trackers import ConfigDrivenTracker, TrackerProfile, legacy_sort_tracker_overrides
 from ..Trackers import ConfigDrivenTracker, get_effective_tracking_method
 from ..Trackers.integration import ConfigDrivenTracker
 from ..advanced_tracker import AdvancedTracker
 from ..advanced_tracker.config import TrackerConfig
+from ..advanced_tracker.rtp_clock import RtpClock
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult, ResultFormat
 from ..core.base import ConfigProtocol, ProcessingContext, ProcessingResult
@@ -85,6 +92,7 @@ from ..utils.parking_analytics_tracker import ParkingAnalyticsTracker
 from ..utils.post_processing_config_client import GEOMETRY_RETRY_INTERVAL
 from ..utils.post_processing_config_client import GEOMETRY_RETRY_INTERVAL, PostProcessingConfigClient
 from ..utils.post_processing_config_client import PostProcessingConfigClient
+from ..utils.post_processing_config_client import is_resolvable_location_id
 from ..utils.public_ip import resolve_public_ip_once
 from ..utils.speed_box3d_utils import Box3DFallback
 from ..utils.speed_fit_utils import baseline_slope, over_limit_pct, severity_for, uncertainty_pct
@@ -154,6 +162,7 @@ TAILGATING_SEVERITY: str = ...  # From tailgating_detection
 logger: Any = ...  # From tailgating_detection
 ColorCache: None = ...  # From vehicle_color_detection
 ColorClassifier: None = ...  # From vehicle_color_detection
+INCIDENT_TYPE: str = ...  # From vehicle_speed_estimation
 FACTORS: Dict[Any, Any] = ...  # From vehicle_speed_estimation_config
 UNIT_LABELS: Dict[Any, Any] = ...  # From vehicle_speed_estimation_config
 VEHICLE_CATEGORIES: List[Any] = ...  # From vehicle_speed_estimation_config
@@ -2100,15 +2109,12 @@ class FloodDetectionUseCase:
 
     def get_resolution(self: Any, camera_id: str) -> Tuple[Optional[int], Optional[int]]:
         """
-        Fetch frame width/height for *camera_id* via CameraManagement API.
-        
-                Mirrors the same method in :class:`FootfallProcessor` so that flood
-                detection can normalise segmentation-mask areas to a percentage of the
-                real frame.
+        Fetch frame width/height for *camera_id* from the camera record.
         
                 Returns
                 -------
-                tuple of (width, height) in pixels, or (None, None) on failure.
+                tuple of (width, height) in pixels, or (None, None) when the camera
+                record carries no usable frame size.
         """
         ...
 
@@ -2308,175 +2314,6 @@ class FootFallUseCase:
     def update_global_frame_offset(self: Any, frames_in_chunk: int) -> None:
         """
         Update global frame offset after processing a chunk.
-        """
-        ...
-
-
-# From footfall
-class PostProcessingConfigClient:
-    # Wrapper for Matrice post-processing config: session, stream identifiers,
-    # REST fetch by app deployment, and config filtering by camera_id.
-
-    def __init__(self: Any, session: Optional[Any] = None, access_key: Optional[str] = None, secret_key: Optional[str] = None, account_number: Optional[str] = None, logger: Optional[Any.Any] = None) -> None:
-        """
-        Create client with optional session or credentials (from args or env).
-        
-                Credentials are loaded in order: constructor args, then env vars
-                (MATRICE_ACCESS_KEY_ID, MATRICE_SECRET_ACCESS_KEY, MATRICE_ACCOUNT_NUMBER).
-                If session is provided, it is used and credentials are taken from it when needed for RPC.
-        
-                Parameters
-                ----------
-                session : object, optional
-                    Matrice session (e.g. from matrice_common.session.Session). If None, one is
-                    created from access_key/secret_key/account_number (args or env).
-                access_key : str, optional
-                    Matrice API access key. Default from MATRICE_ACCESS_KEY_ID.
-                secret_key : str, optional
-                    Matrice API secret key. Default from MATRICE_SECRET_ACCESS_KEY.
-                account_number : str, optional
-                    Account number. Default from MATRICE_ACCOUNT_NUMBER (default "").
-                logger : logging.Logger, optional
-                    Logger to use. Defaults to module logger.
-        """
-        ...
-
-    def denormalize_config(self: Any, config: Union[Dict[str, Any], List[Dict[str, Any]]], width: int, height: int) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
-        """
-        Convert normalized (0–1) line/zone coordinates to integer pixel coordinates.
-        
-                Takes the same structure returned by get_post_processing_configs_by_app_deployment
-                (single doc or list of docs) and converts every coordinate in postProcessing
-                .<camera_id>.zone_config.lines and .zones to pixels using:
-                  pixel_x = round(norm_x * width),  pixel_y = round(norm_y * height).
-        
-                Parameters
-                ----------
-                config : dict or list of dict
-                    One config document or list of configs (with postProcessing, _id, etc.).
-                width : int
-                    Frame width in pixels (e.g. from get_resolution).
-                height : int
-                    Frame height in pixels (e.g. from get_resolution).
-        
-                Returns
-                -------
-                dict or list of dict
-                    New config(s) with the same structure and integer coordinates.
-        """
-        ...
-
-    def filter_configs_by_camera_id(self: Any, configs: List[Dict[str, Any]], camera_id: str) -> List[Dict[str, Any]]:
-        """
-        Filter a list of config documents to those that contain config for the given camera_id.
-        
-                Each config item has ``postProcessing`` keyed by camera ID; this returns
-                only items whose ``postProcessing`` has an entry for `camera_id`.
-        
-                Parameters
-                ----------
-                configs : list of dict
-                    List of config objects (e.g. from get_post_processing_configs_by_app_deployment).
-                camera_id : str
-                    Camera ID to filter by.
-        
-                Returns
-                -------
-                list of dict
-                    Configs that have postProcessing[camera_id].
-        """
-        ...
-
-    def get_config_for_camera(self: Any, camera_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Return the current post-processing config for a camera from the cache.
-        
-                The cache is populated by set_config_cache_from_api (REST load).
-        
-                Parameters
-                ----------
-                camera_id : str
-                    Camera ID.
-        
-                Returns
-                -------
-                dict or None
-                    Cached config for this camera, or None if not present.
-        """
-        ...
-
-    def get_post_processing_configs_by_app_deployment(self: Any, app_deployment_id: str) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str], Optional[str]]:
-        """
-        Fetch all post-processing configs for an app deployment via Matrice API.
-        
-                Uses: GET /v1/inference/post_processing_configs/by_app_deployment/:appDeploymentId
-        
-                Parameters
-                ----------
-                app_deployment_id : str
-                    Application deployment ID.
-        
-                Returns
-                -------
-                tuple of (data, error, message)
-                    - data: List of config objects, or None on failure.
-                    - error: Error string or None on success.
-                    - message: API message string.
-        """
-        ...
-
-    def get_resolution(self: Any, camera_id: str) -> Tuple[Optional[int], Optional[int]]:
-        """
-        Get frame width and height for a camera by its ID.
-        
-                Fetches camera streams via CameraManagement and reads customStreamSettings.
-                Return order is (width, height) as requested for use with denormalize_config.
-        
-                Parameters
-                ----------
-                camera_id : str
-                    Camera ID (as returned by get_stream_identifiers or API).
-        
-                Returns
-                -------
-                tuple of (width, height)
-                    Pixel dimensions, or (None, None) if not found or on error.
-        """
-        ...
-
-    def get_stream_identifiers(self: Any, stream_info: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
-        """
-        Return camera_id, application_id, and app_deployment_id from stream_info.
-        
-                application_id and app_deployment_id come from base via self._deployment_id_helper
-                (ids = self._deployment_id_helper.extract_deployment_ids(stream_info)).
-                camera_id follows face_recognition-style extraction (topic, camera_info, frame_id).
-        
-                Returns
-                -------
-                dict
-                    Keys: ``camera_id``, ``application_id``, ``app_deployment_id``.
-                    Values are strings (empty if not found).
-        """
-        ...
-
-    def session(self: Any) -> Any:
-        """
-        Return the matrice_common Session (read-only).
-        """
-        ...
-
-    def set_config_cache_from_api(self: Any, configs: List[Dict[str, Any]]) -> None:
-        """
-        Populate the config cache from a list of configs (e.g. from REST API).
-        
-                For each config doc, each key in postProcessing is treated as a camera_id
-                and stored in the cache.
-        
-                Parameters
-                ----------
-                configs : list of dict
-                    List of config objects from get_post_processing_configs_by_app_deployment.
         """
         ...
 
@@ -2978,15 +2815,12 @@ class LandslideDetectionUseCase:
 
     def get_resolution(self: Any, camera_id: str) -> Tuple[Optional[int], Optional[int]]:
         """
-        Fetch frame width/height for *camera_id* via CameraManagement API.
-        
-                Mirrors the same method in :class:`FootfallProcessor` so that landslide
-                detection can normalise segmentation-mask areas to a percentage of the
-                real frame.
+        Fetch frame width/height for *camera_id* from the camera record.
         
                 Returns
                 -------
-                tuple of (width, height) in pixels, or (None, None) on failure.
+                tuple of (width, height) in pixels, or (None, None) when the camera
+                record carries no usable frame size.
         """
         ...
 
@@ -3148,11 +2982,22 @@ class LicensePlateMonitorConfig:
 
 # From license_plate_monitoring
 class LicensePlateMonitorLogger:
-    def __init__(self: Any) -> None: ...
+    def __init__(self: Any, client: Optional[Any] = None) -> None:
+        """
+        Args:
+            client: The licence-plate client to reach the platform through. Absent one,
+                a client is built on the session and server id this logger already
+                resolves, so a caller that passes nothing sends the same request it
+                sent before.
+        """
+        ...
 
     async def aclose(self: Any) -> None:
         """
-        Close the shared aiohttp session (call from the loop that owns it).
+        Close the detection connection pool (call from the loop that sent on it).
+        
+                Delegates to the client, which owns the pool. Nothing to close when this logger
+                never built a client, which is the case for a Redis-mode logger.
         """
         ...
 
@@ -3189,9 +3034,12 @@ class LicensePlateMonitorLogger:
         """
         ...
 
-    def get_server_connection_info(self: Any) -> Dict[str, Any] | None:
+    def get_server_connection_info(self: Any) -> Any | None:
         """
-        Fetch server connection info from RPC.
+        The lpr-server's record: where it is, and which project it files under.
+        
+                Returns ``None`` -- never raises -- when there is no server id or the read
+                fails, which the caller treats as "plate logging is unavailable".
         """
         ...
 
@@ -3271,7 +3119,14 @@ class LicensePlateMonitorLogger:
 
 # From license_plate_monitoring
 class LicensePlateMonitorUseCase:
-    def __init__(self: Any) -> None: ...
+    def __init__(self: Any, client: Optional[Any] = None) -> None:
+        """
+        Args:
+            client: The platform client to make calls through. Absent one, a client is
+                built on the session the config carries, so a caller that passes
+                nothing sends exactly the requests it sent before.
+        """
+        ...
 
     CATEGORY_DISPLAY: Dict[Any, Any]
 
@@ -5878,7 +5733,7 @@ class VehicleSpeedEstimationUseCase:
 class VehicleSpeedEstimationConfig:
     # Configuration for self-calibrating vehicle speed estimation.
 
-    def __init__(self: Any, usecase: str = 'vehicle_speed_estimation', category: str = 'traffic', confidence_threshold: float = 0.5, target_categories: Optional[List[str]] = None, camera_height_m: float = 8.0, speed_limit: float = 50.0, units: str = 'kmh', tolerance: float = 0.1, window_samples: int = 40, min_samples: int = 12, min_baseline_seconds: float = 0.4, max_plausible_speed: float = 200.0, edge_margin_px: float = 6.0, jitter_px: float = 2.0, calibration_min_frames: int = 150, calibration_min_tracks: int = 25, calibration_retry_frames: int = 300, calibration_max_attempts: int = 5, max_vp2_diagonals: float = 20.0, max_f_sensitivity_pct: float = 2.0, box3d_fallback_enabled: bool = True, box3d_fallback_after_seconds: float = 60.0, box3d_ground_indices: Optional[List[int]] = None, box3d_calibration_categories: Optional[List[str]] = None, box3d_car_length_m: float = 4.5, box3d_car_width_m: float = 1.8, box3d_min_footprints: int = 300, box3d_min_tracks: int = 20, box3d_min_corner_conf: float = 0.5, box3d_min_footprint_px: float = 12.0, **kwargs: Any) -> None: ...
+    def __init__(self: Any, usecase: str = 'vehicle_speed_estimation', category: str = 'traffic', confidence_threshold: float = 0.5, target_categories: Optional[List[str]] = None, camera_height_m: float = 8.0, speed_limit: float = 50.0, units: str = 'kmh', tolerance: float = 0.1, window_samples: int = 40, min_samples: int = 12, min_baseline_seconds: float = 0.4, max_plausible_speed: float = 200.0, edge_margin_px: float = 6.0, jitter_px: float = 2.0, calibration_min_frames: int = 150, calibration_min_tracks: int = 25, calibration_retry_frames: int = 300, calibration_max_attempts: int = 5, max_vp2_diagonals: float = 20.0, max_f_sensitivity_pct: float = 2.0, box3d_fallback_enabled: bool = True, box3d_fallback_after_seconds: float = 60.0, box3d_ground_indices: Optional[List[int]] = None, box3d_calibration_categories: Optional[List[str]] = None, box3d_car_length_m: float = 4.5, box3d_car_width_m: float = 1.8, box3d_min_footprints: int = 300, box3d_min_tracks: int = 20, box3d_min_corner_conf: float = 0.5, box3d_min_footprint_px: float = 12.0, label_with_speed: bool = True, **kwargs: Any) -> None: ...
 
     def to_dict(self: Any) -> Dict[str, Any]:
         """

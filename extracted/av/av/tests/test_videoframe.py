@@ -1,3 +1,5 @@
+import gc
+import weakref
 from fractions import Fraction
 
 import numpy
@@ -134,6 +136,28 @@ def test_opaque() -> None:
 
     frame.opaque = None
     assert frame.opaque is None
+
+
+def test_opaque_shared_between_frames() -> None:
+    class Payload:
+        pass
+
+    payload = Payload()
+    ref = weakref.ref(payload)
+    frames = [VideoFrame(16, 16, "yuv420p") for _ in range(3)]
+    for frame in frames:
+        frame.opaque = payload
+
+    # Dropping one holder must not take the object away from the others.
+    while frames:
+        assert all(f.opaque is payload for f in frames)
+        frames.pop()
+        gc.collect()
+
+    # ...and the last one going away must still release it.
+    del frame, payload
+    gc.collect()
+    assert ref() is None
 
 
 def test_interpolation() -> None:
@@ -731,9 +755,30 @@ def test_ndarray_yuv420p10le_zero_size() -> None:
 def test_ndarray_yuv422p() -> None:
     array = numpy.random.randint(0, 256, size=(960, 640), dtype=numpy.uint8)
     frame = VideoFrame.from_ndarray(array, format="yuv422p")
+    assert "yuv422p" in supported_np_pix_fmts
     assert frame.width == 640 and frame.height == 480
     assert frame.format.name == "yuv422p"
     assertNdarraysEqual(frame.to_ndarray(), array)
+
+
+def test_supported_np_pix_fmts_matches_to_ndarray() -> None:
+    # supported_np_pix_fmts is public API describing what to_ndarray() accepts,
+    # so it is checked against to_ndarray() itself rather than against a list
+    # that would have to be kept in step with it by hand.
+    converts = set()
+    for name in av.video.format.names:
+        try:
+            VideoFrame(32, 16, name).to_ndarray()
+        except Exception:
+            continue
+        converts.add(name)
+
+    assert converts - supported_np_pix_fmts == set()
+
+    # Names that av.video.format.names does not carry are aliases, so the
+    # advertised set is checked directly rather than through the sweep.
+    for name in supported_np_pix_fmts:
+        VideoFrame(32, 16, name).to_ndarray()
 
 
 def test_ndarray_yuv420p_align() -> None:
@@ -1345,6 +1390,33 @@ def test_reformat_identity() -> None:
     frame1 = VideoFrame(640, 480, "rgb24")
     frame2 = frame1.reformat(640, 480, "rgb24")
     assert frame1 is frame2
+
+
+def test_reformat_shares_one_context_per_thread() -> None:
+    # An SwsContext retains megabytes of graph state, so frames must not each
+    # hold their own. See #2320.
+    from threading import Thread
+
+    from av.video.frame import _thread_local  # type: ignore[attr-defined]
+
+    for _ in range(3):
+        VideoFrame(640, 480, "yuv420p").reformat(format="rgb24")
+    mine = _thread_local.reformatter
+    assert mine is not None
+
+    theirs = []
+
+    def other() -> None:
+        VideoFrame(640, 480, "yuv420p").reformat(format="rgb24")
+        theirs.append(_thread_local.reformatter)
+
+    thread = Thread(target=other)
+    thread.start()
+    thread.join()
+
+    assert theirs, "worker thread failed"
+    assert _thread_local.reformatter is mine
+    assert theirs[0] is not mine
 
 
 def test_reformat_colorspace() -> None:

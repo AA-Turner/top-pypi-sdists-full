@@ -90,7 +90,7 @@ jobs:
     steps:
       - name: Launch Devin triage session
         id: launch-triage
-        uses: aaronsteers/devin-action@main
+        uses: airbytehq/devin-action@main
         with:
           devin-token: ${{ secrets.DEVIN_AI_ADMIN_SERVICE_TOKEN }}
           api-version: v3
@@ -197,7 +197,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Send thread URL to triage session
-        uses: aaronsteers/devin-action@main
+        uses: airbytehq/devin-action@main
         with:
           devin-token: ${{ secrets.DEVIN_AI_ADMIN_SERVICE_TOKEN }}
           reuse-session: ${{ needs.triage-session.outputs.triage-session-url }}

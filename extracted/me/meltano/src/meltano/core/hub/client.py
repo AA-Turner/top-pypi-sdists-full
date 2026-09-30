@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import sys
 import typing as t
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
@@ -212,6 +213,20 @@ class HubPluginVariantNotFoundError(MeltanoError):
         )
 
 
+@contextmanager
+def _cloud_login_hint() -> t.Iterator[None]:
+    """Print the hint after the command output, where a long output cannot bury it.
+
+    A failed command skips the hint, so that the error stays the last line.
+    """
+    yield  # noqa: RUF075
+    click.secho(
+        "Run 'meltano cloud auth login' to get supported plugins from Meltano Cloud",
+        fg="bright_yellow",
+        err=True,
+    )
+
+
 class MeltanoHubService(PluginRepository):
     """PluginRepository implementation for the Meltano Hub."""
 
@@ -240,17 +255,16 @@ class MeltanoHubService(PluginRepository):
         self.cloud_authenticated = False
         if self.hub_url_auth:
             self.session.headers.update({"Authorization": self.hub_url_auth})
-        elif credentials := self._cloud_credentials():
+        elif credentials := self.cloud_credentials():
             self.session.headers.update(credentials.auth_header)
             self.cloud_authenticated = True
 
-        if not self.cloud_authenticated and not self.has_configured_hub:
-            logger.info(
-                "Meltano Cloud offers an alternate Hub of first-party "
-                "supported plugins that are actively maintained and tested. "
-                "Log in or sign up to get access by running 'meltano cloud "
-                "auth login'.",
-            )
+        if (
+            not self.cloud_authenticated
+            and not self.has_configured_hub
+            and (click_context := click.get_current_context(silent=True))
+        ):
+            click_context.with_resource(_cloud_login_hint())
 
         adapter = HTTPAdapter(
             max_retries=Retry(
@@ -299,7 +313,7 @@ class MeltanoHubService(PluginRepository):
         return self.project.settings.get("hub_url_auth")
 
     @staticmethod
-    def _cloud_credentials() -> Credentials | None:
+    def cloud_credentials() -> Credentials | None:
         """Get the stored Meltano Cloud session, renewing it if it has expired.
 
         Returns:
@@ -410,6 +424,8 @@ class MeltanoHubService(PluginRepository):
         plugin_type: PluginType,
         plugin_name: str,
         variant_name: str | None = None,
+        *,
+        refresh: bool = True,
     ) -> PluginDefinition:
         """Find a locked plugin definition.
 
@@ -417,6 +433,8 @@ class MeltanoHubService(PluginRepository):
             plugin_type: The plugin type.
             plugin_name: The plugin name.
             variant_name: The plugin variant name.
+            refresh: Whether to fetch the index and the definition rather than
+                reuse ones cached in the last `INDEX_CACHE_DURATION`.
 
         Returns:
             The plugin definition.
@@ -427,7 +445,7 @@ class MeltanoHubService(PluginRepository):
             HubConnectionError: If the Hub API could not be reached.
         """
         try:
-            plugin = self.get_plugins_of_type(plugin_type)[plugin_name]
+            plugin = self.get_plugins_of_type(plugin_type, refresh=refresh)[plugin_name]
         except KeyError as plugins_key_err:
             raise PluginNotFoundError(
                 PluginRef(plugin_type, plugin_name),
@@ -448,18 +466,31 @@ class MeltanoHubService(PluginRepository):
                 variant_name,
             ) from variant_key_err
 
-        logger.info("Fetching plugin definition from Meltano Hub", url=url)
-        response = self._get(url)
+        cache_path = _index_cache_path(url)
+        definition = None if refresh else _read_index_cache(cache_path)
 
-        if response.status_code >= HTTPStatus.BAD_REQUEST:
-            reason = (
-                f"{response.reason or 'Unknown reason'} ({response.status_code}): "
-                "can not retrieve plugin"
+        if definition is None:
+            # A caller that accepts a cached definition is checking in the
+            # background, so its fetch is not news to the reader.
+            logger.log(
+                logging.INFO if refresh else logging.DEBUG,
+                "Fetching plugin definition from Meltano Hub",
+                url=url,
             )
-            raise HubConnectionError(reason)
+            response = self._get(url)
+
+            if response.status_code >= HTTPStatus.BAD_REQUEST:
+                reason = (
+                    f"{response.reason or 'Unknown reason'} ({response.status_code}): "
+                    "can not retrieve plugin"
+                )
+                raise HubConnectionError(reason)
+
+            definition = response.json()
+            _write_index_cache(cache_path, definition)
 
         return PluginDefinition(
-            **response.json(),
+            **definition,
             plugin_type=plugin_type,
             is_default_variant=variant_name == plugin.default_variant,
         )

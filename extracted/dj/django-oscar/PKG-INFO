@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-oscar
-Version: 4.2
+Version: 4.2.1
 Summary: A domain-driven e-commerce framework for Django
 Author-email: David Winterbottom <david.winterbottom@gmail.com>
 License: BSD

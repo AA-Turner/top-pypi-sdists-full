@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api.models.instance_snapshot_type import InstanceSnapshotType
 
+
 class TestInstanceSnapshotType(unittest.TestCase):
     """InstanceSnapshotType unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestInstanceSnapshotType(unittest.TestCase):
         """Test InstanceSnapshotType"""
         # inst = InstanceSnapshotType()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

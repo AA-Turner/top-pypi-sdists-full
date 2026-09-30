@@ -27,7 +27,7 @@ def is_pathname_valid(pathname: str) -> bool:
     `True` if the passed pathname is a valid pathname for the current OS;
     `False` otherwise.
     '''
-    # If this pathname is either not a string or is but is empty, this
+    # If this pathname is either not a string or or an empty string, this
     # pathname is invalid.
     try:
         if not isinstance(pathname, str) or not pathname:
@@ -36,7 +36,7 @@ def is_pathname_valid(pathname: str) -> bool:
         # Strip this pathname's Windows-specific drive specifier (e.g., `C:\`)
         # if any. Since Windows prohibits path components from containing `:`
         # characters, failing to strip this `:`-suffixed prefix would
-        # erroneously invalidate all valid absolute Windows pathnames.
+        # erroneously invalidate all valid absolute Windows path names.
         _, pathname = os.path.splitdrive(pathname)
 
         # Directory guaranteed to exist. If the current OS is Windows, this is
@@ -59,7 +59,7 @@ def is_pathname_valid(pathname: str) -> bool:
             # is the case, this exception implies an ignorable kernel or
             # filesystem complaint (e.g., path not found or inaccessible).
             #
-            # Only the following exceptions indicate invalid pathnames:
+            # Only the following exceptions indicate invalid path names:
             #
             # * Instances of the Windows-specific "WindowsError" class
             #   defining the "winerror" attribute whose value is

@@ -354,8 +354,8 @@ endmodule
     auto& outer = root.lookupName<GenerateBlockSymbol>("Top.outer");
     auto& inner = root.lookupName<GenerateBlockSymbol>("Top.outer.inner");
 
-    auto* outerConstruct = constructOf(outer);
-    auto* innerConstruct = constructOf(inner);
+    auto outerConstruct = constructOf(outer);
+    auto innerConstruct = constructOf(inner);
     REQUIRE(outerConstruct != nullptr);
     REQUIRE(innerConstruct != nullptr);
     CHECK(outerConstruct->kind == SyntaxKind::IfGenerate);
@@ -390,7 +390,7 @@ endmodule
     auto& t = root.lookupName<GenerateBlockSymbol>("Top.t");
     auto& f = root.lookupName<GenerateBlockSymbol>("Top.f");
 
-    auto* innerIf = constructOf(t);
+    auto innerIf = constructOf(t);
     REQUIRE(innerIf != nullptr);
     CHECK(innerIf->kind == SyntaxKind::IfGenerate);
     CHECK(innerIf == constructOf(f));
@@ -430,13 +430,13 @@ endmodule
     auto& md = root.lookupName<GenerateBlockSymbol>("Top.wrapper.md");
 
     CHECK(wrapper.branchKind == GenerateBranchKind::IfTrue);
-    auto* wrapperConstruct = constructOf(wrapper);
+    auto wrapperConstruct = constructOf(wrapper);
     REQUIRE(wrapperConstruct != nullptr);
     CHECK(wrapperConstruct->kind == SyntaxKind::IfGenerate);
 
     CHECK(m1.branchKind == GenerateBranchKind::CaseItem);
     CHECK(md.branchKind == GenerateBranchKind::CaseDefault);
-    auto* m1Construct = constructOf(m1);
+    auto m1Construct = constructOf(m1);
     REQUIRE(m1Construct != nullptr);
     CHECK(m1Construct->kind == SyntaxKind::CaseGenerate);
     CHECK(m1Construct == constructOf(md));
@@ -924,6 +924,7 @@ interface I;
 endinterface
 
 module bar #(parameter int foo);
+    wire l;
     localparam int bar = foo;
     int j = int'(bar[foo]);
     if (j != 10) begin : blk
@@ -982,6 +983,43 @@ endmodule
     CHECK(unusedDefs[1]->name == "nottop");
 }
 
+TEST_CASE("Allow invalid top module parameters") {
+    auto text = R"(
+module top #(parameter int p, parameter type t);
+endmodule
+)";
+
+    // Without the flag the explicitly requested top is rejected for having
+    // non-defaulted parameters.
+    {
+        CompilationOptions options;
+        options.topModules.emplace("top"sv);
+
+        Compilation compilation(options);
+        compilation.addSyntaxTree(SyntaxTree::fromText(text));
+
+        auto& diags = compilation.getAllDiagnostics();
+        REQUIRE(diags.size() == 1);
+        CHECK(diags[0].code == diag::InvalidTopModule);
+    }
+
+    // With the flag it elaborates anyway; the missing parameters get error types
+    // rather than producing errors.
+    {
+        CompilationOptions options;
+        options.flags |= CompilationFlags::AllowInvalidTop;
+        options.topModules.emplace("top"sv);
+
+        Compilation compilation(options);
+        compilation.addSyntaxTree(SyntaxTree::fromText(text));
+        NO_COMPILATION_ERRORS;
+
+        auto& top = *compilation.getRoot().topInstances[0];
+        CHECK(top.body.find<ParameterSymbol>("p").getValue().bad());
+        CHECK(top.body.find<TypeParameterSymbol>("t").targetType.getType().isError());
+    }
+}
+
 TEST_CASE("No top warning") {
     auto tree = SyntaxTree::fromText(R"(
 )");
@@ -1034,6 +1072,7 @@ primitive foo(output a, input b);
 endprimitive
 
 interface I;
+    wire a, b;
     if (1) begin : blk
         m m1();
     end
@@ -1105,6 +1144,7 @@ module m(I i, input int j);
 endmodule
 
 module n;
+    wire a, b;
     m m1(a |-> b, a [*3]);
     m m2(a throughout b, 4);
     m m3(a [*3], 4);
@@ -1480,6 +1520,77 @@ endmodule
     NO_COMPILATION_ERRORS;
 }
 
+TEST_CASE("Check uninstantiated reports bindable errors") {
+    auto text = R"(
+module child(input logic a);
+endmodule
+
+module top;
+    if (0) begin
+        child child(.missing(1'b1));
+        missing missing();
+        string s;
+        initial s.foobar();
+    end
+endmodule
+)";
+
+    auto hasCode = [](auto& diags, DiagCode code) {
+        return std::ranges::any_of(diags, [&](auto& diag) { return diag.code == code; });
+    };
+
+    // By default the contents of an untaken generate branch are not elaborated, so
+    // none of these problems are reported.
+    {
+        Compilation compilation;
+        compilation.addSyntaxTree(SyntaxTree::fromText(text));
+        NO_COMPILATION_ERRORS;
+    }
+
+    // With the flag the branch is elaborated and structural / lookup errors surface.
+    {
+        CompilationOptions options;
+        options.flags |= CompilationFlags::CheckUninstantiated;
+
+        Compilation compilation(options);
+        compilation.addSyntaxTree(SyntaxTree::fromText(text));
+
+        auto& diags = compilation.getAllDiagnostics();
+        CHECK(hasCode(diags, diag::PortDoesNotExist));
+        CHECK(hasCode(diags, diag::UnknownModule));
+        CHECK(hasCode(diags, diag::UnknownSystemMethod));
+    }
+}
+
+TEST_CASE("Check uninstantiated still suppresses dead-code-only diagnostics") {
+    // Diagnostics that would be false positives in never-taken code (e.g. an out
+    // of bounds index that is only reachable in the untaken branch) stay
+    // suppressed even when CheckUninstantiated is enabled.
+    auto text = R"(
+module top;
+    logic [3:0] arr;
+    if (0) begin
+        wire w = arr[7];
+    end
+endmodule
+)";
+
+    auto hasCode = [](auto& diags, DiagCode code) {
+        return std::ranges::any_of(diags, [&](auto& diag) { return diag.code == code; });
+    };
+
+    {
+        CompilationOptions options;
+        options.flags |= CompilationFlags::CheckUninstantiated;
+
+        Compilation compilation(options);
+        compilation.addSyntaxTree(SyntaxTree::fromText(text));
+
+        auto& diags = compilation.getAllDiagnostics();
+        CHECK_FALSE(hasCode(diags, diag::IndexOOB));
+    }
+}
+
 TEST_CASE("Bind directives") {
     auto tree = SyntaxTree::fromText(R"(
 module baz(input q);
@@ -1490,6 +1601,7 @@ module foo #(parameter int bar) (input a);
 endmodule
 
 module n #(parameter int f);
+    wire b;
     logic thing;
 endmodule
 
@@ -1547,7 +1659,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter({diag::ImplicitNet});
     REQUIRE(diags.size() == 8);
     CHECK(diags[0].code == diag::InvalidBindTarget);
     CHECK(diags[1].code == diag::InvalidBindTarget);
@@ -1937,6 +2049,7 @@ endmodule
 TEST_CASE("Streaming op in uninstantiated module regress") {
     auto tree = SyntaxTree::fromText(R"(
 module m #(parameter int i);
+    wire a;
     foo f(.a({<< {a}}));
 endmodule
 
@@ -2749,6 +2862,71 @@ endmodule
     Compilation compilation(options);
     compilation.addSyntaxTree(tree);
     NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Uninstantiated def port connections keep self-determined types") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    logic [7:0] x, y;
+    hard u(.a(x), .b(8'hAB), .c(x + y), .d('{default:'0}));
+endmodule
+)");
+    CompilationOptions options;
+    options.flags |= CompilationFlags::IgnoreUnknownModules;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& u = compilation.getRoot().lookupName<UninstantiatedDefSymbol>("top.u");
+    auto conns = u.getPortConnections();
+    REQUIRE(conns.size() == 4);
+
+    auto typeOf = [&](size_t i) -> const Type& {
+        return *conns[i]->as<SimpleAssertionExpr>().expr.type;
+    };
+
+    CHECK(!typeOf(0).isError());
+    CHECK(!typeOf(1).isError());
+    CHECK(typeOf(1).getBitWidth() == 8);
+    CHECK(!typeOf(2).isError());
+
+    CHECK(typeOf(3).isError());
+}
+
+TEST_CASE("Uninstantiated def port connections with no self-determined type") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    int a[];
+    int b;
+    hard h1({});
+    hard h2('{default:0});
+    hard h3(tagged A);
+    hard h4({<<{a with [b]}});
+    hard h5({a, b});
+endmodule
+)");
+    CompilationOptions options;
+    options.flags |= CompilationFlags::IgnoreUnknownModules;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+
+    NO_COMPILATION_ERRORS;
+
+    auto exprOf = [&](std::string_view name) -> const Expression& {
+        auto& sym = compilation.getRoot().lookupName<UninstantiatedDefSymbol>(name);
+        auto conns = sym.getPortConnections();
+        REQUIRE(conns.size() == 1);
+        return conns[0]->as<SimpleAssertionExpr>().expr;
+    };
+
+    CHECK(exprOf("top.h1").type->isError()); // {}
+    CHECK(exprOf("top.h2").type->isError()); // '{default:0}
+    CHECK(exprOf("top.h3").type->isError()); // tagged A
+    CHECK(exprOf("top.h5").type->isError()); // {a, b} with a dynamic array
+
+    CHECK(exprOf("top.h4").kind == ExpressionKind::Streaming);
 }
 
 TEST_CASE("Ignore uninstantiated modules") {

@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Type, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.instance_datatable_role_cluster import InstanceDatatableRoleCluster
+
 T = TypeVar("T", bound="InstanceDatatableRole")
 
 
@@ -13,17 +15,22 @@ class InstanceDatatableRole:
         id (str):
         name (str):
         enabled (bool):
+        cluster (InstanceDatatableRoleCluster): The Windmill-managed Postgres cluster a data table role is a login on:
+            Windmill's own (behind `instance` data tables) or the external instance cluster (behind `external_instance`
+            ones). Defaults to `instance`.
     """
 
     id: str
     name: str
     enabled: bool
+    cluster: InstanceDatatableRoleCluster
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         id = self.id
         name = self.name
         enabled = self.enabled
+        cluster = self.cluster.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -32,6 +39,7 @@ class InstanceDatatableRole:
                 "id": id,
                 "name": name,
                 "enabled": enabled,
+                "cluster": cluster,
             }
         )
 
@@ -46,10 +54,13 @@ class InstanceDatatableRole:
 
         enabled = d.pop("enabled")
 
+        cluster = InstanceDatatableRoleCluster(d.pop("cluster"))
+
         instance_datatable_role = cls(
             id=id,
             name=name,
             enabled=enabled,
+            cluster=cluster,
         )
 
         instance_datatable_role.additional_properties = d

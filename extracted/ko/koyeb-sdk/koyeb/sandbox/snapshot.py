@@ -13,7 +13,8 @@ from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from .sandbox import Sandbox
-from .utils import SandboxError, get_api_clients
+from .clients import get_api_clients
+from .errors import MissingApiTokenError, SandboxError
 
 
 class SnapshotType(Enum):
@@ -91,7 +92,9 @@ class Snapshot:
         if not api_token:
             api_token = os.getenv("KOYEB_API_TOKEN")
         if not api_token:
-            raise SandboxError("API token is required. Set KOYEB_API_TOKEN environment variable.")
+            raise MissingApiTokenError(
+                "API token is required. Set KOYEB_API_TOKEN environment variable."
+            )
 
         try:
             clients = get_api_clients(api_token, host)
@@ -139,14 +142,16 @@ class Snapshot:
         if not api_token:
             api_token = os.getenv("KOYEB_API_TOKEN")
         if not api_token:
-            raise SandboxError("API token is required. Set KOYEB_API_TOKEN environment variable.")
+            raise MissingApiTokenError(
+                "API token is required. Set KOYEB_API_TOKEN environment variable."
+            )
 
         try:
             from koyeb.api.models.instance_snapshot_type import InstanceSnapshotType
             from koyeb.api.models.instance_snapshot_status import InstanceSnapshotStatus
 
             clients = get_api_clients(api_token, host)
-            
+
             # Map our SnapshotType to InstanceSnapshotType
             type_param = None
             if snapshot_type:
@@ -154,7 +159,7 @@ class Snapshot:
                     type_param = InstanceSnapshotType.INSTANCE_SNAPSHOT_TYPE_FILESYSTEM
                 elif snapshot_type == SnapshotType.FULL:
                     type_param = InstanceSnapshotType.INSTANCE_SNAPSHOT_TYPE_FULL
-            
+
             # Map our SnapshotStatus to InstanceSnapshotStatus
             status_param = None
             if status:
@@ -165,7 +170,7 @@ class Snapshot:
                     SnapshotStatus.FAILED: InstanceSnapshotStatus.INSTANCE_SNAPSHOT_STATUS_FAILED,
                 }
                 status_param = status_map.get(status)
-            
+
             # Build kwargs, omitting None values
             list_kwargs = {
                 "limit": str(limit),
@@ -177,13 +182,15 @@ class Snapshot:
                 list_kwargs["type"] = type_param
             if status_param:
                 list_kwargs["status"] = status_param
-            
+
             reply = clients.instance_snapshots.list_instance_snapshots(**list_kwargs)
 
             snapshots = []
             if reply.instance_snapshots:
                 for api_snapshot in reply.instance_snapshots:
-                    snapshots.append(cls._from_instance_api_snapshot(api_snapshot, api_token, host))
+                    snapshots.append(
+                        cls._from_instance_api_snapshot(api_snapshot, api_token, host)
+                    )
 
             return snapshots
 
@@ -206,7 +213,9 @@ class Snapshot:
                 "INSTANCE_SNAPSHOT_TYPE_FILESYSTEM": SnapshotType.FILESYSTEM,
                 "INSTANCE_SNAPSHOT_TYPE_FULL": SnapshotType.FULL,
             }
-            snapshot_type = type_map.get(api_snapshot.type.value, SnapshotType.FILESYSTEM)
+            snapshot_type = type_map.get(
+                api_snapshot.type.value, SnapshotType.FILESYSTEM
+            )
 
         # Map InstanceSnapshotStatus to our SnapshotStatus
         status = SnapshotStatus.INVALID
@@ -225,13 +234,16 @@ class Snapshot:
         # Get region from the snapshot
         # Try region field first, then regional_deployment_id if available
         region = ""
-        if hasattr(api_snapshot, 'region') and api_snapshot.region:
+        if hasattr(api_snapshot, "region") and api_snapshot.region:
             region = api_snapshot.region
-        elif hasattr(api_snapshot, 'regional_deployment_id') and api_snapshot.regional_deployment_id:
+        elif (
+            hasattr(api_snapshot, "regional_deployment_id")
+            and api_snapshot.regional_deployment_id
+        ):
             # regional_deployment_id typically contains region info, e.g., "region-service-id"
             # For now, we don't have a direct mapping, so leave as empty
             region = ""
-        
+
         return cls(
             id=api_snapshot.id or "",
             name=api_snapshot.name or "",
@@ -386,7 +398,9 @@ class DeclarativeSnapshot:
         if not api_token:
             api_token = os.getenv("KOYEB_API_TOKEN")
         if not api_token:
-            raise SandboxError("API token is required. Set KOYEB_API_TOKEN environment variable.")
+            raise MissingApiTokenError(
+                "API token is required. Set KOYEB_API_TOKEN environment variable."
+            )
 
         self._name = name
         self._image = image
@@ -503,7 +517,9 @@ class DeclarativeSnapshot:
                 self._operations.append(f"run: {command}")
                 result = self._builder_sandbox.exec(command, timeout=300)
                 if not result.success:
-                    raise SandboxError(f"Command failed: {command}\nstdout: {result.stdout}\nstderr: {result.stderr}")
+                    raise SandboxError(
+                        f"Command failed: {command}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+                    )
 
             # Create snapshot
             snapshot = self._builder_sandbox.snapshot(
@@ -511,7 +527,7 @@ class DeclarativeSnapshot:
                 snapshot_type=SnapshotType.FILESYSTEM,
                 wait_available=True,
             )
-            
+
             # Store operations in the snapshot
             snapshot.operations = self._operations
 

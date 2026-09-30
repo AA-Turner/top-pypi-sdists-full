@@ -6,6 +6,9 @@ full engine again (engine itself is covered in test_action_engine.py).
 """
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+import testmu_selenium._helpers.coordinate_click as cc
 from testmu_selenium import _action_click as ac
 from testmu_selenium._action_click import (
     click, _CLICK_SPEC, _click_runner, _click_coord_runner,
@@ -127,7 +130,7 @@ def test_click_coord_runner_real_pointer_click():
             self.perform = MagicMock()
             instances.append(self)
 
-    with patch.object(ac, "ActionBuilder", side_effect=CapturingAB):
+    with patch.object(cc, "ActionBuilder", side_effect=CapturingAB):
         out = _click_coord_runner(driver, 388, 202, {"driver": driver, "frame_info": None})
 
     assert out is True
@@ -152,7 +155,7 @@ def test_click_coord_runner_does_not_consult_strategy_or_modifiers():
             self.perform = MagicMock()
             instances.append(self)
 
-    with patch.object(ac, "ActionBuilder", side_effect=CapturingAB):
+    with patch.object(cc, "ActionBuilder", side_effect=CapturingAB):
         _click_coord_runner(driver, 100, 50, {
             "driver": driver, "frame_info": None,
             "strategy": "ac_js_se", "modifiers": ["Shift", "Control"],
@@ -210,7 +213,7 @@ def test_coord_runner_plain_click_when_no_click_modifier():
             self.perform = MagicMock()
             instances.append(self)
 
-    with patch.object(ac, "ActionBuilder", side_effect=CapturingAB), \
+    with patch.object(cc, "ActionBuilder", side_effect=CapturingAB), \
          patch.object(ac, "do_gesture_at_coordinate") as m_gest:
         out = _click_coord_runner(driver, 10, 20, {"driver": driver, "frame_info": None})
     assert out is True
@@ -240,3 +243,85 @@ def test_coord_runner_resolves_template_before_validation():
     m_validate.assert_called_once_with(resolved)
     # held-keys-coord (Task 32): trailing modifiers arg (None — no ctx['modifiers'])
     m_gest.assert_called_once_with(driver, 120, 240, resolved, None)
+
+
+# ---------------------------------------------------------------------------
+# Firefox coordinate clicks must drill into iframes
+#
+# ActionBuilder.move_to_location addresses the TOP-LEVEL viewport. Chrome
+# resolves that to whatever is painted at the point, including iframe content;
+# geckodriver does not, so a coordinate/canvas click inside an iframe silently
+# lands on the iframe element instead (Amdocs canvas-validation report).
+# ---------------------------------------------------------------------------
+
+class TestFirefoxIframeDrill:
+    def _driver(self, browser="firefox", iframes=()):
+        """iframes: rects returned by successive elementFromPoint probes."""
+        driver = MagicMock(name="driver")
+        driver.capabilities = {"browserName": browser}
+        driver.execute_script.side_effect = list(iframes) + [None]
+        return driver
+
+    def test_chrome_keeps_the_single_action_fast_path(self):
+        import testmu_selenium._helpers.coordinate_click as mod
+        driver = self._driver(browser="chrome")
+        with patch.object(mod, "ActionBuilder") as ab:
+            mod.click_at_coordinates(driver, 10, 20)
+        driver.execute_script.assert_not_called()
+        driver.switch_to.frame.assert_not_called()
+        ab.return_value.pointer_action.move_to_location.assert_called_once_with(10, 20)
+
+    def test_firefox_with_no_iframe_clicks_at_the_original_point(self):
+        import testmu_selenium._helpers.coordinate_click as mod
+        driver = self._driver(iframes=())
+        with patch.object(mod, "ActionBuilder") as ab:
+            mod.click_at_coordinates(driver, 10, 20)
+        driver.switch_to.frame.assert_not_called()
+        ab.return_value.pointer_action.move_to_location.assert_called_once_with(10, 20)
+
+    def test_firefox_rebases_the_coordinate_into_a_nested_iframe(self):
+        import testmu_selenium._helpers.coordinate_click as mod
+        outer = {"element": "OUTER", "x": 100, "y": 50, "w": 800, "h": 600}
+        inner = {"element": "INNER", "x": 30, "y": 20, "w": 400, "h": 300}
+        driver = self._driver(iframes=(outer, inner))
+        with patch.object(mod, "ActionBuilder") as ab:
+            mod.click_at_coordinates(driver, 200, 150)
+        assert [c.args[0] for c in driver.switch_to.frame.call_args_list] == ["OUTER", "INNER"]
+        # 200-100-30 = 70, 150-50-20 = 80
+        ab.return_value.pointer_action.move_to_location.assert_called_once_with(70, 80)
+
+    def test_always_returns_to_default_content(self):
+        """Parking the driver inside a frame would break every later step."""
+        import testmu_selenium._helpers.coordinate_click as mod
+        driver = self._driver(iframes=({"element": "F", "x": 5, "y": 5, "w": 1, "h": 1},))
+        with patch.object(mod, "ActionBuilder"):
+            mod.click_at_coordinates(driver, 10, 10)
+        assert driver.switch_to.default_content.call_count >= 2
+
+    def test_default_content_restored_even_when_the_click_raises(self):
+        import testmu_selenium._helpers.coordinate_click as mod
+        driver = self._driver(iframes=())
+        with patch.object(mod, "ActionBuilder") as ab:
+            ab.return_value.perform.side_effect = RuntimeError("click failed")
+            with pytest.raises(RuntimeError):
+                mod.click_at_coordinates(driver, 10, 10)
+        assert driver.switch_to.default_content.call_count >= 2
+
+    def test_a_drill_failure_still_attempts_the_click(self):
+        import testmu_selenium._helpers.coordinate_click as mod
+        driver = MagicMock(name="driver")
+        driver.capabilities = {"browserName": "firefox"}
+        driver.execute_script.side_effect = RuntimeError("probe exploded")
+        with patch.object(mod, "ActionBuilder") as ab:
+            mod.click_at_coordinates(driver, 10, 20)
+        ab.return_value.pointer_action.move_to_location.assert_called_once_with(10, 20)
+
+    def test_depth_guard_stops_a_cycling_probe(self):
+        import testmu_selenium._helpers.coordinate_click as mod
+        driver = MagicMock(name="driver")
+        driver.capabilities = {"browserName": "firefox"}
+        # Always reports an iframe at the point — a cycle.
+        driver.execute_script.return_value = {"element": "F", "x": 0, "y": 0, "w": 1, "h": 1}
+        with patch.object(mod, "ActionBuilder"):
+            mod.click_at_coordinates(driver, 10, 10)
+        assert driver.switch_to.frame.call_count == mod._MAX_IFRAME_DEPTH

@@ -260,7 +260,7 @@ async def _capture_backlink_screenshot(
             owner_id=ctx.user_id,
             organization_id=organization_id,
             mime_type="image/png",
-            visibility="internal",
+            published_to_web=False,
             change_summary="Backlink source-page link evidence",
             metadata={
                 "organization_id": organization_id,

@@ -79,6 +79,12 @@ _SEEN_KEY = "seen_ids"
 #: WINDOW: ids first seen during the current aggregation window.
 _NEW_KEY = "new_in_window"
 
+#: WINDOW: ``{entity: {key: 1}}`` of every id seen at any point in the current window, first
+#: sighting or not. The denominator of an "X in the interval / people in the interval" rate:
+#: ``new_in_window`` cannot be it, because someone first seen last window who is still here is
+#: present in this one but new in neither.
+_PRESENT_KEY = "present_in_window"
+
 #: PERSISTENT diagnostic: detections of a configured entity that carried no track id and so
 #: could not be deduplicated.  Not published -- ``UniqueCountConfig.output_names()`` does
 #: not declare it, and a stage must not invent wire-visible keys a manifest cannot resolve
@@ -150,6 +156,14 @@ class UniqueCount:
         earlier.  A metric wanting a live arrivals-so-far total sources this with
         ``agg_type: last``, rather than summing ``new`` per frame and getting the right
         answer only once the window has actually closed.
+
+    ``present_in_window``
+        Distinct ids seen at any point **so far this window**, whether or not this is their
+        first window -- read at the boundary, "how many distinct ones were here this
+        interval".  The denominator an interval rate needs: every id a downstream stage
+        flags this window was seen this window, so ``flagged / present_in_window`` is bounded
+        by 1.  Not additive across windows (someone present for three windows is in all
+        three), so it is a rate's operand, not a series to ``sum``.
 
     ``total``
         Distinct ids since process start (**FROZEN-4**).  A level, not an event: aggregate
@@ -234,12 +248,18 @@ class UniqueCount:
             entity: dict(ids) for entity, ids in (self._state.get(_SEEN_KEY, {}) or {}).items()
         }
 
+        present: dict[str, dict[str, int]] = {
+            entity: dict(ids) for entity, ids in (self._state.get(_PRESENT_KEY, {}) or {}).items()
+        }
+
         new_this_frame = 0
         for entity, ids in current.items():
             bucket = seen.setdefault(entity, {})
+            window_bucket = present.setdefault(entity, {})
             for key in sorted(ids):  # sorted: deterministic, which O5 asserts on
                 # `key` is a track id or an identity depending on config.by; _current_ids
                 # normalises both to str so this fold has one shape.
+                window_bucket[key] = 1
                 if key not in bucket:
                     bucket[key] = 1
                     new_this_frame += 1
@@ -247,7 +267,8 @@ class UniqueCount:
         # PERSISTENT: a cumulative total survives the window boundary (FROZEN-4). Writing
         # this with Lifetime.WINDOW is the bug 09 §4 rule 2 is written to prevent.
         self._state.set(_SEEN_KEY, seen, lifetime=Lifetime.PERSISTENT)
-        # WINDOW: a measurement *of* this window, cleared by end_window().
+        # WINDOW: measurements *of* this window, cleared by end_window().
+        self._state.set(_PRESENT_KEY, present, lifetime=Lifetime.WINDOW)
         if new_this_frame:
             self._state.incr(_NEW_KEY, new_this_frame, lifetime=Lifetime.WINDOW)
         elif self._state.get(_NEW_KEY) is None:
@@ -261,6 +282,7 @@ class UniqueCount:
             # per this stage's own contract above); a metric wanting the running arrivals
             # total mid-window sources this key instead, with agg_type: last.
             "new_in_window": int(self._state.get(_NEW_KEY, 0) or 0),
+            "present_in_window": self._total(present),
             "total": self._total(seen),
         }
         for entity in self._categories:
@@ -361,6 +383,7 @@ class UniqueCount:
             # than falling back to collapsing retained per-frame samples, which is subject to
             # the retention cap `observe()` warns about on a long or high-fps window.
             "new_in_window": int(self._state.get(_NEW_KEY, 0) or 0),
+            "present_in_window": self._total(self._state.get(_PRESENT_KEY, {}) or {}),
             "total": self._total(seen),
         }
         for entity in self._categories:

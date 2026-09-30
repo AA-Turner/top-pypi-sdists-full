@@ -52,6 +52,7 @@ from .literals import (
     FlowExecutionStatusType,
     FlowNodeInputCategoryType,
     FlowNodeIODataTypeType,
+    FoundationModelConfigurationTypeType,
     FoundationModelTypeType,
     GuadrailActionType,
     GuardrailActionType,
@@ -356,6 +357,8 @@ __all__ = (
     "ManagedSearchConfigurationPaginatorTypeDef",
     "ManagedSearchConfigurationTypeDef",
     "ManagedSearchRerankingConfigurationTypeDef",
+    "MantleFoundationModelConfigurationTypeDef",
+    "MantleFoundationModelModelConfigurationTypeDef",
     "MemorySessionSummaryTypeDef",
     "MemoryTypeDef",
     "MessageTypeDef",
@@ -1050,6 +1053,10 @@ class ManagedSearchBedrockRerankingModelConfigurationTypeDef(TypedDict):
     modelArn: str
     additionalModelRequestFields: NotRequired[Mapping[str, Mapping[str, Any]]]
 
+class MantleFoundationModelModelConfigurationTypeDef(TypedDict):
+    modelArn: str
+    projectId: NotRequired[str]
+
 class MemorySessionSummaryTypeDef(TypedDict):
     memoryId: NotRequired[str]
     sessionExpiryTime: NotRequired[datetime]
@@ -1653,6 +1660,9 @@ class ListSessionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class MantleFoundationModelConfigurationTypeDef(TypedDict):
+    modelConfiguration: MantleFoundationModelModelConfigurationTypeDef
+
 class MemoryTypeDef(TypedDict):
     sessionSummary: NotRequired[MemorySessionSummaryTypeDef]
 
@@ -1787,15 +1797,6 @@ class AgenticRetrieveGeneratedResponseTypeDef(TypedDict):
 class AgenticRetrieveMemoryMetadataFilterRightTypeDef(TypedDict):
     metadataValue: NotRequired[AgenticRetrieveMemoryMetadataValueTypeDef]
 
-FoundationModelConfigurationTypeDef = TypedDict(
-    "FoundationModelConfigurationTypeDef",
-    {
-        "type": Literal["BEDROCK_FOUNDATION_MODEL"],
-        "bedrockFoundationModelConfiguration": NotRequired[
-            BedrockFoundationModelConfigurationTypeDef
-        ],
-    },
-)
 RerankingConfigurationTypeDef = TypedDict(
     "RerankingConfigurationTypeDef",
     {
@@ -1948,6 +1949,19 @@ OptimizePromptRequestTypeDef = TypedDict(
 class OptimizedPromptEventTypeDef(TypedDict):
     optimizedPrompt: NotRequired[OptimizedPromptTypeDef]
 
+FoundationModelConfigurationTypeDef = TypedDict(
+    "FoundationModelConfigurationTypeDef",
+    {
+        "type": FoundationModelConfigurationTypeType,
+        "bedrockFoundationModelConfiguration": NotRequired[
+            BedrockFoundationModelConfigurationTypeDef
+        ],
+        "mantleFoundationModelConfiguration": NotRequired[
+            MantleFoundationModelConfigurationTypeDef
+        ],
+    },
+)
+
 class GetAgentMemoryResponseTypeDef(TypedDict):
     memoryContents: list[MemoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2069,13 +2083,6 @@ AgenticRetrieveMemoryMetadataFilterTypeDef = TypedDict(
     },
 )
 
-class AgenticRetrieveConfigurationTypeDef(TypedDict):
-    foundationModelConfiguration: NotRequired[FoundationModelConfigurationTypeDef]
-    foundationModelType: NotRequired[FoundationModelTypeType]
-    maxAgentIteration: NotRequired[int]
-    rerankingConfiguration: NotRequired[AgenticRetrieveRerankingConfigurationTypeDef]
-    rerankingModelType: NotRequired[AgenticRetrieveRerankingModelTypeType]
-
 class InputFileTypeDef(TypedDict):
     name: str
     source: FileSourceTypeDef
@@ -2167,6 +2174,13 @@ class OptimizedPromptStreamTypeDef(TypedDict):
     optimizedPromptEvent: NotRequired[OptimizedPromptEventTypeDef]
     throttlingException: NotRequired[ThrottlingExceptionTypeDef]
     validationException: NotRequired[ValidationExceptionTypeDef]
+
+class AgenticRetrieveConfigurationTypeDef(TypedDict):
+    foundationModelConfiguration: NotRequired[FoundationModelConfigurationTypeDef]
+    foundationModelType: NotRequired[FoundationModelTypeType]
+    maxAgentIteration: NotRequired[int]
+    rerankingConfiguration: NotRequired[AgenticRetrieveRerankingConfigurationTypeDef]
+    rerankingModelType: NotRequired[AgenticRetrieveRerankingModelTypeType]
 
 class PostProcessingTraceTypeDef(TypedDict):
     modelInvocationInput: NotRequired[ModelInvocationInputTypeDef]

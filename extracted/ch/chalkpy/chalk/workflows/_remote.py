@@ -125,7 +125,7 @@ async def _trigger(
     task_queue: str | None,
     wait: bool,
 ) -> WorkflowRunHandle | Any:
-    from chalk.workflows._temporal import start_workflow
+    from chalk.workflows._temporal import start_workflow, wait_for_result
 
     name = _workflow_name(workflow)
     client = await _connect(info, bearer_token=bearer_token, environment_id=environment_id)
@@ -137,7 +137,7 @@ async def _trigger(
         task_queue=task_queue if task_queue is not None else info.default_task_queue,
     )
     if wait:
-        return await handle.result()
+        return await wait_for_result(handle)
     return WorkflowRunHandle(
         workflow_name=name,
         workflow_id=handle.id,
@@ -154,7 +154,7 @@ async def _run_with_local_worker(
     environment_id: str | None,
     workflow_id: str | None,
 ) -> Any:
-    from chalk.workflows._temporal import create_worker, start_workflow
+    from chalk.workflows._temporal import create_worker, start_workflow, wait_for_result
 
     client = await _connect(info, bearer_token=bearer_token, environment_id=environment_id)
     # A unique task queue guarantees this run is served by this process's worker
@@ -169,7 +169,7 @@ async def _run_with_local_worker(
             workflow_id=workflow_id if workflow_id is not None else f"{workflow.name}-{uuid.uuid4()}",
             task_queue=task_queue,
         )
-        return await handle.result()
+        return await wait_for_result(handle)
 
 
 def trigger_workflow(

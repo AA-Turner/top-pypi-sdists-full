@@ -1,7 +1,7 @@
 """Auto-generated stub for module: embedding_manager."""
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from .face_recognition_client import FacialRecognitionClient
+from ...clients.fr_client import FRClient
 
 # Classes
 class EmbeddingConfig:
@@ -28,7 +28,7 @@ class EmbeddingManager:
     # - _cache_lock protects track_id_cache
     # - _embeddings_loaded is set only after successful load under lock
 
-    def __init__(self: Any, config: Any, face_client: Any = None) -> None: ...
+    def __init__(self: Any, config: Any, face_client: Optional[Any] = None) -> None: ...
 
     def extract_embedding_from_detection(self: Any, detection: Dict) -> Tuple[Dict, Optional[List[float]]]:
         """

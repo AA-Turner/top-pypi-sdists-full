@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.offline_wide_tables_pb2 import (
     GetActiveOfflineWideTableSchedulesRequest,
     GetActiveOfflineWideTableSchedulesResponse,
+    GetOfflineWideTableNamespacesRequest,
+    GetOfflineWideTableNamespacesResponse,
     GetOfflineWideTableRunRequest,
     GetOfflineWideTableRunResponse,
     ListOfflineWideTableRunsRequest,
@@ -40,6 +42,13 @@ class OfflineWideTablesServiceStub:
         GetActiveOfflineWideTableSchedulesRequest,
         GetActiveOfflineWideTableSchedulesResponse,
     ]
+    """Compatibility endpoint for schedule-centric clients. New clients should use
+    GetOfflineWideTableNamespaces, which also returns unscheduled namespaces and compaction state.
+    """
+    GetOfflineWideTableNamespaces: UnaryUnaryMultiCallable[
+        GetOfflineWideTableNamespacesRequest,
+        GetOfflineWideTableNamespacesResponse,
+    ]
     TriggerOfflineWideTableFill: UnaryUnaryMultiCallable[
         TriggerOfflineWideTableFillRequest,
         TriggerOfflineWideTableFillResponse,
@@ -67,7 +76,16 @@ class OfflineWideTablesServiceServicer(metaclass=ABCMeta):
         self,
         request: GetActiveOfflineWideTableSchedulesRequest,
         context: ServicerContext,
-    ) -> GetActiveOfflineWideTableSchedulesResponse: ...
+    ) -> GetActiveOfflineWideTableSchedulesResponse:
+        """Compatibility endpoint for schedule-centric clients. New clients should use
+        GetOfflineWideTableNamespaces, which also returns unscheduled namespaces and compaction state.
+        """
+    @abstractmethod
+    def GetOfflineWideTableNamespaces(
+        self,
+        request: GetOfflineWideTableNamespacesRequest,
+        context: ServicerContext,
+    ) -> GetOfflineWideTableNamespacesResponse: ...
     @abstractmethod
     def TriggerOfflineWideTableFill(
         self,

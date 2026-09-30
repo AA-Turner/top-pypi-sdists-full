@@ -24,6 +24,12 @@ some other 2xx -- a created resource answering ``201`` being the ordinary case.
 Failures raise :class:`CallFailure`. Absence does not: a document that does not
 exist is an answer, and the distinction is what keeps a caller from spending
 another attempt on a question the backend has already settled.
+
+Some failures also raise a **subclass** of it, where a caller can reasonably act
+differently: rate limiting, a connection that never carried the request, a reply
+that arrived and did not fit its model. Catching ``CallFailure`` catches all of
+them, so a consumer only names a subclass when it has something specific to do
+about that case.
 """
 
 from __future__ import annotations
@@ -32,6 +38,9 @@ from typing import Any
 
 __all__ = [
     "CallFailure",
+    "ConnectionLost",
+    "MalformedReply",
+    "RateLimited",
     "unwrap_fr_sidecar",
     "unwrap_lpr_server",
     "unwrap_platform",
@@ -90,14 +99,79 @@ class CallFailure(Exception):  # noqa: N818 - a call failure is what it reports
         self.response = response
 
 
+class RateLimited(CallFailure):  # noqa: N818 - it reports what the producer said
+    """The producer answered 429.
+
+    A ``CallFailure`` because that is what this package raises, and a distinct type
+    because a caller that paces itself needs to tell "slow down" from "this request was
+    wrong". **It says what happened and not what to do about it**: how long to hold off,
+    whether to drop the payload and whether to warn are the caller's, which is the only
+    place that knows whether the thing being sent still matters.
+
+    ``retry_after``
+        Seconds, from the ``Retry-After`` header, or ``0.0`` when the producer sent none
+        -- which lpr-server currently does not, answering only
+        ``{"error": "rate limit exceeded"}``. ``0.0`` therefore means *no hint*, not
+        *retry immediately*, and a caller reading it as a delay must supply its own
+        backoff.
+    """
+
+    def __init__(self, message: str, *, retry_after: float = 0.0, **kwargs: Any) -> None:
+        super().__init__(message, **kwargs)
+        self.retry_after = float(retry_after or 0.0)
+
+
+class MalformedReply(CallFailure):  # noqa: N818 - it reports what the reply looked like
+    """The call succeeded, and its payload did not fit the shape the route declares.
+
+    A ``CallFailure`` because that is what this package raises and what every consumer
+    already catches, and a distinct type because **this one is not a failed call**. The
+    request was made, the producer answered, and the answer was well-formed at the
+    envelope level -- what did not hold is the contract. A caller retrying it will get
+    the same reply, so "retry" and "try the next base" are the wrong responses, where
+    for a plain :class:`CallFailure` they are often the right ones.
+
+    It is also the signal a producer changed a payload without telling anyone, which is
+    worth separating in error reporting from the network and 5xx noise it would
+    otherwise sit inside.
+
+    ``response``
+        The payload exactly as it arrived, so a caller can say what it got. The
+        validator's own error, naming the field that did not fit, is the ``__cause__``.
+    """
+
+
+class ConnectionLost(CallFailure):  # noqa: N818 - it reports what happened to the connection
+    """A pooled connection could not be established, twice in a row.
+
+    One dropped keep-alive is the pool's own business and is retried where it happens --
+    the server closed a connection it had promised to keep, the request never left, and
+    a fresh connection sends it. **Two in a row is not that**, and this is what the
+    caller is told instead.
+
+    Reported separately from a plain :class:`CallFailure` because the request provably
+    never reached the producer, so a caller may treat it as a reachability problem
+    rather than as a rejected write. Whether that means pacing, dropping or retrying is
+    again the caller's.
+    """
+
+
 def _is_not_found(response: Any) -> bool:
     """True when ``response`` is ``matrice_common``'s canonical 404 envelope.
 
-    ``rpc._execute_request`` short-circuits **every** 404 into ``_not_found_response()`` and never
-    raises, so "the document does not exist" arrives looking exactly like a failed call. It is
-    distinguishable only by the ``status_code`` the envelope carries, and telling the two apart is
-    what lets a fetcher honour its documented "returns nothing when absent" contract instead of
-    escalating a perfectly good answer into another attempt.
+    **This is the synchronous path, and only that path.** ``rpc._execute_request`` short-circuits
+    every 404 into ``_not_found_response()`` and never raises, so "the document does not exist"
+    arrives looking exactly like a failed call. It is distinguishable only by the ``status_code``
+    the envelope carries, and telling the two apart is what lets a fetcher honour its documented
+    "returns nothing when absent" contract instead of escalating a perfectly good answer into
+    another attempt.
+
+    ``async_send_request`` does **not** behave that way: ``raise_exception`` defaults to true and a
+    404 is raised rather than returned, which ``rpc._swallow_404`` documents as a deliberate partial
+    alignment. Both unwraps below are shared by the two transports, so this check is live on a
+    synchronous read and unreachable on an asynchronous write -- where a 404 is a failure anyway,
+    and is reported as one. Read this as *"when a 404 arrives as a value"*, not *"whenever a 404
+    happens"*.
     """
     return isinstance(response, dict) and response.get("status_code") == 404
 

@@ -1,0 +1,1 @@
+import{$ as e,J as t,K as n,Xt as r,mt as i}from"./index-DaTWwzTu.js";import"./core-BXBFKSfx.js";function a(a,o){r();var s=e();i(()=>n(s,o.value||``)),t(a,s)}export{a as default};

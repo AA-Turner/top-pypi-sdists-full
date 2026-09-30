@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.egress_policy_mode import EgressPolicyMode
 
+
 class TestEgressPolicyMode(unittest.TestCase):
     """EgressPolicyMode unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestEgressPolicyMode(unittest.TestCase):
         """Test EgressPolicyMode"""
         # inst = EgressPolicyMode()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

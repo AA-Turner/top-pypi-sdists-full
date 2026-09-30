@@ -641,6 +641,9 @@ def get_config_keys():
     """
     Returns the list of all config keys currently in puppy.cfg,
     plus certain preset expected keys (e.g. "yolo_mode", "model", "compaction_strategy", "message_limit", "allow_recursion").
+
+    Only core-owned keys belong in ``default_keys``: plugins declare theirs
+    through the ``register_settings`` hook (see :func:`_plugin_setting_keys`).
     """
     default_keys = [
         "yolo_mode",
@@ -649,7 +652,6 @@ def get_config_keys():
         "protected_token_count",
         "compaction_threshold",
         "summarization_model",
-        "auto_continue_model",
         "message_limit",
         "allow_recursion",
         "subagent_recursion_limit",
@@ -660,13 +662,8 @@ def get_config_keys():
         "diff_context_lines",
         "default_agent",
         "temperature",
-        "frontend_emitter_enabled",
-        "frontend_emitter_max_recent_events",
-        "frontend_emitter_queue_size",
         "locale",
-        "timestamp_heartbeat_interval",
     ]
-    # 'enable_dbos' is plugin-reserved (read via get_value); not in default_keys.
     # Add pack agents control key
     default_keys.append("enable_pack_agents")
     # Add universal constructor control key
@@ -694,9 +691,6 @@ def get_config_keys():
     # Tool-output reduction threshold in chars for the harness ToolOutputLimits
     # capability (see get_tool_output_limit_chars()). 0 or negative disables.
     default_keys.append("tool_output_limit_chars")
-    # Add /goal iteration cap (owned by the wiggum plugin, surfaced here so
-    # /set autocompletes it). See plugins/wiggum/register_callbacks.py.
-    default_keys.append("goal_max_iterations")
     # How relentlessly the agent proceeds without checking in; headless -p
     # runs always behave as 'extreme' (see get_agency_level()).
     default_keys.append("agency_level")
@@ -715,7 +709,19 @@ def get_config_keys():
     config = _load_config()
     keys = set(config[DEFAULT_SECTION].keys()) if DEFAULT_SECTION in config else set()
     keys.update(default_keys)
+    keys.update(_plugin_setting_keys())
     return sorted(keys)
+
+
+def _plugin_setting_keys() -> set[str]:
+    """Keys plugins declare via ``register_settings`` (their own, not core's)."""
+    from code_puppy.callbacks import on_register_settings
+
+    return {
+        setting.key
+        for category in on_register_settings()
+        for setting in category.settings
+    }
 
 
 def set_config_value(key: str, value: str):

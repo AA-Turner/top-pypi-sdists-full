@@ -1,6 +1,11 @@
 """Auto-generated stub for module: face_recognition."""
 from typing import Any, Dict, List, Optional, Tuple
 
+from . import bounded_state
+from ...clients import bootstrap, identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.fr_client import FRClient
+from ...clients.response import CallFailure
 from ..Trackers.integration import ConfigDrivenTracker, TrackerProfile
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from ..core.config import AlertConfig, BaseConfig
@@ -8,12 +13,10 @@ from ..utils import apply_category_mapping, filter_by_categories, filter_by_conf
 from ..utils.format_utils import face_landmarks
 from ..utils.geometry_utils import bbox_is_normalized, bbox_xyxy_pixels, resolve_frame_dims
 from ..utils.location_name_cache import LocationNameCache
+from ..utils.post_processing_config_client import is_resolvable_location_id
+from ..utils.public_ip import resolve_public_ip_once
 from .embedding_manager import EmbeddingConfig, EmbeddingManager
-from .face_recognition_client import FacialRecognitionClient
 from .people_activity_logging import PeopleActivityLogging
-
-# Constants
-cmd: List[Any]
 
 # Classes
 class FaceRecognitionEmbeddingConfig:
@@ -43,9 +46,9 @@ class FaceRecognitionEmbeddingUseCase:
         """
         ...
 
-    def get_person_tracking_summary(self: Any) -> Dict:
+    def get_person_tracking_summary(self: Any, frame_counts: Dict[str, int] | None = None) -> Dict:
         """
-        Get summary of tracked persons with camera IDs and timestamps
+        Recent sightings per person; with frame_counts, only this frame's sightings.
         """
         ...
 
@@ -105,8 +108,6 @@ class RedisFaceMatcher:
 
     def __init__(self: Any, session: Any = None, logger: Any.Any | None = None, redis_url: str | None = None, face_client: Any = None) -> None: ...
 
-    ACTION_ID_PATTERN: Any
-
     def is_available(self: Any) -> bool: ...
 
     async def match_embedding(self: Any, embedding: List[float], search_id: str | None, location: str = '', camera_id: str = '', min_confidence: float | None = None) -> Any | None:
@@ -132,7 +133,7 @@ class TemporalIdentityManager:
     # Adaptation for production: _compute_best_identity uses EmbeddingManager for local similarity
     # search first (fast), then falls back to API only if needed (slow).
 
-    def __init__(self: Any, face_client: Any, embedding_manager: Any = None, redis_matcher: Any | None = None, recognition_threshold: float = 0.15, history_size: int = 20, unknown_patience: int = 7, switch_patience: int = 5, fallback_margin: float = 0.0, sticky_id: bool = False, high_confidence_thresh: float = 0.0, sticky_min_votes: int = 3) -> None: ...
+    def __init__(self: Any, face_client: Any, embedding_manager: Any = None, redis_matcher: Any | None = None, recognition_threshold: float = 0.15, history_size: int = 20, unknown_patience: int = 7, switch_patience: int = 5, fallback_margin: float = 0.0, sticky_id: bool = False, high_confidence_thresh: float = 0.0, sticky_min_votes: int = 3, max_tracks: int = bounded_state.FACE_TRACK_MAX, track_ttl_s: float = bounded_state.FACE_TRACK_TTL_S) -> None: ...
 
     async def update(self: Any, track_id: Any, emb: List[float], eligible_for_recognition: bool, location: str = '', camera_id: str = '', timestamp: str = '', search_id: str | None = None) -> Tuple[str | None, str, float, str | None, Dict[str, Any], str]:
         """

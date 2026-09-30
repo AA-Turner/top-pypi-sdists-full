@@ -48,6 +48,7 @@ from .imagegenerationservertool_openrouter import (
     ImageGenerationServerToolOpenRouterTypedDict,
 )
 from .inputs_union import InputsUnion, InputsUnionTypedDict
+from .jevrouterplugin import JevRouterPlugin, JevRouterPluginTypedDict
 from .legacy_websearchservertool import (
     LegacyWebSearchServerTool,
     LegacyWebSearchServerToolTypedDict,
@@ -135,6 +136,7 @@ ResponsesRequestPluginTypedDict = TypeAliasType(
         SwitchyardRouterPluginTypedDict,
         FileParserPluginTypedDict,
         ContextCompressionPluginTypedDict,
+        JevRouterPluginTypedDict,
         WebFetchPluginTypedDict,
         ParetoRouterPluginTypedDict,
         AutoBetaRouterPluginTypedDict,
@@ -152,6 +154,7 @@ ResponsesRequestPlugin = Annotated[
         Annotated[ContextCompressionPlugin, Tag("context-compression")],
         Annotated[FileParserPlugin, Tag("file-parser")],
         Annotated[FusionPlugin, Tag("fusion")],
+        Annotated[JevRouterPlugin, Tag("jev-router")],
         Annotated[ModerationPlugin, Tag("moderation")],
         Annotated[ParetoRouterPlugin, Tag("pareto-router")],
         Annotated[ResponseHealingPlugin, Tag("response-healing")],
@@ -227,10 +230,11 @@ ResponsesRequestServiceTier = Union[
         "flex",
         "priority",
         "scale",
+        "ultrafast",
     ],
     UnrecognizedStr,
 ]
-r"""The service tier to use for processing this request. `fast` is accepted as an alias for `priority`."""
+r"""The service tier to use for processing this request. `fast` is accepted as an alias for `priority`. `ultrafast` prefers ultrafast endpoints and falls back to `priority`, then default endpoints."""
 
 
 ResponsesRequestType = Literal["function",]
@@ -413,7 +417,7 @@ class ResponsesRequestTypedDict(TypedDict):
     safety_identifier: NotRequired[Nullable[str]]
     r"""Recommended per-end-user identifier for abuse isolation. Use a stable ID, hash, or pseudonym. When a provider requires a user identity, OpenRouter folds it into the hashed identity sent upstream and never forwards it raw. If omitted, requests use an account-level identity, so provider policy blocks can affect the whole account."""
     service_tier: NotRequired[Nullable[ResponsesRequestServiceTier]]
-    r"""The service tier to use for processing this request. `fast` is accepted as an alias for `priority`."""
+    r"""The service tier to use for processing this request. `fast` is accepted as an alias for `priority`. `ultrafast` prefers ultrafast endpoints and falls back to `priority`, then default endpoints."""
     session_id: NotRequired[str]
     r"""A unique identifier for grouping related requests (e.g., a conversation or agent workflow). When provided, OpenRouter uses it as the sticky routing key, routing all requests in the session to the same provider to maximize prompt cache hits. Also used for observability grouping. If provided in both the request body and the x-session-id header, the body value takes precedence. Maximum of 256 characters."""
     stop_server_tools_when: NotRequired[List[StopServerToolsWhenConditionTypedDict]]
@@ -500,7 +504,7 @@ class ResponsesRequest(BaseModel):
     r"""Recommended per-end-user identifier for abuse isolation. Use a stable ID, hash, or pseudonym. When a provider requires a user identity, OpenRouter folds it into the hashed identity sent upstream and never forwards it raw. If omitted, requests use an account-level identity, so provider policy blocks can affect the whole account."""
 
     service_tier: OptionalNullable[ResponsesRequestServiceTier] = "auto"
-    r"""The service tier to use for processing this request. `fast` is accepted as an alias for `priority`."""
+    r"""The service tier to use for processing this request. `fast` is accepted as an alias for `priority`. `ultrafast` prefers ultrafast endpoints and falls back to `priority`, then default endpoints."""
 
     session_id: Optional[str] = None
     r"""A unique identifier for grouping related requests (e.g., a conversation or agent workflow). When provided, OpenRouter uses it as the sticky routing key, routing all requests in the session to the same provider to maximize prompt cache hits. Also used for observability grouping. If provided in both the request body and the x-session-id header, the body value takes precedence. Maximum of 256 characters."""

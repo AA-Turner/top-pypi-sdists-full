@@ -7,6 +7,7 @@ on internal call ordering beyond what the ported behavior requires.
 from unittest.mock import MagicMock, patch
 
 import pytest
+from selenium.webdriver.common.keys import Keys
 
 from testmu_selenium._helpers import input_value as iv_module
 from testmu_selenium._helpers.input_value import (
@@ -29,6 +30,7 @@ class TestIsNumericInputPureHelper:
             ("12/34/2025", True),
             ("+1-202-555", True),
             ("3.14", True),
+            ("0412 345 678", True),  # V2: whitespace allowed
             ("abc", False),
             ("123abc", False),
             ("", False),
@@ -277,6 +279,68 @@ class TestInputValueMaxlengthPerChar:
         mock_js.assert_not_called()
 
 
+class TestInputValueNumericPerChar:
+    """V2: a numeric value (phone/OTP/date) is typed char-by-char
+    even on a plain input, so masked/numeric inputs accept it."""
+
+    def _run(self, value, element_type="text", after_input=None):
+        mock_driver = MagicMock()
+        mock_element = MagicMock()
+        mock_element.get_attribute.side_effect = lambda name: {"type": element_type}.get(name, "")
+        focused = MagicMock()
+        focused.get_attribute.side_effect = lambda name: {
+            "pattern": None,
+            "tagName": "input",
+            "value": value if after_input is None else after_input,
+        }.get(name)
+
+        def exec_script(script, *args):
+            if "tagName" in script and "type" in script:
+                return {"tagName": "input", "type": element_type}
+            if "placeholder" in script:
+                return {"placeholder": "", "autocomplete": ""}
+            return ""
+
+        mock_driver.execute_script.side_effect = exec_script
+        with patch.object(iv_module, "WebDriverWait") as mock_wait, \
+                patch.object(iv_module, "_perform_js_native_input") as mock_js:
+            mock_wait.return_value.until.return_value = focused
+            input_value(mock_element, mock_driver, value)
+        sent = [c.args[0] for c in focused.send_keys.call_args_list]
+        # _move_to_start_of_input walks a date/time caret back with 10 ARROW_LEFT
+        # before anything is typed; those are not part of the value.
+        sent = [k for k in sent if k != Keys.ARROW_LEFT]
+        return sent, mock_js
+
+    def test_spaced_phone_number_typed_per_char(self):
+        sent, _ = self._run("04 12")
+        assert sent == ["0", "4", " ", "1", "2"]
+
+    def test_text_value_typed_in_bulk(self):
+        sent, _ = self._run("hello")
+        assert sent == ["hello"]
+
+    def test_iso_date_not_typed_per_char_on_date_input(self):
+        """An ISO date reads as numeric, but a date input's segments are not
+        filled left-to-right by raw keystrokes, so V2 excludes type=date from
+        the per-char branch. Guarding this keeps the value in one send_keys."""
+        sent, _ = self._run("2030-01-01", element_type="date")
+        assert sent == ["2030-01-01"]
+
+    def test_iso_date_falls_back_to_native_setter_when_field_rejects_it(self):
+        """The whole point of routing a date through the else branch: when the
+        keystrokes do not land the value, the write-back check sets it through
+        the native setter, which takes the ISO form."""
+        _, mock_js = self._run("2030-01-01", element_type="date", after_input="")
+        assert [c.args[2] for c in mock_js.call_args_list] == ["", "2030-01-01"]
+
+    def test_numeric_date_still_typed_per_char_on_a_text_input(self):
+        """The exclusion is keyed on the element, not the value — a masked text
+        field still gets the per-char treatment the numeric branch exists for."""
+        sent, _ = self._run("12/34/2025")
+        assert sent == list("12/34/2025")
+
+
 class TestCoerceScalarToStr:
     """Contract: int/float/bool -> str (bool -> 'True'/'False'); str/None
     pass through; dict/list are left unchanged (not coerced)."""
@@ -441,3 +505,117 @@ class TestInputValueMonkeyPatch:
                 delattr(WebElement, "input_value")
             else:
                 WebElement.input_value = prior
+
+
+# ---------------------------------------------------------------------------
+# Don't reset the Selection on an EMPTY contenteditable
+#
+# selectNodeContents + DELETE wipes the editor's pending toolbar marks: a user
+# who clicks Bold on an empty editor has formatting armed but no text, and
+# re-selecting the range drops it (@buddyboss.com — "Clear being performed on an
+# empty text field"). On an empty editor the clear achieves nothing anyway.
+# ---------------------------------------------------------------------------
+
+class TestContentEditableEmptyGuard:
+    def test_empty_editor_reports_no_text(self):
+        drv = MagicMock()
+        drv.execute_script.return_value = False
+        assert iv_module._contenteditable_has_text(drv, MagicMock()) is False
+
+    def test_populated_editor_reports_text(self):
+        drv = MagicMock()
+        drv.execute_script.return_value = True
+        assert iv_module._contenteditable_has_text(drv, MagicMock()) is True
+
+    def test_probe_failure_errs_towards_clearing(self):
+        """Leaving stale text behind corrupts the typed value — worse than
+        losing a pending mark."""
+        drv = MagicMock()
+        drv.execute_script.side_effect = RuntimeError("stale element")
+        assert iv_module._contenteditable_has_text(drv, MagicMock()) is True
+
+    def test_empty_editor_skips_the_selection_reset(self):
+        el = MagicMock()
+        el.get_attribute.side_effect = lambda n: "true" if n == "contenteditable" else None
+        drv = MagicMock()
+        # value probe -> "", textContent probe -> False (empty editor)
+        drv.execute_script.side_effect = ["", False]
+        iv_module._clear(drv, el)
+        scripts = [c.args[0] for c in drv.execute_script.call_args_list]
+        assert not any("selectNodeContents" in s for s in scripts), \
+            "an empty editor must not have its Selection reset"
+
+    def test_populated_editor_still_gets_the_selection_reset(self):
+        el = MagicMock()
+        el.get_attribute.side_effect = lambda n: "true" if n == "contenteditable" else None
+        drv = MagicMock()
+        drv.execute_script.side_effect = ["", True]  # empty value, but editor has text
+        iv_module._clear(drv, el)
+        scripts = [c.args[0] for c in drv.execute_script.call_args_list]
+        assert any("selectNodeContents" in s for s in scripts)
+
+# Never click an already-empty field
+#
+# _clear() starts with element.click(). That pointer move fires mouseleave on
+# the parent trigger of a hover-opened popup, dismissing the very overlay the
+# field lives in (reported on codewalla.com: "Hover popup disappears while
+# typing"). So the caller must decide whether a clear is needed BEFORE _clear
+# gets a chance to click.
+# ---------------------------------------------------------------------------
+
+class TestNeedsClearGuard:
+    def _element(self, value="", contenteditable=None, text=""):
+        el = MagicMock()
+        el.get_attribute.side_effect = lambda name: (
+            contenteditable if name == "contenteditable" else None
+        )
+        el.text = text
+        return el
+
+    def _driver(self, value=""):
+        drv = MagicMock()
+        drv.execute_script.return_value = value
+        return drv
+
+    def test_empty_native_input_needs_no_clear(self):
+        assert iv_module._needs_clear(self._driver(""), self._element()) is False
+
+    def test_populated_native_input_needs_clear(self):
+        assert iv_module._needs_clear(self._driver("hello"), self._element()) is True
+
+    def test_empty_contenteditable_needs_no_clear(self):
+        el = self._element(contenteditable="true", text="")
+        assert iv_module._needs_clear(self._driver(None), el) is False
+
+    def test_populated_contenteditable_needs_clear(self):
+        el = self._element(contenteditable="true", text="draft")
+        assert iv_module._needs_clear(self._driver(None), el) is True
+
+    def test_probe_failure_errs_towards_clearing(self):
+        """Clearing an empty field is harmless; skipping a needed clear would
+        leave the old value and corrupt the typed result."""
+        drv = MagicMock()
+        drv.execute_script.side_effect = RuntimeError("stale element")
+        assert iv_module._needs_clear(drv, self._element()) is True
+
+    def test_input_value_skips_clear_on_an_empty_field(self):
+        el = MagicMock()
+        el.get_attribute.return_value = None
+        drv = MagicMock()
+        drv.execute_script.return_value = ""  # empty field
+        with patch.object(iv_module, "_clear") as mock_clear, \
+             patch.object(iv_module, "_element_to_be_input_and_text"), \
+             patch("testmu_selenium._helpers.input_value.WebDriverWait"):
+            iv_module.input_value(el, drv, value="typed")
+        mock_clear.assert_not_called()
+
+    def test_input_value_still_clears_a_populated_field(self):
+        el = MagicMock()
+        el.get_attribute.return_value = None
+        drv = MagicMock()
+        drv.execute_script.return_value = "old value"
+        with patch.object(iv_module, "_clear") as mock_clear, \
+             patch.object(iv_module, "_element_to_be_input_and_text"), \
+             patch("testmu_selenium._helpers.input_value.WebDriverWait"):
+            iv_module.input_value(el, drv, value="typed")
+        mock_clear.assert_called_once()

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import logging
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
 import pytest
 
-from lib_layered_config import read_config, read_config_json, read_config_raw
+from lib_layered_config import ConfigError, read_config, read_config_json, read_config_raw
+from lib_layered_config.core import LayerLoadError
+from tests.adapters.test_loader_errors import _chain
 from tests.support import LayeredSandbox, create_layered_sandbox
 from tests.support.os_markers import os_agnostic
 
@@ -18,6 +22,9 @@ if TYPE_CHECKING:
 VENDOR = "Acme"
 APP = "ConfigKit"
 SLUG = "config-kit"
+
+# See tests/adapters/test_file_loaders.py for why find_spec, not a lazily-populated module global.
+_YAML_INSTALLED = importlib.util.find_spec("yaml") is not None
 
 
 @pytest.fixture()
@@ -111,6 +118,38 @@ def test_read_config_provenance_records_env_layer(monkeypatch: pytest.MonkeyPatc
 def test_read_config_provenance_records_app_layer(monkeypatch: pytest.MonkeyPatch, sandbox: LayeredSandbox) -> None:
     result = arrange_precedence_story(monkeypatch, sandbox)
     assert result.provenance["service.retries"]["layer"] == "app"
+
+
+@pytest.mark.skipif(not _YAML_INSTALLED, reason="PyYAML not available")
+@os_agnostic
+def test_read_config_reports_a_yaml_construction_error_as_layer_load_error(
+    monkeypatch: pytest.MonkeyPatch, sandbox: LayeredSandbox, caplog: pytest.LogCaptureFixture
+) -> None:
+    """PyYAML's timestamp constructor raises a bare ``ValueError`` for an out-of-range calendar
+    date, never its own ``YAMLError``; ``read_config`` must still refuse it as ``LayerLoadError``
+    naming the file, not leak the parser's own ``ValueError`` or its message text."""
+    sandbox.apply_env(monkeypatch)
+    written = sandbox.write("app", "config.d/01-broken.yaml", content="a: 2020-13-01\n")
+
+    with caplog.at_level(logging.DEBUG, logger="lib_layered_config"), pytest.raises(LayerLoadError) as captured:
+        read_config_raw(vendor=VENDOR, app=APP, slug=SLUG, start_dir=str(sandbox.start_dir))
+
+    assert isinstance(captured.value, ConfigError)
+    message = str(captured.value)
+    assert str(written) in message
+    assert "is not valid YAML" in message
+    # pytest's own tmp_path can legitimately contain "13" (e.g. "pytest-13"), so check
+    # leak-freedom on the message with the path removed, not on the raw message.
+    without_path = message.replace(str(written), "")
+    assert "month" not in without_path
+    assert "13" not in without_path
+    for link in _chain(captured.value):
+        link_text = str(link).replace(str(written), "")
+        assert "month" not in link_text
+        assert "13" not in link_text
+    # Liveness: the capture sees the event, so an absent leak means the event is clean, not unseen.
+    assert any(record.getMessage() == "config_file_invalid" for record in caplog.records)
+    assert not any("month" in repr(vars(record)) for record in caplog.records)
 
 
 @os_agnostic

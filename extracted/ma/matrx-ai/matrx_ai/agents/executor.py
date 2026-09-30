@@ -417,7 +417,7 @@ async def run_agent(
                             is idempotent, so an existing row (e.g. a fork
                             created for this run) is reused and the child's new
                             turns append to it. The caller owns the access
-                            check — this executor never widens visibility.
+                            check — this executor never widens access.
         independent_request: When True, the forked child context gets a
                             FRESH ``request_id`` (uuid4) so this call is
                             persisted as its own ``cx_user_request`` row

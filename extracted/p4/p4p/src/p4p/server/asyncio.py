@@ -11,7 +11,7 @@ from ..client.asyncio import get_running_loop, create_task, all_tasks
 
 __all__ = (
     'SharedPV',
-        'Handler',
+    'Handler',
 )
 
 _log = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ def _handle(pv, op, M, args): # callback in asyncio loop
 
 class SharedPV(_SharedPV):
 
-    def __init__(self, handler=None, **kws):
+    def __init__(self, handler: Handler=None, **kws):
         self.loop = get_running_loop()
         _SharedPV.__init__(self, handler=handler, **kws)
         self._disconnected = asyncio.Event()
@@ -95,8 +95,7 @@ class SharedPV(_SharedPV):
         """Close PV, disconnecting any clients.
 
         :param bool destroy: Indicate "permanent" closure.  Current clients will not see subsequent open().
-        :param bool sync: When block until any pending onLastDisconnect() is delivered (timeout applies).
-        :param float timeout: Applies only when sync=True.  None for no timeout, otherwise a non-negative floating point value.
+        :param bool sync: When True, return Future which completes after pending onLastDisconnect() delivered.
 
         close() with destory=True or sync=True will not prevent clients from re-connecting.
         New clients may prevent sync=True from succeeding.

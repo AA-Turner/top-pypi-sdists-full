@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.get_idenfy_token_reply import GetIdenfyTokenReply
 
+
 class TestGetIdenfyTokenReply(unittest.TestCase):
     """GetIdenfyTokenReply unit test stubs"""
 
@@ -27,9 +28,9 @@ class TestGetIdenfyTokenReply(unittest.TestCase):
 
     def make_instance(self, include_optional) -> GetIdenfyTokenReply:
         """Test GetIdenfyTokenReply
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `GetIdenfyTokenReply`
         """
         model = GetIdenfyTokenReply()
@@ -47,5 +48,6 @@ class TestGetIdenfyTokenReply(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

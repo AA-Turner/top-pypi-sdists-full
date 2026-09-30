@@ -60,6 +60,7 @@ class _TraceItemTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._
     TRACE_ITEM_TYPE_PREPROD: _TraceItemType.ValueType  # 11
     TRACE_ITEM_TYPE_USER_SESSION: _TraceItemType.ValueType  # 12
     TRACE_ITEM_TYPE_PROCESSING_ERROR: _TraceItemType.ValueType  # 13
+    TRACE_ITEM_TYPE_WORKFLOW_ENGINE_EVALUATION: _TraceItemType.ValueType  # 14
 
 class TraceItemType(_TraceItemType, metaclass=_TraceItemTypeEnumTypeWrapper): ...
 
@@ -77,6 +78,7 @@ TRACE_ITEM_TYPE_ATTACHMENT: TraceItemType.ValueType  # 10
 TRACE_ITEM_TYPE_PREPROD: TraceItemType.ValueType  # 11
 TRACE_ITEM_TYPE_USER_SESSION: TraceItemType.ValueType  # 12
 TRACE_ITEM_TYPE_PROCESSING_ERROR: TraceItemType.ValueType  # 13
+TRACE_ITEM_TYPE_WORKFLOW_ENGINE_EVALUATION: TraceItemType.ValueType  # 14
 global___TraceItemType = TraceItemType
 
 @typing.final

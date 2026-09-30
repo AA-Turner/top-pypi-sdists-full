@@ -25,17 +25,26 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class GetOrganizationUsageDetailsReply(BaseModel):
     """
     GetOrganizationUsageDetailsReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     usage_details: Optional[List[UsageDetails]] = None
     database_details: Optional[List[DatabaseUsageDetails]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
     count: Optional[StrictInt] = None
     order: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["usage_details", "database_details", "limit", "offset", "count", "order"]
+    __properties: ClassVar[List[str]] = [
+        "usage_details",
+        "database_details",
+        "limit",
+        "offset",
+        "count",
+        "order",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -43,7 +52,6 @@ class GetOrganizationUsageDetailsReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -68,8 +76,7 @@ class GetOrganizationUsageDetailsReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -80,16 +87,22 @@ class GetOrganizationUsageDetailsReply(BaseModel):
         _items = []
         if self.usage_details:
             for _item_usage_details in self.usage_details:
-                if _item_usage_details:
-                    _items.append(_item_usage_details.to_dict())
-            _dict['usage_details'] = _items
+                _items.append(
+                    _item_usage_details.to_dict()
+                    if _item_usage_details is not None
+                    else None
+                )
+            _dict["usage_details"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in database_details (list)
         _items = []
         if self.database_details:
             for _item_database_details in self.database_details:
-                if _item_database_details:
-                    _items.append(_item_database_details.to_dict())
-            _dict['database_details'] = _items
+                _items.append(
+                    _item_database_details.to_dict()
+                    if _item_database_details is not None
+                    else None
+                )
+            _dict["database_details"] = _items
         return _dict
 
     @classmethod
@@ -101,14 +114,23 @@ class GetOrganizationUsageDetailsReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "usage_details": [UsageDetails.from_dict(_item) for _item in obj["usage_details"]] if obj.get("usage_details") is not None else None,
-            "database_details": [DatabaseUsageDetails.from_dict(_item) for _item in obj["database_details"]] if obj.get("database_details") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset"),
-            "count": obj.get("count"),
-            "order": obj.get("order")
-        })
+        _obj = cls.model_validate(
+            {
+                "usage_details": [
+                    UsageDetails.from_dict(_item) for _item in obj["usage_details"]
+                ]
+                if obj.get("usage_details") is not None
+                else None,
+                "database_details": [
+                    DatabaseUsageDetails.from_dict(_item)
+                    for _item in obj["database_details"]
+                ]
+                if obj.get("database_details") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+                "count": obj.get("count"),
+                "order": obj.get("order"),
+            }
+        )
         return _obj
-
-

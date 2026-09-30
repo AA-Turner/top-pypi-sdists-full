@@ -532,6 +532,103 @@ endmodule
     CHECK_DIAGS_EMPTY;
 }
 
+TEST_CASE("For loop body modifying iter var stops unrolling -- GH #1817") {
+    // The loop body assigns to the iteration variable, so the iteration values
+    // computed from the loop header don't match what the body actually sees.
+    auto& code = R"(
+module top;
+  logic a;
+  always_latch begin
+    for (int i = 0; i < 2; ++i) begin
+      i = 100;
+      if (i == 1)
+        a = 1;
+    end
+  end
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::LoopVarModify);
+}
+
+TEST_CASE("For loop body modifying iter var infers latch -- GH #1817") {
+    // Because the body assigns i = 2, the test i == 2 can no longer be proven
+    // false during unrolling. With unrolling disabled, 'a' is correctly seen as
+    // only conditionally assigned, which infers a latch.
+    auto& code = R"(
+module top;
+  logic a;
+  always_comb begin
+    for (int i = 0; i < 2; ++i) begin
+      i = 2;
+      if (i == 2)
+        a = 1;
+    end
+  end
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::LoopVarModify);
+    CHECK(diags[1].code == diag::InferredLatch);
+}
+
+TEST_CASE("For loop reading but not writing iter var still unrolls -- GH #1817") {
+    // Reading the iteration variable in the body (without writing it) must not
+    // disable unrolling. Here the branch guard depends on the iteration variable
+    // being a known constant; if the loop weren't unrolled, 'a' would be only
+    // conditionally assigned and infer a latch. Correct unrolling proves every
+    // bit of 'a' is assigned, so there are no diagnostics.
+    auto& code = R"(
+module top;
+  logic [3:0] a;
+  always_comb begin
+    for (int i = 0; i < 4; i++) begin
+      if (i < 4)
+        a[i] = 1'b1;
+    end
+  end
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    CHECK_DIAGS_EMPTY;
+}
+
+TEST_CASE("No latch inferred when first loop iteration is proven -- GH #1870") {
+    // Same loop shape as above inside always_comb. Since at least one iteration
+    // is guaranteed, the assignment to c must not be discarded.
+    auto& code = R"(
+module m(input in);
+    reg c;
+    always_comb begin
+        automatic int j = 4;
+        for (int i = 0; i < (i == 0 ? 4 : j); i++) begin
+            c = in;
+        end
+    end
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    CHECK_DIAGS_EMPTY;
+}
+
 TEST_CASE("No latch inferred for always_latch") {
     auto& code = R"(
 module m(input clk, input rst, input [2:0] in, output logic out, output logic out1);
@@ -935,6 +1032,33 @@ endmodule
     CHECK_DIAGS_EMPTY;
 }
 
+TEST_CASE("Randsequence in unrolled for loop with side-effecting index -- GH #1941") {
+    // The for loop gets unrolled while the randsequence production body modifies
+    // the iteration variable via a side-effecting index (++i). This could bake in
+    // an out-of-bounds constant select, producing an lvalue path with no static
+    // prefix. Building a driver from such a path used to hit an internal assertion.
+    auto& code = R"(
+module t;
+  int counts[8];
+  initial begin
+    for (int i = 0; i < 10; ++i) begin
+      randsequence(main)
+        main: count_1;
+        count_1: { ++counts[++i]; };
+      endsequence
+    end
+    $finish;
+  end
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    CHECK_DIAGS_EMPTY;
+}
+
 TEST_CASE("DFA unsequenced expression warnings") {
     auto& code = R"(
 function void f1(input int a, output int b);
@@ -1323,6 +1447,32 @@ endmodule
 )";
 
     Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    CHECK_DIAGS_EMPTY;
+}
+
+TEST_CASE("Const eval step limit in loop condition doesn't crash -- GH #1889") {
+    auto& code = R"(
+module t;
+  function int unsigned foo(input int unsigned n);
+    foo = 1;
+    while (n != 0) begin
+      n = n + 1;
+    end
+  endfunction
+
+  initial begin
+    while (foo(1) != 1) begin end
+  end
+endmodule
+)";
+
+    CompilationOptions options;
+    options.maxConstexprSteps = 10;
+
+    Compilation compilation(options);
     AnalysisManager analysisManager;
 
     auto diags = analyze(code, compilation, analysisManager);

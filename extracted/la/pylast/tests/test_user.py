@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Integration (not unit) tests for pylast.py
 """
@@ -363,8 +362,8 @@ class TestPyLastUser(TestPyLastWithLastFm):
     def test_get_recent_tracks_from_to(self) -> None:
         # Arrange
         lastfm_user = self.network.get_user("RJ")
-        start = dt.datetime(2011, 7, 21, 15, 10)
-        end = dt.datetime(2011, 7, 21, 15, 15)
+        start = dt.datetime(2011, 7, 21, 15, 10, tzinfo=dt.UTC)
+        end = dt.datetime(2011, 7, 21, 15, 15, tzinfo=dt.UTC)
 
         utc_start = calendar.timegm(start.utctimetuple())
         utc_end = calendar.timegm(end.utctimetuple())
@@ -380,8 +379,8 @@ class TestPyLastUser(TestPyLastWithLastFm):
     def test_get_recent_tracks_limit_none(self) -> None:
         # Arrange
         lastfm_user = self.network.get_user("bbc6music")
-        start = dt.datetime(2020, 2, 15, 15, 00)
-        end = dt.datetime(2020, 2, 15, 15, 40)
+        start = dt.datetime(2020, 2, 15, 15, 00, tzinfo=dt.UTC)
+        end = dt.datetime(2020, 2, 15, 15, 40, tzinfo=dt.UTC)
 
         utc_start = calendar.timegm(start.utctimetuple())
         utc_end = calendar.timegm(end.utctimetuple())
@@ -399,8 +398,8 @@ class TestPyLastUser(TestPyLastWithLastFm):
     def test_get_recent_tracks_is_streamable(self) -> None:
         # Arrange
         lastfm_user = self.network.get_user("bbc6music")
-        start = dt.datetime(2020, 2, 15, 15, 00)
-        end = dt.datetime(2020, 2, 15, 15, 40)
+        start = dt.datetime(2020, 2, 15, 15, 00, tzinfo=dt.UTC)
+        end = dt.datetime(2020, 2, 15, 15, 40, tzinfo=dt.UTC)
 
         utc_start = calendar.timegm(start.utctimetuple())
         utc_end = calendar.timegm(end.utctimetuple())
@@ -450,7 +449,7 @@ class TestPyLastUser(TestPyLastWithLastFm):
 
         # Act
         charts = user.get_weekly_artist_charts()
-        artist, weight = charts[0]
+        artist, _ = charts[0]
 
         # Assert
         assert artist is not None
@@ -462,7 +461,7 @@ class TestPyLastUser(TestPyLastWithLastFm):
 
         # Act
         charts = user.get_weekly_track_charts()
-        track, weight = charts[0]
+        track, _ = charts[0]
 
         # Assert
         assert track is not None

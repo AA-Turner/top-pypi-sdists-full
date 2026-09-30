@@ -34,6 +34,7 @@ add_executable(
   ast/SystemFuncTests.cpp
   ast/TypeTests.cpp
   ast/WarningTests.cpp
+  parsing/CSTSerializerTests.cpp
   parsing/DiagnosticTests.cpp
   parsing/ExpressionParsingTests.cpp
   parsing/LexerTests.cpp
@@ -48,13 +49,14 @@ add_executable(
   util/NumericTests.cpp
   util/SmallVectorTests.cpp
   util/UtilTests.cpp
+  diagnostics/WaiverTests.cpp
   DriverTests.cpp
   FileTests.cpp
   main.cpp
   Test.cpp)
 
 target_include_directories(unittests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(unittests PRIVATE slang::slang Catch2::Catch2)
+target_link_libraries(unittests PRIVATE slang::slang Catch2::Catch2 fmt::fmt)
 target_compile_definitions(unittests PRIVATE UNITTESTS)
 
 if(SLANG_CI_BUILD)

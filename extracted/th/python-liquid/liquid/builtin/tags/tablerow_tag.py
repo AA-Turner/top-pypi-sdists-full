@@ -189,6 +189,10 @@ class TablerowNode(Node):
         name = self.expression.identifier
         loop_iter, length = self.expression.evaluate(context)
 
+        if not length:
+            # An empty iterable renders no rows.
+            return True
+
         if self.expression.cols:
             cols = self._int_or_zero(self.expression.cols.evaluate(context))
         else:
@@ -204,7 +208,7 @@ class TablerowNode(Node):
         buffer.write('<tr class="row1">\n')
         _break = False
 
-        with context.extend(namespace):
+        with context.loop(namespace, tablerow):
             for item in tablerow:
                 namespace[name] = item
                 buffer.write(f'<td class="col{tablerow.col}">')

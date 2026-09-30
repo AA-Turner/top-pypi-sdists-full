@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.secret_type import SecretType
 
+
 class TestSecretType(unittest.TestCase):
     """SecretType unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestSecretType(unittest.TestCase):
         """Test SecretType"""
         # inst = SecretType()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

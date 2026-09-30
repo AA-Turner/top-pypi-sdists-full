@@ -57,8 +57,10 @@ from crawlee.errors import (
     ContextPipelineInterruptedError,
     HttpClientStatusCodeError,
     HttpStatusCodeError,
+    PersistentRateLimitError,
     RequestCollisionError,
     RequestHandlerError,
+    RequestThrottledError,
     SessionError,
     UserDefinedErrorHandlerError,
     UserHandlerTimeoutError,
@@ -342,7 +344,8 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
             additional_http_error_status_codes: Additional HTTP status codes to treat as errors,
                 triggering automatic retries when encountered.
             ignore_http_error_status_codes: HTTP status codes that are typically considered errors but should be treated
-                as successful responses.
+                as successful responses. Doesn't apply to a 429 from a domain throttled by a `ThrottlingRequestManager`,
+                which is retried later.
             concurrency_settings: Settings to fine-tune concurrency levels.
             request_handler_timeout: Maximum duration allowed for a single request handler to run.
             statistics: A custom `Statistics` instance, allowing the use of non-default configuration.
@@ -428,7 +431,9 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
         self._context_result_map = WeakKeyDictionary[BasicCrawlingContext, RequestHandlerRunResult]()
 
         # Context pipeline
-        self._context_pipeline = (_context_pipeline or ContextPipeline()).compose(self._check_url_after_redirects)  # ty: ignore[invalid-argument-type]
+        self._context_pipeline = (_context_pipeline or ContextPipeline[TCrawlingContext]()).compose(
+            self._check_url_after_redirects
+        )
 
         # Crawl settings
         self._max_request_retries = max_request_retries
@@ -507,6 +512,7 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
         self._keep_alive = keep_alive
         self._running = False
         self._has_finished_before = False
+        self._last_run_failed = False
         self._failed = False
         self._unexpected_stop = False
         self._logger_once = LoggerOnce(self._logger)
@@ -696,8 +702,12 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
             requests: The requests to be enqueued before the crawler starts.
             purge_request_queue: If this is `True` and the crawler is not being run for the first time, the request
                 queue will be purged. A run that ended with an exception does not count as a previous run, so a
-                retry keeps the requests that were still pending. Named request queues are considered persistent
-                and are never purged implicitly.
+                retry keeps the requests that were still pending even when this is `True`. Named request queues
+                are considered persistent and are never purged implicitly.
+
+        Raises:
+            PersistentRateLimitError: If a domain throttled by a `ThrottlingRequestManager` has rate-limited every
+                request for longer than the manager's `max_domain_stall` and no other requests are left.
         """
         if self._running:
             raise RuntimeError(
@@ -706,86 +716,97 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
 
         self._running = True
 
-        if self._respect_robots_txt_file and not isinstance(self._request_manager, ThrottlingRequestManager):
-            self._logger.warning(
-                'The `respect_robots_txt_file` option is enabled, but the crawler is not using '
-                '`ThrottlingRequestManager`. Crawl-delay directives from robots.txt will not be enforced. To enable '
-                'crawl-delay support, configure the crawler to use `ThrottlingRequestManager` as the request manager.'
-            )
-
-        if self._has_finished_before:
-            await self._statistics.reset()
-
-            if self._use_session_pool:
-                await self._session_pool.reset_store()
-
-            if purge_request_queue:
-                request_manager = await self.get_request_manager()
-                # A `ThrottlingRequestManager` delegates `purge` to the manager it wraps, so inspect the wrapped
-                # manager when deciding whether the purge would hit a named queue.
-                inner_manager = (
-                    request_manager.inner if isinstance(request_manager, ThrottlingRequestManager) else request_manager
-                )
-                # Named storages are persistent and shared across runs, so they are never purged implicitly
-                # (the same named-storage exemption as in `StorageClient._purge_if_needed`).
-                is_named_queue = isinstance(inner_manager, RequestQueue) and inner_manager.name is not None
-                if not is_named_queue:
-                    await request_manager.purge()
-
-        if requests is not None:
-            await self.add_requests(requests)
-
-        interrupted = False
-
-        def sigint_handler() -> None:
-            nonlocal interrupted
-
-            if not interrupted:
-                interrupted = True
-                self._logger.info('Pausing... Press CTRL+C again to force exit.')
-
-            run_task.cancel()
-
-        run_task = asyncio.create_task(self._run_crawler(), name='run_crawler_task')
-
-        if threading.current_thread() is threading.main_thread():  # `add_signal_handler` works only in the main thread
-            with suppress(NotImplementedError):  # event loop signal handlers are not supported on Windows
-                asyncio.get_running_loop().add_signal_handler(signal.SIGINT, sigint_handler)
-
         try:
-            await run_task
-        except CancelledError:
-            pass
+            if self._respect_robots_txt_file and not isinstance(self._request_manager, ThrottlingRequestManager):
+                self._logger.warning(
+                    'The `respect_robots_txt_file` option is enabled, but the crawler is not using '
+                    '`ThrottlingRequestManager`. Crawl-delay directives from robots.txt will not be enforced. To '
+                    'enable crawl-delay support, configure the crawler to use `ThrottlingRequestManager` as the '
+                    'request manager.'
+                )
+
+            if self._has_finished_before:
+                await self._statistics.reset()
+
+                if self._use_session_pool:
+                    await self._session_pool.reset_store()
+
+                # A failed run does not count as a previous run, so its pending requests survive into the retry.
+                if purge_request_queue and not self._last_run_failed:
+                    request_manager = await self.get_request_manager()
+                    # A `ThrottlingRequestManager` delegates `purge` to the manager it wraps, so inspect the wrapped
+                    # manager when deciding whether the purge would hit a named queue.
+                    inner_manager = (
+                        request_manager.inner
+                        if isinstance(request_manager, ThrottlingRequestManager)
+                        else request_manager
+                    )
+                    # Named storages are persistent and shared across runs, so they are never purged implicitly
+                    # (the same named-storage exemption as in `StorageClient._purge_if_needed`).
+                    is_named_queue = isinstance(inner_manager, RequestQueue) and inner_manager.name is not None
+                    if not is_named_queue:
+                        await request_manager.purge()
+
+            if requests is not None:
+                await self.add_requests(requests)
+
+            interrupted = False
+
+            def sigint_handler() -> None:
+                nonlocal interrupted
+
+                if not interrupted:
+                    interrupted = True
+                    self._logger.info('Pausing... Press CTRL+C again to force exit.')
+
+                run_task.cancel()
+
+            run_task = asyncio.create_task(self._run_crawler(), name='run_crawler_task')
+
+            # `add_signal_handler` works only in the main thread
+            if threading.current_thread() is threading.main_thread():
+                with suppress(NotImplementedError):  # event loop signal handlers are not supported on Windows
+                    asyncio.get_running_loop().add_signal_handler(signal.SIGINT, sigint_handler)
+
+            try:
+                await run_task
+            except CancelledError:
+                pass
+            finally:
+                if threading.current_thread() is threading.main_thread():
+                    with suppress(NotImplementedError):
+                        asyncio.get_running_loop().remove_signal_handler(signal.SIGINT)
+
+            if self._statistics.error_tracker.total > 0:
+                self._logger.info(
+                    'Error analysis:'
+                    f' total_errors={self._statistics.error_tracker.total}'
+                    f' unique_errors={self._statistics.error_tracker.unique_error_count}'
+                )
+
+            if interrupted:
+                self._logger.info(
+                    f'The crawl was interrupted. To resume, do: CRAWLEE_PURGE_ON_START=0 python {sys.argv[0]}'
+                )
+
+            self._has_finished_before = True
+            self._last_run_failed = False
+
+            await self._save_crawler_state()
+
+            final_statistics = self._statistics.calculate()
+            if self._statistics_log_format == 'table':
+                self._logger.info(f'Final request statistics:\n{final_statistics.to_table()}')
+            else:
+                self._logger.info('Final request statistics:', extra=final_statistics.to_dict())
+        except BaseException:
+            self._last_run_failed = True
+            raise
+        else:
+            return final_statistics
         finally:
             # A failed run must leave the instance usable, so that the caller can retry after handling the error.
             self._running = False
-
-            if threading.current_thread() is threading.main_thread():
-                with suppress(NotImplementedError):
-                    asyncio.get_running_loop().remove_signal_handler(signal.SIGINT)
-
-        if self._statistics.error_tracker.total > 0:
-            self._logger.info(
-                'Error analysis:'
-                f' total_errors={self._statistics.error_tracker.total}'
-                f' unique_errors={self._statistics.error_tracker.unique_error_count}'
-            )
-
-        if interrupted:
-            self._logger.info(
-                f'The crawl was interrupted. To resume, do: CRAWLEE_PURGE_ON_START=0 python {sys.argv[0]}'
-            )
-
-        self._has_finished_before = True
-
-        await self._save_crawler_state()
-
-        final_statistics = self._statistics.calculate()
-        if self._statistics_log_format == 'table':
-            self._logger.info(f'Final request statistics:\n{final_statistics.to_table()}')
-        else:
-            self._logger.info('Final request statistics:', extra=final_statistics.to_dict())
-        return final_statistics
 
     async def _run_crawler(self) -> None:
         local_event_manager = self._service_locator.get_event_manager()
@@ -1420,6 +1441,19 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
         if self._keep_alive:
             return False
 
+        # Check for a stall only when the pool is idle. An in-flight request can still enqueue new work or end the
+        # stall.
+        if (
+            isinstance(self._request_manager, ThrottlingRequestManager)
+            and self._autoscaled_pool.current_concurrency == 0
+            and (reason := await self._request_manager.get_stall_reason()) is not None
+        ):
+            error = PersistentRateLimitError(f'Giving up: {reason}')
+            self._logger.error(
+                'Giving up the crawl because a domain keeps rate-limiting every request.', exc_info=error
+            )
+            raise error
+
         request_manager = await self.get_request_manager()
         return await request_manager.is_finished()
 
@@ -1507,6 +1541,10 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
             await self._handle_request_error(context, request_error)
 
         except RequestHandlerError as primary_error:
+            if isinstance(primary_error.wrapped_exception, RequestThrottledError) and self._is_held_back(request):
+                await self._defer_throttled_request(request, primary_error.wrapped_exception)
+                return
+
             primary_error = cast(
                 'RequestHandlerError[TCrawlingContext]', primary_error
             )  # valid thanks to ContextPipeline
@@ -1568,6 +1606,11 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
             await self._mark_request_as_handled(request)
 
         except ContextPipelineInitializationError as initialization_error:
+            wrapped = initialization_error.wrapped_exception
+            if isinstance(wrapped, RequestThrottledError) and self._is_held_back(request):
+                await self._defer_throttled_request(request, wrapped)
+                return
+
             self._logger.debug(
                 'An exception occurred during the initialization of crawling context',
                 exc_info=initialization_error,
@@ -1588,6 +1631,35 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
                     await cleanup()
                 except Exception:  # noqa: PERF203
                     self._logger.exception('Error in deferred cleanup')
+
+    def _is_held_back(self, request: Request) -> bool:
+        """Check whether a `ThrottlingRequestManager` holds the request's domain back, so a deferral can't spin.
+
+        Logs a one-time warning when it doesn't, since the `RequestThrottledError` is then handled as an ordinary error.
+        """
+        manager = self._request_manager
+        if isinstance(manager, ThrottlingRequestManager) and manager.is_throttled(request.url):
+            return True
+
+        self._logger_once.log(
+            f'`RequestThrottledError` was raised for {request.url}, but no `ThrottlingRequestManager` holds its domain '
+            "back, so it's handled as an ordinary error. Raise it only for a configured domain, after "
+            '`ThrottlingRequestManager.record_domain_delay` has put the domain into a backoff.',
+            key='throttled_error_without_backoff',
+            level=logging.WARNING,
+        )
+        return False
+
+    async def _defer_throttled_request(self, request: Request, error: RequestThrottledError) -> None:
+        """Give a rate-limited request back to the request manager without counting a failure or a retry."""
+        request.state = RequestState.ERROR_HANDLER
+        self._logger.debug(
+            f'Deferring request because its domain is rate-limiting us. {error}',
+            extra={'url': request.url, 'unique_key': request.unique_key},
+        )
+        request_manager = await self.get_request_manager()
+        await request_manager.reclaim_request(request, forefront=request.forefront)
+        self._statistics.record_request_processing_deferral(request.unique_key)
 
     async def _run_request_handler(self, context: BasicCrawlingContext) -> None:
         context.request.state = RequestState.BEFORE_NAV
@@ -1630,7 +1702,7 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
         *,
         request_url: str,
         retry_after_header: str | None = None,
-    ) -> None:
+    ) -> bool:
         """Record a 429 Too Many Requests response so the request's domain gets a backoff.
 
         Rate limiting is independent of session blocking, so this runs for every response regardless of
@@ -1640,9 +1712,13 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
             status_code: The HTTP status code to check.
             request_url: The request URL, used for per-domain rate limit tracking.
             retry_after_header: The value of the `Retry-After` response header, if present.
+
+        Returns:
+            True if a `ThrottlingRequestManager` recorded the 429 for the request's domain, so the request should be
+                deferred.
         """
         if status_code != HTTPStatus.TOO_MANY_REQUESTS:
-            return
+            return False
 
         if not isinstance(self._request_manager, ThrottlingRequestManager):
             self._logger_once.log(
@@ -1653,7 +1729,7 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
                 key='no_throttling_manager_on_429',
                 level=logging.WARNING,
             )
-            return
+            return False
 
         retry_after = parse_retry_after_header(retry_after_header)
         if not self._request_manager.record_domain_delay(request_url, retry_after=retry_after):
@@ -1666,6 +1742,9 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
                     key=f'unconfigured_throttle_domain:{domain}',
                     level=logging.WARNING,
                 )
+            return False
+
+        return True
 
     def _raise_for_session_blocked_status_code(self, session: Session | None, status_code: int) -> None:
         """Raise an exception if the given status code indicates the session is blocked.

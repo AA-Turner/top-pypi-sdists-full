@@ -121,6 +121,7 @@ class SURE(nn.Module):
                  z_dim: int = 40,
                  z_dist: Literal['normal','nsf'] = 'nsf',
                  loss_func: Literal['negbinomial','poisson','multinomial','bernoulli'] = 'multinomial',
+                 total_count: int = 10000,
                  dispersion: float = 10.0,
                  use_zeroinflate: bool = True,
                  hidden_layers: list = [500],
@@ -140,6 +141,7 @@ class SURE(nn.Module):
         
         if covariate_dim is None:
             covariate_dim = z_dim 
+        self.latent_dim = z_dim
             
         if method == 'flow':
             self.engine = SURENF(input_dim=input_dim,
@@ -151,6 +153,7 @@ class SURE(nn.Module):
                                   z_dim=z_dim,
                                   z_dist=z_dist,
                                   loss_func=loss_func,
+                                  total_count=total_count,
                                   dispersion=dispersion,
                                   use_zeroinflate=use_zeroinflate,
                                   hidden_layers=hidden_layers,
@@ -285,6 +288,12 @@ class SURE(nn.Module):
     def get_device(self):
         return self.engine.get_device()
 
+    def _decode_latent(self, zs):
+        return self.engine._decode_latent(zs)
+    
+    def log_prob(self, xs, zs):
+        return self.engine.log_prob(xs, zs)
+    
     def get_codebook(self):
         """
         Return the mean part of metacell codebook

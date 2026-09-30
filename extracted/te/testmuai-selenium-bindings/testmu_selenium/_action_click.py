@@ -1,6 +1,7 @@
 """High-level click action — find element, click with strategy, heal on failure."""
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
 
+from testmu_selenium._helpers.coordinate_click import click_at_coordinates
 from testmu_selenium._action_engine import _ActionSpec, _run_action
 from testmu_selenium._helpers.gesture import (
     resolve_click_modifier_variables, validate_click_modifier, do_gesture_at_coordinate,
@@ -34,10 +35,7 @@ def _click_coord_runner(driver, x, y, ctx):
     click_modifier = validate_click_modifier(click_modifier)
     if click_modifier is not None:
         return do_gesture_at_coordinate(driver, x, y, click_modifier, ctx.get('modifiers'))
-    ab = ActionBuilder(driver)
-    ab.pointer_action.move_to_location(x, y)
-    ab.pointer_action.click()
-    ab.perform()
+    click_at_coordinates(driver, x, y)
     return True
 
 

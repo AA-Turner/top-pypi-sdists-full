@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.snapshot_status import SnapshotStatus
 
+
 class TestSnapshotStatus(unittest.TestCase):
     """SnapshotStatus unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestSnapshotStatus(unittest.TestCase):
         """Test SnapshotStatus"""
         # inst = SnapshotStatus()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -66,20 +66,23 @@ def main():
         print("✓ Waiting for spawned sandbox to be ready...")
         is_ready = sbx2.wait_ready(timeout=300)
         print("  ✓ Sandbox is ready")
+        assert is_ready, "Spawned sandbox should be ready"
 
         # Verify filesystem is preserved from snapshot
         print("✓ Verifying filesystem is preserved from snapshot...")
-        
+
         # Check that files exist
         result = sbx2.exec("cat /workspace/test_file.txt")
-        assert result.stdout.strip() == "Hello from snapshot!", f"File content mismatch: {result.stdout}"
+        assert (
+            result.stdout.strip() == "Hello from snapshot!"
+        ), f"File content mismatch: {result.stdout}"
         print("  ✓ Custom file preserved")
-        
+
         # Check that packages are pre-installed
         result = sbx2.exec("python3 -c \"import requests; print('OK')\"")
         assert result.stdout.strip() == "OK", f"Package not found: {result.stdout}"
         print("  ✓ Packages preserved")
-        
+
         # Verify env var is different from snapshot (new definition)
         result = sbx2.exec("echo $SPAWNED_FROM_SNAPSHOT")
         assert result.stdout.strip() == "true", f"Env var not set: {result.stdout}"

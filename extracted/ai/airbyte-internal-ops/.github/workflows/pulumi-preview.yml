@@ -35,6 +35,8 @@ jobs:
               - 'infra/ops-webapp/**'
             internal-mcp-servers:
               - 'infra/internal-mcp-servers/**'
+            airmux-control-plane:
+              - 'infra/airmux-control-plane/**'
             workflow:
               - '.github/workflows/pulumi-preview.yml'
 
@@ -56,6 +58,9 @@ jobs:
             }
             if (${{ steps.changes.outputs['internal-mcp-servers'] }} || workflowChanged) {
               stacks.push({name: 'internal-mcp-servers', dir: 'infra/internal-mcp-servers'});
+            }
+            if (${{ steps.changes.outputs['airmux-control-plane'] }} || workflowChanged) {
+              stacks.push({name: 'airmux-control-plane', dir: 'infra/airmux-control-plane'});
             }
             const result = JSON.stringify(stacks);
             core.setOutput('stacks', result);

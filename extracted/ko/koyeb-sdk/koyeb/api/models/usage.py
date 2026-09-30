@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class Usage(BaseModel):
     """
     Usage
-    """ # noqa: E501
+    """  # noqa: E501
+
     organization_id: Optional[StrictStr] = None
     periods: Optional[Dict[str, PeriodUsage]] = None
     __properties: ClassVar[List[str]] = ["organization_id", "periods"]
@@ -38,7 +40,6 @@ class Usage(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,8 +64,7 @@ class Usage(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -75,9 +75,12 @@ class Usage(BaseModel):
         _field_dict = {}
         if self.periods:
             for _key_periods in self.periods:
-                if self.periods[_key_periods]:
-                    _field_dict[_key_periods] = self.periods[_key_periods].to_dict()
-            _dict['periods'] = _field_dict
+                _field_dict[_key_periods] = (
+                    self.periods[_key_periods].to_dict()
+                    if self.periods[_key_periods] is not None
+                    else None
+                )
+            _dict["periods"] = _field_dict
         return _dict
 
     @classmethod
@@ -89,15 +92,14 @@ class Usage(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "organization_id": obj.get("organization_id"),
-            "periods": dict(
-                (_k, PeriodUsage.from_dict(_v))
-                for _k, _v in obj["periods"].items()
-            )
-            if obj.get("periods") is not None
-            else None
-        })
+        _obj = cls.model_validate(
+            {
+                "organization_id": obj.get("organization_id"),
+                "periods": dict(
+                    (_k, PeriodUsage.from_dict(_v)) for _k, _v in obj["periods"].items()
+                )
+                if obj.get("periods") is not None
+                else None,
+            }
+        )
         return _obj
-
-

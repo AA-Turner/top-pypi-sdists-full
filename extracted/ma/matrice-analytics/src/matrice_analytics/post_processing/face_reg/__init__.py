@@ -15,7 +15,6 @@ Quick Start:
     from matrice_analytics.post_processing.face_reg import (
         FaceRecognitionEmbeddingUseCase,
         FaceRecognitionEmbeddingConfig,
-        FacialRecognitionClient
     )
 
     # Create config
@@ -34,13 +33,10 @@ from .face_recognition import (
     FaceRecognitionEmbeddingConfig,
     FaceRecognitionEmbeddingUseCase,
 )
-from .face_recognition_client import FacialRecognitionClient, create_face_client
 
 __all__ = [
     "FaceRecognitionEmbeddingUseCase",
     "FaceRecognitionEmbeddingConfig",
-    "FacialRecognitionClient",
-    "create_face_client",
     "EmbeddingManager",
     "EmbeddingConfig",
 ]

@@ -59,6 +59,8 @@ from airbyte_ops_webapp.theme import (
 )
 
 OPS_HOME_TOOL_NAME = "ops_home"
+CHAT_EMOJI = "💬"
+CHAT_PATH = "/chat/"
 
 home_app = FastMCPApp("Airbyte Ops Home")
 
@@ -176,6 +178,33 @@ def _render_more_tools_card() -> None:
         Badge("Coming soon", css_class="w-fit bg-[#CECBF2] text-[#140F43]")
 
 
+def _render_chat_card() -> None:
+    with AbToolCard(), CardContent(), Column(gap=3):
+        render_emoji_icon(CHAT_EMOJI)
+        H3("Chat")
+        Text(
+            "Chat with Airbyte Ops and Cloud data through the AG-UI agent, "
+            "using your own Airbyte sign-in."
+        )
+        with If(~STATE.oauth_authenticated):
+            Badge(
+                "Sign-in required",
+                css_class="w-fit bg-[#CECBF2] text-[#140F43]",
+            )
+            AbPrimaryLink(
+                "Log in with Airbyte",
+                href=OPS_AUTHORIZATION_PATH,
+                target="_top",
+            )
+        with If(STATE.oauth_authenticated):
+            Badge("Ready", variant="success")
+            AbPrimaryLink(
+                "Open tool",
+                href=CHAT_PATH,
+                target="_top",
+            )
+
+
 def _render_platform_admin_card() -> None:
     with AbToolCard(), CardContent(), Column(gap=3):
         render_emoji_icon(PLATFORM_ADMIN_EMOJI)
@@ -254,6 +283,7 @@ def open_ops_home(
             _render_customer_billing_card()
             _render_motherduck_diagnostics_card()
             _render_platform_admin_card()
+            _render_chat_card()
             _render_more_tools_card()
         render_version_footer()
     return app

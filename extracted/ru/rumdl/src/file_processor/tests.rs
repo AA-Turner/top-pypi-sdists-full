@@ -203,6 +203,56 @@ fn test_strip_base_prefix_with_symlink() {
     assert_eq!(result, Some(expected));
 }
 
+/// A project whose root is reached through a symlink, with the canonical path of
+/// `docs/guide.md` inside it: the shape discovery hands to the display code.
+#[cfg(unix)]
+fn symlinked_root_and_canonical_file() -> (TempDir, std::path::PathBuf, std::path::PathBuf) {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let real = temp_dir.path().join("real");
+    fs::create_dir_all(real.join("docs")).expect("Failed to create docs dir");
+    fs::write(real.join("docs/guide.md"), "# Test").expect("Failed to write test file");
+    let link = temp_dir.path().join("link");
+    std::os::unix::fs::symlink(&real, &link).expect("Failed to create symlink");
+    let file = real.join("docs/guide.md").canonicalize().unwrap();
+    (temp_dir, link, file)
+}
+
+#[test]
+#[cfg(unix)]
+fn test_strip_base_prefix_resolves_a_symlinked_base() {
+    let (_temp_dir, link, file) = symlinked_root_and_canonical_file();
+
+    assert!(
+        file.strip_prefix(&link).is_err(),
+        "the base must not prefix the file as written"
+    );
+    assert_eq!(strip_base_prefix(&file, &link), Some("docs/guide.md".to_string()));
+}
+
+#[test]
+#[cfg(unix)]
+fn test_discovered_display_path_is_relative_to_a_symlinked_root() {
+    let (_temp_dir, link, file) = symlinked_root_and_canonical_file();
+    let file = file.to_string_lossy();
+
+    assert_eq!(discovered_display_path(&file, Some(&link)), "docs/guide.md");
+    assert_eq!(
+        resolve_discovered_display_path(&file, false, Some(&link)),
+        "docs/guide.md"
+    );
+    assert_eq!(resolve_discovered_display_path(&file, true, Some(&link)), file);
+}
+
+/// A config named by a bare file name yields the empty path as its directory,
+/// which `Path::strip_prefix` accepts as a prefix of anything.
+#[test]
+fn test_strip_base_prefix_empty_base_is_not_a_prefix_of_an_absolute_path() {
+    let temp_dir = create_test_structure();
+    let file = temp_dir.path().join("docs/guide.md").canonicalize().unwrap();
+
+    assert_eq!(strip_base_prefix(&file, Path::new("")), None);
+}
+
 #[test]
 fn test_strip_base_prefix_nonexistent_base() {
     let file = Path::new("/some/existing/path.md");
@@ -437,6 +487,49 @@ fn test_strip_common_indent_preserves_empty_lines() {
     let (stripped, _) = strip_common_indent(content);
 
     assert!(stripped.contains("\n\n"), "Should preserve empty lines");
+}
+
+#[test]
+fn test_strip_and_restore_indent_keep_trailing_blank_lines() {
+    for (content, stripped, indent) in [
+        ("#A\n\n", "#A\n\n", ""),
+        ("  #A\n\n\n", "#A\n\n\n", "  "),
+        ("  #A\n  \n", "#A\n\n", "  "),
+        ("  #A", "#A", "  "),
+    ] {
+        assert_eq!(
+            strip_common_indent(content),
+            (stripped.to_string(), indent.to_string()),
+            "{content:?}"
+        );
+    }
+    assert_eq!(restore_indent("#A\n\n", "  "), "  #A\n\n");
+    assert_eq!(restore_indent("#A\n\n\n", "  "), "  #A\n\n\n");
+    assert_eq!(restore_indent("#A", "  "), "  #A");
+}
+
+/// Formatting an embedded block changes only what its rules fix: blank lines
+/// at the end of the block stay.
+#[test]
+fn test_format_embedded_markdown_blocks_keeps_trailing_blank_lines() {
+    let config = rumdl_config::Config::default();
+    let rules: Vec<_> = rumdl_lib::rules::all_rules(&config)
+        .into_iter()
+        .filter(|rule| rule.name() == "MD018")
+        .collect();
+
+    let mut content = "# T\n\n```markdown\n#A\n\n\n```\n\n- x\n\n  ```markdown\n  #B\n  \n\n  ```\n".to_string();
+    format_embedded_markdown_blocks(&mut content, &rules, &config);
+
+    assert_eq!(
+        content,
+        "# T\n\n```markdown\n# A\n\n\n```\n\n- x\n\n  ```markdown\n  # B\n\n\n  ```\n"
+    );
+
+    // A whitespace-only last line is emptied like any other, not removed.
+    let mut content = "- x\n\n  ```markdown\n  #B\n  \n  ```\n".to_string();
+    format_embedded_markdown_blocks(&mut content, &rules, &config);
+    assert_eq!(content, "- x\n\n  ```markdown\n  # B\n\n  ```\n");
 }
 
 #[test]

@@ -6,7 +6,7 @@ Normative sources: ``_contracts/07-tobe-canonical-contract.md`` §§2-3 and
 connect backoff, the Sentinel resolution and the config-over-environment precedence are all
 carried over deliberately.
 
-Four behaviours are load-bearing:
+Five behaviours are load-bearing:
 
 **``XADD <stream> {"data": <json>}``.**  Every consumer hedges on the field name --
 be-media-server tries ``data`` then any valid-JSON field, be-analytics tries ``data`` then
@@ -19,6 +19,12 @@ detections still reach the per-camera output topic through the pipeline whether 
 publisher can connect.  Raising here would take a whole inference worker down because a
 dashboard is unreachable, so a failed publish is counted and logged, never propagated.  What
 it must not do is fail *silently* -- hence :attr:`RedisStreamPublisher.stats`.
+
+**Every XADD is trimmed (``MAXLEN ~``).**  Both streams are shared keys that no consumer
+trims, and every camera-app writes to them each window.  Unbounded, they grow until Redis hits
+``maxmemory``, and eviction then drops the whole key together with its consumer groups -- every
+reader on that Redis fails at once.  :data:`DEFAULT_STREAM_MAXLEN` caps each stream; the
+approximate form lets Redis trim whole radix-tree nodes, which keeps the trim O(1) amortised.
 
 **Sentinel when available, plain host otherwise.**  On an HA deployment the plain host is a
 Service fronting the master *and* its replicas, so roughly half of all writes land on a
@@ -50,10 +56,13 @@ from matrice_analytics.engine.contract.emit import (
 
 __all__ = [
     "DEFAULT_SENTINEL_PORT",
+    "DEFAULT_STREAM_MAXLEN",
     "MESSAGE_KEY_FIELD",
     "RECONNECT_BACKOFF_SECONDS",
+    "STREAM_MAXLEN_ENV",
     "RedisStreamPublisher",
     "parse_sentinel_hosts",
+    "resolve_stream_maxlen",
 ]
 
 logger = logging.getLogger(__name__)
@@ -77,8 +86,51 @@ connect timeouts become the frame budget.
 DEFAULT_SENTINEL_PORT: Final[int] = 26379
 _SOCKET_TIMEOUT: Final[int] = 5
 
+DEFAULT_STREAM_MAXLEN: Final[int] = 100_000
+"""Approximate cap on each stream's length, sized to the consumer-lag budget.
 
-def parse_sentinel_hosts(raw: Any, default_port: int = DEFAULT_SENTINEL_PORT) -> list[tuple[str, int]]:
+It is how far a stalled consumer may fall behind before the oldest entries are trimmed: a
+reader that lags by more than this loses the oldest window results, which is the intended
+trade against losing the whole key to eviction.  Matches the cap the LPR sighting stream
+already uses.  Override per publisher with the ``stream_maxlen`` config key or per process with
+:data:`STREAM_MAXLEN_ENV`.
+"""
+
+STREAM_MAXLEN_ENV: Final[str] = "MATRICE_ANALYTICS_STREAM_MAXLEN"
+"""Environment variable read when the config does not set ``stream_maxlen``."""
+
+
+def resolve_stream_maxlen(raw: Any) -> int:
+    """The stream cap from a config or environment value.
+
+    Args:
+        raw: An int, a numeric string, or ``None``/empty for the default.
+
+    Returns:
+        A positive cap.  A non-integer or non-positive value falls back to
+        :data:`DEFAULT_STREAM_MAXLEN` **with a warning**: an unbounded stream is exactly the
+        failure the cap exists to prevent, so no value can switch it off.
+    """
+    if raw is None or raw == "":
+        return DEFAULT_STREAM_MAXLEN
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        logger.warning(
+            "ignoring non-integer stream maxlen %r; using %d", raw, DEFAULT_STREAM_MAXLEN
+        )
+        return DEFAULT_STREAM_MAXLEN
+    if value <= 0:
+        logger.warning(
+            "ignoring non-positive stream maxlen %d; using %d", value, DEFAULT_STREAM_MAXLEN
+        )
+        return DEFAULT_STREAM_MAXLEN
+    return value
+
+
+def parse_sentinel_hosts(
+    raw: Any, default_port: int = DEFAULT_SENTINEL_PORT
+) -> list[tuple[str, int]]:
     """Normalise Sentinel hosts into the ``[(host, port), ...]`` redis-py wants.
 
     Accepts what each source actually provides: a list of ``(host, port)`` pairs, a list of
@@ -145,9 +197,11 @@ class RedisStreamPublisher:
         "_injected",
         "_last_attempt",
         "_master_name",
+        "_maxlen",
         "_password",
         "_port",
         "_sentinel_hosts",
+        "_trim_rejected",
         "_username",
         "stats",
     )
@@ -163,7 +217,8 @@ class RedisStreamPublisher:
         Args:
             config: Overrides, in precedence over the environment.  Recognised keys:
                 ``host``, ``port``, ``password``, ``username``, ``db``, ``sentinel_hosts``,
-                ``sentinel_port``, ``master_name``, and ``redis_client`` -- an already-built
+                ``sentinel_port``, ``master_name``, ``stream_maxlen`` (see
+                :data:`DEFAULT_STREAM_MAXLEN`), and ``redis_client`` -- an already-built
                 client, which is how a test drives this class without a Redis.
             clock: Anything with ``now() -> float``, used only for the reconnect backoff.
                 Defaults to :class:`~matrice_analytics.engine.primitives.base.WallClock`,
@@ -173,7 +228,7 @@ class RedisStreamPublisher:
 
         Environment read when a key is absent: ``REDIS_HOST``, ``REDIS_PORT``,
         ``REDIS_PASSWORD``, ``REDIS_USERNAME``, ``REDIS_DB``, ``REDIS_SENTINEL_HOSTS``,
-        ``REDIS_SENTINEL_PORT``, ``REDIS_MASTER_NAME``.
+        ``REDIS_SENTINEL_PORT``, ``REDIS_MASTER_NAME``, and :data:`STREAM_MAXLEN_ENV`.
         """
         settings = dict(config or {})
         self._host: str = str(settings.get("host") or os.environ.get("REDIS_HOST", "localhost"))
@@ -193,6 +248,11 @@ class RedisStreamPublisher:
             "REDIS_MASTER_NAME"
         )
 
+        self._maxlen: int = resolve_stream_maxlen(
+            settings.get("stream_maxlen") or os.environ.get(STREAM_MAXLEN_ENV)
+        )
+        self._trim_rejected = False
+
         self._client: Any = settings.get("redis_client")
         self._injected: bool = self._client is not None
         self._import_failed = False
@@ -209,8 +269,10 @@ class RedisStreamPublisher:
             STREAM_INCIDENT_RES: 0,
             "errors": 0,
             "dropped": 0,
+            "untrimmed": 0,
         }
-        """Delivery counters.  ``errors`` counts failed publishes, ``dropped`` malformed ones.
+        """Delivery counters.  ``errors`` counts failed publishes, ``dropped`` malformed ones,
+        ``untrimmed`` writes made without ``MAXLEN`` because the client rejected it.
 
         The whole reason a degraded publisher is acceptable: "analytics is quiet" and "analytics
         cannot reach Redis" must be distinguishable *from inside the process*.
@@ -263,7 +325,7 @@ class RedisStreamPublisher:
             fields[MESSAGE_KEY_FIELD] = camera_id
 
         try:
-            client.xadd(stream, fields)
+            self._xadd(client, stream, fields)
         except Exception as exc:  # noqa: BLE001 - transport failures must not propagate
             self.stats["errors"] += 1
             logger.warning("XADD to %s failed: %s", stream, exc)
@@ -277,6 +339,33 @@ class RedisStreamPublisher:
         if stream in self.stats:
             self.stats[stream] += 1
         logger.debug("published to %s (%d bytes)", stream, len(body))
+
+    @property
+    def stream_maxlen(self) -> int:
+        """The approximate ``MAXLEN`` every XADD carries."""
+        return self._maxlen
+
+    def _xadd(self, client: Any, stream: str, fields: dict[str, str]) -> None:
+        """``XADD stream MAXLEN ~ <cap> * fields``; raises what the client raises.
+
+        A client that rejects the trim keywords (an injected duck-typed wrapper -- redis-py
+        itself accepts them) still gets the write rather than losing it, but the stream is then
+        unbounded, so that is warned once and counted in ``stats["untrimmed"]``.
+        """
+        if not self._trim_rejected:
+            try:
+                client.xadd(stream, fields, maxlen=self._maxlen, approximate=True)
+                return
+            except TypeError as exc:
+                self._trim_rejected = True
+                logger.warning(
+                    "redis client %s rejected XADD MAXLEN (%s); %s is written untrimmed",
+                    type(client).__name__,
+                    exc,
+                    stream,
+                )
+        client.xadd(stream, fields)
+        self.stats["untrimmed"] += 1
 
     # -- connection ---------------------------------------------------------
 
@@ -349,6 +438,7 @@ class RedisStreamPublisher:
             return None
 
         self._client = client
+        self._trim_rejected = False
         logger.info("analytics publisher connected to redis %s", self.target)
         return client
 

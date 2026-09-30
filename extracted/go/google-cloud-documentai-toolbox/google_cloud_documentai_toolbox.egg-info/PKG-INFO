@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-documentai-toolbox
-Version: 0.17.3
+Version: 0.17.4
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-documentai-toolbox
 Author: Google LLC
 Author-email: googleapis-packages@google.com
@@ -22,7 +22,7 @@ License-File: LICENSE
 Requires-Dist: google-api-core<3.0.0,>=2.25.0
 Requires-Dist: pandas[gcp,performance]<3.0.0,>=2.0.0; python_version < "3.15"
 Requires-Dist: pandas[gcp]<3.0.0,>=2.0.0; python_version >= "3.15"
-Requires-Dist: pyarrow<23.0.0,>=15.0.0
+Requires-Dist: pyarrow>=15.0.0
 Requires-Dist: tabulate<1.0.0,>=0.9.0
 Requires-Dist: proto-plus<2.0.0,>=1.26.1
 Requires-Dist: grpc-google-iam-v1<1.0.0,>=0.14.2

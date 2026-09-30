@@ -195,9 +195,11 @@ def test_coord_runner_resolves_element_and_sends_keys():
 
     result = _set_input_files_coord_runner(driver, 100, 200, ctx)
 
-    driver.execute_script.assert_called_once()
-    args = driver.execute_script.call_args.args
-    assert args[1:] == (100, 200)  # x, y threaded to the resolver JS
+    # Two scripts run now: the elementFromPoint resolver, then the
+    # value-reset (see test_upload_clear_file_input.py). Assert the resolver
+    # call specifically rather than the total count.
+    resolve_call = driver.execute_script.call_args_list[0]
+    assert resolve_call.args[1:] == (100, 200)  # x, y threaded to the resolver JS
     element.send_keys.assert_called_once_with("/tmp/sample.txt")
     assert result is None
 

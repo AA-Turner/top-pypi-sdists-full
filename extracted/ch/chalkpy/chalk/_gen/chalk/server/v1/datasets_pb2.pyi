@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeserieschart_pb2
 from chalk._gen.chalk.common.v1 import column_profile_pb2 as _column_profile_pb2
+from chalk._gen.chalk.protosql.v1 import sql_service_pb2 as _sql_service_pb2
 from chalk._gen.chalk.server.v1 import materialized_aggregate_tiles_pb2 as _materialized_aggregate_tiles_pb2
 from chalk._gen.chalk.volume.v1 import volume_pb2 as _volume_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
@@ -73,6 +74,14 @@ class ShardPerformanceSummaryStatus(int, metaclass=_enum_type_wrapper.EnumTypeWr
     SHARD_PERFORMANCE_SUMMARY_STATUS_PENDING: _ClassVar[ShardPerformanceSummaryStatus]
     SHARD_PERFORMANCE_SUMMARY_STATUS_NONE: _ClassVar[ShardPerformanceSummaryStatus]
 
+class DatasetProfileStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DATASET_PROFILE_STATUS_UNSPECIFIED: _ClassVar[DatasetProfileStatus]
+    DATASET_PROFILE_STATUS_QUEUED: _ClassVar[DatasetProfileStatus]
+    DATASET_PROFILE_STATUS_RUNNING: _ClassVar[DatasetProfileStatus]
+    DATASET_PROFILE_STATUS_COMPLETED: _ClassVar[DatasetProfileStatus]
+    DATASET_PROFILE_STATUS_FAILED: _ClassVar[DatasetProfileStatus]
+
 DATASET_REVISION_STATUS_UNSPECIFIED: DatasetRevisionStatus
 DATASET_REVISION_STATUS_UNKNOWN: DatasetRevisionStatus
 DATASET_REVISION_STATUS_WORKING: DatasetRevisionStatus
@@ -105,6 +114,11 @@ SHARD_PERFORMANCE_SUMMARY_STATUS_UNSPECIFIED: ShardPerformanceSummaryStatus
 SHARD_PERFORMANCE_SUMMARY_STATUS_AVAILABLE: ShardPerformanceSummaryStatus
 SHARD_PERFORMANCE_SUMMARY_STATUS_PENDING: ShardPerformanceSummaryStatus
 SHARD_PERFORMANCE_SUMMARY_STATUS_NONE: ShardPerformanceSummaryStatus
+DATASET_PROFILE_STATUS_UNSPECIFIED: DatasetProfileStatus
+DATASET_PROFILE_STATUS_QUEUED: DatasetProfileStatus
+DATASET_PROFILE_STATUS_RUNNING: DatasetProfileStatus
+DATASET_PROFILE_STATUS_COMPLETED: DatasetProfileStatus
+DATASET_PROFILE_STATUS_FAILED: DatasetProfileStatus
 
 class DatasetRevisionMeta(_message.Message):
     __slots__ = (
@@ -719,13 +733,26 @@ class MaterializedAggregateTileFileMeta(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
+class ListMaterializedAggregateTilesFilters(_message.Message):
+    __slots__ = ("aggregate_backfill_id",)
+    AGGREGATE_BACKFILL_ID_FIELD_NUMBER: _ClassVar[int]
+    aggregate_backfill_id: str
+    def __init__(self, aggregate_backfill_id: _Optional[str] = ...) -> None: ...
+
 class ListMaterializedAggregateTilesRequest(_message.Message):
-    __slots__ = ("cursor", "limit")
+    __slots__ = ("cursor", "limit", "filters")
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
-    def __init__(self, cursor: _Optional[str] = ..., limit: _Optional[int] = ...) -> None: ...
+    filters: ListMaterializedAggregateTilesFilters
+    def __init__(
+        self,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        filters: _Optional[_Union[ListMaterializedAggregateTilesFilters, _Mapping]] = ...,
+    ) -> None: ...
 
 class ListMaterializedAggregateTilesResponse(_message.Message):
     __slots__ = ("tiles", "next_cursor")
@@ -795,6 +822,50 @@ class ListMaterializedAggregateTileFilesResponse(_message.Message):
         next_cursor: _Optional[str] = ...,
     ) -> None: ...
 
+class MaterializedAggregateTileFileDownloadLink(_message.Message):
+    __slots__ = ("file_id", "file_ordinal", "uri", "row_count", "signed_url", "error")
+    FILE_ID_FIELD_NUMBER: _ClassVar[int]
+    FILE_ORDINAL_FIELD_NUMBER: _ClassVar[int]
+    URI_FIELD_NUMBER: _ClassVar[int]
+    ROW_COUNT_FIELD_NUMBER: _ClassVar[int]
+    SIGNED_URL_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    file_id: int
+    file_ordinal: int
+    uri: str
+    row_count: int
+    signed_url: str
+    error: str
+    def __init__(
+        self,
+        file_id: _Optional[int] = ...,
+        file_ordinal: _Optional[int] = ...,
+        uri: _Optional[str] = ...,
+        row_count: _Optional[int] = ...,
+        signed_url: _Optional[str] = ...,
+        error: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetMaterializedAggregateTileDownloadLinksRequest(_message.Message):
+    __slots__ = ("manifest_id", "file_ids")
+    MANIFEST_ID_FIELD_NUMBER: _ClassVar[int]
+    FILE_IDS_FIELD_NUMBER: _ClassVar[int]
+    manifest_id: int
+    file_ids: _containers.RepeatedScalarFieldContainer[int]
+    def __init__(self, manifest_id: _Optional[int] = ..., file_ids: _Optional[_Iterable[int]] = ...) -> None: ...
+
+class GetMaterializedAggregateTileDownloadLinksResponse(_message.Message):
+    __slots__ = ("links", "expires_at")
+    LINKS_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    links: _containers.RepeatedCompositeFieldContainer[MaterializedAggregateTileFileDownloadLink]
+    expires_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        links: _Optional[_Iterable[_Union[MaterializedAggregateTileFileDownloadLink, _Mapping]]] = ...,
+        expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
 class GetMaterializedAggregateTileRowCountChartRequest(_message.Message):
     __slots__ = ("materialization_key_hash", "time_window")
     MATERIALIZATION_KEY_HASH_FIELD_NUMBER: _ClassVar[int]
@@ -817,6 +888,34 @@ class GetMaterializedAggregateTileRowCountChartResponse(_message.Message):
         self, chart: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...
     ) -> None: ...
 
+class GetMaterializedAggregateTileValuesRequest(_message.Message):
+    __slots__ = ("materialization_key_hash", "primary_key_value", "time_window", "resource_group")
+    MATERIALIZATION_KEY_HASH_FIELD_NUMBER: _ClassVar[int]
+    PRIMARY_KEY_VALUE_FIELD_NUMBER: _ClassVar[int]
+    TIME_WINDOW_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    materialization_key_hash: str
+    primary_key_value: str
+    time_window: _materialized_aggregate_tiles_pb2.MaterializedAggregateTileTimelineInterval
+    resource_group: str
+    def __init__(
+        self,
+        materialization_key_hash: _Optional[str] = ...,
+        primary_key_value: _Optional[str] = ...,
+        time_window: _Optional[
+            _Union[_materialized_aggregate_tiles_pb2.MaterializedAggregateTileTimelineInterval, _Mapping]
+        ] = ...,
+        resource_group: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetMaterializedAggregateTileValuesResponse(_message.Message):
+    __slots__ = ("response",)
+    RESPONSE_FIELD_NUMBER: _ClassVar[int]
+    response: _sql_service_pb2.ExecuteSqlQueryResponse
+    def __init__(
+        self, response: _Optional[_Union[_sql_service_pb2.ExecuteSqlQueryResponse, _Mapping]] = ...
+    ) -> None: ...
+
 class DeleteMaterializedAggregateTileRequest(_message.Message):
     __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -836,18 +935,21 @@ class GetDatasetRevisionPreviewRequest(_message.Message):
     def __init__(self, revision_id: _Optional[str] = ...) -> None: ...
 
 class GetDatasetRevisionPreviewResponse(_message.Message):
-    __slots__ = ("output_preview", "summary", "column_profiles")
+    __slots__ = ("output_preview", "summary", "column_profiles", "profile_status")
     OUTPUT_PREVIEW_FIELD_NUMBER: _ClassVar[int]
     SUMMARY_FIELD_NUMBER: _ClassVar[int]
     COLUMN_PROFILES_FIELD_NUMBER: _ClassVar[int]
+    PROFILE_STATUS_FIELD_NUMBER: _ClassVar[int]
     output_preview: _struct_pb2.Value
     summary: _struct_pb2.Value
     column_profiles: _containers.RepeatedCompositeFieldContainer[_column_profile_pb2.ColumnProfile]
+    profile_status: DatasetProfileStatus
     def __init__(
         self,
         output_preview: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
         summary: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
         column_profiles: _Optional[_Iterable[_Union[_column_profile_pb2.ColumnProfile, _Mapping]]] = ...,
+        profile_status: _Optional[_Union[DatasetProfileStatus, str]] = ...,
     ) -> None: ...
 
 class GenerateDatasetStatsRequest(_message.Message):

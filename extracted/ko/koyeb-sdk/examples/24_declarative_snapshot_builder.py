@@ -33,7 +33,7 @@ def main():
             .run("pip install -r requirements.txt")
             .build(snapshot_name=f"python-ci-env-{suffix}")
         )
-        
+
         # Print operations performed during build
         if snapshot.operations:
             for op in snapshot.operations:
@@ -58,7 +58,7 @@ def main():
         )
         print(f"  ✓ Runner1 spawned: {runner1.name}")
         print(f"  ✓ Runner2 spawned: {runner2.name}")
-        
+
         # Wait for both sandboxes to be ready
         print("✓ Waiting for sandboxes to be ready...")
         for runner in [runner1, runner2]:
@@ -66,16 +66,32 @@ def main():
         print("  ✓ All sandboxes are ready")
 
         # Verify the environment is pre-configured from snapshot filesystem
-        print("✓ Verifying runner1 has pre-installed packages from snapshot filesystem...")
-        result = runner1.exec("python3 -c \"import requests; print('All packages installed')\"")
-        print(f"  stdout: '{result.stdout}', stderr: '{result.stderr}', exit_code: {result.exit_code}")
-        assert "All packages installed" in result.stdout, f"Expected packages to be installed, got stdout: '{result.stdout}', stderr: '{result.stderr}'"
+        print(
+            "✓ Verifying runner1 has pre-installed packages from snapshot filesystem..."
+        )
+        result = runner1.exec(
+            "python3 -c \"import requests; print('All packages installed')\""
+        )
+        print(
+            f"  stdout: '{result.stdout}', stderr: '{result.stderr}', exit_code: {result.exit_code}"
+        )
+        assert (
+            "All packages installed" in result.stdout
+        ), f"Expected packages to be installed, got stdout: '{result.stdout}', stderr: '{result.stderr}'"
         print(f"  ✓ Result: {result.stdout.strip()}")
 
-        print("✓ Verifying runner2 has pre-installed packages from snapshot filesystem...")
-        result = runner2.exec("python3 -c \"import requests; print('All packages installed')\"")
-        print(f"  stdout: '{result.stdout}', stderr: '{result.stderr}', exit_code: {result.exit_code}")
-        assert "All packages installed" in result.stdout, f"Expected packages to be installed, got stdout: '{result.stdout}', stderr: '{result.stderr}'"
+        print(
+            "✓ Verifying runner2 has pre-installed packages from snapshot filesystem..."
+        )
+        result = runner2.exec(
+            "python3 -c \"import requests; print('All packages installed')\""
+        )
+        print(
+            f"  stdout: '{result.stdout}', stderr: '{result.stderr}', exit_code: {result.exit_code}"
+        )
+        assert (
+            "All packages installed" in result.stdout
+        ), f"Expected packages to be installed, got stdout: '{result.stdout}', stderr: '{result.stderr}'"
         print(f"  ✓ Result: {result.stdout.strip()}")
 
         return 0

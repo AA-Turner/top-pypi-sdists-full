@@ -26,12 +26,13 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
 )
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker as SyncSessionmaker
 
-from dbos._context import DBOSContextEnsure, get_local_dbos_context
+from dbos._context import DBOSContextEnsure, current_owner_xid, get_local_dbos_context
+from dbos._datasource_migration import migrate_datasource_database
 from dbos._error import DBOSException, DBOSWorkflowConflictIDError
-from dbos._schemas import SCHEMA_PLACEHOLDER
-from dbos._schemas.datasource_database import DatasourceSchema
+from dbos._schemas.datasource_database import datasource_outputs_table
 from dbos._serialization import (
     DBOSDefaultSerializer,
     Serializer,
@@ -47,10 +48,6 @@ from ._logger import dbos_logger
 _INITIAL_RETRY_WAIT_SECONDS = 0.001
 _RETRY_BACKOFF_FACTOR = 1.5
 _MAX_RETRY_WAIT_SECONDS = 2.0
-# How long a step that lost the race waits for the winner's checkpoint before
-# concluding the winner is gone and finishing the workflow itself.
-_DUPLICATE_CHECKPOINT_WAIT_SECONDS = 1.0
-_DUPLICATE_CHECKPOINT_POLL_SECONDS = 0.01
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -96,44 +93,26 @@ def _parse_ds_options(
     return name, isolation_level
 
 
-def _duplicate_took_ownership(workflow_id: str, step_id: int, step_name: str) -> bool:
-    """Wait for a duplicate execution's step checkpoint, which moves workflow ownership to
-    it in the same transaction and so makes parking recoverable instead of a dead end.
-    """
+def _still_owns(workflow_id: str, owner_xid: Optional[str] = None) -> bool:
+    """Whether owner_xid (default: the caller's token) still owns the workflow.
+    With no token to check, it assumes so."""
+    if owner_xid is None:
+        owner_xid = current_owner_xid(workflow_id)
+    if owner_xid is None:
+        return True
     from dbos._dbos import _get_dbos_instance
 
-    sys_db = _get_dbos_instance()._sys_db
-    deadline = time.monotonic() + _DUPLICATE_CHECKPOINT_WAIT_SECONDS
-    while True:
-        if (
-            sys_db.check_operation_execution(workflow_id, step_id, step_name)
-            is not None
-        ):
-            return True
-        if time.monotonic() >= deadline:
-            return False
-        time.sleep(_DUPLICATE_CHECKPOINT_POLL_SECONDS)
+    return _get_dbos_instance()._sys_db.get_workflow_owner(workflow_id) == owner_xid
 
 
-async def _duplicate_took_ownership_async(
-    workflow_id: str, step_id: int, step_name: str
-) -> bool:
-    """Async twin of _duplicate_took_ownership; the system database client is sync."""
-    from dbos._dbos import _get_dbos_instance
-
-    sys_db = _get_dbos_instance()._sys_db
-    deadline = time.monotonic() + _DUPLICATE_CHECKPOINT_WAIT_SECONDS
-    while True:
-        if (
-            await asyncio.to_thread(
-                sys_db.check_operation_execution, workflow_id, step_id, step_name
-            )
-            is not None
-        ):
-            return True
-        if time.monotonic() >= deadline:
-            return False
-        await asyncio.sleep(_DUPLICATE_CHECKPOINT_POLL_SECONDS)
+def _reject_session_binds(session_kw: Dict[str, Any]) -> None:
+    # Per-mapper binds outrank bind=self.engine, which would split user writes from the checkpoint.
+    if session_kw.get("binds"):
+        raise DBOSException(
+            "A datasource sessionmaker must not set binds=: every statement in a datasource "
+            "transaction must use the datasource's engine so it commits atomically with the "
+            "step checkpoint"
+        )
 
 
 def _replay_recorded(recorded: "RecordedResult", serializer: "Serializer") -> Any:
@@ -184,8 +163,7 @@ def _register_datasource(
     _get_or_create_dbos_registry().register_datasource(ds)
 
 
-def _delete_checkpoints_sql(workflow_id: str, start_step: int) -> Any:
-    t = DatasourceSchema.datasource_outputs
+def _delete_checkpoints_sql(t: sa.Table, workflow_id: str, start_step: int) -> Any:
     return sa.delete(t).where(
         (t.c.workflow_id == workflow_id) & (t.c.step_id >= start_step)
     )
@@ -206,28 +184,55 @@ class AsyncSQLAlchemyDatasource(ABC):
         engine: Optional[AsyncEngine],
         schema: Optional[str],
         serializer: Serializer,
+        sessionmaker: Optional[async_sessionmaker[Any]] = None,
     ):
         import sqlalchemy.dialects.postgresql as pg
         import sqlalchemy.dialects.sqlite as sq
 
+        if sessionmaker is not None and not isinstance(
+            sessionmaker, async_sessionmaker
+        ):
+            raise DBOSException(
+                "AsyncSQLAlchemyDatasource requires an async_sessionmaker"
+            )
+        if sessionmaker is not None:
+            _reject_session_binds(sessionmaker.kw)
         _log_datasource_init(
             "AsyncDatasource", database_url, engine_kwargs, bool(engine)
         )
         self.dialect = sq if database_url.startswith("sqlite") else pg
         self.schema = _resolve_schema(database_url, schema)
         if engine:
-            base_engine = engine
+            self.engine = engine
             self.created_engine = False
         else:
-            base_engine = self._create_engine(database_url, engine_kwargs)
+            self.engine = self._create_engine(database_url, engine_kwargs)
             self.created_engine = True
-        # Translate the placeholder schema to this instance's schema per-engine (None for SQLite = unqualified).
-        self.engine = base_engine.execution_options(
-            schema_translate_map={SCHEMA_PLACEHOLDER: self.schema}
+        self._outputs_table = datasource_outputs_table(self.schema)
+        # Pinned on DBOS's own statements, so a caller engine's schema_translate_map can't move them.
+        self._pin: Dict[str, Any] = {"schema_translate_map": {self.schema: self.schema}}
+        # Sessions are always opened with bind=self.engine, so checkpoints share the engine that reads them.
+        # No expiry by default: returned ORM objects outlive the session and are checkpointed after commit.
+        self.sessionmaker: async_sessionmaker[Any] = (
+            sessionmaker
+            if sessionmaker is not None
+            else async_sessionmaker(expire_on_commit=False)
         )
-        self.sessionmaker = async_sessionmaker(bind=self.engine)
         self.serializer = serializer
         _register_datasource(self)
+
+    @staticmethod
+    async def migrate(
+        database_url: str,
+        *,
+        schema: Optional[str] = None,
+        application_role: Optional[str] = None,
+    ) -> None:
+        """Create or migrate a datasource's tables with a privileged role, optionally
+        granting application_role the minimal permissions to use them."""
+        await asyncio.to_thread(
+            migrate_datasource_database, database_url, schema, application_role
+        )
 
     @staticmethod
     async def create(
@@ -236,6 +241,8 @@ class AsyncSQLAlchemyDatasource(ABC):
         engine: Optional[AsyncEngine] = None,
         schema: Optional[str] = None,
         serializer: Optional[Serializer] = None,
+        sessionmaker: Optional[async_sessionmaker[Any]] = None,
+        run_migrations: bool = True,
     ) -> "AsyncSQLAlchemyDatasource ":
         if serializer is None:
             serializer = DBOSDefaultSerializer
@@ -250,6 +257,7 @@ class AsyncSQLAlchemyDatasource(ABC):
                 engine=engine,
                 schema=schema,
                 serializer=serializer,
+                sessionmaker=sessionmaker,
             )
         else:
             from ._datasource_postgres import PostgresAsyncDatasource
@@ -260,8 +268,13 @@ class AsyncSQLAlchemyDatasource(ABC):
                 engine=engine,
                 schema=schema,
                 serializer=serializer,
+                sessionmaker=sessionmaker,
             )
-        await instance.run_migrations()
+        if run_migrations:
+            await instance.run_migrations()
+        else:
+            # This role may not be allowed to run DDL, but it still requires an up-to-date schema.
+            await instance.verify_migrations()
         return instance
 
     @abstractmethod
@@ -275,6 +288,10 @@ class AsyncSQLAlchemyDatasource(ABC):
         pass
 
     @abstractmethod
+    async def verify_migrations(self) -> None:
+        pass
+
+    @abstractmethod
     def _is_serialization_error(self, error: Exception) -> bool:
         """Return True if the error is a retryable serialization/concurrency error."""
         pass
@@ -282,7 +299,26 @@ class AsyncSQLAlchemyDatasource(ABC):
     async def _delete_checkpoints(self, workflow_id: str, start_step: int) -> None:
         """Delete this workflow's checkpoints from start_step on."""
         async with self.engine.begin() as conn:
-            await conn.execute(_delete_checkpoints_sql(workflow_id, start_step))
+            await conn.execute(
+                _delete_checkpoints_sql(self._outputs_table, workflow_id, start_step),
+                execution_options=self._pin,
+            )
+
+    async def _delete_checkpoints_if_owner(
+        self, workflow_id: str, owner_xid: str
+    ) -> bool:
+        """Delete the workflow's checkpoints; commit only while owner_xid owns it."""
+        async with self.engine.connect() as conn:
+            async with conn.begin() as txn:
+                await conn.execute(
+                    _delete_checkpoints_sql(self._outputs_table, workflow_id, 1),
+                    execution_options=self._pin,
+                )
+                # Delete, then check: every removed row predates any later owner's.
+                if not await asyncio.to_thread(_still_owns, workflow_id, owner_xid):
+                    await txn.rollback()
+                    return False
+        return True
 
     def sql_session(self) -> AsyncSession:
         ctx = get_local_dbos_context()
@@ -297,13 +333,14 @@ class AsyncSQLAlchemyDatasource(ABC):
         async with self.engine.connect() as conn:
             result = await conn.execute(
                 sa.select(
-                    DatasourceSchema.datasource_outputs.c.output,
-                    DatasourceSchema.datasource_outputs.c.error,
-                    DatasourceSchema.datasource_outputs.c.serialization,
+                    self._outputs_table.c.output,
+                    self._outputs_table.c.error,
+                    self._outputs_table.c.serialization,
                 ).where(
-                    DatasourceSchema.datasource_outputs.c.workflow_id == workflow_id,
-                    DatasourceSchema.datasource_outputs.c.step_id == step_id,
-                )
+                    self._outputs_table.c.workflow_id == workflow_id,
+                    self._outputs_table.c.step_id == step_id,
+                ),
+                execution_options=self._pin,
             )
             return _row_to_result(result.first())
 
@@ -349,7 +386,7 @@ class AsyncSQLAlchemyDatasource(ABC):
     ) -> None:
         """Record this step's outcome, raising _StepAlreadyRecorded if a concurrent execution beat us to it."""
         result = await conn.execute(
-            self.dialect.insert(DatasourceSchema.datasource_outputs)
+            self.dialect.insert(self._outputs_table)
             .values(
                 workflow_id=workflow_id,
                 step_id=step_id,
@@ -359,20 +396,21 @@ class AsyncSQLAlchemyDatasource(ABC):
             )
             .on_conflict_do_nothing(
                 index_elements=[
-                    DatasourceSchema.datasource_outputs.c.workflow_id,
-                    DatasourceSchema.datasource_outputs.c.step_id,
+                    self._outputs_table.c.workflow_id,
+                    self._outputs_table.c.step_id,
                 ]
             )
             # No row back means a concurrent execution's row was already visible to this
             # snapshot. Above READ COMMITTED it can instead surface as a serialization
             # error, which the caller's retry loop converges to this case.
-            .returning(DatasourceSchema.datasource_outputs.c.workflow_id)
+            .returning(self._outputs_table.c.workflow_id),
+            execution_options=self._pin,
         )
         if result.first() is None:
             raise _StepAlreadyRecorded()
 
     async def _replay_conflicting_step(self, workflow_id: str, step_id: int) -> Any:
-        # An earlier attempt's commit may have landed and recorded this row, so it is the durable one.
+        # The recorded row is this step's durable result, whichever execution committed it.
         recorded = await self._check_execution_with_retry(workflow_id, step_id)
         if recorded is None:
             raise DBOSException(
@@ -397,6 +435,9 @@ class AsyncSQLAlchemyDatasource(ABC):
 
         ctx = get_local_dbos_context()
         in_wf = ctx is not None and ctx.is_workflow()
+        if ctx is not None and in_wf and self not in ctx.used_datasources:
+            # Recorded even on replay, so completion also clears an earlier execution's rows.
+            ctx.used_datasources.append(self)
 
         async def _body() -> R:
             workflow_id: str = ""
@@ -413,13 +454,11 @@ class AsyncSQLAlchemyDatasource(ABC):
 
             output: R
             conflicted = False
-            # True once an insert may have committed, so a conflict may be our own row.
-            commit_possible = False
             retry_wait_seconds = _INITIAL_RETRY_WAIT_SECONDS
             try:
                 with DBOSContextEnsure() as exec_ctx:
                     while True:
-                        async with self.sessionmaker() as session:
+                        async with self.sessionmaker(bind=self.engine) as session:
                             exec_ctx.start_async_ds_transaction(session)
                             try:
                                 async with session.begin():
@@ -430,6 +469,8 @@ class AsyncSQLAlchemyDatasource(ABC):
                                     )
                                     output = await func(*args, **kwargs)
                                     if in_wf:
+                                        # Flush first, so the checkpoint holds generated keys and defaults, as the caller sees them.
+                                        await session.flush()
                                         serialized, serialization = serialize_value(
                                             output, None, self.serializer
                                         )
@@ -441,8 +482,13 @@ class AsyncSQLAlchemyDatasource(ABC):
                                             None,
                                             serialization,
                                         )
-                                        # From here the commit may land.
-                                        commit_possible = True
+                                        # Holding this step's row, so a later owner's insert waits on our commit.
+                                        if not await asyncio.to_thread(
+                                            _still_owns, workflow_id
+                                        ):
+                                            raise DBOSWorkflowConflictIDError(
+                                                workflow_id
+                                            )
                                 break
                             except _StepAlreadyRecorded:
                                 raise  # the recorded result wins; don't record an error over it
@@ -485,12 +531,10 @@ class AsyncSQLAlchemyDatasource(ABC):
 
             # Outside the except block, so the internal signal stays out of the traceback chain.
             if conflicted:
-                if not commit_possible and await _duplicate_took_ownership_async(
-                    workflow_id, step_id, name
-                ):
-                    # A live duplicate recorded this step: stop, as an ordinary step's loser does.
+                if not await asyncio.to_thread(_still_owns, workflow_id):
+                    # Another execution owns the workflow: stop, as an ordinary step's loser does.
                     raise DBOSWorkflowConflictIDError(workflow_id)
-                # Nobody owns the workflow now, so this execution is the one that can finish it.
+                # Still the owner: the recorded row is our own ambiguous commit or a stale execution's, and either is this step's result.
                 return cast(
                     R, await self._replay_conflicting_step(workflow_id, step_id)
                 )
@@ -569,28 +613,51 @@ class SQLAlchemyDatasource(ABC):
         engine: Optional[sa.Engine],
         schema: Optional[str],
         serializer: Serializer,
+        sessionmaker: Optional[SyncSessionmaker[Any]] = None,
     ):
         import sqlalchemy.dialects.postgresql as pg
         import sqlalchemy.dialects.sqlite as sq
 
+        if sessionmaker is not None and not isinstance(sessionmaker, SyncSessionmaker):
+            raise DBOSException(
+                "SQLAlchemyDatasource requires a sqlalchemy.orm.sessionmaker"
+            )
+        if sessionmaker is not None:
+            _reject_session_binds(sessionmaker.kw)
         _log_datasource_init(
             "SyncDatasource", database_url, engine_kwargs, bool(engine)
         )
         self.dialect = sq if database_url.startswith("sqlite") else pg
         self.schema = _resolve_schema(database_url, schema)
         if engine:
-            base_engine = engine
+            self.engine = engine
             self.created_engine = False
         else:
-            base_engine = self._create_engine(database_url, engine_kwargs)
+            self.engine = self._create_engine(database_url, engine_kwargs)
             self.created_engine = True
-        # Translate the placeholder schema to this instance's schema per-engine (None for SQLite = unqualified).
-        self.engine = base_engine.execution_options(
-            schema_translate_map={SCHEMA_PLACEHOLDER: self.schema}
+        self._outputs_table = datasource_outputs_table(self.schema)
+        # Pinned on DBOS's own statements, so a caller engine's schema_translate_map can't move them.
+        self._pin: Dict[str, Any] = {"schema_translate_map": {self.schema: self.schema}}
+        # Sessions are always opened with bind=self.engine, so checkpoints share the engine that reads them.
+        # No expiry by default: returned ORM objects outlive the session and are checkpointed after commit.
+        self.sessionmaker: SyncSessionmaker[Any] = (
+            sessionmaker
+            if sessionmaker is not None
+            else SyncSessionmaker(expire_on_commit=False)
         )
-        self.sessionmaker = sessionmaker(bind=self.engine)
         self.serializer = serializer
         _register_datasource(self)
+
+    @staticmethod
+    def migrate(
+        database_url: str,
+        *,
+        schema: Optional[str] = None,
+        application_role: Optional[str] = None,
+    ) -> None:
+        """Create or migrate a datasource's tables with a privileged role, optionally
+        granting application_role the minimal permissions to use them."""
+        migrate_datasource_database(database_url, schema, application_role)
 
     @staticmethod
     def create(
@@ -599,6 +666,8 @@ class SQLAlchemyDatasource(ABC):
         engine: Optional[sa.Engine] = None,
         schema: Optional[str] = None,
         serializer: Optional[Serializer] = None,
+        sessionmaker: Optional[SyncSessionmaker[Any]] = None,
+        run_migrations: bool = True,
     ) -> "SQLAlchemyDatasource ":
         if serializer is None:
             serializer = DBOSDefaultSerializer
@@ -613,6 +682,7 @@ class SQLAlchemyDatasource(ABC):
                 engine=engine,
                 schema=schema,
                 serializer=serializer,
+                sessionmaker=sessionmaker,
             )
         else:
             from ._datasource_postgres import PostgresSyncDatasource
@@ -623,8 +693,13 @@ class SQLAlchemyDatasource(ABC):
                 engine=engine,
                 schema=schema,
                 serializer=serializer,
+                sessionmaker=sessionmaker,
             )
-        instance.run_migrations()
+        if run_migrations:
+            instance.run_migrations()
+        else:
+            # This role may not be allowed to run DDL, but it still requires an up-to-date schema.
+            instance.verify_migrations()
         return instance
 
     @abstractmethod
@@ -638,6 +713,10 @@ class SQLAlchemyDatasource(ABC):
         pass
 
     @abstractmethod
+    def verify_migrations(self) -> None:
+        pass
+
+    @abstractmethod
     def _is_serialization_error(self, error: Exception) -> bool:
         """Return True if the error is a retryable serialization/concurrency error."""
         pass
@@ -645,7 +724,24 @@ class SQLAlchemyDatasource(ABC):
     def _delete_checkpoints(self, workflow_id: str, start_step: int) -> None:
         """Delete this workflow's checkpoints from start_step on."""
         with self.engine.begin() as conn:
-            conn.execute(_delete_checkpoints_sql(workflow_id, start_step))
+            conn.execute(
+                _delete_checkpoints_sql(self._outputs_table, workflow_id, start_step),
+                execution_options=self._pin,
+            )
+
+    def _delete_checkpoints_if_owner(self, workflow_id: str, owner_xid: str) -> bool:
+        """Delete the workflow's checkpoints; commit only while owner_xid owns it."""
+        with self.engine.connect() as conn:
+            with conn.begin() as txn:
+                conn.execute(
+                    _delete_checkpoints_sql(self._outputs_table, workflow_id, 1),
+                    execution_options=self._pin,
+                )
+                # Delete, then check: every removed row predates any later owner's.
+                if not _still_owns(workflow_id, owner_xid):
+                    txn.rollback()
+                    return False
+        return True
 
     def sql_session(self) -> Session:
         ctx = get_local_dbos_context()
@@ -660,13 +756,14 @@ class SQLAlchemyDatasource(ABC):
         with self.engine.connect() as conn:
             result = conn.execute(
                 sa.select(
-                    DatasourceSchema.datasource_outputs.c.output,
-                    DatasourceSchema.datasource_outputs.c.error,
-                    DatasourceSchema.datasource_outputs.c.serialization,
+                    self._outputs_table.c.output,
+                    self._outputs_table.c.error,
+                    self._outputs_table.c.serialization,
                 ).where(
-                    DatasourceSchema.datasource_outputs.c.workflow_id == workflow_id,
-                    DatasourceSchema.datasource_outputs.c.step_id == step_id,
-                )
+                    self._outputs_table.c.workflow_id == workflow_id,
+                    self._outputs_table.c.step_id == step_id,
+                ),
+                execution_options=self._pin,
             )
             return _row_to_result(result.first())
 
@@ -710,7 +807,7 @@ class SQLAlchemyDatasource(ABC):
     ) -> None:
         """Record this step's outcome, raising _StepAlreadyRecorded if a concurrent execution beat us to it."""
         result = conn.execute(
-            self.dialect.insert(DatasourceSchema.datasource_outputs)
+            self.dialect.insert(self._outputs_table)
             .values(
                 workflow_id=workflow_id,
                 step_id=step_id,
@@ -720,20 +817,21 @@ class SQLAlchemyDatasource(ABC):
             )
             .on_conflict_do_nothing(
                 index_elements=[
-                    DatasourceSchema.datasource_outputs.c.workflow_id,
-                    DatasourceSchema.datasource_outputs.c.step_id,
+                    self._outputs_table.c.workflow_id,
+                    self._outputs_table.c.step_id,
                 ]
             )
             # No row back means a concurrent execution's row was already visible to this
             # snapshot. Above READ COMMITTED it can instead surface as a serialization
             # error, which the caller's retry loop converges to this case.
-            .returning(DatasourceSchema.datasource_outputs.c.workflow_id)
+            .returning(self._outputs_table.c.workflow_id),
+            execution_options=self._pin,
         )
         if result.first() is None:
             raise _StepAlreadyRecorded()
 
     def _replay_conflicting_step(self, workflow_id: str, step_id: int) -> Any:
-        # An earlier attempt's commit may have landed and recorded this row, so it is the durable one.
+        # The recorded row is this step's durable result, whichever execution committed it.
         recorded = self._check_execution_with_retry(workflow_id, step_id)
         if recorded is None:
             raise DBOSException(
@@ -758,6 +856,9 @@ class SQLAlchemyDatasource(ABC):
 
         ctx = get_local_dbos_context()
         in_wf = ctx is not None and ctx.is_workflow()
+        if ctx is not None and in_wf and self not in ctx.used_datasources:
+            # Recorded even on replay, so completion also clears an earlier execution's rows.
+            ctx.used_datasources.append(self)
 
         def _body() -> R:
             workflow_id: str = ""
@@ -774,13 +875,11 @@ class SQLAlchemyDatasource(ABC):
 
             output: R
             conflicted = False
-            # True once an insert may have committed, so a conflict may be our own row.
-            commit_possible = False
             retry_wait_seconds = _INITIAL_RETRY_WAIT_SECONDS
             try:
                 with DBOSContextEnsure() as exec_ctx:
                     while True:
-                        with self.sessionmaker() as session:
+                        with self.sessionmaker(bind=self.engine) as session:
                             exec_ctx.start_sync_ds_transaction(session)
                             try:
                                 with session.begin():
@@ -791,6 +890,8 @@ class SQLAlchemyDatasource(ABC):
                                     )
                                     output = func(*args, **kwargs)
                                     if in_wf:
+                                        # Flush first, so the checkpoint holds generated keys and defaults, as the caller sees them.
+                                        session.flush()
                                         serialized, serialization = serialize_value(
                                             output, None, self.serializer
                                         )
@@ -802,8 +903,11 @@ class SQLAlchemyDatasource(ABC):
                                             None,
                                             serialization,
                                         )
-                                        # From here the commit may land.
-                                        commit_possible = True
+                                        # Holding this step's row, so a later owner's insert waits on our commit.
+                                        if not _still_owns(workflow_id):
+                                            raise DBOSWorkflowConflictIDError(
+                                                workflow_id
+                                            )
                                 break
                             except _StepAlreadyRecorded:
                                 raise  # the recorded result wins; don't record an error over it
@@ -846,12 +950,10 @@ class SQLAlchemyDatasource(ABC):
 
             # Outside the except block, so the internal signal stays out of the traceback chain.
             if conflicted:
-                if not commit_possible and _duplicate_took_ownership(
-                    workflow_id, step_id, name
-                ):
-                    # A live duplicate recorded this step: stop, as an ordinary step's loser does.
+                if not _still_owns(workflow_id):
+                    # Another execution owns the workflow: stop, as an ordinary step's loser does.
                     raise DBOSWorkflowConflictIDError(workflow_id)
-                # Nobody owns the workflow now, so this execution is the one that can finish it.
+                # Still the owner: the recorded row is our own ambiguous commit or a stale execution's, and either is this step's result.
                 return cast(R, self._replay_conflicting_step(workflow_id, step_id))
 
             return output

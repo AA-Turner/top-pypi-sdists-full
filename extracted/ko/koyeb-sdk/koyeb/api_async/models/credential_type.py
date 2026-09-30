@@ -26,13 +26,11 @@ class CredentialType(str, Enum):
     """
     allowed enum values
     """
-    INVALID = 'INVALID'
-    USER = 'USER'
-    ORGANIZATION = 'ORGANIZATION'
+    INVALID = "INVALID"
+    USER = "USER"
+    ORGANIZATION = "ORGANIZATION"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of CredentialType from a JSON string"""
         return cls(json.loads(json_str))
-
-

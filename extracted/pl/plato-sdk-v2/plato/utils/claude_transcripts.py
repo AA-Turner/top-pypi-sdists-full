@@ -37,8 +37,6 @@ from opentelemetry.trace import NonRecordingSpan, Span, SpanContext, TraceFlags,
 from plato.otel import DeferredStepSpan, emit_step, start_deferred_step_span
 from plato.utils.mcp_content import parse_content_blocks
 from plato.utils.tool_execution import (
-    ToolExecutionRecorderLike,
-    ToolExecutionStatus,
     claude_mcp_tool_origin,
     open_tool_execution,
     tool_call_payload,
@@ -190,8 +188,11 @@ class PendingClaudeToolCall:
 
     name: str
     tool_input: dict[str, Any] = field(default_factory=dict)
-    execution: Any | None = None  # ActiveToolExecution when a recorder is attached
     step_id: int | None = None
+    # Legacy: always ``None``. Published claude-code versions built against the
+    # removed recorder API still read it in their abort loop; drop with the
+    # compat section in ``plato.utils.tool_execution``.
+    execution: None = None
 
 
 class StreamUsageAccountant:
@@ -366,9 +367,10 @@ class ClaudeTranscriptEmitter:
     """Converts Claude Code turn events into ATIF step spans.
 
     One instance per (session, tracer). ``model_name`` is the fallback when an
-    event doesn't carry its own ``message.model``; ``workspace_dir`` seeds the
-    working-directory hint on tool spans; ``cost_fn`` (same kwargs contract as
-    :class:`StreamUsageAccountant`) computes per-turn cost or returns ``None``.
+    event doesn't carry its own ``message.model``; ``cost_fn`` (same kwargs
+    contract as :class:`StreamUsageAccountant`) computes per-turn cost or
+    returns ``None``. ``workspace_dir`` is accepted for published claude-code
+    versions that still pass it; nothing reads it any more.
 
     ``use_transcript_timestamps=True`` stamps every emitted span at the
     event's own ``timestamp`` (offline replay); events without a timestamp
@@ -579,7 +581,7 @@ class ClaudeTranscriptEmitter:
         event: dict[str, Any],
         pending_tool_calls: dict[str, PendingClaudeToolCall],
         step_counter: list[int],
-        tool_execution_recorder: ToolExecutionRecorderLike | None = None,
+        tool_execution_recorder: object | None = None,
         pending_locally_emitted_messages: set[str] | None = None,
     ) -> None:
         """Emit ATIF step spans for one Claude Code event.
@@ -588,10 +590,12 @@ class ClaudeTranscriptEmitter:
             event: Parsed JSON event (stream-json stdout or transcript record)
             pending_tool_calls: Map of tool_use_id -> pending tool execution state
             step_counter: Mutable list with single int for step ID tracking
-            tool_execution_recorder: Optional recorder for tool attribution
+            tool_execution_recorder: Legacy, ignored. Published claude-code
+                versions built against the removed recorder API still pass it.
             pending_locally_emitted_messages: Messages injected locally that
                 should be suppressed when echoed back by --replay-user-messages
         """
+        del tool_execution_recorder
         event_type = event.get("type", "unknown")
         ts_ns = parse_timestamp_ns(event) if self.use_transcript_timestamps else None
 
@@ -720,11 +724,6 @@ class ClaudeTranscriptEmitter:
 
             for index, (tool_id, tool_name, tool_input) in enumerate(tool_uses):
                 origin, mcp_server = claude_mcp_tool_origin(tool_name)
-                start_record = None
-                if tool_execution_recorder is not None:
-                    start_record = tool_execution_recorder.consume_start_record(
-                        tool_use_id=tool_id,
-                    )
                 span_kwargs: dict[str, object] = {
                     "prompt_tokens": prompt_tokens if index == 0 and not text and not reasoning else None,
                     "completion_tokens": completion_tokens if index == 0 and not text and not reasoning else None,
@@ -771,17 +770,12 @@ class ClaudeTranscriptEmitter:
                     tool_name=tool_name,
                     tool_arguments=tool_input,
                     model_name=message.get("model", self.model_name),
-                    recorder=tool_execution_recorder,
-                    started_at=start_record.observed_at if start_record is not None else None,
-                    path_hints=[path for path in [tool_call_path(tool_input)] if path is not None],
-                    working_directory=self.workspace_dir,
                     span_kwargs=span_kwargs,
                     tool_span=deferred_tool.span if deferred_tool is not None else None,
                     origin=origin,
                     mcp_server=mcp_server,
                 )
                 pending_tool_calls[tool_id].step_id = pending_execution.step_id
-                pending_tool_calls[tool_id].execution = pending_execution.execution
                 if pending_execution.trace_id and pending_execution.span_id:
                     self.tool_span_contexts[tool_id] = SpanContext(
                         trace_id=int(pending_execution.trace_id, 16),
@@ -816,15 +810,6 @@ class ClaudeTranscriptEmitter:
                         tool_input=tool_input,
                         content=block.get("content", ""),
                     )
-                    if pending.execution is not None and tool_execution_recorder is not None:
-                        tool_execution_recorder.finish(
-                            pending.execution,
-                            status=(
-                                ToolExecutionStatus.FAILED
-                                if bool(block.get("is_error"))
-                                else ToolExecutionStatus.COMPLETED
-                            ),
-                        )
                     self.spans_emitted += 1
                     emit_step(
                         self.tracer,

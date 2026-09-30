@@ -395,7 +395,7 @@ endmodule
     NO_COMPILATION_ERRORS;
 
     TypePrinter printer;
-    printer.options.addSingleQuotes = true;
+    printer.options.quoteChar = '\'';
     printer.options.anonymousTypeStyle = TypePrintingOptions::FriendlyName;
     printer.options.elideScopeNames = true;
 
@@ -429,6 +429,36 @@ endmodule
 
     CHECK(typeStr("wide_enum") ==
           "'enum{E0, E1, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11, E12, E13, ...}'");
+}
+
+TEST_CASE("Type printer integral ranges") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    enum logic [2:0] { A, B } e;
+    struct packed { logic [3:0] a; bit b; } s;
+    union packed { logic [7:0] u; bit [7:0] v; } u;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    TypePrinter printer;
+    printer.options.printIntegralRange = true;
+    printer.options.anonymousTypeStyle = TypePrintingOptions::FriendlyName;
+    printer.options.elideScopeNames = true;
+
+    auto& m = compilation.getRoot().find<InstanceSymbol>("m").body;
+    auto typeStr = [&](std::string_view name) {
+        printer.clear();
+        printer.append(m.find<VariableSymbol>(name).getType());
+        return printer.toString();
+    };
+
+    CHECK(typeStr("e") == "enum{A, B} (logic[2:0])");
+    CHECK(typeStr("s") == "struct packed{logic[3:0] a, bit b} (logic[4:0])");
+    CHECK(typeStr("u") == "union packed{logic[7:0] u, bit[7:0] v} (logic[7:0])");
 }
 
 TEST_CASE("Typedefs") {
@@ -2708,4 +2738,192 @@ endmodule
     REQUIRE(tdDims[0].leftExpr != nullptr);
     CHECK(tdDims[0].leftExpr->kind == ExpressionKind::BinaryOp);
     CHECK(compilation.getAllDiagnostics().empty());
+}
+
+TEST_CASE("Using a non-type symbol as a type") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int x;
+    x y;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::NotAType);
+}
+
+TEST_CASE("Packed struct member must be integral") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    struct packed { real r; } s;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::PackedMemberNotIntegral);
+}
+
+TEST_CASE("Packed struct member cannot have initializer") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    struct packed { int x = 1; } s;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::PackedMemberHasInitializer);
+}
+
+TEST_CASE("Packed union member cannot have initializer") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    union packed { int c = 1; int d; } v;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::PackedMemberHasInitializer);
+}
+
+TEST_CASE("Packed union members must have the same width") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    union packed { byte a; int b; } u;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::PackedUnionWidthMismatch);
+}
+
+TEST_CASE("Packed dimensions not allowed on predefined integer type") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int [3:0] x;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::PackedDimsOnPredefinedType);
+}
+
+TEST_CASE("Dimension requires a constant range") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    typedef struct { int x; } s;
+    logic [s] y;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::DimensionRequiresConstRange);
+}
+
+TEST_CASE("Virtual interface with unknown interface name") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    virtual interface foo vif;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UnknownInterface);
+}
+
+TEST_CASE("Virtual interface with unknown modport") {
+    auto tree = SyntaxTree::fromText(R"(
+interface I;
+    logic x;
+    modport mp(input x);
+endinterface
+
+module m;
+    virtual interface I.bad vif;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::NotAModport);
+}
+
+TEST_CASE("Packed union member must be integral") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    union packed { real r; bit [63:0] b; } u;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::PackedMemberNotIntegral);
+}
+
+TEST_CASE("Invalid dimension range with indexed part select") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic [3 +: 2] x;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::InvalidDimensionRange);
+}
+
+TEST_CASE("Invalid net delay on nettype declaration") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    nettype real nt;
+    nt #(1, 2) w;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::ExpectedNetDelay);
 }

@@ -57,8 +57,8 @@ TOOLS = [
             "flat schemas a per-field form definition (nested shapes keep the JSON editor). "
             "New kinds are inactive and private in your organization; platform builds by an "
             "ADMIN pass platform_kind=true to mint straight into the Matrx System org with "
-            "visibility='public' (refused for non-admins — never pass it for a user's "
-            "personal kind). Next steps: "
+            "published to the web (refused for non-admins — never pass it for a user's "
+            "own kind). Next steps: "
             "kindcomp_create_component (build the renderer), kind_create_skill + "
             "kind_create_content_block (teach agents to emit it)."
         ),
@@ -340,7 +340,7 @@ async def register_all() -> None:
             "icon": tool["icon"],
             "is_active": True,
             "organization_id": SYSTEM_ORGANIZATION_ID,
-            "visibility": "public",
+            "published_to_web": True,  # written explicitly (access ladder T-13)
             "annotations": tool.get("annotations", []),
         }
         res = await client.schema("tool").table("definition").insert(payload).execute()

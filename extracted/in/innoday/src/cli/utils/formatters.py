@@ -12,11 +12,11 @@ from typing import Any, Dict, List, Optional, Union
 
 from rich.console import Console, Group
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import Progress, ProgressColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 
-from src.cli.utils.presentation import THEME, advisory
+from src.cli.utils.presentation import THEME, advisory, progress_enabled
 from src.utils.time_windows import as_utc
 
 
@@ -86,7 +86,7 @@ def describe_exception(exc: BaseException) -> str:
         ✗ Error:
         Use --verbose for more details
 
-    -- observed from `innoday board sync-status`, where the exception type was
+    -- observed from the old `board sync-status`, where the exception type was
     the only actionable detail and it was reachable solely via ``--verbose``.
     Nothing here should ever leave the reader with no information at all.
     """
@@ -895,8 +895,23 @@ class OutputFormatter:
         return priority_styles.get(enum_key(priority), "white")
 
 
+class RocketColumn(ProgressColumn):
+    """A rocket crossing a short trail -- the one "working" animation (PF-472)."""
+
+    FRAMES = ("🚀    ", "·🚀   ", "··🚀  ", "···🚀 ", " ···🚀", "  ··🚀", "   ·🚀")
+
+    def render(self, task) -> Text:
+        import time
+
+        return Text(self.FRAMES[int(time.monotonic() * 8) % len(self.FRAMES)])
+
+
 class ProgressReporter:
-    """Progress reporting for long-running operations."""
+    """The rocket spinner and a short message while a command waits (PF-472).
+
+    Every command that waits on InnoDay uses this one helper, so there is one
+    animation and one place that decides when it is hidden.
+    """
 
     def __init__(self, description: str):
         self.description = description
@@ -904,9 +919,12 @@ class ProgressReporter:
         self.task = None
 
     def __enter__(self):
-        """Start progress reporting."""
+        """Start progress reporting -- unless this run is quiet, machine-read,
+        in CI, or not on a terminal (`progress_enabled`)."""
+        if not progress_enabled():
+            return self
         self.progress = Progress(
-            SpinnerColumn(),
+            RocketColumn(),
             TextColumn("[progress.description]{task.description}"),
             # **stderr.** A spinner on stdout lands in the middle of the payload:
             # `--format json` came back with "Loading tickets..." in front of the
@@ -914,6 +932,7 @@ class ProgressReporter:
             # reached. Progress is for the person watching, never for the caller
             # reading the output.
             console=advisory_console,
+            transient=True,  # the rocket leaves nothing behind in the output
         )
         self.progress.start()
         self.task = self.progress.add_task(self.description, total=None)
@@ -938,5 +957,5 @@ class ProgressReporter:
 
     def update(self, description: str):
         """Update progress description."""
-        if self.progress and self.task:
+        if self.progress and self.task is not None:
             self.progress.update(self.task, description=description)

@@ -1,14 +1,15 @@
 [build-system]
 requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "us"
-description = "US state meta information and other fun stuff"
+version = "4.0.0"
+description = "US state metadata"
 readme = "README.md"
 urls.Homepage = "https://github.com/unitedstates/python-us/"
 urls."Issue tracker" = "https://github.com/unitedstates/python-us/issues"
 requires-python = ">=3.8"
-dynamic = ["version"]
 authors = [{ name = "Jeremy Carbaugh", email = "jeremy@jcarbaugh.com" }]
 classifiers = [
     "Programming Language :: Python",
@@ -16,7 +17,9 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12"
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14"
 ]
 license = { file = "LICENSE"}
 
@@ -25,13 +28,15 @@ dependencies = ['jellyfish']
 [project.scripts]
 states = "us.cli.states:main"
 
-[project.optional-dependencies]
-dev = ['flake8', 'black', 'pytest', 'pytz']
+[dependency-groups]
+dev = [
+    'ruff',
+    'pytest>=9.0.3; python_version >= "3.10"',
+    'pytest; python_version < "3.10"',
+    'pytz',
+    "ty>=0.0.38",
+]
 
-[tool.setuptools.dynamic]
-version = { attr = "us.version.__version__" }
-
-[tool.black]
+[tool.ruff]
 line-length = 120
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
-include = '\.pyi?$'
+target-version = "py38"

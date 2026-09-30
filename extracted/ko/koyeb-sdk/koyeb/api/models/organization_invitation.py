@@ -28,14 +28,18 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class OrganizationInvitation(BaseModel):
     """
     OrganizationInvitation
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     email: Optional[StrictStr] = None
     role: Optional[UserRoleRole] = UserRoleRole.INVALID
-    status: Optional[OrganizationInvitationStatus] = OrganizationInvitationStatus.INVALID
+    status: Optional[
+        OrganizationInvitationStatus
+    ] = OrganizationInvitationStatus.INVALID
     expires_at: Optional[datetime] = None
     organization_id: Optional[StrictStr] = None
     organization: Optional[PublicOrganization] = None
@@ -43,7 +47,19 @@ class OrganizationInvitation(BaseModel):
     invitee: Optional[PublicUser] = None
     inviter_id: Optional[StrictStr] = None
     inviter: Optional[PublicUser] = None
-    __properties: ClassVar[List[str]] = ["id", "email", "role", "status", "expires_at", "organization_id", "organization", "invitee_id", "invitee", "inviter_id", "inviter"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "email",
+        "role",
+        "status",
+        "expires_at",
+        "organization_id",
+        "organization",
+        "invitee_id",
+        "invitee",
+        "inviter_id",
+        "inviter",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -51,7 +67,6 @@ class OrganizationInvitation(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -76,8 +91,7 @@ class OrganizationInvitation(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -86,13 +100,13 @@ class OrganizationInvitation(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of organization
         if self.organization:
-            _dict['organization'] = self.organization.to_dict()
+            _dict["organization"] = self.organization.to_dict()
         # override the default output from pydantic by calling `to_dict()` of invitee
         if self.invitee:
-            _dict['invitee'] = self.invitee.to_dict()
+            _dict["invitee"] = self.invitee.to_dict()
         # override the default output from pydantic by calling `to_dict()` of inviter
         if self.inviter:
-            _dict['inviter'] = self.inviter.to_dict()
+            _dict["inviter"] = self.inviter.to_dict()
         return _dict
 
     @classmethod
@@ -104,19 +118,29 @@ class OrganizationInvitation(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "email": obj.get("email"),
-            "role": obj.get("role") if obj.get("role") is not None else UserRoleRole.INVALID,
-            "status": obj.get("status") if obj.get("status") is not None else OrganizationInvitationStatus.INVALID,
-            "expires_at": obj.get("expires_at"),
-            "organization_id": obj.get("organization_id"),
-            "organization": PublicOrganization.from_dict(obj["organization"]) if obj.get("organization") is not None else None,
-            "invitee_id": obj.get("invitee_id"),
-            "invitee": PublicUser.from_dict(obj["invitee"]) if obj.get("invitee") is not None else None,
-            "inviter_id": obj.get("inviter_id"),
-            "inviter": PublicUser.from_dict(obj["inviter"]) if obj.get("inviter") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "email": obj.get("email"),
+                "role": obj.get("role")
+                if obj.get("role") is not None
+                else UserRoleRole.INVALID,
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else OrganizationInvitationStatus.INVALID,
+                "expires_at": obj.get("expires_at"),
+                "organization_id": obj.get("organization_id"),
+                "organization": PublicOrganization.from_dict(obj["organization"])
+                if obj.get("organization") is not None
+                else None,
+                "invitee_id": obj.get("invitee_id"),
+                "invitee": PublicUser.from_dict(obj["invitee"])
+                if obj.get("invitee") is not None
+                else None,
+                "inviter_id": obj.get("inviter_id"),
+                "inviter": PublicUser.from_dict(obj["inviter"])
+                if obj.get("inviter") is not None
+                else None,
+            }
+        )
         return _obj
-
-

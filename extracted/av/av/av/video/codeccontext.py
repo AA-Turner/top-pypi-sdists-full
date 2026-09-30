@@ -5,7 +5,8 @@ from cython.cimports.av.codec.hwaccel import HWAccel
 from cython.cimports.av.error import err_check
 from cython.cimports.av.frame import Frame
 from cython.cimports.av.packet import Packet
-from cython.cimports.av.utils import avrational_to_fraction, to_avrational
+from cython.cimports.av.rational import from_avrational
+from cython.cimports.av.utils import to_avrational
 from cython.cimports.av.video.format import VideoFormat, get_pix_fmt, get_video_format
 from cython.cimports.av.video.frame import VideoFrame, alloc_video_frame
 from cython.cimports.av.video.reformatter import VideoReformatter
@@ -13,6 +14,7 @@ from cython.cimports.libc.stdint import int64_t
 
 
 @cython.cfunc
+@cython.nogil
 @cython.exceptval(check=False)
 def _get_hw_format(
     ctx: cython.pointer[lib.AVCodecContext],
@@ -46,7 +48,7 @@ class VideoCodecContext(CodecContext):
         ptr: cython.pointer[lib.AVCodecContext],
         codec: cython.pointer[cython.const[lib.AVCodec]],
         hwaccel: HWAccel | None,
-    ):
+    ) -> cython.void:
         CodecContext._init(self, ptr, codec, hwaccel)
 
         if hwaccel is None:
@@ -68,7 +70,7 @@ class VideoCodecContext(CodecContext):
             self.ptr.get_format = _get_hw_format
             self._private_data.hardware_pix_fmt = self.hwaccel_ctx.config.ptr.pix_fmt
             self._private_data.allow_software_fallback = (
-                self.hwaccel.allow_software_fallback
+                self.hwaccel_ctx.allow_software_fallback
             )
             self.ptr.opaque = cython.address(self._private_data)
         except NotImplementedError:
@@ -113,8 +115,15 @@ class VideoCodecContext(CodecContext):
             )
 
         hwframe: VideoFrame = alloc_video_frame()
-        err_check(lib.av_hwframe_get_buffer(self.ptr.hw_frames_ctx, hwframe.ptr, 0))
-        err_check(lib.av_hwframe_transfer_data(hwframe.ptr, vframe.ptr, 0))
+
+        res: cython.int
+        transfer_res: cython.int = 0
+        with cython.nogil:
+            res = lib.av_hwframe_get_buffer(self.ptr.hw_frames_ctx, hwframe.ptr, 0)
+            if res == 0:
+                transfer_res = lib.av_hwframe_transfer_data(hwframe.ptr, vframe.ptr, 0)
+        err_check(res)
+        err_check(transfer_res)
         hwframe._copy_internal_attributes(vframe, data_layout=False)
         hwframe._init_user_attributes()
 
@@ -124,7 +133,7 @@ class VideoCodecContext(CodecContext):
         return hwframe
 
     @cython.cfunc
-    def _prepare_frames_for_encode(self, input: Frame | None) -> list:
+    def _prepare_frames_for_encode(self, input: Frame | None) -> list[Frame | None]:
         if input is None or not input:
             return [None]
 
@@ -160,7 +169,7 @@ class VideoCodecContext(CodecContext):
         return alloc_video_frame()
 
     @cython.cfunc
-    def _setup_decoded_frame(self, frame: Frame, packet: Packet):
+    def _setup_decoded_frame(self, frame: Frame, packet: Packet) -> cython.void:
         CodecContext._setup_decoded_frame(self, frame, packet)
         vframe: VideoFrame = frame
         vframe._init_user_attributes()
@@ -179,7 +188,10 @@ class VideoCodecContext(CodecContext):
             return frame
 
         frame_sw: Frame = self._alloc_next_frame()
-        err_check(lib.av_hwframe_transfer_data(frame_sw.ptr, frame.ptr, 0))
+        res: cython.int
+        with cython.nogil:
+            res = lib.av_hwframe_transfer_data(frame_sw.ptr, frame.ptr, 0)
+        err_check(res)
         frame_sw._copy_internal_attributes(frame, data_layout=False)
         return frame_sw
 
@@ -289,9 +301,9 @@ class VideoCodecContext(CodecContext):
         """
         The frame rate, in frames per second.
 
-        :type: fractions.Fraction
+        :type: AVRational
         """
-        return avrational_to_fraction(cython.address(self.ptr.framerate))
+        return from_avrational(self.ptr.framerate)
 
     @framerate.setter
     def framerate(self, value):
@@ -326,7 +338,7 @@ class VideoCodecContext(CodecContext):
 
     @property
     def sample_aspect_ratio(self):
-        return avrational_to_fraction(cython.address(self.ptr.sample_aspect_ratio))
+        return from_avrational(self.ptr.sample_aspect_ratio)
 
     @sample_aspect_ratio.setter
     def sample_aspect_ratio(self, value):
@@ -343,7 +355,7 @@ class VideoCodecContext(CodecContext):
             1024 * 1024,
         )
 
-        return avrational_to_fraction(cython.address(dar))
+        return from_avrational(dar)
 
     @property
     def has_b_frames(self):
@@ -383,9 +395,10 @@ class VideoCodecContext(CodecContext):
     @property
     def color_range(self):
         """
-        Describes the signal range of the colorspace.
+        Describes the signal range of the colorspace, as FFmpeg's raw integer
+        value. :class:`.ColorRange` names the values.
 
-        Wraps :ffmpeg:`AVFrame.color_range`.
+        Wraps :ffmpeg:`AVCodecContext.color_range`.
 
         :type: int
         """
@@ -398,9 +411,10 @@ class VideoCodecContext(CodecContext):
     @property
     def color_primaries(self):
         """
-        Describes the RGB/XYZ matrix of the colorspace.
+        Describes the RGB/XYZ matrix of the colorspace, as FFmpeg's raw integer
+        value. :class:`.ColorPrimaries` names the values.
 
-        Wraps :ffmpeg:`AVFrame.color_primaries`.
+        Wraps :ffmpeg:`AVCodecContext.color_primaries`.
 
         :type: int
         """
@@ -413,9 +427,11 @@ class VideoCodecContext(CodecContext):
     @property
     def color_trc(self):
         """
-        Describes the linearization function (a.k.a. transformation characteristics) of the colorspace.
+        Describes the linearization function (a.k.a. transformation
+        characteristics) of the colorspace, as FFmpeg's raw integer value.
+        :class:`.ColorTrc` names the values.
 
-        Wraps :ffmpeg:`AVFrame.color_trc`.
+        Wraps :ffmpeg:`AVCodecContext.color_trc`.
 
         :type: int
         """
@@ -428,9 +444,10 @@ class VideoCodecContext(CodecContext):
     @property
     def colorspace(self):
         """
-        Describes the YUV/RGB transformation matrix of the colorspace.
+        Describes the YUV/RGB transformation matrix of the colorspace, as
+        FFmpeg's raw integer value. :class:`.Colorspace` names the values.
 
-        Wraps :ffmpeg:`AVFrame.colorspace`.
+        Wraps :ffmpeg:`AVCodecContext.colorspace`.
 
         :type: int
         """
@@ -495,3 +512,51 @@ class VideoCodecContext(CodecContext):
     @qmax.setter
     def qmax(self, value):
         self.ptr.qmax = value
+
+    @property
+    def chroma_sample_location(self):
+        """
+        The position of the chroma samples relative to the luma samples, as
+        FFmpeg's raw integer value. :class:`.ChromaLocation` names the values.
+
+        Wraps :ffmpeg:`AVCodecContext.chroma_sample_location`. FFmpeg spells
+        the same field ``chroma_location`` on a frame, and so does PyAV: see
+        :attr:`.VideoFrame.chroma_location`.
+
+        :type: int
+        """
+        return self.ptr.chroma_sample_location
+
+    @chroma_sample_location.setter
+    def chroma_sample_location(self, value: cython.int):
+        self.ptr.chroma_sample_location = cython.cast(lib.AVChromaLocation, value)
+
+    @property
+    def refs(self):
+        """
+        The number of reference frames.
+
+        Wraps :ffmpeg:`AVCodecContext.refs`.
+
+        :type: int
+        """
+        return self.ptr.refs
+
+    @refs.setter
+    def refs(self, value: cython.int):
+        self.ptr.refs = value
+
+    @property
+    def mb_decision(self):
+        """
+        Macroblock decision mode: 0 (simple), 1 (bits) or 2 (rate distortion).
+
+        Wraps :ffmpeg:`AVCodecContext.mb_decision`.
+
+        :type: int
+        """
+        return self.ptr.mb_decision
+
+    @mb_decision.setter
+    def mb_decision(self, value: cython.int):
+        self.ptr.mb_decision = value

@@ -197,6 +197,9 @@ class PolarsCompare(BaseCompare):
         # Don't do anything if [] is passed (normalized to None)
         if not self.sensitive_columns:
             return
+        # Derived stats (max_diff, null_diff) come from raw values and must not
+        # survive masking (issue #565).
+        self._mask_sensitive_column_stats()
         sensitive = set(self.sensitive_columns)  # Otherwise this fails due to None
         sensitive_with_suffixes = (
             sensitive
@@ -826,8 +829,11 @@ def calculate_max_diff(col_1: pl.Series, col_2: pl.Series) -> float:
     Returns
     -------
     Numeric
-        Numeric field, or zero.
+        Numeric field, or zero. Temporal columns give zero: cast to float they
+        count days or time units, so the difference would depend on the unit.
     """
+    if col_1.dtype.is_temporal() or col_2.dtype.is_temporal():
+        return 0.0
     try:
         return cast(
             float,
@@ -882,5 +888,5 @@ def generate_id_within_group(
         )
     else:
         return dataframe.select(
-            rn=pl.col(dataframe.columns[0]).cum_count().over(join_columns)
+            rn=pl.col(join_columns[0]).cum_count().over(join_columns)
         ).to_series()

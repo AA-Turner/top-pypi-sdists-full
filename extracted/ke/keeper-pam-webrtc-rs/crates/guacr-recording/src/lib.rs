@@ -15,6 +15,7 @@ mod helpers;
 mod multi;
 mod ses;
 mod transport;
+#[cfg(feature = "zmq-transport")]
 pub mod zmq_transport;
 
 pub use asciicast::{AsciicastHeader, AsciicastRecorder, EventType};
@@ -25,6 +26,7 @@ pub use ses::{GuacamoleSesRecorder, RecordingDirection, RecordingError, SessionR
 pub use transport::{
     ChannelRecordingTransport, FileRecordingTransport, MultiTransportRecorder, RecordingTransport,
 };
+#[cfg(feature = "zmq-transport")]
 pub use zmq_transport::ZmqRecordingSender;
 
 #[cfg(test)]

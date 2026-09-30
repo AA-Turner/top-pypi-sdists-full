@@ -24,12 +24,14 @@ class MonitorType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     MONITOR_TYPE_LOG: _ClassVar[MonitorType]
     MONITOR_TYPE_HEALTHCHECK: _ClassVar[MonitorType]
     MONITOR_TYPE_SQL_BAD_ROWS: _ClassVar[MonitorType]
+    MONITOR_TYPE_DATA_SOURCE: _ClassVar[MonitorType]
 
 MONITOR_TYPE_UNSPECIFIED: MonitorType
 MONITOR_TYPE_CHART: MonitorType
 MONITOR_TYPE_LOG: MonitorType
 MONITOR_TYPE_HEALTHCHECK: MonitorType
 MONITOR_TYPE_SQL_BAD_ROWS: MonitorType
+MONITOR_TYPE_DATA_SOURCE: MonitorType
 
 class LogsMonitor(_message.Message):
     __slots__ = ("query_string", "window_period", "data_source")
@@ -71,6 +73,14 @@ class SqlBadRowsMonitor(_message.Message):
     def __init__(
         self, query: _Optional[str] = ..., datasource_name: _Optional[str] = ..., resource_group: _Optional[str] = ...
     ) -> None: ...
+
+class DataSourceMonitor(_message.Message):
+    __slots__ = ("integration_id", "name")
+    INTEGRATION_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    integration_id: str
+    name: str
+    def __init__(self, integration_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class AlertChannel(_message.Message):
     __slots__ = ("entity_kind", "entity_id", "entity_name")
@@ -115,8 +125,10 @@ class Monitor(_message.Message):
         "healthcheck_monitor",
         "logs_monitor",
         "sql_bad_rows_monitor",
+        "data_source_monitor",
         "created_at",
         "updated_at",
+        "muted_until",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -129,8 +141,10 @@ class Monitor(_message.Message):
     HEALTHCHECK_MONITOR_FIELD_NUMBER: _ClassVar[int]
     LOGS_MONITOR_FIELD_NUMBER: _ClassVar[int]
     SQL_BAD_ROWS_MONITOR_FIELD_NUMBER: _ClassVar[int]
+    DATA_SOURCE_MONITOR_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    MUTED_UNTIL_FIELD_NUMBER: _ClassVar[int]
     id: str
     type: str
     name: str
@@ -142,8 +156,10 @@ class Monitor(_message.Message):
     healthcheck_monitor: HealthcheckMonitor
     logs_monitor: LogsMonitor
     sql_bad_rows_monitor: SqlBadRowsMonitor
+    data_source_monitor: DataSourceMonitor
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
+    muted_until: _timestamp_pb2.Timestamp
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -157,6 +173,8 @@ class Monitor(_message.Message):
         healthcheck_monitor: _Optional[_Union[HealthcheckMonitor, _Mapping]] = ...,
         logs_monitor: _Optional[_Union[LogsMonitor, _Mapping]] = ...,
         sql_bad_rows_monitor: _Optional[_Union[SqlBadRowsMonitor, _Mapping]] = ...,
+        data_source_monitor: _Optional[_Union[DataSourceMonitor, _Mapping]] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        muted_until: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...

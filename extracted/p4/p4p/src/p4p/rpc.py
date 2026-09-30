@@ -10,7 +10,7 @@ from .nt import NTURI
 from .client.raw import RemoteError
 from .server import DynamicProvider
 from .server.raw import SharedPV
-from .util import ThreadedWorkQueue, WorkQueue, Full, Empty
+from .util import ThreadedWorkQueue, WorkQueue, Full
 
 __all__ = [
     'rpc',
@@ -45,7 +45,7 @@ def rpc(rtype=None):
     wrap = None
     if rtype is None or isinstance(rtype, Type):
         pass
-    elif isinstance(type, (list, tuple)):
+    elif isinstance(rtype, (list, tuple)):
         rtype = Type(rtype)
     elif hasattr(rtype, 'type'):  # eg. one of the NT* helper classes
         wrap = rtype.wrap
@@ -254,12 +254,8 @@ class RPCProxyBase(object):
 
 def _wrapMethod(name, meth):
     pv, req = meth._call_PV, meth._call_Request
-    if sys.version_info >= (3, 0):
-        S = inspect.getfullargspec(meth)
-        keywords = S.varkw
-    else:
-        S = inspect.getargspec(meth)
-        keywords = S.keywords
+    S = inspect.getfullargspec(meth)
+    keywords = S.varkw
     defaults = S.defaults or [] # for getfullargspec().defaults can be None
 
     if S.varargs is not None or keywords is not None:

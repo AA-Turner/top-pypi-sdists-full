@@ -23,15 +23,22 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class KtestTestAuthReply(BaseModel):
     """
     KtestTestAuthReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     payload: Optional[StrictStr] = None
     user_id: Optional[StrictStr] = None
     organization_id: Optional[StrictStr] = None
     workspace_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["payload", "user_id", "organization_id", "workspace_id"]
+    __properties: ClassVar[List[str]] = [
+        "payload",
+        "user_id",
+        "organization_id",
+        "workspace_id",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -39,7 +46,6 @@ class KtestTestAuthReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +70,7 @@ class KtestTestAuthReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,12 +88,12 @@ class KtestTestAuthReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "payload": obj.get("payload"),
-            "user_id": obj.get("user_id"),
-            "organization_id": obj.get("organization_id"),
-            "workspace_id": obj.get("workspace_id")
-        })
+        _obj = cls.model_validate(
+            {
+                "payload": obj.get("payload"),
+                "user_id": obj.get("user_id"),
+                "organization_id": obj.get("organization_id"),
+                "workspace_id": obj.get("workspace_id"),
+            }
+        )
         return _obj
-
-

@@ -23,11 +23,16 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class UpdateUserSettingsRequest(BaseModel):
     """
     UpdateUserSettingsRequest
-    """ # noqa: E501
-    failed_deployment_email_notification: Optional[StrictBool] = Field(default=None, description="(Optional) Toggle failed deployment email notification.")
+    """  # noqa: E501
+
+    failed_deployment_email_notification: Optional[StrictBool] = Field(
+        default=None,
+        description="(Optional) Toggle failed deployment email notification.",
+    )
     __properties: ClassVar[List[str]] = ["failed_deployment_email_notification"]
 
     model_config = ConfigDict(
@@ -36,7 +41,6 @@ class UpdateUserSettingsRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -61,8 +65,7 @@ class UpdateUserSettingsRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -80,9 +83,11 @@ class UpdateUserSettingsRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "failed_deployment_email_notification": obj.get("failed_deployment_email_notification")
-        })
+        _obj = cls.model_validate(
+            {
+                "failed_deployment_email_notification": obj.get(
+                    "failed_deployment_email_notification"
+                )
+            }
+        )
         return _obj
-
-

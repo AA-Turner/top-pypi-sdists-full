@@ -17,6 +17,8 @@
 #
 # Urwid web site: https://urwid.org/
 
+"""Deques that call a callback when their contents or focus change."""
+
 from __future__ import annotations
 
 import collections
@@ -54,9 +56,7 @@ def _call_modified(
 
 
 class MonitoredDeque(collections.deque[_T], typing.Generic[_T]):
-    """
-    This class can trigger a callback any time its contents are changed
-    with the usual deque operations append, extend, etc.
+    """Trigger a callback any time its contents are changed with the usual deque operations append, extend, etc.
 
     It mirrors :class:`MonitoredList`, adapted to ``collections.deque``'s
     narrower API. Deliberate differences from :class:`MonitoredList`:
@@ -88,6 +88,7 @@ class MonitoredDeque(collections.deque[_T], typing.Generic[_T]):
     _modified_callback: Callable[[], typing.Any] | None = None
 
     def __init__(self, iterable: Iterable[_T] = (), maxlen: int | None = None) -> None:
+        """Build the deque from `iterable`, bounded to `maxlen` items, with no callback set yet."""
         super().__init__(iterable, maxlen)
 
     def _modified(self) -> None:
@@ -95,13 +96,13 @@ class MonitoredDeque(collections.deque[_T], typing.Generic[_T]):
             self._modified_callback()
 
     def set_modified_callback(self, callback: Callable[[], typing.Any]) -> None:
-        """
-        Assign a callback function with no parameters that is called any
-        time the deque is modified.  Callback's return value is ignored.
+        r"""Assign a callback function with no parameters that is called any time the deque is modified.
+
+        Callback's return value is ignored.
 
         >>> import sys
         >>> md = MonitoredDeque([1, 2, 3])
-        >>> md.set_modified_callback(lambda: sys.stdout.write("modified\\n"))
+        >>> md.set_modified_callback(lambda: sys.stdout.write("modified\n"))
         >>> md
         MonitoredDeque([1, 2, 3])
         >>> md.append(10)
@@ -118,7 +119,7 @@ class MonitoredDeque(collections.deque[_T], typing.Generic[_T]):
         Eviction from a bounded deque still fires the callback exactly once:
 
         >>> bounded = MonitoredDeque([1, 2, 3], maxlen=3)
-        >>> bounded.set_modified_callback(lambda: sys.stdout.write("modified\\n"))
+        >>> bounded.set_modified_callback(lambda: sys.stdout.write("modified\n"))
         >>> bounded.append(4)
         modified
         >>> bounded
@@ -127,79 +128,93 @@ class MonitoredDeque(collections.deque[_T], typing.Generic[_T]):
         self._modified_callback = callback
 
     def __repr__(self) -> str:
+        """Return a constructor-call-like representation of the deque's contents and maxlen."""
         if self.maxlen is None:
             return f"{self.__class__.__name__}({list(self)!r})"
         return f"{self.__class__.__name__}({list(self)!r}, maxlen={self.maxlen!r})"
 
     # noinspection PyMethodParameters
     def __rich_repr__(self) -> Iterator[tuple[str | None, typing.Any] | typing.Any]:
+        """Yield this deque's items and its maxlen, for `rich`'s repr protocol."""
         for item in self:
             yield None, item
         yield "maxlen", self.maxlen
 
     @_call_modified
     def __setitem__(self, __key: typing.SupportsIndex, __value: _T) -> None:  # type: ignore[override]
+        """Set the item at `__key` to `__value`."""
         # deque has no slice assignment, unlike list/MutableSequence -- see the class docstring.
         super().__setitem__(__key, __value)
 
     @_call_modified
     def __delitem__(self, __key: typing.SupportsIndex) -> None:  # type: ignore[override]
+        """Delete the item at `__key`."""
         # deque has no slice deletion, unlike list/MutableSequence -- see the class docstring.
         super().__delitem__(__key)
 
     @_call_modified
     def __iadd__(self, __value: Iterable[_T]) -> MonitoredDeque[_T]:
+        """Extend the deque in place with the items from `__value`."""
         return super().__iadd__(__value)
 
     @_call_modified
     def append(self, __object: _T) -> None:
+        """Append ``__object`` to the right end of the deque."""
         super().append(__object)
 
     @_call_modified
     def appendleft(self, __object: _T) -> None:
+        """Append ``__object`` to the left end of the deque."""
         super().appendleft(__object)
 
     @_call_modified
     def extend(self, __iterable: Iterable[_T]) -> None:
+        """Extend the right end of the deque with items from ``__iterable``."""
         super().extend(__iterable)
 
     @_call_modified
     def extendleft(self, __iterable: Iterable[_T]) -> None:
+        """Extend the left end of the deque with items from ``__iterable``, in reverse order."""
         super().extendleft(__iterable)
 
     @_call_modified
     def pop(self) -> _T:  # type: ignore[override]  # deque.pop takes no argument, unlike list.pop
+        """Remove and return the item at the right end of the deque."""
         return super().pop()
 
     @_call_modified
     def popleft(self) -> _T:
+        """Remove and return the item at the left end of the deque."""
         return super().popleft()
 
     @_call_modified
     def insert(self, __index: typing.SupportsIndex, __object: _T) -> None:
+        """Insert ``__object`` before ``__index``."""
         super().insert(int(__index), __object)
 
     @_call_modified
     def remove(self, __value: _T) -> None:
+        """Remove the first occurrence of ``__value``."""
         super().remove(__value)
 
     @_call_modified
     def reverse(self) -> None:
+        """Reverse the deque in place."""
         super().reverse()
 
     @_call_modified
     def rotate(self, __n: int = 1) -> None:
+        """Rotate the deque ``__n`` steps to the right (or left, for negative ``__n``)."""
         super().rotate(__n)
 
     @_call_modified
     def clear(self) -> None:
+        """Remove all items from the deque."""
         super().clear()
 
 
 class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
-    """
-    This class can trigger a callback any time its contents are modified,
-    and any time the focus index is changed.
+    """Trigger a callback any time its contents are modified, and any time the focus index is changed.
 
     Reuses the ``focus``/``_focus_changed``/``set_focus_changed_callback``
     machinery verbatim from :class:`MonitoredFocusList`.
@@ -262,10 +277,10 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         *,
         focus: int = 0,
     ) -> None:
-        """
-        This is a deque that tracks one item as the focus item.  If items
-        are inserted or removed -- including items silently evicted by a
-        bounded (``maxlen``-limited) deque -- it will update the focus.
+        """Initialize a deque that tracks one item as the focus item.
+
+        If items are inserted or removed -- including items silently evicted by a bounded (``maxlen``-limited)
+        deque -- it will update the focus.
 
         >>> mfd = MonitoredFocusDeque([10, 11, 12, 13, 14], focus=3)
         >>> mfd
@@ -285,15 +300,16 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         self._focus = focus
 
     def __repr__(self) -> str:
+        """Return a constructor-call-like representation of the deque's contents, maxlen, and focus."""
         if self.maxlen is None:
             return f"{self.__class__.__name__}({list(self)!r}, focus={self.focus!r})"
         return f"{self.__class__.__name__}({list(self)!r}, maxlen={self.maxlen!r}, focus={self.focus!r})"
 
     @property
     def focus(self) -> int | None:
-        """
-        Get/set the focus index.  This value is read as None when the
-        deque is empty, and may only be set to a value between 0 and
+        """Get/set the focus index.
+
+        This value is read as None when the deque is empty, and may only be set to a value between 0 and
         len(self)-1 or an IndexError will be raised.
 
         Return the index of the item "in focus" or None if
@@ -346,7 +362,7 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
             self._focus_changed_callback(new_focus)
 
     def set_focus_changed_callback(self, callback: Callable[[int], typing.Any]) -> None:
-        """Assign a callback to be called when the focus index changes for any reason.
+        r"""Assign a callback to be called when the focus index changes for any reason.
 
         The callback is called as ``callback(new_focus)``.
 
@@ -354,7 +370,7 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
 
         >>> import sys
         >>> mfd = MonitoredFocusDeque([1, 2, 3], focus=1)
-        >>> mfd.set_focus_changed_callback(lambda f: sys.stdout.write("focus: %d\\n" % (f,)))
+        >>> mfd.set_focus_changed_callback(lambda f: sys.stdout.write("focus: %d\n" % (f,)))
         >>> mfd.insert(1, 11)
         focus: 2
         >>> mfd

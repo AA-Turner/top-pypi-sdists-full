@@ -24,16 +24,24 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ListRegionalDeploymentsReply(BaseModel):
     """
     ListRegionalDeploymentsReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     regional_deployments: Optional[List[RegionalDeploymentListItem]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
     count: Optional[StrictInt] = None
     has_next: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = ["regional_deployments", "limit", "offset", "count", "has_next"]
+    __properties: ClassVar[List[str]] = [
+        "regional_deployments",
+        "limit",
+        "offset",
+        "count",
+        "has_next",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -41,7 +49,6 @@ class ListRegionalDeploymentsReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,8 +73,7 @@ class ListRegionalDeploymentsReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -78,9 +84,12 @@ class ListRegionalDeploymentsReply(BaseModel):
         _items = []
         if self.regional_deployments:
             for _item_regional_deployments in self.regional_deployments:
-                if _item_regional_deployments:
-                    _items.append(_item_regional_deployments.to_dict())
-            _dict['regional_deployments'] = _items
+                _items.append(
+                    _item_regional_deployments.to_dict()
+                    if _item_regional_deployments is not None
+                    else None
+                )
+            _dict["regional_deployments"] = _items
         return _dict
 
     @classmethod
@@ -92,13 +101,18 @@ class ListRegionalDeploymentsReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "regional_deployments": [RegionalDeploymentListItem.from_dict(_item) for _item in obj["regional_deployments"]] if obj.get("regional_deployments") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset"),
-            "count": obj.get("count"),
-            "has_next": obj.get("has_next")
-        })
+        _obj = cls.model_validate(
+            {
+                "regional_deployments": [
+                    RegionalDeploymentListItem.from_dict(_item)
+                    for _item in obj["regional_deployments"]
+                ]
+                if obj.get("regional_deployments") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+                "count": obj.get("count"),
+                "has_next": obj.get("has_next"),
+            }
+        )
         return _obj
-
-

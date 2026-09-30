@@ -1,0 +1,1 @@
+import{ga as e}from"./lucide-BMYRskK9.js";var t=e(!1);function n(){t.value=!0}function r(){t.value=!1}function i(){return{active:t,start:n,end:r}}export{i as t};

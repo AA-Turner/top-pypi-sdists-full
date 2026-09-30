@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing_extensions import Annotated, TypedDict
 
+from .._utils import PropertyInfo
 from .assessment_type import AssessmentType
 
 __all__ = ["SpanAssessmentListParams"]
@@ -24,3 +25,5 @@ class SpanAssessmentListParams(TypedDict, total=False):
 
     Either span_id or trace_id must be provided as a query parameter.
     """
+
+    x_project_id: Annotated[str, PropertyInfo(alias="x-project-id")]

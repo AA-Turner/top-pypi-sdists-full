@@ -1,6 +1,6 @@
 import pytest
 
-from cramjam import File, Buffer
+from cramjam import File, Buffer, lz4, snappy, zstd
 
 
 @pytest.mark.parametrize("Obj", (File, Buffer))
@@ -63,3 +63,28 @@ def test_readinto_rejects_readonly_buffer(tmpdir, Obj, out):
 
     with pytest.raises(OSError, match="read-only"):
         buf.readinto(out)
+
+
+@pytest.mark.parametrize(
+    "op",
+    (
+        snappy.compress_into,
+        snappy.compress_raw_into,
+        zstd.compress_into,
+        lz4.compress_block_into,
+    ),
+)
+def test_buffer_borrow_held_during_op(op):
+    # Input borrow must be held for the whole op (incl. while the GIL is released), so
+    # the Buffer can't be resized underneath it; here the output is the same Buffer. #253
+    buf = Buffer(b"x" * 1024)
+    with pytest.raises(RuntimeError, match="borrowed"):
+        op(buf, buf)
+
+
+@pytest.mark.parametrize("bad", ("text", 123, None))
+def test_unsupported_input_raises_type_error(bad):
+    with pytest.raises(TypeError, match="expected Buffer, File or a C-contiguous bytes-like object") as info:
+        snappy.compress(bad)
+    # The real reason is kept in the cause chain.
+    assert "bytes-like object is required" in str(info.value.__cause__.__cause__)

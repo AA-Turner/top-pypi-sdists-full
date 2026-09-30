@@ -36,7 +36,11 @@ class NoteToolResult(KindModel):
     folder_name: str | None = None
     content: str | None = None
     tags: list[str] | None = None
+    # Pre-T-13 note receipts use this retiring projection.  Preserve it at the
+    # published kind boundary while current writers use the canonical fields.
     visibility: str | None = None
+    published_to_web: bool | None = None
+    shown_to: str | None = None
     is_public: bool | None = None
     created_at: str | None = None
     updated_at: str | None = None

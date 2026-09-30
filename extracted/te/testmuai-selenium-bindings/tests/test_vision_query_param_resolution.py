@@ -23,10 +23,12 @@ def test_visionQuery_resolves_param_and_variable_in_description():
             visionQuery("Check ${p} and {{v}}", "string")
 
         current_action = m_heal.call_args.args[0]
-        assert current_action["operation_intent"] == "Check zeeshan and world"
-        assert (
-            current_action["sub_instruction_obj"]["operation_dict"]["queried_value"]
-            == "Check zeeshan and world"
-        )
+        intent = current_action["operation_intent"]
+        queried = current_action["sub_instruction_obj"]["operation_dict"]["queried_value"]
+        # Substituted values are triple-quote fenced so a multi-line
+        # capture reads as one reference; the resolved text is still present.
+        assert "zeeshan" in intent and "world" in intent
+        assert intent.startswith("Check") and '\"\"\"' in intent
+        assert queried == intent
     finally:
         clear_state()

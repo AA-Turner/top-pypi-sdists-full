@@ -24,7 +24,7 @@ class CalendarEventsResponseOut(UniversalBaseModel):
 
     provider: str = pydantic.Field()
     """
-    Account provider as Athena reports it: `gmail` or `outlook` for accounts connected through the Integrations page; `google` or `microsoft365` for directly-connected accounts (read-only for drafts).
+    Account provider as Athena reports it: `gmail` or `outlook` for accounts connected through the Integrations page; `google` or `microsoft365` for directly-connected accounts.
     """
 
     results: typing.Optional[typing.List[CalendarEventOut]] = pydantic.Field(default=None)

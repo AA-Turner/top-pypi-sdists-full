@@ -56,11 +56,13 @@ def main():
         # Check health
         is_healthy = retrieved_sandbox.is_healthy()
         print(f"  Healthy: {is_healthy}")
+        assert is_healthy, "Retrieved sandbox should be healthy"
 
         # Execute a command with the retrieved sandbox
-        if is_healthy:
-            result = retrieved_sandbox.exec("echo 'Hello from retrieved sandbox!'")
-            print(f"  Retrieved sandbox output: {result.stdout.strip()}")
+        result = retrieved_sandbox.exec("echo 'Hello from retrieved sandbox!'")
+        print(f"  Retrieved sandbox output: {result.stdout.strip()}")
+        assert result.exit_code == 0, result.stderr
+        assert result.stdout.strip() == "Hello from retrieved sandbox!"
 
         return 0
 

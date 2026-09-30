@@ -36,8 +36,12 @@ from chalk._gen.chalk.server.v1.datasets_pb2 import (
     GetDatasetRevisionResponse,
     GetDatasetUploadUrisRequest,
     GetDatasetUploadUrisResponse,
+    GetMaterializedAggregateTileDownloadLinksRequest,
+    GetMaterializedAggregateTileDownloadLinksResponse,
     GetMaterializedAggregateTileRowCountChartRequest,
     GetMaterializedAggregateTileRowCountChartResponse,
+    GetMaterializedAggregateTileValuesRequest,
+    GetMaterializedAggregateTileValuesResponse,
     ListDatasetRevisionsRequest,
     ListDatasetRevisionsResponse,
     ListDatasetsRequest,
@@ -54,6 +58,10 @@ from chalk._gen.chalk.server.v1.datasets_pb2 import (
     StreamDatasetRevisionDownloadLinksResponse,
 )
 from chalk._gen.chalk.server.v1.materialized_aggregate_tiles_pb2 import (
+    GetMaterializedAggregateTileFacetValuesRequest,
+    GetMaterializedAggregateTileFacetValuesResponse,
+    GetMaterializedAggregateTileFacetsRequest,
+    GetMaterializedAggregateTileFacetsResponse,
     ListMaterializedAggregateTileTimelinesRequest,
     ListMaterializedAggregateTileTimelinesResponse,
 )
@@ -133,6 +141,16 @@ class DatasetMetadataServiceStub:
     """Timeline skeletons for the TilesTimeline view; manifests are fetched
     separately via ListMaterializedAggregateTilesForTimeline.
     """
+    GetMaterializedAggregateTileFacets: UnaryUnaryMultiCallable[
+        GetMaterializedAggregateTileFacetsRequest,
+        GetMaterializedAggregateTileFacetsResponse,
+    ]
+    """The TilesTimeline filter vocabulary, so the client keeps no parallel copy of it."""
+    GetMaterializedAggregateTileFacetValues: UnaryUnaryMultiCallable[
+        GetMaterializedAggregateTileFacetValuesRequest,
+        GetMaterializedAggregateTileFacetValuesResponse,
+    ]
+    """Facet values and counts for the TilesTimeline filter menu."""
     ListMaterializedAggregateTilesForTimeline: UnaryUnaryMultiCallable[
         ListMaterializedAggregateTilesForTimelineRequest,
         ListMaterializedAggregateTilesForTimelineResponse,
@@ -151,6 +169,21 @@ class DatasetMetadataServiceStub:
     the value is the total stored row count of the newest manifest covering
     that window, i.e. the number of distinct (primary key, group, bucket)
     rows materialized for the window.
+    """
+    GetMaterializedAggregateTileValues: UnaryUnaryMultiCallable[
+        GetMaterializedAggregateTileValuesRequest,
+        GetMaterializedAggregateTileValuesResponse,
+    ]
+    """Returns one extracted aggregate value per bucket for a primary key over a
+    bounded range. This endpoint intentionally does not accept arbitrary SQL.
+    """
+    GetMaterializedAggregateTileDownloadLinks: UnaryUnaryMultiCallable[
+        GetMaterializedAggregateTileDownloadLinksRequest,
+        GetMaterializedAggregateTileDownloadLinksResponse,
+    ]
+    """Signed download URLs for the raw parquet files a tile manifest points at.
+    The URIs are read from the manifest's own file rows, scoped to the caller's
+    environment, so a caller cannot ask the server to sign an arbitrary object.
     """
     DeleteMaterializedAggregateTile: UnaryUnaryMultiCallable[
         DeleteMaterializedAggregateTileRequest,
@@ -284,6 +317,20 @@ class DatasetMetadataServiceServicer(metaclass=ABCMeta):
         separately via ListMaterializedAggregateTilesForTimeline.
         """
     @abstractmethod
+    def GetMaterializedAggregateTileFacets(
+        self,
+        request: GetMaterializedAggregateTileFacetsRequest,
+        context: ServicerContext,
+    ) -> GetMaterializedAggregateTileFacetsResponse:
+        """The TilesTimeline filter vocabulary, so the client keeps no parallel copy of it."""
+    @abstractmethod
+    def GetMaterializedAggregateTileFacetValues(
+        self,
+        request: GetMaterializedAggregateTileFacetValuesRequest,
+        context: ServicerContext,
+    ) -> GetMaterializedAggregateTileFacetValuesResponse:
+        """Facet values and counts for the TilesTimeline filter menu."""
+    @abstractmethod
     def ListMaterializedAggregateTilesForTimeline(
         self,
         request: ListMaterializedAggregateTilesForTimelineRequest,
@@ -307,6 +354,25 @@ class DatasetMetadataServiceServicer(metaclass=ABCMeta):
         the value is the total stored row count of the newest manifest covering
         that window, i.e. the number of distinct (primary key, group, bucket)
         rows materialized for the window.
+        """
+    @abstractmethod
+    def GetMaterializedAggregateTileValues(
+        self,
+        request: GetMaterializedAggregateTileValuesRequest,
+        context: ServicerContext,
+    ) -> GetMaterializedAggregateTileValuesResponse:
+        """Returns one extracted aggregate value per bucket for a primary key over a
+        bounded range. This endpoint intentionally does not accept arbitrary SQL.
+        """
+    @abstractmethod
+    def GetMaterializedAggregateTileDownloadLinks(
+        self,
+        request: GetMaterializedAggregateTileDownloadLinksRequest,
+        context: ServicerContext,
+    ) -> GetMaterializedAggregateTileDownloadLinksResponse:
+        """Signed download URLs for the raw parquet files a tile manifest points at.
+        The URIs are read from the manifest's own file rows, scoped to the caller's
+        environment, so a caller cannot ask the server to sign an arbitrary object.
         """
     @abstractmethod
     def DeleteMaterializedAggregateTile(

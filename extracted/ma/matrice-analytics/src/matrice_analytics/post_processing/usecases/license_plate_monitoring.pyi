@@ -1,7 +1,13 @@
 """Auto-generated stub for module: license_plate_monitoring."""
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 from . import lpr_ocr_source
+from ...clients import identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.bootstrap import get_action_id, get_session
+from ...clients.lpr_client import LPRClient
+from ...clients.models import LprServer, build_detection
+from ...clients.response import CallFailure, ConnectionLost, RateLimited
 from ..Trackers import ConfigDrivenTracker, TrackerProfile
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from ..core.config import AlertConfig, BaseConfig
@@ -15,6 +21,7 @@ from ..utils.alert_instance_utils import ALERT_INSTANCE
 from ..utils.geometry_utils import resolve_frame_dims
 from ..utils.geometry_utils import resolve_frame_dims
 from ..utils.location_name_cache import LocationNameCache
+from ..utils.post_processing_config_client import is_resolvable_location_id
 from ..utils.public_ip import resolve_public_ip_once
 
 # Constants
@@ -48,11 +55,22 @@ class LicensePlateMonitorConfig:
         ...
 
 class LicensePlateMonitorLogger:
-    def __init__(self: Any) -> None: ...
+    def __init__(self: Any, client: Optional[Any] = None) -> None:
+        """
+        Args:
+            client: The licence-plate client to reach the platform through. Absent one,
+                a client is built on the session and server id this logger already
+                resolves, so a caller that passes nothing sends the same request it
+                sent before.
+        """
+        ...
 
     async def aclose(self: Any) -> None:
         """
-        Close the shared aiohttp session (call from the loop that owns it).
+        Close the detection connection pool (call from the loop that sent on it).
+        
+                Delegates to the client, which owns the pool. Nothing to close when this logger
+                never built a client, which is the case for a Redis-mode logger.
         """
         ...
 
@@ -89,9 +107,12 @@ class LicensePlateMonitorLogger:
         """
         ...
 
-    def get_server_connection_info(self: Any) -> Dict[str, Any] | None:
+    def get_server_connection_info(self: Any) -> Any | None:
         """
-        Fetch server connection info from RPC.
+        The lpr-server's record: where it is, and which project it files under.
+        
+                Returns ``None`` -- never raises -- when there is no server id or the read
+                fails, which the caller treats as "plate logging is unavailable".
         """
         ...
 
@@ -169,7 +190,14 @@ class LicensePlateMonitorLogger:
         ...
 
 class LicensePlateMonitorUseCase:
-    def __init__(self: Any) -> None: ...
+    def __init__(self: Any, client: Optional[Any] = None) -> None:
+        """
+        Args:
+            client: The platform client to make calls through. Absent one, a client is
+                built on the session the config carries, so a caller that passes
+                nothing sends exactly the requests it sent before.
+        """
+        ...
 
     CATEGORY_DISPLAY: Dict[Any, Any]
 

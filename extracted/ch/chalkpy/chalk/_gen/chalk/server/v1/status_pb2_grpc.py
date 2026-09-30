@@ -3,6 +3,7 @@
 
 import grpc
 
+from chalk._gen.chalk.server.v1 import kube_cluster_health_pb2 as chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2
 from chalk._gen.chalk.server.v1 import status_pb2 as chalk_dot_server_dot_v1_dot_status__pb2
 
 
@@ -24,6 +25,16 @@ class HealthServiceStub(object):
             "/chalk.server.v1.HealthService/GetHealth",
             request_serializer=chalk_dot_server_dot_v1_dot_status__pb2.GetHealthRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_status__pb2.GetHealthResponse.FromString,
+        )
+        self.GetClusterHealth = channel.unary_unary(
+            "/chalk.server.v1.HealthService/GetClusterHealth",
+            request_serializer=chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.GetClusterHealthRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.GetClusterHealthResponse.FromString,
+        )
+        self.ListClusterDnsZones = channel.unary_unary(
+            "/chalk.server.v1.HealthService/ListClusterDnsZones",
+            request_serializer=chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.ListClusterDnsZonesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.ListClusterDnsZonesResponse.FromString,
         )
         self.GetClusterMetrics = channel.unary_unary(
             "/chalk.server.v1.HealthService/GetClusterMetrics",
@@ -47,6 +58,20 @@ class HealthServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetClusterHealth(self, request, context):
+        """Inspect an attached or pending Kubernetes cluster. Requested checks run
+        concurrently and retain report order.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListClusterDnsZones(self, request, context):
+        """Enumerate DNS zones visible to the selected cluster cloud credential."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetClusterMetrics(self, request, context):
         """Return collected cluster prometheus metrics"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -65,6 +90,16 @@ def add_HealthServiceServicer_to_server(servicer, server):
             servicer.GetHealth,
             request_deserializer=chalk_dot_server_dot_v1_dot_status__pb2.GetHealthRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_status__pb2.GetHealthResponse.SerializeToString,
+        ),
+        "GetClusterHealth": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClusterHealth,
+            request_deserializer=chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.GetClusterHealthRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.GetClusterHealthResponse.SerializeToString,
+        ),
+        "ListClusterDnsZones": grpc.unary_unary_rpc_method_handler(
+            servicer.ListClusterDnsZones,
+            request_deserializer=chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.ListClusterDnsZonesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.ListClusterDnsZonesResponse.SerializeToString,
         ),
         "GetClusterMetrics": grpc.unary_unary_rpc_method_handler(
             servicer.GetClusterMetrics,
@@ -128,6 +163,64 @@ class HealthService(object):
             "/chalk.server.v1.HealthService/GetHealth",
             chalk_dot_server_dot_v1_dot_status__pb2.GetHealthRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_status__pb2.GetHealthResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClusterHealth(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.HealthService/GetClusterHealth",
+            chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.GetClusterHealthRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.GetClusterHealthResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListClusterDnsZones(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.HealthService/ListClusterDnsZones",
+            chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.ListClusterDnsZonesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_kube__cluster__health__pb2.ListClusterDnsZonesResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -43,3 +43,25 @@ def build_google_batch_inlined_request(
     client, keeping every ``google.genai`` value at this provider boundary.
     """
     return types.InlinedRequest(contents=contents, config=config, metadata=metadata)
+
+
+def build_google_batch_config(*, response_schema: dict[str, Any]) -> Any:
+    """Build the structured-output config accepted by Gemini's Batch endpoint."""
+    return types.GenerateContentConfig(
+        response_mime_type="application/json", response_json_schema=response_schema
+    )
+
+
+def validate_google_batch_wire(
+    *, contents: Any, config: dict[str, Any], metadata: dict[str, str]
+) -> None:
+    """Raise when the Google SDK cannot serialize a Batch request's wire shape."""
+    from types import SimpleNamespace
+
+    from google.genai import batches
+
+    request = build_google_batch_inlined_request(
+        contents=contents, config=config, metadata=metadata
+    )
+    batches._InlinedRequest_to_mldev(SimpleNamespace(vertexai=False), request)
+    types.GenerateContentConfig.model_validate(config)

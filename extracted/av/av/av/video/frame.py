@@ -1,4 +1,5 @@
 import sys
+import threading
 from enum import IntEnum
 
 import cython
@@ -18,6 +19,9 @@ from cython.cimports.cpython.pycapsule import (
 from cython.cimports.cpython.ref import Py_DECREF, Py_INCREF
 from cython.cimports.hwcontext_cuda import AVCUDADeviceContext, CUstream
 from cython.cimports.libc.stdint import int64_t, uint8_t, uintptr_t
+
+# Holds the VideoReformatter shared by all frames converted on this thread.
+_thread_local = threading.local()
 
 
 @cython.cfunc
@@ -340,6 +344,7 @@ supported_np_pix_fmts = {
     "rgbf32le",
     "yuv420p",
     "yuv420p10le",
+    "yuv422p",
     "yuv422p10le",
     "yuv444p",
     "yuv444p16be",
@@ -479,7 +484,7 @@ def copy_bytes_to_plane(
     bytes_per_pixel: cython.uint,
     flip_horizontal: cython.bint,
     flip_vertical: cython.bint,
-):
+) -> cython.void:
     i_buf: cython.const[uint8_t][:] = img_bytes
     i_pos: cython.size_t = 0
     i_stride: cython.size_t = plane.width * bytes_per_pixel
@@ -514,7 +519,9 @@ def copy_bytes_to_plane(
 
 
 @cython.cfunc
-def copy_array_to_plane(array, plane: VideoPlane, bytes_per_pixel: cython.uint):
+def copy_array_to_plane(
+    array, plane: VideoPlane, bytes_per_pixel: cython.uint
+) -> cython.void:
     imgbytes: bytes = array.tobytes()
     copy_bytes_to_plane(imgbytes, plane, bytes_per_pixel, False, False)
 
@@ -556,7 +563,7 @@ def useful_array(
 
 
 @cython.cfunc
-def check_ndarray_shape(array: object, ok: cython.bint):
+def check_ndarray_shape(array: object, ok: cython.bint) -> cython.void:
     if not ok:
         raise ValueError(f"Unexpected numpy array shape `{array.shape}`")
 
@@ -572,7 +579,9 @@ class VideoFrame(Frame):
         self._init(c_format, width, height)
 
     @cython.cfunc
-    def _init(self, format: lib.AVPixelFormat, width: cython.uint, height: cython.uint):
+    def _init(
+        self, format: lib.AVPixelFormat, width: cython.uint, height: cython.uint
+    ) -> cython.void:
         res: cython.int = 0
 
         with cython.nogil:
@@ -591,7 +600,7 @@ class VideoFrame(Frame):
         self._init_user_attributes()
 
     @cython.cfunc
-    def _init_user_attributes(self):
+    def _init_user_attributes(self) -> cython.void:
         self.format = get_video_format(
             cython.cast(lib.AVPixelFormat, self.ptr.format),
             self.ptr.width,
@@ -697,10 +706,12 @@ class VideoFrame(Frame):
 
     @property
     def colorspace(self):
-        """Colorspace of frame.
+        """The YUV/RGB transformation matrix of the frame, as FFmpeg's raw
+        integer value. :class:`.Colorspace` names the values.
 
         Wraps :ffmpeg:`AVFrame.colorspace`.
 
+        :type: int
         """
         return self.ptr.colorspace
 
@@ -710,10 +721,12 @@ class VideoFrame(Frame):
 
     @property
     def color_range(self):
-        """Color range of frame.
+        """The signal range of the frame, as FFmpeg's raw integer value.
+        :class:`.ColorRange` names the values.
 
         Wraps :ffmpeg:`AVFrame.color_range`.
 
+        :type: int
         """
         return self.ptr.color_range
 
@@ -723,10 +736,13 @@ class VideoFrame(Frame):
 
     @property
     def color_trc(self):
-        """Transfer characteristic of frame.
+        """The linearization function (a.k.a. transfer characteristic) of the
+        frame, as FFmpeg's raw integer value. :class:`.ColorTrc` names the
+        values.
 
         Wraps :ffmpeg:`AVFrame.color_trc`.
 
+        :type: int
         """
         return self.ptr.color_trc
 
@@ -736,16 +752,35 @@ class VideoFrame(Frame):
 
     @property
     def color_primaries(self):
-        """Color primaries of frame.
+        """The RGB/XYZ matrix of the frame, as FFmpeg's raw integer value.
+        :class:`.ColorPrimaries` names the values.
 
         Wraps :ffmpeg:`AVFrame.color_primaries`.
 
+        :type: int
         """
         return self.ptr.color_primaries
 
     @color_primaries.setter
     def color_primaries(self, value):
         self.ptr.color_primaries = value
+
+    @property
+    def chroma_location(self):
+        """The position of the chroma samples relative to the luma samples, as
+        FFmpeg's raw integer value. :class:`.ChromaLocation` names the values.
+
+        Wraps :ffmpeg:`AVFrame.chroma_location`. FFmpeg spells the same field
+        ``chroma_sample_location`` on a codec context, and so does PyAV: see
+        :attr:`.VideoCodecContext.chroma_sample_location`.
+
+        :type: int
+        """
+        return self.ptr.chroma_location
+
+    @chroma_location.setter
+    def chroma_location(self, value):
+        self.ptr.chroma_location = value
 
     def reformat(self, *args, **kwargs):
         """reformat(width=None, height=None, format=None, src_colorspace=None, dst_colorspace=None, interpolation=None, threads=None)
@@ -755,9 +790,14 @@ class VideoFrame(Frame):
         .. seealso:: :meth:`.VideoReformatter.reformat` for arguments.
 
         """
-        if not self.reformatter:
-            self.reformatter = VideoReformatter()
-        return self.reformatter.reformat(self, *args, **kwargs)
+        # One SwsContext per thread rather than per frame: FFmpeg 8's swscale
+        # retains ~15MB of graph state for a context's lifetime, so a context
+        # per live frame is far too expensive. See #2320.
+        reformatter: VideoReformatter = getattr(_thread_local, "reformatter", None)
+        if reformatter is None:
+            reformatter = VideoReformatter()
+            _thread_local.reformatter = reformatter
+        return reformatter.reformat(self, *args, **kwargs)
 
     def to_rgb(self, **kwargs):
         """Get an RGB version of this frame.

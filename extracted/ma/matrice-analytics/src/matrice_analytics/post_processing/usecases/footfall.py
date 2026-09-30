@@ -7,15 +7,11 @@ zone-based analysis, tracking, and alerting capabilities.
 
 from __future__ import annotations
 
-import copy
-import logging
-import os
-import re
 import threading
 import time
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -27,6 +23,9 @@ from ..core.base import (
 )
 from ..core.config import AlertConfig, BaseConfig, LineConfig, ZoneConfig
 from ..Trackers import ConfigDrivenTracker, TrackerProfile
+from ..utils.post_processing_config_client import (
+    PostProcessingConfigClient as PostProcessingConfigClient,
+)
 
 
 # Footfall uses the same schema as people tracking; alias for compatibility across __init__.py, config, etc.
@@ -42,7 +41,9 @@ class FootFallConfig(BaseConfig):
     use_foot_center: bool = True
     # --- Polygon method settings ---
     outer_polygon: Optional[List[List[float]]] = None  # [[x,y], ...] vertices
-    inner_polygon: Optional[List[List[float]]] = None  # [[x,y], ...] vertices (auto-computed if None)
+    inner_polygon: Optional[List[List[float]]] = (
+        None  # [[x,y], ...] vertices (auto-computed if None)
+    )
     inner_polygon_offset: int = 20  # Pixels to inset outer_polygon when inner_polygon is None
 
     # --- ABLine (trap zone) method settings ---
@@ -91,7 +92,9 @@ class FootFallConfig(BaseConfig):
 
         if self.method == "abline":
             if self.in_direction not in ("A_to_B", "B_to_A"):
-                errors.append(f"in_direction must be 'A_to_B' or 'B_to_A', got '{self.in_direction}'")
+                errors.append(
+                    f"in_direction must be 'A_to_B' or 'B_to_A', got '{self.in_direction}'"
+                )
 
         # Geometry may be empty (filled from API via stream_info); at least one of lines or zones
         # is enforced at use time when creating the counter (or by API resolution in process()).
@@ -131,571 +134,41 @@ from ..utils.geometry_utils import get_bbox_bottom25_center, point_in_polygon  #
 # equivalent site uses different literals -- see that file's own S11 note).
 
 
-class _DeploymentIdHelper(BaseProcessor):
-    """Minimal BaseProcessor subclass only to use extract_deployment_ids from base (no logic duplication)."""
-
-    def __init__(self) -> None:
-        super().__init__("deployment_id_helper")
-
-    def process(
-        self,
-        data: Any,
-        _config: ConfigProtocol,
-        context: Optional[ProcessingContext] = None,
-    ) -> ProcessingResult:
-        _ = (_config,)
-        return self.create_result(data or {}, context=context)
+# ``PostProcessingConfigClient`` and its ``_DeploymentIdHelper`` used to be
+# declared here as well. The copy tracked the one in
+# ``utils/post_processing_config_client`` for eleven of its thirteen methods and
+# added none of its own, so it is imported rather than repeated -- which is also
+# what puts this module's camera lookups behind ``AnalyticsClient`` instead of a
+# raw ``rpc.get`` and a ``matrice.camera_management`` import.
 
 
-class PostProcessingConfigClient:
+def _get_trend(data: List[float], lookback: int = 900, threshold: float = 0.6) -> Optional[bool]:
+    """Whether a run of counts is rising, falling, or neither.
+
+    Works on the values themselves rather than on a rise/fall flag, so a count
+    that climbs 0,1,2,3 reads as rising just as one that alternates 0,1 does.
+
+    Args:
+        data: The counts, oldest first. Only the last ``lookback`` are read.
+        lookback: How many of the most recent counts to judge on.
+        threshold: The share of steps that must agree before a direction is
+            called. The mirror of it decides the falling case.
+
+    Returns:
+        ``True`` when rising, ``False`` when falling, and ``None`` when the run
+        is too mixed to call. Fewer than two counts reads as ``True``: there is
+        no evidence of a fall, and an alert is the safer default.
     """
-    Wrapper for Matrice post-processing config: session, stream identifiers,
-    REST fetch by app deployment, and config filtering by camera_id.
-    """
-
-    def __init__(
-        self,
-        session: Optional[Any] = None,
-        access_key: Optional[str] = None,
-        secret_key: Optional[str] = None,
-        account_number: Optional[str] = None,
-        logger: Optional[logging.Logger] = None,
-    ) -> None:
-        """Create client with optional session or credentials (from args or env).
-
-        Credentials are loaded in order: constructor args, then env vars
-        (MATRICE_ACCESS_KEY_ID, MATRICE_SECRET_ACCESS_KEY, MATRICE_ACCOUNT_NUMBER).
-        If session is provided, it is used and credentials are taken from it when needed for RPC.
-
-        Parameters
-        ----------
-        session : object, optional
-            Matrice session (e.g. from matrice_common.session.Session). If None, one is
-            created from access_key/secret_key/account_number (args or env).
-        access_key : str, optional
-            Matrice API access key. Default from MATRICE_ACCESS_KEY_ID.
-        secret_key : str, optional
-            Matrice API secret key. Default from MATRICE_SECRET_ACCESS_KEY.
-        account_number : str, optional
-            Account number. Default from MATRICE_ACCOUNT_NUMBER (default "").
-        logger : logging.Logger, optional
-            Logger to use. Defaults to module logger.
-        """
-        self.logger = logger or logging.getLogger(__name__)
-        self._session: Optional[Any] = session
-        self._access_key = access_key or os.getenv("MATRICE_ACCESS_KEY_ID", "")
-        self._secret_key = secret_key or os.getenv("MATRICE_SECRET_ACCESS_KEY", "")
-        self._account_number = account_number or os.getenv("MATRICE_ACCOUNT_NUMBER") or ""
-
-        if self._session is None and (self._access_key and self._secret_key):
-            try:
-                from matrice_common.session import Session
-
-                self._session = Session(
-                    access_key=self._access_key,
-                    secret_key=self._secret_key,
-                    account_number=self._account_number,
-                )
-                self.logger.info("Initialized Matrice session for post-processing config client")
-            except Exception as exc:
-                self.logger.error(
-                    "Failed to initialize Matrice session for post-processing config client: %s",
-                    exc,
-                    exc_info=True,
-                )
-                self._session = None
-        elif self._session is not None:
-            self._access_key = getattr(self._session, "access_key", None) or self._access_key
-            self._secret_key = getattr(self._session, "secret_key", None) or self._secret_key
-            self._account_number = getattr(self._session, "account_number", None) or self._account_number
-        elif not self._access_key or not self._secret_key:
-            self.logger.warning(
-                "Missing Matrice credentials; cannot initialize session for post-processing config client"
-            )
-
-        # In-memory cache for configs keyed by camera_id (e.g. from set_config_cache_from_api).
-        self._config_by_camera: Dict[str, Dict[str, Any]] = {}
-        # Use base's extract_deployment_ids via a minimal BaseProcessor subclass (no logic in this file).
-        self._deployment_id_helper = _DeploymentIdHelper()
-
-    @property
-    def session(self) -> Any:
-        """Return the matrice_common Session (read-only)."""
-        if self._session is None:
-            raise RuntimeError("Session not initialized")
-        return self._session
-
-    def _to_pixel(self, normalized: Any, dimension_size: int) -> int:
-        """Convert a single normalized value (0–1) to integer pixel coordinate."""
-        try:
-            return int(round(float(normalized) * dimension_size))
-        except (TypeError, ValueError):
-            return 0
-
-    @staticmethod
-    def _is_normalized_points(points: Any) -> bool:
-        """Return True when every coordinate value in ``points`` is in the range [0, 1].
-
-        A polygon is considered normalized when **all** x and y values satisfy
-        ``0 <= v <= 1``.  If any value exceeds 1 the points are already in pixel
-        space and must not be scaled again.
-        """
-        if not isinstance(points, list) or not points:
-            return False
-        for pt in points:
-            if not isinstance(pt, (list, tuple)) or len(pt) < 2:
-                return False
-            for v in pt[:2]:
-                try:
-                    fv = float(v)
-                except (TypeError, ValueError):
-                    return False
-                if not (0.0 <= fv <= 1.0):
-                    return False
+    window = data[-lookback:] if len(data) >= lookback else data
+    if len(window) < 2:
         return True
-
-    def _denormalize_points(
-        self,
-        points: Any,
-        width: int,
-        height: int,
-    ) -> List[List[int]]:
-        """Convert a list of [x_norm, y_norm] to [[x_px, y_px], ...].
-
-        If the points are already in pixel space (any value > 1) they are
-        returned as-is (cast to int) without any scaling.
-        """
-        result: List[List[int]] = []
-        if not isinstance(points, list):
-            return result
-
-        if not self._is_normalized_points(points):
-            for pt in points:
-                if not isinstance(pt, (list, tuple)) or len(pt) < 2:
-                    continue
-                result.append([int(round(float(pt[0]))), int(round(float(pt[1])))])
-            return result
-
-        for pt in points:
-            if not isinstance(pt, (list, tuple)) or len(pt) < 2:
-                continue
-            x_norm, y_norm = pt[0], pt[1]
-            result.append(
-                [
-                    self._to_pixel(x_norm, width),
-                    self._to_pixel(y_norm, height),
-                ]
-            )
-        return result
-
-    def _denormalize_zone_config(
-        self,
-        zone_config: Dict[str, Any],
-        width: int,
-        height: int,
-    ) -> Dict[str, Any]:
-        """Convert zone_config lines and zones from normalized to integer pixel coords.
-
-        Each polygon is checked individually: if its points are already in pixel
-        space (any coordinate value > 1) the polygon is left unchanged.  Only
-        polygons whose coordinates are all in [0, 1] are scaled.
-        """
-        out: Dict[str, Any] = copy.deepcopy(zone_config)
-        lines = out.get("lines") or {}
-        zones = out.get("zones") or {}
-        if isinstance(lines, dict):
-            out["lines"] = {
-                name: self._denormalize_points(pts, width, height)
-                for name, pts in lines.items()
-                if isinstance(pts, list)
-            }
-        if isinstance(zones, dict):
-            out["zones"] = {
-                name: self._denormalize_points(pts, width, height)
-                for name, pts in zones.items()
-                if isinstance(pts, list)
-            }
-        return out
-
-    # ------------------------------------------------------------------ #
-    # Stream identifiers (camera_id, application_id, app_deployment_id)  #
-    # ------------------------------------------------------------------ #
-
-    def get_stream_identifiers(self, stream_info: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
-        """Return camera_id, application_id, and app_deployment_id from stream_info.
-
-        application_id and app_deployment_id come from base via self._deployment_id_helper
-        (ids = self._deployment_id_helper.extract_deployment_ids(stream_info)).
-        camera_id follows face_recognition-style extraction (topic, camera_info, frame_id).
-
-        Returns
-        -------
-        dict
-            Keys: ``camera_id``, ``application_id``, ``app_deployment_id``.
-            Values are strings (empty if not found).
-        """
-        result: Dict[str, str] = {
-            "camera_id": "",
-            "application_id": "",
-            "app_deployment_id": "",
-        }
-        if not stream_info or not isinstance(stream_info, dict):
-            return result
-
-        # Use base.py: extract_deployment_ids(stream_info) via minimal BaseProcessor subclass
-        deployment = self._deployment_id_helper.extract_deployment_ids(stream_info)
-        result["application_id"] = (deployment.get("application_id") or "").strip()
-        result["app_deployment_id"] = (deployment.get("app_deployment_id") or "").strip()
-
-        # Helpers aligned with face_recognition._extract_camera_info_from_stream
-        def _to_str(value: Any) -> str:
-            if value is None:
-                return ""
-            if isinstance(value, str):
-                return value.strip()
-            if isinstance(value, (int, float)):
-                return str(value)
-            if isinstance(value, dict):
-                return ""
-            if isinstance(value, (list, tuple, set)):
-                for item in value:
-                    s = _to_str(item)
-                    if s:
-                        return s
-                return ""
-            try:
-                return str(value).strip()
-            except Exception:
-                return ""
-
-        def _dict_get_str(d: Any, *keys: str) -> str:
-            if not isinstance(d, dict):
-                return ""
-            for k in keys:
-                val = _to_str(d.get(k))
-                if val:
-                    return val
-            return ""
-
-        def _extract_camera_id_from_topic(topic_val: Any) -> str:
-            topic = _to_str(topic_val)
-            if not topic:
-                return ""
-            for suffix in ("_input_topic", "_input-topic"):
-                if topic.endswith(suffix):
-                    return topic[: -len(suffix)].strip()
-            for marker in ("_input_topic", "_input-topic"):
-                if marker in topic:
-                    return topic.split(marker)[0].strip()
-            return ""
-
-        def _extract_camera_id_from_frame_id(frame_id_val: Any) -> str:
-            fid = _to_str(frame_id_val)
-            if not fid or not fid.startswith("legacy_"):
-                return ""
-            parts = fid.split("_")
-            if len(parts) >= 3:
-                candidate = parts[1].strip()
-                if candidate and re.fullmatch(r"[0-9a-f]{8,}", candidate, re.IGNORECASE):
-                    return candidate
-            return ""
-
-        input_settings = stream_info.get("input_settings") or {}
-        if not isinstance(input_settings, dict):
-            input_settings = {}
-
-        camera_info_root = stream_info.get("camera_info") or {}
-        if not isinstance(camera_info_root, dict):
-            camera_info_root = {}
-
-        camera_info_input_settings = input_settings.get("camera_info") or {}
-        if not isinstance(camera_info_input_settings, dict):
-            camera_info_input_settings = {}
-
-        input_stream = input_settings.get("input_stream") or {}
-        if not isinstance(input_stream, dict):
-            input_stream = {}
-
-        camera_info_input_stream = input_stream.get("camera_info") or {}
-        if not isinstance(camera_info_input_stream, dict):
-            camera_info_input_stream = {}
-
-        input_streams = stream_info.get("input_streams") or []
-        input_stream_candidates: List[Dict[str, Any]] = []
-        if isinstance(input_streams, list):
-            for item in input_streams:
-                if not isinstance(item, dict):
-                    continue
-                inner = item.get("input_stream", item)
-                if not isinstance(inner, dict):
-                    continue
-                input_stream_candidates.append(inner)
-
-        def _camera_id_from_camera_info(ci: Dict[str, Any]) -> str:
-            return _dict_get_str(ci, "camera_id", "cameraId", "_id", "id")
-
-        # Topic: stream_info["topic"], input_settings["topic"], stream_info["topics"]
-        topic_camera_id = _extract_camera_id_from_topic(stream_info.get("topic")) or _extract_camera_id_from_topic(
-            input_settings.get("topic")
-        )
-        if not topic_camera_id:
-            topics_val = stream_info.get("topics")
-            if isinstance(topics_val, (list, tuple, set)):
-                for t in topics_val:
-                    topic_camera_id = _extract_camera_id_from_topic(t)
-                    if topic_camera_id:
-                        break
-
-        # camera_id: prefer topic-derived, then direct keys, then camera_info chain, then frame_id
-        if topic_camera_id:
-            result["camera_id"] = topic_camera_id
-        if not result["camera_id"]:
-            result["camera_id"] = (
-                _dict_get_str(stream_info, "camera_id", "cameraId")
-                or _dict_get_str(input_settings, "camera_id", "cameraId")
-                or _camera_id_from_camera_info(camera_info_root)
-                or _camera_id_from_camera_info(camera_info_input_settings)
-                or _camera_id_from_camera_info(camera_info_input_stream)
-            )
-            if not result["camera_id"]:
-                for candidate in input_stream_candidates:
-                    result["camera_id"] = _dict_get_str(candidate, "camera_id", "cameraId", "_id", "id")
-                    if result["camera_id"]:
-                        break
-            if not result["camera_id"]:
-                result["camera_id"] = topic_camera_id or ""
-        if not result["camera_id"]:
-            result["camera_id"] = _extract_camera_id_from_frame_id(stream_info.get("frame_id"))
-
-        if result["camera_id"] and not isinstance(result["camera_id"], str):
-            result["camera_id"] = str(result["camera_id"])
-        return result
-
-    def get_post_processing_configs_by_app_deployment(
-        self,
-        app_deployment_id: str,
-    ) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str], Optional[str]]:
-        """Fetch all post-processing configs for an app deployment via Matrice API.
-
-        Uses: GET /v1/inference/post_processing_configs/by_app_deployment/:appDeploymentId
-
-        Parameters
-        ----------
-        app_deployment_id : str
-            Application deployment ID.
-
-        Returns
-        -------
-        tuple of (data, error, message)
-            - data: List of config objects, or None on failure.
-            - error: Error string or None on success.
-            - message: API message string.
-        """
-        try:
-            from matrice_common.rpc import RPC
-
-            rpc = RPC(  # ← move it in here
-                access_key=self._access_key,
-                secret_key=self._secret_key,
-            )
-        except ImportError:
-            self.logger.error("matrice_common.rpc not available")
-            return None, "matrice_common.rpc not installed", None
-        except Exception as e:
-            self.logger.exception("RPC init failed")
-            return None, str(e), None
-        path = f"/v1/inference/post_processing_configs/by_app_deployment/{app_deployment_id}"
-
-        try:
-            response = rpc.get(path)
-            if isinstance(response, dict) and response.get("success"):
-                return (
-                    response.get("data", []),
-                    None,
-                    response.get("message", "Success"),
-                )
-            err = response.get("message", "Unknown error") if isinstance(response, dict) else str(response)
-            return None, err, None
-        except Exception as e:
-            self.logger.exception("get_post_processing_configs_by_app_deployment failed")
-            return None, str(e), None
-
-    def filter_configs_by_camera_id(
-        self,
-        configs: List[Dict[str, Any]],
-        camera_id: str,
-    ) -> List[Dict[str, Any]]:
-        """Filter a list of config documents to those that contain config for the given camera_id.
-
-        Each config item has ``postProcessing`` keyed by camera ID; this returns
-        only items whose ``postProcessing`` has an entry for `camera_id`.
-
-        Parameters
-        ----------
-        configs : list of dict
-            List of config objects (e.g. from get_post_processing_configs_by_app_deployment).
-        camera_id : str
-            Camera ID to filter by.
-
-        Returns
-        -------
-        list of dict
-            Configs that have postProcessing[camera_id].
-        """
-        if not camera_id or not configs:
-            return []
-        out = []
-        for doc in configs:
-            post = doc.get("postProcessing") or {}
-            if isinstance(post, dict) and camera_id in post:
-                out.append(doc)
-        return out
-
-    def get_config_for_camera(
-        self,
-        camera_id: str,
-    ) -> Optional[Dict[str, Any]]:
-        """Return the current post-processing config for a camera from the cache.
-
-        The cache is populated by set_config_cache_from_api (REST load).
-
-        Parameters
-        ----------
-        camera_id : str
-            Camera ID.
-
-        Returns
-        -------
-        dict or None
-            Cached config for this camera, or None if not present.
-        """
-        if not camera_id:
-            return None
-        return self._config_by_camera.get(str(camera_id))
-
-    def set_config_cache_from_api(
-        self,
-        configs: List[Dict[str, Any]],
-    ) -> None:
-        """Populate the config cache from a list of configs (e.g. from REST API).
-
-        For each config doc, each key in postProcessing is treated as a camera_id
-        and stored in the cache.
-
-        Parameters
-        ----------
-        configs : list of dict
-            List of config objects from get_post_processing_configs_by_app_deployment.
-        """
-        for doc in configs or []:
-            post = doc.get("postProcessing") or {}
-            if not isinstance(post, dict):
-                continue
-            for cid, cam_cfg in post.items():
-                if not cid:
-                    continue
-                cid = str(cid)
-                self._config_by_camera[cid] = {
-                    "_id": doc.get("_id"),
-                    "_idCamera": doc.get("_idCamera"),
-                    "_idApplication": doc.get("_idApplication"),
-                    "_idAppDeployment": doc.get("_idAppDeployment"),
-                    "postProcessing": {cid: cam_cfg},
-                    "createdAt": doc.get("createdAt"),
-                    "updatedAt": doc.get("updatedAt"),
-                }
-        self.logger.info("Config cache updated from API: %d camera(s)", len(self._config_by_camera))
-
-    def get_resolution(self, camera_id: str) -> Tuple[Optional[int], Optional[int]]:
-        """Get frame width and height for a camera by its ID.
-
-        Fetches camera streams via CameraManagement and reads customStreamSettings.
-        Return order is (width, height) as requested for use with denormalize_config.
-
-        Parameters
-        ----------
-        camera_id : str
-            Camera ID (as returned by get_stream_identifiers or API).
-
-        Returns
-        -------
-        tuple of (width, height)
-            Pixel dimensions, or (None, None) if not found or on error.
-        """
-        try:
-            from matrice.camera_management import CameraManagement
-        except ImportError:
-            self.logger.warning("matrice.camera_management not available; install py_matrice for get_resolution")
-            return (None, None)
-        try:
-            camera_mgmt = CameraManagement(self.session)
-            all_cameras, fetch_error, _ = camera_mgmt.get_camera_streams_by_account()
-            if fetch_error or not all_cameras:
-                self.logger.warning("get_resolution: fetch_error=%s or no cameras", fetch_error)
-                return (None, None)
-            for cam in all_cameras:
-                cid = cam.get("id") or cam.get("_id")
-                if cid != camera_id:
-                    continue
-                settings = cam.get("customStreamSettings") or {}
-                if not isinstance(settings, dict):
-                    return (None, None)
-                w = settings.get("width")
-                h = settings.get("height")
-                if w is not None and h is not None:
-                    return (int(w), int(h))
-                return (None, None)
-            self.logger.warning("get_resolution: camera_id %s not found", camera_id)
-            return (None, None)
-        except Exception:
-            self.logger.exception("get_resolution failed for camera_id=%s", camera_id)
-            return (None, None)
-
-    def denormalize_config(
-        self,
-        config: Union[Dict[str, Any], List[Dict[str, Any]]],
-        width: int,
-        height: int,
-    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
-        """Convert normalized (0–1) line/zone coordinates to integer pixel coordinates.
-
-        Takes the same structure returned by get_post_processing_configs_by_app_deployment
-        (single doc or list of docs) and converts every coordinate in postProcessing
-        .<camera_id>.zone_config.lines and .zones to pixels using:
-          pixel_x = round(norm_x * width),  pixel_y = round(norm_y * height).
-
-        Parameters
-        ----------
-        config : dict or list of dict
-            One config document or list of configs (with postProcessing, _id, etc.).
-        width : int
-            Frame width in pixels (e.g. from get_resolution).
-        height : int
-            Frame height in pixels (e.g. from get_resolution).
-
-        Returns
-        -------
-        dict or list of dict
-            New config(s) with the same structure and integer coordinates.
-        """
-        if isinstance(config, list):
-            return [self.denormalize_config(doc, width, height) for doc in config]
-        if not isinstance(config, dict):
-            return config
-        out = copy.deepcopy(config)
-        post = out.get("postProcessing") or {}
-        if not isinstance(post, dict):
-            return out
-        for cid, cam_cfg in list(post.items()):
-            if not isinstance(cam_cfg, dict):
-                continue
-            zone_cfg = cam_cfg.get("zone_config")
-            if isinstance(zone_cfg, dict):
-                post[cid] = {
-                    **cam_cfg,
-                    "zone_config": self._denormalize_zone_config(zone_cfg, width, height),
-                }
-        return out
+    increasing = sum(1 for i in range(1, len(window)) if window[i] >= window[i - 1])
+    ratio = increasing / (len(window) - 1)
+    if ratio >= threshold:
+        return True
+    if ratio <= (1 - threshold):
+        return False
+    return None
 
 
 _GEOMETRY_RETRY_INTERVAL = 30  # Seconds between background retry attempts when API fails
@@ -770,7 +243,9 @@ class FootFallUseCase(BaseProcessor):
         self.start_timer = None
 
         # Line crossing tracking storage
-        self._line_crossed_tracks: Dict[str, Set[Any]] = {}  # "side1_to_side2": set of track_ids that crossed
+        self._line_crossed_tracks: Dict[
+            str, Set[Any]
+        ] = {}  # "side1_to_side2": set of track_ids that crossed
         self._side1_label: str = "Side A"
         self._side2_label: str = "Side B"
 
@@ -825,7 +300,7 @@ class FootFallUseCase(BaseProcessor):
                         "Footfall: API geometry returned None, retrying in %ds",
                         _GEOMETRY_RETRY_INTERVAL,
                     )
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - a background retry must never take the thread down
                     self.logger.warning("Footfall: background geometry resolve error: %s", exc)
                 time.sleep(_GEOMETRY_RETRY_INTERVAL)
 
@@ -833,6 +308,87 @@ class FootFallUseCase(BaseProcessor):
         self._geometry_thread = t
         t.start()
         self.logger.info("Footfall: started background geometry resolver thread")
+
+    def _resolve_geometry_on_first_frame(
+        self, config: FootFallConfig, stream_info: Optional[Dict[str, Any]]
+    ) -> None:
+        """Fetch the camera's lines and zones once, on the first frame that can.
+
+        Blocking is acceptable here and only here: without geometry the frame
+        cannot be counted at all, so there is nothing to lose by waiting. Every
+        later attempt is handed to the background resolver instead, which is why
+        a failure starts that thread rather than retrying inline -- one slow API
+        call must not be paid again on every frame.
+
+        Does nothing once geometry is cached, or once the resolver is running.
+
+        Args:
+            config: This run's configuration, used as the base for the resolved one.
+            stream_info: The frame's stream metadata, which names the camera.
+        """
+        if (
+            not stream_info
+            or self._resolved_geometry_cache is not None
+            or self._geometry_thread is not None
+        ):
+            return
+
+        self.logger.info("Footfall: resolving geometry from API (first frame, blocking)")
+        try:
+            resolved = self._resolve_geometry_from_api(config, stream_info)
+            if resolved is not None:
+                self._resolved_geometry_cache = resolved
+                self.logger.info("Footfall: geometry resolved and cached on first frame")
+                return
+            self.logger.warning(
+                "Footfall: API returned None on first frame; "
+                "starting background retry thread (will not block future frames)"
+            )
+            self._start_geometry_resolver(config, stream_info)
+        except Exception as exc:  # noqa: BLE001 - any resolve failure hands off to the retry thread
+            self.logger.warning(
+                "Footfall: geometry resolution raised on first frame: %s; "
+                "starting background retry thread",
+                exc,
+            )
+            self._start_geometry_resolver(config, stream_info)
+
+    def _geometry_client(self, stream_info: Optional[Dict[str, Any]]) -> Optional[Any]:
+        """The config client to resolve geometry through, or ``None``.
+
+        Tried in order: the one set on this use case, the one the caller put in
+        ``stream_info``, and finally one built from the environment. The built
+        one is kept only when it came up with a session -- a client without one
+        refuses every call, so holding it would turn a missing credential into a
+        per-frame failure instead of a single skip.
+
+        Args:
+            stream_info: The frame's stream metadata, which may carry a client.
+
+        Returns:
+            A usable client, or ``None`` when geometry cannot be resolved.
+        """
+        client = self._config_client or (stream_info.get("config_client") if stream_info else None)
+        if client or not stream_info:
+            return client
+
+        try:
+            client = PostProcessingConfigClient(logger=self.logger)
+            if getattr(client, "_session", None) is None:
+                self.logger.info(
+                    "Footfall: _resolve_geometry_from_api skipped (no config_client; set "
+                    "MATRICE_ACCESS_KEY_ID, MATRICE_SECRET_ACCESS_KEY, MATRICE_ACCOUNT_NUMBER "
+                    "or call set_config_client() for API geometry resolution)"
+                )
+                return None
+            self._config_client = client
+        except Exception as exc:  # noqa: BLE001 - a client that cannot be built is a skip, not a fault
+            self.logger.warning(
+                "Footfall: _resolve_geometry_from_api could not create config client from env: %s",
+                exc,
+            )
+            return None
+        return client
 
     def _resolve_geometry_from_api(
         self,
@@ -850,24 +406,7 @@ class FootFallUseCase(BaseProcessor):
         (1) set_config_client(), (2) stream_info["config_client"] if provided,
         (3) lazy-creation from MATRICE_ACCESS_KEY_ID / MATRICE_SECRET_ACCESS_KEY / MATRICE_ACCOUNT_NUMBER.
         """
-        client = self._config_client or (stream_info.get("config_client") if stream_info else None)
-        if not client and stream_info:
-            try:
-                client = PostProcessingConfigClient(logger=self.logger)
-                if getattr(client, "_session", None) is None:
-                    self.logger.info(
-                        "Footfall: _resolve_geometry_from_api skipped (no config_client; set "
-                        "MATRICE_ACCESS_KEY_ID, MATRICE_SECRET_ACCESS_KEY, MATRICE_ACCOUNT_NUMBER "
-                        "or call set_config_client() for API geometry resolution)"
-                    )
-                    return None
-                self._config_client = client
-            except Exception as e:
-                self.logger.warning(
-                    "Footfall: _resolve_geometry_from_api could not create config client from env: %s",
-                    e,
-                )
-                return None
+        client = self._geometry_client(stream_info)
         if not stream_info:
             self.logger.info("Footfall: _resolve_geometry_from_api skipped (no stream_info)")
             return None
@@ -891,7 +430,9 @@ class FootFallUseCase(BaseProcessor):
             camera_id,
         )
         if not app_deployment_id or not camera_id:
-            self.logger.info("_resolve_geometry_from_api: returning None (missing app_deployment_id or camera_id)")
+            self.logger.info(
+                "_resolve_geometry_from_api: returning None (missing app_deployment_id or camera_id)"
+            )
             return None
         configs, err, _ = client.get_post_processing_configs_by_app_deployment(app_deployment_id)
         if err or not configs:
@@ -984,7 +525,9 @@ class FootFallUseCase(BaseProcessor):
         Returns:
             ProcessingResult: Processing result with standardized agg_summary structure
         """
-        processing_start = time.time()
+        # Monotonic, not wall clock: this is a duration, and an NTP step
+        # mid-frame would otherwise report a negative or absurd latency.
+        processing_start = time.monotonic()
         self.logger.debug("stream_info: %s", stream_info)
         try:
             if not isinstance(config, FootFallConfig):
@@ -1000,26 +543,7 @@ class FootFallUseCase(BaseProcessor):
             # retries every _GEOMETRY_RETRY_INTERVAL seconds without blocking
             # frame processing.  Subsequent frames skip this block entirely via
             # the _geometry_thread guard, so there is zero per-frame API overhead.
-            if stream_info and self._resolved_geometry_cache is None and self._geometry_thread is None:
-                self.logger.info("Footfall: resolving geometry from API (first frame, blocking)")
-                try:
-                    resolved = self._resolve_geometry_from_api(config, stream_info)
-                    # resolved=None
-                    if resolved is not None:
-                        self._resolved_geometry_cache = resolved
-                        self.logger.info("Footfall: geometry resolved and cached on first frame")
-                    else:
-                        self.logger.warning(
-                            "Footfall: API returned None on first frame; "
-                            "starting background retry thread (will not block future frames)"
-                        )
-                        self._start_geometry_resolver(config, stream_info)
-                except Exception as exc:
-                    self.logger.warning(
-                        "Footfall: geometry resolution raised on first frame: %s; starting background retry thread",
-                        exc,
-                    )
-                    self._start_geometry_resolver(config, stream_info)
+            self._resolve_geometry_on_first_frame(config, stream_info)
 
             # Use resolved if available, else fallback to original
             _resolved = self._resolved_geometry_cache
@@ -1052,7 +576,11 @@ class FootFallUseCase(BaseProcessor):
 
             # --- 2. Confidence filter ---
             if config.confidence_threshold is not None:
-                processed_data = [d for d in processed_data if d.get("confidence", 0) >= config.confidence_threshold]
+                processed_data = [
+                    d
+                    for d in processed_data
+                    if d.get("confidence", 0) >= config.confidence_threshold
+                ]
 
             # --- 3. Category mapping ---
             if config.index_to_category:
@@ -1060,7 +588,9 @@ class FootFallUseCase(BaseProcessor):
 
             # --- 4. Person category filter ---
             if config.person_categories:
-                processed_data = [d for d in processed_data if d.get("category") in config.person_categories]
+                processed_data = [
+                    d for d in processed_data if d.get("category") in config.person_categories
+                ]
 
             # --- 5. Normalize track_id field ---
             for det in processed_data:
@@ -1106,7 +636,9 @@ class FootFallUseCase(BaseProcessor):
             }
             for detection in processed_data:
                 category = detection.get("category", "unknown")
-                counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
+                counting_summary["categories"][category] = (
+                    counting_summary["categories"].get(category, 0) + 1
+                )
 
             # self._update_tracking_state(counting_summary)
             self._total_frame_counter += 1
@@ -1135,7 +667,9 @@ class FootFallUseCase(BaseProcessor):
             # Pre-compute values used by multiple output generators
             _frame_id_str = str(frame_number)
             _camera_info = self.get_camera_info_from_stream(stream_info)
-            _ts_current = self._get_current_timestamp_str(stream_info, precision=True, frame_id=_frame_id_str)
+            _ts_current = self._get_current_timestamp_str(
+                stream_info, precision=True, frame_id=_frame_id_str
+            )
             _ts_start = self._get_start_timestamp_str(stream_info, precision=True)
 
             tracking_stats_list = self._generate_tracking_stats(
@@ -1189,7 +723,7 @@ class FootFallUseCase(BaseProcessor):
                 context=context,
             )
 
-            proc_time = time.time() - processing_start
+            proc_time = time.monotonic() - processing_start
             if self._total_frame_counter % 100 == 0:
                 processing_latency_ms = proc_time * 1000.0
                 processing_fps = (1.0 / proc_time) if proc_time > 0 else None
@@ -1257,7 +791,9 @@ class FootFallUseCase(BaseProcessor):
             raise ValueError(f"Unknown counting method: {config.method}")
 
         self._counter_method = config.method
-        self.logger.info(f"Created {config.method} counter (use_foot_center={config.use_foot_center})")
+        self.logger.info(
+            f"Created {config.method} counter (use_foot_center={config.use_foot_center})"
+        )
         return self._counter
 
     def _apply_ab_grace_period(
@@ -1302,7 +838,7 @@ class FootFallUseCase(BaseProcessor):
                 self._ab_track_lost_count[tid] = 0
 
         # Refresh last-known boxes for every track visible this frame
-        for box, tid in zip(boxes, (int(t) for t in track_ids)):
+        for box, tid in zip(boxes, (int(t) for t in track_ids), strict=False):
             self._ab_track_last_boxes[tid] = box.tolist()
 
         if not ghost_boxes:
@@ -1378,6 +914,31 @@ class FootFallUseCase(BaseProcessor):
     # Existing helper methods (preserved from original)                   #
     # ------------------------------------------------------------------ #
 
+    def _build_alert_settings(self, config: FootFallConfig) -> List[Dict[str, Any]]:
+        """The alert-settings block carried on an incident or a tracking stat.
+
+        Args:
+            config: This run's configuration.
+
+        Returns:
+            A single-entry list when the config declares alert types, else ``[]``.
+        """
+        if not (config.alert_config and hasattr(config.alert_config, "alert_type")):
+            return []
+        alert_type = getattr(config.alert_config, "alert_type", ["Default"])
+        alert_value = getattr(config.alert_config, "alert_value", ["JSON"])
+        return [
+            {
+                "alert_type": alert_type,
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": getattr(config.alert_config, "count_thresholds", {}),
+                "ascending": True,
+                # Types and values are paired positionally, and a config that declares
+                # more of one than the other keeps the shorter pairing.
+                "settings": dict(zip(alert_type, alert_value)),  # noqa: B905
+            }
+        ]
+
     def _generate_incidents(
         self,
         counting_summary: Dict,
@@ -1396,40 +957,13 @@ class FootFallUseCase(BaseProcessor):
         total_people = counting_summary.get("total_objects", 0)
         current_timestamp = self._get_current_timestamp_str(stream_info, frame_id=frame_id)
         self._ascending_alert_list = (
-            self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
+            self._ascending_alert_list[-900:]
+            if len(self._ascending_alert_list) > 900
+            else self._ascending_alert_list
         )
 
         alert_settings = []
-        if config.alert_config and hasattr(config.alert_config, "alert_type"):
-            alert_settings.append(
-                {
-                    "alert_type": (
-                        getattr(config.alert_config, "alert_type", ["Default"])
-                        if hasattr(config.alert_config, "alert_type")
-                        else ["Default"]
-                    ),
-                    "incident_category": self.CASE_TYPE,
-                    "threshold_level": (
-                        config.alert_config.count_thresholds if hasattr(config.alert_config, "count_thresholds") else {}
-                    ),
-                    "ascending": True,
-                    "settings": {
-                        t: v
-                        for t, v in zip(
-                            (
-                                getattr(config.alert_config, "alert_type", ["Default"])
-                                if hasattr(config.alert_config, "alert_type")
-                                else ["Default"]
-                            ),
-                            (
-                                getattr(config.alert_config, "alert_value", ["JSON"])
-                                if hasattr(config.alert_config, "alert_value")
-                                else ["JSON"]
-                            ),
-                        )
-                    },
-                }
-            )
+        alert_settings.extend(self._build_alert_settings(config))
 
         if total_people > 0:
             # Determine event level based on thresholds
@@ -1438,7 +972,10 @@ class FootFallUseCase(BaseProcessor):
             if start_timestamp and self.current_incident_end_timestamp == "N/A":
                 self.current_incident_end_timestamp = "Incident still active"
             elif start_timestamp and self.current_incident_end_timestamp == "Incident still active":
-                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5:
+                if (
+                    len(self._ascending_alert_list) >= 15
+                    and sum(self._ascending_alert_list[-15:]) / 15 < 1.5
+                ):
                     self.current_incident_end_timestamp = current_timestamp
             elif (
                 self.current_incident_end_timestamp != "Incident still active"
@@ -1511,7 +1048,7 @@ class FootFallUseCase(BaseProcessor):
         _zone_analysis: Dict,
         config: FootFallConfig,
         frame_id: str,
-        alerts: Any = [],
+        alerts: Any = (),
         stream_info: Optional[Dict[str, Any]] = None,
         _line_analysis: Optional[Dict] = None,
         counter=None,
@@ -1543,7 +1080,9 @@ class FootFallUseCase(BaseProcessor):
         current_new_counts = []
         if counter is not None:
             current_new_counts.append(self.create_count_object("in", getattr(counter, "new_in", 0)))
-            current_new_counts.append(self.create_count_object("out", getattr(counter, "new_out", 0)))
+            current_new_counts.append(
+                self.create_count_object("out", getattr(counter, "new_out", 0))
+            )
 
         # Prepare detections:
         #   1. Only include detections that are inside the trap zone (Zone 2 — between Line A and B).
@@ -1599,47 +1138,24 @@ class FootFallUseCase(BaseProcessor):
             category = self._get_detection_direction(track_id, counter)
 
             if detection.get("masks"):
-                detection_obj = self.create_detection_object(category, bbox, segmentation=detection.get("masks", []))
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=detection.get("masks", [])
+                )
             elif detection.get("segmentation"):
-                detection_obj = self.create_detection_object(category, bbox, segmentation=detection.get("segmentation"))
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=detection.get("segmentation")
+                )
             elif detection.get("mask"):
-                detection_obj = self.create_detection_object(category, bbox, segmentation=detection.get("mask"))
+                detection_obj = self.create_detection_object(
+                    category, bbox, segmentation=detection.get("mask")
+                )
             else:
                 detection_obj = self.create_detection_object(category, bbox)
             detections.append(detection_obj)
 
         # Alert settings
         alert_settings = []
-        if config.alert_config and hasattr(config.alert_config, "alert_type"):
-            alert_settings.append(
-                {
-                    "alert_type": (
-                        getattr(config.alert_config, "alert_type", ["Default"])
-                        if hasattr(config.alert_config, "alert_type")
-                        else ["Default"]
-                    ),
-                    "incident_category": self.CASE_TYPE,
-                    "threshold_level": (
-                        config.alert_config.count_thresholds if hasattr(config.alert_config, "count_thresholds") else {}
-                    ),
-                    "ascending": True,
-                    "settings": {
-                        t: v
-                        for t, v in zip(
-                            (
-                                getattr(config.alert_config, "alert_type", ["Default"])
-                                if hasattr(config.alert_config, "alert_type")
-                                else ["Default"]
-                            ),
-                            (
-                                getattr(config.alert_config, "alert_value", ["JSON"])
-                                if hasattr(config.alert_config, "alert_value")
-                                else ["JSON"]
-                            ),
-                        )
-                    },
-                }
-            )
+        alert_settings.extend(self._build_alert_settings(config))
 
         # Human text with counter info
         high_precision_start_timestamp = (
@@ -1648,7 +1164,9 @@ class FootFallUseCase(BaseProcessor):
             else self._get_current_timestamp_str(stream_info, precision=True, frame_id=frame_id)
         )
         high_precision_reset_timestamp = (
-            ts_start if ts_start is not None else self._get_start_timestamp_str(stream_info, precision=True)
+            ts_start
+            if ts_start is not None
+            else self._get_start_timestamp_str(stream_info, precision=True)
         )
         human_text = self._generate_human_text_for_tracking(
             total_people,
@@ -1765,7 +1283,7 @@ class FootFallUseCase(BaseProcessor):
         total_unique_count: int,
         _config: FootFallConfig,
         frame_id: str,
-        alerts: Any = [],
+        alerts: Any = (),
         stream_info: Optional[Dict[str, Any]] = None,
         counter=None,
         ts_current=None,
@@ -1780,7 +1298,9 @@ class FootFallUseCase(BaseProcessor):
             else self._get_current_timestamp_str(stream_info, precision=True, frame_id=frame_id)
         )
         start_timestamp = (
-            ts_start if ts_start is not None else self._get_start_timestamp_str(stream_info, precision=True)
+            ts_start
+            if ts_start is not None
+            else self._get_start_timestamp_str(stream_info, precision=True)
         )
 
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
@@ -1800,7 +1320,9 @@ class FootFallUseCase(BaseProcessor):
 
         if alerts:
             for alert in alerts:
-                human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
+                human_text_lines.append(
+                    f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}"
+                )
         else:
             human_text_lines.append("Alerts: None")
 
@@ -1817,27 +1339,6 @@ class FootFallUseCase(BaseProcessor):
         """Check for alert conditions and generate alerts."""
         _ = (_line_analysis, _zone_analysis)
 
-        def get_trend(data, lookback=900, threshold=0.6):
-            """
-            Determine if the trend is ascending or descending based on actual value progression.
-            Now works with values 0,1,2,3 (not just binary).
-            """
-            window = data[-lookback:] if len(data) >= lookback else data
-            if len(window) < 2:
-                return True  # not enough data to determine trend
-            increasing = 0
-            total = 0
-            for i in range(1, len(window)):
-                if window[i] >= window[i - 1]:
-                    increasing += 1
-                total += 1
-            ratio = increasing / total
-            if ratio >= threshold:
-                return True
-            elif ratio <= (1 - threshold):
-                return False
-            return None
-
         alerts = []
 
         if not config.alert_config:
@@ -1846,7 +1347,10 @@ class FootFallUseCase(BaseProcessor):
         total_people = counting_summary.get("total_objects", 0)
 
         # Count threshold alerts
-        if hasattr(config.alert_config, "count_thresholds") and config.alert_config.count_thresholds:
+        if (
+            hasattr(config.alert_config, "count_thresholds")
+            and config.alert_config.count_thresholds
+        ):
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total_people >= threshold:
                     alerts.append(
@@ -1859,7 +1363,9 @@ class FootFallUseCase(BaseProcessor):
                             "alert_id": "alert_" + category + "_" + frame_id,
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": threshold,
-                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "ascending": _get_trend(
+                                self._ascending_alert_list, lookback=900, threshold=0.8
+                            ),
                             "settings": {
                                 t: v
                                 for t, v in zip(
@@ -1877,6 +1383,7 @@ class FootFallUseCase(BaseProcessor):
                                         if hasattr(config.alert_config, "alert_value")
                                         else ["JSON"]
                                     ),
+                                    strict=False,
                                 )
                             },
                         }
@@ -1894,7 +1401,7 @@ class FootFallUseCase(BaseProcessor):
                                 "alert_id": "alert_" + category + "_" + frame_id,
                                 "incident_category": self.CASE_TYPE,
                                 "threshold_level": threshold,
-                                "ascending": get_trend(
+                                "ascending": _get_trend(
                                     self._ascending_alert_list,
                                     lookback=900,
                                     threshold=0.8,
@@ -1920,6 +1427,7 @@ class FootFallUseCase(BaseProcessor):
                                             if hasattr(config.alert_config, "alert_value")
                                             else ["JSON"]
                                         ),
+                                        strict=False,
                                     )
                                 },
                             }
@@ -1999,10 +1507,13 @@ class FootFallUseCase(BaseProcessor):
         lines.append("Application Name: " + self.CASE_TYPE)
         lines.append("Application Version: " + self.CASE_VERSION)
         if len(incidents) > 0:
-            lines.append("Incidents: " + f"\n\t{incidents[0].get('human_text', 'No incidents detected')}")
+            lines.append(
+                "Incidents: " + f"\n\t{incidents[0].get('human_text', 'No incidents detected')}"
+            )
         if len(tracking_stats) > 0:
             lines.append(
-                "Tracking Statistics: " + f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}"
+                "Tracking Statistics: "
+                + f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}"
             )
         if len(business_analytics) > 0:
             lines.append(
@@ -2036,7 +1547,7 @@ class FootFallUseCase(BaseProcessor):
                                 prediction["frame_id"] = frame_id
                                 predictions.append(prediction)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - prediction extraction is best-effort telemetry
             self.logger.warning(f"Failed to extract predictions: {str(e)}")
 
         return predictions
@@ -2057,7 +1568,9 @@ class FootFallUseCase(BaseProcessor):
         """Extract detection items with confidence scores."""
         return counting_summary.get("detections", [])
 
-    def _count_unique_tracks(self, counting_summary: Dict, config: FootFallConfig = None) -> Optional[int]:
+    def _count_unique_tracks(
+        self, counting_summary: Dict, config: FootFallConfig = None
+    ) -> Optional[int]:
         """Count unique tracks if tracking is enabled."""
         # Always update tracking state regardless of enable_unique_counting setting
         self._update_tracking_state(counting_summary)
@@ -2166,7 +1679,7 @@ class FootFallUseCase(BaseProcessor):
             w = int(round(abs(float(x2) - float(x1))))
             h = int(round(abs(float(y2) - float(y1))))
             geom_token = f"{cx}_{cy}_{w}_{h}"
-        except Exception:
+        except Exception:  # noqa: BLE001 - an unusable box falls back to a constant token
             geom_token = "0_0_0_0"
 
         ms = int(time.time() * 1000)
@@ -2232,13 +1745,19 @@ class FootFallUseCase(BaseProcessor):
             "current_frame_count": len(self._current_frame_track_ids),
             "total_frames_processed": self._total_frame_counter,
             "last_update_time": self._last_update_time,
-            "zone_current_track_ids": {zone: list(tracks) for zone, tracks in self._zone_current_track_ids.items()},
-            "zone_total_track_ids": {zone: list(tracks) for zone, tracks in self._zone_total_track_ids.items()},
+            "zone_current_track_ids": {
+                zone: list(tracks) for zone, tracks in self._zone_current_track_ids.items()
+            },
+            "zone_total_track_ids": {
+                zone: list(tracks) for zone, tracks in self._zone_total_track_ids.items()
+            },
             "zone_current_counts": self._zone_current_counts.copy(),
             "zone_total_counts": self._zone_total_counts.copy(),
             "global_frame_offset": self._global_frame_offset,
             "frames_in_current_chunk": self._frames_in_current_chunk,
-            "line_crossed_tracks": {dir: list(tracks) for dir, tracks in self._line_crossed_tracks.items()},
+            "line_crossed_tracks": {
+                dir: list(tracks) for dir, tracks in self._line_crossed_tracks.items()
+            },
         }
 
     def get_frame_info(self) -> Dict[str, Any]:
@@ -2387,7 +1906,8 @@ class FootFallUseCase(BaseProcessor):
                 "current_track_ids": list(self._zone_current_track_ids.get(zone_name, set())),
                 "total_track_ids": list(self._zone_total_track_ids.get(zone_name, set())),
             }
-            for zone_name in set(self._zone_current_counts.keys()) | set(self._zone_total_counts.keys())
+            for zone_name in set(self._zone_current_counts.keys())
+            | set(self._zone_total_counts.keys())
         }
 
     def get_zone_current_count(self, zone_name: str) -> int:
@@ -2402,10 +1922,13 @@ class FootFallUseCase(BaseProcessor):
                 "current": self._zone_current_counts.get(zone_name, 0),
                 "total": self._zone_total_counts.get(zone_name, 0),
             }
-            for zone_name in set(self._zone_current_counts.keys()) | set(self._zone_total_counts.keys())
+            for zone_name in set(self._zone_current_counts.keys())
+            | set(self._zone_total_counts.keys())
         }
 
-    def _update_line_crossings(self, detections: List[Dict], line_config: LineConfig) -> Dict[str, Any]:
+    def _update_line_crossings(
+        self, detections: List[Dict], line_config: LineConfig
+    ) -> Dict[str, Any]:
         """Update line crossing tracking with current frame data and detect crossings."""
         if not line_config or not line_config.points or len(line_config.points) != 2:
             return {}
@@ -2581,25 +2104,33 @@ class FootFallUseCase(BaseProcessor):
             return "00:00:00.00"
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-                return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+                return self._format_timestamp(
+                    stream_info.get("input_settings", {}).get("stream_time", "NA")
+                )
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-            return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+            return self._format_timestamp(
+                stream_info.get("input_settings", {}).get("stream_time", "NA")
+            )
         else:
-            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            stream_time_str = (
+                stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            )
             if stream_time_str:
                 try:
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
-                except Exception:
+                except Exception:  # noqa: BLE001 - any unusable stamp falls back to now
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+    def _get_start_timestamp_str(
+        self, stream_info: Optional[Dict[str, Any]], precision=False
+    ) -> str:
         if not stream_info:
             return "00:00:00"
         if precision:
@@ -2621,13 +2152,17 @@ class FootFallUseCase(BaseProcessor):
             if self.start_timer is not None:
                 return self._format_timestamp(self.start_timer)
             if self._tracking_start_time is None:
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - any unusable stamp falls back to now
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
@@ -2647,7 +2182,9 @@ class FootFallUseCase(BaseProcessor):
     def _format_timestamp(self, timestamp: Any) -> str:
         """Format a timestamp so that exactly two digits follow the decimal point."""
         if isinstance(timestamp, (int, float)):
-            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
+                "%Y-%m-%d-%H:%M:%S.%f UTC"
+            )
         if not isinstance(timestamp, str):
             return str(timestamp)
         if "." not in timestamp:

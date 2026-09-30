@@ -92,6 +92,7 @@ __all__ = (
     "CapacityReservationDeliveryPreferenceType",
     "CapacityReservationFleetStateType",
     "CapacityReservationInstancePlatformType",
+    "CapacityReservationLaunchStatusType",
     "CapacityReservationModificationQuoteStateType",
     "CapacityReservationPreferenceType",
     "CapacityReservationStateType",
@@ -931,6 +932,7 @@ CapacityReservationInstancePlatformType = Literal[
     "Windows with SQL Server Standard",
     "Windows with SQL Server Web",
 ]
+CapacityReservationLaunchStatusType = Literal["launchable", "unlaunchable"]
 CapacityReservationModificationQuoteStateType = Literal["active", "expired"]
 CapacityReservationPreferenceType = Literal["capacity-reservations-only", "none", "open"]
 CapacityReservationStateType = Literal[

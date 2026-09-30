@@ -22,6 +22,8 @@ from chalk._gen.chalk.runtime.v1.remote_python_call_pb2 import (
     PollRemoteCallResponse,
     PurgeQueueRequest,
     PurgeQueueResponse,
+    StreamRemoteCallBatchRequest,
+    StreamRemoteCallBatchResponse,
 )
 from collections.abc import (
     Iterator,
@@ -66,6 +68,13 @@ class AsyncRemoteCallServiceStub:
     last position; the server returns any new result chunks plus an
     updated cursor.
     """
+    StreamRemoteCallBatch: StreamStreamMultiCallable[
+        StreamRemoteCallBatchRequest,
+        StreamRemoteCallBatchResponse,
+    ]
+    """Submit Arrow chunks containing many logical calls and receive per-call
+    acknowledgements and results without polling each call ID independently.
+    """
     PurgeQueue: UnaryUnaryMultiCallable[
         PurgeQueueRequest,
         PurgeQueueResponse,
@@ -89,6 +98,15 @@ class AsyncRemoteCallServiceServicer(metaclass=ABCMeta):
         """Poll for results. The caller passes a cursor to resume from the
         last position; the server returns any new result chunks plus an
         updated cursor.
+        """
+    @abstractmethod
+    def StreamRemoteCallBatch(
+        self,
+        request_iterator: Iterator[StreamRemoteCallBatchRequest],
+        context: ServicerContext,
+    ) -> Iterator[StreamRemoteCallBatchResponse]:
+        """Submit Arrow chunks containing many logical calls and receive per-call
+        acknowledgements and results without polling each call ID independently.
         """
     @abstractmethod
     def PurgeQueue(

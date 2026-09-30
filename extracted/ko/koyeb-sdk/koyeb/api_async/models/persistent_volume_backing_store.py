@@ -26,12 +26,12 @@ class PersistentVolumeBackingStore(str, Enum):
     """
     allowed enum values
     """
-    PERSISTENT_VOLUME_BACKING_STORE_INVALID = 'PERSISTENT_VOLUME_BACKING_STORE_INVALID'
-    PERSISTENT_VOLUME_BACKING_STORE_LOCAL_BLK = 'PERSISTENT_VOLUME_BACKING_STORE_LOCAL_BLK'
+    PERSISTENT_VOLUME_BACKING_STORE_INVALID = "PERSISTENT_VOLUME_BACKING_STORE_INVALID"
+    PERSISTENT_VOLUME_BACKING_STORE_LOCAL_BLK = (
+        "PERSISTENT_VOLUME_BACKING_STORE_LOCAL_BLK"
+    )
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of PersistentVolumeBackingStore from a JSON string"""
         return cls(json.loads(json_str))
-
-

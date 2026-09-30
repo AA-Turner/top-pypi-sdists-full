@@ -326,6 +326,36 @@ endmodule
     CHECK(exports[1].syntax->c_identifier.valueText() == "my_f2");
 }
 
+TEST_CASE("Compilation collects DPI exports from each instance") {
+    auto tree = SyntaxTree::fromText(R"(
+module Sub #(parameter int ID = 0);
+    int id;
+    export "DPI-C" function read_id;
+    function int read_id(); return id; endfunction
+    initial id = ID;
+endmodule
+
+module Top;
+    Sub #(.ID(10)) m0();
+    Sub #(.ID(20)) m1();
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    // The single export directive elaborates into two distinct instances. Both
+    // are valid targets, selected at call time via svSetScope, so both must be
+    // reported even though they share a C identifier.
+    auto exports = compilation.getDPIExports();
+    REQUIRE(exports.size() == 2);
+    CHECK(exports[0].subroutine->getHierarchicalPath() == "Top.m0.read_id");
+    CHECK(exports[0].cIdentifier == "read_id");
+    CHECK(exports[1].subroutine->getHierarchicalPath() == "Top.m1.read_id");
+    CHECK(exports[1].cIdentifier == "read_id");
+}
+
 TEST_CASE("DPI signature checking") {
     auto tree = SyntaxTree::fromText(R"(
 import "DPI-C" function int foo(int a, output b);
@@ -736,4 +766,39 @@ function,(*;*)output
 
     // Just check no crash.
     compilation.getAllDiagnostics();
+}
+
+TEST_CASE("Method return type does not match prototype") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    extern function int f();
+endclass
+
+function void C::f();
+endfunction
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::MethodReturnMismatch);
+}
+
+TEST_CASE("Expected subroutine port with net header") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    function void f;
+        input wire x;
+    endfunction
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::ExpectedFunctionPort);
 }

@@ -449,7 +449,9 @@ class Client:
 
     def get_api_headers(self) -> dict[str, str]:
         if not self.is_authenticated:
-            raise GarminConnectAuthenticationError("Not authenticated")
+            raise GarminConnectAuthenticationError(
+                "Not authenticated - call Garmin.login() first"
+            )
         if self.di_token:
             return _native_headers(
                 {
@@ -590,7 +592,8 @@ class Client:
         if rate_limited_count == len(strategies):
             raise GarminConnectTooManyRequestsError(
                 "All login strategies rate limited (429). "
-                "Try again later or check your IP/network."
+                "Garmin may be blocking this client or network rather than "
+                "rate limiting; try again later or from another network."
             )
         raise GarminConnectConnectionError(
             "All login strategies exhausted: "
@@ -677,7 +680,8 @@ class Client:
 
         if r.status_code == 429:
             raise GarminConnectTooManyRequestsError(
-                "Mobile login returned 429 — IP rate limited by Garmin"
+                "Mobile login returned 429 — rate limited or blocked by Garmin "
+                "(can be triggered by the client fingerprint, not only the IP)"
             )
 
         if r.status_code == 403:

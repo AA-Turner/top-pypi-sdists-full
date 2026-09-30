@@ -20,23 +20,37 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api_async.models.deployment_provisioning_info_stage_status import DeploymentProvisioningInfoStageStatus
+from koyeb.api_async.models.deployment_provisioning_info_stage_status import (
+    DeploymentProvisioningInfoStageStatus,
+)
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeclareStageProgressRequest(BaseModel):
     """
     DeclareStageProgressRequest
-    """ # noqa: E501
+    """  # noqa: E501
+
     secret: Optional[StrictStr] = None
-    status: Optional[DeploymentProvisioningInfoStageStatus] = DeploymentProvisioningInfoStageStatus.UNKNOWN
+    status: Optional[
+        DeploymentProvisioningInfoStageStatus
+    ] = DeploymentProvisioningInfoStageStatus.UNKNOWN
     finished_at: Optional[datetime] = None
     messages: Optional[List[StrictStr]] = None
     image_pushed: Optional[StrictBool] = None
     internal_failure: Optional[StrictBool] = None
     retryable_failure: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = ["secret", "status", "finished_at", "messages", "image_pushed", "internal_failure", "retryable_failure"]
+    __properties: ClassVar[List[str]] = [
+        "secret",
+        "status",
+        "finished_at",
+        "messages",
+        "image_pushed",
+        "internal_failure",
+        "retryable_failure",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -44,7 +58,6 @@ class DeclareStageProgressRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -69,8 +82,7 @@ class DeclareStageProgressRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -88,15 +100,17 @@ class DeclareStageProgressRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "secret": obj.get("secret"),
-            "status": obj.get("status") if obj.get("status") is not None else DeploymentProvisioningInfoStageStatus.UNKNOWN,
-            "finished_at": obj.get("finished_at"),
-            "messages": obj.get("messages"),
-            "image_pushed": obj.get("image_pushed"),
-            "internal_failure": obj.get("internal_failure"),
-            "retryable_failure": obj.get("retryable_failure")
-        })
+        _obj = cls.model_validate(
+            {
+                "secret": obj.get("secret"),
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else DeploymentProvisioningInfoStageStatus.UNKNOWN,
+                "finished_at": obj.get("finished_at"),
+                "messages": obj.get("messages"),
+                "image_pushed": obj.get("image_pushed"),
+                "internal_failure": obj.get("internal_failure"),
+                "retryable_failure": obj.get("retryable_failure"),
+            }
+        )
         return _obj
-
-

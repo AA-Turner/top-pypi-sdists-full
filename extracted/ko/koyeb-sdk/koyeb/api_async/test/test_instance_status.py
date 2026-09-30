@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.instance_status import InstanceStatus
 
+
 class TestInstanceStatus(unittest.TestCase):
     """InstanceStatus unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestInstanceStatus(unittest.TestCase):
         """Test InstanceStatus"""
         # inst = InstanceStatus()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

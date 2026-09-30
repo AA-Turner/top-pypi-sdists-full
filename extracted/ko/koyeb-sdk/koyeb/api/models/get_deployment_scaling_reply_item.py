@@ -24,13 +24,18 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class GetDeploymentScalingReplyItem(BaseModel):
     """
     GetDeploymentScalingReplyItem
-    """ # noqa: E501
+    """  # noqa: E501
+
     region: Optional[StrictStr] = None
     replica_index: Optional[StrictInt] = None
-    instances: Optional[List[Instance]] = Field(default=None, description="An array of `active` and `starting` instances.  Status of the active instance (and if none the most recent instance)  string status = 4;  Status message of the active instance (and if none the most recent instance)  string message = 5;")
+    instances: Optional[List[Instance]] = Field(
+        default=None,
+        description="An array of `active` and `starting` instances.  Status of the active instance (and if none the most recent instance)  string status = 4;  Status message of the active instance (and if none the most recent instance)  string message = 5;",
+    )
     __properties: ClassVar[List[str]] = ["region", "replica_index", "instances"]
 
     model_config = ConfigDict(
@@ -39,7 +44,6 @@ class GetDeploymentScalingReplyItem(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +68,7 @@ class GetDeploymentScalingReplyItem(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -76,9 +79,10 @@ class GetDeploymentScalingReplyItem(BaseModel):
         _items = []
         if self.instances:
             for _item_instances in self.instances:
-                if _item_instances:
-                    _items.append(_item_instances.to_dict())
-            _dict['instances'] = _items
+                _items.append(
+                    _item_instances.to_dict() if _item_instances is not None else None
+                )
+            _dict["instances"] = _items
         return _dict
 
     @classmethod
@@ -90,11 +94,13 @@ class GetDeploymentScalingReplyItem(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "region": obj.get("region"),
-            "replica_index": obj.get("replica_index"),
-            "instances": [Instance.from_dict(_item) for _item in obj["instances"]] if obj.get("instances") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "region": obj.get("region"),
+                "replica_index": obj.get("replica_index"),
+                "instances": [Instance.from_dict(_item) for _item in obj["instances"]]
+                if obj.get("instances") is not None
+                else None,
+            }
+        )
         return _obj
-
-

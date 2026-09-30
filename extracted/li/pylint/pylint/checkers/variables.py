@@ -217,7 +217,7 @@ def _detect_global_scope(
 def _infer_name_module(node: nodes.Import, name: str) -> Generator[InferenceResult]:
     context = astroid.context.InferenceContext()
     context.lookupname = name
-    return node.infer(context, asname=False)  # type: ignore[no-any-return]
+    return node.infer(context)  # type: ignore[no-any-return]
 
 
 def _fix_dot_imports(
@@ -751,10 +751,10 @@ scope_type : {self.scope_type}
         # Search both if and else branches
         if_branch_handles = self._branch_handles_name(name, node.body)
         else_branch_handles = self._branch_handles_name(name, node.orelse)
-        if if_branch_handles ^ else_branch_handles:
+        if if_branch_handles and else_branch_handles:
+            self.names_defined_under_one_branch_only.discard(name)
+        elif if_branch_handles ^ else_branch_handles:
             self.names_defined_under_one_branch_only.add(name)
-        elif name in self.names_defined_under_one_branch_only:
-            self.names_defined_under_one_branch_only.remove(name)
         return if_branch_handles and else_branch_handles
 
     def _branch_handles_name(self, name: str, body: Iterable[nodes.NodeNG]) -> bool:
@@ -2237,13 +2237,7 @@ class VariablesChecker(BaseChecker):
         in_annotation_or_default_or_decorator = False
         if isinstance(frame, nodes.FunctionDef) and node.statement() is frame:
             in_annotation_or_default_or_decorator = (
-                (
-                    node in frame.args.annotations
-                    or node in frame.args.posonlyargs_annotations
-                    or node in frame.args.kwonlyargs_annotations
-                    or node is frame.args.varargannotation
-                    or node is frame.args.kwargannotation
-                )
+                node in frame.args.get_annotations()
                 or frame.args.parent_of(node)
                 or (frame.decorators and frame.decorators.parent_of(node))
                 or (
@@ -2834,16 +2828,15 @@ class VariablesChecker(BaseChecker):
         argnames = node.argnames()
         # Care about functions with unknown argument (builtins)
         if name in argnames:
-            if node.name == "__new__":
-                is_init_def = False
-                # Look for the `__init__` method in all the methods of the same class.
-                for n in node.parent.get_children():
-                    is_init_def = hasattr(n, "name") and (n.name == "__init__")
-                    if is_init_def:
-                        break
-                # Ignore unused arguments check for `__new__` if `__init__` is defined.
-                if is_init_def:
-                    return
+            if (
+                node.name == "__new__"
+                and isinstance(node.parent, nodes.ClassDef)
+                and any(
+                    isinstance(initializer, nodes.FunctionDef)
+                    for initializer in node.parent.locals.get("__init__", ())
+                )
+            ):
+                return
             self._check_unused_arguments(name, node, stmt, argnames, nonlocal_names)
         else:
             if stmt.parent and isinstance(
@@ -3155,13 +3148,20 @@ class VariablesChecker(BaseChecker):
         match value_node:
             case nodes.Const(value=str() | bytes()):
                 return len(value_node.value)
-            case nodes.Subscript():
-                step = value_node.slice.step or 1
-                splice_range = (
-                    value_node.slice.upper.value - value_node.slice.lower.value
+            case nodes.Subscript(
+                slice=nodes.Slice(
+                    lower=nodes.Const(value=int() as lower),
+                    upper=nodes.Const(value=int() as upper),
+                    step=None | nodes.Const(value=int()) as step_node,
                 )
-                # RUF046 says the return of 'math.ceil' is always an int, mypy doesn't see it
-                return math.ceil(splice_range / step)  # type: ignore[no-any-return]
+            ):
+                # Only int bounds and an int or missing step are supported;
+                # anything else falls through to the default below.
+                step = 1 if step_node is None else step_node.value
+                if step == 0:
+                    return 1
+                splice_range = upper - lower
+                return math.ceil(splice_range / step)
         return 1
 
     @staticmethod
@@ -3256,8 +3256,7 @@ class VariablesChecker(BaseChecker):
         if isinstance(assigned, util.UninferableBase):
             return
         if assigned.pytype() not in {"builtins.list", "builtins.tuple"}:
-            line, col = assigned.tolineno, assigned.col_offset
-            self.add_message("invalid-all-format", line=line, col_offset=col, node=node)
+            self.add_message("invalid-all-format", node=assigned)
             return
         for elt in getattr(assigned, "elts", ()):
             try:

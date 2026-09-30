@@ -17,16 +17,20 @@ import logging
 from logging import FileHandler
 import sys
 from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Union
-from urllib.parse import urlparse
-from urllib.request import getproxies_environment, proxy_bypass_environment
 from typing_extensions import NotRequired, Self
 
 
-
 JSON_SCHEMA_VALIDATION_KEYWORDS = {
-    'multipleOf', 'maximum', 'exclusiveMaximum',
-    'minimum', 'exclusiveMinimum', 'maxLength',
-    'minLength', 'pattern', 'maxItems', 'minItems'
+    "multipleOf",
+    "maximum",
+    "exclusiveMaximum",
+    "minimum",
+    "exclusiveMinimum",
+    "maxLength",
+    "minLength",
+    "pattern",
+    "maxItems",
+    "minItems",
 }
 
 ServerVariablesT = Dict[str, str]
@@ -133,108 +137,107 @@ class HostSetting(TypedDict):
 class Configuration:
     """This class contains various settings of the API client.
 
-    :param host: Base url.
-    :param ignore_operation_servers
-      Boolean to ignore operation servers for the API client.
-      Config will use `host` as the base url regardless of the operation servers.
-    :param api_key: Dict to store API key(s).
-      Each entry in the dict specifies an API key.
-      The dict key is the name of the security scheme in the OAS specification.
-      The dict value is the API key secret.
-    :param api_key_prefix: Dict to store API prefix (e.g. Bearer).
-      The dict key is the name of the security scheme in the OAS specification.
-      The dict value is an API key prefix when generating the auth data.
-    :param username: Username for HTTP basic authentication.
-    :param password: Password for HTTP basic authentication.
-    :param access_token: Access token.
-    :param server_index: Index to servers configuration.
-    :param server_variables: Mapping with string values to replace variables in
-      templated server configuration. The validation of enums is performed for
-      variables with defined enum values before.
-    :param server_operation_index: Mapping from operation ID to an index to server
-      configuration.
-    :param server_operation_variables: Mapping from operation ID to a mapping with
-      string values to replace variables in templated server configuration.
-      The validation of enums is performed for variables with defined enum
-      values before.
-    :param verify_ssl: bool - Set this to false to skip verifying SSL certificate
-      when calling API from https server.
-    :param ssl_ca_cert: str - the path to a file of concatenated CA certificates
-      in PEM format.
-    :param retries: int - Retry configuration.
-    :param ca_cert_data: verify the peer using concatenated CA certificate data
-      in PEM (str) or DER (bytes) format.
-    :param cert_file: the path to a client certificate file, for mTLS.
-    :param key_file: the path to a client key file, for mTLS.
-    :param assert_hostname: Set this to True/False to enable/disable SSL hostname verification.
-    :param tls_server_name: SSL/TLS Server Name Indication (SNI). Set this to the SNI value expected by the server.
-    :param connection_pool_maxsize: Connection pool max size. None in the constructor is coerced to 100 for async and cpu_count * 5 for sync.
-    :param proxy: Proxy URL.
-    :param proxy_headers: Proxy headers.
-    :param safe_chars_for_path_param: Safe characters for path parameter encoding.
-    :param client_side_validation: Enable client-side validation. Default True.
-    :param socket_options: Options to pass down to the underlying urllib3 socket.
-    :param datetime_format: Datetime format string for serialization.
-    :param date_format: Date format string for serialization.
+        :param host: Base url.
+        :param ignore_operation_servers
+          Boolean to ignore operation servers for the API client.
+          Config will use `host` as the base url regardless of the operation servers.
+        :param api_key: Dict to store API key(s).
+          Each entry in the dict specifies an API key.
+          The dict key is the name of the security scheme in the OAS specification.
+          The dict value is the API key secret.
+        :param api_key_prefix: Dict to store API prefix (e.g. Bearer).
+          The dict key is the name of the security scheme in the OAS specification.
+          The dict value is an API key prefix when generating the auth data.
+        :param username: Username for HTTP basic authentication.
+        :param password: Password for HTTP basic authentication.
+        :param access_token: Access token.
+        :param server_index: Index to servers configuration.
+        :param server_variables: Mapping with string values to replace variables in
+          templated server configuration. The validation of enums is performed for
+          variables with defined enum values before.
+        :param server_operation_index: Mapping from operation ID to an index to server
+          configuration.
+        :param server_operation_variables: Mapping from operation ID to a mapping with
+          string values to replace variables in templated server configuration.
+          The validation of enums is performed for variables with defined enum
+          values before.
+        :param verify_ssl: bool - Set this to false to skip verifying SSL certificate
+          when calling API from https server.
+        :param ssl_ca_cert: str - the path to a file of concatenated CA certificates
+          in PEM format.
+        :param retries: int - Retry configuration.
+        :param ca_cert_data: verify the peer using concatenated CA certificate data
+          in PEM (str) or DER (bytes) format.
+        :param cert_file: the path to a client certificate file, for mTLS.
+        :param key_file: the path to a client key file, for mTLS.
+        :param assert_hostname: Set this to True/False to enable/disable SSL hostname verification.
+        :param tls_server_name: SSL/TLS Server Name Indication (SNI). Set this to the SNI value expected by the server.
+        :param connection_pool_maxsize: Connection pool max size. None in the constructor is coerced to 100 for async and cpu_count * 5 for sync.
+        :param proxy: Proxy URL.
+        :param proxy_headers: Proxy headers.
+        :param safe_chars_for_path_param: Safe characters for path parameter encoding.
+        :param client_side_validation: Enable client-side validation. Default True.
+        :param socket_options: Options to pass down to the underlying urllib3 socket.
+        :param datetime_format: Datetime format string for serialization.
+        :param date_format: Date format string for serialization.
 
-    :Example:
+        :Example:
 
-    API Key Authentication Example.
-    Given the following security scheme in the OpenAPI specification:
-      components:
-        securitySchemes:
-          cookieAuth:         # name for the security scheme
-            type: apiKey
-            in: cookie
-            name: JSESSIONID  # cookie name
+        API Key Authentication Example.
+        Given the following security scheme in the OpenAPI specification:
+          components:
+            securitySchemes:
+              cookieAuth:         # name for the security scheme
+                type: apiKey
+                in: cookie
+                name: JSESSIONID  # cookie name
 
-    You can programmatically set the cookie:
+        You can programmatically set the cookie:
 
-conf = koyeb.api_async.Configuration(
-    api_key={'cookieAuth': 'abc123'}
-    api_key_prefix={'cookieAuth': 'JSESSIONID'}
-)
+    conf = koyeb.api_async.Configuration(
+        api_key={'cookieAuth': 'abc123'}
+        api_key_prefix={'cookieAuth': 'JSESSIONID'}
+    )
 
-    The following cookie will be added to the HTTP request:
-       Cookie: JSESSIONID abc123
+        The following cookie will be added to the HTTP request:
+           Cookie: JSESSIONID abc123
     """
 
     _default: ClassVar[Optional[Self]] = None
 
     def __init__(
         self,
-        host: Optional[str]=None,
-        api_key: Optional[Dict[str, str]]=None,
-        api_key_prefix: Optional[Dict[str, str]]=None,
-        username: Optional[str]=None,
-        password: Optional[str]=None,
-        access_token: Optional[str]=None,
-        server_index: Optional[int]=None,
-        server_variables: Optional[ServerVariablesT]=None,
-        server_operation_index: Optional[Dict[int, int]]=None,
-        server_operation_variables: Optional[Dict[int, ServerVariablesT]]=None,
-        ignore_operation_servers: bool=False,
-        ssl_ca_cert: Optional[str]=None,
+        host: Optional[str] = None,
+        api_key: Optional[Dict[str, str]] = None,
+        api_key_prefix: Optional[Dict[str, str]] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        access_token: Optional[str] = None,
+        server_index: Optional[int] = None,
+        server_variables: Optional[ServerVariablesT] = None,
+        server_operation_index: Optional[Dict[int, int]] = None,
+        server_operation_variables: Optional[Dict[int, ServerVariablesT]] = None,
+        ignore_operation_servers: bool = False,
+        ssl_ca_cert: Optional[str] = None,
         retries: Optional[int] = None,
         ca_cert_data: Optional[Union[str, bytes]] = None,
-        cert_file: Optional[str]=None,
-        key_file: Optional[str]=None,
-        verify_ssl: bool=True,
-        assert_hostname: Optional[bool]=None,
-        tls_server_name: Optional[str]=None,
-        connection_pool_maxsize: Optional[int]=None,
-        proxy: Optional[str]=None,
-        proxy_headers: Optional[Any]=None,
-        safe_chars_for_path_param: str='',
-        client_side_validation: bool=True,
-        socket_options: Optional[Any]=None,
-        datetime_format: str="%Y-%m-%dT%H:%M:%S.%f%z",
-        date_format: str="%Y-%m-%d",
+        cert_file: Optional[str] = None,
+        key_file: Optional[str] = None,
+        verify_ssl: bool = True,
+        assert_hostname: Optional[bool] = None,
+        tls_server_name: Optional[str] = None,
+        connection_pool_maxsize: Optional[int] = None,
+        proxy: Optional[str] = None,
+        proxy_headers: Optional[Any] = None,
+        safe_chars_for_path_param: str = "",
+        client_side_validation: bool = True,
+        socket_options: Optional[Any] = None,
+        datetime_format: str = "%Y-%m-%dT%H:%M:%S.%f%z",
+        date_format: str = "%Y-%m-%d",
         *,
         debug: Optional[bool] = None,
     ) -> None:
-        """Constructor
-        """
+        """Constructor"""
         self._base_path = "https://app.koyeb.com" if host is None else host
         """Default Base url
         """
@@ -279,7 +282,7 @@ conf = koyeb.api_async.Configuration(
         """Logging Settings
         """
         self.logger["package_logger"] = logging.getLogger("koyeb.api_async")
-        self.logger_format = '%(asctime)s %(levelname)s %(message)s'
+        self.logger_format = "%(asctime)s %(levelname)s %(message)s"
         """Log format
         """
         self.logger_stream_handler = None
@@ -324,12 +327,14 @@ conf = koyeb.api_async.Configuration(
            Set this to the SNI value expected by the server.
         """
 
-        self.connection_pool_maxsize = connection_pool_maxsize if connection_pool_maxsize is not None else 100
+        self.connection_pool_maxsize = (
+            connection_pool_maxsize if connection_pool_maxsize is not None else 100
+        )
         """This value is passed to the aiohttp to limit simultaneous connections.
            None in the constructor is coerced to default 100.
         """
 
-        self.proxy = proxy if proxy is not None else self._get_proxy_from_env()
+        self.proxy = proxy
         """Proxy URL
         """
         self.proxy_headers = proxy_headers
@@ -356,25 +361,12 @@ conf = koyeb.api_async.Configuration(
         """date format
         """
 
-    def _get_proxy_from_env(self) -> Optional[str]:
-        proxies = getproxies_environment()
-        if not proxies:
-            return None
-
-        parsed = urlparse(self._base_path)
-        host = parsed.hostname or ''
-
-        if proxy_bypass_environment(host):
-            return None
-
-        return proxies.get(parsed.scheme) or proxies.get('all') or None
-
-    def __deepcopy__(self, memo:  Dict[int, Any]) -> Self:
+    def __deepcopy__(self, memo: Dict[int, Any]) -> Self:
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
         for k, v in self.__dict__.items():
-            if k not in ('logger', 'logger_file_handler'):
+            if k not in ("logger", "logger_file_handler"):
                 setattr(result, k, copy.deepcopy(v, memo))
         # shallow copy of loggers
         result.logger = copy.copy(self.logger)
@@ -506,7 +498,9 @@ conf = koyeb.api_async.Configuration(
         self.__logger_format = value
         self.logger_formatter = logging.Formatter(self.__logger_format)
 
-    def get_api_key_with_prefix(self, identifier: str, alias: Optional[str]=None) -> Optional[str]:
+    def get_api_key_with_prefix(
+        self, identifier: str, alias: Optional[str] = None
+    ) -> Optional[str]:
         """Gets API key (with prefix if set).
 
         :param identifier: The identifier of apiKey.
@@ -515,9 +509,14 @@ conf = koyeb.api_async.Configuration(
         """
         if self.refresh_api_key_hook is not None:
             self.refresh_api_key_hook(self)
-        key = self.api_key.get(identifier, self.api_key.get(alias) if alias is not None else None)
+        key = self.api_key.get(
+            identifier, self.api_key.get(alias) if alias is not None else None
+        )
         if key:
-            prefix = self.api_key_prefix.get(identifier)
+            prefix = self.api_key_prefix.get(
+                identifier,
+                self.api_key_prefix.get(alias) if alias is not None else None,
+            )
             if prefix:
                 return "%s %s" % (prefix, key)
             else:
@@ -538,22 +537,22 @@ conf = koyeb.api_async.Configuration(
             password = self.password
 
         return "Basic " + base64.b64encode(
-            (username + ":" + password).encode('utf-8')
-        ).decode('utf-8')
+            (username + ":" + password).encode("utf-8")
+        ).decode("utf-8")
 
-    def auth_settings(self)-> AuthSettings:
+    def auth_settings(self) -> AuthSettings:
         """Gets Auth Settings dict for api client.
 
         :return: The Auth Settings information dict.
         """
         auth: AuthSettings = {}
-        if 'Bearer' in self.api_key:
-            auth['Bearer'] = {
-                'type': 'api_key',
-                'in': 'header',
-                'key': 'Authorization',
-                'value': self.get_api_key_with_prefix(
-                    'Bearer',
+        if "Bearer" in self.api_key:
+            auth["Bearer"] = {
+                "type": "api_key",
+                "in": "header",
+                "key": "Authorization",
+                "value": self.get_api_key_with_prefix(
+                    "Bearer",
                 ),
             }
         return auth
@@ -563,12 +562,13 @@ conf = koyeb.api_async.Configuration(
 
         :return: The report for debugging.
         """
-        return "Python SDK Debug Report:\n"\
-               "OS: {env}\n"\
-               "Python Version: {pyversion}\n"\
-               "Version of the API: 1.0.0\n"\
-               "SDK Package Version: 1.5.2".\
-               format(env=sys.platform, pyversion=sys.version)
+        return (
+            "Python SDK Debug Report:\n"
+            "OS: {env}\n"
+            "Python Version: {pyversion}\n"
+            "Version of the API: 1.0.0\n"
+            "SDK Package Version: 1.5.5".format(env=sys.platform, pyversion=sys.version)
+        )
 
     def get_host_settings(self) -> List[HostSetting]:
         """Gets an array of host settings
@@ -577,16 +577,16 @@ conf = koyeb.api_async.Configuration(
         """
         return [
             {
-                'url': "https://app.koyeb.com",
-                'description': "No description provided",
+                "url": "https://app.koyeb.com",
+                "description": "No description provided",
             }
         ]
 
     def get_host_from_settings(
         self,
         index: Optional[int],
-        variables: Optional[ServerVariablesT]=None,
-        servers: Optional[List[HostSetting]]=None,
+        variables: Optional[ServerVariablesT] = None,
+        servers: Optional[List[HostSetting]] = None,
     ) -> str:
         """Gets host URL based on the index and variables
         :param index: array index of the host settings
@@ -605,23 +605,26 @@ conf = koyeb.api_async.Configuration(
         except IndexError:
             raise ValueError(
                 "Invalid index {0} when selecting the host settings. "
-                "Must be less than {1}".format(index, len(servers)))
+                "Must be less than {1}".format(index, len(servers))
+            )
 
-        url = server['url']
+        url = server["url"]
 
         # go through variables and replace placeholders
-        for variable_name, variable in server.get('variables', {}).items():
-            used_value = variables.get(
-                variable_name, variable['default_value'])
+        for variable_name, variable in server.get("variables", {}).items():
+            used_value = variables.get(variable_name, variable["default_value"])
 
-            if 'enum_values' in variable \
-                    and variable['enum_values'] \
-                    and used_value not in variable['enum_values']:
+            if (
+                "enum_values" in variable
+                and variable["enum_values"]
+                and used_value not in variable["enum_values"]
+            ):
                 raise ValueError(
                     "The variable `{0}` in the host URL has invalid value "
                     "{1}. Must be {2}.".format(
-                        variable_name, variables[variable_name],
-                        variable['enum_values']))
+                        variable_name, variables[variable_name], variable["enum_values"]
+                    )
+                )
 
             url = url.replace("{" + variable_name + "}", used_value)
 
@@ -630,7 +633,9 @@ conf = koyeb.api_async.Configuration(
     @property
     def host(self) -> str:
         """Return generated host."""
-        return self.get_host_from_settings(self.server_index, variables=self.server_variables)
+        return self.get_host_from_settings(
+            self.server_index, variables=self.server_variables
+        )
 
     @host.setter
     def host(self, value: str) -> None:

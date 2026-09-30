@@ -1,6 +1,6 @@
 [project]
 name = "lib_layered_config"
-version = "5.7.0"
+version = "6.0.0"
 description = "Cross-platform layered configuration loader for Python"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -56,7 +56,7 @@ dev = [
   "click>=8.5.0",                # CVE-2026-7246
   "coverage[toml]>=7.16.2",
   "httpx2>=2.13.1",
-  "hypothesis>=6.168.2",
+  "hypothesis>=6.168.3",
   "import-linter>=2.15",
   "bandit>=1.9.4",
   "pip-audit>=2.10.1",
@@ -161,7 +161,7 @@ exclude = [
 addopts = ["--maxfail=1", "--no-cov", "--doctest-modules", "--ignore=scripts/menu.py", "--ignore=tests/benchmark"]
 pythonpath = ["src"]
 doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
-testpaths = ["tests"]
+testpaths = ["tests", "src"]
 python_files = ["tests/**/test_*.py"]
 markers = [
   "slow: marks tests as slow (deselect with -m 'not slow')",

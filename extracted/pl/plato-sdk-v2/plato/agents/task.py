@@ -13,17 +13,13 @@ from typing import TYPE_CHECKING, Any, Literal
 from opentelemetry import trace
 
 from plato.agents import vm_setup
-from plato.agents.audit import (
-    collect_and_store_audit_results,
-    prepare_audited_mounts,
-    write_audit_context,
-)
 from plato.agents.browser_tooling import build_agent_browser_sessions_block
 from plato.agents.computer_use_mcp import sandbox_ssh_fields
 from plato.agents.context import AgentContext
 from plato.agents.desktop import provision_agent_desktop
 from plato.agents.login_backends import resolve_login_backend
 from plato.agents.mounts import AgentWorkspaceMount
+from plato.agents.tool_context import write_tool_execution_context
 from plato.runtimes.base import Runtime, RuntimeInfo
 from plato.runtimes.config import VMRuntimeConfig
 from plato.sims.ubuntu_vm.client import (
@@ -802,8 +798,6 @@ class AgentTask:
         self.runtime_info = info
         self._current_runtime_info = info
         current_display_name = display_name or self._display_name
-        mounts, audited_mounts = prepare_audited_mounts(mounts)
-
         runtime_dict = self._agent.runtime.model_dump()
         run_error: Exception | None = None
         final_error: Exception | None = None
@@ -896,14 +890,13 @@ class AgentTask:
                 task_attrs["plato.task.display_name"] = current_display_name
 
             with tracer.start_as_current_span("agent.task", attributes=task_attrs) as task_span:
-                # Write audit/tool-execution context with `agent.task` as the
+                # Write tool-execution context with `agent.task` as the
                 # current span — out-of-band hooks (e.g. claude-code's
                 # PostToolUse) load this file and parent their spans to the
                 # captured span_id, so writing it inside the agent.task scope
                 # keeps those spans nested in the agent subtree.
-                await write_audit_context(
+                await write_tool_execution_context(
                     info,
-                    audited_mounts,
                     agent_image=self._agent.image,
                     default_display_name=self._display_name,
                     display_name=current_display_name,
@@ -1085,14 +1078,6 @@ class AgentTask:
                         )
                 except Exception:
                     logger.debug("Failed to stop file watcher sidecar", exc_info=True)
-
-            await collect_and_store_audit_results(
-                info,
-                audited_mounts,
-                agent_image=self._agent.image,
-                default_display_name=self._display_name,
-                display_name=current_display_name,
-            )
 
             try:
                 for hook in self._post_run_hooks:

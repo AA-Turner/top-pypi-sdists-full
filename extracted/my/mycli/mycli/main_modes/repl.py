@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator, Iterable
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime
 import functools
@@ -57,6 +58,7 @@ from mycli.constants import (
     ER_MUST_CHANGE_PASSWORD,
     HOME_URL,
     ISSUES_URL,
+    QueryState,
 )
 from mycli.key_bindings import mycli_bindings
 from mycli.lexer import MyCliLexer
@@ -76,6 +78,7 @@ from mycli.packages.polars_transform import (
     run_polars_transform,
 )
 from mycli.packages.ptoolkit.history import FRECENCY_HISTORY_ENTRIES, FRECENCY_REFRESH_INTERVAL, FileHistoryWithTimestamp
+from mycli.packages.special.iocommands import temporary_redirect
 from mycli.packages.special.utils import format_uptime, get_ssl_version, get_uptime, get_warning_count
 from mycli.packages.sql_utils import (
     extract_new_password,
@@ -89,6 +92,7 @@ from mycli.packages.sql_utils import (
 )
 from mycli.packages.sqlresult import SQLResult
 from mycli.packages.string_utils import sanitize_terminal_title
+from mycli.query_runner import QueryCancelled, QueryRunner, runner_for
 from mycli.sqlexecute import SQLExecute
 from mycli.types import Query
 
@@ -452,6 +456,8 @@ def _output_results(
     state: ReplState,
     results: Iterable[SQLResult],
     start: float,
+    *,
+    raise_interrupts: bool = False,
 ) -> None:
     sqlexecute = mycli.sqlexecute
     assert sqlexecute is not None
@@ -468,7 +474,9 @@ def _output_results(
             return
         paged_output = _single_paged_output_results(mycli, state, result_iterator, start)
         try:
-            click.echo_via_pager(paged_output)
+            runner = runner_for(mycli)
+            with runner.suspend_display() if runner else nullcontext():
+                click.echo_via_pager(paged_output)
         except KeyboardInterrupt:
             pass
         finally:
@@ -504,6 +512,8 @@ def _output_results(
                 watch_count += 1
 
         if is_select(result.status_plain) and isinstance(result.rows, Cursor) and result.rows.rowcount > threshold:
+            if runner := runner_for(mycli):
+                runner.reset_progress()
             mycli.echo(
                 f'The result set has more than {threshold} rows.',
                 fg='red',
@@ -537,14 +547,16 @@ def _output_results(
             try:
                 mycli.output(formatted, result)
             except KeyboardInterrupt:
-                pass
+                if raise_interrupts:
+                    raise
             if mycli.beep_after_seconds > 0 and duration >= mycli.beep_after_seconds:
                 assert mycli.prompt_session is not None
                 mycli.prompt_session.output.bell()
             if special.is_timing_enabled():
                 mycli.output_timing(f'Time: {duration:0.03f}s')
         except KeyboardInterrupt:
-            pass
+            if raise_interrupts:
+                raise
 
         start = time.time()
         result_count += 1
@@ -928,38 +940,52 @@ def _one_iteration(
         mycli.log_query(query_history_text)
 
         start = time.time()
+        if runner := runner_for(mycli):
+            runner.reset_progress()
         results = sqlexecute.run(text)
         mycli.main_formatter.query = text
         mycli.redirect_formatter.query = text
         mycli.explorer_formatter.query = text
         if polars_transform is not None:
             assert polars_pipeline is not None
-            if polars_pipeline.output_path is None:
-                polars_result = run_polars_transform(
-                    polars_transform,
-                    results,
-                    image_protocol=mycli.image_protocol,
-                    plot_scale_factor=mycli.plot_scale_factor,
-                    plot_ppi=mycli.plot_ppi,
-                    plot_theme=mycli.plot_theme,
-                )
-            else:
-                polars_result = run_polars_transform(
-                    polars_transform,
-                    results,
-                    polars_pipeline.output_path,
-                    original_query=original_text,
-                    image_protocol=mycli.image_protocol,
-                    plot_scale_factor=mycli.plot_scale_factor,
-                    plot_ppi=mycli.plot_ppi,
-                    plot_theme=mycli.plot_theme,
-                )
+            runner = runner_for(mycli)
+            with runner.rendering(QueryState.TRANSFORMING) if runner else nullcontext():
+                if polars_pipeline.output_path is None:
+                    polars_result = run_polars_transform(
+                        polars_transform,
+                        results,
+                        image_protocol=mycli.image_protocol,
+                        plot_scale_factor=mycli.plot_scale_factor,
+                        plot_ppi=mycli.plot_ppi,
+                        plot_theme=mycli.plot_theme,
+                        allow_plots=polars_pipeline.shell_redirect is None,
+                    )
+                else:
+                    polars_result = run_polars_transform(
+                        polars_transform,
+                        results,
+                        polars_pipeline.output_path,
+                        original_query=original_text,
+                        image_protocol=mycli.image_protocol,
+                        plot_scale_factor=mycli.plot_scale_factor,
+                        plot_ppi=mycli.plot_ppi,
+                        plot_theme=mycli.plot_theme,
+                    )
             if polars_pipeline.output_path is None:
                 if polars_pipeline.output_mode == 'explorer':
                     special.set_explorer_output(True)
                 elif polars_pipeline.output_mode == 'expanded':
                     special.set_expanded_output(True)
-            _output_results(mycli, state, iter([polars_result]), start)
+            redirect = polars_pipeline.shell_redirect
+            try:
+                with (
+                    temporary_redirect(redirect.command, redirect.file_operator, redirect.filename, mycli.post_redirect_command)
+                    if redirect is not None
+                    else nullcontext()
+                ):
+                    _output_results(mycli, state, iter([polars_result]), start, raise_interrupts=redirect is not None)
+            except KeyboardInterrupt:
+                raise QueryCancelled(False) from None
             if polars_pipeline.output_path is not None:
                 special.run_post_redirect_hook(
                     mycli.post_redirect_command,
@@ -970,10 +996,15 @@ def _one_iteration(
             special.unset_once_if_written(mycli.post_redirect_command)
             special.flush_pipe_once_if_written(mycli.post_redirect_command)
         successful = True
+    except QueryCancelled as exc:
+        mycli.echo('Query cancelled.', err=True, fg='blue')
+        if exc.disconnected:
+            mycli.echo('Connection closed. Session state was lost.', err=True, fg='yellow')
+            mycli.reconnect()
     except pymysql.err.InterfaceError:
         if not mycli.reconnect():
             return
-        _one_iteration(mycli, state, text)
+        _one_iteration(mycli, state, original_text if polars_pipeline is not None else text)
         return
     except EOFError as e:
         raise e
@@ -1017,7 +1048,7 @@ def _one_iteration(
         elif e1.args[0] in (2003, 2006, 2013):
             if not mycli.reconnect():
                 return
-            _one_iteration(mycli, state, text)
+            _one_iteration(mycli, state, original_text if polars_pipeline is not None else text)
             return
         else:
             mycli.logger.error('sql: %r, error: %r', text, e1)
@@ -1139,6 +1170,11 @@ def main_repl(mycli: 'MyCli') -> None:
     _build_prompt_session(mycli, state, history, key_bindings)
     set_all_external_titles(mycli)
 
+    config = mycli.config['main']
+    show_state_interval = config.as_float('show_query_state_interval')
+    runner = QueryRunner(show_state_interval)
+    if isinstance(sqlexecute, SQLExecute):
+        sqlexecute.set_query_runner(runner)
     try:
         while True:
             _one_iteration(mycli, state)
@@ -1147,3 +1183,7 @@ def main_repl(mycli: 'MyCli') -> None:
         special.close_tee()
         if mycli.verbosity >= 0:
             mycli.echo('Goodbye!')
+    finally:
+        if isinstance(sqlexecute, SQLExecute):
+            sqlexecute.set_query_runner(None)
+        runner.close()

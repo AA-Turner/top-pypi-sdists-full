@@ -80,7 +80,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Final, Literal
 
-from matrice_analytics.engine.manifest.loader import AppLoadError, LoadedApp, load_app_bundle
+from matrice_analytics.engine.manifest.loader import (
+    AppLoadError,
+    LoadedApp,
+    load_app_bundle,
+    redact_url,
+)
 from matrice_analytics.engine.manifest.models import CustomConfig
 from matrice_analytics.engine.primitives import REGISTRY
 
@@ -160,7 +165,8 @@ class RoutingDecision:
         return self.engine == "new"
 
     def __str__(self) -> str:
-        return f"app {self.app!r}: {self.engine.upper()} engine (mode={self.mode}) -- {self.reason}"
+        # redact_url: `app` may be a presigned bundle URL, whose query string is a credential.
+        return f"app {redact_url(self.app)!r}: {self.engine.upper()} engine (mode={self.mode}) -- {self.reason}"
 
 
 def resolve_flow_mode(env: Mapping[str, str] | None = None) -> FlowMode:
@@ -204,7 +210,9 @@ def normalise_app_name(name: str) -> str:
     return name.strip().lower().replace("-", "_").replace(" ", "_")
 
 
-def unrunnable_primitives(manifest: AppManifest, loaded: LoadedApp | None = None) -> tuple[str, ...]:
+def unrunnable_primitives(
+    manifest: AppManifest, loaded: LoadedApp | None = None
+) -> tuple[str, ...]:
     """Every reason this build cannot run ``manifest``'s pipeline, one string each.
 
     Three conditions, all of which the runtime would otherwise discover at session start:
@@ -288,7 +296,9 @@ def route_app(
         return _legacy(reference, effective, f"{FLOW_ENV_VAR}=old forces the legacy flow")
 
     if not reference:
-        return _legacy(reference, effective, "no app name was given, so no manifest can be resolved")
+        return _legacy(
+            reference, effective, "no app name was given, so no manifest can be resolved"
+        )
 
     loaded: LoadedApp | None = None
     # A reference can be a presigned URL, whose query string is a bearer credential. Every place a
@@ -333,12 +343,12 @@ def route_app(
         )
         if effective == "new":
             raise RoutingError(
-                f"{FLOW_ENV_VAR}=new requires app {reference!r} to run on the new engine, but "
+                f"{FLOW_ENV_VAR}=new requires app {safe_reference!r} to run on the new engine, but "
                 f"{reason}. Refusing rather than starting a session with a missing stage: that "
                 f"publishes plausible zeros, and a plausible zero is indistinguishable from a quiet "
                 f"camera (09 §5)."
             )
-        logger.warning("routing app %r: LEGACY -- %s", reference, reason)
+        logger.warning("routing app %r: LEGACY -- %s", safe_reference, reason)
         return _legacy(reference, effective, reason, problems=problems)
 
     reason = (
@@ -347,7 +357,7 @@ def route_app(
     )
     logger.info(
         "routing app %r: NEW engine -- app=%s v%s stages=%s",
-        reference,
+        safe_reference,
         loaded.manifest.app.id,
         loaded.manifest.app.version,
         [stage.stage_name for stage in loaded.manifest.pipeline],

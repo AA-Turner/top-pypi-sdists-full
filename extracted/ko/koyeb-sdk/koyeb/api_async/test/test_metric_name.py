@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.metric_name import MetricName
 
+
 class TestMetricName(unittest.TestCase):
     """MetricName unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestMetricName(unittest.TestCase):
         """Test MetricName"""
         # inst = MetricName()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

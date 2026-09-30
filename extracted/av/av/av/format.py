@@ -26,6 +26,7 @@ def build_container_format(
 class Flags(Flag):
     no_file = lib.AVFMT_NOFILE
     need_number: "Needs '%d' in filename." = lib.AVFMT_NEEDNUMBER
+    experimental: "Format is not selected automatically, it must be requested by name." = lib.AVFMT_EXPERIMENTAL
     show_ids: "Show format stream IDs numbers." = lib.AVFMT_SHOW_IDS
     global_header: "Format wants global header." = lib.AVFMT_GLOBALHEADER
     no_timestamps: "Format does not need / have any timestamps." = lib.AVFMT_NOTIMESTAMPS
@@ -113,7 +114,7 @@ class ContainerFormat:
 
     @property
     def extensions(self):
-        exts: set = set()
+        exts: set[str] = set()
         if self.iptr and self.iptr.extensions:
             exts.update(self.iptr.extensions.split(","))
         if self.optr and self.optr.extensions:
@@ -135,10 +136,15 @@ class ContainerFormat:
     def no_file(self):
         return bool(self.flags & lib.AVFMT_NOFILE)
 
+    @property
+    def fixed_framesize(self):
+        """Whether the format wants fixed size audio frames. FFmpeg 9 and up."""
+        return bool(self.flags & 0x80000)  # AVFMT_FIXED_FRAMESIZE
+
 
 @cython.cfunc
-def get_output_format_names() -> set:
-    names: set = set()
+def get_output_format_names() -> set[str]:
+    names: set[str] = set()
     ptr: cython.pointer[cython.const[lib.AVOutputFormat]]
     opaque: cython.p_void = cython.NULL
     while True:
@@ -151,8 +157,8 @@ def get_output_format_names() -> set:
 
 
 @cython.cfunc
-def get_input_format_names() -> set:
-    names: set = set()
+def get_input_format_names() -> set[str]:
+    names: set[str] = set()
     ptr: cython.pointer[cython.const[lib.AVInputFormat]]
     opaque: cython.p_void = cython.NULL
     while True:

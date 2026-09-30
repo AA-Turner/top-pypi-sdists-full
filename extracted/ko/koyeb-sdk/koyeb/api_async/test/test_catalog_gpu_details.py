@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.catalog_gpu_details import CatalogGPUDetails
 
+
 class TestCatalogGPUDetails(unittest.TestCase):
     """CatalogGPUDetails unit test stubs"""
 
@@ -27,9 +28,9 @@ class TestCatalogGPUDetails(unittest.TestCase):
 
     def make_instance(self, include_optional) -> CatalogGPUDetails:
         """Test CatalogGPUDetails
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `CatalogGPUDetails`
         """
         model = CatalogGPUDetails()
@@ -50,5 +51,6 @@ class TestCatalogGPUDetails(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

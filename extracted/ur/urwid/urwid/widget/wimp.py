@@ -18,6 +18,8 @@
 # Urwid web site: https://urwid.org/
 
 
+"""Simple interactive widgets: selectable icons, check boxes, radio buttons and buttons."""
+
 from __future__ import annotations
 
 import typing
@@ -46,6 +48,8 @@ if typing.TYPE_CHECKING:
 
 
 class SelectableIcon(Text):
+    """Selectable text widget that shows a fixed-position cursor when focused."""
+
     ignore_focus = False
     _selectable = True
 
@@ -57,7 +61,11 @@ class SelectableIcon(Text):
         wrap: Literal["space", "any", "clip", "ellipsis"] | WrapMode = WrapMode.SPACE,
         layout: TextLayout | None = None,
     ) -> None:
-        """
+        """Create a text widget that is selectable.
+
+        A cursor is displayed at a fixed location in the text when in focus.
+        This widget has no special handling of keyboard or mouse input.
+
         :param text: markup for this widget; see :class:`Text` for
                      description of text markup
         :param cursor_position: position the cursor will appear in the
@@ -65,10 +73,6 @@ class SelectableIcon(Text):
         :param align: typically ``'left'``, ``'center'`` or ``'right'``
         :param wrap: typically ``'space'``, ``'any'``, ``'clip'`` or ``'ellipsis'``
         :param layout: defaults to a shared :class:`StandardTextLayout` instance
-
-        This is a text widget that is selectable.  A cursor
-        displayed at a fixed location in the text when in focus.
-        This widget has no special handling of keyboard or mouse input.
         """
         super().__init__(text, align=align, wrap=wrap, layout=layout)
         self._cursor_position = cursor_position
@@ -78,9 +82,7 @@ class SelectableIcon(Text):
         size: tuple[int] | tuple[()],  # type: ignore[override]
         focus: bool = False,
     ) -> TextCanvas | CompositeCanvas:
-        """
-        Render the text content of this widget with a cursor when
-        in focus.
+        """Render the text content of this widget with a cursor when in focus.
 
         >>> si = SelectableIcon("[!]")
         >>> si
@@ -106,9 +108,9 @@ class SelectableIcon(Text):
         return c
 
     def get_cursor_coords(self, size: tuple[int] | tuple[()]) -> tuple[int, int] | None:
-        """
-        Return the position of the cursor if visible.  This method
-        is required for widgets that display a cursor.
+        """Return the position of the cursor if visible.
+
+        This method is required for widgets that display a cursor.
         """
         if self._cursor_position > len(self.text):
             return None
@@ -129,18 +131,20 @@ class SelectableIcon(Text):
         size: tuple[int] | tuple[()],  # type: ignore[override]
         key: str,
     ) -> str:
-        """
-        No keys are handled by this widget.  This method is
-        required for selectable widgets.
+        """No keys are handled by this widget.
+
+        This method is required for selectable widgets.
         """
         return key
 
 
 class CheckBoxError(WidgetError):
-    pass
+    """Error raised for invalid :class:`CheckBox` usage."""
 
 
 class CheckBox(WidgetWrap[Columns]):
+    """Selectable widget that toggles between checked, unchecked, and mixed states."""
+
     states: typing.ClassVar[dict[bool | Literal["mixed"], SelectableIcon]] = {
         True: SelectableIcon("[X]", 1),
         False: SelectableIcon("[ ]", 1),
@@ -212,7 +216,8 @@ class CheckBox(WidgetWrap[Columns]):
         user_data: _T | None = None,
         checked_symbol: str | None = None,
     ) -> None:
-        """
+        """Create the CheckBox widget.
+
         :param label: markup for check box label
         :param state: False, True or "mixed"
         :param has_mixed: True if "mixed" is a state to cycle through
@@ -279,7 +284,7 @@ class CheckBox(WidgetWrap[Columns]):
         size: tuple[()] | tuple[int] | None = (),
         focus: bool = False,
     ) -> tuple[int, int]:
-        """Pack for widget.
+        r"""Pack for widget.
 
         :param size: size data. Special case: () - get minimal widget size to fit
         :param focus: widget is focused
@@ -289,7 +294,7 @@ class CheckBox(WidgetWrap[Columns]):
         (10, 1)
         >>> cb.pack()
         (8, 1)
-        >>> ml_cb = CheckBox("Multi\\nline\\ncheckbox")
+        >>> ml_cb = CheckBox("Multi\nline\ncheckbox")
         >>> ml_cb.pack()
         (12, 3)
         >>> ml_cb.pack((), True)
@@ -466,6 +471,8 @@ class CheckBox(WidgetWrap[Columns]):
 
 
 class RadioButton(CheckBox):
+    """Checkbox-like widget that exclusively selects itself within a shared group list."""
+
     states: typing.ClassVar[dict[bool | Literal["mixed"], SelectableIcon]] = {
         True: SelectableIcon("(X)", 1),
         False: SelectableIcon("( )", 1),
@@ -501,7 +508,8 @@ class RadioButton(CheckBox):
         on_state_change: Callable[[Self, bool, _T], typing.Any] | Callable[[Self, bool], typing.Any] | None = None,
         user_data: _T | None = None,
     ) -> None:
-        """
+        """Create the RadioButton widget.
+
         :param group: list for radio buttons in same group
         :param label: markup for radio button label
         :param state: False, True, "mixed" or "first True"
@@ -619,6 +627,8 @@ class RadioButton(CheckBox):
 
 
 class Button(WidgetWrap[Columns]):
+    """Selectable widget that emits a ``click`` signal when activated."""
+
     button_left = Text("<")
     button_right = Text(">")
 
@@ -658,7 +668,8 @@ class Button(WidgetWrap[Columns]):
         wrap: Literal["space", "any", "clip", "ellipsis"] | WrapMode = WrapMode.SPACE,
         layout: TextLayout | None = None,
     ) -> None:
-        """
+        """Create the Button widget.
+
         :param label: markup for button label
         :param on_press: shorthand for connect_signal()
                          function call for a single callback

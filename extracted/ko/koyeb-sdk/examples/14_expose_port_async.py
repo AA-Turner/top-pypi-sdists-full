@@ -44,6 +44,7 @@ async def main():
             cwd="/tmp",
         )
         print(f"Server started with process ID: {process_id}")
+        assert process_id
 
         # Wait for server to start
         print("Waiting for server to start...")
@@ -53,6 +54,7 @@ async def main():
         print("\nExposing port 8080...")
         exposed = await sandbox.expose_port(8080)
         print(f"Port exposed: {exposed.port}")
+        assert exposed.port == 8080
         print(f"Exposed at: {exposed.exposed_at}")
 
         # Wait a bit for the port to be ready
@@ -63,13 +65,17 @@ async def main():
         print("\nMaking HTTP request to verify port exposure...")
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(f"{exposed.exposed_at}/test.html", timeout=10)
+                response = await client.get(
+                    f"{exposed.exposed_at}/test.html", timeout=10
+                )
             response.raise_for_status()
             print(f"✓ Request successful! Status: {response.status_code}")
             print(f"✓ Response content: {response.text.strip()}")
+            assert "Port 8080" in response.text
         except Exception as e:
             print(f"⚠ Request failed: {e}")
             print("Note: Port may still be propagating. Try again in a few seconds.")
+            raise
 
         # List processes to show the server is running
         print("\nRunning processes:")
@@ -95,6 +101,7 @@ async def main():
         # Expose the new port (this will automatically unbind the previous port)
         exposed_2 = await sandbox.expose_port(8081)
         print(f"Port exposed: {exposed_2.port}")
+        assert exposed_2.port == 8081
         print(f"Exposed at: {exposed_2.exposed_at}")
 
         # Wait a bit for the port to be ready
@@ -105,13 +112,17 @@ async def main():
         print("\nMaking HTTP request to verify port 8081...")
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(f"{exposed_2.exposed_at}/test2.html", timeout=10)
+                response = await client.get(
+                    f"{exposed_2.exposed_at}/test2.html", timeout=10
+                )
             response.raise_for_status()
             print(f"✓ Request successful! Status: {response.status_code}")
             print(f"✓ Response content: {response.text.strip()}")
+            assert "Port 8081" in response.text
         except Exception as e:
             print(f"⚠ Request failed: {e}")
             print("Note: Port may still be propagating. Try again in a few seconds.")
+            raise
 
         # Unexpose the port
         print("\nUnexposing port...")

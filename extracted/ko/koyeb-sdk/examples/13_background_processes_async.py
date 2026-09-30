@@ -48,6 +48,8 @@ async def main():
         # List all processes
         print("\nListing all processes:")
         processes = await sandbox.list_processes()
+        assert any(process.id == process_id_1 for process in processes)
+        assert any(process.id == process_id_2 for process in processes)
         for process in processes:
             print(f"  ID: {process.id}")
             print(f"  Command: {process.command}")
@@ -85,6 +87,7 @@ async def main():
         print("\nKilling all running processes...")
         killed_count = await sandbox.kill_all_processes()
         print(f"Killed {killed_count} processes")
+        assert killed_count >= 2
 
         # Final list
         print("\nFinal process list:")

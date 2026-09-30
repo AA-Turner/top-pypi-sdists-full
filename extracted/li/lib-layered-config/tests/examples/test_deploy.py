@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import socket
 from pathlib import Path
 from textwrap import dedent
@@ -9,6 +10,7 @@ from textwrap import dedent
 import pytest
 
 from lib_layered_config.adapters.path_resolvers.default import DefaultPathResolver
+from lib_layered_config.domain.deploy_permissions import DeployPermissions
 from lib_layered_config.examples import deploy as deploy_module
 from lib_layered_config.examples.deploy import DeployAction, DeployResult, deploy_config
 from tests.support import LayeredSandbox, create_layered_sandbox
@@ -155,6 +157,43 @@ def test_deploy_batch_keeps_existing_and_creates_ucf(
     assert results[0].ucf_path.exists()
     # Original file unchanged
     assert _read(target) == """[existing]\nvalue = 1\n"""
+
+
+@posix_only
+def test_deploy_batch_keeps_existing_and_applies_explicit_modes_to_dir_and_ucf(
+    sandbox: LayeredSandbox,
+    source_config: Path,
+) -> None:
+    """Batch mode with explicit dir_mode/file_mode: the .ucf and directory get the modes,
+    the kept file's own mode is left untouched.
+    """
+    target = sandbox.roots["app"] / "config.toml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("""[existing]\nvalue = 1\n""", encoding="utf-8")
+    target.chmod(0o644)
+    original_mode = target.stat().st_mode & 0o7777
+
+    results = deploy_config(
+        source_config,
+        vendor=VENDOR,
+        app=APP,
+        targets=["app"],
+        slug=SLUG,
+        batch=True,
+        set_permissions=True,
+        dir_mode=0o750,
+        file_mode=0o640,
+    )
+
+    assert len(results) == 1
+    assert results[0].action == DeployAction.KEPT
+    assert results[0].destination == target
+    ucf_path = results[0].ucf_path
+    assert ucf_path is not None
+    assert ucf_path.exists()
+    assert (ucf_path.stat().st_mode & 0o7777) == 0o640
+    assert (target.parent.stat().st_mode & 0o7777) == 0o750
+    assert (target.stat().st_mode & 0o7777) == original_mode
 
 
 @os_agnostic
@@ -381,14 +420,7 @@ def test_copy_payload_creates_parent_directories(tmp_path: Path) -> None:
     payload = b"echo"
     destination = tmp_path / "nested" / "config.toml"
 
-    deploy_module._copy_payload(
-        destination,
-        payload,
-        layer="app",
-        set_permissions_flag=False,
-        dir_mode=None,
-        file_mode=None,
-    )
+    deploy_module._copy_payload(destination, payload, modes=None)
 
     assert destination.read_bytes() == payload
 
@@ -643,9 +675,7 @@ def test_write_ucf_creates_ucf_file(tmp_path: Path) -> None:
     destination.write_text("existing content", encoding="utf-8")
     payload = b"new content"
 
-    ucf_path = deploy_module._write_ucf(
-        destination, payload, layer="user", set_permissions_flag=False, dir_mode=None, file_mode=None
-    )
+    ucf_path = deploy_module._write_ucf(destination, payload, modes=None)
 
     assert ucf_path == tmp_path / "config.toml.ucf"
     assert ucf_path.read_bytes() == payload
@@ -659,9 +689,7 @@ def test_write_ucf_uses_numbered_suffix_when_ucf_exists(tmp_path: Path) -> None:
     existing_ucf.write_text("old ucf", encoding="utf-8")
     payload = b"new content"
 
-    ucf_path = deploy_module._write_ucf(
-        destination, payload, layer="user", set_permissions_flag=False, dir_mode=None, file_mode=None
-    )
+    ucf_path = deploy_module._write_ucf(destination, payload, modes=None)
 
     assert ucf_path == tmp_path / "config.toml.ucf.1"
     assert ucf_path.read_bytes() == payload
@@ -673,9 +701,7 @@ def test_write_ucf_applies_user_layer_permissions(tmp_path: Path) -> None:
     destination = tmp_path / "config.toml"
     payload = b"secret_token = 'abc'"
 
-    ucf_path = deploy_module._write_ucf(
-        destination, payload, layer="user", set_permissions_flag=True, dir_mode=None, file_mode=None
-    )
+    ucf_path = deploy_module._write_ucf(destination, payload, modes=DeployPermissions.defaults().for_layer("user"))
 
     assert (ucf_path.stat().st_mode & 0o777) == 0o600
 
@@ -882,23 +908,34 @@ def test_deploy_multiple_overwrites_create_multiple_backups(
 # ---------------------------------------------------------------------------
 
 
-@os_agnostic
+@posix_only
 def test_deploy_with_permissions_disabled_skips_chmod(
     sandbox: LayeredSandbox,
     source_config: Path,
 ) -> None:
-    """Deploying with set_permissions=False should not change file modes."""
-    results = deploy_config(
-        source_config,
-        vendor=VENDOR,
-        app=APP,
-        targets=["app"],
-        slug=SLUG,
-        set_permissions=False,
-    )
+    """Deploying with set_permissions=False leaves the file at the umask-derived mode.
+
+    Asserting only DeployAction.CREATED cannot detect a chmod: pick a distinctive
+    umask first, so a stray apply_mode call (which would land on a fixed 0o644/0o600
+    regardless of umask) shows up as a mode mismatch.
+    """
+    old_umask = os.umask(0o077)
+    try:
+        results = deploy_config(
+            source_config,
+            vendor=VENDOR,
+            app=APP,
+            targets=["app"],
+            slug=SLUG,
+            set_permissions=False,
+        )
+    finally:
+        os.umask(old_umask)
 
     assert len(results) == 1
     assert results[0].action == DeployAction.CREATED
+    expected_mode = 0o666 & ~0o077 & 0o777
+    assert (results[0].destination.stat().st_mode & 0o777) == expected_mode
 
 
 @posix_only

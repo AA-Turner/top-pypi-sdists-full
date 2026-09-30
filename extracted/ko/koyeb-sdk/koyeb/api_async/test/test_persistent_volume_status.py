@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.persistent_volume_status import PersistentVolumeStatus
 
+
 class TestPersistentVolumeStatus(unittest.TestCase):
     """PersistentVolumeStatus unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestPersistentVolumeStatus(unittest.TestCase):
         """Test PersistentVolumeStatus"""
         # inst = PersistentVolumeStatus()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

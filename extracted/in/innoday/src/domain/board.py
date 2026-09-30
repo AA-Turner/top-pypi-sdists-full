@@ -179,7 +179,7 @@ class BoardSyncHistory(SQLModel, table=True):
     #:
     #: **Three readers need to know, and none of them could.** A dry run recorded a
     #: row indistinguishable from a real sync -- `completed_at` set, counts
-    #: populated -- so `board sync-status` reported "Last sync completed
+    #: populated -- so the old `board sync-status` reported "Last sync completed
     #: successfully · 38 created" for a run that created nothing; the
     #: already-in-progress guard could be tripped by an abandoned preview; and
     #: worst, `SummaryService.latest_sync` read it as evidence of freshness, so

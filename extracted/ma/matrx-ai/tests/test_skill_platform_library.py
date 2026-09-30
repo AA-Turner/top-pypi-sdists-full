@@ -90,7 +90,7 @@ def _imported(skill_id: str, pack_id: str = "outside-pack") -> _Row:
         skill_id=skill_id,
         body="their text",
         is_active=True,
-        visibility="public",
+        published_to_web=True,
         config={"ingested_from": "outside_pack", "pack_id": pack_id},
     )
 
@@ -111,7 +111,7 @@ def _parsed(skill_id: str, parent_ref: dict | None) -> ParsedSkill:
         version=None,
         source_hash=_hash(body),
         source_path=f"lib/{skill_id}/SKILL.md",
-        visibility="public",
+        published_to_web=True,
         ingested_from="platform_library",
         extra_config={"library_set": "t", "source_repo": "aidream"},
         parent_ref=parent_ref,
@@ -154,7 +154,7 @@ async def test_a_wrong_parent_link_is_repaired_on_the_next_run(monkeypatch):
         id=uuid4(),
         skill_id="matrx-seo-audit",
         is_active=True,
-        visibility="public",
+        published_to_web=True,
         parent_skill_id=None,
         config={
             "ingested_from": "platform_library",
@@ -211,7 +211,7 @@ async def test_no_parent_ref_never_clears_a_hand_set_link(monkeypatch):
         id=uuid4(),
         skill_id="x",
         is_active=True,
-        visibility="public",
+        published_to_web=True,
         parent_skill_id=hand,
         config={"ingested_from": "platform_library"},
     )
@@ -233,7 +233,7 @@ def _set(tmp_path: Path, *, extra_folder: str | None = None, bad_name: bool = Fa
     root = tmp_path / "demo"
     (root / "matrx-alpha").mkdir(parents=True)
     (root / "library.yaml").write_text(
-        "set_id: demo-set\ntitle: Demo\nvisibility: public\nskill_type: workflow\n"
+        "set_id: demo-set\ntitle: Demo\npublished_to_web: true\nskill_type: workflow\n"
         "category: {slug: demo, name: Demo}\nparent_pack: outside-pack\n"
         "skills:\n  matrx-alpha: {parent: alpha}\n"
     )
@@ -257,7 +257,7 @@ async def test_library_set_is_public_categorised_parented_and_idempotent(tmp_pat
     assert first["errors"] == [] and first["created"] == 1
     assert first["category"]["status"] == "created"
     row = next(r for r in defs.rows if r.skill_id == "matrx-alpha")
-    assert row.visibility == "public" and row.is_system is True and row.skill_type == "workflow"
+    assert row.published_to_web is True and row.is_system is True and row.skill_type == "workflow"
     assert str(row.parent_skill_id) == str(parent.id)  # narrowed by parent_pack
     assert str(row.category_id) == str(cats.rows[0].id)
     assert row.config["ingested_from"] == "platform_library"
@@ -328,7 +328,7 @@ _FORBIDDEN = re.compile(
 
 def test_shipped_seo_set_covers_every_imported_skill_and_speaks_ai_matrx():
     ls = load_library_set(LIBRARY_DIR / "seo")
-    assert ls.parent_pack == "every-app-seo-skills" and ls.visibility == "public"
+    assert ls.parent_pack == "every-app-seo-skills" and ls.published_to_web is True
     skills, errors = walk_library_set(ls)
     assert errors == []
     assert {s.parent_ref["skill_id"] for s in skills} == SEO_PARENTS
@@ -340,7 +340,7 @@ def test_shipped_seo_set_covers_every_imported_skill_and_speaks_ai_matrx():
 
 
 @pytest.mark.asyncio
-async def test_category_visibility_column_follows_the_declared_visibility(tmp_path, monkeypatch):
+async def test_category_web_lane_follows_the_declared_one(tmp_path, monkeypatch):
     from matrx_ai.skills.ingest import ensure_skill_category
 
     defs, cats = _Defs(), _Cats()
@@ -349,17 +349,74 @@ async def test_category_visibility_column_follows_the_declared_visibility(tmp_pa
     admin = str(uuid4())
 
     created = await ensure_skill_category(
-        cat, visibility="public", extra_metadata={}, admin_user_id=admin, dry_run=False
+        cat, published_to_web=True, extra_metadata={}, admin_user_id=admin, dry_run=False
     )
-    assert created["status"] == "created" and cats.rows[0].visibility == "public"
+    assert created["status"] == "created" and cats.rows[0].published_to_web is True
+    assert cats.rows[0].published_to_web_by == admin
 
-    # A category left at the column default (internal) is reconciled, once.
-    cats.rows[0].visibility = "internal"
+    # A category left unpublished (the column default) is reconciled, once.
+    cats.rows[0].published_to_web = False
     fixed = await ensure_skill_category(
-        cat, visibility="public", extra_metadata={}, admin_user_id=admin, dry_run=False
+        cat, published_to_web=True, extra_metadata={}, admin_user_id=admin, dry_run=False
     )
-    assert fixed["status"] == "visibility_fixed" and cats.rows[0].visibility == "public"
+    assert fixed["status"] == "published_to_web_fixed" and cats.rows[0].published_to_web is True
     again = await ensure_skill_category(
-        cat, visibility="public", extra_metadata={}, admin_user_id=admin, dry_run=False
+        cat, published_to_web=True, extra_metadata={}, admin_user_id=admin, dry_run=False
     )
     assert again["status"] == "exists"
+
+
+# ---------------------------------------------------------------------------
+# The pairing runs BOTH ways (acceptance 2026-09-29: the imported skill never
+# named our version, and ours never said what it was derived from)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_pairing_is_two_way_in_the_data_and_reruns_write_nothing(tmp_path, monkeypatch):
+    parent = _imported("alpha")
+    parent.config.update(
+        {
+            "source_repo": "https://github.com/elvisun/newsjack",
+            "source_authors": ["Elvis Sun", "Carly Martinetti"],
+        }
+    )
+    defs, cats = _Defs([parent]), _Cats()
+    _patch(monkeypatch, defs, cats)
+    root = _set(tmp_path)
+
+    first = await ingest_library_set(root, admin_user_id=str(uuid4()))
+    ours = next(r for r in defs.rows if r.skill_id == "matrx-alpha")
+
+    # Ours → the imported original, with enough to say "derived from newsjack's alpha".
+    assert ours.config["derived_from"] == {
+        "id": str(parent.id),
+        "skill_id": "alpha",
+        "pack_id": "outside-pack",
+        "source_repo": "https://github.com/elvisun/newsjack",
+        "source_authors": ["Elvis Sun", "Carly Martinetti"],
+    }
+    # The imported original → ours, merged beside the pack's own stamps (never replacing them).
+    assert parent.config["our_version"] == {
+        "id": str(ours.id),
+        "skill_id": "matrx-alpha",
+        "library_set": "demo-set",
+    }
+    assert parent.config["ingested_from"] == "outside_pack"
+    assert parent.body == "their text"
+    assert first["counterparts_linked"] == 2
+
+    writes_before = defs.updates
+    second = await ingest_library_set(root, admin_user_id=str(uuid4()))
+    assert (second["created"], second["updated"], second["unchanged"]) == (0, 0, 1)
+    assert second["counterparts_linked"] == 0
+    assert defs.updates == writes_before  # idempotent: a rerun writes nothing at all
+
+
+@pytest.mark.asyncio
+async def test_dry_run_links_nothing(tmp_path, monkeypatch):
+    parent = _imported("alpha")
+    defs, cats = _Defs([parent]), _Cats()
+    _patch(monkeypatch, defs, cats)
+    await ingest_library_set(_set(tmp_path), admin_user_id=str(uuid4()), dry_run=True)
+    assert "our_version" not in parent.config

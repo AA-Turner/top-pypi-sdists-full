@@ -131,3 +131,54 @@ class CallFailure(Exception):
 
     def __init__(self: Any, message: str) -> None: ...
 
+class ConnectionLost:
+    # A pooled connection could not be established, twice in a row.
+    #
+    #     One dropped keep-alive is the pool's own business and is retried where it happens --
+    #     the server closed a connection it had promised to keep, the request never left, and
+    #     a fresh connection sends it. **Two in a row is not that**, and this is what the
+    #     caller is told instead.
+    #
+    #     Reported separately from a plain :class:`CallFailure` because the request provably
+    #     never reached the producer, so a caller may treat it as a reachability problem
+    #     rather than as a rejected write. Whether that means pacing, dropping or retrying is
+    #     again the caller's.
+
+    ...
+class MalformedReply:
+    # The call succeeded, and its payload did not fit the shape the route declares.
+    #
+    #     A ``CallFailure`` because that is what this package raises and what every consumer
+    #     already catches, and a distinct type because **this one is not a failed call**. The
+    #     request was made, the producer answered, and the answer was well-formed at the
+    #     envelope level -- what did not hold is the contract. A caller retrying it will get
+    #     the same reply, so "retry" and "try the next base" are the wrong responses, where
+    #     for a plain :class:`CallFailure` they are often the right ones.
+    #
+    #     It is also the signal a producer changed a payload without telling anyone, which is
+    #     worth separating in error reporting from the network and 5xx noise it would
+    #     otherwise sit inside.
+    #
+    #     ``response``
+    #         The payload exactly as it arrived, so a caller can say what it got. The
+    #         validator's own error, naming the field that did not fit, is the ``__cause__``.
+
+    ...
+class RateLimited:
+    # The producer answered 429.
+    #
+    #     A ``CallFailure`` because that is what this package raises, and a distinct type
+    #     because a caller that paces itself needs to tell "slow down" from "this request was
+    #     wrong". **It says what happened and not what to do about it**: how long to hold off,
+    #     whether to drop the payload and whether to warn are the caller's, which is the only
+    #     place that knows whether the thing being sent still matters.
+    #
+    #     ``retry_after``
+    #         Seconds, from the ``Retry-After`` header, or ``0.0`` when the producer sent none
+    #         -- which lpr-server currently does not, answering only
+    #         ``{"error": "rate limit exceeded"}``. ``0.0`` therefore means *no hint*, not
+    #         *retry immediately*, and a caller reading it as a delay must supply its own
+    #         backoff.
+
+    def __init__(self: Any, message: str, **kwargs: Any) -> None: ...
+

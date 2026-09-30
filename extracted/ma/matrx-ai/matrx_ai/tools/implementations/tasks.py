@@ -14,6 +14,7 @@ import time
 import traceback
 from typing import Any
 
+from matrx_utils.row_access import publish_columns, reconcile_row_access, stated_row_access
 from pydantic import ValidationError
 
 from matrx_ai.config.read_only_resources import READ_ONLY_TOOL_MESSAGE, is_resource_read_only
@@ -85,7 +86,8 @@ async def task_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 "project_id": t.get("project_id"),
                 "parent_task_id": t.get("parent_task_id"),
                 "assignee_id": t.get("assignee_id"),
-                "visibility": t.get("visibility"),
+                "published_to_web": bool(t.get("published_to_web")),
+                "shown_to": t.get("shown_to"),
                 "organization_id": t.get("organization_id"),
                 "created_at": t.get("created_at"),
                 "updated_at": t.get("updated_at"),
@@ -225,6 +227,11 @@ async def task_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return organization_required_result(
             what="create a task", tool_name="task_create", ctx=ctx, started_at=started_at
         )
+    # The tool_def row still offers the retiring single level word; reconcile it once here.
+    access = reconcile_row_access(
+        legacy_level=args.get("visibility") or None,  # T-13 transitional wire input
+        boundary="tool task.create",
+    )
     try:
         from matrx_ai.db.content_types.tasks import tasks_manager_instance
         result = await tasks_manager_instance.create_task(
@@ -238,7 +245,8 @@ async def task_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             priority=args.get("priority") or None,
             due_date=args.get("due_date") or None,
             assignee_id=args.get("assignee_id") or None,
-            visibility=args.get("visibility") or None,
+            published_to_web=access.published_to_web,
+            shown_to=access.shown_to,
         )
         if not result.get("success"):
             return ToolResult(
@@ -256,7 +264,8 @@ async def task_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 "status": t.get("status"),
                 "project_id": t.get("project_id"),
                 "organization_id": t.get("organization_id"),
-                "visibility": t.get("visibility"),
+                "published_to_web": bool(t.get("published_to_web")),
+                "shown_to": t.get("shown_to"),
                 "created_at": t.get("created_at"),
             },
             started_at=started_at, completed_at=time.time(),
@@ -321,13 +330,21 @@ async def task_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     if is_resource_read_only(task_id):
         return _read_only_result("task_update", started_at, ctx)
     updates = {k: v for k, v in args.items() if k != "task_id"}
+    # The tool_def row still offers the retiring single level word; reconcile it once here.
+    legacy_level = updates.pop("visibility", None)  # T-13 transitional wire input
+    if legacy_level:
+        published, shown_to = stated_row_access(legacy_level=legacy_level, boundary="tool task.update")
+        if published is not None:
+            updates.update(publish_columns(published, ctx.user_id))
+        if shown_to is not None:
+            updates["shown_to"] = shown_to
     if not updates:
         return ToolResult(
             success=False,
             error=ToolError(
                 error_type="validation",
                 message="At least one field to update is required.",
-                suggested_action="Provide one or more of: title, description, status, priority, due_date, project_id, parent_task_id, assignee_id, visibility.",
+                suggested_action="Provide one or more of: title, description, status, priority, due_date, project_id, parent_task_id, assignee_id.",
             ),
             started_at=started_at, completed_at=time.time(),
             tool_name="task_update", call_id=ctx.call_id,

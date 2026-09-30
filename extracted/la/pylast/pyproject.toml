@@ -19,11 +19,10 @@ license = "Apache-2.0"
 license-files = [ "LICENSE.txt" ]
 maintainers = [ { name = "Hugo van Kemenade" } ]
 authors = [ { name = "Amr Hassan <amr.hassan@gmail.com> and Contributors", email = "amr.hassan@gmail.com" } ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -59,7 +58,7 @@ build.hooks.vcs.version-file = "src/pylast/_version.py"
 
 [tool.ruff]
 fix = true
-lint.select = [
+lint.extend-select = [
   "C4",     # flake8-comprehensions
   "E",      # pycodestyle errors
   "EM",     # flake8-errmsg
@@ -68,28 +67,28 @@ lint.select = [
   "ICN",    # flake8-import-conventions
   "ISC",    # flake8-implicit-str-concat
   "LOG",    # flake8-logging
+  "PERF",   # perflint
   "PGH",    # pygrep-hooks
-  "PIE",    # flake8-pie
   "PT",     # flake8-pytest-style
   "PYI",    # flake8-pyi
-  "RUF022", # unsorted-dunder-all
-  "RUF100", # unused noqa (yesqa)
+  "TID251", # flake8-tidy-imports: banned-api
   "UP",     # pyupgrade
   "W",      # pycodestyle warnings
-  "YTT",    # flake8-2020
 ]
 lint.ignore = [
   "E203",   # Whitespace before ':'
   "E221",   # Multiple spaces before operator
   "E226",   # Missing whitespace around arithmetic operator
   "E241",   # Multiple spaces after ','
-  "PIE790", # Unnecessary pass statement
+  "PIE790", # flake8-pie: unnecessary-placeholder
 ]
 lint.flake8-import-conventions.aliases.datetime = "dt"
 lint.flake8-import-conventions.banned-from = [ "datetime" ]
 lint.flake8-pytest-style.parametrize-names-type = "csv"
+lint.flake8-tidy-imports.banned-api."typing.TYPE_CHECKING".msg = "Use TYPE_CHECKING = False instead"
 lint.isort.known-first-party = [ "pylast" ]
 lint.isort.required-imports = [ "from __future__ import annotations" ]
+lint.future-annotations = true
 
 [tool.pyproject-fmt]
 max_supported_python = "3.15"
@@ -99,10 +98,10 @@ pretty = true
 show_error_codes = true
 
 [tool.pytest]
-minversion = "9.0"
 filterwarnings = [
   "once::DeprecationWarning",
   "once::PendingDeprecationWarning",
 ]
+minversion = "9.0"
 testpaths = [ "tests" ]
 xfail_strict = true

@@ -25,12 +25,17 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class EgressPolicy(BaseModel):
     """
     EgressPolicy
-    """ # noqa: E501
+    """  # noqa: E501
+
     mode: Optional[EgressPolicyMode] = EgressPolicyMode.EGRESS_POLICY_MODE_DEFAULT
-    allow_list: Optional[List[NetworkPolicyDestination]] = Field(default=None, description="Allowed destinations (deny-by-default semantics under DENY_ALL). Ignored when mode is DEFAULT.")
+    allow_list: Optional[List[NetworkPolicyDestination]] = Field(
+        default=None,
+        description="Allowed destinations (deny-by-default semantics under DENY_ALL). Ignored when mode is DEFAULT.",
+    )
     __properties: ClassVar[List[str]] = ["mode", "allow_list"]
 
     model_config = ConfigDict(
@@ -39,7 +44,6 @@ class EgressPolicy(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +68,7 @@ class EgressPolicy(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -76,9 +79,10 @@ class EgressPolicy(BaseModel):
         _items = []
         if self.allow_list:
             for _item_allow_list in self.allow_list:
-                if _item_allow_list:
-                    _items.append(_item_allow_list.to_dict())
-            _dict['allow_list'] = _items
+                _items.append(
+                    _item_allow_list.to_dict() if _item_allow_list is not None else None
+                )
+            _dict["allow_list"] = _items
         return _dict
 
     @classmethod
@@ -90,10 +94,17 @@ class EgressPolicy(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "mode": obj.get("mode") if obj.get("mode") is not None else EgressPolicyMode.EGRESS_POLICY_MODE_DEFAULT,
-            "allow_list": [NetworkPolicyDestination.from_dict(_item) for _item in obj["allow_list"]] if obj.get("allow_list") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "mode": obj.get("mode")
+                if obj.get("mode") is not None
+                else EgressPolicyMode.EGRESS_POLICY_MODE_DEFAULT,
+                "allow_list": [
+                    NetworkPolicyDestination.from_dict(_item)
+                    for _item in obj["allow_list"]
+                ]
+                if obj.get("allow_list") is not None
+                else None,
+            }
+        )
         return _obj
-
-

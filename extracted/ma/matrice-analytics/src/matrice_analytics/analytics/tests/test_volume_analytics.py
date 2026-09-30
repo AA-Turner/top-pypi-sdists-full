@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import importlib.util
 import json
 import os
@@ -9,13 +10,15 @@ from pathlib import Path
 from typing import Any
 
 import cv2
-from ultralytics import YOLO
 import numpy as np
+from ultralytics import YOLO
 
 # --- Import bootstrap (analytics + footfall only) ---
 # Avoid ``matrice_analytics/__init__.py`` (pulls all of post_processing) and
 # ``usecases/__init__.py`` (pulls color/clip and optional subprocess deps).
-_ROOT = Path("C:\\Users\\aswan_3sr40l5\\Matrice\\codespace\\repos\\py_analytics") # add path to the root of the repository
+_ROOT = Path(
+    "C:\\Users\\aswan_3sr40l5\\Matrice\\codespace\\repos\\py_analytics"
+)  # add path to the root of the repository
 _SRC = _ROOT / "src"
 _PKG = _SRC / "matrice_analytics"
 sys.path.insert(0, str(_SRC))
@@ -34,7 +37,6 @@ _register_pkg("matrice_analytics.post_processing.usecases", _PKG / "post_process
 
 from matrice_analytics.analytics.engine import AnalyticsEngine  # noqa: E402
 
-
 _spec_bt = importlib.util.spec_from_file_location(
     "matrice_analytics.post_processing.usecases.footfall",
     _PKG / "post_processing" / "usecases" / "footfall.py",
@@ -44,7 +46,6 @@ assert _spec_bt.loader is not None
 sys.modules["matrice_analytics.post_processing.usecases.footfall"] = _footfall
 _spec_bt.loader.exec_module(_footfall)
 ByteTrackWrapper = _footfall.ByteTrackWrapper
-
 
 
 # YOLO COCO class-id → analytics entity name
@@ -254,7 +255,16 @@ class AnalyticsEngineTestProcessor:
 
             (tw, th), baseline = cv2.getTextSize(label, font, font_scale, 1)
             cv2.rectangle(frame, (x1, y1 - th - baseline - 4), (x1 + tw + 4, y1), label_bg, -1)
-            cv2.putText(frame, label, (x1 + 2, y1 - baseline - 2), font, font_scale, text_color, 1, cv2.LINE_AA)
+            cv2.putText(
+                frame,
+                label,
+                (x1 + 2, y1 - baseline - 2),
+                font,
+                font_scale,
+                text_color,
+                1,
+                cv2.LINE_AA,
+            )
 
         return frame
 
@@ -352,8 +362,12 @@ class AnalyticsEngineTestProcessor:
                 cv2.circle(frame, pt, 6, color_b, -1)
 
             font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(frame, line_names[0], (a1[0] + 10, a1[1] - 10), font, 0.6, color_a, 2, cv2.LINE_AA)
-            cv2.putText(frame, line_names[1], (b1[0] + 10, b1[1] - 10), font, 0.6, color_b, 2, cv2.LINE_AA)
+            cv2.putText(
+                frame, line_names[0], (a1[0] + 10, a1[1] - 10), font, 0.6, color_a, 2, cv2.LINE_AA
+            )
+            cv2.putText(
+                frame, line_names[1], (b1[0] + 10, b1[1] - 10), font, 0.6, color_b, 2, cv2.LINE_AA
+            )
 
         elif method == "polygon" and "zones" in geometry:
             colors = [color_entry, color_exit]
@@ -365,7 +379,16 @@ class AnalyticsEngineTestProcessor:
                 cv2.polylines(frame, [poly], True, color, 2)
 
                 centroid = poly.mean(axis=0).astype(int)
-                cv2.putText(frame, name, tuple(centroid), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
+                cv2.putText(
+                    frame,
+                    name,
+                    tuple(centroid),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    color,
+                    2,
+                    cv2.LINE_AA,
+                )
 
     # ------------------------------------------------------------------
     # Serialization
@@ -495,7 +518,7 @@ class AnalyticsEngineTestProcessor:
             json.dump(self._serialize(final_agg), f, indent=2)
         print(f"\nFinal aggregation saved: {final_agg_path}")
         print("Final aggregation result:")
-        pprint.pprint(self._serialize(final_agg))
+        pprint.pprint(self._serialize(final_agg))  # noqa: T203
 
         cap.release()
         if video_writer is not None:

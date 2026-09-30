@@ -19,13 +19,19 @@ from pydantic import Field, StrictStr
 from typing import List, Optional
 from typing_extensions import Annotated
 from koyeb.api.models.create_persistent_volume_reply import CreatePersistentVolumeReply
-from koyeb.api.models.create_persistent_volume_request import CreatePersistentVolumeRequest
+from koyeb.api.models.create_persistent_volume_request import (
+    CreatePersistentVolumeRequest,
+)
 from koyeb.api.models.delete_persistent_volume_reply import DeletePersistentVolumeReply
 from koyeb.api.models.get_persistent_volume_reply import GetPersistentVolumeReply
-from koyeb.api.models.list_persistent_volume_events_reply import ListPersistentVolumeEventsReply
+from koyeb.api.models.list_persistent_volume_events_reply import (
+    ListPersistentVolumeEventsReply,
+)
 from koyeb.api.models.list_persistent_volumes_reply import ListPersistentVolumesReply
 from koyeb.api.models.update_persistent_volume_reply import UpdatePersistentVolumeReply
-from koyeb.api.models.update_persistent_volume_request import UpdatePersistentVolumeRequest
+from koyeb.api.models.update_persistent_volume_request import (
+    UpdatePersistentVolumeRequest,
+)
 
 from koyeb.api.api_client import ApiClient, RequestSerialized
 from koyeb.api.api_response import ApiResponse
@@ -44,7 +50,6 @@ class PersistentVolumesApi:
             api_client = ApiClient.get_default()
         self.api_client = api_client
 
-
     @validate_call
     def create_persistent_volume(
         self,
@@ -53,9 +58,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -87,35 +91,34 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._create_persistent_volume_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreatePersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "CreatePersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     def create_persistent_volume_with_http_info(
@@ -125,9 +128,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -159,35 +161,34 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._create_persistent_volume_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreatePersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "CreatePersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     def create_persistent_volume_without_preload_content(
@@ -197,9 +198,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -231,31 +231,30 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._create_persistent_volume_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreatePersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "CreatePersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _create_persistent_volume_serialize(
         self,
@@ -265,11 +264,9 @@ class PersistentVolumesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -288,24 +285,16 @@ class PersistentVolumesApi:
         if body is not None:
             _body_params = body
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/v1/volumes',
+            method="POST",
+            resource_path="/v1/volumes",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -315,11 +304,8 @@ class PersistentVolumesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def delete_persistent_volume(
@@ -329,9 +315,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -363,35 +348,34 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._delete_persistent_volume_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "DeletePersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "DeletePersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     def delete_persistent_volume_with_http_info(
@@ -401,9 +385,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -435,35 +418,34 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._delete_persistent_volume_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "DeletePersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "DeletePersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     def delete_persistent_volume_without_preload_content(
@@ -473,9 +455,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -507,31 +488,30 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._delete_persistent_volume_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "DeletePersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "DeletePersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _delete_persistent_volume_serialize(
         self,
@@ -541,11 +521,9 @@ class PersistentVolumesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -558,30 +536,22 @@ class PersistentVolumesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='DELETE',
-            resource_path='/v1/volumes/{id}',
+            method="DELETE",
+            resource_path="/v1/volumes/{id}",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -591,11 +561,8 @@ class PersistentVolumesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def get_persistent_volume(
@@ -605,9 +572,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -639,35 +605,34 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_persistent_volume_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetPersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "GetPersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     def get_persistent_volume_with_http_info(
@@ -677,9 +642,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -711,35 +675,34 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_persistent_volume_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetPersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "GetPersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     def get_persistent_volume_without_preload_content(
@@ -749,9 +712,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -783,31 +745,30 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_persistent_volume_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetPersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "GetPersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _get_persistent_volume_serialize(
         self,
@@ -817,11 +778,9 @@ class PersistentVolumesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -834,30 +793,22 @@ class PersistentVolumesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/volumes/{id}',
+            method="GET",
+            resource_path="/v1/volumes/{id}",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -867,27 +818,40 @@ class PersistentVolumesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def list_persistent_volume_events(
         self,
-        persistent_volume_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on persistent volume id")] = None,
-        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on persistent volume event types")] = None,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
+        persistent_volume_id: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) Filter on persistent volume id"),
+        ] = None,
+        types: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on persistent volume event types"),
+        ] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        order: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) Sorts the list in the ascending or the descending order"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -927,7 +891,7 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_persistent_volume_events_serialize(
             persistent_volume_id=persistent_volume_id,
@@ -938,21 +902,21 @@ class PersistentVolumesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListPersistentVolumeEventsReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListPersistentVolumeEventsReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -960,22 +924,37 @@ class PersistentVolumesApi:
             response_types_map=_response_types_map,
         ).data
 
-
     @validate_call
     def list_persistent_volume_events_with_http_info(
         self,
-        persistent_volume_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on persistent volume id")] = None,
-        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on persistent volume event types")] = None,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
+        persistent_volume_id: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) Filter on persistent volume id"),
+        ] = None,
+        types: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on persistent volume event types"),
+        ] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        order: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) Sorts the list in the ascending or the descending order"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1015,7 +994,7 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_persistent_volume_events_serialize(
             persistent_volume_id=persistent_volume_id,
@@ -1026,21 +1005,21 @@ class PersistentVolumesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListPersistentVolumeEventsReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListPersistentVolumeEventsReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -1048,22 +1027,37 @@ class PersistentVolumesApi:
             response_types_map=_response_types_map,
         )
 
-
     @validate_call
     def list_persistent_volume_events_without_preload_content(
         self,
-        persistent_volume_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on persistent volume id")] = None,
-        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on persistent volume event types")] = None,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
+        persistent_volume_id: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) Filter on persistent volume id"),
+        ] = None,
+        types: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on persistent volume event types"),
+        ] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        order: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) Sorts the list in the ascending or the descending order"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1103,7 +1097,7 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_persistent_volume_events_serialize(
             persistent_volume_id=persistent_volume_id,
@@ -1114,24 +1108,23 @@ class PersistentVolumesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListPersistentVolumeEventsReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListPersistentVolumeEventsReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _list_persistent_volume_events_serialize(
         self,
@@ -1145,11 +1138,10 @@ class PersistentVolumesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: Dict[str, str] = {
-            'types': 'multi',
+            "types": "multi",
         }
 
         _path_params: Dict[str, str] = {}
@@ -1164,47 +1156,34 @@ class PersistentVolumesApi:
         # process the path parameters
         # process the query parameters
         if persistent_volume_id is not None:
-            
-            _query_params.append(('persistent_volume_id', persistent_volume_id))
-            
+            _query_params.append(("persistent_volume_id", persistent_volume_id))
+
         if types is not None:
-            
-            _query_params.append(('types', types))
-            
+            _query_params.append(("types", types))
+
         if limit is not None:
-            
-            _query_params.append(('limit', limit))
-            
+            _query_params.append(("limit", limit))
+
         if offset is not None:
-            
-            _query_params.append(('offset', offset))
-            
+            _query_params.append(("offset", offset))
+
         if order is not None:
-            
-            _query_params.append(('order', order))
-            
+            _query_params.append(("order", order))
+
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/volume_events',
+            method="GET",
+            resource_path="/v1/volume_events",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1214,28 +1193,40 @@ class PersistentVolumesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def list_persistent_volumes(
         self,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the service id")] = None,
-        region: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the region")] = None,
-        name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        service_id: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) A filter for the service id"),
+        ] = None,
+        region: Annotated[
+            Optional[StrictStr], Field(description="(Optional) A filter for the region")
+        ] = None,
+        name: Annotated[
+            Optional[StrictStr], Field(description="(Optional) A filter for the name")
+        ] = None,
+        ids: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on volume ids"),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1255,8 +1246,8 @@ class PersistentVolumesApi:
         :type region: str
         :param name: (Optional) A filter for the name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on volume ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1277,7 +1268,7 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_persistent_volumes_serialize(
             limit=limit,
@@ -1285,25 +1276,25 @@ class PersistentVolumesApi:
             service_id=service_id,
             region=region,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListPersistentVolumesReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListPersistentVolumesReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -1311,23 +1302,37 @@ class PersistentVolumesApi:
             response_types_map=_response_types_map,
         ).data
 
-
     @validate_call
     def list_persistent_volumes_with_http_info(
         self,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the service id")] = None,
-        region: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the region")] = None,
-        name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        service_id: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) A filter for the service id"),
+        ] = None,
+        region: Annotated[
+            Optional[StrictStr], Field(description="(Optional) A filter for the region")
+        ] = None,
+        name: Annotated[
+            Optional[StrictStr], Field(description="(Optional) A filter for the name")
+        ] = None,
+        ids: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on volume ids"),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1347,8 +1352,8 @@ class PersistentVolumesApi:
         :type region: str
         :param name: (Optional) A filter for the name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on volume ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1369,7 +1374,7 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_persistent_volumes_serialize(
             limit=limit,
@@ -1377,25 +1382,25 @@ class PersistentVolumesApi:
             service_id=service_id,
             region=region,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListPersistentVolumesReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListPersistentVolumesReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -1403,23 +1408,37 @@ class PersistentVolumesApi:
             response_types_map=_response_types_map,
         )
 
-
     @validate_call
     def list_persistent_volumes_without_preload_content(
         self,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the service id")] = None,
-        region: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the region")] = None,
-        name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        service_id: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) A filter for the service id"),
+        ] = None,
+        region: Annotated[
+            Optional[StrictStr], Field(description="(Optional) A filter for the region")
+        ] = None,
+        name: Annotated[
+            Optional[StrictStr], Field(description="(Optional) A filter for the name")
+        ] = None,
+        ids: Annotated[
+            Optional[List[StrictStr]],
+            Field(description="(Optional) Filter on volume ids"),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1439,8 +1458,8 @@ class PersistentVolumesApi:
         :type region: str
         :param name: (Optional) A filter for the name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on volume ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1461,7 +1480,7 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._list_persistent_volumes_serialize(
             limit=limit,
@@ -1469,28 +1488,27 @@ class PersistentVolumesApi:
             service_id=service_id,
             region=region,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListPersistentVolumesReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "ListPersistentVolumesReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _list_persistent_volumes_serialize(
         self,
@@ -1499,16 +1517,16 @@ class PersistentVolumesApi:
         service_id,
         region,
         name,
-        project_id,
+        ids,
         _request_auth,
         _content_type,
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            "ids": "multi",
         }
 
         _path_params: Dict[str, str] = {}
@@ -1523,51 +1541,37 @@ class PersistentVolumesApi:
         # process the path parameters
         # process the query parameters
         if limit is not None:
-            
-            _query_params.append(('limit', limit))
-            
+            _query_params.append(("limit", limit))
+
         if offset is not None:
-            
-            _query_params.append(('offset', offset))
-            
+            _query_params.append(("offset", offset))
+
         if service_id is not None:
-            
-            _query_params.append(('service_id', service_id))
-            
+            _query_params.append(("service_id", service_id))
+
         if region is not None:
-            
-            _query_params.append(('region', region))
-            
+            _query_params.append(("region", region))
+
         if name is not None:
-            
-            _query_params.append(('name', name))
-            
-        if project_id is not None:
-            
-            _query_params.append(('project_id', project_id))
-            
+            _query_params.append(("name", name))
+
+        if ids is not None:
+            _query_params.append(("ids", ids))
+
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/volumes',
+            method="GET",
+            resource_path="/v1/volumes",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1577,11 +1581,8 @@ class PersistentVolumesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     def update_persistent_volume(
@@ -1592,9 +1593,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1628,7 +1628,7 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._update_persistent_volume_serialize(
             id=id,
@@ -1636,28 +1636,27 @@ class PersistentVolumesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "UpdatePersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "UpdatePersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
-
 
     @validate_call
     def update_persistent_volume_with_http_info(
@@ -1668,9 +1667,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1704,7 +1702,7 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._update_persistent_volume_serialize(
             id=id,
@@ -1712,28 +1710,27 @@ class PersistentVolumesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "UpdatePersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "UpdatePersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
-
 
     @validate_call
     def update_persistent_volume_without_preload_content(
@@ -1744,9 +1741,8 @@ class PersistentVolumesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1780,7 +1776,7 @@ class PersistentVolumesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._update_persistent_volume_serialize(
             id=id,
@@ -1788,24 +1784,23 @@ class PersistentVolumesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "UpdatePersistentVolumeReply",
-            '400': "ErrorWithFields",
-            '401': "Error",
-            '403': "Error",
-            '404': "Error",
-            '500': "Error",
-            '503': "Error",
+            "200": "UpdatePersistentVolumeReply",
+            "400": "ErrorWithFields",
+            "401": "Error",
+            "403": "Error",
+            "404": "Error",
+            "500": "Error",
+            "503": "Error",
+            "default": "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _update_persistent_volume_serialize(
         self,
@@ -1816,11 +1811,9 @@ class PersistentVolumesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -1833,7 +1826,7 @@ class PersistentVolumesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params['id'] = id
+            _path_params["id"] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
@@ -1841,24 +1834,16 @@ class PersistentVolumesApi:
         if body is not None:
             _body_params = body
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/v1/volumes/{id}',
+            method="POST",
+            resource_path="/v1/volumes/{id}",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1868,7 +1853,5 @@ class PersistentVolumesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-

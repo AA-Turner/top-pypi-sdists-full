@@ -98,7 +98,7 @@ TEST_CASE("Test CommandLine -- basic") {
     CHECK(vals[5] == "--buz");
     CHECK(vals[6] == "--boz");
 
-    auto help = "\n" + cmdLine.getHelpText("prog - A fun program!!");
+    auto help = "\n" + cmdLine.getHelpText("prog - A fun program!!", 100);
     CHECK(help == R"(
 OVERVIEW: prog - A fun program!!
 
@@ -122,6 +122,96 @@ OPTIONS:
   -m,+multi            SDF
   --count              asdf
 )");
+
+    std::vector<std::pair<std::string, std::string>> expected = {
+        {"-a", "SDF"},
+        {"-b", "SDF"},
+        {"-z,-y,-x,--longFlag", "This flag does fun stuff"},
+        {"--longFlag2", "Another\ngood\nthing"},
+        {"-c", "SDF"},
+        {"-d", "SDF"},
+        {"-e,--ext", "Definitely should set me"},
+        {"-f,--ext2 <value>", "Me too!"},
+        {"--biz,--baz <entry>", "SDF"},
+        {"--buz,--boz=<val>", "SDF"},
+        {"--fiz,--faz", "SDF"},
+        {"--fuz,--foz", "SDF"},
+        {"-m,+multi", "SDF"},
+        {"--count", "asdf"},
+    };
+    CHECK(cmdLine.getHelpOptions() == expected);
+}
+
+TEST_CASE("Test CommandLine -- help text groups") {
+    std::optional<bool> a, b, c, d, e;
+
+    CommandLine cmdLine;
+    cmdLine.setProgramName("prog");
+
+    // Start with a named group so that the default group isn't the first one seen.
+    cmdLine.setGroup("First Group");
+    cmdLine.add("--one", a, "in first group");
+
+    cmdLine.setGroup("Second Group");
+    cmdLine.add("--two", b, "in second group");
+
+    // Registering back into the first group should cluster with --one.
+    cmdLine.setGroup("First Group");
+    cmdLine.add("--three", c, "also first group");
+
+    // Setting an empty group name reverts to the default section, which is always
+    // displayed at the top of the list, before any named groups.
+    cmdLine.setGroup("");
+    cmdLine.add("--four", d, "ungrouped");
+    cmdLine.add("--five", e, "also ungrouped");
+
+    auto help = "\n" + cmdLine.getHelpText("grouped program", 100);
+    CHECK(help == R"(
+OVERVIEW: grouped program
+
+USAGE: prog [options]
+
+OPTIONS:
+  --four   ungrouped
+  --five   also ungrouped
+
+First Group:
+  --one    in first group
+  --three  also first group
+
+Second Group:
+  --two    in second group
+)");
+}
+
+TEST_CASE("Test CommandLine -- help text description wrapping") {
+    std::optional<bool> a;
+
+    CommandLine cmdLine;
+    cmdLine.setProgramName("prog");
+    cmdLine.add("--a-very-long-option-name-here", a,
+                "one two three four five six seven eight nine ten eleven twelve thirteen fourteen");
+
+    auto help = cmdLine.getHelpText("", 100);
+
+    // The description is word-wrapped, with continuation lined up under the
+    // description column and no word split across lines.
+    std::string expected = "USAGE: prog [options]\n\nOPTIONS:\n"
+                           "  --a-very-long-option-name-here  "
+                           "one two three four five six seven eight nine ten eleven twelve\n" +
+                           std::string(34, ' ') + "thirteen fourteen\n";
+    CHECK(help == expected);
+
+    // No line may exceed the maximum column width.
+    size_t pos = 0;
+    while (pos < help.size()) {
+        size_t nl = help.find('\n', pos);
+        size_t end = (nl == std::string::npos) ? help.size() : nl;
+        CHECK(end - pos <= 100);
+        if (nl == std::string::npos)
+            break;
+        pos = nl + 1;
+    }
 }
 
 TEST_CASE("Test CommandLine -- backslash at EOL") {
@@ -534,7 +624,7 @@ TEST_CASE("Test CommandLine -- check setRenameCommand()") {
 
 TEST_CASE("Test CommandLine -- ignore and rename errors") {
     CommandLine cmdLine;
-    CHECK(cmdLine.addRenameCommand("--xxx").find("missing or extra comma") != std::string::npos);
+    CHECK(contains(cmdLine.addRenameCommand("--xxx"), "missing or extra comma"));
     CHECK(cmdLine.addIgnoreCommand("--yyy,--bar,baz").find("missing or extra comma") !=
           std::string::npos);
 }
@@ -549,7 +639,7 @@ TEST_CASE("Test CommandLine enum options basic") {
     CHECK(mode == TestMode::Fast);
 
     // Test help text includes valid options
-    auto help = cmdLine.getHelpText("Test program");
+    auto help = cmdLine.getHelpText("Test program", 100);
     CHECK(help.find("Valid options: 'fast', 'normal', 'slow', 'very-detailed-mode'") !=
           std::string::npos);
 }

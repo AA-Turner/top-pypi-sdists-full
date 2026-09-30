@@ -63,7 +63,7 @@ def _manifest_yaml(commit: str) -> str:
 pack_id: test-pack
 title: "Test PR skills"
 imported_on: "2026-09-27"
-visibility: public
+visibility: public  # T-13 transitional wire input: an older manifest's level word still reconciles
 source:
   repo_url: https://example.com/upstream
   commit: {commit}
@@ -158,7 +158,7 @@ def test_banner_provenance_everywhere_and_loud_tooling_only_where_referenced(pac
         assert "Ada Author and Bo Author" in s.body
         assert "https://example.com/upstream" in s.body
         assert "MIT License" in s.body
-        assert s.visibility == "public"
+        assert s.published_to_web is True
         assert s.ingested_from == "outside_pack"
         cfg = s.extra_config
         assert cfg["pack_id"] == "test-pack"
@@ -321,7 +321,7 @@ async def test_pack_ingest_is_idempotent_public_system_and_categorised(pack, mon
     assert cats.rows[0].metadata["is_active"] is True
     for row in defs.rows:
         assert row.organization_id == SYSTEM_ORGANIZATION_ID
-        assert row.is_system is True and row.visibility == "public"
+        assert row.is_system is True and row.published_to_web is True
         assert str(row.category_id) == str(cat_id)
         assert row.config["ingested_from"] == "outside_pack"
 
@@ -340,7 +340,7 @@ async def test_pack_and_repo_mirror_never_write_each_others_rows(pack, monkeypat
         skill_id="story-triage",
         body="repo body",
         is_active=True,
-        visibility="internal",
+        published_to_web=False,
         config={
             "ingested_from": "filesystem",
             "source_path": "/repo/.claude/skills/story-triage/SKILL.md",
@@ -384,7 +384,7 @@ def _site_manifest_yaml(commit: str, *, extra: str = "") -> str:
 pack_id: site-pack
 title: "Site skills"
 imported_on: "2026-09-27"
-visibility: public
+published_to_web: true
 source:
   repo_url: https://example.com/site
   commit: {commit}

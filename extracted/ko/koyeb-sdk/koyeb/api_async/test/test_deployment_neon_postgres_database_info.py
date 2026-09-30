@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.deployment_neon_postgres_database_info import DeploymentNeonPostgresDatabaseInfo
+from koyeb.api_async.models.deployment_neon_postgres_database_info import (
+    DeploymentNeonPostgresDatabaseInfo,
+)
+
 
 class TestDeploymentNeonPostgresDatabaseInfo(unittest.TestCase):
     """DeploymentNeonPostgresDatabaseInfo unit test stubs"""
@@ -27,9 +30,9 @@ class TestDeploymentNeonPostgresDatabaseInfo(unittest.TestCase):
 
     def make_instance(self, include_optional) -> DeploymentNeonPostgresDatabaseInfo:
         """Test DeploymentNeonPostgresDatabaseInfo
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `DeploymentNeonPostgresDatabaseInfo`
         """
         model = DeploymentNeonPostgresDatabaseInfo()
@@ -64,5 +67,6 @@ class TestDeploymentNeonPostgresDatabaseInfo(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

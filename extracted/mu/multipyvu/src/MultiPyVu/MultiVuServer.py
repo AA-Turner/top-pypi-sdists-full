@@ -13,13 +13,14 @@ import re
 import selectors
 import sys
 import traceback
-from time import sleep
+from time import sleep, time
 from typing import List, Tuple
 
 from .CommandChamber import SimulateChamberChange as _SimulateChamberChange
 from .CommandField import SimulateFieldChange as _SimulateFieldChange
 from .CommandTemperature import \
     SimulateTemperatureChange as _SimulateTemperatureChange
+from .CommandVectorMagnet import SimulateVectorChange as _SimulateVectorChange
 from .exceptions import (ClientCloseError, MultiPyVuError, ServerCloseError,
                          SocketError)
 from .IEventManager import IObserver as _IObserver
@@ -28,7 +29,7 @@ from .IServer import IServer as _IServer
 from .logging_config import remove_logs, setup_logging
 from .ParseInputs import inputs_from_command_line
 from .project_vars import CLOCK_TIME, HOST_SERVER, PORT, SERVER_NAME
-from .scripts.helper_scripts import force_quit
+from .scripts.helper_scripts_client import force_quit
 from .SocketMessageServer import ServerMessage as _ServerMessage
 from .SocketMessageServer import ServerStatus as _ServerStatus
 
@@ -57,7 +58,7 @@ class Server(_IServer):
                 connections).  Note, specifying the IP address in the
                 flags takes precedence over using the 'host' input
                 parameter.
-            -p(ort) to specify the port (default is 5000).  Note,
+            -p(ort) to specify the port (default is 27183).  Note,
                 specifying the port number in the flags takes precedence
                 over using the 'port' input parameter.
             -v(erbose) to turn on the verbose text when the server
@@ -65,14 +66,14 @@ class Server(_IServer):
 
             An argument without a flag is the instrument.
             The default IP address is '0.0.0.0,' and the default port
-            is 5000.
+            is 27183.
         host : str, optional
             The host IP address.  The default is '0.0.0.0', which allows
             connections from all network interfaces.  Note, specifying an
             IP address using the input flags will overwrite the setting
             used here.
         port : int, optional
-            The desired port number.  The default is 5000.  Note, specifying
+            The desired port number.  The default is 27183.  Note, specifying
             an port number using the input flags will overwrite the setting
             used here.
         keep_server_open : bool, optional
@@ -207,7 +208,7 @@ class Server(_IServer):
             self.close()
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_traceback) -> BaseException:
+    def __exit__(self, exc_type, exc_value, exc_traceback) -> bool:
         """
         Because this class is a context manager, this method is called when
         exiting the 'with' block.  It cleans up all of the connections and 
@@ -225,14 +226,24 @@ class Server(_IServer):
                 _SimulateTemperatureChange(),
                 _SimulateFieldChange(),
                 _SimulateChamberChange(),
+                _SimulateVectorChange(),
                 ]
             for ct in change_threads:
                 if ct.is_sim_alive():
                     ct.stop_thread()
+                    # stop_thread() only sets a flag; give the thread a
+                    # moment to actually notice it and exit before
+                    # returning, so callers don't see it still alive.
+                    start_time = time()
+                    while ct.is_sim_alive():
+                        sleep(CLOCK_TIME)
+                        if time() - start_time > 2.0:
+                            break
 
         # Error handling
         if self._message is None:
-            return exc_value
+            # See the note on the return at the end of this method.
+            return False
 
         self._instr.end_multivu_win32com_instance()
 
@@ -262,8 +273,9 @@ class Server(_IServer):
             msg += f'{self._message.addr}'
             msg += f'\n{traceback.format_exc()}'
             self._logger.info(msg)
+            remove_logs(self._logger)
+            logging.shutdown()
             raise_error = True
-        remove_logs(self._logger)
         self.stop()
         if self._instr.run_with_threading:
             self._message.join()
@@ -273,7 +285,11 @@ class Server(_IServer):
         if raise_error:
             raise exc_value
         else:
-            return exc_value
+            # False tells Python the exception was not handled here, so
+            # it keeps propagating.  Returning the exception itself is
+            # truthy, which told Python it had been dealt with and
+            # silently skipped the rest of the caller's 'with' block.
+            return False
 
     def open(self) -> 'Server':
         """
@@ -289,13 +305,14 @@ class Server(_IServer):
         """
         return self.__enter__()
 
-    def close(self) -> BaseException:
+    def close(self) -> bool:
         """
         This closes the server
 
         Returns
         -------
-        BaseException - any unexpected errors
+        bool - False, so that an exception which is still in flight
+        keeps propagating rather than being suppressed.
         """
         err_info = sys.exc_info()
         return self.__exit__(err_info[0],

@@ -21,6 +21,11 @@ class SshAccessInfoOut(UniversalBaseModel):
     SSH gateway hostname for this environment.
     """
 
+    key_auth_enabled: bool = pydantic.Field()
+    """
+    Whether this environment's SSH gateway accepts registered-key logins. When false, `command` is refused at the gateway; connect with a temporary token from `create_ssh_access` instead.
+    """
+
     port: int = pydantic.Field()
     """
     SSH gateway port.

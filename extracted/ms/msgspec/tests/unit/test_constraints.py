@@ -1,7 +1,8 @@
 import datetime
 import math
 import re
-from typing import Annotated, Dict, List, Union
+import sys
+from typing import Annotated
 
 import pytest
 
@@ -168,10 +169,27 @@ class TestMetaObject:
     def test_nonnegative_integer_fields(self, field):
         Meta(**{field: 0})
         Meta(**{field: 10})
+        Meta(**{field: sys.maxsize})
         with pytest.raises(TypeError, match=f"`{field}` must be an int, got float"):
             Meta(**{field: 1.5})
-        with pytest.raises(ValueError, match=f"{field}` must be >= 0, got -10"):
+
+        with pytest.raises(ValueError, match=f"`{field}` must be >= 0, got -1"):
+            Meta(**{field: -1})
+        with pytest.raises(ValueError, match=f"`{field}` must be >= 0, got -10"):
             Meta(**{field: -10})
+        with pytest.raises(
+            ValueError, match=f"`{field}` must be >= 0, got {-sys.maxsize - 1}"
+        ):
+            Meta(**{field: -sys.maxsize - 1})
+
+    @pytest.mark.parametrize("field", ["min_length", "max_length"])
+    @pytest.mark.parametrize(
+        "val", [sys.maxsize + 1, -sys.maxsize - 2, 10**400, -(10**400)]
+    )
+    def test_nonnegative_integer_fields_out_of_range(self, field, val):
+        # Values outside Py_ssize_t need a range error in either direction.
+        with pytest.raises(ValueError, match=f"`{field}` is out of range"):
+            Meta(**{field: val})
 
     @pytest.mark.parametrize("field", ["pattern", "title", "description"])
     def test_string_fields(self, field):
@@ -529,7 +547,7 @@ class TestStrConstraints:
         ],
     )
     def test_str_constraints_on_dict_keys(self, proto, meta, good, bad):
-        dec = proto.Decoder(Dict[Annotated[str, meta], int])
+        dec = proto.Decoder(dict[Annotated[str, meta], int])
 
         for x in good:
             assert dec.decode(proto.encode({x: 1})) == {x: 1}
@@ -729,7 +747,7 @@ class TestArrayConstraints:
 class TestMapConstraints:
     def test_min_length(self, proto):
         class Ex(msgspec.Struct):
-            x: Annotated[Dict[str, int], Meta(min_length=2)]
+            x: Annotated[dict[str, int], Meta(min_length=2)]
 
         dec = proto.Decoder(Ex)
 
@@ -745,7 +763,7 @@ class TestMapConstraints:
 
     def test_max_length(self, proto):
         class Ex(msgspec.Struct):
-            x: Annotated[Dict[str, int], Meta(max_length=2)]
+            x: Annotated[dict[str, int], Meta(max_length=2)]
 
         dec = proto.Decoder(Ex)
 
@@ -760,7 +778,7 @@ class TestMapConstraints:
 
     def test_combinations(self, proto):
         class Ex(msgspec.Struct):
-            x: Annotated[Dict[str, int], Meta(min_length=2, max_length=4)]
+            x: Annotated[dict[str, int], Meta(min_length=2, max_length=4)]
 
         dec = proto.Decoder(Ex)
 
@@ -777,10 +795,10 @@ class TestMapConstraints:
 class TestUnionConstraints:
     def test_mix_float_and_int(self, proto):
         class Ex(msgspec.Struct):
-            x: Union[
-                Annotated[int, Meta(ge=0, le=10)],
-                Annotated[float, Meta(ge=1000, le=2000)],
-            ]
+            x: (
+                Annotated[int, Meta(ge=0, le=10)]
+                | Annotated[float, Meta(ge=1000, le=2000)]
+            )
 
         dec = proto.Decoder(Ex)
 
@@ -793,11 +811,11 @@ class TestUnionConstraints:
 
     def test_mix_length_constraints(self, proto):
         class Ex(msgspec.Struct):
-            x: Union[
-                Annotated[Dict[str, int], Meta(min_length=1, max_length=2)],
-                Annotated[List[int], Meta(min_length=3, max_length=4)],
-                Annotated[str, Meta(min_length=5, max_length=6)],
-            ]
+            x: (
+                Annotated[dict[str, int], Meta(min_length=1, max_length=2)]
+                | Annotated[list[int], Meta(min_length=3, max_length=4)]
+                | Annotated[str, Meta(min_length=5, max_length=6)]
+            )
 
         dec = proto.Decoder(Ex)
 

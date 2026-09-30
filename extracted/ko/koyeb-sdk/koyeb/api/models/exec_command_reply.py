@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ExecCommandReply(BaseModel):
     """
     ExecCommandReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     stdout: Optional[ExecCommandIO] = None
     stderr: Optional[ExecCommandIO] = None
     exited: Optional[StrictBool] = None
@@ -40,7 +42,6 @@ class ExecCommandReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +66,7 @@ class ExecCommandReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -75,10 +75,10 @@ class ExecCommandReply(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of stdout
         if self.stdout:
-            _dict['stdout'] = self.stdout.to_dict()
+            _dict["stdout"] = self.stdout.to_dict()
         # override the default output from pydantic by calling `to_dict()` of stderr
         if self.stderr:
-            _dict['stderr'] = self.stderr.to_dict()
+            _dict["stderr"] = self.stderr.to_dict()
         return _dict
 
     @classmethod
@@ -90,12 +90,16 @@ class ExecCommandReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "stdout": ExecCommandIO.from_dict(obj["stdout"]) if obj.get("stdout") is not None else None,
-            "stderr": ExecCommandIO.from_dict(obj["stderr"]) if obj.get("stderr") is not None else None,
-            "exited": obj.get("exited"),
-            "exit_code": obj.get("exit_code")
-        })
+        _obj = cls.model_validate(
+            {
+                "stdout": ExecCommandIO.from_dict(obj["stdout"])
+                if obj.get("stdout") is not None
+                else None,
+                "stderr": ExecCommandIO.from_dict(obj["stderr"])
+                if obj.get("stderr") is not None
+                else None,
+                "exited": obj.get("exited"),
+                "exit_code": obj.get("exit_code"),
+            }
+        )
         return _obj
-
-

@@ -31,6 +31,11 @@ class BillingServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageResponse.FromString,
         )
+        self.PublishPodUsage = channel.unary_unary(
+            "/chalk.server.v1.BillingService/PublishPodUsage",
+            request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishPodUsageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishPodUsageResponse.FromString,
+        )
         self.GetUsageChart = channel.unary_unary(
             "/chalk.server.v1.BillingService/GetUsageChart",
             request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartRequest.SerializeToString,
@@ -65,6 +70,11 @@ class BillingServiceStub(object):
             "/chalk.server.v1.BillingService/GetInstanceUsage",
             request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetInstanceUsageRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetInstanceUsageResponse.FromString,
+        )
+        self.GetMaterializedFeatureViewUsage = channel.unary_unary(
+            "/chalk.server.v1.BillingService/GetMaterializedFeatureViewUsage",
+            request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetMaterializedFeatureViewUsageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetMaterializedFeatureViewUsageResponse.FromString,
         )
         self.GetPodTimeRanges = channel.unary_unary(
             "/chalk.server.v1.BillingService/GetPodTimeRanges",
@@ -122,6 +132,12 @@ class BillingServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def PublishPodUsage(self, request, context):
+        """PublishPodUsage republishes pod usage messages to the billing Pub/Sub topic."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetUsageChart(self, request, context):
         """GetUsageChart shows the Chalk credit usage between a provided start and
         end period. The usage can be grouped by UsageChartPeriod for daily or
@@ -165,6 +181,12 @@ class BillingServiceServicer(object):
 
     def GetInstanceUsage(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetMaterializedFeatureViewUsage(self, request, context):
+        """Internal attribution of compute used by materialized feature view work."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -228,6 +250,11 @@ def add_BillingServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageResponse.SerializeToString,
         ),
+        "PublishPodUsage": grpc.unary_unary_rpc_method_handler(
+            servicer.PublishPodUsage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishPodUsageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishPodUsageResponse.SerializeToString,
+        ),
         "GetUsageChart": grpc.unary_unary_rpc_method_handler(
             servicer.GetUsageChart,
             request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartRequest.FromString,
@@ -262,6 +289,11 @@ def add_BillingServiceServicer_to_server(servicer, server):
             servicer.GetInstanceUsage,
             request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetInstanceUsageRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetInstanceUsageResponse.SerializeToString,
+        ),
+        "GetMaterializedFeatureViewUsage": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMaterializedFeatureViewUsage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetMaterializedFeatureViewUsageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetMaterializedFeatureViewUsageResponse.SerializeToString,
         ),
         "GetPodTimeRanges": grpc.unary_unary_rpc_method_handler(
             servicer.GetPodTimeRanges,
@@ -374,6 +406,35 @@ class BillingService(object):
             "/chalk.server.v1.BillingService/PublishNodeUsage",
             chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def PublishPodUsage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BillingService/PublishPodUsage",
+            chalk_dot_server_dot_v1_dot_billing__pb2.PublishPodUsageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_billing__pb2.PublishPodUsageResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -577,6 +638,35 @@ class BillingService(object):
             "/chalk.server.v1.BillingService/GetInstanceUsage",
             chalk_dot_server_dot_v1_dot_billing__pb2.GetInstanceUsageRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_billing__pb2.GetInstanceUsageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetMaterializedFeatureViewUsage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BillingService/GetMaterializedFeatureViewUsage",
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetMaterializedFeatureViewUsageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetMaterializedFeatureViewUsageResponse.FromString,
             options,
             channel_credentials,
             insecure,

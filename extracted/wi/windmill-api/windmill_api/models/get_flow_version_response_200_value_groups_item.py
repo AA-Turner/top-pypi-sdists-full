@@ -20,7 +20,8 @@ class GetFlowVersionResponse200ValueGroupsItem:
             summary (Union[Unset, str]): Display name for this group
             note (Union[Unset, str]): Markdown note shown below the group header
             autocollapse (Union[Unset, bool]): If true, this group is collapsed by default in the flow editor. UI hint only.
-            color (Union[Unset, str]): Color for the group in the flow editor
+            color (Union[Unset, str]): Color for the group in the flow editor, one of: yellow, blue, green, purple, pink,
+                orange, red, cyan, lime, gray. Omit it to let the editor pick one.
     """
 
     start_id: str

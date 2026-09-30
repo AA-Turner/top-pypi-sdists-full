@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextvars
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
@@ -7,7 +8,7 @@ from typing import Any, Awaitable, Callable, Iterable, Mapping, Sequence
 
 from temporalio import activity as temporal_activity
 from temporalio import workflow as temporal_workflow
-from temporalio.client import Client, WorkflowHandle
+from temporalio.client import Client, WorkflowExecutionStatus, WorkflowHandle
 from temporalio.common import RetryPolicy
 from temporalio.worker import Worker
 
@@ -156,3 +157,25 @@ async def start_workflow(
         task_queue=task_queue,
         retry_policy=_NO_WORKFLOW_RETRIES,
     )
+
+
+# Backoff bounds for `wait_for_result`. Each poll is one DescribeWorkflowExecution.
+_RESULT_POLL_INITIAL_SECONDS = 0.5
+_RESULT_POLL_MAX_SECONDS = 5.0
+
+
+async def wait_for_result(handle: WorkflowHandle[Any, Any]) -> Any:
+    """Return a workflow's result by polling its status, not by holding a long poll.
+
+    `handle.result()` blocks on a history long poll that stays open until the run
+    closes. Through the orchestrator's public gateway, which bounds request duration,
+    that fails for any run longer than the gateway timeout. Short describe calls do
+    not, and once the run is closed `result()` answers immediately.
+    """
+    delay = _RESULT_POLL_INITIAL_SECONDS
+    # `describe()` follows the workflow id to its latest run, so a continue-as-new
+    # chain keeps polling until the final run closes.
+    while (await handle.describe()).status == WorkflowExecutionStatus.RUNNING:
+        await asyncio.sleep(delay)
+        delay = min(delay * 2, _RESULT_POLL_MAX_SECONDS)
+    return await handle.result()

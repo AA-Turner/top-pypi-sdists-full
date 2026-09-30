@@ -27,7 +27,7 @@ def main():
             command="/bin/sh",
             args=["-c", "touch /tmp/command-was-here && sleep infinity"],
             api_token=api_token,
-            env={"LOG_LEVEL": "DEBUG"} 
+            env={"LOG_LEVEL": "DEBUG"},
         )
         result = sandbox.exec("cat /tmp/command-was-here && echo 'File exists'")
         print(f"  {result.stdout.strip()}")

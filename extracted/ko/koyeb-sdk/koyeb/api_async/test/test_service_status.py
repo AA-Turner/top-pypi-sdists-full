@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.service_status import ServiceStatus
 
+
 class TestServiceStatus(unittest.TestCase):
     """ServiceStatus unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestServiceStatus(unittest.TestCase):
         """Test ServiceStatus"""
         # inst = ServiceStatus()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

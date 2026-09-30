@@ -9,13 +9,17 @@ import pytest
 from rubicon.objc import NSMakePoint, ObjCClass
 from rubicon.objc.eventloop import CFLifecycle, CocoaLifecycle, RubiconEventLoop, libcf
 
-NSApplication = ObjCClass("NSApplication")
-NSEvent = ObjCClass("NSEvent")
+try:
+    NSApplication = ObjCClass("NSApplication")
+    NSEvent = ObjCClass("NSEvent")
+except NameError:
+    NSApplication = None
+    NSEvent = None
 
 
 # Some coroutines with known behavior for testing purposes.
 async def do_stuff(results, x):
-    for i in range(0, x):
+    for i in range(x):
         results.append(i)
         await asyncio.sleep(0.1)
 
@@ -150,6 +154,7 @@ def test_call_at(loop):
     assert (end - start) < 0.4
 
 
+@pytest.mark.skipif(sys.platform == "ios", reason="iOS doesn't support subprocesses")
 def test_subprocess(loop):
     async def list_dir():
         proc = await asyncio.create_subprocess_shell(
@@ -188,6 +193,7 @@ def test_cf_lifecycle_explicit(loop):
     loop.run_forever(lifecycle=CFLifecycle(libcf.CFRunLoopGetMain()))
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="Test is macOS specific")
 def test_cocoa_lifecycle(loop):
     """The full Cocoa Lifecycle works."""
 

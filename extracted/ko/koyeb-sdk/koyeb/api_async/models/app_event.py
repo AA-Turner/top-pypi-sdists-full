@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class AppEvent(BaseModel):
     """
     AppEvent
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     when: Optional[datetime] = None
     organization_id: Optional[StrictStr] = None
@@ -35,7 +37,15 @@ class AppEvent(BaseModel):
     type: Optional[StrictStr] = None
     message: Optional[StrictStr] = None
     metadata: Optional[Dict[str, Any]] = None
-    __properties: ClassVar[List[str]] = ["id", "when", "organization_id", "app_id", "type", "message", "metadata"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "when",
+        "organization_id",
+        "app_id",
+        "type",
+        "message",
+        "metadata",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -43,7 +53,6 @@ class AppEvent(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -68,8 +77,7 @@ class AppEvent(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -87,15 +95,15 @@ class AppEvent(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "when": obj.get("when"),
-            "organization_id": obj.get("organization_id"),
-            "app_id": obj.get("app_id"),
-            "type": obj.get("type"),
-            "message": obj.get("message"),
-            "metadata": obj.get("metadata")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "when": obj.get("when"),
+                "organization_id": obj.get("organization_id"),
+                "app_id": obj.get("app_id"),
+                "type": obj.get("type"),
+                "message": obj.get("message"),
+                "metadata": obj.get("metadata"),
+            }
+        )
         return _obj
-
-

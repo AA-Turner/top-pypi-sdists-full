@@ -23,15 +23,22 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class LifecycleQuotas(BaseModel):
     """
     LifecycleQuotas
-    """ # noqa: E501
+    """  # noqa: E501
+
     delete_after_sleep_min: Optional[StrictInt] = None
     delete_after_sleep_max: Optional[StrictInt] = None
     delete_after_create_min: Optional[StrictInt] = None
     delete_after_create_max: Optional[StrictInt] = None
-    __properties: ClassVar[List[str]] = ["delete_after_sleep_min", "delete_after_sleep_max", "delete_after_create_min", "delete_after_create_max"]
+    __properties: ClassVar[List[str]] = [
+        "delete_after_sleep_min",
+        "delete_after_sleep_max",
+        "delete_after_create_min",
+        "delete_after_create_max",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -39,7 +46,6 @@ class LifecycleQuotas(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +70,7 @@ class LifecycleQuotas(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,12 +88,12 @@ class LifecycleQuotas(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "delete_after_sleep_min": obj.get("delete_after_sleep_min"),
-            "delete_after_sleep_max": obj.get("delete_after_sleep_max"),
-            "delete_after_create_min": obj.get("delete_after_create_min"),
-            "delete_after_create_max": obj.get("delete_after_create_max")
-        })
+        _obj = cls.model_validate(
+            {
+                "delete_after_sleep_min": obj.get("delete_after_sleep_min"),
+                "delete_after_sleep_max": obj.get("delete_after_sleep_max"),
+                "delete_after_create_min": obj.get("delete_after_create_min"),
+                "delete_after_create_max": obj.get("delete_after_create_max"),
+            }
+        )
         return _obj
-
-

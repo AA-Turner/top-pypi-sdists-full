@@ -42,6 +42,7 @@ def main():
         created_files = fs.ls("/tmp")
         batch_files = [f for f in created_files if f.startswith("file")]
         print(f"Files: {batch_files}")
+        assert set(batch_files) >= {"file1.txt", "file2.txt", "file3.txt"}
 
         # Create project structure
         project_files = [
@@ -53,6 +54,7 @@ def main():
         fs.mkdir("/tmp/project")
         fs.write_files(project_files)
         print("Created project structure")
+        assert fs.exists("/tmp/project/main.py")
 
         return 0
 

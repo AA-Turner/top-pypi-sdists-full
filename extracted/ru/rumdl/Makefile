@@ -1,4 +1,4 @@
-.PHONY: build test clean fmt check doc doc-check build-python build-wheel dev-install setup-mise dev-setup dev-verify update-dependencies update-rust-version build-static-linux-x64 build-static-linux-arm64 build-static-all docker-binaries docker-binaries-release docker-binfmt docker-builder docker-build docker-verify docker-push schema check-schema sync-code-block-tools check-code-block-tools test-code-block-tools check-versions benchmark benchmark-run benchmark-chart lint-actions lint-actions-all fuzz fuzz-long check-links docs-check docs-sanitize docs-sanitize-test docs-sitemap docs-sitemap-test docs-benchmark-test docs-smoke docs-descriptions docs-discoverability docs-analytics sync-rule-docs check-rule-docs test-release-scripts release-patch release-minor release-major test-idempotency test-doc test-doc-completeness fuzz-all check-fuzz audit msrv-check smoke-wasi parity
+.PHONY: build test clean fmt check doc doc-check build-python build-wheel dev-install setup-mise dev-setup dev-verify update-dependencies update-rust-version build-static-linux-x64 build-static-linux-arm64 build-static-all docker-binaries docker-binaries-release docker-binfmt docker-builder docker-build docker-verify docker-push schema check-schema sync-code-block-tools check-code-block-tools test-code-block-tools check-versions benchmark benchmark-run benchmark-chart lint-actions lint-actions-all fuzz fuzz-long check-links docs-check docs-sanitize docs-sanitize-test docs-sitemap docs-sitemap-test docs-benchmark-test docs-playground docs-smoke docs-descriptions docs-discoverability docs-analytics sync-rule-docs check-rule-docs test-release-scripts release-patch release-minor release-major test-idempotency test-doc test-doc-completeness fuzz-all check-fuzz audit msrv-check smoke-wasi parity
 
 # Development environment setup
 setup-mise:
@@ -433,15 +433,15 @@ lint-actions-all:
 	uvx zizmor .github/workflows/
 
 lint:
-	CARGO_INCREMENTAL=1 cargo clippy --workspace --lib --bins --tests -- -D warnings -D clippy::uninlined_format_args
+	cargo clippy --workspace --lib --bins --tests -- -D warnings -D clippy::uninlined_format_args
 	$(MAKE) lint-actions
 
 lint-all:
-	CARGO_INCREMENTAL=1 cargo clippy --all-targets --all-features -- -D warnings -D clippy::uninlined_format_args
+	cargo clippy --all-targets --all-features -- -D warnings -D clippy::uninlined_format_args
 	$(MAKE) lint-actions
 
 lint-fast:
-	CARGO_INCREMENTAL=1 cargo clippy --workspace --lib --bins -- -D warnings -D clippy::uninlined_format_args
+	cargo clippy --workspace --lib --bins -- -D warnings -D clippy::uninlined_format_args
 
 check:
 	cargo check --all-targets --all-features
@@ -639,6 +639,15 @@ docs-check:
 # Smoke-test the built documentation site (site/) for structural invariants
 # that protect the homepage, linked assets, and primary conversion route. Runs
 # after `zensical build` and before deploy.
+# Build the playground into the generated site from this checkout: the browser
+# wasm package (build-wasm) and the editor bundle compiled against its JS glue,
+# which must come from the same build as the wasm. The playground therefore
+# runs the same rumdl as the docs around it. Run after `zensical build`.
+docs-playground: build-wasm
+	@test -d site || { echo "site/ not found; run 'zensical build' first"; exit 1; }
+	cd web/playground && npm ci && npm run build
+	cp pkg/rumdl_lib_bg.wasm site/javascripts/rumdl_lib_bg.wasm
+
 docs-smoke:
 	@test -d site || { echo "site/ not found; run 'zensical build' first"; exit 1; }
 	python3 scripts/docs_smoke_test.py site

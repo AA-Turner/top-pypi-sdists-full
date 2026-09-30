@@ -105,6 +105,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesResponse.FromString,
         )
+        self.ValidateProjectSettings = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ValidateProjectSettings",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateProjectSettingsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateProjectSettingsResponse.FromString,
+        )
         self.GetClusterTimescaleDB = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetClusterTimescaleDB",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDBRequest.SerializeToString,
@@ -533,6 +538,15 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def ListEngineBaseImages(self, request, context):
+        """Admin-only debug endpoint. Do not build load-bearing product functionality on it:
+        it is registry introspection, and it is very slow — a cold call fans out across the
+        whole engine-base variant matrix in the environment's registry.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ValidateProjectSettings(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -1015,6 +1029,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.ListEngineBaseImages,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesResponse.SerializeToString,
+        ),
+        "ValidateProjectSettings": grpc.unary_unary_rpc_method_handler(
+            servicer.ValidateProjectSettings,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateProjectSettingsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateProjectSettingsResponse.SerializeToString,
         ),
         "GetClusterTimescaleDB": grpc.unary_unary_rpc_method_handler(
             servicer.GetClusterTimescaleDB,
@@ -1847,6 +1866,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/ListEngineBaseImages",
             chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ValidateProjectSettings(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ValidateProjectSettings",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ValidateProjectSettingsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ValidateProjectSettingsResponse.FromString,
             options,
             channel_credentials,
             insecure,

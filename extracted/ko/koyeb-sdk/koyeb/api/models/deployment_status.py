@@ -26,26 +26,24 @@ class DeploymentStatus(str, Enum):
     """
     allowed enum values
     """
-    PENDING = 'PENDING'
-    PROVISIONING = 'PROVISIONING'
-    SCHEDULED = 'SCHEDULED'
-    CANCELING = 'CANCELING'
-    CANCELED = 'CANCELED'
-    ALLOCATING = 'ALLOCATING'
-    STARTING = 'STARTING'
-    HEALTHY = 'HEALTHY'
-    DEGRADED = 'DEGRADED'
-    UNHEALTHY = 'UNHEALTHY'
-    STOPPING = 'STOPPING'
-    STOPPED = 'STOPPED'
-    ERRORING = 'ERRORING'
-    ERROR = 'ERROR'
-    STASHED = 'STASHED'
-    SLEEPING = 'SLEEPING'
+    PENDING = "PENDING"
+    PROVISIONING = "PROVISIONING"
+    SCHEDULED = "SCHEDULED"
+    CANCELING = "CANCELING"
+    CANCELED = "CANCELED"
+    ALLOCATING = "ALLOCATING"
+    STARTING = "STARTING"
+    HEALTHY = "HEALTHY"
+    DEGRADED = "DEGRADED"
+    UNHEALTHY = "UNHEALTHY"
+    STOPPING = "STOPPING"
+    STOPPED = "STOPPED"
+    ERRORING = "ERRORING"
+    ERROR = "ERROR"
+    STASHED = "STASHED"
+    SLEEPING = "SLEEPING"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of DeploymentStatus from a JSON string"""
         return cls(json.loads(json_str))
-
-

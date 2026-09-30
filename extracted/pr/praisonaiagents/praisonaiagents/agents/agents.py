@@ -24,12 +24,6 @@ try:
 except ImportError:
     get_token_collector = None
 
-# Import async utility for hot-path usage
-try:
-    from ..approval.utils import run_coroutine_safely
-except ImportError:
-    run_coroutine_safely = None
-
 # Guards lazy creation of each AgentTeam's per-instance _run_lock so two threads
 # that first reach start()/astart() concurrently observe the same lock object
 # (double-checked locking) rather than each minting and acquiring its own.
@@ -57,108 +51,12 @@ from ..agent.launch_security import (
 )
 
 
-# Agent server registry for thread-safe server management
-
-
-class _AgentServerRegistry:
-    """Encapsulates all shared HTTP server state with proper synchronization."""
-    
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._started: Dict[int, bool] = {}
-        self._endpoints: Dict[int, Dict[str, str]] = {}
-        self._apps: Dict[int, Any] = {}  # FastAPI apps
-        self._ready_events: Dict[int, threading.Event] = {}
-    
-    def get_or_create_app(self, port: int, title: str = "AgentTeam API") -> Tuple[Any, bool]:
-        """Thread-safe app creation. Returns (app, is_new)."""
-        with self._lock:
-            if port not in self._apps:
-                # Lazy import to avoid optional dependency at module level
-                from fastapi import FastAPI
-                self._apps[port] = FastAPI(title=title)
-                self._endpoints[port] = {}
-                self._ready_events[port] = threading.Event()
-                return self._apps[port], True
-            return self._apps[port], False
-    
-    def register_route(self, port: int, path: str, endpoint_id: str = "registered") -> None:
-        """Thread-safe route registration tracking."""
-        with self._lock:
-            if port not in self._endpoints:
-                self._endpoints[port] = {}
-            self._endpoints[port][path] = endpoint_id
-
-    def reserve_route(self, port: int, path: str, endpoint_id: str) -> tuple[str, Optional[str]]:
-        """Atomically reserve and register a route.
-
-        Returns:
-            tuple[str, Optional[str]]: (final_path, original_path_if_collided).
-            If there is no collision, final_path equals the requested path and
-            original_path_if_collided is None.
-        """
-        with self._lock:
-            if port not in self._endpoints:
-                self._endpoints[port] = {}
-
-            original_path = path
-            while path in self._endpoints[port]:
-                path = f"{original_path}_{str(uuid.uuid4())[:6]}"
-
-            self._endpoints[port][path] = endpoint_id
-            return path, (original_path if path != original_path else None)
-
-    def list_routes(self, port: int) -> List[str]:
-        """Return a snapshot list of registered routes for a port."""
-        with self._lock:
-            return list(self._endpoints.get(port, {}).keys())
-    
-    def start_server_if_needed(self, port: int, host: str = "0.0.0.0", **kwargs) -> bool:  # noqa: S104
-        """Start server with proper readiness signaling. Returns True if server was started."""
-        with self._lock:
-            if self._started.get(port, False):
-                return False  # Already started
-            self._started[port] = True
-            app = self._apps.get(port)
-            
-        if not app:
-            raise ValueError(f"No app registered for port {port}")
-        
-        ready_event = self._ready_events[port]
-        
-        def run_server():
-            import uvicorn
-            # Remove hardcoded log_level to avoid conflict with kwargs
-            config = uvicorn.Config(app, host=host, port=port, **kwargs)
-            server = uvicorn.Server(config)
-            ready_event.set()  # Signal readiness
-            server.run()
-        
-        thread = threading.Thread(target=run_server, daemon=True)
-        thread.start()
-        
-        # Check for configurable timeout via environment variable
-        try:
-            timeout = float(os.environ.get("PRAISONAI_SERVER_READY_TIMEOUT", "5.0"))
-        except ValueError:
-            logger.warning("Invalid PRAISONAI_SERVER_READY_TIMEOUT value. Using default 5.0s.")
-            timeout = 5.0
-        became_ready = ready_event.wait(timeout=timeout)
-        
-        if not became_ready:
-            logger.warning(
-                "Agent server on port %s did not become ready within %.1fs. "
-                "Proceeding, but some features may not work correctly. "
-                "Check server logs for startup errors.",
-                port,
-                timeout,
-            )
-        
-        return True
-
-
-# Module level — single registry instance
-_server_registry = _AgentServerRegistry()
+# Agent server registry for thread-safe server management.
+# The registry class + its process-wide singleton live in agent/server_registry.py
+# so Agent.launch() and PraisonAIAgents.launch() share ONE registry per port
+# (one FastAPI app, one uvicorn server, one route table) instead of two disjoint
+# ones that could double-bind a port or hide each other's endpoints.
+from ..agent.server_registry import _AgentServerRegistry, _server_registry  # noqa: F401
 
 def encode_file_to_base64(file_path: str) -> str:
     """Base64-encode a file."""
@@ -556,7 +454,10 @@ def _build_execution_context(agents_instance, task_id, skip_memory_init=False):
     if llm is None:
         llm = getattr(executor_agent, 'llm', None)
     if llm and hasattr(llm, 'set_current_agent'):
-        llm.set_current_agent(executor_agent.display_name)
+        # Pass the agent's stable per-instance id so token usage is aggregated
+        # by identity, not by (collidable) display name.
+        agent_scope_id = getattr(executor_agent, '_approval_scope_id', None)
+        llm.set_current_agent(executor_agent.display_name, agent_id=agent_scope_id)
 
     # Place the agent's tools BEFORE snapshotting them. This snapshot is passed
     # to chat() as an explicit `tools=`, which wins over `agent.tools` -- so if
@@ -586,6 +487,10 @@ def _build_execution_context(agents_instance, task_id, skip_memory_init=False):
     # Inter-task context / validation feedback assembled by the workflow process
     # engine (Process._build_task_context) is stored on the task; fold it in so
     # downstream/retried tasks actually see upstream output and rejection reasons.
+    context_builder = getattr(task, '_execution_context_builder', None)
+    if context_builder is not None:
+        task._execution_context = context_builder(task)
+        task._execution_context_builder = None
     extra_context = getattr(task, '_execution_context', None)
     if extra_context:
         context_text = extra_context
@@ -593,7 +498,7 @@ def _build_execution_context(agents_instance, task_id, skip_memory_init=False):
         # retries (guardrail/completion failures) re-enter this helper via the
         # run_task/arun_task retry loops, and clearing would strip the upstream
         # output + validation feedback the retry needs. The Process engine owns
-        # this field's lifecycle: it re-sets it before each task yield and resets
+        # this field's lifecycle: it rebuilds it for each workflow step and resets
         # every task's _execution_context to None before selecting the next task.
     if task.context:
         context_results = []  # Collect contexts then de-duplicate
@@ -3356,21 +3261,45 @@ class AgentTeam(SpawnAnnounceProtocol):
             if getattr(agent, "name", None)
         }
 
-    def _scoped_recent_interactions(self, own_names: set) -> List[Dict[str, Any]]:
+    def _own_agent_ids(self) -> set:
+        """Stable per-instance identities of this instance's own agents.
+
+        Used as the collision-free key for token-report scoping so two agents
+        that share a display name (e.g. the default ``"Agent"``) are never
+        merged. Falls back to names elsewhere when ids are unavailable.
+        """
+        return {
+            getattr(agent, "_approval_scope_id", None)
+            for agent in (self.agents or [])
+            if getattr(agent, "_approval_scope_id", None)
+        }
+
+    def _scoped_recent_interactions(
+        self, own_names: set, own_ids: Optional[set] = None
+    ) -> List[Dict[str, Any]]:
         """Return this instance's own recorded interactions, most-recent last.
 
         The process-wide collector keeps a bounded window of every agent's
-        interactions; filter it to this instance's agent names so per-model
-        totals, interaction counts, and the detailed report never leak another
-        concurrent instance's records.
+        interactions; filter it to this instance's agents so per-model totals,
+        interaction counts, and the detailed report never leak another
+        concurrent instance's records. Filtering prefers the collision-free
+        ``agent_id`` when present, falling back to the display name.
         """
+        own_ids = own_ids or set()
         try:
             interactions = get_token_collector().get_recent_interactions(
                 limit=get_token_collector()._max_recent
             )
         except Exception:
             interactions = get_token_collector().get_recent_interactions(limit=100)
-        return [i for i in interactions if i.get("agent") in own_names]
+
+        def _matches(i: Dict[str, Any]) -> bool:
+            agent_id = i.get("agent_id")
+            if agent_id is not None and own_ids:
+                return agent_id in own_ids
+            return i.get("agent") in own_names
+
+        return [i for i in interactions if _matches(i)]
 
     def _scoped_token_summary(self) -> Dict[str, Any]:
         """Return the global token summary filtered to this instance's agents.
@@ -3378,25 +3307,54 @@ class AgentTeam(SpawnAnnounceProtocol):
         The process-wide TokenCollector aggregates every agent in the process,
         so two concurrent PraisonAIAgents instances would otherwise read each
         other's totals. Scope every reported field — ``by_agent``, ``by_model``,
-        ``total_interactions`` and the totals — to this instance's own agent
-        names so per-instance/per-tenant cost accounting reports only its own
-        spend. ``by_agent`` is taken from the collector's aggregate breakdown;
-        ``by_model`` and ``total_interactions`` are re-derived from this
-        instance's own interaction records (the aggregate cannot be split by
-        model per agent). Falls back to the unfiltered summary when this
-        instance has no named agents to scope by.
+        ``total_interactions`` and the totals — to this instance's own agents so
+        per-instance/per-tenant cost accounting reports only its own spend.
+        Scoping prefers the collector's collision-free ``by_agent_id``
+        breakdown; ``by_model`` and ``total_interactions`` are re-derived from
+        this instance's own interaction records (the aggregate cannot be split
+        by model per agent). Falls back to the unfiltered summary when this
+        instance has no agents to scope by.
         """
         summary = get_token_collector().get_session_summary()
         own_names = self._own_agent_names()
+        own_ids = self._own_agent_ids()
         by_agent = summary.get("by_agent", {})
-        # No named agents to scope by (or nothing tracked yet): fall back to the
+        by_agent_id = summary.get("by_agent_id", {})
+        # No agents to scope by (or nothing tracked yet): fall back to the
         # unfiltered summary rather than silently reporting zeros.
-        if not own_names or not by_agent:
+        if (not own_names and not own_ids) or (not by_agent and not by_agent_id):
             return summary
 
-        scoped_by_agent = {
-            name: metrics for name, metrics in by_agent.items() if name in own_names
-        }
+        # Prefer the collision-free per-identity breakdown; fall back to
+        # name-based scoping when ids are unavailable (backward compatible).
+        scoped_by_agent: Dict[str, Dict[str, int]] = {}
+        if own_ids and by_agent_id:
+            for key, entry in by_agent_id.items():
+                name = entry.get("name") or key
+                # Match by stable id (collision-free) OR by display name for
+                # id-less buckets — e.g. the native OpenAI-client path records
+                # ``agent`` without an ``agent_id``, so the collector keys that
+                # bucket by name (``key == name``). Dropping those would zero out
+                # real OpenAI usage even though the interaction and per-model
+                # rows still show it (Greptile P1). We treat a bucket as id-less
+                # when its key equals its own display name.
+                is_id_match = key in own_ids
+                is_idless_name_match = key == name and name in own_names
+                if not (is_id_match or is_idless_name_match):
+                    continue
+                metrics = entry.get("metrics", {})
+                if name in scoped_by_agent:
+                    scoped_by_agent[name] = {
+                        k: scoped_by_agent[name].get(k, 0) + v
+                        for k, v in metrics.items()
+                        if isinstance(v, (int, float))
+                    }
+                else:
+                    scoped_by_agent[name] = dict(metrics)
+        else:
+            scoped_by_agent = {
+                name: metrics for name, metrics in by_agent.items() if name in own_names
+            }
         totals = {
             "input_tokens": 0, "output_tokens": 0, "cached_tokens": 0,
             "reasoning_tokens": 0, "audio_input_tokens": 0, "audio_output_tokens": 0,
@@ -3412,7 +3370,7 @@ class AgentTeam(SpawnAnnounceProtocol):
         # process-global summary (which mixes in other instances' models and
         # counts). The collector's ``by_agent`` aggregate cannot be split by
         # model, so the per-interaction window is the correct source.
-        own_interactions = self._scoped_recent_interactions(own_names)
+        own_interactions = self._scoped_recent_interactions(own_names, own_ids)
         by_model: Dict[str, Dict[str, int]] = {}
         for interaction in own_interactions:
             model = interaction.get("model")
@@ -3446,10 +3404,11 @@ class AgentTeam(SpawnAnnounceProtocol):
         
         summary = self._scoped_token_summary()
         own_names = self._own_agent_names()
-        if own_names:
+        own_ids = self._own_agent_ids()
+        if own_names or own_ids:
             # Only surface this instance's own interactions so the detailed
             # report never exposes another concurrent instance's records.
-            recent = self._scoped_recent_interactions(own_names)[-20:]
+            recent = self._scoped_recent_interactions(own_names, own_ids)[-20:]
         else:
             recent = get_token_collector().get_recent_interactions(limit=20)
         

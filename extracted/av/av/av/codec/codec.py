@@ -3,9 +3,8 @@ from enum import Flag, IntEnum, IntFlag
 import cython
 from cython.cimports import libav as lib
 from cython.cimports.av.audio.format import get_audio_format
-from cython.cimports.av.codec.hwaccel import wrap_hwconfig
+from cython.cimports.av.codec.hwaccel import HWConfig, wrap_hwconfig
 from cython.cimports.av.rational import from_avrational
-from cython.cimports.av.utils import avrational_to_fraction
 from cython.cimports.av.video.format import VideoFormat, get_pix_fmt, get_video_format
 from cython.cimports.libc.stdlib import free, malloc
 
@@ -16,7 +15,6 @@ _cinit_sentinel = cython.declare(object, object())
 def wrap_codec(ptr: cython.pointer[cython.const[lib.AVCodec]]) -> Codec:
     codec: Codec = Codec(_cinit_sentinel)
     codec.ptr = ptr
-    codec.is_encoder = lib.av_codec_is_encoder(ptr)
     codec._init()
     return codec
 
@@ -27,6 +25,8 @@ class Properties(Flag):
     LOSSY = lib.AV_CODEC_PROP_LOSSY
     LOSSLESS = lib.AV_CODEC_PROP_LOSSLESS
     REORDER = lib.AV_CODEC_PROP_REORDER
+    FIELDS = lib.AV_CODEC_PROP_FIELDS
+    ENHANCEMENT = lib.AV_CODEC_PROP_ENHANCEMENT
     BITMAP_SUB = lib.AV_CODEC_PROP_BITMAP_SUB
     TEXT_SUB = lib.AV_CODEC_PROP_TEXT_SUB
 
@@ -35,13 +35,10 @@ class Capabilities(IntEnum):
     none = 0
     draw_horiz_band = lib.AV_CODEC_CAP_DRAW_HORIZ_BAND
     dr1 = lib.AV_CODEC_CAP_DR1
-    hwaccel = 1 << 4
     delay = lib.AV_CODEC_CAP_DELAY
     small_last_frame = lib.AV_CODEC_CAP_SMALL_LAST_FRAME
-    hwaccel_vdpau = 1 << 7
     experimental = lib.AV_CODEC_CAP_EXPERIMENTAL
     channel_conf = lib.AV_CODEC_CAP_CHANNEL_CONF
-    neg_linesizes = 1 << 11
     frame_threads = lib.AV_CODEC_CAP_FRAME_THREADS
     slice_threads = lib.AV_CODEC_CAP_SLICE_THREADS
     param_change = lib.AV_CODEC_CAP_PARAM_CHANGE
@@ -50,9 +47,9 @@ class Capabilities(IntEnum):
     avoid_probing = lib.AV_CODEC_CAP_AVOID_PROBING
     hardware = lib.AV_CODEC_CAP_HARDWARE
     hybrid = lib.AV_CODEC_CAP_HYBRID
-    encoder_reordered_opaque = 1 << 20
-    encoder_flush = 1 << 21
-    encoder_recon_frame = 1 << 22
+    encoder_reordered_opaque = lib.AV_CODEC_CAP_ENCODER_REORDERED_OPAQUE
+    encoder_flush = lib.AV_CODEC_CAP_ENCODER_FLUSH
+    encoder_recon_frame = lib.AV_CODEC_CAP_ENCODER_RECON_FRAME
 
 
 class PixFmtLoss(IntFlag):
@@ -69,6 +66,8 @@ class PixFmtLoss(IntFlag):
     ALPHA = 0x0008  # loss of alpha bit
     COLORQUANT = 0x0010  # loss due to color quantization
     CHROMA = 0x0020  # loss of chroma (e.g. RGB to gray conversion)
+    EXCESS_RESOLUTION = 0x0040  # loss due to unneeded extra resolution
+    EXCESS_DEPTH = 0x0080  # loss due to unneeded extra color depth
 
 
 class UnknownCodecError(ValueError):
@@ -126,7 +125,7 @@ class Codec:
             raise RuntimeError("Found codec does not match mode.", name, mode)
 
     @cython.cfunc
-    def _init(self, name=None):
+    def _init(self, name=None) -> cython.void:
         if not self.ptr:
             raise UnknownCodecError(name)
 
@@ -134,8 +133,6 @@ class Codec:
             self.desc = lib.avcodec_descriptor_get(self.ptr.id)
             if not self.desc:
                 raise RuntimeError(f"No codec descriptor for {name!r}.")
-
-        self.is_encoder = lib.av_codec_is_encoder(self.ptr)
 
         # Sanity check.
         if self.is_encoder and lib.av_codec_is_decoder(self.ptr):
@@ -153,6 +150,10 @@ class Codec:
         from .context import CodecContext
 
         return CodecContext.create(self)
+
+    @property
+    def is_encoder(self):
+        return bool(lib.av_codec_is_encoder(self.ptr))
 
     @property
     def mode(self):
@@ -268,7 +269,7 @@ class Codec:
     def hardware_configs(self):
         if self._hardware_configs:
             return self._hardware_configs
-        ret: list = []
+        ret: list[HWConfig] = []
         i: cython.int = 0
         ptr: cython.pointer[cython.const[lib.AVCodecHWConfig]]
         while True:
@@ -366,11 +367,65 @@ def get_codec_names():
     return names
 
 
+@cython.cfunc
+def get_media_type_name(media_type: lib.AVMediaType) -> str:
+    name = lib.av_get_media_type_string(media_type)
+    return "unknown" if name == cython.NULL else name
+
+
+@cython.cfunc
+def get_codec_summaries():
+    summaries: dict = {}
+    desc = cython.declare(
+        cython.pointer[cython.const[lib.AVCodecDescriptor]], cython.NULL
+    )
+    while True:
+        desc = lib.avcodec_descriptor_next(desc)
+        if not desc:
+            break
+        summaries[desc.name] = [
+            desc.long_name or "",
+            get_media_type_name(desc.type),
+            desc.props,
+            lib.avcodec_find_decoder(desc.id) != cython.NULL,
+            lib.avcodec_find_encoder(desc.id) != cython.NULL,
+        ]
+
+    canonical_names: set = set(summaries)
+
+    ptr = cython.declare(cython.pointer[cython.const[lib.AVCodec]])
+    opaque: cython.p_void = cython.NULL
+    while True:
+        ptr = lib.av_codec_iterate(cython.address(opaque))
+        if not ptr:
+            break
+        if ptr.name in canonical_names:
+            continue
+
+        desc = lib.avcodec_descriptor_get(ptr.id)
+        summary = summaries.setdefault(
+            ptr.name,
+            [
+                ptr.long_name or "",
+                get_media_type_name(ptr.type),
+                desc.props if desc else 0,
+                False,
+                False,
+            ],
+        )
+        summary[3 if lib.av_codec_is_decoder(ptr) else 4] = True
+
+    return summaries
+
+
 codecs_available = get_codec_names()
 
 
 def dump_codecs():
     """Print information about available codecs."""
+
+    def _type_char(media_type: str) -> str:
+        return "T" if media_type == "attachment" else media_type[0].upper()
 
     print(
         """Codecs:
@@ -379,34 +434,24 @@ def dump_codecs():
  ..V... = Video codec
  ..A... = Audio codec
  ..S... = Subtitle codec
+ ..D... = Data codec
+ ..T... = Attachment codec
  ...I.. = Intra frame-only codec
  ....L. = Lossy compression
  .....S = Lossless compression
  ------"""
     )
 
-    for name in sorted(codecs_available):
-        try:
-            e_codec = Codec(name, "w")
-        except ValueError:
-            e_codec = None
-
-        try:
-            d_codec = Codec(name, "r")
-        except ValueError:
-            d_codec = None
-
-        # TODO: Assert these always have the same properties.
-        codec = e_codec or d_codec
-
-        try:
-            print(
-                f" {'.D'[bool(d_codec)]}{'.E'[bool(e_codec)]}{codec.type[0].upper()}"
-                f"{'.I'[codec.intra_only]}{'.L'[codec.lossy]}{'.S'[codec.lossless]}"
-                f" {codec.name:<18} {codec.long_name}"
-            )
-        except Exception as e:
-            print(f"...... {codec.name:<18} ERROR: {e}")
+    for name, (long_name, media_type, props, can_decode, can_encode) in sorted(
+        get_codec_summaries().items()
+    ):
+        print(
+            f" {'.D'[can_decode]}{'.E'[can_encode]}{_type_char(media_type)}"
+            f"{'.I'[bool(props & lib.AV_CODEC_PROP_INTRA_ONLY)]}"
+            f"{'.L'[bool(props & lib.AV_CODEC_PROP_LOSSY)]}"
+            f"{'.S'[bool(props & lib.AV_CODEC_PROP_LOSSLESS)]}"
+            f" {name:<18} {long_name}"
+        )
 
 
 def dump_hwconfigs():

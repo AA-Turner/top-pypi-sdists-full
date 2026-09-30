@@ -20,7 +20,8 @@ from typing import Dict, Optional, Tuple, Union
 
 from .__version import __version__ as mpv_version
 from .exceptions import ClientCloseError, MultiPyVuError, SocketError
-from .project_vars import HEADER_BYTE_LENGTH, MESSAGE_TYPE, PORT, TIMEOUT_LENGTH
+from .project_vars import (HEADER_BYTE_LENGTH, MESSAGE_TYPE,
+                           MVU_VERSION_KEY, PORT, TIMEOUT_LENGTH)
 
 
 class ResponseType(Enum):
@@ -65,6 +66,7 @@ class Message():
         self.scaffolding = False
         self.server_threading = False
         self.server_version = 'unknown server version'
+        self.mvu_version = ''
 
     #########################################
     #
@@ -79,6 +81,12 @@ class Message():
         query_list = []
         # add the version number
         query_list.append(mpv_version)
+        # add the MultiVu version number.  This is keyed with 'mv=' so
+        # that it is not confused with the option flags, and semicolons
+        # are stripped out because they delimit the options.
+        if self.mvu_version:
+            mvu_version = self.mvu_version.replace(';', ',')
+            query_list.append(f'{MVU_VERSION_KEY}{mvu_version}')
         if self.verbose:
             query_list.append('v')
         if self.scaffolding:
@@ -105,6 +113,13 @@ class Message():
             if len(v_list) == 1:
                 options_dict['version'] = v_list[0]
             break
+        # find the MultiVu version number.  Servers which predate this
+        # option do not send it, in which case it stays blank.
+        options_dict['mvu_version'] = ''
+        for option in options_list:
+            if option.startswith(MVU_VERSION_KEY):
+                options_dict['mvu_version'] = option[len(MVU_VERSION_KEY):]
+                break
         options_dict['verbose'] = 'v' in options_list
         options_dict['scaffolding'] = 's' in options_list
         options_dict['threading'] = 't' in options_list

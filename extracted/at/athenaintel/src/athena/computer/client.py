@@ -61,6 +61,7 @@ class ComputerClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.computer.deploy_computer(
@@ -94,6 +95,7 @@ class ComputerClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.computer.get_initialization(
@@ -107,7 +109,7 @@ class ComputerClient:
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> SshAccessInfoOut:
         """
-        Return the SSH gateway host, port, username, and ready-made command for connecting to a computer with a registered SSH public key (see `add_ssh_key`). The username is the computer's asset id; the gateway authorizes the connection against your current edit permission on the computer and starts it if it is stopped. Unlike `create_ssh_access`, this mints nothing and never wakes the computer. Returns 409 when the computer's provider does not support SSH.
+        Return the SSH gateway host, port, username, and ready-made command for connecting to a computer with a registered SSH public key (see `add_ssh_key`). The username is the computer's asset id; the gateway authorizes the connection against your current edit permission on the computer and starts it if it is stopped. Unlike `create_ssh_access`, this mints nothing and never wakes the computer. `key_auth_enabled` is false where the environment's gateway accepts tokens only. Returns 409 when the computer's provider does not support SSH.
 
         Parameters
         ----------
@@ -126,6 +128,7 @@ class ComputerClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.computer.get_ssh_access(
@@ -165,6 +168,7 @@ class ComputerClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.computer.create_ssh_access(
@@ -203,6 +207,7 @@ class ComputerClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.computer.revoke_ssh_access(
@@ -236,6 +241,7 @@ class ComputerClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.computer.start_computer(
@@ -268,6 +274,7 @@ class ComputerClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.computer.stop_computer(
@@ -325,6 +332,7 @@ class AsyncComputerClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -366,6 +374,7 @@ class AsyncComputerClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -385,7 +394,7 @@ class AsyncComputerClient:
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> SshAccessInfoOut:
         """
-        Return the SSH gateway host, port, username, and ready-made command for connecting to a computer with a registered SSH public key (see `add_ssh_key`). The username is the computer's asset id; the gateway authorizes the connection against your current edit permission on the computer and starts it if it is stopped. Unlike `create_ssh_access`, this mints nothing and never wakes the computer. Returns 409 when the computer's provider does not support SSH.
+        Return the SSH gateway host, port, username, and ready-made command for connecting to a computer with a registered SSH public key (see `add_ssh_key`). The username is the computer's asset id; the gateway authorizes the connection against your current edit permission on the computer and starts it if it is stopped. Unlike `create_ssh_access`, this mints nothing and never wakes the computer. `key_auth_enabled` is false where the environment's gateway accepts tokens only. Returns 409 when the computer's provider does not support SSH.
 
         Parameters
         ----------
@@ -406,6 +415,7 @@ class AsyncComputerClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -453,6 +463,7 @@ class AsyncComputerClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -499,6 +510,7 @@ class AsyncComputerClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -540,6 +552,7 @@ class AsyncComputerClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -580,6 +593,7 @@ class AsyncComputerClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 

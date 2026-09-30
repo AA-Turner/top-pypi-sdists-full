@@ -35,6 +35,11 @@ class DashboardSortOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DASHBOARD_SORT_ORDER_DESC: _ClassVar[DashboardSortOrder]
     DASHBOARD_SORT_ORDER_ASC: _ClassVar[DashboardSortOrder]
 
+class ContextualDashboardLocation(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CONTEXTUAL_DASHBOARD_LOCATION_UNSPECIFIED: _ClassVar[ContextualDashboardLocation]
+    CONTEXTUAL_DASHBOARD_LOCATION_HOME: _ClassVar[ContextualDashboardLocation]
+
 DASHBOARD_ANNOTATION_UNSPECIFIED: DashboardAnnotation
 DASHBOARD_ANNOTATION_INCIDENT_MARKERS: DashboardAnnotation
 DASHBOARD_ANNOTATION_INCIDENT_RANGES: DashboardAnnotation
@@ -46,6 +51,8 @@ DASHBOARD_SORT_COLUMN_UPDATED_AT: DashboardSortColumn
 DASHBOARD_SORT_ORDER_UNSPECIFIED: DashboardSortOrder
 DASHBOARD_SORT_ORDER_DESC: DashboardSortOrder
 DASHBOARD_SORT_ORDER_ASC: DashboardSortOrder
+CONTEXTUAL_DASHBOARD_LOCATION_UNSPECIFIED: ContextualDashboardLocation
+CONTEXTUAL_DASHBOARD_LOCATION_HOME: ContextualDashboardLocation
 
 class DashboardControls(_message.Message):
     __slots__ = ("default_range_preset_id", "annotations")
@@ -184,10 +191,12 @@ class DeleteDashboardResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class ExportDashboardRequest(_message.Message):
-    __slots__ = ("dashboard_id",)
+    __slots__ = ("dashboard_id", "include_ids")
     DASHBOARD_ID_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_IDS_FIELD_NUMBER: _ClassVar[int]
     dashboard_id: str
-    def __init__(self, dashboard_id: _Optional[str] = ...) -> None: ...
+    include_ids: bool
+    def __init__(self, dashboard_id: _Optional[str] = ..., include_ids: bool = ...) -> None: ...
 
 class ExportDashboardResponse(_message.Message):
     __slots__ = ("dashboard_json_string",)
@@ -212,3 +221,43 @@ class ImportDashboardResponse(_message.Message):
     DASHBOARD_FIELD_NUMBER: _ClassVar[int]
     dashboard: _dashboard_pb2.Dashboard
     def __init__(self, dashboard: _Optional[_Union[_dashboard_pb2.Dashboard, _Mapping]] = ...) -> None: ...
+
+class GetContextualDashboardRequest(_message.Message):
+    __slots__ = ("location",)
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    location: ContextualDashboardLocation
+    def __init__(self, location: _Optional[_Union[ContextualDashboardLocation, str]] = ...) -> None: ...
+
+class GetContextualDashboardResponse(_message.Message):
+    __slots__ = ("dashboard",)
+    DASHBOARD_FIELD_NUMBER: _ClassVar[int]
+    dashboard: _dashboard_pb2.Dashboard
+    def __init__(self, dashboard: _Optional[_Union[_dashboard_pb2.Dashboard, _Mapping]] = ...) -> None: ...
+
+class UpsertContextualDashboardRequest(_message.Message):
+    __slots__ = ("location", "widgets")
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    WIDGETS_FIELD_NUMBER: _ClassVar[int]
+    location: ContextualDashboardLocation
+    widgets: _containers.RepeatedCompositeFieldContainer[_dashboard_pb2.DashboardWidget]
+    def __init__(
+        self,
+        location: _Optional[_Union[ContextualDashboardLocation, str]] = ...,
+        widgets: _Optional[_Iterable[_Union[_dashboard_pb2.DashboardWidget, _Mapping]]] = ...,
+    ) -> None: ...
+
+class UpsertContextualDashboardResponse(_message.Message):
+    __slots__ = ("dashboard",)
+    DASHBOARD_FIELD_NUMBER: _ClassVar[int]
+    dashboard: _dashboard_pb2.Dashboard
+    def __init__(self, dashboard: _Optional[_Union[_dashboard_pb2.Dashboard, _Mapping]] = ...) -> None: ...
+
+class ResetContextualDashboardRequest(_message.Message):
+    __slots__ = ("location",)
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    location: ContextualDashboardLocation
+    def __init__(self, location: _Optional[_Union[ContextualDashboardLocation, str]] = ...) -> None: ...
+
+class ResetContextualDashboardResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

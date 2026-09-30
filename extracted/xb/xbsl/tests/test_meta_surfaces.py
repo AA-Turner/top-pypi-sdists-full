@@ -37,6 +37,47 @@ def test_mcp_meta_new_object_writes_and_lints(mcp_module, tmp_path):
     assert "уже существует" in dup["error"]
 
 
+@pytest.mark.needs_data  # the pair of captions is read from the metamodel
+def test_mcp_meta_new_object_with_both_captions_lints_clean(mcp_module, tmp_path):
+    res = mcp_module.meta_new_object(
+        str(tmp_path), "Справочник", "Товары", presentation="Товары", object_presentation="Товар",
+    )
+    assert res["lint"] == {"files": 1, "diagnostics": 0}, res["lint"]
+    text = (tmp_path / "Товары.yaml").read_text(encoding="utf-8")
+    assert "    Объект:\n        Представление: Товар\n" in text
+    refused = mcp_module.meta_new_object(str(tmp_path), "Отчет", "Остатки", object_presentation="Остаток")
+    assert "object_presentation неприменим" in refused["error"]
+    assert not (tmp_path / "Остатки.yaml").exists()
+
+
+@pytest.mark.needs_data  # the record caption is read from the metamodel
+def test_mcp_meta_new_object_register_with_both_captions_lints_clean(mcp_module, tmp_path):
+    res = mcp_module.meta_new_object(
+        str(tmp_path), "РегистрСведений", "Курсы", presentation="Курсы",
+        record_presentation="Курс",
+    )
+    assert res["lint"] == {"files": 1, "diagnostics": 0}, res["lint"]
+    text = (tmp_path / "Курсы.yaml").read_text(encoding="utf-8")
+    assert "    Запись:\n        Представление: Курс\n" in text
+    refused = mcp_module.meta_new_object(str(tmp_path), "Справочник", "Товары", record_presentation="Товар")
+    assert "record_presentation неприменим" in refused["error"]
+    assert not (tmp_path / "Товары.yaml").exists()
+
+
+@pytest.mark.needs_data  # the captions of a periodic set are read from the metamodel
+def test_mcp_meta_new_object_periodic_constants_set_lints_clean(mcp_module, tmp_path):
+    res = mcp_module.meta_new_object(
+        str(tmp_path), "НаборКонстант", "КурсыДоллара", presentation="Курсы доллара",
+        record_presentation="Курс доллара", periodicity="День",
+    )
+    assert res["lint"] == {"files": 1, "diagnostics": 0}, res["lint"]
+    text = (tmp_path / "КурсыДоллара.yaml").read_text(encoding="utf-8")
+    assert "Периодичность: День\nИнтерфейс:\n    Список:\n" in text
+    refused = mcp_module.meta_new_object(str(tmp_path), "РегистрСведений", "Курсы", periodicity="День")
+    assert "periodicity неприменим" in refused["error"]
+    assert not (tmp_path / "Курсы.yaml").exists()
+
+
 def test_mcp_meta_field_and_info(mcp_module, tmp_path):
     mcp_module.meta_new_object(str(tmp_path), "Справочник", "Товары")
     res = mcp_module.meta_add_field(str(tmp_path / "Товары.yaml"), "реквизит", "Цвет")
@@ -95,7 +136,10 @@ def test_mcp_meta_add_field_batch_refuses_kinds_that_write_other_files(mcp_modul
 
 @pytest.mark.needs_data  # the built-in's class is the metamodel's, and the written file is linted
 def test_mcp_meta_add_field_of_a_built_in_attribute(mcp_module, tmp_path):
-    mcp_module.meta_new_object(str(tmp_path), "Документ", "Заявки", presentation="Номер")
+    # Both captions: naming/presentation asks for the list and the object one.
+    mcp_module.meta_new_object(
+        str(tmp_path), "Документ", "Заявки", presentation="Заявки", object_presentation="Заявка",
+    )
     yaml_path = str(tmp_path / "Заявки.yaml")
     res = mcp_module.meta_add_field(
         yaml_path, "реквизит", "Номер",
@@ -158,6 +202,55 @@ def test_cli_add_field_of_a_built_in_takes_the_class_default_type(tmp_path, caps
     assert "        Автонумерация:\n            Префикс: ЗА\n" in text
     code, err = _run_cli(capsys, "add-field", yaml_path, "реквизит", "Файлы", "--type", "Строка")
     assert code == 2 and "DocumentFilesAttribute" in err["error"]
+
+
+@pytest.mark.needs_data  # the pair of captions is read from the metamodel
+def test_cli_new_object_with_both_captions_lints_clean(tmp_path, capsys):
+    code, out = _run_cli(
+        capsys, "new-object", str(tmp_path), "Справочник", "Товары",
+        "--presentation", "Товары", "--object-presentation", "Товар",
+    )
+    assert code == 0 and out["lint"]["diagnostics"] == [], out["lint"]
+    text = (tmp_path / "Товары.yaml").read_text(encoding="utf-8")
+    assert "    Объект:\n        Представление: Товар\n" in text
+    # The list caption alone: the lint names the object caption, the note the parameter.
+    code, out = _run_cli(capsys, "new-object", str(tmp_path), "Документ", "Заказы",
+                         "--presentation", "Заказы")
+    assert code == 0 and [d["rule"] for d in out["lint"]["diagnostics"]] == ["naming/presentation"]
+    assert "--object-presentation" in out["notes"][0]
+    code, out = _run_cli(capsys, "new-object", str(tmp_path), "Отчет", "Остатки",
+                         "--object-presentation", "Остаток")
+    assert code == 2 and "object_presentation неприменим" in out["error"]
+
+
+@pytest.mark.needs_data  # the record caption is read from the metamodel
+def test_cli_new_object_register_with_both_captions_lints_clean(tmp_path, capsys):
+    code, out = _run_cli(
+        capsys, "new-object", str(tmp_path), "РегистрСведений", "Курсы",
+        "--presentation", "Курсы", "--record-presentation", "Курс",
+    )
+    assert code == 0 and out["lint"]["diagnostics"] == [], out["lint"]
+    # The list caption alone: the lint names the record caption, the note the parameter.
+    code, out = _run_cli(capsys, "new-object", str(tmp_path), "РегистрСведений", "Цены",
+                         "--presentation", "Цены")
+    assert code == 0 and [d["rule"] for d in out["lint"]["diagnostics"]] == ["naming/presentation"]
+    assert "--record-presentation" in out["notes"][0]
+    code, out = _run_cli(capsys, "new-object", str(tmp_path), "РегистрНакопления", "Остатки",
+                         "--record-presentation", "Остаток")
+    assert code == 2 and "record_presentation неприменим" in out["error"]
+
+
+@pytest.mark.needs_data  # the captions of a periodic set are read from the metamodel
+def test_cli_new_object_periodic_constants_set_lints_clean(tmp_path, capsys):
+    code, out = _run_cli(
+        capsys, "new-object", str(tmp_path), "НаборКонстант", "КурсыДоллара",
+        "--presentation", "Курсы доллара", "--record-presentation", "Курс доллара",
+        "--periodicity", "День",
+    )
+    assert code == 0 and out["lint"]["diagnostics"] == [], out["lint"]
+    code, out = _run_cli(capsys, "new-object", str(tmp_path), "НаборКонстант", "Цены",
+                         "--periodicity", "Неделя")
+    assert code == 2 and "Недопустимая периодичность" in out["error"]
 
 
 def test_cli_dry_run_writes_nothing(tmp_path, capsys):
@@ -226,6 +319,47 @@ def test_lsp_meta_capabilities_and_new_object(tmp_path):
     assert files[0]["content"].startswith("ВидЭлемента: Справочник")
     # LSP only computes: nothing is written to disk - the editor applies the changes.
     assert not (tmp_path / "Товары.yaml").exists()
+
+
+@pytest.mark.needs_data  # the pair of captions is read from the metamodel
+def test_lsp_meta_new_object_writes_the_object_caption(tmp_path):
+    _, features = _server_features()
+    result = features["xbsl/metaNewObject"]({
+        "directory": str(tmp_path), "kind": "Справочник", "name": "Товары",
+        "presentation": "Товары", "objectPresentation": "Товар",
+    })
+    content = result["files"][0]["content"]
+    assert "    Список:\n        Представление: Товары\n    Объект:\n        Представление: Товар\n" in content
+    refused = features["xbsl/metaNewObject"]({
+        "directory": str(tmp_path), "kind": "Отчет", "name": "Остатки", "objectPresentation": "Остаток",
+    })
+    assert "object_presentation неприменим" in refused["error"]
+
+
+@pytest.mark.needs_data  # the record caption is read from the metamodel
+def test_lsp_meta_new_object_writes_the_record_caption(tmp_path):
+    _, features = _server_features()
+    result = features["xbsl/metaNewObject"]({
+        "directory": str(tmp_path), "kind": "РегистрСведений", "name": "Курсы",
+        "presentation": "Курсы", "recordPresentation": "Курс",
+    })
+    content = result["files"][0]["content"]
+    assert "    Список:\n        Представление: Курсы\n    Запись:\n        Представление: Курс\n" in content
+
+
+@pytest.mark.needs_data  # the captions of a periodic set are read from the metamodel
+def test_lsp_meta_new_object_writes_the_periodicity(tmp_path):
+    _, features = _server_features()
+    result = features["xbsl/metaNewObject"]({
+        "directory": str(tmp_path), "kind": "НаборКонстант", "name": "КурсыДоллара",
+        "presentation": "Курсы доллара", "recordPresentation": "Курс доллара",
+        "periodicity": "День",
+    })
+    content = result["files"][0]["content"]
+    assert (
+        "Периодичность: День\nИнтерфейс:\n    Список:\n        Представление: Курсы доллара\n"
+        "    Запись:\n        Представление: Курс доллара\n"
+    ) in content
 
 
 def test_lsp_meta_add_field_error_shape(tmp_path):

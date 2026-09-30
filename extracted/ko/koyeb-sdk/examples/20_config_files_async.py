@@ -66,30 +66,30 @@ async def main():
 
         # Check secret reference in config file
         result = await sandbox.exec("cat /tmp/secret_config.txt")
-        assert result.stdout.strip() == secret_value, (
-            f"Expected '{secret_value}', got '{result.stdout.strip()}'"
-        )
+        assert (
+            result.stdout.strip() == secret_value
+        ), f"Expected '{secret_value}', got '{result.stdout.strip()}'"
         print(f"/tmp/secret_config.txt={result.stdout.strip()}")
 
         # Check env var interpolation in config file
         result = await sandbox.exec("cat /tmp/interpolation.txt")
-        assert result.stdout.strip() == "2", (
-            f"Expected '2', got '{result.stdout.strip()}'"
-        )
+        assert (
+            result.stdout.strip() == "2"
+        ), f"Expected '2', got '{result.stdout.strip()}'"
         print(f"/tmp/interpolation.txt={result.stdout.strip()}")
 
         # Check custom permissions
         result = await sandbox.exec("stat -c '%a' /tmp/restricted.txt")
-        assert result.stdout.strip() == "600", (
-            f"Expected '600', got '{result.stdout.strip()}'"
-        )
+        assert (
+            result.stdout.strip() == "600"
+        ), f"Expected '600', got '{result.stdout.strip()}'"
         print(f"/tmp/restricted.txt permissions={result.stdout.strip()}")
 
         # Check Secret env var was resolved
         result = await sandbox.exec("printenv MY_SECRET")
-        assert result.stdout.strip() == secret_value, (
-            f"Expected '{secret_value}', got '{result.stdout.strip()}'"
-        )
+        assert (
+            result.stdout.strip() == secret_value
+        ), f"Expected '{secret_value}', got '{result.stdout.strip()}'"
         print(f"MY_SECRET={result.stdout.strip()}")
 
         return 0

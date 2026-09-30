@@ -18,6 +18,7 @@ Two-stage pipeline:
 Usage (run from repo root or anywhere):
     python src/matrice_analytics/analytics/tests/test_identity_analytics.py
 """
+
 from __future__ import annotations
 
 import csv
@@ -59,7 +60,6 @@ _register_pkg(
 )
 
 from matrice_analytics.analytics.engine import AnalyticsEngine  # noqa: E402
-
 
 _spec_bt = importlib.util.spec_from_file_location(
     "matrice_analytics.post_processing.usecases.footfall",
@@ -131,7 +131,7 @@ class PlateOCR:
     def _run_ocr(self, crop: np.ndarray) -> tuple[str, float]:
         try:
             preds = self._reader.run(crop, return_confidence=True)
-        except Exception:  # pragma: no cover - defensive
+        except Exception:  # noqa: BLE001  # pragma: no cover - defensive
             return "", 0.0
         if not preds:
             return "", 0.0
@@ -398,9 +398,7 @@ class IdentityAnalyticsTestProcessor:
         self._cum_matched += matched
         self._cum_unknown += unknown
         self._cum_blacklist += blacklist
-        cum_match_rate = (
-            self._cum_matched / self._cum_total if self._cum_total > 0 else 0.0
-        )
+        cum_match_rate = self._cum_matched / self._cum_total if self._cum_total > 0 else 0.0
         row = {
             "label": label,
             "frame_idx": frame_idx,
@@ -435,9 +433,7 @@ class IdentityAnalyticsTestProcessor:
         video_writer = None
         if self.draw_bboxes:
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-            video_writer = cv2.VideoWriter(
-                self.output_video_path, fourcc, fps, (width, height)
-            )
+            video_writer = cv2.VideoWriter(self.output_video_path, fourcc, fps, (width, height))
             print(f"Video output enabled — {self.output_video_path}")
 
         csv_file = None
@@ -516,9 +512,7 @@ class IdentityAnalyticsTestProcessor:
                             "cum_match_rate": row["cum_match_rate"],
                         },
                     }
-                    agg_path = os.path.join(
-                        self.json_dir, "agg", f"agg_{frame_idx:04d}.json"
-                    )
+                    agg_path = os.path.join(self.json_dir, "agg", f"agg_{frame_idx:04d}.json")
                     with open(agg_path, "w") as f:
                         json.dump(serialized_with_cum, f, indent=2)
                     print(
@@ -548,9 +542,7 @@ class IdentityAnalyticsTestProcessor:
                         for _m in _proc._frame_buffer[-1].metrics:
                             per_frame[_m.key] = float(_m.data)
                     plate_texts = [
-                        d.get("plate_text") or ""
-                        for d in detections
-                        if d.get("plate_text")
+                        d.get("plate_text") or "" for d in detections if d.get("plate_text")
                     ]
                     csv_writer.writerow(
                         [
@@ -607,7 +599,7 @@ class IdentityAnalyticsTestProcessor:
             )
         print(f"\nFinal aggregation saved: {final_agg_path}")
         print("Final aggregation result:")
-        pprint.pprint(final_serialized)
+        pprint.pprint(final_serialized)  # noqa: T203
 
         # Per-window summary CSV
         summary_csv_path = os.path.join(self.json_dir, "agg", "agg_summary.csv")

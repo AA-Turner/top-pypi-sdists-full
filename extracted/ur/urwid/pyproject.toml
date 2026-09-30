@@ -144,6 +144,7 @@ extend-select = [
   "PL",
   "PERF",
   "RUF",   # tryceratops, pyupgrade, isort, pylint + perflint, Ruff-specific
+  "D",     # pydocstyle
 ]
 extend-ignore = [
   "E221",
@@ -164,12 +165,24 @@ extend-ignore = [
   "SIM108",  # Use ternary operator,
   "TRY003",  # long messages prepare outside, ...
   "PYI063",  # MonitoredList is a list subclass, this expected to change
+  "ISC001",  # conflicts with the formatter, which can produce single-line implicit concatenation
+  # suspicious-xml-*-usage: recommend defusedxml, which is not a dependency
+  "S313",
+  "S314",
+  "S315",
+  "S316",
+  "S317",
+  "S318",
+  "S319",
 ]
 [tool.ruff.lint.isort]
 known-third-party = []
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = [ "F401", "SIM105" ]
 "urwid/display/curses.py" = [ "A005" ]
+# Shown verbatim in the docs as numbered listings, wcur2.py from a fixed line (`:lines: 7-`).
+"docs/tutorial/*.py" = [ "D100", "D101", "D102", "D103", "D107" ]
+"docs/manual/*.py" = [ "D100", "D101", "D102", "D103", "D107" ]
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
 [tool.ruff.lint.pylint]
@@ -182,27 +195,22 @@ allow-dunder-method-names = [
 ]
 
 [tool.pylint]
-reports = false
 disable = [
   "arguments-differ",
   "attribute-defined-outside-init",                   # old bad practice, fixed step-by-step
-  "broad-except",
+  "broad-exception-caught",
   "broad-exception-raised",
   "consider-using-assignment-expr",
-  # iterable modification during iteration
-  "consider-using-enumerate",
+  "consider-using-enumerate",                         # iterable modification during iteration
   "cyclic-import",
   "file-ignored",
   "fixme",
   "import-outside-toplevel",
   "invalid-name",
-  # Magic part
-  "invalid-overridden-method",
+  "invalid-overridden-method",                        # Magic part
   "locally-disabled",
   "logging-format-interpolation",
   "logging-fstring-interpolation",
-  "missing-docstring",
-  "redefined-variable-type",                          # makes not happy typechecking, but super common
   "similarities",
   "superfluous-parens",
   "suppressed-message",
@@ -220,12 +228,10 @@ disable = [
   "too-many-statements",
   "unused-argument",
   "unused-private-member",
-  # too complex union
-  "use-implicit-booleaness-not-comparison-to-string",
+  "use-implicit-booleaness-not-comparison-to-string", # too complex union
   "use-implicit-booleaness-not-comparison-to-zero",
 ]
 enable = "all"
-extension-pkg-whitelist = []
 ignore = [ "CVS", "version.py" ]
 # gi (PyGObject) is only installed with the "glib" extra; static checks also run without it.
 ignored-modules = [ "gi" ]
@@ -237,7 +243,6 @@ load-plugins = [
   "pylint.extensions.dunder",
   "pylint.extensions.for_any_all",
   "pylint.extensions.overlapping_exceptions",
-  "pylint.extensions.redefined_variable_type",
   "pylint.extensions.typing",
 ]
 max-line-length = 120

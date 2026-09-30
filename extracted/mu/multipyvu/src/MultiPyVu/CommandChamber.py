@@ -13,7 +13,7 @@ from typing import Dict, List, Tuple, Union
 
 from .exceptions import MultiPyVuError
 from .ICommand import (ICommand, ICommandImp, ICommandObserverSim,
-                       ISimulateChange, catch_thread_error)
+                       ISimulateChange)
 from .IEventManager import IObserver
 
 
@@ -266,15 +266,22 @@ class CommandChamberImp(ICommandImp, CommandChamberBase):
 #
 ############################
 
-@catch_thread_error
 class SimulateChamberChange(ISimulateChange):
-    # class variables
+    # These are class variables, not instance variables, so that the
+    # simulated instrument keeps its condition from one change
+    # thread to the next.  See ISimulateChange for the reasoning.
     _stop_flag: bool = False
-    _val: float
-    _state: str
-    _set_point: float
-    _rate: float
-    _flavor: str
+    _state_dict = STATE_DICT
+    # The starting values come from the Command*Base class so that
+    # the scaffolding and the real implementation begin in the
+    # same place.
+    _current_val: float = CommandChamberBase._current_val
+    _state: int = CommandChamberBase._state
+    _set_point: float = CommandChamberBase._set_point
+    # The chamber has no rate, and the flavor is set by
+    # CommandChamberSim._set_state_imp() before the thread runs.
+    _rate: float = 0.0
+    _flavor: str = ''
     _observers: List[IObserver] = []
 
     def __init__(self):
@@ -282,11 +289,11 @@ class SimulateChamberChange(ISimulateChange):
 
     @property
     def current_val(self):
-        return SimulateChamberChange._val
+        return SimulateChamberChange._current_val
 
     @current_val.setter
     def current_val(self, new):
-        SimulateChamberChange._val = new
+        SimulateChamberChange._current_val = new
 
     @property
     def set_point(self):
@@ -323,20 +330,20 @@ class SimulateChamberChange(ISimulateChange):
         if self.stop_requested():
             return
         if self.set_point == modeEnum.seal.value:
-            self.state = STATE_DICT[1]
+            self.state = 1
         elif self.set_point == modeEnum.purge_seal.value:
-            self.state = STATE_DICT[1]
+            self.state = 1
         elif self.set_point == modeEnum.vent_seal.value:
-            self.state = STATE_DICT[2]
+            self.state = 2
         elif self.set_point == modeEnum.high_vacuum.value:
-            self.state = STATE_DICT[7]
+            self.state = 7
         elif self.set_point == modeEnum.pump_continuous.value:
-            self.state = STATE_DICT[8]
+            self.state = 8
         elif self.set_point == modeEnum.vent_continuous.value:
             if self.flavor == 'PPMS':
-                self.state = STATE_DICT[5]
+                self.state = 5
             else:
-                self.state = STATE_DICT[9]
+                self.state = 9
         else:
             msg = f'{self.set_point} is an invalid mode'
             raise ValueError(msg)
@@ -403,11 +410,10 @@ class CommandChamberSim(CommandChamberBase,
 
     def _set_state_imp(self, mode: modeEnum) -> Union[str, int]:
         self.change_thread: SimulateChamberChange = self.get_sim_instance()
-        state_string = STATE_DICT[self.state]
         self.change_thread.set_params('',
                                       mode,
                                       0.0,
-                                      state_string,
+                                      self.state,
                                       )
         self.change_thread.flavor = self.instrument_name
         self.change_thread.subscribe(self)
@@ -422,7 +428,4 @@ class CommandChamberSim(CommandChamberBase,
         return error
 
     def update(self, value, state):
-        for state_number, state_str in STATE_DICT.items():
-            if state_str == state:
-                self.state = state_number
-                break
+        self.state = state

@@ -1,6 +1,12 @@
 """Stub file for post_processing.face_reg directory."""
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
+from . import bounded_state
+from ...clients import bootstrap, identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.fr_client import FRClient
+from ...clients.models import build_people_activity
+from ...clients.response import CallFailure
 from ..Trackers.integration import ConfigDrivenTracker, TrackerProfile
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from ..core.config import AlertConfig, BaseConfig
@@ -9,19 +15,75 @@ from ..utils.format_utils import face_landmarks
 from ..utils.geometry_utils import bbox_is_normalized, bbox_xyxy_pixels, resolve_frame_dims
 from ..utils.geometry_utils import bbox_xyxy_pixels
 from ..utils.location_name_cache import LocationNameCache
+from ..utils.post_processing_config_client import is_resolvable_location_id
 from ..utils.public_ip import resolve_public_ip_once
 from .embedding_manager import EmbeddingConfig, EmbeddingManager
-from .face_recognition_client import FacialRecognitionClient
 from .people_activity_logging import PeopleActivityLogging
 
 # Constants
+FACE_TRACK_MAX: int = ...  # From bounded_state
+FACE_TRACK_TTL_S: float = ...  # From bounded_state
+PERSON_SIGHTINGS_MAX_PERSONS: int = ...  # From bounded_state
+PERSON_SIGHTINGS_PER_PERSON: int = ...  # From bounded_state
+PERSON_SIGHTINGS_TTL_S: float = ...  # From bounded_state
 ALIGN: bool = ...  # From compare_similarity
 DETECTOR_BACKEND: str = ...  # From compare_similarity
 MODEL_NAME: str = ...  # From compare_similarity
-cmd: List[Any] = ...  # From face_recognition
 ACTIVITY_BBOX_GRID: int = ...  # From people_activity_logging
+ACTIVITY_DROP_LOG_INTERVAL_S: float = ...  # From people_activity_logging
+ACTIVITY_QUEUE_MAXSIZE: int = ...  # From people_activity_logging
 
 # Functions
+# From bounded_state
+def begin_frame() -> None:
+    """
+    Start collecting the current frame's sightings; earlier frames' are no longer reported.
+    """
+    ...
+
+# From bounded_state
+def idle_index(owner: Any, attr: str, max_entries: int, ttl_s: float) -> Any:
+    """
+    Return the index stored on ``owner`` under ``attr``, creating it on first use.
+    """
+    ...
+
+# From bounded_state
+def prune_track_state(owner: Any, track_id: Any, *maps: Any) -> None:
+    """
+    Refresh ``track_id`` in ``owner``'s per-track index and drop idle tracks from ``maps``.
+    """
+    ...
+
+# From bounded_state
+def record_sighting(owner: Any, person_id: str, record: Dict[str, str]) -> None:
+    """
+    Append one sighting to ``owner.person_tracking``.
+    
+        Keeps at most PERSON_SIGHTINGS_PER_PERSON sightings per person and forgets
+        persons not seen for PERSON_SIGHTINGS_TTL_S or beyond PERSON_SIGHTINGS_MAX_PERSONS.
+    """
+    ...
+
+# From bounded_state
+def sightings_summary(tracking: Any[str, Any], frame_counts: Any[str, int] | None = None) -> Dict[str, List[Dict[str, str]]]:
+    """
+    ``{person_id: [sighting, ...]}`` in the historical shape.
+    
+        With ``frame_counts`` (the persons counted in the current frame) only the
+        sightings recorded since the last :func:`begin_frame` are returned, for those
+        persons, so the per-frame payload is bounded by the frame's detections rather
+        than by uptime. A person counted without a sighting this frame is left out.
+    """
+    ...
+
+# From bounded_state
+def touch_and_prune(index: Any, key: Any, *maps: Any) -> None:
+    """
+    Refresh ``key`` and drop every evicted key from ``maps``.
+    """
+    ...
+
 # From compare_similarity
 def compare_identity_and_samples(identity_folder: str, sample_folder: str, threshold: float = 0.82) -> Any:
     """
@@ -72,14 +134,21 @@ def normalize_embedding(vec: List[float]) -> List[float]:
     """
     ...
 
-# From face_recognition_client
-def create_face_client(account_number: str = None, access_key: str = None, secret_key: str = None, project_id: str = None, server_id: str = '', session: Any = None) -> Any:
-    """
-    Create a facial recognition client with automatic credential detection
-    """
-    ...
-
 # Classes
+# From bounded_state
+class IdleEvictionIndex:
+    # Last-touch times per key, with an idle TTL and an LRU cap.
+    #
+    #     ``touch`` refreshes a key and returns the keys that must now be dropped: any
+    #     key idle for longer than ``ttl_s`` (monotonic clock), and the least recently
+    #     touched keys beyond ``max_entries``. The key just touched is never returned.
+    #     Each call costs O(1 + number of evicted keys).
+
+    def __init__(self: Any, max_entries: int, ttl_s: float, clock: Callable[[], float] = time.monotonic) -> None: ...
+
+    def touch(self: Any, key: Any) -> List[Any]: ...
+
+
 # From compare_similarity
 class FaceTracker:
     # Embedding-based face tracker (mirrors tracker logic in face_recognition_model.py):
@@ -131,7 +200,7 @@ class EmbeddingManager:
     # - _cache_lock protects track_id_cache
     # - _embeddings_loaded is set only after successful load under lock
 
-    def __init__(self: Any, config: Any, face_client: Any = None) -> None: ...
+    def __init__(self: Any, config: Any, face_client: Optional[Any] = None) -> None: ...
 
     def extract_embedding_from_detection(self: Any, detection: Dict) -> Tuple[Dict, Optional[List[float]]]:
         """
@@ -246,9 +315,9 @@ class FaceRecognitionEmbeddingUseCase:
         """
         ...
 
-    def get_person_tracking_summary(self: Any) -> Dict:
+    def get_person_tracking_summary(self: Any, frame_counts: Dict[str, int] | None = None) -> Dict:
         """
-        Get summary of tracked persons with camera IDs and timestamps
+        Recent sightings per person; with frame_counts, only this frame's sightings.
         """
         ...
 
@@ -312,8 +381,6 @@ class RedisFaceMatcher:
 
     def __init__(self: Any, session: Any = None, logger: Any.Any | None = None, redis_url: str | None = None, face_client: Any = None) -> None: ...
 
-    ACTION_ID_PATTERN: Any
-
     def is_available(self: Any) -> bool: ...
 
     async def match_embedding(self: Any, embedding: List[float], search_id: str | None, location: str = '', camera_id: str = '', min_confidence: float | None = None) -> Any | None:
@@ -341,7 +408,7 @@ class TemporalIdentityManager:
     # Adaptation for production: _compute_best_identity uses EmbeddingManager for local similarity
     # search first (fast), then falls back to API only if needed (slow).
 
-    def __init__(self: Any, face_client: Any, embedding_manager: Any = None, redis_matcher: Any | None = None, recognition_threshold: float = 0.15, history_size: int = 20, unknown_patience: int = 7, switch_patience: int = 5, fallback_margin: float = 0.0, sticky_id: bool = False, high_confidence_thresh: float = 0.0, sticky_min_votes: int = 3) -> None: ...
+    def __init__(self: Any, face_client: Any, embedding_manager: Any = None, redis_matcher: Any | None = None, recognition_threshold: float = 0.15, history_size: int = 20, unknown_patience: int = 7, switch_patience: int = 5, fallback_margin: float = 0.0, sticky_id: bool = False, high_confidence_thresh: float = 0.0, sticky_min_votes: int = 3, max_tracks: int = bounded_state.FACE_TRACK_MAX, track_ttl_s: float = bounded_state.FACE_TRACK_TTL_S) -> None: ...
 
     async def update(self: Any, track_id: Any, emb: List[float], eligible_for_recognition: bool, location: str = '', camera_id: str = '', timestamp: str = '', search_id: str | None = None) -> Tuple[str | None, str, float, str | None, Dict[str, Any], str]:
         """
@@ -351,172 +418,11 @@ class TemporalIdentityManager:
         ...
 
 
-# From face_recognition_client
-class FacialRecognitionClient:
-    # Simplified Face Recognition Client using Matrice Session.
-    # All API calls are made through the Matrice session RPC interface.
-
-    def __init__(self: Any, account_number: str = '', access_key: str = '', secret_key: str = '', project_id: str = '', server_id: str = '', session: Any = None) -> None: ...
-
-    ACTION_ID_PATTERN: Any
-
-    async def enroll_staff(self: Any, staff_data: Dict[str, Any], image_paths: List[str]) -> Dict[str, Any]:
-        """
-        Enroll a new staff member with face images
-        
-        Args:
-            staff_data: Dictionary containing staff information (staffId, firstName, lastName, etc.)
-            image_paths: List of file paths to face images
-        
-        Returns:
-            Dict containing enrollment response
-        """
-        ...
-
-    async def enroll_staff_base64(self: Any, staff_data: Dict[str, Any], base64_images: List[str]) -> Dict[str, Any]:
-        """
-        Enroll staff with base64 encoded images
-        
-                API: POST /v1/facial_recognition/staff/enroll?projectId={projectId}&serverID={serverID}
-        """
-        ...
-
-    async def enroll_unknown_person(self: Any, embedding: List[float], image_source: str = None, timestamp: str = None, location: str = None, _employee_id: str = None) -> Dict[str, Any]:
-        """
-        Enroll an unknown person
-        
-                API: POST /v1/facial_recognition/enroll_unknown_person?projectId={projectId}&serverID={serverID}
-        """
-        ...
-
-    async def get_all_staff_embeddings(self: Any) -> Dict[str, Any]:
-        """
-        Get all staff embeddings
-        
-                API: GET /v1/facial_recognition/get_all_staff_embeddings?projectId={projectId}&serverID={serverID}
-        """
-        ...
-
-    async def get_redis_details(self: Any) -> Dict[str, Any]:
-        """
-        Get Redis connection details from facial recognition server
-        
-                API: GET /v1/facial_recognition/get_redis_details
-        
-                Returns:
-                    Dict containing Redis connection details (REDIS_IP, REDIS_PORT, REDIS_PASSWORD)
-        """
-        ...
-
-    def get_server_connection_info(self: Any) -> Dict[str, Any] | None:
-        """
-        Fetch server connection info from RPC.
-        """
-        ...
-
-    async def get_staff_details(self: Any, staff_id: str) -> Dict[str, Any]:
-        """
-        Get full staff details by staff ID
-        
-                API: GET /v1/facial_recognition/staff/:staffId?projectId={projectId}&serverID={serverID}
-        """
-        ...
-
-    async def health_check(self: Any) -> Dict[str, Any]:
-        """
-        Check if the facial recognition service is healthy
-        """
-        ...
-
-    async def search_similar_faces(self: Any, face_embedding: List[float], threshold: float = 0.3, limit: int = 10, collection: str = 'staff_embeddings', location: str = '', timestamp: str = '') -> Dict[str, Any]:
-        """
-        Search for staff members by face embedding vector
-        
-        API: POST /v1/facial_recognition/search/similar?projectId={projectId}&serverID={serverID}
-        
-        Args:
-            face_embedding: Face embedding vector
-            collection: Vector collection name
-            threshold: Similarity threshold (0.0 to 1.0)
-            limit: Maximum number of results to return
-            location: Location identifier for logging
-            timestamp: Current timestamp in ISO format
-        
-        Returns:
-            Dict containing search results with detectionType (known/unknown)
-        """
-        ...
-
-    async def shutdown_service(self: Any, action_record_id: str | None = None) -> Dict[str, Any]:
-        """
-        Gracefully shutdown the service
-        
-                API: DELETE /v1/facial_recognition/shutdown?projectId={projectId}&serverID={serverID}
-        """
-        ...
-
-    async def store_people_activity(self: Any, staff_id: str, detection_type: str, bbox: List[float], location: str, employee_id: str | None = None, timestamp: str = datetime.now(timezone.utc).isoformat(), image_data: str | None = None, camera_name: str | None = None, camera_id: str | None = None, application_id: str | None = None, rtp_number: str | None = None, similarity_score: float | None = None) -> Dict[str, Any]:
-        """
-        Store people activity data with optional image data
-        
-        API: POST /v1/facial_recognition/store_people_activity?projectId={projectId}&serverID={serverID}
-        
-        Args:
-            staff_id: Staff identifier (empty for unknown faces)
-            detection_type: Type of detection (known, unknown, empty)
-            bbox: Bounding box coordinates [x1, y1, x2, y2]
-            location: Location identifier
-            employee_id: Employee ID (for unknown faces, this will be generated)
-            timestamp: Timestamp in ISO format
-            image_data: Accepted for backward compatibility but NOT sent —
-                the FR server ignores it and fetches the frame from the
-                media server via rtpNumber + camera_id
-            similarity_score: Cosine similarity of the match that produced this
-                event, sent as ``confidenceScore``. Without it every
-                recognition_log persists 0.0 and matching is unauditable —
-                you cannot tell a strong match from a temporal carry-over,
-                which is what hid the non-discriminative-gallery defect.
-        
-        Returns:
-            Dict with success status; "data" carries the server's raw reply
-            (the media-server image URL it resolved, or "" if none)
-        """
-        ...
-
-    async def update_deployment_action(self: Any, deployment_id: str) -> Dict[str, Any]:
-        """
-        Update deployment action in backend
-        
-                API: PUT /internal/v1/actions/update_facial_recognition_deployment/:server_id?app_deployment_id=:deployment_id
-        
-                Args:
-                    deployment_id: The deployment ID to update
-        
-                Returns:
-                    Dict containing response data
-        """
-        ...
-
-    async def update_staff_images(self: Any, image_url: str, employee_id: str) -> Dict[str, Any]:
-        """
-        Update staff images with uploaded image URL
-        
-                API: PUT /v1/facial_recognition/staff/update_images?projectId={projectId}&serverID={serverID}
-        """
-        ...
-
-    async def upload_image_to_url(self: Any, image_bytes: Any, upload_url: str) -> bool:
-        """
-        Upload image bytes to the provided URL
-        """
-        ...
-
-
 # From people_activity_logging
 class PeopleActivityLogging:
     # Background logging system for face recognition activity
 
-    def __init__(self: Any, face_client: Any = None) -> None: ...
+    def __init__(self: Any, face_client: Any | None = None) -> None: ...
 
     def clear_unknown_faces_storage(self: Any) -> None:
         """
@@ -549,4 +455,4 @@ class PeopleActivityLogging:
         ...
 
 
-from . import compare_similarity, embedding_manager, face_recognition, face_recognition_client, people_activity_logging
+from . import bounded_state, compare_similarity, embedding_manager, face_recognition, people_activity_logging

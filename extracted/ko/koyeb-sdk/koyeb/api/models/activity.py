@@ -25,17 +25,26 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class Activity(BaseModel):
     """
     Activity
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     actor: Optional[Object] = None
     object: Optional[Object] = None
     verb: Optional[StrictStr] = None
     metadata: Optional[Dict[str, Any]] = None
     created_at: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["id", "actor", "object", "verb", "metadata", "created_at"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "actor",
+        "object",
+        "verb",
+        "metadata",
+        "created_at",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -43,7 +52,6 @@ class Activity(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -68,8 +76,7 @@ class Activity(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -78,10 +85,10 @@ class Activity(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of actor
         if self.actor:
-            _dict['actor'] = self.actor.to_dict()
+            _dict["actor"] = self.actor.to_dict()
         # override the default output from pydantic by calling `to_dict()` of object
         if self.object:
-            _dict['object'] = self.object.to_dict()
+            _dict["object"] = self.object.to_dict()
         return _dict
 
     @classmethod
@@ -93,14 +100,18 @@ class Activity(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "actor": Object.from_dict(obj["actor"]) if obj.get("actor") is not None else None,
-            "object": Object.from_dict(obj["object"]) if obj.get("object") is not None else None,
-            "verb": obj.get("verb"),
-            "metadata": obj.get("metadata"),
-            "created_at": obj.get("created_at")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "actor": Object.from_dict(obj["actor"])
+                if obj.get("actor") is not None
+                else None,
+                "object": Object.from_dict(obj["object"])
+                if obj.get("object") is not None
+                else None,
+                "verb": obj.get("verb"),
+                "metadata": obj.get("metadata"),
+                "created_at": obj.get("created_at"),
+            }
+        )
         return _obj
-
-

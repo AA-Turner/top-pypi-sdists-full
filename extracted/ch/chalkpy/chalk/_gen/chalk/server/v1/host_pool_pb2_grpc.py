@@ -55,6 +55,11 @@ class HostPoolServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.ListHostPoolsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.ListHostPoolsResponse.FromString,
         )
+        self.GetHostPoolCapacity = channel.unary_unary(
+            "/chalk.server.v1.HostPoolService/GetHostPoolCapacity",
+            request_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.GetHostPoolCapacityRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.GetHostPoolCapacityResponse.FromString,
+        )
 
 
 class HostPoolServiceServicer(object):
@@ -108,6 +113,15 @@ class HostPoolServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetHostPoolCapacity(self, request, context):
+        """Reports live host capacity for the environment: what is free now, what a full scale-out would
+        add, and the scaling configuration that bounds both. Host pools back sandboxes and other
+        host-compute-class containers, which serverless environments do not use.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_HostPoolServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -150,6 +164,11 @@ def add_HostPoolServiceServicer_to_server(servicer, server):
             servicer.ListHostPools,
             request_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.ListHostPoolsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.ListHostPoolsResponse.SerializeToString,
+        ),
+        "GetHostPoolCapacity": grpc.unary_unary_rpc_method_handler(
+            servicer.GetHostPoolCapacity,
+            request_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.GetHostPoolCapacityRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.GetHostPoolCapacityResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.HostPoolService", rpc_method_handlers)
@@ -382,6 +401,35 @@ class HostPoolService(object):
             "/chalk.server.v1.HostPoolService/ListHostPools",
             chalk_dot_server_dot_v1_dot_host__pool__pb2.ListHostPoolsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_host__pool__pb2.ListHostPoolsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetHostPoolCapacity(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.HostPoolService/GetHostPoolCapacity",
+            chalk_dot_server_dot_v1_dot_host__pool__pb2.GetHostPoolCapacityRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_host__pool__pb2.GetHostPoolCapacityResponse.FromString,
             options,
             channel_credentials,
             insecure,

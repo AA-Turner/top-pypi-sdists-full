@@ -6,6 +6,7 @@ from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, Proces
 from ..core.config import AlertConfig, BaseConfig
 from ..utils import BBoxSmoothingConfig, BBoxSmoothingTracker, ByteTrackWrapper, SORTTracker, apply_category_mapping, bbox_smoothing, count_objects_in_zones, filter_by_confidence, match_results_structure
 from ..utils.geometry_utils import get_bbox_bottom25_center, point_in_polygon
+from ..utils.post_processing_config_client import PostProcessingConfigClient
 
 # Classes
 class LandslideDetectionConfig:
@@ -31,15 +32,12 @@ class LandslideDetectionUseCase:
 
     def get_resolution(self: Any, camera_id: str) -> Tuple[Optional[int], Optional[int]]:
         """
-        Fetch frame width/height for *camera_id* via CameraManagement API.
-        
-                Mirrors the same method in :class:`FootfallProcessor` so that landslide
-                detection can normalise segmentation-mask areas to a percentage of the
-                real frame.
+        Fetch frame width/height for *camera_id* from the camera record.
         
                 Returns
                 -------
-                tuple of (width, height) in pixels, or (None, None) on failure.
+                tuple of (width, height) in pixels, or (None, None) when the camera
+                record carries no usable frame size.
         """
         ...
 

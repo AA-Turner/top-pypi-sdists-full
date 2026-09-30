@@ -48,8 +48,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from ..clients.bootstrap import open_session as _client_open_session
+from ..clients.bootstrap import get_session as _client_get_session
 from ..clients.bootstrap import resolve_action_id
+from ..clients.identity import (
+    APP_DEPLOYMENT_ID_KEYS,
+    APPLICATION_ID_KEYS,
+    APPLICATION_VERSION_KEYS,
+    config_get,
+    first_str,
+)
 from ..clients.response import CallFailure, _is_not_found
 from ..clients.transport import _bases_for, _describe, backend_base_url
 from ..clients.transport import _rpc as _client_rpc
@@ -65,7 +72,6 @@ __all__ = [
     "fetch_action_job_params",
     "fetch_application_published_version",
     "fetch_deployment_app_identity",
-    "fetch_deployment_app_version",
     "fetch_post_processing_configs",
     "mint_usecase_download_url",
     "resolve_action_id",
@@ -75,34 +81,6 @@ __all__ = [
 
 #: Keys a bundle URL may arrive under in ``post_processing_config``, in precedence order.
 BUNDLE_URL_KEYS: Tuple[str, ...] = ("app_bundle_url", "usecase_codebase_url", "app_url")
-#: ``_idApplication`` is the BE's own ObjectId field -- the sibling of ``_idAppDeployment``, and
-#: what a post-processing config document actually carries. py_inference probes it explicitly
-#: (``config_resolution.py:resolve_application_id``); omitting it here meant the same document
-#: that names the application was read as if it did not.
-APPLICATION_ID_KEYS: Tuple[str, ...] = (
-    "application_id",
-    "applicationId",
-    "app_id",
-    "appId",
-    "_idApplication",
-)
-
-#: ``app_version``/``appVersion`` are not new spellings: ``fetch_deployment_app_version`` has
-#: always accepted both off the deployment record, and py_inference reads ``app_version`` off the
-#: **same** ``post_processing_config`` dict this module is handed
-#: (``build_analytics_transport.py:212``). Accepting them only in one of the two readers was an
-#: inconsistency, and it cost a wholly unnecessary API round trip -- or, when the deployment record
-#: had no version either, a fall back to the published version for a value that was in hand all
-#: along.
-APPLICATION_VERSION_KEYS: Tuple[str, ...] = (
-    "application_version",
-    "applicationVersion",
-    "app_version",
-    "appVersion",
-)
-
-APP_DEPLOYMENT_ID_KEYS: Tuple[str, ...] = ("app_deployment_id", "appDeploymentId")
-
 ENV_BUNDLE_REF = "MATRICE_APP_BUNDLE_REF"
 ENV_SELF_MINT = "MATRICE_APP_BUNDLE_SELF_MINT"
 ENV_LICENSE_KEY = "MATRICE_LICENSE_KEY"
@@ -129,21 +107,6 @@ USECASE_DOWNLOAD_PATH = (
 USECASE_DOWNLOAD_LICENSE_PATH = (
     "/v1/applications/license/{application_id}/versions/{application_version}/usecase/download"
 )
-
-#: The action record that launched this worker. ``jobParams`` on a ``deploy_add`` action carries
-#: ``application_version`` *and* ``application_id`` -- the exact pair the download route needs, as
-#: the platform itself resolved them at launch. Same route ``matrice.ActionTracker`` uses
-#: (``action_tracker.py:297``).
-ACTION_DETAILS_PATH = "/v1/actions/action/{action_id}/details"
-
-#: Fallback when the action record has no version (``deploy_postproc_add`` does not carry one):
-#: the app-deployment record remembers the version this deployment actually runs.
-APP_DEPLOYMENT_PATH = "/v1/inference/get_application_deployment/{app_deployment_id}"
-
-#: Last resort when nothing knows the *deployed* version: the application record, which
-#: knows the *published* one. Read :func:`fetch_application_published_version` before
-#: using this -- the two are routinely different and the difference matters.
-APPLICATION_VERSION_PATH = "/v1/applications/{application_id}"
 
 #: Every camera's post-processing config for one app deployment -- including the ``zone_config`` the
 #: engine's zone primitives require. Same route ``PostProcessingConfigClient`` calls
@@ -215,22 +178,6 @@ class BundleRef:
         return minted.strip()
 
 
-def config_get(config: Any, keys: Sequence[str]) -> Optional[str]:
-    """First non-empty string among ``keys``, from a dict or an attribute-bearing object.
-
-    Both shapes are real and this is why the function exists: ``PostProcRunner`` passes the raw
-    ``post_processing_config`` dict, while ``PostProcessor`` passes a *parsed* config object. A
-    dict-only reader -- which is what ``backends._config_value`` is -- would make the two SDK entry
-    points disagree about whether an app has a bundle, and keeping them in agreement is the entire
-    reason ``select_engine_backend`` is a single function.
-    """
-    for key in keys:
-        value = config.get(key) if isinstance(config, dict) else getattr(config, key, None)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
 def _append_self_mint_candidate(
     candidates: list,
     post_processing_config: Any,
@@ -289,7 +236,7 @@ def _append_self_mint_candidate(
                     # documented contract is the *deployed* version, so widening it would
                     # silently re-point every future caller at something weaker.
                     #
-                    # Why fall back at all, given `fetch_deployment_app_version` documents
+                    # Why fall back at all, given `fetch_deployment_app_identity` documents
                     # a refusal to do exactly this: refusing leaves no bundle, which means
                     # the legacy path, which for a manifest-only app means
                     # `ConfigValidationError: Unknown use case` and an app that produces
@@ -467,15 +414,19 @@ def _local_app_folder(usecase: Optional[str], environ: Mapping[str, str]) -> Opt
 
 
 def _open_session(what: str) -> Any:
-    """A ``matrice_common`` session from the container's credentials.
+    """The process's ``matrice_common`` session, from the container's credentials.
 
-    Wraps ``clients.bootstrap.open_session``, which is uncached: every call opens a new
-    session, as every caller in this module has always got. ``clients.bootstrap.get_session``
-    memoises one per process and is deliberately not used here -- a shared session has no
-    invalidation path, so one bad session would outlive the call that made it.
+    Wraps ``clients.bootstrap.get_session``: one session per process, shared with every other
+    consumer, instead of a new one (and a new credential exchange and token-refresher thread)
+    per call. Measured live on the LPR node, the uncached form opened one session per
+    usecase-download attempt -- two before the frame loop started.
+
+    A failed open is not remembered (``get_session`` assigns only on success), so a bad
+    exchange is retried by the next caller rather than outliving the call that made it; an
+    expired token is refreshed inside the session itself.
     """
     try:
-        return _client_open_session(what)
+        return _client_get_session(what)
     except CallFailure as exc:
         raise AppBundleError(str(exc)) from exc
 
@@ -506,6 +457,26 @@ def _rpc_data(
         raise AppBundleError(str(exc)) from exc
 
 
+def _client(session: Any) -> Any:
+    """An :class:`~..clients.analytics_client.AnalyticsClient` riding *session*.
+
+    **Imported at call time, deliberately.** ``clients.analytics_client`` pulls
+    ``clients.models`` and with it pydantic: measured at +112 modules against this module's
+    89, a 2.26x import cost. Of this module's two importers in ``src/``, ``zone_source`` can
+    never reach any function that needs the client, and ``backends`` reaches them only when a
+    self-mint candidate is actually resolved -- so a module-scope import would charge the
+    whole cost to paths that never spend it. ``zone_source.py`` defers its import of *this*
+    module for the same reason.
+
+    The session is resolved by the caller, not here: :func:`_open_session` is what this
+    module has always used, and letting the client open its own would silently swap an
+    uncached session for a cached one.
+    """
+    from ..clients.analytics_client import AnalyticsClient
+
+    return AnalyticsClient(session=session)
+
+
 def fetch_action_job_params(action_id: str, *, session: Any = None) -> Dict[str, Any]:
     """``jobParams`` off this worker's action record.
 
@@ -514,11 +485,10 @@ def fetch_action_job_params(action_id: str, *, session: Any = None) -> Dict[str,
     re-derivation that could disagree.
     """
     session = session if session is not None else _open_session(f"action {action_id}")
-    data = _rpc_data(
-        session, ACTION_DETAILS_PATH.format(action_id=action_id), what="action jobParams"
-    )
-    params = data.get("jobParams")
-    return params if isinstance(params, dict) else {}
+    try:
+        return dict(_client(session).actions.get_action_details(action_id).job_params)
+    except CallFailure as exc:
+        raise AppBundleError(str(exc)) from exc
 
 
 def fetch_deployment_app_identity(
@@ -542,30 +512,21 @@ def fetch_deployment_app_identity(
     route that knowingly relaxes that rule, and only after this one has been tried.
     """
     session = session if session is not None else _open_session(f"deployment {app_deployment_id}")
-    data = _rpc_data(
-        session,
-        APP_DEPLOYMENT_PATH.format(app_deployment_id=app_deployment_id),
-        what="deployment appVersion",
-    )
-    return _first_str(data, APPLICATION_ID_KEYS), _first_str(
-        data, ("appVersion", "applicationVersion", "app_version")
-    )
-
-
-def fetch_deployment_app_version(app_deployment_id: str, *, session: Any = None) -> Optional[str]:
-    """The version an app deployment actually runs. See :func:`fetch_deployment_app_identity`."""
-    return fetch_deployment_app_identity(app_deployment_id, session=session)[1]
-
-
-def _first_str(data: Mapping[str, Any], keys: Sequence[str]) -> Optional[str]:
-    """The first non-blank string among ``keys``, unwrapping ``{"$oid": ...}`` encodings."""
-    for key in keys:
-        value = data.get(key)
-        if isinstance(value, dict):  # some encoders emit {"$oid": "..."}
-            value = value.get("$oid")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
+    try:
+        record = _client(session).inference.fetch_application_deployment(app_deployment_id)
+    except CallFailure as exc:
+        raise AppBundleError(str(exc)) from exc
+    if record is None:
+        # A record that does not exist raised here before the client answered absence
+        # separately, and a caller that treats "no such deployment" as "unknown version"
+        # would go on to guess a published version for a deployment that is not there.
+        raise AppBundleError(
+            f"app deployment {app_deployment_id} does not exist, so it names no application"
+        )
+    # First *non-blank*, not first truthy: a whitespace-only field is the producer saying
+    # nothing, and this function's ``None`` means "unknown". Returning "  " would read as
+    # an answer to every caller that checks the pair before falling back.
+    return (record.app_id or "").strip() or None, (record.app_version or "").strip() or None
 
 
 def fetch_application_published_version(
@@ -576,7 +537,7 @@ def fetch_application_published_version(
 ) -> Optional[str]:
     """The application's **published** version -- deliberately not the deployed one.
 
-    This is the mirror image of :func:`fetch_deployment_app_version`, and the thing that
+    This is the mirror image of :func:`fetch_deployment_app_identity`, and the thing that
     function documents itself as refusing to be. The same 2026-08-03 live check applies:
     ``INF-M4-Testing`` was deployed on ``v1.8`` while its application's
     ``publishedVersion`` was ``v2.1``. So this value may well not be what a given worker
@@ -596,21 +557,26 @@ def fetch_application_published_version(
     """
     try:
         session = session if session is not None else _open_session(f"application {application_id}")
-        data = _rpc_data(
-            session,
-            APPLICATION_VERSION_PATH.format(application_id=application_id),
-            what="application publishedVersion",
-            env=env,
-        )
-    except AppBundleError as exc:
+        entry = _client(session).applications.fetch_application(application_id)
+    except (AppBundleError, CallFailure) as exc:
         logger.debug(
             "app bundle: application %s gave no published version (%s)", application_id, exc
         )
         return None
-    for key in ("publishedVersion", "latestVersion", "currentVersion", "version"):
-        value = data.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+    if entry is None:
+        return None
+    # Two spellings, not the four this used to try: the published contract for this route
+    # (``FindByApplicationByIDProtectedResponse``) declares ``publishedVersion`` and
+    # ``currentVersion`` and neither ``latestVersion`` nor ``version``, so the other two
+    # were spellings nothing sends.
+    #
+    # First *non-blank*, in that order -- not first truthy. A whitespace-only
+    # ``publishedVersion`` must fall through to ``currentVersion`` rather than win and then
+    # blank out, which is the difference between a last-resort answer and none at all.
+    for candidate in (entry.published_version, entry.current_version):
+        version = (candidate or "").strip()
+        if version:
+            return version
     return None
 
 
@@ -820,8 +786,8 @@ def resolve_application_identity(
         for document in documents:
             if not isinstance(document, Mapping):
                 continue
-            application_id = application_id or _first_str(document, APPLICATION_ID_KEYS)
-            application_version = application_version or _first_str(
+            application_id = application_id or first_str(document, APPLICATION_ID_KEYS)
+            application_version = application_version or first_str(
                 document, APPLICATION_VERSION_KEYS
             )
             if application_id and application_version:

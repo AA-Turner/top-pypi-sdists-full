@@ -26,18 +26,16 @@ class InstanceStatus(str, Enum):
     """
     allowed enum values
     """
-    ALLOCATING = 'ALLOCATING'
-    STARTING = 'STARTING'
-    HEALTHY = 'HEALTHY'
-    UNHEALTHY = 'UNHEALTHY'
-    STOPPING = 'STOPPING'
-    STOPPED = 'STOPPED'
-    ERROR = 'ERROR'
-    SLEEPING = 'SLEEPING'
+    ALLOCATING = "ALLOCATING"
+    STARTING = "STARTING"
+    HEALTHY = "HEALTHY"
+    UNHEALTHY = "UNHEALTHY"
+    STOPPING = "STOPPING"
+    STOPPED = "STOPPED"
+    ERROR = "ERROR"
+    SLEEPING = "SLEEPING"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of InstanceStatus from a JSON string"""
         return cls(json.loads(json_str))
-
-

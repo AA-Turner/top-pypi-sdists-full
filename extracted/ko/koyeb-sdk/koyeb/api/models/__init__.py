@@ -13,7 +13,9 @@
 """  # noqa: E501
 
 # import models into model package
-from koyeb.api.models.accept_organization_invitation_reply import AcceptOrganizationInvitationReply
+from koyeb.api.models.accept_organization_invitation_reply import (
+    AcceptOrganizationInvitationReply,
+)
 from koyeb.api.models.action import Action
 from koyeb.api.models.activity import Activity
 from koyeb.api.models.activity_list import ActivityList
@@ -32,7 +34,9 @@ from koyeb.api.models.auto_release_group import AutoReleaseGroup
 from koyeb.api.models.autocomplete_reply import AutocompleteReply
 from koyeb.api.models.autocomplete_request import AutocompleteRequest
 from koyeb.api.models.availability_level import AvailabilityLevel
-from koyeb.api.models.azure_container_registry_configuration import AzureContainerRegistryConfiguration
+from koyeb.api.models.azure_container_registry_configuration import (
+    AzureContainerRegistryConfiguration,
+)
 from koyeb.api.models.basic_auth_policy import BasicAuthPolicy
 from koyeb.api.models.budget import Budget
 from koyeb.api.models.buildpack_builder import BuildpackBuilder
@@ -42,10 +46,14 @@ from koyeb.api.models.catalog_instance import CatalogInstance
 from koyeb.api.models.catalog_instance_list_item import CatalogInstanceListItem
 from koyeb.api.models.catalog_usage import CatalogUsage
 from koyeb.api.models.check_coupon_reply import CheckCouponReply
-from koyeb.api.models.clear_idenfy_verification_result_request import ClearIdenfyVerificationResultRequest
+from koyeb.api.models.clear_idenfy_verification_result_request import (
+    ClearIdenfyVerificationResultRequest,
+)
 from koyeb.api.models.compose_reply import ComposeReply
 from koyeb.api.models.config_file import ConfigFile
-from koyeb.api.models.confirm_payment_authorization_reply import ConfirmPaymentAuthorizationReply
+from koyeb.api.models.confirm_payment_authorization_reply import (
+    ConfirmPaymentAuthorizationReply,
+)
 from koyeb.api.models.create_access_token_reply import CreateAccessTokenReply
 from koyeb.api.models.create_access_token_request import CreateAccessTokenRequest
 from koyeb.api.models.create_account_request import CreateAccountRequest
@@ -60,19 +68,31 @@ from koyeb.api.models.create_credential_reply import CreateCredentialReply
 from koyeb.api.models.create_domain import CreateDomain
 from koyeb.api.models.create_domain_reply import CreateDomainReply
 from koyeb.api.models.create_instance_snapshot_reply import CreateInstanceSnapshotReply
-from koyeb.api.models.create_instance_snapshot_request import CreateInstanceSnapshotRequest
-from koyeb.api.models.create_organization_invitation_reply import CreateOrganizationInvitationReply
-from koyeb.api.models.create_organization_invitation_request import CreateOrganizationInvitationRequest
+from koyeb.api.models.create_instance_snapshot_request import (
+    CreateInstanceSnapshotRequest,
+)
+from koyeb.api.models.create_organization_invitation_reply import (
+    CreateOrganizationInvitationReply,
+)
+from koyeb.api.models.create_organization_invitation_request import (
+    CreateOrganizationInvitationRequest,
+)
 from koyeb.api.models.create_organization_reply import CreateOrganizationReply
 from koyeb.api.models.create_organization_request import CreateOrganizationRequest
-from koyeb.api.models.create_payment_authorization_reply import CreatePaymentAuthorizationReply
+from koyeb.api.models.create_payment_authorization_reply import (
+    CreatePaymentAuthorizationReply,
+)
 from koyeb.api.models.create_persistent_volume_reply import CreatePersistentVolumeReply
-from koyeb.api.models.create_persistent_volume_request import CreatePersistentVolumeRequest
+from koyeb.api.models.create_persistent_volume_request import (
+    CreatePersistentVolumeRequest,
+)
 from koyeb.api.models.create_project import CreateProject
 from koyeb.api.models.create_project_reply import CreateProjectReply
 from koyeb.api.models.create_secret import CreateSecret
 from koyeb.api.models.create_secret_reply import CreateSecretReply
 from koyeb.api.models.create_service import CreateService
+from koyeb.api.models.create_service_pool import CreateServicePool
+from koyeb.api.models.create_service_pool_reply import CreateServicePoolReply
 from koyeb.api.models.create_service_reply import CreateServiceReply
 from koyeb.api.models.create_snapshot_reply import CreateSnapshotReply
 from koyeb.api.models.create_snapshot_request import CreateSnapshotRequest
@@ -86,10 +106,14 @@ from koyeb.api.models.database_usage import DatabaseUsage
 from koyeb.api.models.database_usage_details import DatabaseUsageDetails
 from koyeb.api.models.datacenter_list_item import DatacenterListItem
 from koyeb.api.models.deactivate_organization_reply import DeactivateOrganizationReply
-from koyeb.api.models.deactivate_organization_request import DeactivateOrganizationRequest
+from koyeb.api.models.deactivate_organization_request import (
+    DeactivateOrganizationRequest,
+)
 from koyeb.api.models.declare_stage_progress_request import DeclareStageProgressRequest
 from koyeb.api.models.declare_step_progress_request import DeclareStepProgressRequest
-from koyeb.api.models.decline_organization_invitation_reply import DeclineOrganizationInvitationReply
+from koyeb.api.models.decline_organization_invitation_reply import (
+    DeclineOrganizationInvitationReply,
+)
 from koyeb.api.models.delete_instance_snapshot_reply import DeleteInstanceSnapshotReply
 from koyeb.api.models.delete_organization_reply import DeleteOrganizationReply
 from koyeb.api.models.delete_persistent_volume_reply import DeletePersistentVolumeReply
@@ -106,37 +130,65 @@ from koyeb.api.models.deployment_instance_type import DeploymentInstanceType
 from koyeb.api.models.deployment_list_item import DeploymentListItem
 from koyeb.api.models.deployment_mesh import DeploymentMesh
 from koyeb.api.models.deployment_metadata import DeploymentMetadata
-from koyeb.api.models.deployment_neon_postgres_database_info import DeploymentNeonPostgresDatabaseInfo
-from koyeb.api.models.deployment_neon_postgres_database_info_role import DeploymentNeonPostgresDatabaseInfoRole
+from koyeb.api.models.deployment_neon_postgres_database_info import (
+    DeploymentNeonPostgresDatabaseInfo,
+)
+from koyeb.api.models.deployment_neon_postgres_database_info_role import (
+    DeploymentNeonPostgresDatabaseInfoRole,
+)
 from koyeb.api.models.deployment_port import DeploymentPort
 from koyeb.api.models.deployment_provisioning_info import DeploymentProvisioningInfo
-from koyeb.api.models.deployment_provisioning_info_stage import DeploymentProvisioningInfoStage
-from koyeb.api.models.deployment_provisioning_info_stage_build_attempt import DeploymentProvisioningInfoStageBuildAttempt
-from koyeb.api.models.deployment_provisioning_info_stage_build_attempt_build_step import DeploymentProvisioningInfoStageBuildAttemptBuildStep
-from koyeb.api.models.deployment_provisioning_info_stage_status import DeploymentProvisioningInfoStageStatus
+from koyeb.api.models.deployment_provisioning_info_stage import (
+    DeploymentProvisioningInfoStage,
+)
+from koyeb.api.models.deployment_provisioning_info_stage_build_attempt import (
+    DeploymentProvisioningInfoStageBuildAttempt,
+)
+from koyeb.api.models.deployment_provisioning_info_stage_build_attempt_build_step import (
+    DeploymentProvisioningInfoStageBuildAttemptBuildStep,
+)
+from koyeb.api.models.deployment_provisioning_info_stage_status import (
+    DeploymentProvisioningInfoStageStatus,
+)
 from koyeb.api.models.deployment_proxy_port import DeploymentProxyPort
 from koyeb.api.models.deployment_proxy_port_metadata import DeploymentProxyPortMetadata
 from koyeb.api.models.deployment_role import DeploymentRole
 from koyeb.api.models.deployment_route import DeploymentRoute
 from koyeb.api.models.deployment_scaling import DeploymentScaling
 from koyeb.api.models.deployment_scaling_target import DeploymentScalingTarget
-from koyeb.api.models.deployment_scaling_target_average_cpu import DeploymentScalingTargetAverageCPU
-from koyeb.api.models.deployment_scaling_target_average_mem import DeploymentScalingTargetAverageMem
-from koyeb.api.models.deployment_scaling_target_concurrent_requests import DeploymentScalingTargetConcurrentRequests
-from koyeb.api.models.deployment_scaling_target_requests_per_second import DeploymentScalingTargetRequestsPerSecond
-from koyeb.api.models.deployment_scaling_target_requests_response_time import DeploymentScalingTargetRequestsResponseTime
-from koyeb.api.models.deployment_scaling_target_sleep_idle_delay import DeploymentScalingTargetSleepIdleDelay
+from koyeb.api.models.deployment_scaling_target_average_cpu import (
+    DeploymentScalingTargetAverageCPU,
+)
+from koyeb.api.models.deployment_scaling_target_average_mem import (
+    DeploymentScalingTargetAverageMem,
+)
+from koyeb.api.models.deployment_scaling_target_concurrent_requests import (
+    DeploymentScalingTargetConcurrentRequests,
+)
+from koyeb.api.models.deployment_scaling_target_requests_per_second import (
+    DeploymentScalingTargetRequestsPerSecond,
+)
+from koyeb.api.models.deployment_scaling_target_requests_response_time import (
+    DeploymentScalingTargetRequestsResponseTime,
+)
+from koyeb.api.models.deployment_scaling_target_sleep_idle_delay import (
+    DeploymentScalingTargetSleepIdleDelay,
+)
 from koyeb.api.models.deployment_status import DeploymentStatus
 from koyeb.api.models.deployment_strategy import DeploymentStrategy
 from koyeb.api.models.deployment_strategy_type import DeploymentStrategyType
 from koyeb.api.models.deployment_volume import DeploymentVolume
 from koyeb.api.models.desired_deployment import DesiredDeployment
 from koyeb.api.models.desired_deployment_group import DesiredDeploymentGroup
-from koyeb.api.models.digital_ocean_registry_configuration import DigitalOceanRegistryConfiguration
+from koyeb.api.models.digital_ocean_registry_configuration import (
+    DigitalOceanRegistryConfiguration,
+)
 from koyeb.api.models.discourse_auth_reply import DiscourseAuthReply
 from koyeb.api.models.discourse_auth_request import DiscourseAuthRequest
 from koyeb.api.models.docker_builder import DockerBuilder
-from koyeb.api.models.docker_hub_registry_configuration import DockerHubRegistryConfiguration
+from koyeb.api.models.docker_hub_registry_configuration import (
+    DockerHubRegistryConfiguration,
+)
 from koyeb.api.models.docker_source import DockerSource
 from koyeb.api.models.domain import Domain
 from koyeb.api.models.domain_load_balancer_koyeb import DomainLoadBalancerKoyeb
@@ -154,15 +206,21 @@ from koyeb.api.models.exec_command_io import ExecCommandIO
 from koyeb.api.models.exec_command_reply import ExecCommandReply
 from koyeb.api.models.exec_command_request_body import ExecCommandRequestBody
 from koyeb.api.models.exec_command_request_id_type import ExecCommandRequestIdType
-from koyeb.api.models.exec_command_request_terminal_size import ExecCommandRequestTerminalSize
-from koyeb.api.models.gcp_container_registry_configuration import GCPContainerRegistryConfiguration
+from koyeb.api.models.exec_command_request_terminal_size import (
+    ExecCommandRequestTerminalSize,
+)
+from koyeb.api.models.gcp_container_registry_configuration import (
+    GCPContainerRegistryConfiguration,
+)
 from koyeb.api.models.get_app_reply import GetAppReply
 from koyeb.api.models.get_budget_reply import GetBudgetReply
 from koyeb.api.models.get_catalog_instance_reply import GetCatalogInstanceReply
 from koyeb.api.models.get_credential_reply import GetCredentialReply
 from koyeb.api.models.get_deployment_reply import GetDeploymentReply
 from koyeb.api.models.get_deployment_scaling_reply import GetDeploymentScalingReply
-from koyeb.api.models.get_deployment_scaling_reply_item import GetDeploymentScalingReplyItem
+from koyeb.api.models.get_deployment_scaling_reply_item import (
+    GetDeploymentScalingReplyItem,
+)
 from koyeb.api.models.get_domain_reply import GetDomainReply
 from koyeb.api.models.get_github_installation_reply import GetGithubInstallationReply
 from koyeb.api.models.get_idenfy_token_reply import GetIdenfyTokenReply
@@ -172,23 +230,34 @@ from koyeb.api.models.get_intercom_profile_reply import GetIntercomProfileReply
 from koyeb.api.models.get_metrics_reply import GetMetricsReply
 from koyeb.api.models.get_metrics_reply_metric import GetMetricsReplyMetric
 from koyeb.api.models.get_o_auth_options_reply import GetOAuthOptionsReply
-from koyeb.api.models.get_organization_invitation_reply import GetOrganizationInvitationReply
+from koyeb.api.models.get_organization_invitation_reply import (
+    GetOrganizationInvitationReply,
+)
+from koyeb.api.models.get_organization_quotas_usage_reply import (
+    GetOrganizationQuotasUsageReply,
+)
 from koyeb.api.models.get_organization_reply import GetOrganizationReply
 from koyeb.api.models.get_organization_summary_reply import GetOrganizationSummaryReply
-from koyeb.api.models.get_organization_usage_details_reply import GetOrganizationUsageDetailsReply
+from koyeb.api.models.get_organization_usage_details_reply import (
+    GetOrganizationUsageDetailsReply,
+)
 from koyeb.api.models.get_organization_usage_reply import GetOrganizationUsageReply
 from koyeb.api.models.get_payment_method_reply import GetPaymentMethodReply
 from koyeb.api.models.get_persistent_volume_reply import GetPersistentVolumeReply
+from koyeb.api.models.get_pool_claim_reply import GetPoolClaimReply
 from koyeb.api.models.get_project_reply import GetProjectReply
 from koyeb.api.models.get_quotas_reply import GetQuotasReply
 from koyeb.api.models.get_region_reply import GetRegionReply
 from koyeb.api.models.get_regional_deployment_reply import GetRegionalDeploymentReply
 from koyeb.api.models.get_secret_reply import GetSecretReply
+from koyeb.api.models.get_service_pool_reply import GetServicePoolReply
 from koyeb.api.models.get_service_reply import GetServiceReply
 from koyeb.api.models.get_service_scaling_reply import GetServiceScalingReply
 from koyeb.api.models.get_snapshot_reply import GetSnapshotReply
 from koyeb.api.models.get_subscription_reply import GetSubscriptionReply
-from koyeb.api.models.get_user_organization_invitation_reply import GetUserOrganizationInvitationReply
+from koyeb.api.models.get_user_organization_invitation_reply import (
+    GetUserOrganizationInvitationReply,
+)
 from koyeb.api.models.get_user_settings_reply import GetUserSettingsReply
 from koyeb.api.models.git_deployment_metadata import GitDeploymentMetadata
 from koyeb.api.models.git_env_deployment_metadata import GitEnvDeploymentMetadata
@@ -212,16 +281,22 @@ from koyeb.api.models.instance_snapshot_event import InstanceSnapshotEvent
 from koyeb.api.models.instance_snapshot_quotas import InstanceSnapshotQuotas
 from koyeb.api.models.instance_snapshot_status import InstanceSnapshotStatus
 from koyeb.api.models.instance_snapshot_type import InstanceSnapshotType
+from koyeb.api.models.instance_snapshot_type_usage import InstanceSnapshotTypeUsage
 from koyeb.api.models.instance_status import InstanceStatus
+from koyeb.api.models.instance_type_usage import InstanceTypeUsage
 from koyeb.api.models.instance_usage import InstanceUsage
 from koyeb.api.models.instances_summary import InstancesSummary
 from koyeb.api.models.invite_user_request import InviteUserRequest
 from koyeb.api.models.kgitproxy_branch import KgitproxyBranch
 from koyeb.api.models.kgitproxy_git_hub_repository import KgitproxyGitHubRepository
-from koyeb.api.models.kgitproxy_github_installation_status import KgitproxyGithubInstallationStatus
+from koyeb.api.models.kgitproxy_github_installation_status import (
+    KgitproxyGithubInstallationStatus,
+)
 from koyeb.api.models.kgitproxy_indexing_status import KgitproxyIndexingStatus
 from koyeb.api.models.kgitproxy_list_branches_reply import KgitproxyListBranchesReply
-from koyeb.api.models.kgitproxy_list_repositories_reply import KgitproxyListRepositoriesReply
+from koyeb.api.models.kgitproxy_list_repositories_reply import (
+    KgitproxyListRepositoriesReply,
+)
 from koyeb.api.models.kgitproxy_repository import KgitproxyRepository
 from koyeb.api.models.kgitproxy_repository_provider import KgitproxyRepositoryProvider
 from koyeb.api.models.ksearch_app import KsearchApp
@@ -244,24 +319,40 @@ from koyeb.api.models.list_deployment_events_reply import ListDeploymentEventsRe
 from koyeb.api.models.list_deployments_reply import ListDeploymentsReply
 from koyeb.api.models.list_domains_reply import ListDomainsReply
 from koyeb.api.models.list_instance_events_reply import ListInstanceEventsReply
-from koyeb.api.models.list_instance_snapshot_events_reply import ListInstanceSnapshotEventsReply
+from koyeb.api.models.list_instance_snapshot_events_reply import (
+    ListInstanceSnapshotEventsReply,
+)
 from koyeb.api.models.list_instance_snapshots_reply import ListInstanceSnapshotsReply
 from koyeb.api.models.list_instances_reply import ListInstancesReply
-from koyeb.api.models.list_organization_invitations_reply import ListOrganizationInvitationsReply
-from koyeb.api.models.list_organization_members_reply import ListOrganizationMembersReply
+from koyeb.api.models.list_organization_invitations_reply import (
+    ListOrganizationInvitationsReply,
+)
+from koyeb.api.models.list_organization_members_reply import (
+    ListOrganizationMembersReply,
+)
 from koyeb.api.models.list_payment_methods_reply import ListPaymentMethodsReply
-from koyeb.api.models.list_persistent_volume_events_reply import ListPersistentVolumeEventsReply
+from koyeb.api.models.list_persistent_volume_events_reply import (
+    ListPersistentVolumeEventsReply,
+)
 from koyeb.api.models.list_persistent_volumes_reply import ListPersistentVolumesReply
+from koyeb.api.models.list_pool_claim_reply import ListPoolClaimReply
 from koyeb.api.models.list_projects_reply import ListProjectsReply
-from koyeb.api.models.list_regional_deployment_events_reply import ListRegionalDeploymentEventsReply
-from koyeb.api.models.list_regional_deployments_reply import ListRegionalDeploymentsReply
+from koyeb.api.models.list_regional_deployment_events_reply import (
+    ListRegionalDeploymentEventsReply,
+)
+from koyeb.api.models.list_regional_deployments_reply import (
+    ListRegionalDeploymentsReply,
+)
 from koyeb.api.models.list_regions_reply import ListRegionsReply
 from koyeb.api.models.list_secrets_reply import ListSecretsReply
 from koyeb.api.models.list_service_events_reply import ListServiceEventsReply
+from koyeb.api.models.list_service_pools_reply import ListServicePoolsReply
 from koyeb.api.models.list_services_reply import ListServicesReply
 from koyeb.api.models.list_snapshots_reply import ListSnapshotsReply
 from koyeb.api.models.list_usage_reply import ListUsageReply
-from koyeb.api.models.list_user_organization_invitations_reply import ListUserOrganizationInvitationsReply
+from koyeb.api.models.list_user_organization_invitations_reply import (
+    ListUserOrganizationInvitationsReply,
+)
 from koyeb.api.models.list_user_organizations_reply import ListUserOrganizationsReply
 from koyeb.api.models.log_entry import LogEntry
 from koyeb.api.models.login_method_reply import LoginMethodReply
@@ -271,17 +362,27 @@ from koyeb.api.models.login_request import LoginRequest
 from koyeb.api.models.manage_reply import ManageReply
 from koyeb.api.models.manual_service_scaling import ManualServiceScaling
 from koyeb.api.models.members_summary import MembersSummary
+from koyeb.api.models.mesh import Mesh
+from koyeb.api.models.mesh_scope import MeshScope
 from koyeb.api.models.metric_name import MetricName
 from koyeb.api.models.neon_postgres_database import NeonPostgresDatabase
-from koyeb.api.models.neon_postgres_database_deployment_metadata import NeonPostgresDatabaseDeploymentMetadata
-from koyeb.api.models.neon_postgres_database_neon_database import NeonPostgresDatabaseNeonDatabase
-from koyeb.api.models.neon_postgres_database_neon_role import NeonPostgresDatabaseNeonRole
+from koyeb.api.models.neon_postgres_database_deployment_metadata import (
+    NeonPostgresDatabaseDeploymentMetadata,
+)
+from koyeb.api.models.neon_postgres_database_neon_database import (
+    NeonPostgresDatabaseNeonDatabase,
+)
+from koyeb.api.models.neon_postgres_database_neon_role import (
+    NeonPostgresDatabaseNeonRole,
+)
 from koyeb.api.models.neon_postgres_summary import NeonPostgresSummary
 from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.network_policy_destination import NetworkPolicyDestination
 from koyeb.api.models.next_invoice_reply import NextInvoiceReply
 from koyeb.api.models.next_invoice_reply_discount import NextInvoiceReplyDiscount
-from koyeb.api.models.next_invoice_reply_discount_type import NextInvoiceReplyDiscountType
+from koyeb.api.models.next_invoice_reply_discount_type import (
+    NextInvoiceReplyDiscountType,
+)
 from koyeb.api.models.next_invoice_reply_line import NextInvoiceReplyLine
 from koyeb.api.models.next_invoice_reply_line_period import NextInvoiceReplyLinePeriod
 from koyeb.api.models.next_invoice_reply_line_price import NextInvoiceReplyLinePrice
@@ -292,7 +393,9 @@ from koyeb.api.models.o_auth_callback_request import OAuthCallbackRequest
 from koyeb.api.models.o_auth_provider import OAuthProvider
 from koyeb.api.models.object import Object
 from koyeb.api.models.organization import Organization
-from koyeb.api.models.organization_deactivation_reason import OrganizationDeactivationReason
+from koyeb.api.models.organization_deactivation_reason import (
+    OrganizationDeactivationReason,
+)
 from koyeb.api.models.organization_detailed_status import OrganizationDetailedStatus
 from koyeb.api.models.organization_invitation import OrganizationInvitation
 from koyeb.api.models.organization_invitation_status import OrganizationInvitationStatus
@@ -304,11 +407,18 @@ from koyeb.api.models.payment_method import PaymentMethod
 from koyeb.api.models.payment_method_status import PaymentMethodStatus
 from koyeb.api.models.period_usage import PeriodUsage
 from koyeb.api.models.persistent_volume import PersistentVolume
-from koyeb.api.models.persistent_volume_backing_store import PersistentVolumeBackingStore
+from koyeb.api.models.persistent_volume_backing_store import (
+    PersistentVolumeBackingStore,
+)
 from koyeb.api.models.persistent_volume_event import PersistentVolumeEvent
 from koyeb.api.models.persistent_volume_quotas import PersistentVolumeQuotas
+from koyeb.api.models.persistent_volume_region_usage import PersistentVolumeRegionUsage
 from koyeb.api.models.persistent_volume_status import PersistentVolumeStatus
 from koyeb.api.models.plan import Plan
+from koyeb.api.models.pool_claim import PoolClaim
+from koyeb.api.models.pool_claim_reply import PoolClaimReply
+from koyeb.api.models.pool_claim_request import PoolClaimRequest
+from koyeb.api.models.pool_claim_status import PoolClaimStatus
 from koyeb.api.models.port import Port
 from koyeb.api.models.private_registry_configuration import PrivateRegistryConfiguration
 from koyeb.api.models.project import Project
@@ -317,6 +427,7 @@ from koyeb.api.models.public_organization import PublicOrganization
 from koyeb.api.models.public_user import PublicUser
 from koyeb.api.models.query_logs_reply import QueryLogsReply
 from koyeb.api.models.query_logs_reply_pagination import QueryLogsReplyPagination
+from koyeb.api.models.quota_usage import QuotaUsage
 from koyeb.api.models.quotas import Quotas
 from koyeb.api.models.reactivate_organization_reply import ReactivateOrganizationReply
 from koyeb.api.models.redeem_coupon_request import RedeemCouponRequest
@@ -328,19 +439,29 @@ from koyeb.api.models.region_list_item import RegionListItem
 from koyeb.api.models.region_usage import RegionUsage
 from koyeb.api.models.regional_deployment import RegionalDeployment
 from koyeb.api.models.regional_deployment_definition import RegionalDeploymentDefinition
-from koyeb.api.models.regional_deployment_definition_type import RegionalDeploymentDefinitionType
+from koyeb.api.models.regional_deployment_definition_type import (
+    RegionalDeploymentDefinitionType,
+)
 from koyeb.api.models.regional_deployment_event import RegionalDeploymentEvent
 from koyeb.api.models.regional_deployment_list_item import RegionalDeploymentListItem
 from koyeb.api.models.regional_deployment_mesh import RegionalDeploymentMesh
 from koyeb.api.models.regional_deployment_role import RegionalDeploymentRole
 from koyeb.api.models.regional_deployment_status import RegionalDeploymentStatus
 from koyeb.api.models.regional_deployment_volume import RegionalDeploymentVolume
-from koyeb.api.models.remove_organization_member_reply import RemoveOrganizationMemberReply
-from koyeb.api.models.resend_organization_invitation_reply import ResendOrganizationInvitationReply
+from koyeb.api.models.remove_organization_member_reply import (
+    RemoveOrganizationMemberReply,
+)
+from koyeb.api.models.resend_organization_invitation_reply import (
+    ResendOrganizationInvitationReply,
+)
 from koyeb.api.models.reset_password_request import ResetPasswordRequest
 from koyeb.api.models.reveal_secret_reply import RevealSecretReply
-from koyeb.api.models.review_organization_capacity_reply import ReviewOrganizationCapacityReply
-from koyeb.api.models.review_organization_capacity_request import ReviewOrganizationCapacityRequest
+from koyeb.api.models.review_organization_capacity_reply import (
+    ReviewOrganizationCapacityReply,
+)
+from koyeb.api.models.review_organization_capacity_request import (
+    ReviewOrganizationCapacityRequest,
+)
 from koyeb.api.models.route import Route
 from koyeb.api.models.sample import Sample
 from koyeb.api.models.sandbox_metadata import SandboxMetadata
@@ -354,6 +475,8 @@ from koyeb.api.models.service import Service
 from koyeb.api.models.service_event import ServiceEvent
 from koyeb.api.models.service_life_cycle import ServiceLifeCycle
 from koyeb.api.models.service_list_item import ServiceListItem
+from koyeb.api.models.service_pool import ServicePool
+from koyeb.api.models.service_pool_status import ServicePoolStatus
 from koyeb.api.models.service_state import ServiceState
 from koyeb.api.models.service_status import ServiceStatus
 from koyeb.api.models.service_summary import ServiceSummary
@@ -362,19 +485,31 @@ from koyeb.api.models.service_usage import ServiceUsage
 from koyeb.api.models.snapshot import Snapshot
 from koyeb.api.models.snapshot_status import SnapshotStatus
 from koyeb.api.models.snapshot_type import SnapshotType
-from koyeb.api.models.stream_result_of_exec_command_reply import StreamResultOfExecCommandReply
+from koyeb.api.models.stream_result_of_exec_command_reply import (
+    StreamResultOfExecCommandReply,
+)
 from koyeb.api.models.stream_result_of_log_entry import StreamResultOfLogEntry
 from koyeb.api.models.subscription import Subscription
 from koyeb.api.models.subscription_payment_failure import SubscriptionPaymentFailure
-from koyeb.api.models.subscription_payment_failure_stripe_sdk import SubscriptionPaymentFailureStripeSDK
+from koyeb.api.models.subscription_payment_failure_stripe_sdk import (
+    SubscriptionPaymentFailureStripeSDK,
+)
 from koyeb.api.models.subscription_status import SubscriptionStatus
 from koyeb.api.models.tcp_health_check import TCPHealthCheck
 from koyeb.api.models.token import Token
 from koyeb.api.models.trigger_deployment_metadata import TriggerDeploymentMetadata
-from koyeb.api.models.trigger_deployment_metadata_actor_type import TriggerDeploymentMetadataActorType
-from koyeb.api.models.trigger_deployment_metadata_trigger_type import TriggerDeploymentMetadataTriggerType
-from koyeb.api.models.trigger_git_deployment_metadata import TriggerGitDeploymentMetadata
-from koyeb.api.models.trigger_git_deployment_metadata_provider import TriggerGitDeploymentMetadataProvider
+from koyeb.api.models.trigger_deployment_metadata_actor_type import (
+    TriggerDeploymentMetadataActorType,
+)
+from koyeb.api.models.trigger_deployment_metadata_trigger_type import (
+    TriggerDeploymentMetadataTriggerType,
+)
+from koyeb.api.models.trigger_git_deployment_metadata import (
+    TriggerGitDeploymentMetadata,
+)
+from koyeb.api.models.trigger_git_deployment_metadata_provider import (
+    TriggerGitDeploymentMetadataProvider,
+)
 from koyeb.api.models.update_app import UpdateApp
 from koyeb.api.models.update_app_reply import UpdateAppReply
 from koyeb.api.models.update_budget_reply import UpdateBudgetReply
@@ -382,28 +517,46 @@ from koyeb.api.models.update_budget_request import UpdateBudgetRequest
 from koyeb.api.models.update_credential_reply import UpdateCredentialReply
 from koyeb.api.models.update_domain import UpdateDomain
 from koyeb.api.models.update_domain_reply import UpdateDomainReply
-from koyeb.api.models.update_organization_default_project_reply import UpdateOrganizationDefaultProjectReply
-from koyeb.api.models.update_organization_default_project_request import UpdateOrganizationDefaultProjectRequest
+from koyeb.api.models.update_organization_default_project_reply import (
+    UpdateOrganizationDefaultProjectReply,
+)
+from koyeb.api.models.update_organization_default_project_request import (
+    UpdateOrganizationDefaultProjectRequest,
+)
 from koyeb.api.models.update_organization_name_reply import UpdateOrganizationNameReply
-from koyeb.api.models.update_organization_name_request import UpdateOrganizationNameRequest
+from koyeb.api.models.update_organization_name_request import (
+    UpdateOrganizationNameRequest,
+)
 from koyeb.api.models.update_organization_plan_reply import UpdateOrganizationPlanReply
-from koyeb.api.models.update_organization_plan_request import UpdateOrganizationPlanRequest
+from koyeb.api.models.update_organization_plan_request import (
+    UpdateOrganizationPlanRequest,
+)
 from koyeb.api.models.update_organization_reply import UpdateOrganizationReply
 from koyeb.api.models.update_password_request import UpdatePasswordRequest
 from koyeb.api.models.update_persistent_volume_reply import UpdatePersistentVolumeReply
-from koyeb.api.models.update_persistent_volume_request import UpdatePersistentVolumeRequest
+from koyeb.api.models.update_persistent_volume_request import (
+    UpdatePersistentVolumeRequest,
+)
 from koyeb.api.models.update_project_reply import UpdateProjectReply
 from koyeb.api.models.update_secret_reply import UpdateSecretReply
 from koyeb.api.models.update_service import UpdateService
+from koyeb.api.models.update_service_pool import UpdateServicePool
+from koyeb.api.models.update_service_pool_reply import UpdateServicePoolReply
 from koyeb.api.models.update_service_reply import UpdateServiceReply
 from koyeb.api.models.update_service_scaling_request import UpdateServiceScalingRequest
 from koyeb.api.models.update_snapshot_reply import UpdateSnapshotReply
 from koyeb.api.models.update_snapshot_request import UpdateSnapshotRequest
-from koyeb.api.models.update_user_request_user_update_body import UpdateUserRequestUserUpdateBody
+from koyeb.api.models.update_user_request_user_update_body import (
+    UpdateUserRequestUserUpdateBody,
+)
 from koyeb.api.models.update_user_settings_reply import UpdateUserSettingsReply
 from koyeb.api.models.update_user_settings_request import UpdateUserSettingsRequest
-from koyeb.api.models.upsert_signup_qualification_reply import UpsertSignupQualificationReply
-from koyeb.api.models.upsert_signup_qualification_request import UpsertSignupQualificationRequest
+from koyeb.api.models.upsert_signup_qualification_reply import (
+    UpsertSignupQualificationReply,
+)
+from koyeb.api.models.upsert_signup_qualification_request import (
+    UpsertSignupQualificationRequest,
+)
 from koyeb.api.models.usage import Usage
 from koyeb.api.models.usage_details import UsageDetails
 from koyeb.api.models.user import User
@@ -412,5 +565,6 @@ from koyeb.api.models.user_reply import UserReply
 from koyeb.api.models.user_role_role import UserRoleRole
 from koyeb.api.models.user_settings import UserSettings
 from koyeb.api.models.verify_docker_image_reply import VerifyDockerImageReply
-from koyeb.api.models.verify_docker_image_reply_err_code import VerifyDockerImageReplyErrCode
-
+from koyeb.api.models.verify_docker_image_reply_err_code import (
+    VerifyDockerImageReplyErrCode,
+)

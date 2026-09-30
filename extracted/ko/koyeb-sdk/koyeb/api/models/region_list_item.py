@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class RegionListItem(BaseModel):
     """
     RegionListItem
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
     coordinates: Optional[List[StrictStr]] = None
@@ -34,8 +36,20 @@ class RegionListItem(BaseModel):
     instances: Optional[List[StrictStr]] = None
     datacenters: Optional[List[StrictStr]] = None
     volumes_enabled: Optional[StrictBool] = None
-    scope: Optional[StrictStr] = Field(default=None, description="The scope of the region, continent, metropolitan area, etc.")
-    __properties: ClassVar[List[str]] = ["id", "name", "coordinates", "status", "instances", "datacenters", "volumes_enabled", "scope"]
+    scope: Optional[StrictStr] = Field(
+        default=None,
+        description="The scope of the region, continent, metropolitan area, etc.",
+    )
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "name",
+        "coordinates",
+        "status",
+        "instances",
+        "datacenters",
+        "volumes_enabled",
+        "scope",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -43,7 +57,6 @@ class RegionListItem(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -68,8 +81,7 @@ class RegionListItem(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -87,16 +99,16 @@ class RegionListItem(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "name": obj.get("name"),
-            "coordinates": obj.get("coordinates"),
-            "status": obj.get("status"),
-            "instances": obj.get("instances"),
-            "datacenters": obj.get("datacenters"),
-            "volumes_enabled": obj.get("volumes_enabled"),
-            "scope": obj.get("scope")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "name": obj.get("name"),
+                "coordinates": obj.get("coordinates"),
+                "status": obj.get("status"),
+                "instances": obj.get("instances"),
+                "datacenters": obj.get("datacenters"),
+                "volumes_enabled": obj.get("volumes_enabled"),
+                "scope": obj.get("scope"),
+            }
+        )
         return _obj
-
-

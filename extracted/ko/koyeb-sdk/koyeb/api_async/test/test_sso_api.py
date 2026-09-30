@@ -27,17 +27,13 @@ class TestSsoApi(unittest.IsolatedAsyncioTestCase):
         await self.api.api_client.close()
 
     async def test_canny_auth(self) -> None:
-        """Test case for canny_auth
-
-        """
+        """Test case for canny_auth"""
         pass
 
     async def test_discourse_auth(self) -> None:
-        """Test case for discourse_auth
-
-        """
+        """Test case for discourse_auth"""
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

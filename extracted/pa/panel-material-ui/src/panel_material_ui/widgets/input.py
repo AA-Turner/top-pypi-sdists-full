@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import inspect
 import typing as t
 from collections.abc import Iterable
@@ -13,7 +14,9 @@ import param
 from bokeh.models.formatters import NumeralTickFormatter, TickFormatter
 from panel.models.reactive_html import DOMEvent
 from panel.util import edit_readonly, try_datetime64_to_datetime, value_as_date, value_as_datetime
+from panel.widgets.input import ArrayInput as _PnArrayInput
 from panel.widgets.input import DatetimeInput as _PnDatetimeInput
+from panel.widgets.input import DatetimeRangeInput as _PnDatetimeRangeInput
 from panel.widgets.input import FileInput as _PnFileInput
 from panel.widgets.input import LiteralInput as _PnLiteralInput
 
@@ -1613,6 +1616,39 @@ class ColorPicker(MaterialWidget):
     _esm_base = "ColorPicker.jsx"
 
 
+class StaticText(MaterialWidget):
+    """
+    The `StaticText` widget displays a text value, but does not allow editing
+    it. String values are rendered as HTML, any other value is escaped.
+
+    :References:
+
+    - https://panel-material-ui.holoviz.org/reference/widgets/StaticText.html
+    - https://panel.holoviz.org/reference/widgets/StaticText.html
+
+    :Example:
+
+    >>> StaticText(label='Model', value='animagen2')
+    """
+
+    value = param.Parameter(default=None, doc="""
+        The current value to be displayed.""")
+
+    width = param.Integer(default=None, bounds=(0, None), allow_None=True, doc="""
+        Width of the widget, sized to its text by default like the classic
+        StaticText.""")
+
+    _esm_base = "StaticText.jsx"
+
+    def _process_param_change(self, params):
+        props = super()._process_param_change(params)
+        if 'value' in props:
+            value = props['value']
+            if not isinstance(value, str):
+                props['value'] = html.escape('' if value is None else str(value))
+        return props
+
+
 class LiteralInput(TextInput, _PnLiteralInput):
     """
     The `LiteralInput` allows entering any string using a text input box.
@@ -1653,6 +1689,36 @@ class LiteralInput(TextInput, _PnLiteralInput):
         return msg
 
 
+class ArrayInput(TextInput, _PnArrayInput):
+    """Edit NumPy arrays as text, disabling editing above ``max_array_size``."""
+
+    value = param.Parameter(default=None)
+
+    value_input = param.Parameter(default=None)
+
+    _rename = {'type': None, 'serializer': None, 'max_array_size': None}
+    _source_transforms = {'attached': None, 'serializer': None, 'value': None}
+
+    def _process_property_change(self, msg):
+        msg = super()._process_property_change(msg)
+        msg.pop('title', None)
+        msg.pop('label', None)
+        return msg
+
+    def _process_param_change(self, msg):
+        msg = super()._process_param_change(msg)
+        msg.pop('title', None)
+        msg['label'] = f'{self.label} {self._state}' if self._state else self.label
+        msg['error_state'] = bool(self._state)
+        if 'value' in msg:
+            msg['value_input'] = msg.pop('value')
+            if self.value is not None and self.value.size > self.max_array_size:
+                msg['value_input'] = np.array2string(
+                    self.value, separator=',', threshold=self.max_array_size
+                )
+        return msg
+
+
 class DatetimeInput(TextInput, _PnDatetimeInput):
     """
     The `DatetimeInput` allows entering a datetime value using a text input box.
@@ -1679,6 +1745,26 @@ class DatetimeInput(TextInput, _PnDatetimeInput):
         if "title" in msg:
             msg["label"] = msg.pop("title")
         return msg
+
+
+class DatetimeRangeInput(_PnDatetimeRangeInput):
+    """A datetime range composed of two Material datetime inputs."""
+
+    _composite_type = pn.Column
+
+    def __init__(self, **params):
+        self._text = pn.widgets.StaticText(margin=(5, 0, 0, 0), styles={'white-space': 'nowrap'})
+        self._start = DatetimeInput(sizing_mode='stretch_width', margin=(5, 0, 0, 0))
+        self._end = DatetimeInput(sizing_mode='stretch_width', margin=(5, 0, 0, 0))
+        if 'value' not in params:
+            params['value'] = (params.get('start'), params.get('end'))
+        super(_PnDatetimeRangeInput, self).__init__(**params)
+        self._msg = ''
+        self._composite.extend([self._text, self._start, self._end])
+        self._updating = False
+        self.param.watch(self._update_widgets, [p for p in self.param if p != 'name'])
+        self._update_widgets()
+        self._update_label()
 
 
 class DictInput(LiteralInput):
@@ -1727,8 +1813,11 @@ __all__ = [
     "Checkbox",
     "Switch",
     "ColorPicker",
+    "StaticText",
     "LiteralInput",
+    "ArrayInput",
     "DatetimeInput",
+    "DatetimeRangeInput",
     "DictInput",
     "ListInput",
     "TupleInput"

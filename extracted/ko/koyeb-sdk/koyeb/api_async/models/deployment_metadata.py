@@ -20,8 +20,12 @@ import json
 from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List, Optional
 from koyeb.api_async.models.archive_deployment_metadata import ArchiveDeploymentMetadata
-from koyeb.api_async.models.database_deployment_metadata import DatabaseDeploymentMetadata
-from koyeb.api_async.models.deployment_proxy_port_metadata import DeploymentProxyPortMetadata
+from koyeb.api_async.models.database_deployment_metadata import (
+    DatabaseDeploymentMetadata,
+)
+from koyeb.api_async.models.deployment_proxy_port_metadata import (
+    DeploymentProxyPortMetadata,
+)
 from koyeb.api_async.models.git_deployment_metadata import GitDeploymentMetadata
 from koyeb.api_async.models.sandbox_metadata import SandboxMetadata
 from koyeb.api_async.models.trigger_deployment_metadata import TriggerDeploymentMetadata
@@ -29,17 +33,26 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeploymentMetadata(BaseModel):
     """
     DeploymentMetadata
-    """ # noqa: E501
+    """  # noqa: E501
+
     trigger: Optional[TriggerDeploymentMetadata] = None
     database: Optional[DatabaseDeploymentMetadata] = None
     git: Optional[GitDeploymentMetadata] = None
     archive: Optional[ArchiveDeploymentMetadata] = None
     proxy_ports: Optional[List[DeploymentProxyPortMetadata]] = None
     sandbox: Optional[SandboxMetadata] = None
-    __properties: ClassVar[List[str]] = ["trigger", "database", "git", "archive", "proxy_ports", "sandbox"]
+    __properties: ClassVar[List[str]] = [
+        "trigger",
+        "database",
+        "git",
+        "archive",
+        "proxy_ports",
+        "sandbox",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -47,7 +60,6 @@ class DeploymentMetadata(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -72,8 +84,7 @@ class DeploymentMetadata(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -82,26 +93,29 @@ class DeploymentMetadata(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of trigger
         if self.trigger:
-            _dict['trigger'] = self.trigger.to_dict()
+            _dict["trigger"] = self.trigger.to_dict()
         # override the default output from pydantic by calling `to_dict()` of database
         if self.database:
-            _dict['database'] = self.database.to_dict()
+            _dict["database"] = self.database.to_dict()
         # override the default output from pydantic by calling `to_dict()` of git
         if self.git:
-            _dict['git'] = self.git.to_dict()
+            _dict["git"] = self.git.to_dict()
         # override the default output from pydantic by calling `to_dict()` of archive
         if self.archive:
-            _dict['archive'] = self.archive.to_dict()
+            _dict["archive"] = self.archive.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in proxy_ports (list)
         _items = []
         if self.proxy_ports:
             for _item_proxy_ports in self.proxy_ports:
-                if _item_proxy_ports:
-                    _items.append(_item_proxy_ports.to_dict())
-            _dict['proxy_ports'] = _items
+                _items.append(
+                    _item_proxy_ports.to_dict()
+                    if _item_proxy_ports is not None
+                    else None
+                )
+            _dict["proxy_ports"] = _items
         # override the default output from pydantic by calling `to_dict()` of sandbox
         if self.sandbox:
-            _dict['sandbox'] = self.sandbox.to_dict()
+            _dict["sandbox"] = self.sandbox.to_dict()
         return _dict
 
     @classmethod
@@ -113,14 +127,29 @@ class DeploymentMetadata(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "trigger": TriggerDeploymentMetadata.from_dict(obj["trigger"]) if obj.get("trigger") is not None else None,
-            "database": DatabaseDeploymentMetadata.from_dict(obj["database"]) if obj.get("database") is not None else None,
-            "git": GitDeploymentMetadata.from_dict(obj["git"]) if obj.get("git") is not None else None,
-            "archive": ArchiveDeploymentMetadata.from_dict(obj["archive"]) if obj.get("archive") is not None else None,
-            "proxy_ports": [DeploymentProxyPortMetadata.from_dict(_item) for _item in obj["proxy_ports"]] if obj.get("proxy_ports") is not None else None,
-            "sandbox": SandboxMetadata.from_dict(obj["sandbox"]) if obj.get("sandbox") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "trigger": TriggerDeploymentMetadata.from_dict(obj["trigger"])
+                if obj.get("trigger") is not None
+                else None,
+                "database": DatabaseDeploymentMetadata.from_dict(obj["database"])
+                if obj.get("database") is not None
+                else None,
+                "git": GitDeploymentMetadata.from_dict(obj["git"])
+                if obj.get("git") is not None
+                else None,
+                "archive": ArchiveDeploymentMetadata.from_dict(obj["archive"])
+                if obj.get("archive") is not None
+                else None,
+                "proxy_ports": [
+                    DeploymentProxyPortMetadata.from_dict(_item)
+                    for _item in obj["proxy_ports"]
+                ]
+                if obj.get("proxy_ports") is not None
+                else None,
+                "sandbox": SandboxMetadata.from_dict(obj["sandbox"])
+                if obj.get("sandbox") is not None
+                else None,
+            }
+        )
         return _obj
-
-

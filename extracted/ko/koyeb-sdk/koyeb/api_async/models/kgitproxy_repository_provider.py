@@ -26,12 +26,10 @@ class KgitproxyRepositoryProvider(str, Enum):
     """
     allowed enum values
     """
-    INVALID_PROVIDER = 'INVALID_PROVIDER'
-    GITHUB = 'GITHUB'
+    INVALID_PROVIDER = "INVALID_PROVIDER"
+    GITHUB = "GITHUB"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of KgitproxyRepositoryProvider from a JSON string"""
         return cls(json.loads(json_str))
-
-

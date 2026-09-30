@@ -28,10 +28,13 @@ def main():
         # Check health
         is_healthy = sandbox.is_healthy()
         print(f"Healthy: {is_healthy}")
+        assert is_healthy, "Sandbox should be healthy"
 
         # Test command
         result = sandbox.exec("echo 'Sandbox is ready!'")
         print(result.stdout.strip())
+        assert result.exit_code == 0, result.stderr
+        assert result.stdout.strip() == "Sandbox is ready!"
 
         return 0
     finally:

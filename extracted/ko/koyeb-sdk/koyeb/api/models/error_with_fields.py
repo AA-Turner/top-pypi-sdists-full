@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ErrorWithFields(BaseModel):
     """
     ErrorWithFields
-    """ # noqa: E501
+    """  # noqa: E501
+
     status: Optional[StrictInt] = None
     code: Optional[StrictStr] = None
     message: Optional[StrictStr] = None
@@ -40,7 +42,6 @@ class ErrorWithFields(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +66,7 @@ class ErrorWithFields(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,9 +77,10 @@ class ErrorWithFields(BaseModel):
         _items = []
         if self.fields:
             for _item_fields in self.fields:
-                if _item_fields:
-                    _items.append(_item_fields.to_dict())
-            _dict['fields'] = _items
+                _items.append(
+                    _item_fields.to_dict() if _item_fields is not None else None
+                )
+            _dict["fields"] = _items
         return _dict
 
     @classmethod
@@ -91,12 +92,14 @@ class ErrorWithFields(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "status": obj.get("status"),
-            "code": obj.get("code"),
-            "message": obj.get("message"),
-            "fields": [ErrorField.from_dict(_item) for _item in obj["fields"]] if obj.get("fields") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "status": obj.get("status"),
+                "code": obj.get("code"),
+                "message": obj.get("message"),
+                "fields": [ErrorField.from_dict(_item) for _item in obj["fields"]]
+                if obj.get("fields") is not None
+                else None,
+            }
+        )
         return _obj
-
-

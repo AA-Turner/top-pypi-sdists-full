@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, Generator, List, Optional, cast
 
 import psycopg
 import sqlalchemy as sa
+from sqlalchemy import event
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
@@ -15,6 +16,7 @@ from dbos._migration import (
     should_migrate,
 )
 
+from ._datasource_migration import DATASOURCE_MIGRATIONS_TABLE
 from ._logger import dbos_logger
 from ._schemas.system_database import SystemSchema
 from ._sys_db import (
@@ -26,6 +28,17 @@ from ._sys_db import (
 from ._utils import quote_identifier
 
 
+def _sets_idle_transaction_timeout(url: sa.URL, engine_kwargs: Dict[str, Any]) -> bool:
+    """Whether the user already sets idle_in_transaction_session_timeout through libpq options."""
+    connect_args = engine_kwargs.get("connect_args") or {}
+    sources = [connect_args.get("options"), url.query.get("options")]
+    return any(
+        "idle_in_transaction_session_timeout" in str(source)
+        for source in sources
+        if source is not None
+    )
+
+
 class PostgresSystemDatabase(SystemDatabase):
     """PostgreSQL-specific implementation of SystemDatabase."""
 
@@ -35,7 +48,27 @@ class PostgresSystemDatabase(SystemDatabase):
         self, system_database_url: str, engine_kwargs: Dict[str, Any]
     ) -> sa.Engine:
         url = sa.make_url(system_database_url).set(drivername="postgresql+psycopg")
-        return sa.create_engine(url, **engine_kwargs)
+        engine = sa.create_engine(url, **engine_kwargs)
+        timeout_ms = self._idle_transaction_timeout_ms
+        if timeout_ms is not None and not _sets_idle_transaction_timeout(
+            url, engine_kwargs
+        ):
+
+            @event.listens_for(engine, "connect")
+            def set_idle_transaction_timeout(
+                dbapi_conn: Any, connection_record: Any
+            ) -> None:
+                with dbapi_conn.cursor() as cursor:
+                    cursor.execute(
+                        f"SET idle_in_transaction_session_timeout = {int(timeout_ms)}"
+                    )
+                # Committed: the pool rolls a connection back on return, which would undo a bare SET.
+                dbapi_conn.commit()
+
+            dbos_logger.debug(
+                f"System database idle_in_transaction_session_timeout: {timeout_ms}ms"
+            )
+        return engine
 
     def run_migrations(self) -> None:
         """Run PostgreSQL-specific migrations."""
@@ -269,7 +302,7 @@ class PostgresSystemDatabase(SystemDatabase):
     def _truncate_system_database(database_url: str, schema: str) -> None:
         """Empty every DBOS table in the system database, leaving the schema intact.
 
-        dbos_migrations is spared: clearing it would re-run applied migrations."""
+        Version tables are spared: clearing them would re-run applied migrations."""
         # The plain PostgreSQL dialect cannot connect to CockroachDB at all: it
         # asserts on the server version string. Keep the caller's dialect there.
         url = sa.make_url(database_url)
@@ -301,7 +334,8 @@ class PostgresSystemDatabase(SystemDatabase):
                         ),
                         {"schema": schema},
                     ).scalars()
-                    if table != "dbos_migrations"
+                    # A datasource sharing the schema keeps its version too.
+                    if table not in ("dbos_migrations", DATASOURCE_MIGRATIONS_TABLE)
                 ]
                 if not tables:
                     dbos_logger.warning(

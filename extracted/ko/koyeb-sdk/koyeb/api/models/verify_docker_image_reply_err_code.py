@@ -26,23 +26,21 @@ class VerifyDockerImageReplyErrCode(str, Enum):
     """
     allowed enum values
     """
-    UNKNOWN = 'UNKNOWN'
-    AUTH_ACCESS_DENIED = 'AUTH_ACCESS_DENIED'
-    ANON_ACCESS_DENIED = 'ANON_ACCESS_DENIED'
-    AUTH_NOT_FOUND = 'AUTH_NOT_FOUND'
-    ANON_NOT_FOUND = 'ANON_NOT_FOUND'
-    REGISTRY_ERROR = 'REGISTRY_ERROR'
-    TIMEOUT = 'TIMEOUT'
-    DNS = 'DNS'
-    MALFORMED = 'MALFORMED'
-    INVALID_OS = 'INVALID_OS'
-    INVALID_ARCH = 'INVALID_ARCH'
-    INVALID_SCHEME = 'INVALID_SCHEME'
-    GENERIC = 'GENERIC'
+    UNKNOWN = "UNKNOWN"
+    AUTH_ACCESS_DENIED = "AUTH_ACCESS_DENIED"
+    ANON_ACCESS_DENIED = "ANON_ACCESS_DENIED"
+    AUTH_NOT_FOUND = "AUTH_NOT_FOUND"
+    ANON_NOT_FOUND = "ANON_NOT_FOUND"
+    REGISTRY_ERROR = "REGISTRY_ERROR"
+    TIMEOUT = "TIMEOUT"
+    DNS = "DNS"
+    MALFORMED = "MALFORMED"
+    INVALID_OS = "INVALID_OS"
+    INVALID_ARCH = "INVALID_ARCH"
+    INVALID_SCHEME = "INVALID_SCHEME"
+    GENERIC = "GENERIC"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of VerifyDockerImageReplyErrCode from a JSON string"""
         return cls(json.loads(json_str))
-
-

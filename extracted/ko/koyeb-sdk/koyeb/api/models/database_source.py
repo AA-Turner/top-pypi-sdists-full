@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DatabaseSource(BaseModel):
     """
     DatabaseSource
-    """ # noqa: E501
+    """  # noqa: E501
+
     neon_postgres: Optional[NeonPostgresDatabase] = None
     __properties: ClassVar[List[str]] = ["neon_postgres"]
 
@@ -37,7 +39,6 @@ class DatabaseSource(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class DatabaseSource(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -72,7 +72,7 @@ class DatabaseSource(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of neon_postgres
         if self.neon_postgres:
-            _dict['neon_postgres'] = self.neon_postgres.to_dict()
+            _dict["neon_postgres"] = self.neon_postgres.to_dict()
         return _dict
 
     @classmethod
@@ -84,9 +84,11 @@ class DatabaseSource(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "neon_postgres": NeonPostgresDatabase.from_dict(obj["neon_postgres"]) if obj.get("neon_postgres") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "neon_postgres": NeonPostgresDatabase.from_dict(obj["neon_postgres"])
+                if obj.get("neon_postgres") is not None
+                else None
+            }
+        )
         return _obj
-
-

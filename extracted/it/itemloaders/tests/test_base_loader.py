@@ -1,4 +1,5 @@
 from functools import partial
+from typing import Any
 
 import pytest
 
@@ -14,6 +15,14 @@ class DefaultedItemLoader(ItemLoader):
     default_input_processor = MapCompose(lambda v: v[:-1])
 
 
+def strip_values(values):
+    return [value.strip() for value in values]
+
+
+class FunctionProcessorItemLoader(ItemLoader):
+    name_in = strip_values
+
+
 # test processors
 def processor_with_args(value, other=None, loader_context=None):
     if "key" in loader_context:
@@ -23,7 +32,7 @@ def processor_with_args(value, other=None, loader_context=None):
 
 class TestItemLoaderBasic:
     def test_load_item_using_default_loader(self):
-        i = {"summary": "lala"}
+        i: dict[str, Any] = {"summary": "lala"}
         il = ItemLoader(item=i)
         il.add_value("name", "marta")
         item = il.load_item()
@@ -36,6 +45,12 @@ class TestItemLoaderBasic:
         il.add_value("name", "marta")
         item = il.load_item()
         assert item["name"] == ["Marta"]
+
+    def test_load_item_using_function_processor(self):
+        il = FunctionProcessorItemLoader()
+        il.add_value("name", " marta ")
+        item = il.load_item()
+        assert item["name"] == ["marta"]
 
     def test_load_item_ignore_none_field_values(self):
         def validate_sku(value):
@@ -99,6 +114,11 @@ class TestItemLoaderBasic:
 
         il.add_value(None, "Jim", lambda x: {"name": x})
         assert il.get_collected_values("name") == ["Marta", "Pepe", "Jim"]
+
+    def test_add_set(self):
+        il = ItemLoader()
+        il.add_value("name", {"marta", "pepe"})
+        assert sorted(il.get_collected_values("name")) == ["marta", "pepe"]
 
     def test_add_zero(self):
         il = ItemLoader()

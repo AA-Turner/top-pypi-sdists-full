@@ -23,7 +23,7 @@ import os
 import re
 import sys
 import tempfile
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from unittest import mock
 
@@ -1220,6 +1220,20 @@ def test_calculate_max_diff(column, expected):
     )
 
 
+@pytest.mark.parametrize(
+    "values",
+    [
+        [date(2020, 1, 1), date(2020, 1, 3)],
+        [datetime(2020, 1, 1), datetime(2020, 1, 3)],
+        [timedelta(days=1), timedelta(days=3)],
+    ],
+)
+def test_calculate_max_diff_temporal(values):
+    base = pl.Series([values[0], values[0]])
+    other = pl.Series(values)
+    assert calculate_max_diff(base, other) == 0
+
+
 def test_dupes_with_nulls():
     df1 = pl.DataFrame(
         {
@@ -1234,6 +1248,49 @@ def test_dupes_with_nulls():
     )
     comp = PolarsCompare(df1, df2, join_columns=["fld_1", "fld_2"])
     assert comp.subset()
+
+
+def test_dupes_with_nulls_in_leading_non_join_column():
+    df1 = pl.DataFrame({"a": [None, None, "x"], "b": [1, 1, 1], "c": [1, 2, 3]})
+    df2 = pl.DataFrame({"a": [None, None, "x"], "b": [1, 1, 1], "c": [1, 2, 3]})
+    compare = PolarsCompare(df1, df2, join_columns=["b"])
+    assert compare.matches()
+    assert len(compare.intersect_rows) == 3
+
+
+def test_dupes_with_all_null_leading_non_join_column():
+    df1 = pl.DataFrame(
+        {"a": [None, None, None], "b": [1, 1, 2], "c": [1, 2, 3]},
+        schema_overrides={"a": pl.String},
+    )
+    df2 = pl.DataFrame(
+        {"a": [None, None, None], "b": [1, 1, 2], "c": [1, 5, 3]},
+        schema_overrides={"a": pl.String},
+    )
+    compare = PolarsCompare(df1, df2, join_columns=["b"])
+    assert not compare.matches()
+    assert len(compare.intersect_rows) == 3
+    assert len(compare.df1_unq_rows) == 0
+    assert len(compare.df2_unq_rows) == 0
+    assert compare.count_matching_rows() == 2
+
+
+def test_dupes_with_nulls_in_leading_non_join_column_multi_key():
+    df1 = pl.DataFrame(
+        {"a": [None, None, None, "y"], "b": [1, 1, 2, 2], "c": [10, 10, 20, 21]}
+    )
+    df2 = df1.clone()
+    compare = PolarsCompare(df1, df2, join_columns=["b", "c"])
+    assert compare.matches()
+    assert len(compare.intersect_rows) == 4
+
+    df3 = pl.DataFrame(
+        {"a": [None, "z", None, "y"], "b": [1, 1, 2, 2], "c": [10, 10, 20, 21]}
+    )
+    compare = PolarsCompare(df1, df3, join_columns=["b", "c"])
+    assert not compare.matches()
+    assert len(compare.intersect_rows) == 4
+    assert compare.count_matching_rows() == 3
 
 
 @pytest.mark.parametrize(
@@ -1269,6 +1326,14 @@ def test_dupes_with_nulls():
                 strict=False,
             ),
             pl.Series([1, 1, 2], strict=False),
+        ),
+        (
+            pl.DataFrame({"c": [None, None, 1], "a": [1, 1, 1], "b": [1, 1, 1]}),
+            pl.Series([1, 2, 3], strict=False),
+        ),
+        (
+            pl.DataFrame({"c": [None, "x", None], "a": [1, 1, 2], "b": [1, 1, 2]}),
+            pl.Series([1, 2, 1], strict=False),
         ),
     ],
 )
@@ -2311,6 +2376,36 @@ def test_sensitive_columns_hide():
     assert compare.intersect_rows[0, "b_match"]
     # Just render the report to make sure it renders.
     compare.report()
+
+
+def test_sensitive_columns_hide_masks_max_diff():
+    # Issue #565: max_diff/null_diff are derived from raw values and must not
+    # leak through the report for a hidden column.
+    df1 = pl.DataFrame({"id": [1, 2], "salary": [50000, 60000]})
+    df2 = pl.DataFrame({"id": [1, 2], "salary": [79000, 60000]})
+    compare = PolarsCompare(df1, df2, join_columns=["id"])
+    compare.hide_sensitive_columns(["salary"])
+
+    stat = next(s for s in compare.column_stats if s["column"] == "salary")
+    assert stat["max_diff"] is None
+    assert stat["null_diff"] is None
+
+    report = compare.report()
+    assert "29000" not in report
+    assert "*******" in report
+
+
+def test_sensitive_columns_reveal_restores_max_diff():
+    df1 = pl.DataFrame({"id": [1, 2], "salary": [50000, 60000]})
+    df2 = pl.DataFrame({"id": [1, 2], "salary": [79000, 60000]})
+    compare = PolarsCompare(df1, df2, join_columns=["id"])
+    compare.hide_sensitive_columns(["salary"])
+    compare.reveal_sensitive_columns()
+
+    stat = next(s for s in compare.column_stats if s["column"] == "salary")
+    assert stat["max_diff"] == pytest.approx(29000.0)
+    assert stat["null_diff"] == 0
+    assert "29000.0000" in compare.report()
 
 
 def test_sensitive_columns_hide_hide():

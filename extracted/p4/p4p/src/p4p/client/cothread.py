@@ -23,9 +23,6 @@ __all__ = [
     'RemoteError',
 ]
 
-if sys.version_info >= (3, 0):
-    unicode = str
-
 def cb2event(done, value):
     if isinstance(value, Cancelled):
         pass # can ignore cothreads can't be preempted
@@ -56,7 +53,7 @@ class Context(raw.Context):
         >>> A, B = ctxt.get(['pv:1', 'pv:2'])
         >>>
         """
-        singlepv = isinstance(name, (bytes, unicode))
+        singlepv = isinstance(name, (bytes, str))
         if singlepv:
             return self._get_one(name, request=request, timeout=timeout, throw=throw)
 
@@ -83,7 +80,7 @@ class Context(raw.Context):
         try:
             ret = done.Wait(timeout)
         except cothread.Timedout:
-            ret = TimeoutError()
+            ret = TimeoutError(name)
             if throw:
                 raise ret
         finally:
@@ -124,7 +121,7 @@ class Context(raw.Context):
         Unless the provided value is a dict, it is assumed to be a plain value
         and an attempt is made to store it in '.value' field.
         """
-        singlepv = isinstance(name, (bytes, unicode))
+        singlepv = isinstance(name, (bytes, str))
         if request and (process or wait is not None):
             raise ValueError("request= is mutually exclusive to process= or wait=")
         elif process or wait is not None:
@@ -159,7 +156,7 @@ class Context(raw.Context):
         try:
             ret = done.Wait(timeout)
         except cothread.Timedout:
-            ret = TimeoutError()
+            ret = TimeoutError(name)
             if throw:
                 raise ret
         finally:
@@ -201,7 +198,7 @@ class Context(raw.Context):
             try:
                 ret = done.Wait(timeout)
             except cothread.Timedout:
-                ret = TimeoutError()
+                ret = TimeoutError(name)
             if throw and isinstance(ret, Exception):
                 raise ret
         finally:
@@ -257,16 +254,6 @@ class Subscription(object):
             self._E.Signal(None)
             self._T.Wait()
 
-    @property
-    def done(self):
-        'Has all data for this subscription been received?'
-        return self._S is None or self._S.done()
-
-    @property
-    def empty(self):
-        'Is data pending in event queue?'
-        return self._S is None or self._S.empty()
-
     def _event(self):
         if self._S is not None:
             self._E.Signal()
@@ -291,21 +278,16 @@ class Subscription(object):
                     if E is None:
                         break # queue empty
 
-                    elif isinstance(E, Disconnected):
-                        _log.debug('Subscription notify for %s with %s', self.name, E)
+                    elif isinstance(E, Exception):
+                        _log.debug('Subscription notify for %r with %r', self.name, E)
                         if self._notify_disconnect:
                             self._cb(E)
                         else:
-                            _log.info("Subscription disconnect %s", self.name)
-                        continue
+                            _log.info("Subscription exception skipped %r: %r", self.name, E)
 
-                    elif isinstance(E, RemoteError):
-                        _log.debug('Subscription notify for %s with %s', self.name, E)
-                        if self._notify_disconnect:
-                            self._cb(E)
-                        elif isinstance(E, RemoteError):
-                            _log.error("Subscription Error %s", E)
-                        return
+                        if isinstance(E, Finished):
+                            return # last event
+                        continue
 
                     else:
                         self._cb(E)
@@ -313,16 +295,9 @@ class Subscription(object):
                     i = (i + 1) % 4
                     if i == 0:
                         cothread.Yield()
-
-                    if S.done:
-                        _log.debug('Subscription complete %s', self.name)
-                        S.close()
-                        self._S = None
-                        if self._notify_disconnect:
-                            E = Finished()
-                            self._cb(E)
-                        break
         except:
             _log.exception("Error processing Subscription event: %r", E)
-            self._S.close()
+        finally:
+            if self._S is not None:
+                self._S.close()
             self._S = None

@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class UpdateProjectReply(BaseModel):
     """
     UpdateProjectReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     project: Optional[Project] = None
     __properties: ClassVar[List[str]] = ["project"]
 
@@ -37,7 +39,6 @@ class UpdateProjectReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class UpdateProjectReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -72,7 +72,7 @@ class UpdateProjectReply(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of project
         if self.project:
-            _dict['project'] = self.project.to_dict()
+            _dict["project"] = self.project.to_dict()
         return _dict
 
     @classmethod
@@ -84,9 +84,11 @@ class UpdateProjectReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "project": Project.from_dict(obj["project"]) if obj.get("project") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "project": Project.from_dict(obj["project"])
+                if obj.get("project") is not None
+                else None
+            }
+        )
         return _obj
-
-

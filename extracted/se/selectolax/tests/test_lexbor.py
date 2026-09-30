@@ -769,6 +769,8 @@ def test_css_selector_invalid_syntax():
     assert root is not None
 
     root.css("[invalid")
+    with pytest.raises(SelectolaxError):
+        root.css("[invalid&]")
 
 
 def test_selector_attribute_longer_than_edge_cases():
@@ -1120,8 +1122,10 @@ def test_clone_fragment_has_no_head_and_body():
         ("<div>hi</div>", True),
         ("<!DOCTYPE html><html><head></head><body><p>x</p></body></html>", False),
         (
-            "<!-- top --><html><head></head>"
-            "<body>hello<!-- c --><b>bold</b></body></html>",
+            (
+                "<!-- top --><html><head></head>"
+                "<body>hello<!-- c --><b>bold</b></body></html>"
+            ),
             False,
         ),
         ("<!DOCTYPE html><!-- c --><html><head></head><body>x</body></html>", False),
@@ -1130,8 +1134,10 @@ def test_clone_fragment_has_no_head_and_body():
         ("<!-- c -->", True),
         ("<html><body><p>&amp; &lt; &#169; &nbsp;</p></body></html>", False),
         (
-            "<html><head><style>a{color:red}</style></head>"
-            "<body><script>if (a < b) {}</script></body></html>",
+            (
+                "<html><head><style>a{color:red}</style></head>"
+                "<body><script>if (a < b) {}</script></body></html>"
+            ),
             False,
         ),
         ("<html><body><p>one<p>two<div>three", False),

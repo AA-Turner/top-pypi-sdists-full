@@ -16,6 +16,10 @@ from chalk._gen.chalk.server.v1.kube_pb2 import (
     GetKubernetesDeploymentsResponse,
     GetKubernetesEventsRequest,
     GetKubernetesEventsResponse,
+    GetKubernetesGRPCRoutesRequest,
+    GetKubernetesGRPCRoutesResponse,
+    GetKubernetesHTTPRoutesRequest,
+    GetKubernetesHTTPRoutesResponse,
     GetKubernetesJobWithPodsRequest,
     GetKubernetesJobWithPodsResponse,
     GetKubernetesJobsRequest,
@@ -26,8 +30,12 @@ from chalk._gen.chalk.server.v1.kube_pb2 import (
     GetKubernetesPersistentVolumeWithPodsResponse,
     GetKubernetesPersistentVolumesRequest,
     GetKubernetesPersistentVolumesResponse,
+    GetKubernetesPodLogsRequest,
+    GetKubernetesPodLogsResponse,
     GetKubernetesServiceAccountsRequest,
     GetKubernetesServiceAccountsResponse,
+    GetKubernetesServicesRequest,
+    GetKubernetesServicesResponse,
     GetKubernetesStatefulSetWithPodsRequest,
     GetKubernetesStatefulSetWithPodsResponse,
     GetKubernetesStatefulSetsRequest,
@@ -64,6 +72,10 @@ class KubeServiceStub:
         GetKubernetesEventsRequest,
         GetKubernetesEventsResponse,
     ]
+    GetKubernetesPodLogs: UnaryUnaryMultiCallable[
+        GetKubernetesPodLogsRequest,
+        GetKubernetesPodLogsResponse,
+    ]
     GetKubernetesNamespaces: UnaryUnaryMultiCallable[
         GetKubernetesNamespacesRequest,
         GetKubernetesNamespacesResponse,
@@ -87,6 +99,10 @@ class KubeServiceStub:
         GetKubernetesServiceAccountsRequest,
         GetKubernetesServiceAccountsResponse,
     ]
+    GetKubernetesServices: UnaryUnaryMultiCallable[
+        GetKubernetesServicesRequest,
+        GetKubernetesServicesResponse,
+    ]
     GetKubernetesAutoscalers: UnaryUnaryMultiCallable[
         GetKubernetesAutoscalersRequest,
         GetKubernetesAutoscalersResponse,
@@ -94,6 +110,14 @@ class KubeServiceStub:
     GetKubernetesDeployments: UnaryUnaryMultiCallable[
         GetKubernetesDeploymentsRequest,
         GetKubernetesDeploymentsResponse,
+    ]
+    GetKubernetesHTTPRoutes: UnaryUnaryMultiCallable[
+        GetKubernetesHTTPRoutesRequest,
+        GetKubernetesHTTPRoutesResponse,
+    ]
+    GetKubernetesGRPCRoutes: UnaryUnaryMultiCallable[
+        GetKubernetesGRPCRoutesRequest,
+        GetKubernetesGRPCRoutesResponse,
     ]
     GetKubernetesStatefulSets: UnaryUnaryMultiCallable[
         GetKubernetesStatefulSetsRequest,
@@ -143,6 +167,12 @@ class KubeServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetKubernetesEventsResponse: ...
     @abstractmethod
+    def GetKubernetesPodLogs(
+        self,
+        request: GetKubernetesPodLogsRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesPodLogsResponse: ...
+    @abstractmethod
     def GetKubernetesNamespaces(
         self,
         request: GetKubernetesNamespacesRequest,
@@ -176,6 +206,12 @@ class KubeServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetKubernetesServiceAccountsResponse: ...
     @abstractmethod
+    def GetKubernetesServices(
+        self,
+        request: GetKubernetesServicesRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesServicesResponse: ...
+    @abstractmethod
     def GetKubernetesAutoscalers(
         self,
         request: GetKubernetesAutoscalersRequest,
@@ -187,6 +223,18 @@ class KubeServiceServicer(metaclass=ABCMeta):
         request: GetKubernetesDeploymentsRequest,
         context: ServicerContext,
     ) -> GetKubernetesDeploymentsResponse: ...
+    @abstractmethod
+    def GetKubernetesHTTPRoutes(
+        self,
+        request: GetKubernetesHTTPRoutesRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesHTTPRoutesResponse: ...
+    @abstractmethod
+    def GetKubernetesGRPCRoutes(
+        self,
+        request: GetKubernetesGRPCRoutesRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesGRPCRoutesResponse: ...
     @abstractmethod
     def GetKubernetesStatefulSets(
         self,

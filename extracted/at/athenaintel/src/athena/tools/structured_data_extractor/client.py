@@ -91,6 +91,7 @@ class StructuredDataExtractorClient:
         from athena import Athena, Chunk, ChunkContentItem_Text
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.tools.structured_data_extractor.invoke(
@@ -216,6 +217,7 @@ class AsyncStructuredDataExtractorClient:
         from athena import AsyncAthena, Chunk, ChunkContentItem_Text
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 

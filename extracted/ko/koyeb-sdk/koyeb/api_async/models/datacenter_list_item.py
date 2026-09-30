@@ -23,17 +23,26 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DatacenterListItem(BaseModel):
     """
     DatacenterListItem
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     region_id: Optional[StrictStr] = None
     domain: Optional[StrictStr] = None
     coordinates: Optional[List[StrictStr]] = None
     use_gpu: Optional[StrictBool] = None
     regions: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["id", "region_id", "domain", "coordinates", "use_gpu", "regions"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "region_id",
+        "domain",
+        "coordinates",
+        "use_gpu",
+        "regions",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -41,7 +50,6 @@ class DatacenterListItem(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,8 +74,7 @@ class DatacenterListItem(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -85,14 +92,14 @@ class DatacenterListItem(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "region_id": obj.get("region_id"),
-            "domain": obj.get("domain"),
-            "coordinates": obj.get("coordinates"),
-            "use_gpu": obj.get("use_gpu"),
-            "regions": obj.get("regions")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "region_id": obj.get("region_id"),
+                "domain": obj.get("domain"),
+                "coordinates": obj.get("coordinates"),
+                "use_gpu": obj.get("use_gpu"),
+                "regions": obj.get("regions"),
+            }
+        )
         return _obj
-
-

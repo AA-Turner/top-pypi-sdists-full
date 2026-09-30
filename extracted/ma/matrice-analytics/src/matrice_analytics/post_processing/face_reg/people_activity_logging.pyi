@@ -1,17 +1,20 @@
 """Auto-generated stub for module: people_activity_logging."""
 from typing import Any, Dict
 
+from ...clients.fr_client import FRClient
+from ...clients.models import build_people_activity
 from ..utils.geometry_utils import bbox_xyxy_pixels
-from .face_recognition_client import FacialRecognitionClient
 
 # Constants
 ACTIVITY_BBOX_GRID: int
+ACTIVITY_DROP_LOG_INTERVAL_S: float
+ACTIVITY_QUEUE_MAXSIZE: int
 
 # Classes
 class PeopleActivityLogging:
     # Background logging system for face recognition activity
 
-    def __init__(self: Any, face_client: Any = None) -> None: ...
+    def __init__(self: Any, face_client: Any | None = None) -> None: ...
 
     def clear_unknown_faces_storage(self: Any) -> None:
         """

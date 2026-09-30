@@ -28,9 +28,10 @@ class UpdateKeywordsRequest(BaseModel):
     UpdateKeywordsRequest
     """ # noqa: E501
     ad_group_id: Optional[StrictStr] = Field(default=None, alias="AdGroupId")
+    asset_group_id: Optional[StrictStr] = Field(default=None, alias="AssetGroupId")
     keywords: Optional[List[Optional[Keyword]]] = Field(default=None, alias="Keywords")
     return_inherited_bid_strategy_types: Optional[StrictBool] = Field(default=None, alias="ReturnInheritedBidStrategyTypes")
-    __properties: ClassVar[List[str]] = ["AdGroupId", "Keywords", "ReturnInheritedBidStrategyTypes"]
+    __properties: ClassVar[List[str]] = ["AdGroupId", "AssetGroupId", "Keywords", "ReturnInheritedBidStrategyTypes"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -69,6 +70,11 @@ class UpdateKeywordsRequest(BaseModel):
         if self.ad_group_id is None and "ad_group_id" in self.model_fields_set:
             _dict['AdGroupId'] = None
 
+        # set to None if asset_group_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.asset_group_id is None and "asset_group_id" in self.model_fields_set:
+            _dict['AssetGroupId'] = None
+
         # set to None if keywords (nullable) is None
         # and model_fields_set contains the field
         if self.keywords is None and "keywords" in self.model_fields_set:
@@ -92,6 +98,7 @@ class UpdateKeywordsRequest(BaseModel):
 
         _obj = cls.model_validate({
             "AdGroupId": obj.get("AdGroupId") if obj.get("AdGroupId") is not None else None,
+                        "AssetGroupId": obj.get("AssetGroupId") if obj.get("AssetGroupId") is not None else None,
                         "Keywords": [Keyword.from_dict(_item) for _item in obj["Keywords"]] if obj.get("Keywords") is not None else None,
                         "ReturnInheritedBidStrategyTypes": obj.get("ReturnInheritedBidStrategyTypes") if obj.get("ReturnInheritedBidStrategyTypes") is not None else None
         })

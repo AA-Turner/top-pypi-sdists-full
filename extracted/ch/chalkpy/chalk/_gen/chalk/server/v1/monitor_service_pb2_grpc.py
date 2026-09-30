@@ -45,6 +45,11 @@ class MonitorServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.DeleteMonitorRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.DeleteMonitorResponse.FromString,
         )
+        self.MuteMonitor = channel.unary_unary(
+            "/chalk.server.v1.MonitorService/MuteMonitor",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.MuteMonitorRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.MuteMonitorResponse.FromString,
+        )
         self.ListMonitors = channel.unary_unary(
             "/chalk.server.v1.MonitorService/ListMonitors",
             request_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.ListMonitorsRequest.SerializeToString,
@@ -91,6 +96,12 @@ class MonitorServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def MuteMonitor(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def ListMonitors(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -129,6 +140,11 @@ def add_MonitorServiceServicer_to_server(servicer, server):
             servicer.DeleteMonitor,
             request_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.DeleteMonitorRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.DeleteMonitorResponse.SerializeToString,
+        ),
+        "MuteMonitor": grpc.unary_unary_rpc_method_handler(
+            servicer.MuteMonitor,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.MuteMonitorRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.MuteMonitorResponse.SerializeToString,
         ),
         "ListMonitors": grpc.unary_unary_rpc_method_handler(
             servicer.ListMonitors,
@@ -308,6 +324,35 @@ class MonitorService(object):
             "/chalk.server.v1.MonitorService/DeleteMonitor",
             chalk_dot_server_dot_v1_dot_monitor__service__pb2.DeleteMonitorRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_monitor__service__pb2.DeleteMonitorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def MuteMonitor(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitorService/MuteMonitor",
+            chalk_dot_server_dot_v1_dot_monitor__service__pb2.MuteMonitorRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitor__service__pb2.MuteMonitorResponse.FromString,
             options,
             channel_credentials,
             insecure,

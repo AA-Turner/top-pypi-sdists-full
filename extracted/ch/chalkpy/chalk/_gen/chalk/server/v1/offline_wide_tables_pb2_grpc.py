@@ -30,6 +30,11 @@ class OfflineWideTablesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetActiveOfflineWideTableSchedulesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetActiveOfflineWideTableSchedulesResponse.FromString,
         )
+        self.GetOfflineWideTableNamespaces = channel.unary_unary(
+            "/chalk.server.v1.OfflineWideTablesService/GetOfflineWideTableNamespaces",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableNamespacesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableNamespacesResponse.FromString,
+        )
         self.TriggerOfflineWideTableFill = channel.unary_unary(
             "/chalk.server.v1.OfflineWideTablesService/TriggerOfflineWideTableFill",
             request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableFillRequest.SerializeToString,
@@ -58,6 +63,14 @@ class OfflineWideTablesServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetActiveOfflineWideTableSchedules(self, request, context):
+        """Compatibility endpoint for schedule-centric clients. New clients should use
+        GetOfflineWideTableNamespaces, which also returns unscheduled namespaces and compaction state.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetOfflineWideTableNamespaces(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -92,6 +105,11 @@ def add_OfflineWideTablesServiceServicer_to_server(servicer, server):
             servicer.GetActiveOfflineWideTableSchedules,
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetActiveOfflineWideTableSchedulesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetActiveOfflineWideTableSchedulesResponse.SerializeToString,
+        ),
+        "GetOfflineWideTableNamespaces": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineWideTableNamespaces,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableNamespacesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableNamespacesResponse.SerializeToString,
         ),
         "TriggerOfflineWideTableFill": grpc.unary_unary_rpc_method_handler(
             servicer.TriggerOfflineWideTableFill,
@@ -191,6 +209,35 @@ class OfflineWideTablesService(object):
             "/chalk.server.v1.OfflineWideTablesService/GetActiveOfflineWideTableSchedules",
             chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetActiveOfflineWideTableSchedulesRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetActiveOfflineWideTableSchedulesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetOfflineWideTableNamespaces(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineWideTablesService/GetOfflineWideTableNamespaces",
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableNamespacesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableNamespacesResponse.FromString,
             options,
             channel_credentials,
             insecure,

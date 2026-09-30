@@ -9,7 +9,7 @@ import string
 
 from koyeb import AsyncSandbox
 from koyeb.api.models.create_secret import CreateSecret
-from koyeb.sandbox.utils import get_api_clients
+from koyeb.sandbox.clients import get_api_clients
 
 
 async def main():
@@ -49,23 +49,23 @@ async def main():
 
         # Check secret reference
         result = await sandbox.exec('echo "$SECRET_VAL"')
-        assert result.stdout.strip() == secret_value, (
-            f"Expected '{secret_value}', got '{result.stdout.strip()}'"
-        )
+        assert (
+            result.stdout.strip() == secret_value
+        ), f"Expected '{secret_value}', got '{result.stdout.strip()}'"
         print(f"SECRET_VAL={result.stdout.strip()}")
 
         # Check direct value
         result = await sandbox.exec('echo "$X"')
-        assert result.stdout.strip() == "2", (
-            f"Expected '2', got '{result.stdout.strip()}'"
-        )
+        assert (
+            result.stdout.strip() == "2"
+        ), f"Expected '2', got '{result.stdout.strip()}'"
         print(f"X={result.stdout.strip()}")
 
         # Check interpolation
         result = await sandbox.exec('echo "$Y"')
-        assert result.stdout.strip() == "2", (
-            f"Expected '2', got '{result.stdout.strip()}'"
-        )
+        assert (
+            result.stdout.strip() == "2"
+        ), f"Expected '2', got '{result.stdout.strip()}'"
         print(f"Y={result.stdout.strip()}")
 
         return 0

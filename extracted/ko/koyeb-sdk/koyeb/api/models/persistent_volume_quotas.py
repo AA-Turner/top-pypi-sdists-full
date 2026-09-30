@@ -23,14 +23,28 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class PersistentVolumeQuotas(BaseModel):
     """
     PersistentVolumeQuotas
-    """ # noqa: E501
-    max_total_size: Optional[StrictInt] = Field(default=None, description="MaxTotalSize for all volumes on a region (in Gigabyte / GB).")
-    max_volume_size: Optional[StrictInt] = Field(default=None, description="MaxVolumeSize for one volume (in Gigabyte / GB).")
-    max_per_instance_size: Optional[StrictInt] = Field(default=None, description="MaxPerInstanceSize for all volumes on an instance (in Gigabyte / GB).")
-    __properties: ClassVar[List[str]] = ["max_total_size", "max_volume_size", "max_per_instance_size"]
+    """  # noqa: E501
+
+    max_total_size: Optional[StrictInt] = Field(
+        default=None,
+        description="MaxTotalSize for all volumes on a region (in Gigabyte / GB).",
+    )
+    max_volume_size: Optional[StrictInt] = Field(
+        default=None, description="MaxVolumeSize for one volume (in Gigabyte / GB)."
+    )
+    max_per_instance_size: Optional[StrictInt] = Field(
+        default=None,
+        description="MaxPerInstanceSize for all volumes on an instance (in Gigabyte / GB).",
+    )
+    __properties: ClassVar[List[str]] = [
+        "max_total_size",
+        "max_volume_size",
+        "max_per_instance_size",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -38,7 +52,6 @@ class PersistentVolumeQuotas(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,8 +76,7 @@ class PersistentVolumeQuotas(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -82,11 +94,11 @@ class PersistentVolumeQuotas(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "max_total_size": obj.get("max_total_size"),
-            "max_volume_size": obj.get("max_volume_size"),
-            "max_per_instance_size": obj.get("max_per_instance_size")
-        })
+        _obj = cls.model_validate(
+            {
+                "max_total_size": obj.get("max_total_size"),
+                "max_volume_size": obj.get("max_volume_size"),
+                "max_per_instance_size": obj.get("max_per_instance_size"),
+            }
+        )
         return _obj
-
-

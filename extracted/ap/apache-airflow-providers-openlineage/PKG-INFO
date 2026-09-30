@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: apache-airflow-providers-openlineage
-Version: 2.20.1
+Version: 2.20.2
 Summary: Provider package apache-airflow-providers-openlineage for Apache Airflow
 Keywords: airflow-provider,openlineage,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -31,8 +31,8 @@ Requires-Dist: openlineage-integration-common>=1.52.0
 Requires-Dist: openlineage-python>=1.52.0
 Requires-Dist: sqlalchemy>=1.4.54 ; extra == "sqlalchemy"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.20.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.20.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.20.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.20.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -67,7 +67,7 @@ Import-Namespace: airflow.providers
 
 Package ``apache-airflow-providers-openlineage``
 
-Release: ``2.20.1``
+Release: ``2.20.2``
 
 
 `OpenLineage <https://openlineage.io/docs/>`__ is an open framework for data lineage collection.
@@ -81,7 +81,7 @@ This is a provider package for ``openlineage`` provider. All classes for this pr
 are in ``airflow.providers.openlineage`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.20.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.20.2/>`_.
 
 Installation
 ------------
@@ -116,5 +116,5 @@ Extra           Dependencies
 ==============  ======================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.20.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.20.2/changelog.html>`_.
 

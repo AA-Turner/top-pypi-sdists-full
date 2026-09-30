@@ -100,7 +100,7 @@ async def agent_viewer_access(agent_id: str, user_id: str) -> bool:
     you can VIEW, you may duplicate and run — viewer-level access replaces every
     former ``is_public`` check. Builtins pass via the Matrx System org's
     ``global_readable`` lane; shares/org grants pass via their own lanes. ONE
-    source of truth — never re-implement visibility/org/grant semantics here.
+    source of truth — never re-implement access/org/grant semantics here.
     Fail-closed: any error reads as no access.
     """
     if not user_id:

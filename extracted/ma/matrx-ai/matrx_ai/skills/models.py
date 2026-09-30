@@ -1,7 +1,7 @@
 """Pydantic shapes for the skills system.
 
 Hard rules (SK-R*):
-    * SK-R1 — ``SkillConfig`` carries ONLY visibility tiers + disabled. No
+    * SK-R1 — ``SkillConfig`` carries ONLY exposure tiers + disabled. No
       priority, ordering, metadata, source-app. If you find yourself adding
       a field here, reread the plan.
     * SK-R10 — every id is a UUID. The string-form ``skill_id`` business
@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SkillTier(str, Enum):
-    """Per-agent visibility tier for a skill at request time."""
+    """Per-agent exposure tier for a skill at request time."""
 
     INCLUDED = "included"  # full body in system prompt
     LISTED = "listed"  # name + description in system prompt
@@ -96,7 +96,7 @@ class SkillBody(BaseModel):
 
 
 class SkillConfig(BaseModel):
-    """Per-agent visibility tiering. Loaded from ``agx_agent.skill_config``."""
+    """Per-agent exposure tiering. Loaded from ``agx_agent.skill_config``."""
 
     model_config = ConfigDict(extra="forbid")
 

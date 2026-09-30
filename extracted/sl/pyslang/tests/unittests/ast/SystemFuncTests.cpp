@@ -1252,6 +1252,7 @@ TEST_CASE("System call output args in disallowed context") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
     int i;
+    wire j;
     assign j = $ferror(i, i);
 endmodule
 )");
@@ -1926,6 +1927,7 @@ module m;
     end
 
     logic [1:4] in_mem[100];
+    wire i1, i2, i3, i4;
     assign {i1,i2,i3,i4} = $getpattern(in_mem[n]);
 
     initial begin
@@ -2435,4 +2437,107 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
     NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("$finish argument must be 0 1 or 2") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    initial $finish(3);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::BadFinishNum);
+}
+
+TEST_CASE("Invalid string argument to formatting function") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    real r;
+    string s;
+    initial s = $sformatf(r);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::InvalidStringArg);
+}
+
+TEST_CASE("$timeunit function requires newer language version") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    real t;
+    initial t = $timeunit;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::WrongLanguageVersion);
+    CHECK(diags[1].code == diag::IntFloatConv);
+}
+
+TEST_CASE("Iterator index on wildcard associative array") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int aa[*];
+    int r[$];
+    initial r = aa.find with (item.index > 0);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::AssociativeWildcardNotAllowed);
+}
+
+TEST_CASE("Invalid string argument to value plusargs") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    real r;
+    int x;
+    initial x = $value$plusargs(r, x);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::InvalidStringArg);
+}
+
+TEST_CASE("Invalid string argument to swrite and sformat") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    real r;
+    initial begin
+        $swrite(r, "x");
+        $sformat(r, "y");
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::InvalidStringArg);
+    CHECK(diags[1].code == diag::InvalidStringArg);
 }

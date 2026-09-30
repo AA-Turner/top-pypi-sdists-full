@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ListDatacentersReply(BaseModel):
     """
     ListDatacentersReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     datacenters: Optional[List[DatacenterListItem]] = None
     __properties: ClassVar[List[str]] = ["datacenters"]
 
@@ -37,7 +39,6 @@ class ListDatacentersReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class ListDatacentersReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -74,9 +74,12 @@ class ListDatacentersReply(BaseModel):
         _items = []
         if self.datacenters:
             for _item_datacenters in self.datacenters:
-                if _item_datacenters:
-                    _items.append(_item_datacenters.to_dict())
-            _dict['datacenters'] = _items
+                _items.append(
+                    _item_datacenters.to_dict()
+                    if _item_datacenters is not None
+                    else None
+                )
+            _dict["datacenters"] = _items
         return _dict
 
     @classmethod
@@ -88,9 +91,13 @@ class ListDatacentersReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "datacenters": [DatacenterListItem.from_dict(_item) for _item in obj["datacenters"]] if obj.get("datacenters") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "datacenters": [
+                    DatacenterListItem.from_dict(_item) for _item in obj["datacenters"]
+                ]
+                if obj.get("datacenters") is not None
+                else None
+            }
+        )
         return _obj
-
-

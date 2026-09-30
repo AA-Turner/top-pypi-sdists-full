@@ -14,6 +14,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_templated.hpp>
 #include <filesystem>
+#include <fmt/format.h>
 #include <initializer_list>
 
 #include "slang/ast/Compilation.h"
@@ -93,6 +94,25 @@ Token lexToken(std::string_view text,
 Token lexRawToken(std::string_view text);
 
 Bag optionsFor(LanguageVersion version);
+
+inline bool contains(std::string_view str, std::string_view value) {
+    return str.find(value) != std::string_view::npos;
+}
+
+// RAII helper for tests that need to create a temp file with some contents,
+// pass its path to a slang API, and have it cleaned up at the end of the test.
+class TempFile {
+public:
+    explicit TempFile(std::string_view contents, std::string_view extension = ".tmp");
+    ~TempFile();
+
+    TempFile(const TempFile&) = delete;
+    TempFile& operator=(const TempFile&) = delete;
+    TempFile(TempFile&&) = delete;
+    TempFile& operator=(TempFile&&) = delete;
+
+    fs::path path;
+};
 
 const ModuleDeclarationSyntax& parseModule(const std::string& text);
 const ClassDeclarationSyntax& parseClass(const std::string& text);

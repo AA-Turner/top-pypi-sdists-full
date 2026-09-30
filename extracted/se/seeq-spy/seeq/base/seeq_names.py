@@ -140,6 +140,7 @@ class SeeqNames:
         capsule_id_property = 'Capsule ID Property'
         path = 'Path'
         updated_at = 'Updated At'
+        last_activity = 'Last Activity'
         deleted_at = 'Deleted at'
         condition = 'Condition'
         kind = 'Kind'
@@ -349,12 +350,14 @@ class SeeqNames:
     
     class Models:
         instance_name_input_feature_name = 'SEEQ_MODEL_INSTANCE_NAME'
+        scoped_to_input_feature_name = 'SEEQ_MODEL_SCOPED_TO'
     
     class MaterializedTables:
         datum_id_column = 'datum id'
         item_id_column = 'item id'
         event_data_column = 'event data'
         publication_provenance_column = 'publication provenance'
+        source_scaling_table_id_column = 'source scaling table id'
         context_table_prefix = 'context_'
         context_creator_id_column = 'creator_id'
         context_updater_id_column = 'updater_id'

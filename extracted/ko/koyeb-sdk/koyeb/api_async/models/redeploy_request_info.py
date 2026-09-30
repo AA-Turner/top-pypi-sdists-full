@@ -23,15 +23,25 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class RedeployRequestInfo(BaseModel):
     """
     RedeployRequestInfo
-    """ # noqa: E501
+    """  # noqa: E501
+
     deployment_group: Optional[StrictStr] = None
     sha: Optional[StrictStr] = None
     use_cache: Optional[StrictBool] = None
-    skip_build: Optional[StrictBool] = Field(default=None, description="If set to true, the build stage will be skipped and the image coming from the last successful build step will be used instead. The call fails if no previous successful builds happened.")
-    __properties: ClassVar[List[str]] = ["deployment_group", "sha", "use_cache", "skip_build"]
+    skip_build: Optional[StrictBool] = Field(
+        default=None,
+        description="If set to true, the build stage will be skipped and the image coming from the last successful build step will be used instead. The call fails if no previous successful builds happened.",
+    )
+    __properties: ClassVar[List[str]] = [
+        "deployment_group",
+        "sha",
+        "use_cache",
+        "skip_build",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -39,7 +49,6 @@ class RedeployRequestInfo(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +73,7 @@ class RedeployRequestInfo(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,12 +91,12 @@ class RedeployRequestInfo(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "deployment_group": obj.get("deployment_group"),
-            "sha": obj.get("sha"),
-            "use_cache": obj.get("use_cache"),
-            "skip_build": obj.get("skip_build")
-        })
+        _obj = cls.model_validate(
+            {
+                "deployment_group": obj.get("deployment_group"),
+                "sha": obj.get("sha"),
+                "use_cache": obj.get("use_cache"),
+                "skip_build": obj.get("skip_build"),
+            }
+        )
         return _obj
-
-

@@ -1,5 +1,6 @@
 from chalk._gen.buf.validate import validate_pb2 as _validate_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -697,6 +698,65 @@ class GetVolumeResponse(_message.Message):
         version: _Optional[_Union[VersionInfo, _Mapping]] = ...,
     ) -> None: ...
 
+class VolumeStats(_message.Message):
+    __slots__ = (
+        "logical_bytes",
+        "file_count",
+        "directory_count",
+        "symlink_count",
+        "other_file_count",
+        "total_physical_bytes",
+        "total_physical_object_count",
+    )
+    LOGICAL_BYTES_FIELD_NUMBER: _ClassVar[int]
+    FILE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    DIRECTORY_COUNT_FIELD_NUMBER: _ClassVar[int]
+    SYMLINK_COUNT_FIELD_NUMBER: _ClassVar[int]
+    OTHER_FILE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_PHYSICAL_BYTES_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_PHYSICAL_OBJECT_COUNT_FIELD_NUMBER: _ClassVar[int]
+    logical_bytes: int
+    file_count: int
+    directory_count: int
+    symlink_count: int
+    other_file_count: int
+    total_physical_bytes: int
+    total_physical_object_count: int
+    def __init__(
+        self,
+        logical_bytes: _Optional[int] = ...,
+        file_count: _Optional[int] = ...,
+        directory_count: _Optional[int] = ...,
+        symlink_count: _Optional[int] = ...,
+        other_file_count: _Optional[int] = ...,
+        total_physical_bytes: _Optional[int] = ...,
+        total_physical_object_count: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetVolumeStatsRequest(_message.Message):
+    __slots__ = ("volume", "selector")
+    VOLUME_FIELD_NUMBER: _ClassVar[int]
+    SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    volume: VolumeRef
+    selector: VersionSelector
+    def __init__(
+        self,
+        volume: _Optional[_Union[VolumeRef, _Mapping]] = ...,
+        selector: _Optional[_Union[VersionSelector, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetVolumeStatsResponse(_message.Message):
+    __slots__ = ("stats", "version")
+    STATS_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    stats: VolumeStats
+    version: VersionInfo
+    def __init__(
+        self,
+        stats: _Optional[_Union[VolumeStats, _Mapping]] = ...,
+        version: _Optional[_Union[VersionInfo, _Mapping]] = ...,
+    ) -> None: ...
+
 class ListVolumesRequest(_message.Message):
     __slots__ = ("limit", "cursor", "name_prefix", "volume_kind")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
@@ -716,13 +776,24 @@ class ListVolumesRequest(_message.Message):
     ) -> None: ...
 
 class ListedVolume(_message.Message):
-    __slots__ = ("name", "created_at")
+    __slots__ = ("name", "created_at", "volume_id", "state", "volume_kind")
     NAME_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_ID_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_KIND_FIELD_NUMBER: _ClassVar[int]
     name: str
     created_at: _timestamp_pb2.Timestamp
+    volume_id: str
+    state: str
+    volume_kind: VolumeKind
     def __init__(
-        self, name: _Optional[str] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...
+        self,
+        name: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        volume_id: _Optional[str] = ...,
+        state: _Optional[str] = ...,
+        volume_kind: _Optional[_Union[VolumeKind, str]] = ...,
     ) -> None: ...
 
 class ListVolumesResponse(_message.Message):
@@ -935,6 +1006,72 @@ class ListFilesResponse(_message.Message):
         files: _Optional[_Iterable[_Union[FileInfo, _Mapping]]] = ...,
         next_cursor: _Optional[str] = ...,
         version: _Optional[_Union[VersionInfo, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListMountFilesRequest(_message.Message):
+    __slots__ = ("mounts", "path", "recursive", "limit", "cursor")
+    MOUNTS_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    RECURSIVE_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    mounts: _containers.RepeatedCompositeFieldContainer[_service_pb2.VolumeMount]
+    path: str
+    recursive: bool
+    limit: int
+    cursor: str
+    def __init__(
+        self,
+        mounts: _Optional[_Iterable[_Union[_service_pb2.VolumeMount, _Mapping]]] = ...,
+        path: _Optional[str] = ...,
+        recursive: bool = ...,
+        limit: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
+    ) -> None: ...
+
+class MountFileInfo(_message.Message):
+    __slots__ = ("file", "mount_index", "volume_path")
+    FILE_FIELD_NUMBER: _ClassVar[int]
+    MOUNT_INDEX_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_PATH_FIELD_NUMBER: _ClassVar[int]
+    file: FileInfo
+    mount_index: int
+    volume_path: str
+    def __init__(
+        self,
+        file: _Optional[_Union[FileInfo, _Mapping]] = ...,
+        mount_index: _Optional[int] = ...,
+        volume_path: _Optional[str] = ...,
+    ) -> None: ...
+
+class ResolvedMount(_message.Message):
+    __slots__ = ("mount_index", "volume", "version")
+    MOUNT_INDEX_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    mount_index: int
+    volume: VolumeRef
+    version: VersionInfo
+    def __init__(
+        self,
+        mount_index: _Optional[int] = ...,
+        volume: _Optional[_Union[VolumeRef, _Mapping]] = ...,
+        version: _Optional[_Union[VersionInfo, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListMountFilesResponse(_message.Message):
+    __slots__ = ("files", "next_cursor", "mounts")
+    FILES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    MOUNTS_FIELD_NUMBER: _ClassVar[int]
+    files: _containers.RepeatedCompositeFieldContainer[MountFileInfo]
+    next_cursor: str
+    mounts: _containers.RepeatedCompositeFieldContainer[ResolvedMount]
+    def __init__(
+        self,
+        files: _Optional[_Iterable[_Union[MountFileInfo, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
+        mounts: _Optional[_Iterable[_Union[ResolvedMount, _Mapping]]] = ...,
     ) -> None: ...
 
 class GetFileRequest(_message.Message):

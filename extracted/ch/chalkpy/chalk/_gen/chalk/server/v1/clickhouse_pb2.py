@@ -14,11 +14,14 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as chalk_dot_chart_dot_v1_dot_densetimeserieschart__pb2
 from chalk._gen.chalk.utils.v1 import sensitive_pb2 as chalk_dot_utils_dot_v1_dot_sensitive__pb2
+from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n chalk/server/v1/clickhouse.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto"y\n\x17GetClickhouseUriRequest\x12\x1a\n\x06\x65nv_id\x18\x01 \x01(\tH\x00R\x05\x65nvId\x88\x01\x01\x12&\n\x0c\x63luster_name\x18\x02 \x01(\tH\x01R\x0b\x63lusterName\x88\x01\x01\x42\t\n\x07_env_idB\x0f\n\r_cluster_name"\x85\x01\n\x18GetClickhouseUriResponse\x12\x18\n\x03uri\x18\x01 \x01(\tB\x06\x18\x01\xd8\xa1\'\x01R\x03uri\x12\x1a\n\x08username\x18\x02 \x01(\tR\x08username\x12\x12\n\x04host\x18\x03 \x01(\tR\x04host\x12\x1f\n\x0bsecret_name\x18\x04 \x01(\tR\nsecretName"^\n\x08OtelTtls\x12&\n\x0flog_ttl_minutes\x18\x01 \x01(\x05R\rlogTtlMinutes\x12*\n\x11trace_ttl_minutes\x18\x02 \x01(\x05R\x0ftraceTtlMinutes"\xa6\x01\n\x1cSetClickhouseOtelTtlsRequest\x12+\n\x0flog_ttl_minutes\x18\x01 \x01(\x05H\x00R\rlogTtlMinutes\x88\x01\x01\x12/\n\x11trace_ttl_minutes\x18\x02 \x01(\x05H\x01R\x0ftraceTtlMinutes\x88\x01\x01\x42\x12\n\x10_log_ttl_minutesB\x14\n\x12_trace_ttl_minutes"N\n\x1dSetClickhouseOtelTtlsResponse\x12-\n\x04ttls\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.OtelTtlsR\x04ttls"\x1e\n\x1cGetClickhouseOtelTtlsRequest"N\n\x1dGetClickhouseOtelTtlsResponse\x12-\n\x04ttls\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.OtelTtlsR\x04ttls"_\n\x15\x43lickhouseStorageSpec\x12\x18\n\x07storage\x18\x01 \x01(\tR\x07storage\x12,\n\x12storage_class_name\x18\x02 \x01(\tR\x10storageClassName"\x95\x01\n\x1a\x43lickhouseOtelTableStorage\x12\x1a\n\x08\x64\x61tabase\x18\x01 \x01(\tR\x08\x64\x61tabase\x12\x14\n\x05table\x18\x02 \x01(\tR\x05table\x12\x12\n\x04size\x18\x03 \x01(\tR\x04size\x12\x1d\n\nsize_bytes\x18\x04 \x01(\x04R\tsizeBytes\x12\x12\n\x04rows\x18\x05 \x01(\x04R\x04rows"\x1a\n\x18GetClickhouseInfoRequest"\xfb\x01\n\x19GetClickhouseInfoResponse\x12-\n\x04ttls\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.OtelTtlsR\x04ttls\x12@\n\x07storage\x18\x02 \x01(\x0b\x32&.chalk.server.v1.ClickhouseStorageSpecR\x07storage\x12\x43\n\x06tables\x18\x03 \x03(\x0b\x32+.chalk.server.v1.ClickhouseOtelTableStorageR\x06tables\x12(\n\x10total_size_bytes\x18\x04 \x01(\x04R\x0etotalSizeBytes2\xf5\x03\n\x11\x43lickhouseService\x12o\n\x10GetClickhouseUri\x12(.chalk.server.v1.GetClickhouseUriRequest\x1a).chalk.server.v1.GetClickhouseUriResponse"\x06\x90\x02\x01\x80}\x0b\x12~\n\x15GetClickhouseOtelTtls\x12-.chalk.server.v1.GetClickhouseOtelTtlsRequest\x1a..chalk.server.v1.GetClickhouseOtelTtlsResponse"\x06\x90\x02\x01\x80}\x0b\x12{\n\x15SetClickhouseOtelTtls\x12-.chalk.server.v1.SetClickhouseOtelTtlsRequest\x1a..chalk.server.v1.SetClickhouseOtelTtlsResponse"\x03\x80}\x0b\x12r\n\x11GetClickhouseInfo\x12).chalk.server.v1.GetClickhouseInfoRequest\x1a*.chalk.server.v1.GetClickhouseInfoResponse"\x06\x90\x02\x01\x80}\x0b\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0f\x43lickhouseProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n chalk/server/v1/clickhouse.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a)chalk/chart/v1/densetimeserieschart.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"y\n\x17GetClickhouseUriRequest\x12\x1a\n\x06\x65nv_id\x18\x01 \x01(\tH\x00R\x05\x65nvId\x88\x01\x01\x12&\n\x0c\x63luster_name\x18\x02 \x01(\tH\x01R\x0b\x63lusterName\x88\x01\x01\x42\t\n\x07_env_idB\x0f\n\r_cluster_name"\x85\x01\n\x18GetClickhouseUriResponse\x12\x18\n\x03uri\x18\x01 \x01(\tB\x06\x18\x01\xd8\xa1\'\x01R\x03uri\x12\x1a\n\x08username\x18\x02 \x01(\tR\x08username\x12\x12\n\x04host\x18\x03 \x01(\tR\x04host\x12\x1f\n\x0bsecret_name\x18\x04 \x01(\tR\nsecretName"^\n\x08OtelTtls\x12&\n\x0flog_ttl_minutes\x18\x01 \x01(\x05R\rlogTtlMinutes\x12*\n\x11trace_ttl_minutes\x18\x02 \x01(\x05R\x0ftraceTtlMinutes"\xa6\x01\n\x1cSetClickhouseOtelTtlsRequest\x12+\n\x0flog_ttl_minutes\x18\x01 \x01(\x05H\x00R\rlogTtlMinutes\x88\x01\x01\x12/\n\x11trace_ttl_minutes\x18\x02 \x01(\x05H\x01R\x0ftraceTtlMinutes\x88\x01\x01\x42\x12\n\x10_log_ttl_minutesB\x14\n\x12_trace_ttl_minutes"N\n\x1dSetClickhouseOtelTtlsResponse\x12-\n\x04ttls\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.OtelTtlsR\x04ttls"\x1e\n\x1cGetClickhouseOtelTtlsRequest"N\n\x1dGetClickhouseOtelTtlsResponse\x12-\n\x04ttls\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.OtelTtlsR\x04ttls"_\n\x15\x43lickhouseStorageSpec\x12\x18\n\x07storage\x18\x01 \x01(\tR\x07storage\x12,\n\x12storage_class_name\x18\x02 \x01(\tR\x10storageClassName"\x95\x01\n\x1a\x43lickhouseOtelTableStorage\x12\x1a\n\x08\x64\x61tabase\x18\x01 \x01(\tR\x08\x64\x61tabase\x12\x14\n\x05table\x18\x02 \x01(\tR\x05table\x12\x12\n\x04size\x18\x03 \x01(\tR\x04size\x12\x1d\n\nsize_bytes\x18\x04 \x01(\x04R\tsizeBytes\x12\x12\n\x04rows\x18\x05 \x01(\x04R\x04rows"\x9e\x01\n\x19\x43lickhousePartitionVolume\x12\x1c\n\tpartition\x18\x01 \x01(\tR\tpartition\x12\x1a\n\x08\x64\x61tabase\x18\x02 \x01(\tR\x08\x64\x61tabase\x12\x14\n\x05table\x18\x03 \x01(\tR\x05table\x12\x1d\n\nsize_bytes\x18\x04 \x01(\x04R\tsizeBytes\x12\x12\n\x04rows\x18\x05 \x01(\x04R\x04rows"\xa0\x01\n\x13\x43lickhouseDiskUsage\x12\x1f\n\x0btotal_bytes\x18\x01 \x01(\x04R\ntotalBytes\x12\x1d\n\nfree_bytes\x18\x02 \x01(\x04R\tfreeBytes\x12\x1d\n\nused_ratio\x18\x03 \x01(\x01R\tusedRatio\x12*\n\x11target_used_ratio\x18\x04 \x01(\x01R\x0ftargetUsedRatio"\x1a\n\x18GetClickhouseInfoRequest"\xfc\x07\n\x19GetClickhouseInfoResponse\x12-\n\x04ttls\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.OtelTtlsR\x04ttls\x12@\n\x07storage\x18\x02 \x01(\x0b\x32&.chalk.server.v1.ClickhouseStorageSpecR\x07storage\x12\x43\n\x06tables\x18\x03 \x03(\x0b\x32+.chalk.server.v1.ClickhouseOtelTableStorageR\x06tables\x12(\n\x10total_size_bytes\x18\x04 \x01(\x04R\x0etotalSizeBytes\x12\x46\n\tresources\x18\x05 \x01(\x0b\x32(.chalk.server.v1.ClickhouseResourceUsageR\tresources\x12O\n\x10latest_migration\x18\x06 \x01(\x0b\x32$.chalk.server.v1.ClickhouseMigrationR\x0flatestMigration\x12Q\n\x0finsert_failures\x18\x07 \x03(\x0b\x32(.chalk.server.v1.ClickhouseInsertFailureR\x0einsertFailures\x12\'\n\x0fresources_error\x18\x08 \x01(\tR\x0eresourcesError\x12\x34\n\x16latest_migration_error\x18\t \x01(\tR\x14latestMigrationError\x12\x32\n\x15insert_failures_error\x18\n \x01(\tR\x13insertFailuresError\x12\x45\n\x1finsert_failure_lookback_minutes\x18\x0b \x01(\x05R\x1cinsertFailureLookbackMinutes\x12Q\n\x0elog_partitions\x18\x0c \x03(\x0b\x32*.chalk.server.v1.ClickhousePartitionVolumeR\rlogPartitions\x12U\n\x10trace_partitions\x18\r \x03(\x0b\x32*.chalk.server.v1.ClickhousePartitionVolumeR\x0ftracePartitions\x12\x36\n\x17partition_volumes_error\x18\x0e \x01(\tR\x15partitionVolumesError\x12\x38\n\x04\x64isk\x18\x0f \x01(\x0b\x32$.chalk.server.v1.ClickhouseDiskUsageR\x04\x64isk\x12\x1d\n\ndisk_error\x18\x10 \x01(\tR\tdiskError"\xfc\x01\n\x17\x43lickhouseResourceUsage\x12\x19\n\x08pod_name\x18\x01 \x01(\tR\x07podName\x12\x1b\n\tcpu_usage\x18\x02 \x01(\tR\x08\x63puUsage\x12\x1f\n\x0b\x63pu_request\x18\x03 \x01(\tR\ncpuRequest\x12\x1b\n\tcpu_limit\x18\x04 \x01(\tR\x08\x63puLimit\x12!\n\x0cmemory_usage\x18\x05 \x01(\tR\x0bmemoryUsage\x12%\n\x0ememory_request\x18\x06 \x01(\tR\rmemoryRequest\x12!\n\x0cmemory_limit\x18\x07 \x01(\tR\x0bmemoryLimit"N\n\x13\x43lickhouseMigration\x12\x18\n\x07version\x18\x01 \x01(\x03R\x07version\x12\x1d\n\napplied_at\x18\x02 \x01(\tR\tappliedAt"\x95\x01\n\x17\x43lickhouseInsertFailure\x12\x1d\n\nevent_time\x18\x01 \x01(\tR\teventTime\x12\x16\n\x06tables\x18\x02 \x01(\tR\x06tables\x12%\n\x0e\x65xception_code\x18\x03 \x01(\x05R\rexceptionCode\x12\x1c\n\texception\x18\x04 \x01(\tR\texception"\xa2\x03\n\x12\x43lickhouseSlowRead\x12\x1d\n\nevent_time\x18\x01 \x01(\tR\teventTime\x12*\n\x11query_duration_ms\x18\x02 \x01(\x04R\x0fqueryDurationMs\x12\x1b\n\tread_rows\x18\x03 \x01(\x04R\x08readRows\x12\x1d\n\nread_bytes\x18\x04 \x01(\x04R\treadBytes\x12\x1f\n\x0bresult_rows\x18\x05 \x01(\x04R\nresultRows\x12*\n\x11peak_memory_bytes\x18\x06 \x01(\x04R\x0fpeakMemoryBytes\x12%\n\x0eselected_marks\x18\x07 \x01(\x04R\rselectedMarks\x12\x32\n\x15\x63pu_time_microseconds\x18\x08 \x01(\x04R\x13\x63puTimeMicroseconds\x12\x32\n\x15normalized_query_hash\x18\t \x01(\tR\x13normalizedQueryHash\x12)\n\x10normalized_query\x18\n \x01(\tR\x0fnormalizedQuery"\xa7\x02\n\x16\x43lickhouseTtlAlignment\x12\x1a\n\x08\x64\x61tabase\x18\x01 \x01(\tR\x08\x64\x61tabase\x12\x14\n\x05table\x18\x02 \x01(\tR\x05table\x12\x34\n\x16\x63onfigured_ttl_minutes\x18\x03 \x01(\x05R\x14\x63onfiguredTtlMinutes\x12\x37\n\x15\x65\x66\x66\x65\x63tive_ttl_minutes\x18\x04 \x01(\x05H\x00R\x13\x65\x66\x66\x65\x63tiveTtlMinutes\x88\x01\x01\x12\x38\n\x18\x65\x66\x66\x65\x63tive_ttl_expression\x18\x05 \x01(\tR\x16\x65\x66\x66\x65\x63tiveTtlExpression\x12\x18\n\x07\x61ligned\x18\x06 \x01(\x08R\x07\x61lignedB\x18\n\x16_effective_ttl_minutes"\xc7\x01\n$GetClickhouseRetentionHistoryRequest\x12\x39\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartTime\x12\x35\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65ndTime\x12-\n\x04step\x18\x03 \x01(\x0b\x32\x19.google.protobuf.DurationR\x04step"\xb9\x04\n%GetClickhouseRetentionHistoryResponse\x12\x42\n\tretention\x18\x01 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\tretention\x12O\n\x10\x64isk_utilization\x18\x02 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\x0f\x64iskUtilization\x12\x36\n\x03\x63pu\x18\x03 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\x03\x63pu\x12<\n\x06memory\x18\x04 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\x06memory\x12:\n\x05parts\x18\x05 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\x05parts\x12\x46\n\x0b\x63oncurrency\x18\x06 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\x0b\x63oncurrency\x12\x43\n\nquery_rate\x18\x07 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\tqueryRate\x12<\n\x06ingest\x18\x08 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\x06ingest"&\n$GetClickhouseAdminDiagnosticsRequest"\xd4\x02\n%GetClickhouseAdminDiagnosticsResponse\x12\x42\n\nslow_reads\x18\x01 \x03(\x0b\x32#.chalk.server.v1.ClickhouseSlowReadR\tslowReads\x12N\n\x0ettl_alignments\x18\x02 \x03(\x0b\x32\'.chalk.server.v1.ClickhouseTtlAlignmentR\rttlAlignments\x12;\n\x1aslow_read_lookback_minutes\x18\x03 \x01(\x05R\x17slowReadLookbackMinutes\x12(\n\x10slow_reads_error\x18\x04 \x01(\tR\x0eslowReadsError\x12\x30\n\x14ttl_alignments_error\x18\x05 \x01(\tR\x12ttlAlignmentsError2\xa7\x06\n\x11\x43lickhouseService\x12o\n\x10GetClickhouseUri\x12(.chalk.server.v1.GetClickhouseUriRequest\x1a).chalk.server.v1.GetClickhouseUriResponse"\x06\x90\x02\x01\x80}\x0b\x12~\n\x15GetClickhouseOtelTtls\x12-.chalk.server.v1.GetClickhouseOtelTtlsRequest\x1a..chalk.server.v1.GetClickhouseOtelTtlsResponse"\x06\x90\x02\x01\x80}\x0b\x12{\n\x15SetClickhouseOtelTtls\x12-.chalk.server.v1.SetClickhouseOtelTtlsRequest\x1a..chalk.server.v1.SetClickhouseOtelTtlsResponse"\x03\x80}\n\x12r\n\x11GetClickhouseInfo\x12).chalk.server.v1.GetClickhouseInfoRequest\x1a*.chalk.server.v1.GetClickhouseInfoResponse"\x06\x90\x02\x01\x80}\x0b\x12\x96\x01\n\x1dGetClickhouseRetentionHistory\x12\x35.chalk.server.v1.GetClickhouseRetentionHistoryRequest\x1a\x36.chalk.server.v1.GetClickhouseRetentionHistoryResponse"\x06\x90\x02\x01\x80}\x0b\x12\x96\x01\n\x1dGetClickhouseAdminDiagnostics\x12\x35.chalk.server.v1.GetClickhouseAdminDiagnosticsRequest\x1a\x36.chalk.server.v1.GetClickhouseAdminDiagnosticsResponse"\x06\x90\x02\x01\x80}\x1b\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0f\x43lickhouseProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -38,31 +41,61 @@ if _descriptor._USE_C_DESCRIPTORS == False:
         "GetClickhouseOtelTtls"
     ]._serialized_options = b"\220\002\001\200}\013"
     _globals["_CLICKHOUSESERVICE"].methods_by_name["SetClickhouseOtelTtls"]._options = None
-    _globals["_CLICKHOUSESERVICE"].methods_by_name["SetClickhouseOtelTtls"]._serialized_options = b"\200}\013"
+    _globals["_CLICKHOUSESERVICE"].methods_by_name["SetClickhouseOtelTtls"]._serialized_options = b"\200}\n"
     _globals["_CLICKHOUSESERVICE"].methods_by_name["GetClickhouseInfo"]._options = None
     _globals["_CLICKHOUSESERVICE"].methods_by_name["GetClickhouseInfo"]._serialized_options = b"\220\002\001\200}\013"
-    _globals["_GETCLICKHOUSEURIREQUEST"]._serialized_start = 118
-    _globals["_GETCLICKHOUSEURIREQUEST"]._serialized_end = 239
-    _globals["_GETCLICKHOUSEURIRESPONSE"]._serialized_start = 242
-    _globals["_GETCLICKHOUSEURIRESPONSE"]._serialized_end = 375
-    _globals["_OTELTTLS"]._serialized_start = 377
-    _globals["_OTELTTLS"]._serialized_end = 471
-    _globals["_SETCLICKHOUSEOTELTTLSREQUEST"]._serialized_start = 474
-    _globals["_SETCLICKHOUSEOTELTTLSREQUEST"]._serialized_end = 640
-    _globals["_SETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_start = 642
-    _globals["_SETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_end = 720
-    _globals["_GETCLICKHOUSEOTELTTLSREQUEST"]._serialized_start = 722
-    _globals["_GETCLICKHOUSEOTELTTLSREQUEST"]._serialized_end = 752
-    _globals["_GETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_start = 754
-    _globals["_GETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_end = 832
-    _globals["_CLICKHOUSESTORAGESPEC"]._serialized_start = 834
-    _globals["_CLICKHOUSESTORAGESPEC"]._serialized_end = 929
-    _globals["_CLICKHOUSEOTELTABLESTORAGE"]._serialized_start = 932
-    _globals["_CLICKHOUSEOTELTABLESTORAGE"]._serialized_end = 1081
-    _globals["_GETCLICKHOUSEINFOREQUEST"]._serialized_start = 1083
-    _globals["_GETCLICKHOUSEINFOREQUEST"]._serialized_end = 1109
-    _globals["_GETCLICKHOUSEINFORESPONSE"]._serialized_start = 1112
-    _globals["_GETCLICKHOUSEINFORESPONSE"]._serialized_end = 1363
-    _globals["_CLICKHOUSESERVICE"]._serialized_start = 1366
-    _globals["_CLICKHOUSESERVICE"]._serialized_end = 1867
+    _globals["_CLICKHOUSESERVICE"].methods_by_name["GetClickhouseRetentionHistory"]._options = None
+    _globals["_CLICKHOUSESERVICE"].methods_by_name[
+        "GetClickhouseRetentionHistory"
+    ]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_CLICKHOUSESERVICE"].methods_by_name["GetClickhouseAdminDiagnostics"]._options = None
+    _globals["_CLICKHOUSESERVICE"].methods_by_name[
+        "GetClickhouseAdminDiagnostics"
+    ]._serialized_options = b"\220\002\001\200}\033"
+    _globals["_GETCLICKHOUSEURIREQUEST"]._serialized_start = 226
+    _globals["_GETCLICKHOUSEURIREQUEST"]._serialized_end = 347
+    _globals["_GETCLICKHOUSEURIRESPONSE"]._serialized_start = 350
+    _globals["_GETCLICKHOUSEURIRESPONSE"]._serialized_end = 483
+    _globals["_OTELTTLS"]._serialized_start = 485
+    _globals["_OTELTTLS"]._serialized_end = 579
+    _globals["_SETCLICKHOUSEOTELTTLSREQUEST"]._serialized_start = 582
+    _globals["_SETCLICKHOUSEOTELTTLSREQUEST"]._serialized_end = 748
+    _globals["_SETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_start = 750
+    _globals["_SETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_end = 828
+    _globals["_GETCLICKHOUSEOTELTTLSREQUEST"]._serialized_start = 830
+    _globals["_GETCLICKHOUSEOTELTTLSREQUEST"]._serialized_end = 860
+    _globals["_GETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_start = 862
+    _globals["_GETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_end = 940
+    _globals["_CLICKHOUSESTORAGESPEC"]._serialized_start = 942
+    _globals["_CLICKHOUSESTORAGESPEC"]._serialized_end = 1037
+    _globals["_CLICKHOUSEOTELTABLESTORAGE"]._serialized_start = 1040
+    _globals["_CLICKHOUSEOTELTABLESTORAGE"]._serialized_end = 1189
+    _globals["_CLICKHOUSEPARTITIONVOLUME"]._serialized_start = 1192
+    _globals["_CLICKHOUSEPARTITIONVOLUME"]._serialized_end = 1350
+    _globals["_CLICKHOUSEDISKUSAGE"]._serialized_start = 1353
+    _globals["_CLICKHOUSEDISKUSAGE"]._serialized_end = 1513
+    _globals["_GETCLICKHOUSEINFOREQUEST"]._serialized_start = 1515
+    _globals["_GETCLICKHOUSEINFOREQUEST"]._serialized_end = 1541
+    _globals["_GETCLICKHOUSEINFORESPONSE"]._serialized_start = 1544
+    _globals["_GETCLICKHOUSEINFORESPONSE"]._serialized_end = 2564
+    _globals["_CLICKHOUSERESOURCEUSAGE"]._serialized_start = 2567
+    _globals["_CLICKHOUSERESOURCEUSAGE"]._serialized_end = 2819
+    _globals["_CLICKHOUSEMIGRATION"]._serialized_start = 2821
+    _globals["_CLICKHOUSEMIGRATION"]._serialized_end = 2899
+    _globals["_CLICKHOUSEINSERTFAILURE"]._serialized_start = 2902
+    _globals["_CLICKHOUSEINSERTFAILURE"]._serialized_end = 3051
+    _globals["_CLICKHOUSESLOWREAD"]._serialized_start = 3054
+    _globals["_CLICKHOUSESLOWREAD"]._serialized_end = 3472
+    _globals["_CLICKHOUSETTLALIGNMENT"]._serialized_start = 3475
+    _globals["_CLICKHOUSETTLALIGNMENT"]._serialized_end = 3770
+    _globals["_GETCLICKHOUSERETENTIONHISTORYREQUEST"]._serialized_start = 3773
+    _globals["_GETCLICKHOUSERETENTIONHISTORYREQUEST"]._serialized_end = 3972
+    _globals["_GETCLICKHOUSERETENTIONHISTORYRESPONSE"]._serialized_start = 3975
+    _globals["_GETCLICKHOUSERETENTIONHISTORYRESPONSE"]._serialized_end = 4544
+    _globals["_GETCLICKHOUSEADMINDIAGNOSTICSREQUEST"]._serialized_start = 4546
+    _globals["_GETCLICKHOUSEADMINDIAGNOSTICSREQUEST"]._serialized_end = 4584
+    _globals["_GETCLICKHOUSEADMINDIAGNOSTICSRESPONSE"]._serialized_start = 4587
+    _globals["_GETCLICKHOUSEADMINDIAGNOSTICSRESPONSE"]._serialized_end = 4927
+    _globals["_CLICKHOUSESERVICE"]._serialized_start = 4930
+    _globals["_CLICKHOUSESERVICE"]._serialized_end = 5737
 # @@protoc_insertion_point(module_scope)

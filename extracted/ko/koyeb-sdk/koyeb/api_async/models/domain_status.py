@@ -26,15 +26,13 @@ class DomainStatus(str, Enum):
     """
     allowed enum values
     """
-    PENDING = 'PENDING'
-    ACTIVE = 'ACTIVE'
-    ERROR = 'ERROR'
-    DELETING = 'DELETING'
-    DELETED = 'DELETED'
+    PENDING = "PENDING"
+    ACTIVE = "ACTIVE"
+    ERROR = "ERROR"
+    DELETING = "DELETING"
+    DELETED = "DELETED"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of DomainStatus from a JSON string"""
         return cls(json.loads(json_str))
-
-

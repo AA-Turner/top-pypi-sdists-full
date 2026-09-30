@@ -6,15 +6,20 @@ build-backend = "setuptools.build_meta"
 name = "MultiPyVu"
 dynamic = [
     "version",
-    "description",
     "requires-python",
-    "dependencies",
     ]
 authors = [{name = "Damon D Jackson", email = "djackson@qdusa.com"}]
 maintainers = [
     { name = "Quantum Design, Inc.", email = "apps@qdusa.com" },
     ]
 readme = "README.md"
+description = "Control MultiVu using Python"
+dependencies = [
+    "pandas",
+    "pywin32>=300; platform_system=='Windows'",
+    "pillow",
+    "pyyaml",
+    ]
 license = "MIT"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -38,3 +43,6 @@ keywords = [
 [project.urls]
 "Quantum Design" = "https://qdusa.com"
 "Pharos" = "https://www.qdusa.com/register/account/login"
+
+[tool.setuptools.dynamic]
+version = {attr = "MultiPyVu.__version.__version__"}

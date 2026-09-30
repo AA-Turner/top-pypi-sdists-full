@@ -5,8 +5,8 @@
 
 FetchContent_Declare(
   mcss
-  URL https://github.com/MikePopoloski/m.css/releases/download/release-12/mcss.zip
-  URL_HASH MD5=6af2b951464c89f72172b06e39c2fd66
+  URL https://github.com/MikePopoloski/m.css/releases/download/release-13/mcss.zip
+  URL_HASH MD5=685c8870671380a8b9fd1d1cc08103cd
   SOURCE_DIR "${PROJECT_BINARY_DIR}/mcss"
   UPDATE_DISCONNECTED YES)
 FetchContent_MakeAvailable(mcss)
@@ -24,6 +24,7 @@ set(DOXYGEN_INPUT_DIR_LIST
 set(DOXYGEN_EXAMPLE_DIR_LIST
     "${PROJECT_SOURCE_DIR}/tools/hier/README.md"
     "${PROJECT_SOURCE_DIR}/tools/reflect/README.md"
+    "${PROJECT_SOURCE_DIR}/tools/slang-unifdef/README.md"
     "${PROJECT_SOURCE_DIR}/tools/rewriter/README.md"
     "${PROJECT_SOURCE_DIR}/tools/threadtest/README.md"
     "${PROJECT_SOURCE_DIR}/tools/tidy/README.md")

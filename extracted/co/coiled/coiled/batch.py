@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import shlex
 import time
+from contextlib import nullcontext
 
 from aiohttp import ServerDisconnectedError
+from typing_extensions import Literal
 
 import coiled
 from coiled.cli.curl import sync_request
@@ -15,6 +17,7 @@ def run(
     *,
     name: str | None = None,
     workspace: str | None = None,
+    cloud: coiled.Cloud[Literal[False]] | None = None,
     software: str | None = None,
     container: str | None = None,
     run_on_host: bool | None = None,
@@ -64,6 +67,11 @@ def run(
 
     Additional Parameters
     ---------------------
+    cloud
+        Authenticated Coiled Cloud client to use for this submission. If not
+        provided, a client is created from the current Coiled configuration.
+        The client's default workspace is used. ``cloud`` and ``workspace``
+        are mutually exclusive.
     map_over_task_var_dicts
         takes a list of dictionaries, so you can specify multiple environment variables for each task.
         For example, ``[{"FOO": 1, "BAR": 2}, {"FOO": 3, "BAR": 4}]`` will pass ``FOO=1 BAR=2`` to one task and
@@ -80,6 +88,9 @@ def run(
     secret_env = dict_to_key_val_list(secret_env)
     tag = dict_to_key_val_list(tag)
     vm_type = [vm_type] if isinstance(vm_type, str) else vm_type
+
+    if cloud is not None and workspace is not None:
+        raise ValueError("cloud and workspace are mutually exclusive")
 
     kwargs = dict(
         name=name,
@@ -144,25 +155,32 @@ def run(
         **default_kwargs,
     }
 
-    success = True
-    exception = None
-    try:
-        return _batch_run(default_kwargs, **kwargs)
-    except Exception as e:
-        success = False
-        exception = e
-        raise
-    finally:
-        coiled.add_interaction(
-            "coiled-batch-python",
-            success=success,
-            **error_info_for_tracking(exception),
-        )
+    with coiled.Cloud(workspace=workspace) if cloud is None else nullcontext(cloud) as cloud:
+        success = True
+        exception = None
+        try:
+            return _batch_run(default_kwargs, cloud=cloud, **kwargs)
+        except Exception as e:
+            success = False
+            exception = e
+            raise
+        finally:
+            tracking_info = error_info_for_tracking(exception)
+            _ = cloud.add_interaction(
+                action="coiled-batch-python",
+                success=success,
+                error_message=tracking_info.pop("error_message", None),
+                additional_data=tracking_info or None,
+            )
 
 
-def wait_for_job_done(job_id: int, timeout: int | None = None) -> str | None:
+def wait_for_job_done(
+    job_id: int,
+    timeout: int | None = None,
+    cloud: coiled.Cloud[Literal[False]] | None = None,
+) -> str | None:
     timeout_at = time.monotonic() + timeout if timeout is not None else None
-    with coiled.Cloud() as cloud:
+    with coiled.Cloud() if cloud is None else nullcontext(cloud) as cloud:
         url = f"{cloud.server}/api/v2/jobs/{job_id}"
         while timeout_at is None or time.monotonic() < timeout_at:
             try:

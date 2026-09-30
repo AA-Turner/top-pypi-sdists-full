@@ -109,6 +109,7 @@ class KubernetesDeployment(_message.Message):
         "status",
         "match_labels",
         "replica_sets",
+        "pod_template_labels",
     )
     class LabelsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -134,6 +135,14 @@ class KubernetesDeployment(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+    class PodTemplateLabelsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     NAME_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     UID_FIELD_NUMBER: _ClassVar[int]
@@ -145,6 +154,7 @@ class KubernetesDeployment(_message.Message):
     STATUS_FIELD_NUMBER: _ClassVar[int]
     MATCH_LABELS_FIELD_NUMBER: _ClassVar[int]
     REPLICA_SETS_FIELD_NUMBER: _ClassVar[int]
+    POD_TEMPLATE_LABELS_FIELD_NUMBER: _ClassVar[int]
     name: str
     namespace: str
     uid: str
@@ -156,6 +166,7 @@ class KubernetesDeployment(_message.Message):
     status: KubernetesDeploymentStatus
     match_labels: _containers.ScalarMap[str, str]
     replica_sets: _containers.RepeatedCompositeFieldContainer[KubernetesReplicaSetRef]
+    pod_template_labels: _containers.ScalarMap[str, str]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -169,4 +180,5 @@ class KubernetesDeployment(_message.Message):
         status: _Optional[_Union[KubernetesDeploymentStatus, _Mapping]] = ...,
         match_labels: _Optional[_Mapping[str, str]] = ...,
         replica_sets: _Optional[_Iterable[_Union[KubernetesReplicaSetRef, _Mapping]]] = ...,
+        pod_template_labels: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...

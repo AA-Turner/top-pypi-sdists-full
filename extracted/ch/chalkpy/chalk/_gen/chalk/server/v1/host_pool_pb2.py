@@ -21,7 +21,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1f\x63halk/server/v1/host_pool.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1egoogle/protobuf/duration.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xbf\x02\n\x0cHostPoolSpec\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1b\n\tmin_hosts\x18\x02 \x01(\x05R\x08minHosts\x12\x1b\n\tmax_hosts\x18\x03 \x01(\x05R\x08maxHosts\x12<\n\x0cidle_timeout\x18\x04 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0bidleTimeout\x12\x10\n\x03\x63pu\x18\x05 \x01(\tR\x03\x63pu\x12\x16\n\x06memory\x18\x06 \x01(\tR\x06memory\x12*\n\x0emachine_family\x18\x07 \x01(\tH\x00R\rmachineFamily\x88\x01\x01\x12(\n\rcompute_class\x18\x08 \x01(\tH\x01R\x0c\x63omputeClass\x88\x01\x01\x42\x11\n\x0f_machine_familyB\x10\n\x0e_compute_class"\xf5\x02\n\x08HostPool\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x07team_id\x18\x02 \x01(\tR\x06teamId\x12*\n\x0e\x65nvironment_id\x18\x03 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x12"\n\ncluster_id\x18\x04 \x01(\tH\x01R\tclusterId\x88\x01\x01\x12\x31\n\x04spec\x18\x05 \x01(\x0b\x32\x1d.chalk.server.v1.HostPoolSpecR\x04spec\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12%\n\x0esystem_managed\x18\x08 \x01(\x08R\rsystemManagedB\x11\n\x0f_environment_idB\r\n\x0b_cluster_id"U\n CreateEnvironmentHostPoolRequest\x12\x31\n\x04spec\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.HostPoolSpecR\x04spec"[\n!CreateEnvironmentHostPoolResponse\x12\x36\n\thost_pool\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.HostPoolR\x08hostPool"\xa2\x01\n UpdateEnvironmentHostPoolRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x31\n\x04spec\x18\x02 \x01(\x0b\x32\x1d.chalk.server.v1.HostPoolSpecR\x04spec\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"[\n!UpdateEnvironmentHostPoolResponse\x12\x36\n\thost_pool\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.HostPoolR\x08hostPool"2\n DeleteEnvironmentHostPoolRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"#\n!DeleteEnvironmentHostPoolResponse"p\n\x1c\x43reateClusterHostPoolRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12\x31\n\x04spec\x18\x02 \x01(\x0b\x32\x1d.chalk.server.v1.HostPoolSpecR\x04spec"W\n\x1d\x43reateClusterHostPoolResponse\x12\x36\n\thost_pool\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.HostPoolR\x08hostPool"\x9e\x01\n\x1cUpdateClusterHostPoolRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x31\n\x04spec\x18\x02 \x01(\x0b\x32\x1d.chalk.server.v1.HostPoolSpecR\x04spec\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"W\n\x1dUpdateClusterHostPoolResponse\x12\x36\n\thost_pool\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.HostPoolR\x08hostPool".\n\x1c\x44\x65leteClusterHostPoolRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"\x1f\n\x1d\x44\x65leteClusterHostPoolResponse"$\n\x12GetHostPoolRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"M\n\x13GetHostPoolResponse\x12\x36\n\thost_pool\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.HostPoolR\x08hostPool"i\n\x14ListHostPoolsRequest\x12\'\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x12\x1f\n\ncluster_id\x18\x02 \x01(\tH\x00R\tclusterIdB\x07\n\x05scope"Q\n\x15ListHostPoolsResponse\x12\x38\n\nhost_pools\x18\x01 \x03(\x0b\x32\x19.chalk.server.v1.HostPoolR\thostPools2\xd4\t\n\x0fHostPoolService\x12\xaf\x01\n\x19\x43reateEnvironmentHostPool\x12\x31.chalk.server.v1.CreateEnvironmentHostPoolRequest\x1a\x32.chalk.server.v1.CreateEnvironmentHostPoolResponse"+\x80}\x0c\x8a\xd3\x0e$\x08\x02\x12 Created an environment host pool\x12\xaf\x01\n\x19UpdateEnvironmentHostPool\x12\x31.chalk.server.v1.UpdateEnvironmentHostPoolRequest\x1a\x32.chalk.server.v1.UpdateEnvironmentHostPoolResponse"+\x80}\x0c\x8a\xd3\x0e$\x08\x02\x12 Updated an environment host pool\x12\xaf\x01\n\x19\x44\x65leteEnvironmentHostPool\x12\x31.chalk.server.v1.DeleteEnvironmentHostPoolRequest\x1a\x32.chalk.server.v1.DeleteEnvironmentHostPoolResponse"+\x80}\x0c\x8a\xd3\x0e$\x08\x02\x12 Deleted an environment host pool\x12\x9e\x01\n\x15\x43reateClusterHostPool\x12-.chalk.server.v1.CreateClusterHostPoolRequest\x1a..chalk.server.v1.CreateClusterHostPoolResponse"&\x88}\x0c\x8a\xd3\x0e\x1f\x08\x02\x12\x1b\x43reated a cluster host pool\x12\x9e\x01\n\x15UpdateClusterHostPool\x12-.chalk.server.v1.UpdateClusterHostPoolRequest\x1a..chalk.server.v1.UpdateClusterHostPoolResponse"&\x88}\x0c\x8a\xd3\x0e\x1f\x08\x02\x12\x1bUpdated a cluster host pool\x12\x9e\x01\n\x15\x44\x65leteClusterHostPool\x12-.chalk.server.v1.DeleteClusterHostPoolRequest\x1a..chalk.server.v1.DeleteClusterHostPoolResponse"&\x88}\x0c\x8a\xd3\x0e\x1f\x08\x02\x12\x1b\x44\x65leted a cluster host pool\x12`\n\x0bGetHostPool\x12#.chalk.server.v1.GetHostPoolRequest\x1a$.chalk.server.v1.GetHostPoolResponse"\x06\x90\x02\x01\x80}\x02\x12\x66\n\rListHostPools\x12%.chalk.server.v1.ListHostPoolsRequest\x1a&.chalk.server.v1.ListHostPoolsResponse"\x06\x90\x02\x01\x80}\x02\x42\x96\x01\n\x13\x63om.chalk.server.v1B\rHostPoolProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1f\x63halk/server/v1/host_pool.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1egoogle/protobuf/duration.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xd5\x02\n\x0cHostPoolSpec\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1b\n\tmin_hosts\x18\x02 \x01(\x05R\x08minHosts\x12\x1b\n\tmax_hosts\x18\x03 \x01(\x05R\x08maxHosts\x12<\n\x0cidle_timeout\x18\x04 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0bidleTimeout\x12\x10\n\x03\x63pu\x18\x05 \x01(\tR\x03\x63pu\x12\x16\n\x06memory\x18\x06 \x01(\tR\x06memory\x12.\n\x0emachine_family\x18\x07 \x01(\tB\x02\x18\x01H\x00R\rmachineFamily\x88\x01\x01\x12(\n\rcompute_class\x18\x08 \x01(\tH\x01R\x0c\x63omputeClass\x88\x01\x01\x12\x10\n\x03gpu\x18\t \x01(\tR\x03gpuB\x11\n\x0f_machine_familyB\x10\n\x0e_compute_class"\xf5\x02\n\x08HostPool\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x07team_id\x18\x02 \x01(\tR\x06teamId\x12*\n\x0e\x65nvironment_id\x18\x03 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x12"\n\ncluster_id\x18\x04 \x01(\tH\x01R\tclusterId\x88\x01\x01\x12\x31\n\x04spec\x18\x05 \x01(\x0b\x32\x1d.chalk.server.v1.HostPoolSpecR\x04spec\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12%\n\x0esystem_managed\x18\x08 \x01(\x08R\rsystemManagedB\x11\n\x0f_environment_idB\r\n\x0b_cluster_id"U\n CreateEnvironmentHostPoolRequest\x12\x31\n\x04spec\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.HostPoolSpecR\x04spec"[\n!CreateEnvironmentHostPoolResponse\x12\x36\n\thost_pool\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.HostPoolR\x08hostPool"\xa2\x01\n UpdateEnvironmentHostPoolRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x31\n\x04spec\x18\x02 \x01(\x0b\x32\x1d.chalk.server.v1.HostPoolSpecR\x04spec\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"[\n!UpdateEnvironmentHostPoolResponse\x12\x36\n\thost_pool\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.HostPoolR\x08hostPool"2\n DeleteEnvironmentHostPoolRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"#\n!DeleteEnvironmentHostPoolResponse"p\n\x1c\x43reateClusterHostPoolRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12\x31\n\x04spec\x18\x02 \x01(\x0b\x32\x1d.chalk.server.v1.HostPoolSpecR\x04spec"W\n\x1d\x43reateClusterHostPoolResponse\x12\x36\n\thost_pool\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.HostPoolR\x08hostPool"\x9e\x01\n\x1cUpdateClusterHostPoolRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x31\n\x04spec\x18\x02 \x01(\x0b\x32\x1d.chalk.server.v1.HostPoolSpecR\x04spec\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"W\n\x1dUpdateClusterHostPoolResponse\x12\x36\n\thost_pool\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.HostPoolR\x08hostPool".\n\x1c\x44\x65leteClusterHostPoolRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"\x1f\n\x1d\x44\x65leteClusterHostPoolResponse"$\n\x12GetHostPoolRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"M\n\x13GetHostPoolResponse\x12\x36\n\thost_pool\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.HostPoolR\x08hostPool"i\n\x14ListHostPoolsRequest\x12\'\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x12\x1f\n\ncluster_id\x18\x02 \x01(\tH\x00R\tclusterIdB\x07\n\x05scope"Q\n\x15ListHostPoolsResponse\x12\x38\n\nhost_pools\x18\x01 \x03(\x0b\x32\x19.chalk.server.v1.HostPoolR\thostPools"S\n\x11HostPoolResources\x12\x1b\n\tcpu_cores\x18\x01 \x01(\x01R\x08\x63puCores\x12!\n\x0cmemory_bytes\x18\x02 \x01(\x03R\x0bmemoryBytes"\xae\x02\n\x0cHostCapacity\x12\x17\n\x07host_id\x18\x01 \x01(\tR\x06hostId\x12\x14\n\x05ready\x18\x02 \x01(\x08R\x05ready\x12+\n\x11placed_containers\x18\x03 \x01(\x05R\x10placedContainers\x12>\n\x08\x63\x61pacity\x18\x04 \x01(\x0b\x32".chalk.server.v1.HostPoolResourcesR\x08\x63\x61pacity\x12@\n\tallocated\x18\x05 \x01(\x0b\x32".chalk.server.v1.HostPoolResourcesR\tallocated\x12@\n\tavailable\x18\x06 \x01(\x0b\x32".chalk.server.v1.HostPoolResourcesR\tavailable"\xb5\t\n\x10HostPoolCapacity\x12 \n\x0chost_pool_id\x18\x01 \x01(\tR\nhostPoolId\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12%\n\x0e\x63luster_scoped\x18\x03 \x01(\x08R\rclusterScoped\x12%\n\x0esystem_managed\x18\x04 \x01(\x08R\rsystemManaged\x12\x1b\n\tmin_hosts\x18\x05 \x01(\x05R\x08minHosts\x12\x1b\n\tmax_hosts\x18\x06 \x01(\x05R\x08maxHosts\x12<\n\x0cidle_timeout\x18\x07 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0bidleTimeout\x12\x10\n\x03\x63pu\x18\x08 \x01(\tR\x03\x63pu\x12\x16\n\x06memory\x18\t \x01(\tR\x06memory\x12\x34\n\x05phase\x18\n \x01(\x0e\x32\x1e.chalk.server.v1.HostPoolPhaseR\x05phase\x12\x1d\n\x07message\x18\x0b \x01(\tH\x00R\x07message\x88\x01\x01\x12#\n\rdesired_hosts\x18\x0c \x01(\x05R\x0c\x64\x65siredHosts\x12\x1f\n\x0bready_hosts\x18\r \x01(\x05R\nreadyHosts\x12\x1d\n\nidle_hosts\x18\x0e \x01(\x05R\tidleHosts\x12>\n\nidle_since\x18\x0f \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\tidleSince\x88\x01\x01\x12\x38\n\x05ready\x18\x10 \x01(\x0b\x32".chalk.server.v1.HostPoolResourcesR\x05ready\x12@\n\tallocated\x18\x11 \x01(\x0b\x32".chalk.server.v1.HostPoolResourcesR\tallocated\x12@\n\tavailable\x18\x12 \x01(\x0b\x32".chalk.server.v1.HostPoolResourcesR\tavailable\x12\x44\n\x0c\x61t_max_scale\x18\x13 \x01(\x0b\x32".chalk.server.v1.HostPoolResourcesR\natMaxScale\x12O\n\x11largest_placeable\x18\x14 \x01(\x0b\x32".chalk.server.v1.HostPoolResourcesR\x10largestPlaceable\x12\x66\n\x1elargest_placeable_at_max_scale\x18\x15 \x01(\x0b\x32".chalk.server.v1.HostPoolResourcesR\x1alargestPlaceableAtMaxScale\x12+\n\x11placed_containers\x18\x16 \x01(\x05R\x10placedContainers\x12G\n placed_containers_in_environment\x18\x17 \x01(\x05R\x1dplacedContainersInEnvironment\x12\x33\n\x05hosts\x18\x18 \x03(\x0b\x32\x1d.chalk.server.v1.HostCapacityR\x05hostsB\n\n\x08_messageB\r\n\x0b_idle_since"[\n\x1aGetHostPoolCapacityRequest\x12*\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x42\x11\n\x0f_environment_id"\xa7\x02\n\x1bGetHostPoolCapacityResponse\x12@\n\nhost_pools\x18\x01 \x03(\x0b\x32!.chalk.server.v1.HostPoolCapacityR\thostPools\x12-\n\x12pending_containers\x18\x02 \x01(\x05R\x11pendingContainers\x12Z\n\x17largest_pending_request\x18\x03 \x01(\x0b\x32".chalk.server.v1.HostPoolResourcesR\x15largestPendingRequest\x12;\n\x0bobserved_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\nobservedAt*\xde\x01\n\rHostPoolPhase\x12\x1f\n\x1bHOST_POOL_PHASE_UNSPECIFIED\x10\x00\x12\x1c\n\x18HOST_POOL_PHASE_INACTIVE\x10\x01\x12\x1b\n\x17HOST_POOL_PHASE_PENDING\x10\x02\x12\x1b\n\x17HOST_POOL_PHASE_RUNNING\x10\x03\x12\x1c\n\x18HOST_POOL_PHASE_DEGRADED\x10\x04\x12\x19\n\x15HOST_POOL_PHASE_ERROR\x10\x05\x12\x1b\n\x17HOST_POOL_PHASE_UNKNOWN\x10\x06\x32\xce\n\n\x0fHostPoolService\x12\xaf\x01\n\x19\x43reateEnvironmentHostPool\x12\x31.chalk.server.v1.CreateEnvironmentHostPoolRequest\x1a\x32.chalk.server.v1.CreateEnvironmentHostPoolResponse"+\x80}\x0c\x8a\xd3\x0e$\x08\x02\x12 Created an environment host pool\x12\xaf\x01\n\x19UpdateEnvironmentHostPool\x12\x31.chalk.server.v1.UpdateEnvironmentHostPoolRequest\x1a\x32.chalk.server.v1.UpdateEnvironmentHostPoolResponse"+\x80}\x0c\x8a\xd3\x0e$\x08\x02\x12 Updated an environment host pool\x12\xaf\x01\n\x19\x44\x65leteEnvironmentHostPool\x12\x31.chalk.server.v1.DeleteEnvironmentHostPoolRequest\x1a\x32.chalk.server.v1.DeleteEnvironmentHostPoolResponse"+\x80}\x0c\x8a\xd3\x0e$\x08\x02\x12 Deleted an environment host pool\x12\x9e\x01\n\x15\x43reateClusterHostPool\x12-.chalk.server.v1.CreateClusterHostPoolRequest\x1a..chalk.server.v1.CreateClusterHostPoolResponse"&\x88}\x0c\x8a\xd3\x0e\x1f\x08\x02\x12\x1b\x43reated a cluster host pool\x12\x9e\x01\n\x15UpdateClusterHostPool\x12-.chalk.server.v1.UpdateClusterHostPoolRequest\x1a..chalk.server.v1.UpdateClusterHostPoolResponse"&\x88}\x0c\x8a\xd3\x0e\x1f\x08\x02\x12\x1bUpdated a cluster host pool\x12\x9e\x01\n\x15\x44\x65leteClusterHostPool\x12-.chalk.server.v1.DeleteClusterHostPoolRequest\x1a..chalk.server.v1.DeleteClusterHostPoolResponse"&\x88}\x0c\x8a\xd3\x0e\x1f\x08\x02\x12\x1b\x44\x65leted a cluster host pool\x12`\n\x0bGetHostPool\x12#.chalk.server.v1.GetHostPoolRequest\x1a$.chalk.server.v1.GetHostPoolResponse"\x06\x90\x02\x01\x80}\x02\x12\x66\n\rListHostPools\x12%.chalk.server.v1.ListHostPoolsRequest\x1a&.chalk.server.v1.ListHostPoolsResponse"\x06\x90\x02\x01\x80}\x02\x12x\n\x13GetHostPoolCapacity\x12+.chalk.server.v1.GetHostPoolCapacityRequest\x1a,.chalk.server.v1.GetHostPoolCapacityResponse"\x06\x90\x02\x01\x80}\x02\x42\x96\x01\n\x13\x63om.chalk.server.v1B\rHostPoolProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -32,6 +32,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.server.v1B\rHostPoolProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
+    _globals["_HOSTPOOLSPEC"].fields_by_name["machine_family"]._options = None
+    _globals["_HOSTPOOLSPEC"].fields_by_name["machine_family"]._serialized_options = b"\030\001"
     _globals["_HOSTPOOLSERVICE"].methods_by_name["CreateEnvironmentHostPool"]._options = None
     _globals["_HOSTPOOLSERVICE"].methods_by_name[
         "CreateEnvironmentHostPool"
@@ -60,42 +62,56 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_HOSTPOOLSERVICE"].methods_by_name["GetHostPool"]._serialized_options = b"\220\002\001\200}\002"
     _globals["_HOSTPOOLSERVICE"].methods_by_name["ListHostPools"]._options = None
     _globals["_HOSTPOOLSERVICE"].methods_by_name["ListHostPools"]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_HOSTPOOLSERVICE"].methods_by_name["GetHostPoolCapacity"]._options = None
+    _globals["_HOSTPOOLSERVICE"].methods_by_name["GetHostPoolCapacity"]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_HOSTPOOLPHASE"]._serialized_start = 4289
+    _globals["_HOSTPOOLPHASE"]._serialized_end = 4511
     _globals["_HOSTPOOLSPEC"]._serialized_start = 212
-    _globals["_HOSTPOOLSPEC"]._serialized_end = 531
-    _globals["_HOSTPOOL"]._serialized_start = 534
-    _globals["_HOSTPOOL"]._serialized_end = 907
-    _globals["_CREATEENVIRONMENTHOSTPOOLREQUEST"]._serialized_start = 909
-    _globals["_CREATEENVIRONMENTHOSTPOOLREQUEST"]._serialized_end = 994
-    _globals["_CREATEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_start = 996
-    _globals["_CREATEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_end = 1087
-    _globals["_UPDATEENVIRONMENTHOSTPOOLREQUEST"]._serialized_start = 1090
-    _globals["_UPDATEENVIRONMENTHOSTPOOLREQUEST"]._serialized_end = 1252
-    _globals["_UPDATEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_start = 1254
-    _globals["_UPDATEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_end = 1345
-    _globals["_DELETEENVIRONMENTHOSTPOOLREQUEST"]._serialized_start = 1347
-    _globals["_DELETEENVIRONMENTHOSTPOOLREQUEST"]._serialized_end = 1397
-    _globals["_DELETEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_start = 1399
-    _globals["_DELETEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_end = 1434
-    _globals["_CREATECLUSTERHOSTPOOLREQUEST"]._serialized_start = 1436
-    _globals["_CREATECLUSTERHOSTPOOLREQUEST"]._serialized_end = 1548
-    _globals["_CREATECLUSTERHOSTPOOLRESPONSE"]._serialized_start = 1550
-    _globals["_CREATECLUSTERHOSTPOOLRESPONSE"]._serialized_end = 1637
-    _globals["_UPDATECLUSTERHOSTPOOLREQUEST"]._serialized_start = 1640
-    _globals["_UPDATECLUSTERHOSTPOOLREQUEST"]._serialized_end = 1798
-    _globals["_UPDATECLUSTERHOSTPOOLRESPONSE"]._serialized_start = 1800
-    _globals["_UPDATECLUSTERHOSTPOOLRESPONSE"]._serialized_end = 1887
-    _globals["_DELETECLUSTERHOSTPOOLREQUEST"]._serialized_start = 1889
-    _globals["_DELETECLUSTERHOSTPOOLREQUEST"]._serialized_end = 1935
-    _globals["_DELETECLUSTERHOSTPOOLRESPONSE"]._serialized_start = 1937
-    _globals["_DELETECLUSTERHOSTPOOLRESPONSE"]._serialized_end = 1968
-    _globals["_GETHOSTPOOLREQUEST"]._serialized_start = 1970
-    _globals["_GETHOSTPOOLREQUEST"]._serialized_end = 2006
-    _globals["_GETHOSTPOOLRESPONSE"]._serialized_start = 2008
-    _globals["_GETHOSTPOOLRESPONSE"]._serialized_end = 2085
-    _globals["_LISTHOSTPOOLSREQUEST"]._serialized_start = 2087
-    _globals["_LISTHOSTPOOLSREQUEST"]._serialized_end = 2192
-    _globals["_LISTHOSTPOOLSRESPONSE"]._serialized_start = 2194
-    _globals["_LISTHOSTPOOLSRESPONSE"]._serialized_end = 2275
-    _globals["_HOSTPOOLSERVICE"]._serialized_start = 2278
-    _globals["_HOSTPOOLSERVICE"]._serialized_end = 3514
+    _globals["_HOSTPOOLSPEC"]._serialized_end = 553
+    _globals["_HOSTPOOL"]._serialized_start = 556
+    _globals["_HOSTPOOL"]._serialized_end = 929
+    _globals["_CREATEENVIRONMENTHOSTPOOLREQUEST"]._serialized_start = 931
+    _globals["_CREATEENVIRONMENTHOSTPOOLREQUEST"]._serialized_end = 1016
+    _globals["_CREATEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_start = 1018
+    _globals["_CREATEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_end = 1109
+    _globals["_UPDATEENVIRONMENTHOSTPOOLREQUEST"]._serialized_start = 1112
+    _globals["_UPDATEENVIRONMENTHOSTPOOLREQUEST"]._serialized_end = 1274
+    _globals["_UPDATEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_start = 1276
+    _globals["_UPDATEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_end = 1367
+    _globals["_DELETEENVIRONMENTHOSTPOOLREQUEST"]._serialized_start = 1369
+    _globals["_DELETEENVIRONMENTHOSTPOOLREQUEST"]._serialized_end = 1419
+    _globals["_DELETEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_start = 1421
+    _globals["_DELETEENVIRONMENTHOSTPOOLRESPONSE"]._serialized_end = 1456
+    _globals["_CREATECLUSTERHOSTPOOLREQUEST"]._serialized_start = 1458
+    _globals["_CREATECLUSTERHOSTPOOLREQUEST"]._serialized_end = 1570
+    _globals["_CREATECLUSTERHOSTPOOLRESPONSE"]._serialized_start = 1572
+    _globals["_CREATECLUSTERHOSTPOOLRESPONSE"]._serialized_end = 1659
+    _globals["_UPDATECLUSTERHOSTPOOLREQUEST"]._serialized_start = 1662
+    _globals["_UPDATECLUSTERHOSTPOOLREQUEST"]._serialized_end = 1820
+    _globals["_UPDATECLUSTERHOSTPOOLRESPONSE"]._serialized_start = 1822
+    _globals["_UPDATECLUSTERHOSTPOOLRESPONSE"]._serialized_end = 1909
+    _globals["_DELETECLUSTERHOSTPOOLREQUEST"]._serialized_start = 1911
+    _globals["_DELETECLUSTERHOSTPOOLREQUEST"]._serialized_end = 1957
+    _globals["_DELETECLUSTERHOSTPOOLRESPONSE"]._serialized_start = 1959
+    _globals["_DELETECLUSTERHOSTPOOLRESPONSE"]._serialized_end = 1990
+    _globals["_GETHOSTPOOLREQUEST"]._serialized_start = 1992
+    _globals["_GETHOSTPOOLREQUEST"]._serialized_end = 2028
+    _globals["_GETHOSTPOOLRESPONSE"]._serialized_start = 2030
+    _globals["_GETHOSTPOOLRESPONSE"]._serialized_end = 2107
+    _globals["_LISTHOSTPOOLSREQUEST"]._serialized_start = 2109
+    _globals["_LISTHOSTPOOLSREQUEST"]._serialized_end = 2214
+    _globals["_LISTHOSTPOOLSRESPONSE"]._serialized_start = 2216
+    _globals["_LISTHOSTPOOLSRESPONSE"]._serialized_end = 2297
+    _globals["_HOSTPOOLRESOURCES"]._serialized_start = 2299
+    _globals["_HOSTPOOLRESOURCES"]._serialized_end = 2382
+    _globals["_HOSTCAPACITY"]._serialized_start = 2385
+    _globals["_HOSTCAPACITY"]._serialized_end = 2687
+    _globals["_HOSTPOOLCAPACITY"]._serialized_start = 2690
+    _globals["_HOSTPOOLCAPACITY"]._serialized_end = 3895
+    _globals["_GETHOSTPOOLCAPACITYREQUEST"]._serialized_start = 3897
+    _globals["_GETHOSTPOOLCAPACITYREQUEST"]._serialized_end = 3988
+    _globals["_GETHOSTPOOLCAPACITYRESPONSE"]._serialized_start = 3991
+    _globals["_GETHOSTPOOLCAPACITYRESPONSE"]._serialized_end = 4286
+    _globals["_HOSTPOOLSERVICE"]._serialized_start = 4514
+    _globals["_HOSTPOOLSERVICE"]._serialized_end = 5872
 # @@protoc_insertion_point(module_scope)

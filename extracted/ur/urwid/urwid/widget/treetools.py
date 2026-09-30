@@ -20,7 +20,7 @@
 
 
 """
-Urwid tree view
+Urwid tree view.
 
 Features:
 - custom selectable widgets for trees
@@ -56,7 +56,7 @@ _Node = typing.TypeVar("_Node", bound="TreeNode[typing.Any] | ParentNode[typing.
 
 
 class TreeWidgetError(RuntimeError):
-    pass
+    """Error raised for invalid tree widget usage."""
 
 
 class TreeWidget(WidgetWrap[Padding[typing.Union[Text, Columns]]], typing.Generic[_Node]):
@@ -67,6 +67,7 @@ class TreeWidget(WidgetWrap[Padding[typing.Union[Text, Columns]]], typing.Generi
     expanded_icon = SelectableIcon("-", 0)
 
     def __init__(self, node: _Node) -> None:
+        """Build the widget representing `node`, expanded by default."""
         self._node = node
         self._innerwidget: Text | None = None
         if not isinstance(node, ParentNode):
@@ -87,12 +88,11 @@ class TreeWidget(WidgetWrap[Padding[typing.Union[Text, Columns]]], typing.Generi
         super().__init__(widget)
 
     def selectable(self) -> bool:
-        """
-        Allow selection of non-leaf nodes so children may be (un)expanded
-        """
+        """Allow selection of non-leaf nodes so children may be (un)expanded."""
         return not self.is_leaf
 
     def get_indented_widget(self) -> Padding[Text | Columns]:
+        """Return this node's widget wrapped with the expand/collapse icon and indentation."""
         widget: Text | Columns = self.get_inner_widget()
         if not self.is_leaf:
             widget = Columns(
@@ -103,26 +103,31 @@ class TreeWidget(WidgetWrap[Padding[typing.Union[Text, Columns]]], typing.Generi
         return Padding(widget, width=(WHSettings.RELATIVE, 100), left=indent_cols)
 
     def update_expanded_icon(self) -> None:
-        """Update display widget text for parent widgets"""
+        """Update display widget text for parent widgets."""
         # icon is first element in columns indented widget
         icon = [self.unexpanded_icon, self.expanded_icon][self.expanded]
         self._w.base_widget.contents[0] = (icon, (WHSettings.GIVEN, 1, False))  # type: ignore[attr-defined]
 
     def get_indent_cols(self) -> int:
+        """Return the number of columns this widget is indented by, based on its node's depth."""
         return self.indent_cols * self.get_node().get_depth()
 
     def get_inner_widget(self) -> Text:
+        """Return the cached inner widget, creating it with :meth:`load_inner_widget` if necessary."""
         if self._innerwidget is None:
             self._innerwidget = self.load_inner_widget()
         return self._innerwidget
 
     def load_inner_widget(self) -> Text:
+        """Create the inner widget displaying this node's text."""
         return Text(self.get_display_text())
 
     def get_node(self) -> _Node:
+        """Return the TreeNode this widget represents."""
         return self._node
 
     def get_display_text(self) -> _TagMarkup:
+        """Return the text to display for this node, combining its key and value."""
         return f"{self.get_node().get_key()}: {self.get_node().get_value()!s}"
 
     def next_inorder(self) -> TreeWidget[TreeNode[typing.Any]] | None:
@@ -176,7 +181,7 @@ class TreeWidget(WidgetWrap[Padding[typing.Union[Text, Columns]]], typing.Generi
         size: tuple[int] | tuple[()],
         key: str,
     ) -> str | None:
-        """Handle expand & collapse requests (non-leaf nodes)"""
+        """Handle expand & collapse requests (non-leaf nodes)."""
         if self.is_leaf:
             return key
 
@@ -202,6 +207,7 @@ class TreeWidget(WidgetWrap[Padding[typing.Union[Text, Columns]]], typing.Generi
         row: int,
         focus: bool,
     ) -> bool:
+        """Toggle expand/collapse when the icon is left-clicked."""
         if self.is_leaf or event != "mouse press" or button != 1:
             return False
 
@@ -240,8 +246,8 @@ class TreeWidget(WidgetWrap[Padding[typing.Union[Text, Columns]]], typing.Generi
 
 
 class TreeNode(typing.Generic[_T]):
-    """
-    Store tree contents and cache TreeWidget objects.
+    """Store tree contents and cache TreeWidget objects.
+
     A TreeNode consists of the following elements:
     *  key: accessor token for parent nodes
     *  value: subclass-specific data
@@ -256,6 +262,7 @@ class TreeNode(typing.Generic[_T]):
         key: Hashable = None,
         depth: int | None = None,
     ) -> None:
+        """Store `value` under `key`, with `parent` and `depth` as given, or computed from `parent` when omitted."""
         self._key = key
         self._parent = parent
         self._value = value
@@ -269,9 +276,11 @@ class TreeNode(typing.Generic[_T]):
         return self._widget
 
     def load_widget(self) -> TreeWidget[Self]:
+        """Create the widget for this node."""
         return TreeWidget(self)
 
     def get_depth(self) -> int:
+        """Return this node's depth in the tree, computing and caching it if necessary."""
         if self._depth is self._parent is None:  # type: ignore[comparison-overlap]  # for None is valid
             self._depth = 0
         elif self._depth is None:
@@ -279,21 +288,26 @@ class TreeNode(typing.Generic[_T]):
         return self._depth
 
     def get_index(self) -> int | None:
+        """Return this node's position among its parent's children, or None for the root."""
         if self.get_depth() == 0:
             return None
 
         return self.get_parent().get_child_index(self.get_key())
 
     def get_key(self) -> Hashable:
+        """Return this node's key."""
         return self._key
 
     def set_key(self, key: Hashable) -> None:
+        """Set this node's key without updating the parent's reference to it."""
         self._key = key
 
     def change_key(self, key: Hashable) -> None:
+        """Rename this node to ``key``, updating the parent's reference to it as well."""
         self.get_parent().change_child_key(self._key, key)
 
     def get_parent(self) -> ParentNode[typing.Any]:
+        """Return this node's parent, loading it with :meth:`load_parent` if necessary."""
         if self._parent is None and self.get_depth() > 0:
             self._parent = self.load_parent()
         return typing.cast("ParentNode[typing.Any]", self._parent)
@@ -309,24 +323,29 @@ class TreeNode(typing.Generic[_T]):
         raise TreeWidgetError("virtual function.  Implement in subclass")
 
     def get_value(self) -> _T:
+        """Return this node's value."""
         return self._value
 
     def is_root(self) -> bool:
+        """Return whether this node is the root of the tree."""
         return self.get_depth() == 0
 
     def next_sibling(self) -> TreeNode[typing.Any] | None:
+        """Return the next sibling of this node, or None if there is none."""
         if self.get_depth() > 0:
             return self.get_parent().next_child(self.get_key())
 
         return None
 
     def prev_sibling(self) -> TreeNode[typing.Any] | None:
+        """Return the previous sibling of this node, or None if there is none."""
         if self.get_depth() > 0:
             return self.get_parent().prev_child(self.get_key())
 
         return None
 
     def get_root(self) -> ParentNode[typing.Any]:
+        """Return the root node of the tree this node belongs to."""
         root = self
         while root.get_parent() is not None:
             root = root.get_parent()
@@ -343,19 +362,20 @@ class ParentNode(TreeNode[_T]):
         key: Hashable = None,
         depth: int | None = None,
     ) -> None:
+        """Store `value` under `key`, with no child keys loaded yet."""
         super().__init__(value, parent=parent, key=key, depth=depth)
 
         self._child_keys: Sequence[Hashable] | None = None
         self._children: dict[Hashable, TreeNode[typing.Any]] = {}
 
     def get_child_keys(self, reload: bool = False) -> Sequence[Hashable]:
-        """Return a possibly ordered list of child keys"""
+        """Return a possibly ordered list of child keys."""
         if self._child_keys is None or reload:
             self._child_keys = self.load_child_keys()
         return self._child_keys
 
     def load_child_keys(self) -> Sequence[Hashable]:
-        """Provide ParentNode with an ordered list of child keys (virtual function)
+        """Provide ParentNode with an ordered list of child keys (virtual function).
 
         :raises TreeWidgetError: the subclass does not override this method.
         """
@@ -363,7 +383,6 @@ class ParentNode(TreeNode[_T]):
 
     def get_child_widget(self, key: Hashable) -> TreeWidget[TreeNode[typing.Any]]:
         """Return the widget for a given key.  Create if necessary."""
-
         return self.get_child_node(key).get_widget()
 
     def get_child_node(self, key: Hashable, reload: bool = False) -> TreeNode[typing.Any]:
@@ -373,7 +392,7 @@ class ParentNode(TreeNode[_T]):
         return self._children[key]
 
     def load_child_node(self, key: Hashable) -> TreeNode[typing.Any]:
-        """Load the child node for a given key (virtual function)
+        """Load the child node for a given key (virtual function).
 
         :raises TreeWidgetError: the subclass does not override this method.
         """
@@ -438,24 +457,27 @@ class ParentNode(TreeNode[_T]):
         return self.get_child_node(child_keys[-1])
 
     def has_children(self) -> bool:
-        """Does this node have any children?"""
+        """Return whether this node has any children."""
         return len(self.get_child_keys()) > 0
 
 
 class TreeWalker(ListWalker[TreeNode[typing.Any], TreeWidget[TreeNode[typing.Any]]]):
-    """ListWalker-compatible class for displaying TreeWidgets
+    """ListWalker-compatible class for displaying TreeWidgets.
 
-    positions are TreeNodes."""
+    positions are TreeNodes.
+    """
 
     def __init__(self, start_from: TreeNode[typing.Any]) -> None:
         """start_from: TreeNode with the initial focus."""
         self.focus = start_from
 
     def get_focus(self) -> tuple[TreeWidget[TreeNode[typing.Any]], TreeNode[typing.Any]]:
+        """Return the widget and node currently in focus."""
         widget = self.focus.get_widget()
         return widget, self.focus
 
     def set_focus(self, focus: TreeNode[typing.Any]) -> None:
+        """Set the node in focus and notify listeners that the walker was modified."""
         self.focus = focus
         self._modified()
 
@@ -464,6 +486,7 @@ class TreeWalker(ListWalker[TreeNode[typing.Any], TreeWidget[TreeNode[typing.Any
         self,
         start_from: TreeNode[typing.Any],
     ) -> tuple[TreeWidget[TreeNode[typing.Any]], TreeNode[typing.Any]] | tuple[None, None]:
+        """Return the widget and node that follow ``start_from`` depth first, or ``(None, None)``."""
         if (target := start_from.get_widget().next_inorder()) is not None:
             return target, target.get_node()
 
@@ -473,6 +496,7 @@ class TreeWalker(ListWalker[TreeNode[typing.Any], TreeWidget[TreeNode[typing.Any
         self,
         start_from: TreeNode[typing.Any],
     ) -> tuple[TreeWidget[TreeNode[typing.Any]], TreeNode[typing.Any]] | tuple[None, None]:
+        """Return the widget and node that precede ``start_from`` depth first, or ``(None, None)``."""
         if (target := start_from.get_widget().prev_inorder()) is not None:
             return target, target.get_node()
 
@@ -482,19 +506,20 @@ class TreeWalker(ListWalker[TreeNode[typing.Any], TreeWidget[TreeNode[typing.Any
 
 
 class TreeListBox(ListBox[TreeNode[typing.Any]]):
-    """A ListBox with special handling for navigation and collapsing of TreeWidgets"""
+    """A ListBox with special handling for navigation and collapsing of TreeWidgets."""
 
     def keypress(
         self,
         size: tuple[int, int],  # type: ignore[override]
         key: str,
     ) -> str | None:
+        """Handle a keypress, passing any unhandled key to :meth:`unhandled_input`."""
         if unhandled := super().keypress(size, key):
             return self.unhandled_input(size, unhandled)
         return None
 
     def unhandled_input(self, size: tuple[int, int], data: str) -> str | None:
-        """Handle macro-navigation keys"""
+        """Handle macro-navigation keys."""
         if data == "left":
             self.move_focus_to_parent(size)
             return None
@@ -506,7 +531,6 @@ class TreeListBox(ListBox[TreeNode[typing.Any]]):
 
     def collapse_focus_parent(self, size: tuple[int, int]) -> None:
         """Collapse parent directory."""
-
         _widget, pos = self.body.get_focus()
         self.move_focus_to_parent(size)
 
@@ -516,7 +540,6 @@ class TreeListBox(ListBox[TreeNode[typing.Any]]):
 
     def move_focus_to_parent(self, size: tuple[int, int]) -> None:
         """Move focus to parent of widget in focus."""
-
         _widget, pos = self.body.get_focus()
 
         parentpos = typing.cast("TreeNode[typing.Any]", pos).get_parent()
@@ -544,14 +567,12 @@ class TreeListBox(ListBox[TreeNode[typing.Any]]):
 
     def focus_home(self, size: tuple[int, int]) -> None:
         """Move focus to very top."""
-
         _widget, pos = self.body.get_focus()
         rootnode = typing.cast("TreeNode[typing.Any]", pos).get_root()
         self.change_focus(size, rootnode)
 
     def focus_end(self, size: tuple[int, int]) -> None:
         """Move focus to far bottom."""
-
         maxrow, _maxcol = size
         _widget, pos = self.body.get_focus()
 

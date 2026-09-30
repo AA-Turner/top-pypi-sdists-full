@@ -20,18 +20,26 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api_async.models.deployment_provisioning_info_stage_build_attempt_build_step import DeploymentProvisioningInfoStageBuildAttemptBuildStep
-from koyeb.api_async.models.deployment_provisioning_info_stage_status import DeploymentProvisioningInfoStageStatus
+from koyeb.api_async.models.deployment_provisioning_info_stage_build_attempt_build_step import (
+    DeploymentProvisioningInfoStageBuildAttemptBuildStep,
+)
+from koyeb.api_async.models.deployment_provisioning_info_stage_status import (
+    DeploymentProvisioningInfoStageStatus,
+)
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeploymentProvisioningInfoStageBuildAttempt(BaseModel):
     """
     DeploymentProvisioningInfoStageBuildAttempt
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictInt] = None
-    status: Optional[DeploymentProvisioningInfoStageStatus] = DeploymentProvisioningInfoStageStatus.UNKNOWN
+    status: Optional[
+        DeploymentProvisioningInfoStageStatus
+    ] = DeploymentProvisioningInfoStageStatus.UNKNOWN
     messages: Optional[List[StrictStr]] = None
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
@@ -39,8 +47,22 @@ class DeploymentProvisioningInfoStageBuildAttempt(BaseModel):
     image_pushed: Optional[StrictBool] = None
     internal_failure: Optional[StrictBool] = None
     retryable_failure: Optional[StrictBool] = None
-    wait_completion: Optional[StrictBool] = Field(default=None, description="This flag is used to finalize the build, and continue the deployment in case of success, or cancel and potentially retry the build in case of failure.")
-    __properties: ClassVar[List[str]] = ["id", "status", "messages", "started_at", "finished_at", "steps", "image_pushed", "internal_failure", "retryable_failure", "wait_completion"]
+    wait_completion: Optional[StrictBool] = Field(
+        default=None,
+        description="This flag is used to finalize the build, and continue the deployment in case of success, or cancel and potentially retry the build in case of failure.",
+    )
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "status",
+        "messages",
+        "started_at",
+        "finished_at",
+        "steps",
+        "image_pushed",
+        "internal_failure",
+        "retryable_failure",
+        "wait_completion",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -48,7 +70,6 @@ class DeploymentProvisioningInfoStageBuildAttempt(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -73,8 +94,7 @@ class DeploymentProvisioningInfoStageBuildAttempt(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -85,9 +105,10 @@ class DeploymentProvisioningInfoStageBuildAttempt(BaseModel):
         _items = []
         if self.steps:
             for _item_steps in self.steps:
-                if _item_steps:
-                    _items.append(_item_steps.to_dict())
-            _dict['steps'] = _items
+                _items.append(
+                    _item_steps.to_dict() if _item_steps is not None else None
+                )
+            _dict["steps"] = _items
         return _dict
 
     @classmethod
@@ -99,18 +120,27 @@ class DeploymentProvisioningInfoStageBuildAttempt(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "status": obj.get("status") if obj.get("status") is not None else DeploymentProvisioningInfoStageStatus.UNKNOWN,
-            "messages": obj.get("messages"),
-            "started_at": obj.get("started_at"),
-            "finished_at": obj.get("finished_at"),
-            "steps": [DeploymentProvisioningInfoStageBuildAttemptBuildStep.from_dict(_item) for _item in obj["steps"]] if obj.get("steps") is not None else None,
-            "image_pushed": obj.get("image_pushed"),
-            "internal_failure": obj.get("internal_failure"),
-            "retryable_failure": obj.get("retryable_failure"),
-            "wait_completion": obj.get("wait_completion")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else DeploymentProvisioningInfoStageStatus.UNKNOWN,
+                "messages": obj.get("messages"),
+                "started_at": obj.get("started_at"),
+                "finished_at": obj.get("finished_at"),
+                "steps": [
+                    DeploymentProvisioningInfoStageBuildAttemptBuildStep.from_dict(
+                        _item
+                    )
+                    for _item in obj["steps"]
+                ]
+                if obj.get("steps") is not None
+                else None,
+                "image_pushed": obj.get("image_pushed"),
+                "internal_failure": obj.get("internal_failure"),
+                "retryable_failure": obj.get("retryable_failure"),
+                "wait_completion": obj.get("wait_completion"),
+            }
+        )
         return _obj
-
-

@@ -69,61 +69,44 @@ impl LanguageCandidate {
 impl RumdlLanguageServer {
     /// Detect if the cursor is at a fenced code block language position
     ///
-    /// Returns Some((start_column, current_text)) if the cursor is after ``` or ~~~
-    /// where language completion should be provided.
-    ///
-    /// Handles:
-    /// - Standard fences (``` and ~~~)
-    /// - Extended fences (4+ backticks/tildes for nested code blocks)
-    /// - Indented fences
-    /// - Distinguishes opening vs closing fences
+    /// Returns `Some((start_column, current_text))` if the cursor is after the
+    /// ```` ``` ```` or `~~~` (three or more) of a line that opens a fenced code block,
+    /// where language completion should be provided. The parser decides what
+    /// opens a block, so a fence inside a blockquote or list item counts, and
+    /// a closing fence, a fence inside another code block, and backticks in
+    /// an indented code block do not.
     pub(super) fn detect_code_fence_language_position(text: &str, position: Position) -> Option<(u32, String)> {
+        use pulldown_cmark::{CodeBlockKind, Event, Parser, Tag};
+
         let line_num = position.line as usize;
         let utf16_cursor = position.character as usize;
 
-        // Get the line content
-        let lines: Vec<&str> = text.lines().collect();
-        if line_num >= lines.len() {
-            return None;
-        }
-        let line = lines[line_num];
-        let trimmed = line.trim_start();
+        let line_start: usize = text.split_inclusive('\n').take(line_num).map(str::len).sum();
+        let line = text.lines().nth(line_num)?;
+        let line_end = line_start + line.len();
 
-        // `indent` and `fence_len` are counts of ASCII characters, so byte
-        // offset == UTF-8 byte offset == UTF-16 code unit offset for this prefix.
-        let indent = line.len() - trimmed.len();
-
-        // Detect fence character and count consecutive fence chars
-        let (fence_char, fence_len) = if trimmed.starts_with('`') {
-            let count = trimmed.chars().take_while(|&c| c == '`').count();
-            if count >= 3 {
-                ('`', count)
-            } else {
-                return None;
-            }
-        } else if trimmed.starts_with('~') {
-            let count = trimmed.chars().take_while(|&c| c == '~').count();
-            if count >= 3 {
-                ('~', count)
-            } else {
-                return None;
-            }
-        } else {
-            return None;
-        };
-
-        // fence_end is a byte offset here; because indent and fence_len are
-        // both counts of ASCII characters, it equals the UTF-16 column too.
-        let fence_end_byte = indent + fence_len;
-
-        // The cursor (UTF-16) must be at or past the fence end (also UTF-16/ASCII).
-        if utf16_cursor < fence_end_byte {
+        // Events arrive in document order: stop at the first one past this
+        // line, so only a block starting on it counts.
+        let opens_block = Parser::new_ext(text, crate::utils::parser_options::rumdl_parser_options())
+            .into_offset_iter()
+            .take_while(|(_, range)| range.start <= line_end)
+            .any(|(event, range)| {
+                range.start >= line_start && matches!(event, Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(_))))
+            });
+        if !opens_block {
             return None;
         }
 
-        // Check if this is an opening or closing fence by scanning previous lines
-        let is_closing_fence = Self::is_closing_fence(&lines[..line_num], fence_char, fence_len);
-        if is_closing_fence {
+        // Container markers before the fence (`>`, list markers, indentation)
+        // never contain a backtick or tilde, so the first one starts the fence.
+        let fence_start = line.find(['`', '~'])?;
+        let fence_char = line[fence_start..].chars().next()?;
+        let fence_len = line[fence_start..].chars().take_while(|&c| c == fence_char).count();
+
+        // The prefix and the fence are ASCII, so fence_end is a byte offset and
+        // a UTF-16 column alike.
+        let fence_end = fence_start + fence_len;
+        if utf16_cursor < fence_end {
             return None;
         }
 
@@ -131,63 +114,14 @@ impl RumdlLanguageServer {
         let byte_cursor = utf16_to_byte_offset(line, utf16_cursor).unwrap_or(line.len());
 
         // Extract the current language text (from fence end to cursor position)
-        let current_text = &line[fence_end_byte..byte_cursor.min(line.len())];
+        let current_text = &line[fence_end..byte_cursor.min(line.len())];
 
         // Don't complete if there's a space (info string contains more than just language)
         if current_text.contains(' ') {
             return None;
         }
 
-        // Return fence_end as a UTF-16 column. Since the fence is all ASCII,
-        // byte offset == UTF-16 offset.
-        Some((fence_end_byte as u32, current_text.to_string()))
-    }
-
-    /// Check if we're inside an unclosed code block (meaning current fence is closing)
-    pub(super) fn is_closing_fence(previous_lines: &[&str], fence_char: char, fence_len: usize) -> bool {
-        let mut open_fences: Vec<(char, usize)> = Vec::new();
-
-        for line in previous_lines {
-            let trimmed = line.trim_start();
-
-            // Check for fence
-            let (line_fence_char, line_fence_len) = if trimmed.starts_with('`') {
-                let count = trimmed.chars().take_while(|&c| c == '`').count();
-                if count >= 3 {
-                    ('`', count)
-                } else {
-                    continue;
-                }
-            } else if trimmed.starts_with('~') {
-                let count = trimmed.chars().take_while(|&c| c == '~').count();
-                if count >= 3 {
-                    ('~', count)
-                } else {
-                    continue;
-                }
-            } else {
-                continue;
-            };
-
-            // Check if this closes an existing fence
-            if let Some(pos) = open_fences
-                .iter()
-                .rposition(|(c, len)| *c == line_fence_char && line_fence_len >= *len)
-            {
-                // Check if this is a closing fence (no content after fence chars)
-                let after_fence = &trimmed[line_fence_len..].trim();
-                if after_fence.is_empty() {
-                    open_fences.truncate(pos);
-                    continue;
-                }
-            }
-
-            // This is an opening fence
-            open_fences.push((line_fence_char, line_fence_len));
-        }
-
-        // Check if current fence would close any open fence
-        open_fences.iter().any(|(c, len)| *c == fence_char && fence_len >= *len)
+        Some((fence_end as u32, current_text.to_string()))
     }
 
     /// Get language completion items for fenced code blocks
@@ -408,7 +342,9 @@ impl RumdlLanguageServer {
         };
 
         let index = self.workspace_index.read().await;
-        let partial_lower = partial_path.to_lowercase();
+        // Typed text is a destination, so `my%20n` and `my n` both narrow to
+        // `my notes.md`.
+        let partial_lower = crate::workspace_index::url_decode(partial_path).to_lowercase();
 
         // Collect (distance, relative path) pairs so we can rank before truncating.
         let mut matches: Vec<(usize, String)> = Vec::new();
@@ -438,26 +374,31 @@ impl RumdlLanguageServer {
 
         let items = matches
             .into_iter()
-            .map(|(distance, rel_str)| CompletionItem {
-                label: rel_str.clone(),
-                kind: Some(CompletionItemKind::FILE),
-                detail: Some("Markdown file".to_string()),
-                // Encode distance in the sort key so the editor keeps nearer files
-                // on top even when its own ordering would otherwise be lexical.
-                sort_text: Some(format!("{distance:04}{rel_str}")),
-                filter_text: Some(rel_str.clone()),
-                insert_text: Some(rel_str.clone()),
-                text_edit: Some(CompletionTextEdit::Edit(TextEdit {
-                    range: Range {
-                        start: Position {
-                            line: position.line,
-                            character: start_col,
+            .map(|(distance, rel_str)| {
+                // The label names the file; the edit spells it as a destination,
+                // since `[d](my notes.md)` is not a link.
+                let destination = crate::workspace_index::url_encode_path(&rel_str).into_owned();
+                CompletionItem {
+                    label: rel_str.clone(),
+                    kind: Some(CompletionItemKind::FILE),
+                    detail: Some("Markdown file".to_string()),
+                    // Encode distance in the sort key so the editor keeps nearer files
+                    // on top even when its own ordering would otherwise be lexical.
+                    sort_text: Some(format!("{distance:04}{rel_str}")),
+                    filter_text: Some(destination.clone()),
+                    insert_text: Some(destination.clone()),
+                    text_edit: Some(CompletionTextEdit::Edit(TextEdit {
+                        range: Range {
+                            start: Position {
+                                line: position.line,
+                                character: start_col,
+                            },
+                            end: position,
                         },
-                        end: position,
-                    },
-                    new_text: rel_str.clone(),
-                })),
-                ..Default::default()
+                        new_text: destination,
+                    })),
+                    ..Default::default()
+                }
             })
             .collect();
 
@@ -484,14 +425,15 @@ impl RumdlLanguageServer {
         // Split into the committed directory portion (kept) and the filename
         // prefix being typed. `/img/ic` -> dir "/img/", prefix "ic".
         let last_slash = partial_path.rfind('/').unwrap_or(0);
+        // `dir_part` is kept as typed; the filesystem is asked for what it names.
         let dir_part = &partial_path[..=last_slash];
         let file_prefix = &partial_path[last_slash + 1..];
-        let rel_dir = dir_part.trim_start_matches('/');
-        let prefix_lower = file_prefix.to_lowercase();
+        let rel_dir = crate::workspace_index::url_decode(dir_part.trim_start_matches('/'));
+        let prefix_lower = crate::workspace_index::url_decode(file_prefix).to_lowercase();
 
         // Absolute links resolve against the content roots; `..` segments could
         // escape those roots and surface unrelated files, so refuse to complete.
-        if Path::new(rel_dir)
+        if Path::new(&rel_dir)
             .components()
             .any(|c| matches!(c, std::path::Component::ParentDir))
         {
@@ -505,7 +447,7 @@ impl RumdlLanguageServer {
             let base = if rel_dir.is_empty() {
                 root.clone()
             } else {
-                normalize_relative_path(&root.join(rel_dir))
+                normalize_relative_path(&root.join(&rel_dir))
             };
 
             // List only the immediate children of `base`, honoring .gitignore.
@@ -529,10 +471,11 @@ impl RumdlLanguageServer {
                 }
 
                 let is_dir = entry.file_type().is_some_and(|t| t.is_dir());
+                let encoded = crate::workspace_index::url_encode_path(&name);
                 let new_text = if is_dir {
-                    format!("{dir_part}{name}/")
+                    format!("{dir_part}{encoded}/")
                 } else {
-                    format!("{dir_part}{name}")
+                    format!("{dir_part}{encoded}")
                 };
                 if !seen.insert(new_text.clone()) {
                     continue; // same path from another content root
@@ -613,10 +556,15 @@ impl RumdlLanguageServer {
 
     /// Resolve a markdown link's `file_path` to a target path on disk.
     ///
+    /// `file_path` is the destination as written, without its fragment. It is a
+    /// URL, so its query string is dropped and the rest percent-decoded
+    /// (`my%20notes.md` names `my notes.md`), the way the lint rules read it.
+    ///
     /// Empty `file_path` refers to `current_file` itself. Root-relative paths
-    /// (leading `/`) resolve against the content roots, mirroring the absolute
-    /// link completion: an already-indexed candidate wins, otherwise the first
-    /// candidate that exists on disk. `..` segments are refused so a link cannot
+    /// (leading `/` as written, so an encoded `%2F` never makes one) resolve
+    /// against the content roots, mirroring the absolute link completion: an
+    /// already-indexed candidate wins, otherwise the first candidate that exists
+    /// on disk. `..` segments, encoded or not, are refused so a link cannot
     /// escape a content root. Other paths resolve against the current document's
     /// directory. Shared by completion and navigation so an accepted completion
     /// always resolves the same way hover and go-to-definition resolve it.
@@ -626,7 +574,8 @@ impl RumdlLanguageServer {
         }
 
         if let Some(rel) = file_path.strip_prefix('/') {
-            if Path::new(rel)
+            let rel = crate::workspace_index::link_path_part(rel);
+            if Path::new(&rel)
                 .components()
                 .any(|c| matches!(c, std::path::Component::ParentDir))
             {
@@ -635,7 +584,7 @@ impl RumdlLanguageServer {
             let content_roots = self.resolve_content_roots().await;
             let candidates: Vec<PathBuf> = content_roots
                 .iter()
-                .map(|root| normalize_relative_path(&root.join(rel)))
+                .map(|root| normalize_relative_path(&root.join(&rel)))
                 .collect();
             let indexed = {
                 let index = self.workspace_index.read().await;
@@ -645,7 +594,9 @@ impl RumdlLanguageServer {
         }
 
         let current_dir = current_file.parent()?;
-        Some(normalize_relative_path(&current_dir.join(file_path)))
+        Some(normalize_relative_path(
+            &current_dir.join(crate::workspace_index::link_path_part(file_path)),
+        ))
     }
 
     /// Get heading anchor completion items for a markdown link target

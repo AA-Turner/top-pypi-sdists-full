@@ -38,8 +38,8 @@ def _get_file_db():
 _SAFE_KEYS = frozenset(
     {
         "id", "created_by", "organization_id", "parent_folder_id", "file_path",
-        "file_name", "mime_type", "size_bytes", "checksum", "visibility",
-        "current_version", "width", "height", "duration_ms", "metadata",
+        "file_name", "mime_type", "size_bytes", "checksum", "published_to_web",
+        "shown_to", "current_version", "width", "height", "duration_ms", "metadata",
         "created_at", "updated_at", "deleted_at",
     }
 )

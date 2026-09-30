@@ -18,9 +18,7 @@
 # Urwid web site: https://urwid.org/
 
 
-"""
-Direct terminal UI implementation
-"""
+"""Direct terminal UI implementation."""
 
 from __future__ import annotations
 
@@ -87,6 +85,8 @@ _GPM_MOD_ALT = 8
 
 
 class Screen(_raw_display_base.Screen):
+    """Raw screen backend that drives a real POSIX terminal."""
+
     def __init__(
         self,
         input: _raw_display_base.SupportsFileno = sys.stdin,  # noqa: A002  # pylint: disable=redefined-builtin
@@ -94,8 +94,7 @@ class Screen(_raw_display_base.Screen):
         bracketed_paste_mode: bool | None = None,
         focus_reporting: bool | None = None,
     ) -> None:
-        """Initialize a screen that directly prints escape codes to an output
-        terminal.
+        """Initialize a screen that directly prints escape codes to an output terminal.
 
         :param bracketed_paste_mode: enable bracketed paste (`begin`/`end paste` keystrokes).
             None (default) auto-detects via DECRQM and enables it once confirmed supported;
@@ -139,9 +138,7 @@ class Screen(_raw_display_base.Screen):
         )
 
     def _sigwinch_handler(self, signum: int = signal.SIGWINCH, frame: FrameType | None = None) -> None:
-        """
-        :param frame: will always be None when the GLib event loop is being used.
-        """
+        """:param frame: will always be None when the GLib event loop is being used."""
         super()._sigwinch_handler(signum, frame)
 
         if callable(self._prev_sigwinch_handler):
@@ -175,9 +172,7 @@ class Screen(_raw_display_base.Screen):
             signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
 
     def _sigcont_handler(self, signum: int, frame: FrameType | None = None) -> None:
-        """
-        :param frame: will always be None when the GLib event loop is being used.
-        """
+        """:param frame: will always be None when the GLib event loop is being used."""
         self.signal_restore()
 
         if callable(self._prev_sigcont_handler):
@@ -189,9 +184,7 @@ class Screen(_raw_display_base.Screen):
         self._sigwinch_handler(signal.SIGWINCH, None)
 
     def signal_init(self) -> None:
-        """
-        Called in the startup of run wrapper to set the SIGWINCH
-        and SIGTSTP signal handlers.
+        """Set the SIGWINCH and SIGTSTP signal handlers, called in the startup of run wrapper.
 
         Override this function to call from main thread in threaded
         applications.
@@ -200,9 +193,7 @@ class Screen(_raw_display_base.Screen):
         self._prev_sigtstp_handler = self.signal_handler_setter(signal.SIGTSTP, self._sigtstp_handler)
 
     def signal_restore(self) -> None:
-        """
-        Called in the finally block of run wrapper to restore the
-        SIGTSTP, SIGCONT and SIGWINCH signal handlers.
+        """Restore the SIGTSTP, SIGCONT and SIGWINCH signal handlers, called in the finally block of run wrapper.
 
         Override this function to call from main thread in threaded
         applications.
@@ -300,9 +291,7 @@ class Screen(_raw_display_base.Screen):
         super()._start(*args, **kwargs)  # type: ignore[safe-super]
 
     def _stop(self) -> None:
-        """
-        Restore the screen.
-        """
+        """Restore the screen."""
         self.clear()
 
         if self.modes.bracketed_paste:
@@ -328,11 +317,9 @@ class Screen(_raw_display_base.Screen):
         super()._stop()  # type: ignore[safe-super]
 
     def get_input_descriptors(self) -> list[_raw_display_base.SupportsFileno | int]:
-        """
-        Return a list of integer file descriptors that should be
-        polled in external event loops to check for user input.
+        """Return a list of integer file descriptors that should be polled in external event loops.
 
-        Use this method if you are implementing your own event loop.
+        Used to check for user input. Use this method if you are implementing your own event loop.
 
         This method is only called by `hook_event_loop`, so if you override
         that, you can safely ignore this.
@@ -346,9 +333,7 @@ class Screen(_raw_display_base.Screen):
         return fd_list
 
     def unhook_event_loop(self, event_loop: EventLoop) -> None:
-        """
-        Remove any hooks added by hook_event_loop.
-        """
+        """Remove any hooks added by hook_event_loop."""
         for handle in self._current_event_loop_handles:
             event_loop.remove_watch_file(handle)
 
@@ -361,10 +346,9 @@ class Screen(_raw_display_base.Screen):
         event_loop: EventLoop,
         callback: Callable[[_DecodedInput, list[int]], typing.Any],
     ) -> None:
-        """
-        Register the given callback with the event loop, to be called with new
-        input whenever it's available.  The callback should be passed a list of
-        processed keys and a list of unprocessed keycodes.
+        """Register the given callback with the event loop, to be called with new input whenever it's available.
+
+        The callback should be passed a list of processed keys and a list of unprocessed keycodes.
 
         Subclasses may wish to use parse_input to wrap the callback.
         """

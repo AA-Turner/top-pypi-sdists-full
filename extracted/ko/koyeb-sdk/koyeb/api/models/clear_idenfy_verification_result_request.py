@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ClearIdenfyVerificationResultRequest(BaseModel):
     """
     ClearIdenfyVerificationResultRequest
-    """ # noqa: E501
+    """  # noqa: E501
+
     user_id: Optional[StrictStr] = None
     organization_id: Optional[StrictStr] = None
     __properties: ClassVar[List[str]] = ["user_id", "organization_id"]
@@ -37,7 +39,6 @@ class ClearIdenfyVerificationResultRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class ClearIdenfyVerificationResultRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,10 +81,10 @@ class ClearIdenfyVerificationResultRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "user_id": obj.get("user_id"),
-            "organization_id": obj.get("organization_id")
-        })
+        _obj = cls.model_validate(
+            {
+                "user_id": obj.get("user_id"),
+                "organization_id": obj.get("organization_id"),
+            }
+        )
         return _obj
-
-

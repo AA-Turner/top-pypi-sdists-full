@@ -326,3 +326,136 @@ def test_real_content_still_completes() -> None:
     analysis.update({"pyproject.toml": FASTAPI_MANIFEST})
 
     assert analysis.result.completeness == "complete"
+
+
+@pytest.mark.parametrize(
+    "requirements",
+    [
+        pytest.param(b"\xef\xbb\xbffastapi\r\nuvicorn\r\n", id="utf-8-bom"),
+        # PowerShell's `pip freeze > requirements.txt` writes UTF-16LE with a BOM.
+        pytest.param("fastapi\r\nuvicorn\r\n".encode("utf-16"), id="utf-16"),
+    ],
+)
+def test_bom_prefixed_requirements_detect_the_application(requirements: bytes) -> None:
+    contents = {"requirements.txt": requirements, "main.py": FASTAPI_APP}
+    analysis = kenbun.remote_analysis(
+        [entry("requirements.txt"), entry("main.py")],
+        hints={"script_patterns": ["main.py"]},
+    )
+
+    while analysis.file_requests:
+        analysis.update(
+            {request.path: contents[request.path] for request in analysis.file_requests}
+        )
+
+    assert analysis.result.completeness == "complete"
+    assert [
+        technology.name for technology in analysis.result.applications[0].technologies
+    ] == ["fastapi", "python"]
+
+
+def drive(
+    analysis: kenbun.RemoteAnalysis, contents: dict[str, bytes | None]
+) -> kenbun.ScanResult:
+    while analysis.file_requests:
+        analysis.update(
+            {request.path: contents[request.path] for request in analysis.file_requests}
+        )
+    return analysis.result
+
+
+def omitted(result: kenbun.ScanResult) -> list[str | None]:
+    return [
+        diagnostic.path
+        for diagnostic in result.diagnostics
+        if diagnostic.code == "KB801"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("oversized", "completeness", "reported"),
+    [
+        # Never requested, so it is outside the analysis whatever its size.
+        pytest.param("pages.py", "complete", [], id="unrequested-root-script"),
+        # Needed for the analysis, so skipping it must still be reported.
+        pytest.param("main.py", "partial", ["main.py"], id="hinted-script"),
+        pytest.param(
+            "requirements.txt", "partial", ["requirements.txt"], id="manifest"
+        ),
+    ],
+)
+def test_oversized_files_affect_completeness_only_when_needed(
+    oversized: str, completeness: str, reported: list[str]
+) -> None:
+    contents: dict[str, bytes | None] = {
+        "requirements.txt": b"fastapi\n",
+        "main.py": FASTAPI_APP,
+    }
+    sizes = {path: len(content or b"") for path, content in contents.items()}
+    sizes["pages.py"] = 64
+    sizes[oversized] = 2_048
+    analysis = kenbun.remote_analysis(
+        [entry(path, size=size) for path, size in sizes.items()],
+        hints={"script_patterns": ["main.py"]},
+        max_file_bytes=1_024,
+    )
+
+    result = drive(analysis, contents)
+
+    assert result.completeness == completeness
+    assert omitted(result) == reported
+
+
+@pytest.mark.parametrize(
+    ("requirements", "reason"),
+    [
+        pytest.param(None, "not provided", id="unavailable"),
+        pytest.param(LFS_POINTER, "Git LFS pointer", id="lfs-pointer"),
+        pytest.param(b"\xc3\x28fastapi\n", "not UTF-8", id="undecodable"),
+    ],
+)
+def test_every_unusable_read_is_reported(
+    requirements: bytes | None, reason: str
+) -> None:
+    """A partial result always names the file it could not use."""
+    analysis = kenbun.remote_analysis([entry("requirements.txt")])
+
+    result = drive(analysis, {"requirements.txt": requirements})
+
+    assert result.completeness == "partial"
+    [diagnostic] = [d for d in result.diagnostics if d.code == "KB801"]
+    assert diagnostic.path == "requirements.txt"
+    assert reason in diagnostic.message
+
+
+def test_a_read_failure_already_reported_by_a_detector_is_not_repeated() -> None:
+    analysis = kenbun.remote_analysis(
+        [entry("pyproject.toml", size=2_048)], max_file_bytes=1_024
+    )
+
+    result = drive(analysis, {})
+
+    assert result.completeness == "partial"
+    assert omitted(result) == ["pyproject.toml"]
+
+
+def test_pnpm_settings_only_workspace_file_keeps_the_scan_complete() -> None:
+    contents: dict[str, bytes | None] = {
+        "package.json": b'{"dependencies": {"next": "16", "react": "19"}}',
+        "pnpm-workspace.yaml": b"onlyBuiltDependencies:\n  - sharp\n",
+        "backend/requirements.txt": b"fastapi\n",
+        "backend/main.py": FASTAPI_APP,
+    }
+    analysis = kenbun.remote_analysis(
+        [entry(path, size=len(content or b"")) for path, content in contents.items()],
+        hints={"script_patterns": ["main.py"]},
+    )
+
+    result = drive(analysis, contents)
+
+    assert result.completeness == "complete"
+    assert result.diagnostics == []
+    assert [application.application_dir for application in result.applications] == [
+        ".",
+        "backend",
+    ]

@@ -23,17 +23,26 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DockerBuilder(BaseModel):
     """
     DockerBuilder
-    """ # noqa: E501
+    """  # noqa: E501
+
     dockerfile: Optional[StrictStr] = None
     entrypoint: Optional[List[StrictStr]] = None
     command: Optional[StrictStr] = None
     args: Optional[List[StrictStr]] = None
     target: Optional[StrictStr] = None
     privileged: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = ["dockerfile", "entrypoint", "command", "args", "target", "privileged"]
+    __properties: ClassVar[List[str]] = [
+        "dockerfile",
+        "entrypoint",
+        "command",
+        "args",
+        "target",
+        "privileged",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -41,7 +50,6 @@ class DockerBuilder(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,8 +74,7 @@ class DockerBuilder(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -85,14 +92,14 @@ class DockerBuilder(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "dockerfile": obj.get("dockerfile"),
-            "entrypoint": obj.get("entrypoint"),
-            "command": obj.get("command"),
-            "args": obj.get("args"),
-            "target": obj.get("target"),
-            "privileged": obj.get("privileged")
-        })
+        _obj = cls.model_validate(
+            {
+                "dockerfile": obj.get("dockerfile"),
+                "entrypoint": obj.get("entrypoint"),
+                "command": obj.get("command"),
+                "args": obj.get("args"),
+                "target": obj.get("target"),
+                "privileged": obj.get("privileged"),
+            }
+        )
         return _obj
-
-

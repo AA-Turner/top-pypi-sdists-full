@@ -27,6 +27,16 @@ class OfflineStoreConnectionServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetOfflineStoreConnectionRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetOfflineStoreConnectionResponse.FromString,
         )
+        self.GetIcebergCatalogOptimizationStatus = channel.unary_unary(
+            "/chalk.server.v1.OfflineStoreConnectionService/GetIcebergCatalogOptimizationStatus",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergCatalogOptimizationStatusRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergCatalogOptimizationStatusResponse.FromString,
+        )
+        self.GetIcebergTableOptimizationOverrides = channel.unary_unary(
+            "/chalk.server.v1.OfflineStoreConnectionService/GetIcebergTableOptimizationOverrides",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergTableOptimizationOverridesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergTableOptimizationOverridesResponse.FromString,
+        )
         self.ListOfflineStoreConnections = channel.unary_unary(
             "/chalk.server.v1.OfflineStoreConnectionService/ListOfflineStoreConnections",
             request_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.ListOfflineStoreConnectionsRequest.SerializeToString,
@@ -79,6 +89,18 @@ class OfflineStoreConnectionServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetOfflineStoreConnection(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetIcebergCatalogOptimizationStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetIcebergTableOptimizationOverrides(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -144,6 +166,16 @@ def add_OfflineStoreConnectionServiceServicer_to_server(servicer, server):
             servicer.GetOfflineStoreConnection,
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetOfflineStoreConnectionRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetOfflineStoreConnectionResponse.SerializeToString,
+        ),
+        "GetIcebergCatalogOptimizationStatus": grpc.unary_unary_rpc_method_handler(
+            servicer.GetIcebergCatalogOptimizationStatus,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergCatalogOptimizationStatusRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergCatalogOptimizationStatusResponse.SerializeToString,
+        ),
+        "GetIcebergTableOptimizationOverrides": grpc.unary_unary_rpc_method_handler(
+            servicer.GetIcebergTableOptimizationOverrides,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergTableOptimizationOverridesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergTableOptimizationOverridesResponse.SerializeToString,
         ),
         "ListOfflineStoreConnections": grpc.unary_unary_rpc_method_handler(
             servicer.ListOfflineStoreConnections,
@@ -244,6 +276,64 @@ class OfflineStoreConnectionService(object):
             "/chalk.server.v1.OfflineStoreConnectionService/GetOfflineStoreConnection",
             chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetOfflineStoreConnectionRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetOfflineStoreConnectionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetIcebergCatalogOptimizationStatus(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineStoreConnectionService/GetIcebergCatalogOptimizationStatus",
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergCatalogOptimizationStatusRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergCatalogOptimizationStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetIcebergTableOptimizationOverrides(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineStoreConnectionService/GetIcebergTableOptimizationOverrides",
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergTableOptimizationOverridesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetIcebergTableOptimizationOverridesResponse.FromString,
             options,
             channel_credentials,
             insecure,

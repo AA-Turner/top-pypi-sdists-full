@@ -12,6 +12,9 @@ ErrorCode = typing.Union[
         "authentication_error",
         "not_found_error",
         "rate_limit_exceeded_error",
+        "model_call_error",
+        "gateway_timeout_error",
+        "billing_service_unavailable_error",
     ],
     typing.Any,
 ]

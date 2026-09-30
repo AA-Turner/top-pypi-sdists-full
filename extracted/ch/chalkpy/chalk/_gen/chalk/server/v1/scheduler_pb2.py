@@ -16,6 +16,15 @@ _sym_db = _symbol_database.Default()
 from chalk._gen.chalk.aggregate.v1 import backfill_pb2 as chalk_dot_aggregate_dot_v1_dot_backfill__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as chalk_dot_common_dot_v1_dot_offline__query__pb2
+
+try:
+    chalk_dot_common_dot_v1_dot_resources__pb2 = (
+        chalk_dot_common_dot_v1_dot_offline__query__pb2.chalk_dot_common_dot_v1_dot_resources__pb2
+    )
+except AttributeError:
+    chalk_dot_common_dot_v1_dot_resources__pb2 = (
+        chalk_dot_common_dot_v1_dot_offline__query__pb2.chalk.common.v1.resources_pb2
+    )
 from chalk._gen.chalk.server.v1 import batch_pb2 as chalk_dot_server_dot_v1_dot_batch__pb2
 from chalk._gen.chalk.server.v1 import scheduled_query_run_pb2 as chalk_dot_server_dot_v1_dot_scheduled__query__run__pb2
 from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2

@@ -10,11 +10,13 @@ class BaseClientWrapper:
     def __init__(
         self,
         *,
+        session_credential: typing.Optional[str] = None,
         api_key: str,
         headers: typing.Optional[typing.Dict[str, str]] = None,
         base_url: str,
         timeout: typing.Optional[float] = None,
     ):
+        self._session_credential = session_credential
         self.api_key = api_key
         self._headers = headers
         self._base_url = base_url
@@ -22,12 +24,14 @@ class BaseClientWrapper:
 
     def get_headers(self) -> typing.Dict[str, str]:
         headers: typing.Dict[str, str] = {
-            "User-Agent": "athenaintel/0.1.2298",
+            "User-Agent": "athenaintel/0.1.2304",
             "X-Fern-Language": "Python",
             "X-Fern-SDK-Name": "athenaintel",
-            "X-Fern-SDK-Version": "0.1.2298",
+            "X-Fern-SDK-Version": "0.1.2304",
             **(self.get_custom_headers() or {}),
         }
+        if self._session_credential is not None:
+            headers["X-Athena-Session-Credential"] = self._session_credential
         headers["X-API-KEY"] = self.api_key
         return headers
 
@@ -45,13 +49,16 @@ class SyncClientWrapper(BaseClientWrapper):
     def __init__(
         self,
         *,
+        session_credential: typing.Optional[str] = None,
         api_key: str,
         headers: typing.Optional[typing.Dict[str, str]] = None,
         base_url: str,
         timeout: typing.Optional[float] = None,
         httpx_client: httpx.Client,
     ):
-        super().__init__(api_key=api_key, headers=headers, base_url=base_url, timeout=timeout)
+        super().__init__(
+            session_credential=session_credential, api_key=api_key, headers=headers, base_url=base_url, timeout=timeout
+        )
         self.httpx_client = HttpClient(
             httpx_client=httpx_client,
             base_headers=self.get_headers,
@@ -64,13 +71,16 @@ class AsyncClientWrapper(BaseClientWrapper):
     def __init__(
         self,
         *,
+        session_credential: typing.Optional[str] = None,
         api_key: str,
         headers: typing.Optional[typing.Dict[str, str]] = None,
         base_url: str,
         timeout: typing.Optional[float] = None,
         httpx_client: httpx.AsyncClient,
     ):
-        super().__init__(api_key=api_key, headers=headers, base_url=base_url, timeout=timeout)
+        super().__init__(
+            session_credential=session_credential, api_key=api_key, headers=headers, base_url=base_url, timeout=timeout
+        )
         self.httpx_client = AsyncHttpClient(
             httpx_client=httpx_client,
             base_headers=self.get_headers,

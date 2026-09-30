@@ -16,6 +16,8 @@ use guacr_handlers::video::VideoOutput;
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
+#[cfg(test)]
+use std::sync::Mutex as StdMutex;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex as TokioMutex;
@@ -59,6 +61,9 @@ pub struct ChannelMetadata {
 // Type alias to avoid type complexity warning
 type ChannelCloseReasonMap =
     Arc<TokioRwLock<HashMap<String, Arc<TokioMutex<Option<CloseConnectionReason>>>>>>;
+
+#[cfg(test)]
+type ConnectionOpenReporter = Arc<dyn Fn() + Send + Sync>;
 
 // A single tube holding a WebRTC peer connection and channels
 // NOTE: Tube should NOT be Clone! It's always used inside Arc<Tube>.
@@ -152,6 +157,30 @@ pub struct Tube {
     /// time AND on every `set_outbound_tap`/`clear_outbound_tap`
     /// call so existing channels see the change atomically.
     pub(crate) outbound_tap: Arc<crate::webrtc_data_tap::TapSlot>,
+
+    #[cfg(test)]
+    connection_open_reporter: StdMutex<Option<ConnectionOpenReporter>>,
+}
+
+/// Decide which data-channel label serves `conversation_id`, given a predicate
+/// that reports whether a label currently exists on the tube.
+///
+/// Split out from [`Tube::resolve_handler_channel`] so the mapping rule can be
+/// unit-tested without standing up a real WebRTC peer connection.
+pub(crate) fn resolve_handler_channel_label<'a>(
+    has_channel: impl Fn(&str) -> bool,
+    conversation_id: &'a str,
+    control_conversation: &str,
+) -> Option<&'a str> {
+    if has_channel(conversation_id) {
+        return Some(conversation_id);
+    }
+
+    if conversation_id == control_conversation && has_channel("control") {
+        return Some("control");
+    }
+
+    None
 }
 
 impl Tube {
@@ -221,6 +250,9 @@ impl Tube {
 
             // Outbound data tap (public surface for direct-API consumers):
             outbound_tap: crate::webrtc_data_tap::empty_slot(),
+
+            #[cfg(test)]
+            connection_open_reporter: StdMutex::new(None),
         });
 
         Ok(tube)
@@ -729,11 +761,6 @@ impl Tube {
                         debug!("on_data_channel: channel.run() task started. (tube_id: {}, conversation_id: {}, channel_label: {})", tube_id_for_log, conv_id_str, label_clone_for_run);
                     }
 
-                    // Send connection_open callback when a channel starts running
-                    if let Err(e) = tube_arc.send_connection_open_callback(&label_clone_for_run).await {
-                        warn!("Failed to send connection_open callback: {} (tube_id: {}, conversation_id: {}, channel_label: {})", e, tube_id_for_log, conv_id_str, label_clone_for_run);
-                    }
-
                     // Clone the Arc so we can access it after run() consumes the channel
                     let close_reason_arc = owned_channel.channel_close_reason.clone();
                     let close_message_arc = owned_channel.channel_close_message.clone();
@@ -1228,16 +1255,31 @@ impl Tube {
         }));
     }
 
-    // Report connection open state to router
-    pub(crate) async fn report_connection_open(
+    #[cfg(test)]
+    pub(crate) fn set_connection_open_reporter_for_test(&self, reporter: ConnectionOpenReporter) {
+        *self
+            .connection_open_reporter
+            .lock()
+            .expect("connection-open reporter mutex poisoned") = Some(reporter);
+    }
+
+    async fn emit_connection_open(
         &self,
         ksm_config: String,
         callback_token: String,
         client_version: &str,
     ) -> std::result::Result<(), String> {
-        if self.is_server_mode_context {
+        #[cfg(test)]
+        if let Some(reporter) = self
+            .connection_open_reporter
+            .lock()
+            .expect("connection-open reporter mutex poisoned")
+            .clone()
+        {
+            reporter();
             return Ok(());
         }
+
         if ksm_config.starts_with("TEST_MODE_KSM_CONFIG_") {
             debug!(
                 "TEST MODE: Skipping report_connection_open for ksm_config: {} (tube_id: {}, conversation_id: {})",
@@ -1283,6 +1325,21 @@ impl Tube {
                 Err(format!("Failed to send connection open callback: {e}"))
             }
         }
+    }
+
+    // Report connection open state to router
+    pub(crate) async fn report_connection_open(
+        &self,
+        ksm_config: String,
+        callback_token: String,
+        client_version: &str,
+    ) -> std::result::Result<(), String> {
+        if self.is_server_mode_context {
+            return Ok(());
+        }
+
+        self.emit_connection_open(ksm_config, callback_token, client_version)
+            .await
     }
 
     pub(crate) async fn report_connection_close(
@@ -1528,11 +1585,6 @@ impl Tube {
             let conv_id_spawn_str = conversation_id_for_spawn.as_deref().unwrap_or("-");
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!("create_channel: channel.run() task started. (tube_id: {}, conversation_id: {}, channel_name: {})", tube_id_for_spawn, conv_id_spawn_str, name_clone);
-            }
-
-            // Only send connection_open callback for client mode channels
-            if let Err(e) = tube_arc.send_connection_open_callback(&name_clone).await {
-                warn!("Failed to send connection_open callback: {} (tube_id: {}, conversation_id: {}, channel_name: {})", e, tube_id_for_spawn, conv_id_spawn_str, name_clone);
             }
 
             // Clone the Arc so we can access it after run() consumes the channel
@@ -2000,65 +2052,6 @@ impl Tube {
                 "No shutdown signal found to remove for channel (tube_id: {}, conversation_id: {}, channel_name: {})",
                 self.id, self.original_conversation_id.as_deref().unwrap_or("-"), channel_name
             );
-        }
-    }
-
-    // Send connection_open callback for a specific channel
-    pub async fn send_connection_open_callback(&self, channel_name: &str) -> Result<()> {
-        if self.is_server_mode_context {
-            return Ok(());
-        }
-        let channels_guard = self.active_channels.read().await;
-        if let Some(metadata) = channels_guard.get(channel_name) {
-            if let (Some(ref ksm_config), Some(ref callback_token)) =
-                (&metadata.ksm_config, &metadata.callback_token)
-            {
-                let client_version = &metadata.client_version;
-
-                // Skip if in test mode
-                if ksm_config.starts_with("TEST_MODE_KSM_CONFIG_") {
-                    debug!("TEST MODE: Skipping connection_open callback (tube_id: {}, conversation_id: {}, channel_name: {})", self.id, self.original_conversation_id.as_deref().unwrap_or("-"), channel_name);
-                    return Ok(());
-                }
-
-                debug!(
-                    "Sending connection_open callback to router (tube_id: {}, conversation_id: {}, channel_name: {})",
-                    self.id, self.original_conversation_id.as_deref().unwrap_or("-"), channel_name
-                );
-                let token_value = serde_json::Value::String(callback_token.clone());
-
-                match post_connection_state(
-                    ksm_config,
-                    "connection_open",
-                    &token_value,
-                    None,
-                    client_version,
-                    None, // recording_duration
-                    None, // closure_reason
-                    None, // ai_overall_risk_level
-                    None, // ai_overall_summary
-                )
-                .await
-                {
-                    Ok(_) => {
-                        debug!("Connection open callback sent successfully (tube_id: {}, conversation_id: {}, channel_name: {})", self.id, self.original_conversation_id.as_deref().unwrap_or("-"), channel_name);
-                        Ok(())
-                    }
-                    Err(e) => {
-                        error!("Error sending connection open callback: {} (tube_id: {}, conversation_id: {}, channel_name: {})", e, self.id, self.original_conversation_id.as_deref().unwrap_or("-"), channel_name);
-                        Err(anyhow!("Failed to send connection open callback: {e}"))
-                    }
-                }
-            } else {
-                warn!("Channel missing ksm_config or callback_token for connection_open callback (tube_id: {}, conversation_id: {}, channel_name: {})", self.id, self.original_conversation_id.as_deref().unwrap_or("-"), channel_name);
-                Ok(())
-            }
-        } else {
-            Err(anyhow!(
-                "Channel {} not found in tube {}",
-                channel_name,
-                self.id
-            ))
         }
     }
 
@@ -2829,15 +2822,43 @@ impl Tube {
     /// Send data from Python handler to WebRTC for a specific channel/connection
     /// Used in PythonHandler protocol mode
     #[allow(dead_code)] // Used by Python bindings
-    pub(crate) async fn send_data_from_handler(
+    /// Resolve the data channel serving `conversation_id`.
+    ///
+    /// Callers (both the Python bindings and native Rust consumers) address
+    /// handler connections by conversation id, but channels are stored under
+    /// their data-channel *label*. Teardown in `tube_registry` defines the
+    /// mapping: the `"control"` channel serves this tube's original
+    /// conversation, and every other channel is keyed by its own label. This
+    /// is the inverse of that rule.
+    ///
+    /// A bare exact-match lookup therefore misses whenever a session runs over
+    /// the control channel. Returns `None` rather than falling back to an
+    /// arbitrary channel, so a miss can never misroute session data.
+    async fn resolve_handler_channel(&self, conversation_id: &str) -> Option<WebRTCDataChannel> {
+        let channels = self.data_channels.read().await;
+        let control_conversation = self
+            .original_conversation_id
+            .clone()
+            .unwrap_or_else(|| self.id());
+
+        let label = resolve_handler_channel_label(
+            |candidate| channels.contains_key(candidate),
+            conversation_id,
+            &control_conversation,
+        )?;
+
+        channels.get(label).cloned()
+    }
+
+    pub async fn send_data_from_handler(
         &self,
         channel_name: &str,
         conn_no: u32,
         data: bytes::Bytes,
     ) -> Result<()> {
-        let data_channels = self.data_channels.read().await;
-        let channel = data_channels
-            .get(channel_name)
+        let channel = self
+            .resolve_handler_channel(channel_name)
+            .await
             .ok_or_else(|| anyhow::anyhow!("Channel not found: {}", channel_name))?;
 
         // Create a data frame and send it over WebRTC
@@ -2861,17 +2882,16 @@ impl Tube {
     /// * `channel_name` - The channel identifier
     /// * `conn_no` - The connection number
     /// * `connect_as_payload` - Optional ConnectAs payload for credential passing
-    ///   Format: [encrypted_data_len: 4 bytes] + [public_key: 65 bytes] + [nonce: 12 bytes] + [encrypted_data]
-    #[allow(dead_code)] // Used by Python bindings
-    pub(crate) async fn open_handler_connection(
+    ///   Format: `[encrypted_data_len: 4 bytes] + [public_key: 65 bytes] + [nonce: 12 bytes] + [encrypted_data]`
+    pub async fn open_handler_connection(
         &self,
         channel_name: &str,
         conn_no: u32,
         connect_as_payload: Option<&[u8]>,
     ) -> Result<()> {
-        let data_channels = self.data_channels.read().await;
-        let channel = data_channels
-            .get(channel_name)
+        let channel = self
+            .resolve_handler_channel(channel_name)
+            .await
             .ok_or_else(|| anyhow::anyhow!("Channel not found: {}", channel_name))?;
 
         // Build OpenConnection control message
@@ -2914,16 +2934,15 @@ impl Tube {
 
     /// Close a virtual connection in PythonHandler protocol mode
     /// Sends a CloseConnection control message to the remote peer
-    #[allow(dead_code)] // Used by Python bindings
-    pub(crate) async fn close_handler_connection(
+    pub async fn close_handler_connection(
         &self,
         channel_name: &str,
         conn_no: u32,
         reason: CloseConnectionReason,
     ) -> Result<()> {
-        let data_channels = self.data_channels.read().await;
-        let channel = data_channels
-            .get(channel_name)
+        let channel = self
+            .resolve_handler_channel(channel_name)
+            .await
             .ok_or_else(|| anyhow::anyhow!("Channel not found: {}", channel_name))?;
 
         // Full payload (conn_no 4 + reason 1) so receiver gets expected bytes on disconnect.

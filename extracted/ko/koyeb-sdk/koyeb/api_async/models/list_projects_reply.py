@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ListProjectsReply(BaseModel):
     """
     ListProjectsReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     projects: Optional[List[Project]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
@@ -39,7 +41,6 @@ class ListProjectsReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +65,7 @@ class ListProjectsReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -76,9 +76,10 @@ class ListProjectsReply(BaseModel):
         _items = []
         if self.projects:
             for _item_projects in self.projects:
-                if _item_projects:
-                    _items.append(_item_projects.to_dict())
-            _dict['projects'] = _items
+                _items.append(
+                    _item_projects.to_dict() if _item_projects is not None else None
+                )
+            _dict["projects"] = _items
         return _dict
 
     @classmethod
@@ -90,11 +91,13 @@ class ListProjectsReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "projects": [Project.from_dict(_item) for _item in obj["projects"]] if obj.get("projects") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset")
-        })
+        _obj = cls.model_validate(
+            {
+                "projects": [Project.from_dict(_item) for _item in obj["projects"]]
+                if obj.get("projects") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+            }
+        )
         return _obj
-
-

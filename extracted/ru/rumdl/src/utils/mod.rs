@@ -11,12 +11,15 @@ pub mod emphasis_utils;
 pub mod fix_utils;
 pub mod frontmatter_values;
 pub(crate) mod gh_aw;
+pub(crate) mod hard_break;
 pub mod header_id_utils;
 pub mod html_block;
 pub mod html_elements;
 pub mod jinja_utils;
 pub mod kramdown_utils;
 pub mod line_ending;
+pub(crate) mod list_fix_guard;
+pub mod list_indent_shift;
 pub mod mdg;
 pub mod mkdocs_admonitions;
 pub mod mkdocs_attr_list;
@@ -53,7 +56,7 @@ pub mod utf8_offsets;
 pub use code_block_utils::CodeBlockUtils;
 pub use line_ending::{
     LineEnding, NormalizedLineEndingMap, detect_line_ending, detect_line_ending_enum, ensure_consistent_line_endings,
-    get_line_ending_str, normalize_line_ending,
+    get_line_ending_str, line_ending_before, normalize_line_ending,
 };
 pub use parser_options::rumdl_parser_options;
 pub use range_utils::LineIndex;
@@ -199,6 +202,22 @@ pub fn fast_hash(content: &str) -> u64 {
     let mut hasher = DefaultHasher::new();
     content.hash(&mut hasher);
     hasher.finish()
+}
+
+/// A bracketed stderr label such as `[config warning]`, yellow when color
+/// output is enabled. Goes through `colored` so `--color`, `NO_COLOR` and
+/// `CLICOLOR_FORCE` apply to it like to every other colored output.
+pub fn warning_label(kind: &str) -> String {
+    let label = format!("[{kind}]");
+    #[cfg(feature = "colored")]
+    {
+        use colored::Colorize;
+        label.yellow().to_string()
+    }
+    #[cfg(not(feature = "colored"))]
+    {
+        label
+    }
 }
 
 #[cfg(test)]

@@ -23,13 +23,17 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class CreateArchive(BaseModel):
     """
     CreateArchive
-    """ # noqa: E501
-    size: Optional[StrictStr] = Field(default=None, description="How much space to provision for the archive, in bytes.")
-    project_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["size", "project_id"]
+    """  # noqa: E501
+
+    size: Optional[StrictStr] = Field(
+        default=None,
+        description="How much space to provision for the archive, in bytes.",
+    )
+    __properties: ClassVar[List[str]] = ["size"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -37,7 +41,6 @@ class CreateArchive(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +65,7 @@ class CreateArchive(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,10 +83,5 @@ class CreateArchive(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "size": obj.get("size"),
-            "project_id": obj.get("project_id")
-        })
+        _obj = cls.model_validate({"size": obj.get("size")})
         return _obj
-
-

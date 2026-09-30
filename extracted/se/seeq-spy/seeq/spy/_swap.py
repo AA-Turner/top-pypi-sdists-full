@@ -457,7 +457,9 @@ def _get_dependencies_with_relevant_assets(item: ItemDependencyOutputV1, depende
 
     # Keep track of every ID we find that matters.
     # This should end up being items with assets, or assetless leaf nodes.
-    result_id_set = list()
+    result_id_set = set()
+    # Every ID already examined. A sub-formula shared by several parameters is expanded once, not once per path to it.
+    visited_id_set = set()
 
     # TypeScript code from client/packages/webserver/app/src/utilities/formula.utilities.ts:
     #
@@ -481,22 +483,24 @@ def _get_dependencies_with_relevant_assets(item: ItemDependencyOutputV1, depende
         # take the first param.
         current = queue.pop()
 
-        if current.id in result_id_set:
+        if current.id in visited_id_set:
             continue
+
+        visited_id_set.add(current.id)
 
         if len(current.ancestors) > 0:
             # if it has an ancestor, put its id in the resultIds, we're done with it.
-            result_id_set.append(current.id)
+            result_id_set.add(current.id)
         else:
             # if not, add its parameters to the queue of possible ancestors
             parameters = find_parameters.get(current.id)
 
             if parameters is None or len(parameters) == 0:
                 # leaf node; add to results so we don't bother with it anymore
-                result_id_set.append(current.id)
+                result_id_set.add(current.id)
             else:
-                # not already examined, no asset ancestor - recurse to its parameters
-                queue += parameters
+                # no asset ancestor - recurse to its parameters
+                queue.extend(parameters)
 
     # Include the original item in the possible results we pick from
     # noinspection PyTypeChecker

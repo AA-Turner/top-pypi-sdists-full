@@ -7,12 +7,13 @@ from typing import Any, ClassVar, Literal, Self, TypedDict, cast, overload
 
 from av.codec.hwaccel import HWAccel
 from av.format import ContainerFormat
+from av.rational import AVRational
 
 from .input import InputContainer
 from .output import OutputContainer
 from .streams import StreamContainer
 
-Real = int | float | Fraction
+Real = int | float | Fraction | AVRational
 
 class Flags(Flag):
     gen_pts = cast(ClassVar[Flags], ...)
@@ -72,13 +73,11 @@ class Chapter(TypedDict):
     id: int
     start: int
     end: int
-    time_base: Fraction | None
+    time_base: AVRational
     metadata: dict[str, str]
 
 class Container:
     name: str
-    metadata_encoding: str
-    metadata_errors: str
     file: Any
     buffer_size: int
     io_open: Any
@@ -86,13 +85,13 @@ class Container:
     format: ContainerFormat
     options: dict[str, str]
     container_options: dict[str, str]
-    stream_options: list[dict[str, str]]
     streams: StreamContainer
     metadata: dict[str, str]
     open_timeout: Real | None
     read_timeout: Real | None
     flags: int
     video_codec_id: int
+    def dumps_format(self) -> str: ...
     def __enter__(self) -> Self: ...
     def __exit__(
         self,
@@ -113,9 +112,6 @@ def open(
     format: str | None = None,
     options: dict[str, str] | None = None,
     container_options: dict[str, str] | None = None,
-    stream_options: list[str] | None = None,
-    metadata_encoding: str = "utf-8",
-    metadata_errors: str = "strict",
     buffer_size: int = 32768,
     timeout: Real | None | tuple[Real | None, Real | None] = None,
     io_open: Callable[..., Any] | None = None,
@@ -128,9 +124,6 @@ def open(
     format: str | None = None,
     options: dict[str, str] | None = None,
     container_options: dict[str, str] | None = None,
-    stream_options: list[str] | None = None,
-    metadata_encoding: str = "utf-8",
-    metadata_errors: str = "strict",
     buffer_size: int = 32768,
     timeout: Real | None | tuple[Real | None, Real | None] = None,
     io_open: Callable[..., Any] | None = None,
@@ -143,9 +136,6 @@ def open(
     format: str | None = None,
     options: dict[str, str] | None = None,
     container_options: dict[str, str] | None = None,
-    stream_options: list[str] | None = None,
-    metadata_encoding: str = "utf-8",
-    metadata_errors: str = "strict",
     buffer_size: int = 32768,
     timeout: Real | None | tuple[Real | None, Real | None] = None,
     io_open: Callable[..., Any] | None = None,
@@ -158,9 +148,6 @@ def open(
     format: str | None = None,
     options: dict[str, str] | None = None,
     container_options: dict[str, str] | None = None,
-    stream_options: list[str] | None = None,
-    metadata_encoding: str = "utf-8",
-    metadata_errors: str = "strict",
     buffer_size: int = 32768,
     timeout: Real | None | tuple[Real | None, Real | None] = None,
     io_open: Callable[..., Any] | None = None,

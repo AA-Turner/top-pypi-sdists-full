@@ -22,7 +22,14 @@ from rich.table import Table
 from plato.chronos.analysis import analyze_session
 from plato.chronos.api.settings import get_setting, update_setting
 from plato.chronos.errors import NotFoundError
-from plato.chronos.models import OTelSpanSchema, UpdateSettingRequest
+from plato.chronos.models import (
+    OTelSpanSchema,
+    SessionStatus,
+    SpanSearchField,
+    SpanSearchRequest,
+    SpanSearchSource,
+    UpdateSettingRequest,
+)
 from plato.chronos.sdk import Chronos
 from plato.cli.chronos.import_traces import import_app
 from plato.cli.chronos.settings import get_settings
@@ -635,6 +642,113 @@ def traces(
         raise typer.Exit(1)
 
 
+@chronos_app.command("search")
+def search(
+    terms: Annotated[list[str], typer.Argument(help="Terms to match, as case-insensitive substrings")],
+    tag: Annotated[
+        str | None,
+        typer.Option(
+            help="Sessions with a tag containing this ('platform_task_run' matches 'platform_task_run.<world>')"
+        ),
+    ] = None,
+    session_ids: Annotated[
+        list[str] | None, typer.Option("--session-id", help="Search this session (repeatable)")
+    ] = None,
+    since: Annotated[
+        datetime | None,
+        typer.Option(help="Sessions created at or after this UTC time", formats=["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"]),
+    ] = None,
+    until: Annotated[
+        datetime | None,
+        typer.Option(help="Sessions created before this UTC time", formats=["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"]),
+    ] = None,
+    status: Annotated[SessionStatus | None, typer.Option(help="Only sessions in this status")] = None,
+    all_terms: Annotated[bool, typer.Option("--all", help="A span must contain every term (default: any)")] = False,
+    fields: Annotated[
+        list[SpanSearchField] | None,
+        typer.Option(
+            "--field",
+            help="Only match this step attribute (repeatable): tool_calls is tool input, observation tool output",
+        ),
+    ] = None,
+    sources: Annotated[
+        list[SpanSearchSource] | None,
+        typer.Option("--source", help="Only step spans from this source (repeatable); tool results are 'system'"),
+    ] = None,
+    errors_only: Annotated[bool, typer.Option("--errors-only", help="Only error spans")] = False,
+    org_ids: Annotated[
+        list[int] | None,
+        typer.Option("--org-id", help="Search this org's sessions (repeatable); other orgs need a Plato-org admin key"),
+    ] = None,
+    limit: Annotated[int, typer.Option(help="Max hits returned")] = 200,
+    per_session: Annotated[int, typer.Option(help="Max hits per session")] = 20,
+    snippet_chars: Annotated[int, typer.Option(help="Snippet length around the first match")] = 300,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the full JSON response to stdout")] = False,
+    chronos_url: str = _chronos_url_option,
+    api_key: str = _api_key_option,
+    output: Path | None = _output_option,
+):
+    """Search span text across sessions: messages, reasoning, tool input and tool output.
+
+    Pick the sessions with --tag, --session-id and/or --since/--until (at most 500 per search; search
+    long ranges in windows). Hits come back with a snippet around the first match.
+    """
+    chronos_url = chronos_url or settings.chronos_url
+    api_key = _require_api_key(api_key)
+    try:
+        request = SpanSearchRequest.model_validate(
+            {
+                "tag": tag,
+                "session_ids": session_ids or None,
+                "created_after": since,
+                "created_before": until,
+                "status": status,
+                "query": terms,
+                "mode": "all" if all_terms else "any",
+                "fields": fields or None,
+                "sources": sources or None,
+                "is_error": True if errors_only else None,
+                "org_ids": org_ids or None,
+                "limit": limit,
+                "per_session_limit": per_session,
+                "snippet_chars": snippet_chars,
+            }
+        )
+    except ValidationError as e:
+        typer.echo(f"Invalid search: {e}", err=True)  # stderr keeps --json stdout parseable
+        raise typer.Exit(1)
+
+    try:
+        with Chronos(base_url=chronos_url, api_key=api_key) as client:
+            result = client.search_spans(request)
+    except Exception as e:
+        typer.echo(f"Search failed: {e}", err=True)
+        raise typer.Exit(1)
+
+    data = result.model_dump_json(indent=2)
+    if as_json:
+        typer.echo(data)  # plain stdout, so it pipes into jq
+        return
+    shown = 20
+    table = Table("session", "hits")
+    for count in result.session_counts[:shown]:
+        table.add_row(count.session_id, str(count.hits))
+    console.print(table)
+    if len(result.session_counts) > shown:
+        console.print(f"(top {shown} of {len(result.session_counts)} sessions by hits; all of them are in the file)")
+    console.print(
+        f"[green]{sum(c.hits for c in result.session_counts):,}[/green] matching spans in "
+        f"{len(result.session_counts)} of {result.sessions_searched} sessions"
+        + (" (hits truncated; raise --limit/--per-session)" if result.truncated else "")
+    )
+    if output is None:
+        # snippets carry reasoning and tool output: a private (0600), uniquely named file
+        fd, name = tempfile.mkstemp(prefix="chronos-search-", suffix=".json")
+        os.close(fd)
+        output = Path(name)
+    _write_output(data, output)
+
+
 # ---------------------------------------------------------------------------
 # Session analysis (OTel-based)
 # ---------------------------------------------------------------------------
@@ -804,86 +918,6 @@ def workspace_refs(
                 console.print(",\n".join(entries))
                 console.print("    }")
                 console.print("  }")
-
-    except typer.Exit:
-        raise
-    except Exception as e:
-        console.print(f"[red]Failed: {e}[/red]")
-        raise typer.Exit(1)
-
-
-# ---------------------------------------------------------------------------
-# Filesystem audit
-# ---------------------------------------------------------------------------
-
-
-@chronos_app.command("audit")
-def audit_command(
-    session_id: Annotated[str, typer.Argument(help="Session public ID")],
-    step: Annotated[str | None, typer.Option("--step", help="Filter by step name")] = None,
-    repo: Annotated[str | None, typer.Option("--repo", help="Filter by repo name")] = None,
-    path: Annotated[str | None, typer.Option("--path", help="Filter by path prefix")] = None,
-    trace: Annotated[str | None, typer.Option("--trace", help="Filter by trace ID")] = None,
-    agent: Annotated[str | None, typer.Option("--agent", help="Filter by agent name")] = None,
-    operation: Annotated[str | None, typer.Option("--operation", help="Filter by operation name")] = None,
-    format: Annotated[str, typer.Option("--format", help="Output format: table or json")] = "table",
-    limit: Annotated[int, typer.Option("--limit", help="Max events to return")] = 500,
-    output: Path | None = _output_option,
-    chronos_url: str = _chronos_url_option,
-    api_key: str = _api_key_option,
-):
-    """Query filesystem audit events for a session."""
-    chronos_url = chronos_url or settings.chronos_url
-    api_key = _require_api_key(api_key)
-
-    try:
-        with Chronos(base_url=chronos_url, api_key=api_key) as client:
-            audit_response = client.get_audit_events(
-                session_id,
-                step_name=step,
-                repo_name=repo,
-                path=path,
-                trace_id=trace,
-                agent_name=agent,
-                operation=operation,
-                limit=limit,
-            )
-            data = audit_response.model_dump(mode="json")
-
-        events: list[dict[str, str]] = data.get("events", [])
-
-        if format == "json":
-            json_str = json.dumps(data, indent=2)
-            if output:
-                _write_output(json_str, output)
-            else:
-                console.print(json_str)
-        else:
-            if not events:
-                console.print("[yellow]No audit events found[/yellow]")
-                raise typer.Exit(0)
-
-            table = Table(title=f"Audit Events for {session_id[:12]}...")
-            table.add_column("Timestamp", style="dim")
-            table.add_column("Op", style="cyan")
-            table.add_column("Path", style="green")
-            table.add_column("Agent", style="yellow")
-            table.add_column("Exe", style="magenta")
-            table.add_column("Trace", style="dim")
-
-            for event in events:
-                table.add_row(
-                    event.get("timestamp", ""),
-                    event.get("operation", ""),
-                    event.get("path", ""),
-                    event.get("agent_name", ""),
-                    event.get("exe", ""),
-                    event.get("trace_id", "")[:12] + "..." if event.get("trace_id") else "",
-                )
-            console.print(table)
-
-            if output:
-                _write_output(json.dumps(data, indent=2), output)
 
     except typer.Exit:
         raise

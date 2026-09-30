@@ -17,7 +17,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1d\x63halk/server/v1/monitor.proto\x12\x0f\x63halk.server.v1\x1a\x1fgoogle/protobuf/timestamp.proto"\x9e\x01\n\x11MonitorEvaluation\x12$\n\x0b\x64isplay_key\x18\x01 \x01(\tH\x00R\ndisplayKey\x88\x01\x01\x12\x14\n\x05value\x18\x02 \x01(\x01R\x05value\x12=\n\x0c\x65valuated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0b\x65valuatedAtB\x0e\n\x0c_display_key"\x8b\x02\n\x0cMonitorEvent\x12\x1d\n\nevent_type\x18\x01 \x01(\tR\teventType\x12\x1e\n\x08\x65vent_id\x18\x02 \x01(\tH\x00R\x07\x65ventId\x88\x01\x01\x12"\n\nevent_data\x18\x03 \x01(\tH\x01R\teventData\x88\x01\x01\x12;\n\x0boccurred_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\noccurredAt\x12+\n\x0fsample_query_id\x18\x05 \x01(\tH\x02R\rsampleQueryId\x88\x01\x01\x42\x0b\n\t_event_idB\r\n\x0b_event_dataB\x12\n\x10_sample_query_idB\x95\x01\n\x13\x63om.chalk.server.v1B\x0cMonitorProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1d\x63halk/server/v1/monitor.proto\x12\x0f\x63halk.server.v1\x1a\x1fgoogle/protobuf/timestamp.proto"\x9e\x01\n\x11MonitorEvaluation\x12$\n\x0b\x64isplay_key\x18\x01 \x01(\tH\x00R\ndisplayKey\x88\x01\x01\x12\x14\n\x05value\x18\x02 \x01(\x01R\x05value\x12=\n\x0c\x65valuated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0b\x65valuatedAtB\x0e\n\x0c_display_key"\xc6\x02\n\x0cMonitorEvent\x12!\n\nevent_type\x18\x01 \x01(\tB\x02\x18\x01R\teventType\x12\x35\n\x04type\x18\x06 \x01(\x0e\x32!.chalk.server.v1.MonitorEventTypeR\x04type\x12\x1e\n\x08\x65vent_id\x18\x02 \x01(\tH\x00R\x07\x65ventId\x88\x01\x01\x12"\n\nevent_data\x18\x03 \x01(\tH\x01R\teventData\x88\x01\x01\x12;\n\x0boccurred_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\noccurredAt\x12+\n\x0fsample_query_id\x18\x05 \x01(\tH\x02R\rsampleQueryId\x88\x01\x01\x42\x0b\n\t_event_idB\r\n\x0b_event_dataB\x12\n\x10_sample_query_id*\xa4\x01\n\x10MonitorEventType\x12"\n\x1eMONITOR_EVENT_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n\x18MONITOR_EVENT_TYPE_ALERT\x10\x01\x12&\n"MONITOR_EVENT_TYPE_INCIDENT_OPENED\x10\x02\x12&\n"MONITOR_EVENT_TYPE_INCIDENT_CLOSED\x10\x03\x42\x95\x01\n\x13\x63om.chalk.server.v1B\x0cMonitorProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -28,8 +28,12 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.server.v1B\014MonitorProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
+    _globals["_MONITOREVENT"].fields_by_name["event_type"]._options = None
+    _globals["_MONITOREVENT"].fields_by_name["event_type"]._serialized_options = b"\030\001"
+    _globals["_MONITOREVENTTYPE"]._serialized_start = 574
+    _globals["_MONITOREVENTTYPE"]._serialized_end = 738
     _globals["_MONITOREVALUATION"]._serialized_start = 84
     _globals["_MONITOREVALUATION"]._serialized_end = 242
     _globals["_MONITOREVENT"]._serialized_start = 245
-    _globals["_MONITOREVENT"]._serialized_end = 512
+    _globals["_MONITOREVENT"]._serialized_end = 571
 # @@protoc_insertion_point(module_scope)

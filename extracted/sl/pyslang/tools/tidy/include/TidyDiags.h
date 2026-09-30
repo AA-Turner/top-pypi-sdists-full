@@ -33,5 +33,17 @@ inline constexpr DiagCode UnusedSensitiveSignal(DiagSubsystem::Tidy, 18);
 inline constexpr DiagCode EnforcePortPrefix(DiagSubsystem::Tidy, 19);
 inline constexpr DiagCode UndrivenRange(DiagSubsystem::Tidy, 20);
 inline constexpr DiagCode LoopBeforeResetCheck(DiagSubsystem::Tidy, 21);
+inline constexpr DiagCode NoCaseX(DiagSubsystem::Tidy, 22);
+inline constexpr DiagCode NoDefParam(DiagSubsystem::Tidy, 23);
+inline constexpr DiagCode TypedefEnums(DiagSubsystem::Tidy, 24);
+inline constexpr DiagCode TypedefStructUnion(DiagSubsystem::Tidy, 25);
+inline constexpr DiagCode CovergroupName(DiagSubsystem::Tidy, 26);
+inline constexpr DiagCode CoverpointName(DiagSubsystem::Tidy, 27);
+inline constexpr DiagCode CrossName(DiagSubsystem::Tidy, 28);
+inline constexpr DiagCode EnumName(DiagSubsystem::Tidy, 29);
+inline constexpr DiagCode StructName(DiagSubsystem::Tidy, 30);
+inline constexpr DiagCode UnionName(DiagSubsystem::Tidy, 31);
+inline constexpr DiagCode TypedefName(DiagSubsystem::Tidy, 32);
+inline constexpr DiagCode StructFieldsInSameProcess(DiagSubsystem::Tidy, 33);
 
 } // namespace slang::diag

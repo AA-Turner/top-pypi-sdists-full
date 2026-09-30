@@ -23,12 +23,18 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class UpdateDomain(BaseModel):
     """
     UpdateDomain
-    """ # noqa: E501
-    app_id: Optional[StrictStr] = Field(default=None, description="To attach or detach from an app for custom domain.")
-    subdomain: Optional[StrictStr] = Field(default=None, description="To change subdomain for auto-assigned domain.")
+    """  # noqa: E501
+
+    app_id: Optional[StrictStr] = Field(
+        default=None, description="To attach or detach from an app for custom domain."
+    )
+    subdomain: Optional[StrictStr] = Field(
+        default=None, description="To change subdomain for auto-assigned domain."
+    )
     __properties: ClassVar[List[str]] = ["app_id", "subdomain"]
 
     model_config = ConfigDict(
@@ -37,7 +43,6 @@ class UpdateDomain(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +67,7 @@ class UpdateDomain(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,10 +85,7 @@ class UpdateDomain(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "app_id": obj.get("app_id"),
-            "subdomain": obj.get("subdomain")
-        })
+        _obj = cls.model_validate(
+            {"app_id": obj.get("app_id"), "subdomain": obj.get("subdomain")}
+        )
         return _obj
-
-

@@ -1,6 +1,6 @@
 [project]
 name = "koyeb-sdk"
-version = "1.5.2"
+version = "1.5.5"
 description = "Koyeb python sdk"
 authors = [{ name = "Koyeb team", email = "support@koyeb.com" }]
 license = "Apache-2.0"
@@ -51,6 +51,12 @@ dev = [
   "pytest>=8.4.2",
   "tqdm>=4.67.1",
 ]
+
+[tool.pyright]
+# Resolve imports against the project virtualenv (.venv) instead of the
+# system interpreter, so editors using pyright find installed dependencies.
+venvPath = "."
+venv = ".venv"
 
 [tool.pylint.'MESSAGES CONTROL']
 extension-pkg-whitelist = "pydantic"

@@ -23,12 +23,17 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeploymentScalingTargetRequestsResponseTime(BaseModel):
     """
     DeploymentScalingTargetRequestsResponseTime
-    """ # noqa: E501
+    """  # noqa: E501
+
     value: Optional[StrictInt] = None
-    quantile: Optional[StrictInt] = Field(default=None, description="The quantile to use for autoscaling. For example, set to 95 to use the 95th percentile (p95) for autoscaling.  Valid values are between 0 and 100.")
+    quantile: Optional[StrictInt] = Field(
+        default=None,
+        description="The quantile to use for autoscaling. For example, set to 95 to use the 95th percentile (p95) for autoscaling.  Valid values are between 0 and 100.",
+    )
     __properties: ClassVar[List[str]] = ["value", "quantile"]
 
     model_config = ConfigDict(
@@ -37,7 +42,6 @@ class DeploymentScalingTargetRequestsResponseTime(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +66,7 @@ class DeploymentScalingTargetRequestsResponseTime(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,10 +84,7 @@ class DeploymentScalingTargetRequestsResponseTime(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "value": obj.get("value"),
-            "quantile": obj.get("quantile")
-        })
+        _obj = cls.model_validate(
+            {"value": obj.get("value"), "quantile": obj.get("quantile")}
+        )
         return _obj
-
-

@@ -20,6 +20,11 @@ class IntegrationsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v2_dot_integrations__pb2.TestIntegrationRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v2_dot_integrations__pb2.TestIntegrationResponse.FromString,
         )
+        self.ListRunningDatasourceQueries = channel.unary_unary(
+            "/chalk.server.v2.IntegrationsService/ListRunningDatasourceQueries",
+            request_serializer=chalk_dot_server_dot_v2_dot_integrations__pb2.ListRunningDatasourceQueriesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v2_dot_integrations__pb2.ListRunningDatasourceQueriesResponse.FromString,
+        )
 
 
 class IntegrationsServiceServicer(object):
@@ -34,6 +39,21 @@ class IntegrationsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListRunningDatasourceQueries(self, request, context):
+        """Lists the queries one data source reports as currently in flight.
+
+        Same permission as TestIntegration, and for the same reason: both connect to the data source
+        with the caller-supplied or saved credentials and return only what the source says about
+        itself. It carries customer SQL, which is the point -- an operator looking at this page is
+        looking for the statement that is stuck -- but nothing about how the connection was made.
+
+        Read-only, so no audit option: it changes nothing and runs on a refresh timer, and auditing
+        every poll would bury the mutations in the same log.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_IntegrationsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -41,6 +61,11 @@ def add_IntegrationsServiceServicer_to_server(servicer, server):
             servicer.TestIntegration,
             request_deserializer=chalk_dot_server_dot_v2_dot_integrations__pb2.TestIntegrationRequest.FromString,
             response_serializer=chalk_dot_server_dot_v2_dot_integrations__pb2.TestIntegrationResponse.SerializeToString,
+        ),
+        "ListRunningDatasourceQueries": grpc.unary_unary_rpc_method_handler(
+            servicer.ListRunningDatasourceQueries,
+            request_deserializer=chalk_dot_server_dot_v2_dot_integrations__pb2.ListRunningDatasourceQueriesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v2_dot_integrations__pb2.ListRunningDatasourceQueriesResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v2.IntegrationsService", rpc_method_handlers)
@@ -70,6 +95,35 @@ class IntegrationsService(object):
             "/chalk.server.v2.IntegrationsService/TestIntegration",
             chalk_dot_server_dot_v2_dot_integrations__pb2.TestIntegrationRequest.SerializeToString,
             chalk_dot_server_dot_v2_dot_integrations__pb2.TestIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListRunningDatasourceQueries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v2.IntegrationsService/ListRunningDatasourceQueries",
+            chalk_dot_server_dot_v2_dot_integrations__pb2.ListRunningDatasourceQueriesRequest.SerializeToString,
+            chalk_dot_server_dot_v2_dot_integrations__pb2.ListRunningDatasourceQueriesResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -19,8 +19,12 @@ from datetime import datetime
 from pydantic import Field, StrictStr
 from typing import Optional
 from typing_extensions import Annotated
-from koyeb.api_async.models.get_organization_usage_details_reply import GetOrganizationUsageDetailsReply
-from koyeb.api_async.models.get_organization_usage_reply import GetOrganizationUsageReply
+from koyeb.api_async.models.get_organization_usage_details_reply import (
+    GetOrganizationUsageDetailsReply,
+)
+from koyeb.api_async.models.get_organization_usage_reply import (
+    GetOrganizationUsageReply,
+)
 
 from koyeb.api_async.api_client import ApiClient, RequestSerialized
 from koyeb.api_async.api_response import ApiResponse
@@ -39,19 +43,23 @@ class UsagesApi:
             api_client = ApiClient.get_default()
         self.api_client = api_client
 
-
     @validate_call
     async def get_organization_usage(
         self,
-        starting_time: Annotated[Optional[datetime], Field(description="The starting time of the period to get data from")] = None,
-        ending_time: Annotated[Optional[datetime], Field(description="The ending time of the period to get data from")] = None,
+        starting_time: Annotated[
+            Optional[datetime],
+            Field(description="The starting time of the period to get data from"),
+        ] = None,
+        ending_time: Annotated[
+            Optional[datetime],
+            Field(description="The ending time of the period to get data from"),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -85,7 +93,7 @@ class UsagesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_organization_usage_serialize(
             starting_time=starting_time,
@@ -93,15 +101,15 @@ class UsagesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetOrganizationUsageReply",
+            "200": "GetOrganizationUsageReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -109,19 +117,23 @@ class UsagesApi:
             response_types_map=_response_types_map,
         ).data
 
-
     @validate_call
     async def get_organization_usage_with_http_info(
         self,
-        starting_time: Annotated[Optional[datetime], Field(description="The starting time of the period to get data from")] = None,
-        ending_time: Annotated[Optional[datetime], Field(description="The ending time of the period to get data from")] = None,
+        starting_time: Annotated[
+            Optional[datetime],
+            Field(description="The starting time of the period to get data from"),
+        ] = None,
+        ending_time: Annotated[
+            Optional[datetime],
+            Field(description="The ending time of the period to get data from"),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -155,7 +167,7 @@ class UsagesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_organization_usage_serialize(
             starting_time=starting_time,
@@ -163,15 +175,15 @@ class UsagesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetOrganizationUsageReply",
+            "200": "GetOrganizationUsageReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -179,19 +191,23 @@ class UsagesApi:
             response_types_map=_response_types_map,
         )
 
-
     @validate_call
     async def get_organization_usage_without_preload_content(
         self,
-        starting_time: Annotated[Optional[datetime], Field(description="The starting time of the period to get data from")] = None,
-        ending_time: Annotated[Optional[datetime], Field(description="The ending time of the period to get data from")] = None,
+        starting_time: Annotated[
+            Optional[datetime],
+            Field(description="The starting time of the period to get data from"),
+        ] = None,
+        ending_time: Annotated[
+            Optional[datetime],
+            Field(description="The ending time of the period to get data from"),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -225,7 +241,7 @@ class UsagesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_organization_usage_serialize(
             starting_time=starting_time,
@@ -233,18 +249,17 @@ class UsagesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetOrganizationUsageReply",
+            "200": "GetOrganizationUsageReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _get_organization_usage_serialize(
         self,
@@ -255,11 +270,9 @@ class UsagesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -276,50 +289,42 @@ class UsagesApi:
             if isinstance(starting_time, datetime):
                 _query_params.append(
                     (
-                        'starting_time',
+                        "starting_time",
                         starting_time.strftime(
                             self.api_client.configuration.datetime_format
-                        )
+                        ),
                     )
                 )
             else:
-                _query_params.append(('starting_time', starting_time))
-            
+                _query_params.append(("starting_time", starting_time))
+
         if ending_time is not None:
             if isinstance(ending_time, datetime):
                 _query_params.append(
                     (
-                        'ending_time',
+                        "ending_time",
                         ending_time.strftime(
                             self.api_client.configuration.datetime_format
-                        )
+                        ),
                     )
                 )
             else:
-                _query_params.append(('ending_time', ending_time))
-            
+                _query_params.append(("ending_time", ending_time))
+
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/usages',
+            method="GET",
+            resource_path="/v1/usages",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -329,28 +334,46 @@ class UsagesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-
-
 
     @validate_call
     async def get_organization_usage_details(
         self,
-        starting_time: Annotated[Optional[datetime], Field(description="The starting time of the period to get data from")] = None,
-        ending_time: Annotated[Optional[datetime], Field(description="The ending time of the period to get data from")] = None,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
-        accept: Annotated[Optional[StrictStr], Field(description="If defined with the value 'text/csv', a csv file is returned")] = None,
+        starting_time: Annotated[
+            Optional[datetime],
+            Field(description="The starting time of the period to get data from"),
+        ] = None,
+        ending_time: Annotated[
+            Optional[datetime],
+            Field(description="The ending time of the period to get data from"),
+        ] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        order: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) Sorts the list in the ascending or the descending order"
+            ),
+        ] = None,
+        accept: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="If defined with the value 'text/csv', a csv file is returned"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -392,7 +415,7 @@ class UsagesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_organization_usage_details_serialize(
             starting_time=starting_time,
@@ -404,15 +427,15 @@ class UsagesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetOrganizationUsageDetailsReply",
+            "200": "GetOrganizationUsageDetailsReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -420,23 +443,43 @@ class UsagesApi:
             response_types_map=_response_types_map,
         ).data
 
-
     @validate_call
     async def get_organization_usage_details_with_http_info(
         self,
-        starting_time: Annotated[Optional[datetime], Field(description="The starting time of the period to get data from")] = None,
-        ending_time: Annotated[Optional[datetime], Field(description="The ending time of the period to get data from")] = None,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
-        accept: Annotated[Optional[StrictStr], Field(description="If defined with the value 'text/csv', a csv file is returned")] = None,
+        starting_time: Annotated[
+            Optional[datetime],
+            Field(description="The starting time of the period to get data from"),
+        ] = None,
+        ending_time: Annotated[
+            Optional[datetime],
+            Field(description="The ending time of the period to get data from"),
+        ] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        order: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) Sorts the list in the ascending or the descending order"
+            ),
+        ] = None,
+        accept: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="If defined with the value 'text/csv', a csv file is returned"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -478,7 +521,7 @@ class UsagesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_organization_usage_details_serialize(
             starting_time=starting_time,
@@ -490,15 +533,15 @@ class UsagesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetOrganizationUsageDetailsReply",
+            "200": "GetOrganizationUsageDetailsReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -506,23 +549,43 @@ class UsagesApi:
             response_types_map=_response_types_map,
         )
 
-
     @validate_call
     async def get_organization_usage_details_without_preload_content(
         self,
-        starting_time: Annotated[Optional[datetime], Field(description="The starting time of the period to get data from")] = None,
-        ending_time: Annotated[Optional[datetime], Field(description="The ending time of the period to get data from")] = None,
-        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
-        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
-        order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
-        accept: Annotated[Optional[StrictStr], Field(description="If defined with the value 'text/csv', a csv file is returned")] = None,
+        starting_time: Annotated[
+            Optional[datetime],
+            Field(description="The starting time of the period to get data from"),
+        ] = None,
+        ending_time: Annotated[
+            Optional[datetime],
+            Field(description="The ending time of the period to get data from"),
+        ] = None,
+        limit: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The number of items to return"),
+        ] = None,
+        offset: Annotated[
+            Optional[StrictStr],
+            Field(description="(Optional) The offset in the list of item to return"),
+        ] = None,
+        order: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="(Optional) Sorts the list in the ascending or the descending order"
+            ),
+        ] = None,
+        accept: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="If defined with the value 'text/csv', a csv file is returned"
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
+                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
+            ],
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -564,7 +627,7 @@ class UsagesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """ # noqa: E501
+        """  # noqa: E501
 
         _param = self._get_organization_usage_details_serialize(
             starting_time=starting_time,
@@ -576,18 +639,17 @@ class UsagesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index
+            _host_index=_host_index,
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetOrganizationUsageDetailsReply",
+            "200": "GetOrganizationUsageDetailsReply",
+            "default": "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
+            *_param, _request_timeout=_request_timeout
         )
         return response_data.response
-
 
     def _get_organization_usage_details_serialize(
         self,
@@ -602,11 +664,9 @@ class UsagesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
-
         _host = None
 
-        _collection_formats: Dict[str, str] = {
-        }
+        _collection_formats: Dict[str, str] = {}
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -623,64 +683,53 @@ class UsagesApi:
             if isinstance(starting_time, datetime):
                 _query_params.append(
                     (
-                        'starting_time',
+                        "starting_time",
                         starting_time.strftime(
                             self.api_client.configuration.datetime_format
-                        )
+                        ),
                     )
                 )
             else:
-                _query_params.append(('starting_time', starting_time))
-            
+                _query_params.append(("starting_time", starting_time))
+
         if ending_time is not None:
             if isinstance(ending_time, datetime):
                 _query_params.append(
                     (
-                        'ending_time',
+                        "ending_time",
                         ending_time.strftime(
                             self.api_client.configuration.datetime_format
-                        )
+                        ),
                     )
                 )
             else:
-                _query_params.append(('ending_time', ending_time))
-            
+                _query_params.append(("ending_time", ending_time))
+
         if limit is not None:
-            
-            _query_params.append(('limit', limit))
-            
+            _query_params.append(("limit", limit))
+
         if offset is not None:
-            
-            _query_params.append(('offset', offset))
-            
+            _query_params.append(("offset", offset))
+
         if order is not None:
-            
-            _query_params.append(('order', order))
-            
+            _query_params.append(("order", order))
+
         # process the header parameters
         if accept is not None:
-            _header_params['Accept'] = accept
+            _header_params["Accept"] = accept
         # process the form parameters
         # process the body parameter
 
-
         # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    '*/*'
-                ]
-            )
-
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
 
         # authentication setting
-        _auth_settings: List[str] = [
-            'Bearer'
-        ]
+        _auth_settings: List[str] = ["Bearer"]
 
         return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v1/usages/details',
+            method="GET",
+            resource_path="/v1/usages/details",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -690,7 +739,5 @@ class UsagesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth
+            _request_auth=_request_auth,
         )
-
-

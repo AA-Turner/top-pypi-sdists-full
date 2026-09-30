@@ -5,6 +5,13 @@ edition.workspace = true
 license.workspace = true
 description = "Session recording for Guacamole protocol handlers"
 
+[features]
+default = []
+# ZeroMQ recording transport. Off by default: zmq-sys builds libzmq from source
+# and needs a C++ toolchain, which consumers that never record should not pay
+# for. Crates that ship recording enable it explicitly.
+zmq-transport = ["dep:zmq"]
+
 [dependencies]
 async-trait.workspace = true
 bytes.workspace = true
@@ -14,7 +21,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
-zmq.workspace = true
+zmq = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = "3"

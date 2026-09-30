@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION "4.3.4")
+cmake_minimum_required(VERSION "4.4.3")
 project("lto-test" LANGUAGES CXX)
 
 cmake_policy(SET CMP0069 NEW)

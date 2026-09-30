@@ -5,6 +5,7 @@ View.py holds the code for a gui for MultiPyVu.Server
 """
 
 
+import gc
 import io
 import logging
 import logging.handlers
@@ -12,19 +13,18 @@ import sys
 import tkinter as tk
 from enum import IntEnum, auto
 from threading import Lock
-from tkinter import font
+from tkinter import font, ttk
 try:
     from PIL import ImageTk, Image
 except ImportError:
     msg = "Must import the PIL module.  Use:  \n"
-    msg += "\tconda install -c conda-forge Pillow\n"
-    msg += "   or\n"
     msg += "\tpip install Pillow"
     exit(msg)
 
 
 from ..__version import __version__ as mpv_version
 from ..project_vars import SERVER_NAME
+from .font_loader import register_fonts, resolve_family
 from .IView import IView
 from .IController import IController
 
@@ -128,6 +128,7 @@ class ViewTk(IView):
     _thin_border = 1
     _info_label_width = 19
     _num_of_clients: int = 0
+    _btn_style = 'QD.TButton'
 
     class start_button_text(IntEnum):
         start = auto()
@@ -138,8 +139,23 @@ class ViewTk(IView):
     def __init__(self, controller: IController):
         self._controller = controller
 
+        # Hand the bundled QD font to the OS before Tk starts up, since Tk
+        # builds its list of available families during initialization.  The
+        # family name is resolved once the root window exists.
+        self._qd_font_family = register_fonts(
+            [self._controller.absolute_path(f'../font/{f}')
+             for f in ('Play-Regular.ttf', 'Play-Bold.ttf')]
+            )
+
         self.gui = tk.Tk()
         self.gui.title(f'MultiPyVu Server {mpv_version}')
+        # the root window background shows through any gap the frames do
+        # not cover, so pin it rather than let it follow the OS appearance
+        self.gui.configure(background=self.qd_white)
+        # The layout is sized to its contents, so widening the window only
+        # exposes background on the right.  Block interactive resizing; the
+        # window still tracks its requested size as widgets are shown/hidden.
+        self.gui.resizable(False, False)
         self.gui.protocol("WM_DELETE_WINDOW", self.quit_gui)
 
         # the image needs to be defined here in order to keep it in memory
@@ -150,20 +166,102 @@ class ViewTk(IView):
         # this gets instantiated when the server starts
         self.redirector = None
 
+    def _configure_button_style(self, btn_font):
+        """
+        Set up the ttk style used by the buttons.
+
+        tk.Button ignores 'background' on macOS, where the button is drawn
+        as a native Aqua bezel with its own margins and focus ring -- which
+        is why the classic buttons looked thicker and darker there than on
+        Windows.  ttk.Button honors the color options, but only under a
+        Tk-drawn theme; the macOS default theme ('aqua') ignores them just
+        like tk.Button does.  'clam' ships with Tk on every platform and
+        draws identically on all of them, so select it explicitly.
+
+        Parameters:
+        -----------
+        btn_font: tkinter.font.Font
+            The font used for the button text.  ttk.Button takes no 'font'
+            option of its own, so it has to be set through the style.
+        """
+        style = ttk.Style(self.gui)
+        if 'clam' in style.theme_names():
+            style.theme_use('clam')
+        style.configure(
+            ViewTk._btn_style,
+            font=btn_font,
+            background=self.qd_btn_face,
+            foreground=self.qd_black,
+            bordercolor=self.qd_btn_border,
+            # clam shades its 3-D bevel with these two; flattening them to
+            # the face color keeps the button looking like a Windows button
+            lightcolor=self.qd_btn_face,
+            darkcolor=self.qd_btn_face,
+            borderwidth=ViewTk._thin_border,
+            relief=tk.RAISED,
+            padding=(ViewTk._pad, ViewTk._pad),
+            anchor='center',
+            )
+        # clam draws a dashed rectangle inside a button whenever it holds
+        # focus, which happens on click.  Setting -focusthickness to 0 is
+        # not enough, so drop Button.focus from the element tree: with no
+        # focus element there is nothing left to draw a ring in any state.
+        # The typeshed stub for Style.layout types layoutspec too
+        # narrowly to express a spec with nested children, so it
+        # rejects this at type check time.  The call is correct and
+        # is what builds the button style at runtime.
+        style.layout(  # type: ignore[arg-type]
+            ViewTk._btn_style,
+            [('Button.border', {
+                'sticky': 'nswe',
+                'border': '1',
+                'children': [
+                    ('Button.padding', {
+                        'sticky': 'nswe',
+                        'children': [
+                            ('Button.label', {'sticky': 'nswe'}),
+                            ],
+                        }),
+                    ],
+                })],
+            )
+        style.map(
+            ViewTk._btn_style,
+            background=[('pressed', self.qd_btn_pressed),
+                        ('active', self.qd_btn_active)],
+            bordercolor=[('pressed', self.qd_btn_border),
+                         ('active', self.qd_btn_border)],
+            foreground=[('disabled', self.qd_btn_disabled_text)],
+            relief=[('pressed', tk.SUNKEN)],
+            )
+        return style
+
     def create_display(self):
         """
         Create the Server window
         """
-        # add the QD font
-        font_location = self._controller.absolute_path('font/Play-Regular.ttf')
-        # qd_font_large = font.Font(family=font_location, size=30)
-        qd_font_small = font.Font(family=font_location, size=17)
-        qd_font_status = font.Font(family=font_location, size=12)
+        # The QD font is for chrome only -- the box labels, the Server
+        # Status title, and the buttons.  register_fonts() ran in __init__;
+        # ask Tk which family it ended up with so a failed registration
+        # degrades to the same fallback face on every platform instead of
+        # Tk's own default.
+        qd_family = resolve_family(self._qd_font_family)
+        qd_font_small = font.Font(family=qd_family, size=17)
+        qd_font_status = font.Font(family=qd_family, size=12)
+
+        # The values shown inside the boxes use the platform's own UI font
+        # at the same sizes, so readouts look native on each OS.
+        box_family = font.nametofont('TkDefaultFont').actual('family')
+        box_font_large = font.Font(family=box_family, size=17)
+        box_font_small = font.Font(family=box_family, size=12)
+
+        # the buttons are ttk widgets, so their look comes from a style
+        self.btn_style = self._configure_button_style(qd_font_small)
 
         # create the header
         frm_header = tk.Frame(
             master=self.gui,
-            background='white',
+            background=self.qd_white,
             border=ViewTk._border_width_main_frames,
             relief=tk.RAISED,
             padx=10,
@@ -171,9 +269,18 @@ class ViewTk(IView):
             )
         panel = tk.Label(master=frm_header,
                          image=self.logo_img,
+                         background=self.qd_white,
+                         borderwidth=0,
+                         highlightthickness=0,
                          )
+        # let column 0 absorb the extra width so the logo stays centered
+        # once the header is stretched across the window
+        frm_header.columnconfigure(0, weight=1)
         panel.grid(row=0, column=0)
-        frm_header.pack()
+        # The header is narrower than the info frame below it, so without
+        # fill=X the root window shows through on both sides -- black under
+        # macOS Dark Mode.  Stretching the header across removes the gap.
+        frm_header.pack(fill=tk.X)
 
         # create the main info frame
         frm_info = tk.Frame(
@@ -198,21 +305,26 @@ class ViewTk(IView):
             width=2,
             height=1,
             padx=ViewTk._pad,
+            background=self.qd_grey,
+            borderwidth=0,
+            highlightthickness=0,
         )
         self.lbl_connected = tk.Label(
             master=self.frm_connected,
             font=qd_font_small,
             padx=ViewTk._pad,
+            background=self.qd_red,
+            fg=self.qd_white,
+            borderwidth=0,
+            highlightthickness=0,
         )
         self.lbl_connected_indicator.pack(fill=tk.BOTH, side=tk.LEFT)
         self.lbl_connected.pack(fill=tk.BOTH, side=tk.LEFT)
 
         # start server button
-        self.btn_start = tk.Button(
+        self.btn_start = ttk.Button(
             master=frm_info,
-            font=qd_font_small,
-            padx=ViewTk._pad,
-            pady=ViewTk._pad,
+            style=ViewTk._btn_style,
             width=10,
             command=lambda: self._start_btn_action()
         )
@@ -234,18 +346,22 @@ class ViewTk(IView):
                                text='IP Address',
                                width=len('IP Address'),
                                background=self.qd_red,
-                               fg='white',
+                               fg=self.qd_white,
                                anchor='w',
                                justify='left',
                                )
         lbl_ip_name.grid(row=0, column=0, sticky='w')
         self.txt_ip = tk.Text(master=frm_address,
-                              font=qd_font_small,
+                              font=box_font_large,
                               height=1,
                               width=ViewTk._info_label_width,
                               relief=tk.SUNKEN,
                               border=ViewTk._border_width_main_frames,
                               borderwidth=ViewTk._border_width_main_frames,
+                              background=self.qd_white,
+                              fg=self.qd_black,
+                              insertbackground=self.qd_black,
+                              highlightthickness=0,
                               )
         self.txt_ip.grid(row=1,
                          column=0,
@@ -263,18 +379,25 @@ class ViewTk(IView):
                                  text='Port Number',
                                  width=len('Port Number'),
                                  background=self.qd_red,
-                                 fg='white',
+                                 fg=self.qd_white,
                                  anchor='w',
                                  justify='left',
                                  )
         lbl_port_name.grid(row=0, column=1, sticky='W')
         # port number
         self.ent_port = tk.Entry(master=frm_address,
-                                 font=qd_font_small,
+                                 font=box_font_large,
                                  width=int(ViewTk._info_label_width / 2),
                                  relief=tk.SUNKEN,
                                  border=ViewTk._border_width_main_frames,
                                  borderwidth=ViewTk._border_width_main_frames,
+                                 background=self.qd_white,
+                                 fg=self.qd_black,
+                                 insertbackground=self.qd_black,
+                                 disabledbackground=self.qd_white,
+                                 disabledforeground=self.qd_black,
+                                 readonlybackground=self.qd_white,
+                                 highlightthickness=0,
                                  )
         self.port = self._controller.model.port
         self.ent_port.grid(row=1, column=1,
@@ -289,14 +412,18 @@ class ViewTk(IView):
                                           text='Connected Clients',
                                           width=len('Connected Clients'),
                                           background=self.qd_red,
+                                          fg=self.qd_white,
                                           anchor='w',
                                           )
         lbl_num_connected_name.grid(row=0, column=2, sticky='e')
         self.lbl_num_connected = tk.Label(
             master=frm_address,
-            font=qd_font_small,
+            font=box_font_large,
             text=ViewTk._num_of_clients,
             padx=ViewTk._pad,
+            background=self.qd_white,
+            fg=self.qd_black,
+            highlightthickness=0,
         )
         self.lbl_num_connected.grid(row=1, column=2, sticky='e')
         lbl_num_connected_name.grid_forget()
@@ -313,38 +440,48 @@ class ViewTk(IView):
             )
         self.lbl_flavor = tk.Label(
             master=frm_flavor,
-            font=qd_font_small,
+            font=box_font_large,
             text='',
             width=ViewTk._info_label_width,
             relief=tk.SUNKEN,
             padx=ViewTk._pad,
             pady=ViewTk._pad,
+            background=self.qd_white,
+            fg=self.qd_black,
+            border=ViewTk._border_width_main_frames,
+            highlightthickness=0,
         )
         self.lbl_flavor.pack()
         frm_flavor.grid(row=2, column=0, sticky='w')
 
-        # Output the command line info to the gui
+        # Output the command line info to the gui.  The vertical pad is
+        # applied by grid() below rather than here, because a widget's own
+        # -pady takes a single distance and this one is needed on the top
+        # edge only.
         frm_readback = tk.Frame(master=frm_info,
                                 background=self.qd_red,
                                 padx=ViewTk._pad,
-                                pady=ViewTk._pad,
+                                pady=0,
                                 )
         lbl_readback_title = tk.Label(master=frm_readback,
                                       font=qd_font_small,
-                                      background='white',
+                                      background=self.qd_white,
                                       fg=self.qd_black,
                                       text='Server Status',
                                       border=ViewTk._border_width_main_frames,
                                       padx=ViewTk._pad,
                                       pady=ViewTk._pad,
+                                      highlightthickness=0,
                                       )
         self.txt_readback = tk.Text(
             master=frm_readback,
-            font=qd_font_status,
-            background='white',
+            font=box_font_small,
+            background=self.qd_white,
             fg=self.qd_black,
+            insertbackground=self.qd_black,
+            highlightthickness=0,
             width=55,
-            height=7,
+            height=8,
             state="disabled",
             )
         # Create vertical scroll bar and link it to the Text widget
@@ -354,15 +491,17 @@ class ViewTk(IView):
         self.vertical_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         lbl_readback_title.pack(fill=tk.BOTH)
         self.txt_readback.pack()
-        frm_readback.grid(row=3, column=0, sticky='w')
+        # Pad the top only.  The Quit button shares this grid row and is
+        # anchored south, so leaving the bottom unpadded puts the text
+        # box's lower edge on the row boundary and the two line up --
+        # independently of the font metrics on either platform.
+        frm_readback.grid(row=3, column=0, sticky='w', pady=(ViewTk._pad, 0))
 
         # Quit button
-        btn_quit = tk.Button(
+        btn_quit = ttk.Button(
             master=frm_info,
-            font=qd_font_small,
+            style=ViewTk._btn_style,
             text='Quit',
-            padx=ViewTk._pad,
-            pady=ViewTk._pad,
             command=lambda: self.quit_gui()
         )
         btn_quit.grid(row=3, column=2, sticky='se')
@@ -450,7 +589,7 @@ class ViewTk(IView):
             # show the light
             self.frm_connected.grid(row=0, column=0, sticky='w')
             # turn the indicator light off
-            self.lbl_connected_indicator.config(bg='grey')
+            self.lbl_connected_indicator.config(bg=self.qd_grey)
             self._var_connected.set(True)
             # update the button text
             btn_text = self._get_start_btn_txt(self.start_button_enum.stop)
@@ -528,5 +667,21 @@ class ViewTk(IView):
         if self.redirector is not None:
             self.redirector.stop()
             self.redirector = None
+        # Release the Tk variables before tearing down the
+        # interpreter.  tkinter.Variable.__del__ calls back into Tcl,
+        # so a variable which outlives .destroy() is finalized against
+        # a dead interpreter whenever the garbage collector next runs.
+        # That collection can happen on any thread once the server
+        # threads are going, and Tcl responds to being touched from
+        # the wrong thread by calling Tcl_Panic, which takes the whole
+        # process down with
+        #     Tcl_AsyncDelete: async handler deleted by the wrong thread
+        # Dropping them here runs their __del__ while the interpreter
+        # is still alive and while this is still the thread which
+        # created them.
+        for name, value in list(vars(self).items()):
+            if isinstance(value, tk.Variable):
+                setattr(self, name, None)
+        gc.collect()
         self.gui.destroy()
         ViewTk.TK_RUNNING = False

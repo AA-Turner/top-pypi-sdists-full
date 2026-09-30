@@ -17,6 +17,7 @@ env_list = [
   "graalpy",
   "readme",
   "rp",
+  "tasks",
   "type",
 ]
 skip_missing_interpreters = true
@@ -64,6 +65,16 @@ commands = [
 ]
 uv_seed = true
 
+[env.coverage]
+description = "combine the coverage data of every test run, passed as data directories, into one report"
+skip_install = true
+dependency_groups = [ "coverage" ]
+set_env.COVERAGE_FILE = "{work_dir}{/}.coverage"
+commands = [
+  [ "coverage", "combine", { replace = "posargs", extend = true } ],
+  [ "coverage", "report", "--skip-covered", "--show-missing" ],
+]
+
 [env.docs]
 description = "build documentation"
 dependency_groups = [ "docs" ]
@@ -102,14 +113,12 @@ commands = [ [ "pre-commit", "run", "--all-files", "--show-diff-on-failure" ] ]
 commands = [
   [
     "python",
+    "-u",
     "{tox_root}{/}tasks{/}run_graalpy_tests.py",
+    "--group",
+    "{env:GRAALPY_GROUP:1/1}",
     "{work_dir}{/}junit.{env_name}.xml",
-    { replace = "posargs", default = [
-      "--junitxml",
-      "{work_dir}{/}junit.{env_name}.xml",
-      "tests",
-      "--skip-slow",
-    ], extend = true },
+    { replace = "posargs", default = [ "tests", "--skip-slow" ], extend = true },
   ],
 ]
 
@@ -136,6 +145,44 @@ commands = [
       "tests",
       "--skip-slow",
     ], extend = true },
+  ],
+]
+
+[env.tasks]
+description = "run the build and CI tooling tests"
+base_python = [ "3.14" ]
+dependency_groups = [ "tasks" ]
+set_env._COVERAGE_SRC = "{tox_root}"
+set_env.COVERAGE_FILE = "{work_dir}{/}.coverage.{env_name}"
+set_env.COVERAGE_PROCESS_START = "{tox_root}{/}pyproject.toml"
+set_env.PYTHONWARNDEFAULTENCODING = "1"
+commands = [
+  [ "coverage", "erase" ],
+  [
+    "coverage",
+    "run",
+    "-m",
+    "pytest",
+    { replace = "posargs", default = [
+      "--junitxml",
+      "{work_dir}{/}junit.{env_name}.xml",
+      "tests{/}tasks",
+      "-n",
+      "auto",
+      "--dist",
+      "loadfile",
+    ], extend = true },
+  ],
+  [ "coverage", "combine" ],
+  [
+    "coverage",
+    "report",
+    "--skip-covered",
+    "--show-missing",
+    "--include",
+    "tasks/*,tests/tasks/*",
+    "--fail-under",
+    "100",
   ],
 ]
 
@@ -182,7 +229,9 @@ commands = [
 
 [env.release]
 description = "do a release, required posarg of the version number"
-deps = [ "gitpython>=3.1.44", "packaging>=25", "pre-commit-uv>=4.1.4", "towncrier>=24.8" ]
+base_python = [ "3.14" ]
+skip_install = true
+deps = [ "-r tasks/release-requirements.txt" ]
 change_dir = "{tox_root}{/}tasks"
 commands = [ [ "python", "release.py", { replace = "posargs", extend = true } ] ]
 
@@ -191,10 +240,12 @@ description = "render the CycloneDX SBOM extracted from a wheel as SPDX 2.3 and 
 base_python = [ "3.14" ]
 skip_install = true
 dependency_groups = [ "sbom" ]
+set_env.UV_CONSTRAINT = "{tox_root}{/}tasks{/}release-requirements.txt"
 commands = [
   [ "python", "{tox_root}{/}tasks{/}cyclonedx_to_spdx.py", "virtualenv.cdx.json", "virtualenv.spdx.json" ],
   [ "pyspdxtools", "--infile", "virtualenv.spdx.json" ],
 ]
+uv_seed = false
 
 [env."type-3.9"]
 description = "run type checker (ty) against Python 3.9"
@@ -214,13 +265,27 @@ uv_seed = true
 description = "generate a zipapp, embed its SBOM and validate the SBOM"
 base_python = [ "3.14" ]
 skip_install = true
-deps = [ "hatchling>=1.28", "packaging>=25" ]
+deps = [ "hatchling>=1.28", "packaging>=25", "uv>=0.12.17" ]
 dependency_groups = [ "sbom" ]
 pass_env = [ "SOURCE_DATE_EPOCH" ]
 set_env.PYTHONPATH = "{tox_root}"
+set_env.UV_CONSTRAINT = "{tox_root}{/}tasks{/}release-requirements.txt"
 commands = [
-  [ "python", "tasks/make_zipapp.py" ],
+  [
+    "uv",
+    "build",
+    "--wheel",
+    "--python",
+    "{env_python}",
+    "--build-constraints",
+    "{tox_root}{/}tasks{/}release-requirements.txt",
+    "--require-hashes",
+    "--out-dir",
+    "{env_tmp_dir}",
+    ".",
+  ],
+  [ "python", "tasks/make_zipapp.py", "--wheel-dir", "{env_tmp_dir}" ],
   [ "python", "tasks/zipapp_sbom.py", "virtualenv.pyz", "virtualenv.pyz.cdx.json" ],
   [ "python", "tasks/validate_sbom.py", "virtualenv.pyz" ],
 ]
-uv_seed = true
+uv_seed = false

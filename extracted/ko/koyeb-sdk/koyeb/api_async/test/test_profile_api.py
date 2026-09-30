@@ -83,9 +83,7 @@ class TestProfileApi(unittest.IsolatedAsyncioTestCase):
         pass
 
     async def test_get_user_settings(self) -> None:
-        """Test case for get_user_settings
-
-        """
+        """Test case for get_user_settings"""
         pass
 
     async def test_list_user_organization_invitations(self) -> None:
@@ -159,9 +157,7 @@ class TestProfileApi(unittest.IsolatedAsyncioTestCase):
         pass
 
     async def test_update_user_settings(self) -> None:
-        """Test case for update_user_settings
-
-        """
+        """Test case for update_user_settings"""
         pass
 
     async def test_update_user_v2(self) -> None:
@@ -186,5 +182,5 @@ class TestProfileApi(unittest.IsolatedAsyncioTestCase):
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

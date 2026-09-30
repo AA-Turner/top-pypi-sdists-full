@@ -27,15 +27,16 @@ LOG = logging.getLogger(__name__)
 
 # Initialize optional dependencies
 ps = None
-psf = None
 sp = None
 spf = None
 
 try:
     import pyspark as ps
-    import pyspark.sql.functions as psf
 
-    from datacompy.comparator.utility import get_spark_column_dtypes
+    from datacompy.comparator.utility import (
+        get_spark_column_dtypes,
+        get_spark_functions,
+    )
 
     PYSPARK_STRING_TYPE = {"string", "char", "varchar"}
     PYSPARK_DATE_TYPE = {"date", "timestamp"}
@@ -211,8 +212,11 @@ class PandasStringComparator(BaseComparator):
             col2_type in PANDAS_DATE_TYPES and col1_type in PANDAS_STRING_TYPE
         ):
             return pandas_compare_string_and_date_columns(col1, col2)
-        # if both are strings
-        elif col1_type in PANDAS_STRING_TYPE and col2_type in PANDAS_STRING_TYPE:
+        # if both are strings, treating an all-null column (infer_dtype reports
+        # "empty" when there's no non-null value to signal a type) as string-compatible
+        elif (col1_type in PANDAS_STRING_TYPE or col1_type == "empty") and (
+            col2_type in PANDAS_STRING_TYPE or col2_type == "empty"
+        ):
             col1 = pandas_normalize_string_column(col1, ignore_space, ignore_case)
             col2 = pandas_normalize_string_column(col2, ignore_space, ignore_case)
             try:
@@ -307,6 +311,7 @@ class SparkStringComparator(BaseComparator):
             )
             or ((base_date_type) and (compare_date_type))  # date/date compare.
         ):
+            psf = get_spark_functions(dataframe)
             try:
                 if base_date_type and compare_date_type:
                     # Both are date/timestamp: compare directly, no string conversion needed.
@@ -504,6 +509,7 @@ def spark_normalize_string_column(
     pyspark.sql.Column
         The normalized column
     """
+    psf = get_spark_functions(column)
     if ignore_spaces:
         column = psf.trim(column)
     if ignore_case:

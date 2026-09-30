@@ -24,12 +24,14 @@ import platform
 import time
 from typing import Callable
 from selenium import webdriver
+from selenium.webdriver.remote.file_detector import UselessFileDetector
 from selenium.webdriver.support.ui import WebDriverWait
 
 from testmu_selenium import _config
 from testmu_selenium._config import _config as _config_dict
 from testmu_selenium._capability import _bool_he, build_capability
 from testmu_selenium._helpers.driver import _set_driver, _clear_drivers
+from testmu_selenium._vars import device_name_from_capabilities
 from testmu_selenium._route_failure import (
     _has_pending_failures,
     _pending_failures_summary,
@@ -57,6 +59,15 @@ def _export_smart_env_from_session(driver) -> None:
     os.environ["smart_browser_version"] = str(caps.get("browserVersion", "") or "")
     os.environ["smart_os"] = platform.system()
     os.environ["smart_os_version"] = platform.version()
+    # On a mobile-browser session the requested deviceName is often a
+    # SELECTION REGEX ("^(?!.*(Tab|Fold)).*"); the hub resolves it to a concrete
+    # device and echoes the friendly name in the negotiated caps. Prime it here,
+    # once, while the caps are fresh — an assertion on {{smart.device_name}} must
+    # compare against the allocated device, never the filter it was chosen by.
+    device_name = device_name_from_capabilities(caps)
+    if device_name:
+        os.environ["smart_device_name"] = device_name
+        logger.info("[testmu] smart.device_name resolved from capabilities: %s", device_name)
 
 
 def _report_lambda_status(driver, status: str, remark: str) -> None:
@@ -240,6 +251,11 @@ def run(fn: Callable, profile: str = "default") -> None:
         driver = _create_local_driver()
 
     _set_driver(profile, driver)
+
+    try:
+        driver.file_detector = UselessFileDetector()
+    except Exception:  # noqa: BLE001 — a driver without the hook must not fail the run
+        logger.debug("[testmu] could not set UselessFileDetector on the session", exc_info=True)
 
     # Expose the live session's browser/OS as smart.* env vars so
     # {{smart.browser_name|browser_version|os_type|os_version}} resolve (V2 parity).

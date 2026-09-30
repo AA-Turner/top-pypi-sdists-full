@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.deployment_definition_type import DeploymentDefinitionType
 
+
 class TestDeploymentDefinitionType(unittest.TestCase):
     """DeploymentDefinitionType unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestDeploymentDefinitionType(unittest.TestCase):
         """Test DeploymentDefinitionType"""
         # inst = DeploymentDefinitionType()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

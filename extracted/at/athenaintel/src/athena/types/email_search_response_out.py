@@ -39,7 +39,7 @@ class EmailSearchResponseOut(UniversalBaseModel):
 
     provider: str = pydantic.Field()
     """
-    Account provider as Athena reports it: `gmail` or `outlook` for accounts connected through the Integrations page; `google` or `microsoft365` for directly-connected accounts (read-only for drafts).
+    Account provider as Athena reports it: `gmail` or `outlook` for accounts connected through the Integrations page; `google` or `microsoft365` for directly-connected accounts.
     """
 
     query: str = pydantic.Field()

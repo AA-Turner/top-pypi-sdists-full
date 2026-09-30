@@ -1,6 +1,7 @@
 """Every command this CLI prints as advice must actually run.
 
-`innoday board sync-status <id>` was printed at four sites and parsed at none:
+`innoday board sync-status <id>` (since removed) was printed at four sites and
+parsed at none:
 the flag is `--board-id`, so following the instruction answered
 `unrecognized arguments`. A printed instruction that errors is worse than none —
 people trust it, then doubt the tool rather than the line.
@@ -121,7 +122,7 @@ def test_the_commands_with_arguments_are_captured_too():
     plenty of bare commands and **none** of the ones carrying an argument, which
     is precisely where a wrong shape lives."""
     captured = [command for _where, command in _printed_commands()]
-    assert any("sync-status" in c and "--board-id" in c for c in captured), (
+    assert any(c.startswith("sync --scope") for c in captured), (
         "commands with arguments are not being captured; the regex stops at the "
         "first placeholder and the test covers nothing that can be wrong"
     )

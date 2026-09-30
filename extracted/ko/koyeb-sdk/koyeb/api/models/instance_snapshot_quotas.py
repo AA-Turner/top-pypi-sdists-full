@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class InstanceSnapshotQuotas(BaseModel):
     """
     InstanceSnapshotQuotas
-    """ # noqa: E501
+    """  # noqa: E501
+
     filesystem: Optional[StrictInt] = None
     full: Optional[StrictInt] = None
     __properties: ClassVar[List[str]] = ["filesystem", "full"]
@@ -37,7 +39,6 @@ class InstanceSnapshotQuotas(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class InstanceSnapshotQuotas(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,10 +81,7 @@ class InstanceSnapshotQuotas(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "filesystem": obj.get("filesystem"),
-            "full": obj.get("full")
-        })
+        _obj = cls.model_validate(
+            {"filesystem": obj.get("filesystem"), "full": obj.get("full")}
+        )
         return _obj
-
-

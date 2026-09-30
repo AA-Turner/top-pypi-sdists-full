@@ -16,15 +16,17 @@ __all__ = ["SpanSearchParams", "ExcludedSpan", "Span"]
 
 
 class SpanSearchParams(TypedDict, total=False):
-    allow_short_pages: bool
+    allow_partial_results: bool
     """
     Return however many spans fit the server byte budget instead of a 400
     SEARCH_RESULT_TOO_LARGE, reporting the rest through has_more plus next_cursor
-    going forward or prev_cursor going back. Send it only if the client reads
-    has_more, because under it a page shorter than limit no longer means the end of
-    the list. Honored by the tracing service on either of its storage engines.
-    Accounts still served by the legacy trace store ignore it and page by item
-    count, where a short page still means the end of the list.
+    going forward or prev_cursor going back. A search that spends its time budget
+    before the page fills also returns what it found, with search_status partial,
+    searched_through and a next_cursor that resumes from there. Send it only if the
+    client reads has_more, because under it a page shorter than limit no longer
+    means the end of the list. Honored by the tracing service on either of its
+    storage engines. Accounts still served by the legacy trace store ignore it and
+    page by item count, where a short page still means the end of the list.
     """
 
     ending_before: str

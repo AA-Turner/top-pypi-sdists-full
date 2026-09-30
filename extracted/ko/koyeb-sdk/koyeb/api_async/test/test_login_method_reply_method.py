@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.login_method_reply_method import LoginMethodReplyMethod
 
+
 class TestLoginMethodReplyMethod(unittest.TestCase):
     """LoginMethodReplyMethod unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestLoginMethodReplyMethod(unittest.TestCase):
         """Test LoginMethodReplyMethod"""
         # inst = LoginMethodReplyMethod()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

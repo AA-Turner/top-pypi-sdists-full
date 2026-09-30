@@ -9,6 +9,11 @@ ir_files: None
 ort: None
 
 # Functions
+def clip_init_backoff_remaining() -> float:
+    """
+    Seconds left before a failed CLIP init may be retried (0 when allowed).
+    """
+    ...
 def load_model_from_checkpoint(checkpoint_url: str, providers: Optional[List] = None) -> Any:
     """
     Load an ONNX model from a URL directly into memory without writing locally.

@@ -131,7 +131,7 @@ def _console_sink(event: ToolResultGateEvent) -> None:
         "and can destroy a structured result — that is why this is an alarm."
         if owned
         else "No action needed per-firing; the result was truncated and cached for "
-        "fetch_tool_result. Recorded for cost visibility."
+        "fetch_tool_result. Recorded for cost insight."
     )
     vcprint(
         data={

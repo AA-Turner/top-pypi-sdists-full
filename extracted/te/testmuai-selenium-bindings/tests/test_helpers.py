@@ -331,3 +331,38 @@ class TestClearElementSmoke:
 
         # Backspace should be sent len("abc") == 3 times.
         assert mock_element.send_keys.call_count == 3
+
+
+    # -- don't reset the Selection on an EMPTY contenteditable ---
+    #
+    # selectNodeContents + DELETE wipes the editor's pending toolbar marks: a
+    # user who clicks Bold on an empty editor has formatting armed but no text,
+    # and re-selecting the range drops it (@buddyboss.com). On an empty editor
+    # the clear achieves nothing anyway.
+
+    def test_empty_contenteditable_skips_the_selection_reset(self):
+        from testmu_selenium._helpers.clear_element import clear_element
+
+        mock_driver = MagicMock()
+        mock_element = MagicMock()
+        mock_element.get_attribute.side_effect = ["", "true"]  # no value, contenteditable
+        mock_driver.execute_script.return_value = False        # textContent empty
+
+        clear_element(mock_driver, mock_element)
+
+        scripts = [c.args[0] for c in mock_driver.execute_script.call_args_list]
+        assert not any("selectNodeContents" in s for s in scripts), \
+            "an empty editor must not have its Selection reset"
+
+    def test_populated_contenteditable_still_gets_the_selection_reset(self):
+        from testmu_selenium._helpers.clear_element import clear_element
+
+        mock_driver = MagicMock()
+        mock_element = MagicMock()
+        mock_element.get_attribute.side_effect = ["", "true"]
+        mock_driver.execute_script.return_value = True         # textContent present
+
+        clear_element(mock_driver, mock_element)
+
+        scripts = [c.args[0] for c in mock_driver.execute_script.call_args_list]
+        assert any("selectNodeContents" in s for s in scripts)

@@ -578,15 +578,27 @@ def guard_unresolved_refs(variables: dict[str, Any]) -> dict[str, Any]:
     return cleaned
 
 
-def _report_unresolved(var_name: str) -> None:
-    """Record that an unresolved picklist envelope reached substitution. Routed through the
-    error-capture seam when available so it lands in a human-reviewable record; always
+#: Every tripwire in this module reports through ONE reporter: the kind names the
+#: error record, the sentence says which pre-substitution step a door skipped.
+_UNRESOLVED_MESSAGES: dict[str, str] = {
+    "picklist_unresolved": (
+        "[picklist] unresolved picklist_ref reached replace_variables for variable "
+        "'{name}' — a code path skipped resolve_picklist_references. Injected a safe "
+        "placeholder (label/empty) instead of the description."
+    ),
+    "source_set_unresolved": (
+        "[sources] unresolved source_set reached replace_variables for variable "
+        "'{name}' — a door substituted before the pre-substitution step "
+        "(Agent.prepare_variables / attach_document_variables). Injected a notice instead."
+    ),
+}
+
+
+def _report_unresolved(var_name: str, kind: str = "picklist_unresolved") -> None:
+    """Record that an unresolved envelope of ``kind`` reached substitution. Routed through
+    the error-capture seam when available so it lands in a human-reviewable record; always
     screams to the log as a backstop."""
-    msg = (
-        f"[picklist] unresolved picklist_ref reached replace_variables for variable "
-        f"'{var_name}' — a code path skipped resolve_picklist_references. Injected a safe "
-        f"placeholder (label/empty) instead of the description."
-    )
+    msg = _UNRESOLVED_MESSAGES[kind].format(name=var_name)
     vcprint(msg, color="red")
     try:
         from matrx_ai._ext import get_ext  # local import to avoid import cycles
@@ -601,8 +613,8 @@ def _report_unresolved(var_name: str) -> None:
 
         coro = record_error(
             RuntimeError(msg),
-            kind="picklist_unresolved",
-            error_type="picklist_unresolved",
+            kind=kind,
+            error_type=kind,
             error_text=msg,
             payload={"variable": var_name},
             route="replace_variables",
@@ -612,7 +624,7 @@ def _report_unresolved(var_name: str) -> None:
                 asyncio.get_running_loop()
                 from matrx_utils import detached_task
 
-                detached_task(coro, name=f"picklist_unresolved:{var_name}")
+                detached_task(coro, name=f"{kind}:{var_name}")
             except RuntimeError:
                 coro.close()  # no running loop; the log line above is the record
     except Exception:
@@ -665,43 +677,5 @@ def guard_unresolved_source_sets(variables: dict[str, Any]) -> dict[str, Any]:
             "the Sources were unavailable."
         )
         cleaned[name] = f"Topic: {topic}\n\n{notice}" if topic else notice
-        _report_unresolved_source_set(name)
+        _report_unresolved(name, "source_set_unresolved")
     return cleaned
-
-
-def _report_unresolved_source_set(var_name: str) -> None:
-    msg = (
-        f"[sources] unresolved source_set reached replace_variables for variable "
-        f"'{var_name}' — a door substituted before the pre-substitution step "
-        f"(Agent.prepare_variables / attach_document_variables). Injected a notice instead."
-    )
-    vcprint(msg, color="red")
-    try:
-        from matrx_ai._ext import get_ext
-
-        record_error = get_ext("record_error")
-    except Exception:
-        record_error = None
-    if record_error is None:
-        return
-    try:
-        import asyncio
-
-        coro = record_error(
-            RuntimeError(msg),
-            kind="source_set_unresolved",
-            error_type="source_set_unresolved",
-            error_text=msg,
-            payload={"variable": var_name},
-            route="replace_variables",
-        )
-        if asyncio.iscoroutine(coro):
-            try:
-                asyncio.get_running_loop()
-                from matrx_utils import detached_task
-
-                detached_task(coro, name=f"source_set_unresolved:{var_name}")
-            except RuntimeError:
-                coro.close()  # no running loop; the log line above is the record
-    except Exception:
-        pass

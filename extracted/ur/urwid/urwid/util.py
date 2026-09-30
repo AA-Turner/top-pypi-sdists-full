@@ -18,6 +18,8 @@
 # Urwid web site: https://urwid.org/
 
 
+"""Encoding detection and conversion, run-length encoding and markup helpers."""
+
 from __future__ import annotations
 
 import contextlib
@@ -36,7 +38,10 @@ if typing.TYPE_CHECKING:
     from typing_extensions import Literal, Protocol, Self
 
     class CanBeStopped(Protocol):
-        def stop(self) -> None: ...
+        """Protocol for an object providing a no-argument ``stop()`` method."""
+
+        def stop(self) -> None:
+            """Stop whatever the implementing object is running."""
 
     class _TagMarkupList(Protocol):
         """List of markup parts joined together by `decompose_tagmarkup`.
@@ -53,7 +58,8 @@ if typing.TYPE_CHECKING:
 
         def __len__(self) -> int: ...
 
-        def reverse(self) -> None: ...
+        def reverse(self) -> None:
+            """Reverse the list of tag markup elements in place."""
 
     _TagMarkup = typing.Union[str, bytes, tuple[Hashable, "_TagMarkup"], "_TagMarkupList"]
 
@@ -75,6 +81,7 @@ def __getattr__(name: str) -> typing.Any:
 
 
 def detect_encoding() -> str:
+    """Return the name of the encoding to use for terminal I/O, detected from the platform."""
     # Windows is a special case:
     # CMD is Unicode and non-unicode at the same time:
     # Unicode display support depends on C API usage and partially limited by font settings.
@@ -117,10 +124,7 @@ _use_dec_special = True
 
 
 def set_encoding(encoding: str) -> None:
-    """
-    Set the byte encoding to assume when processing strings and the
-    encoding to use when converting unicode strings.
-    """
+    """Set the byte encoding to assume for processing strings, and to use when converting unicode strings."""
     encoding = encoding.lower()
 
     global _target_encoding, _use_dec_special  # noqa: PLW0603  # noqa: PLW0603  # pylint: disable=global-statement
@@ -168,7 +172,7 @@ def get_encoding() -> str:
 
 @contextlib.contextmanager
 def set_temporary_encoding(encoding_name: str) -> Generator[None]:
-    """Internal helper for encoding specific validation in unittests/doctests.
+    """Temporarily set the target encoding, for encoding-specific validation in unittests/doctests.
 
     Not exported globally.
     """
@@ -181,8 +185,8 @@ def set_temporary_encoding(encoding_name: str) -> Generator[None]:
 
 
 def get_encoding_mode() -> Literal["wide", "narrow", "utf8"]:
-    """
-    Get the mode Urwid is using when processing text strings.
+    """Get the mode Urwid is using when processing text strings.
+
     Returns 'narrow' for 8-bit encodings, 'wide' for CJK encodings
     or 'utf8' for UTF-8 encodings.
     """
@@ -258,10 +262,7 @@ set_encoding(detected_encoding)
 
 
 def supports_unicode() -> bool:
-    """
-    Return True if python is able to convert non-ascii unicode strings
-    to the current encoding.
-    """
+    """Return True if python is able to convert non-ascii unicode strings to the current encoding."""
     return bool(_target_encoding and _target_encoding != "ascii")
 
 
@@ -305,9 +306,7 @@ def trim_text_attr_cs(
     start_col: int,
     end_col: int,
 ) -> tuple[bytes, list[tuple[Hashable, int]], list[tuple[Hashable, int]]]:
-    """
-    Return ( trimmed text, trimmed attr, trimmed cs ).
-    """
+    """Return ( trimmed text, trimmed attr, trimmed cs )."""
     spos, epos, pad_left, pad_right = calc_trim_text(text, 0, len(text), start_col, end_col)
     attrtr = rle_subseg(attr, spos, epos)
     cstr = rle_subseg(cs, spos, epos)
@@ -327,9 +326,7 @@ def rle_get_at(
     rle: Iterable[tuple[Hashable, int]],
     pos: int,
 ) -> Hashable | None:
-    """
-    Return the attribute at offset pos.
-    """
+    """Return the attribute at offset pos."""
     x = 0
     if pos < 0:
         return None
@@ -369,13 +366,10 @@ def rle_subseg(
 def rle_len(
     rle: Iterable[tuple[Hashable, int]],
 ) -> int:
-    """
-    Return the number of characters covered by a run length
-    encoded attribute list.
+    """Return the number of characters covered by a run length encoded attribute list.
 
     :raises TypeError: an item of *rle* is not a ``(value, run length)`` tuple.
     """
-
     run = 0
     for v in rle:
         if not isinstance(v, tuple):
@@ -389,9 +383,9 @@ def rle_prepend_modify(
     rle: MutableSequence[tuple[Hashable, int]],
     a_r: tuple[Hashable, int],
 ) -> None:
-    """
-    Append (a, r) (unpacked from *a_r*) to BEGINNING of rle.
-    Merge with first run when possible
+    """Append (a, r) (unpacked from *a_r*) to BEGINNING of rle.
+
+    Merge with first run when possible.
 
     MODIFIES rle parameter contents. Returns None.
     """
@@ -410,8 +404,8 @@ def rle_append_modify(
     rle: MutableSequence[tuple[Hashable, int]],
     a_r: tuple[Hashable, int],
 ) -> None:
-    """
-    Append (a, r) (unpacked from *a_r*) to the rle list rle.
+    """Append (a, r) (unpacked from *a_r*) to the rle list rle.
+
     Merge with the last run when possible.
 
     MODIFIES rle parameter contents. Returns None.
@@ -428,8 +422,8 @@ def rle_join_modify(
     rle: MutableSequence[tuple[Hashable, int]],
     rle2: MutableSequence[tuple[Hashable, int]],
 ) -> None:
-    """
-    Append attribute list rle2 to rle.
+    """Append attribute list rle2 to rle.
+
     Merge last run of rle with first run of rle2 when possible.
 
     MODIFIES attr parameter contents. Returns None.
@@ -445,8 +439,8 @@ def rle_product(
     rle1: MutableSequence[tuple[Hashable, int]],
     rle2: MutableSequence[tuple[Hashable, int]],
 ) -> list[tuple[tuple[Hashable, Hashable], int]]:
-    """
-    Merge the runs of rle1 and rle2 like this:
+    """Merge the runs of rle1 and rle2.
+
     eg.
     rle1 = [ ("a", 10), ("b", 5) ]
     rle2 = [ ("Q", 5), ("P", 10) ]
@@ -481,12 +475,11 @@ def rle_product(
 
 
 class TagMarkupException(Exception):
-    pass
+    """Raised when tag markup passed to :func:`decompose_tagmarkup` is malformed."""
 
 
 def decompose_tagmarkup(tm: _TagMarkup) -> tuple[str | bytes, list[tuple[Hashable, int]]]:
     """Return (text string, attribute list) for tagmarkup passed."""
-
     tl, al = _tagmarkup_recurse(tm, None)
     # join as str or bytes based on type of first element
     text: str | bytes
@@ -515,7 +508,6 @@ def _tagmarkup_recurse(
     :param attr: current attribute or None
     :raises TagMarkupException: an element is neither text nor an ``(attribute, tagmarkup)`` pair.
     """
-
     if isinstance(tm, list):
         # for lists recurse to process each subelement
         rtl: list[str | bytes] = []
@@ -549,10 +541,12 @@ def _tagmarkup_recurse(
 
 
 def is_mouse_event(ev: tuple[str, int, int, int] | typing.Any) -> bool:
+    """Return whether *ev* is a 4-tuple input event whose name contains "mouse"."""
     return isinstance(ev, tuple) and len(ev) == 4 and "mouse" in ev[0]
 
 
 def is_mouse_press(ev: str) -> bool:
+    """Return whether *ev* is a mouse event name for a button press."""
     return "press" in ev
 
 
@@ -570,10 +564,9 @@ class MetaSuper(type):
 
 
 def int_scale(val: int, val_range: int, out_range: int) -> int:
-    """
-    Scale val in the range [0, val_range-1] to an integer in the range
-    [0, out_range-1].  This implementation uses the "round-half-up" rounding
-    method.
+    """Scale val in the range [0, val_range-1] to an integer in the range [0, out_range-1].
+
+    This implementation uses the "round-half-up" rounding method.
 
     >>> "%x" % int_scale(0x7, 0x10, 0x10000)
     '7777'
@@ -591,17 +584,19 @@ def int_scale(val: int, val_range: int, out_range: int) -> int:
 
 
 class StoppingContext(contextlib.AbstractContextManager["StoppingContext"]):
-    """Context manager that calls ``stop`` on a given object on exit.  Used to
-    make the ``start`` method on `MainLoop` and `BaseScreen` optionally act as
-    context managers.
+    """Context manager that calls ``stop`` on a given object on exit.
+
+    Used to make the ``start`` method on `MainLoop` and `BaseScreen` optionally act as context managers.
     """
 
     __slots__ = ("_wrapped",)
 
     def __init__(self, wrapped: CanBeStopped) -> None:
+        """Wrap `wrapped`, whose `stop` method is called on exit."""
         self._wrapped = wrapped
 
     def __enter__(self) -> Self:
+        """Return self, for use as a context manager."""
         return self
 
     def __exit__(
@@ -610,4 +605,5 @@ class StoppingContext(contextlib.AbstractContextManager["StoppingContext"]):
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
+        """Stop the wrapped object on exiting the context."""
         self._wrapped.stop()

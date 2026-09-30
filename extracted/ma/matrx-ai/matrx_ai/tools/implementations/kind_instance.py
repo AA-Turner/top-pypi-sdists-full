@@ -54,6 +54,7 @@ from matrx_ai.tools.implementations.kind_shared import (
     ctx_user_id,
     ensure_can_view_kind,
     ensure_root_marker,
+    enum_str,
     err,
     is_uuid,
     kind_title_key,
@@ -154,8 +155,8 @@ def _store_row(row: dict[str, Any], arm: Any) -> Any:
     """A store record as the attribute row every body below already reads.
 
     The document carries the legacy relation's own columns key for key; the header carries
-    the timestamps. `visibility` is not a column of a record — a record is seen through its
-    Table's ladder — so the row says that instead of printing a legacy word it never had.
+    the timestamps. A record is seen through its Table's ladder: it is never published to
+    the web on its own, and it carries only the ``shown_to`` list filter.
     """
     base: dict[str, Any] = {
         "id": row.get("id"),
@@ -168,7 +169,8 @@ def _store_row(row: dict[str, Any], arm: Any) -> Any:
         "created_by": row.get("created_by"),
         "organization_id": row.get("organization_id"),
         "metadata": row.get("metadata") or {},
-        "visibility": row.get("visibility") or "table",
+        "published_to_web": row.get("published_to_web"),
+        "shown_to": row.get("shown_to"),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
         "deleted_at": row.get("deleted_at"),
@@ -538,7 +540,7 @@ async def instance_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Fetch one instance: full payload, title, pinned kind_version, derived
     validation_status, and the kind's slug/current version (so a pin behind
     the current schema is visible). Access: viewer on the instance (owner /
-    shared / visibility) — missing and unauthorized return the same
+    shared / published) — missing and unauthorized return the same
     content-free not-found.
     """
     from matrx_ai.tools._generated_declarations import InstanceGetArgs
@@ -557,7 +559,8 @@ async def instance_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     **instance_summary(row, kd.kind if kd else None),
                     data=row.data,
                     validated_at=str(row.validated_at) if row.validated_at else None,
-                    visibility=str(getattr(row.visibility, "value", row.visibility)),
+                    published_to_web=getattr(row, "published_to_web", None),
+                    shown_to=enum_str(getattr(row, "shown_to", None)),
                     created_at=str(row.created_at) if row.created_at else None,
                     metadata=row.metadata or {},
                 ),

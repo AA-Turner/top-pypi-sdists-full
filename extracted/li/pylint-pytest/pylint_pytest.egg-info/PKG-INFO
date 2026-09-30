@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pylint-pytest
-Version: 1.1.8
+Version: 1.1.9.post1
 Summary: A Pylint plugin to suppress pytest-related false positives.
 Home-page: https://github.com/pylint-dev/pylint-pytest
 Author: Stavros Ntentos
@@ -31,7 +31,20 @@ Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pylint>=2
-Requires-Dist: pytest<=8.2.0,>=4.6
+Requires-Dist: pytest>=4.6
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # pylint-pytest
 

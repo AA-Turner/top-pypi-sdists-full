@@ -24,25 +24,33 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ExecCommandIO(BaseModel):
     """
     ExecCommandIO
-    """ # noqa: E501
-    data: Optional[Union[Annotated[bytes, Field(strict=True)], Annotated[str, Field(strict=True)]]] = Field(default=None, description="Data is base64 encoded")
-    close: Optional[StrictBool] = Field(default=None, description="Indicate last data frame")
+    """  # noqa: E501
+
+    data: Optional[
+        Union[Annotated[bytes, Field(strict=True)], Annotated[str, Field(strict=True)]]
+    ] = Field(default=None, description="Data is base64 encoded")
+    close: Optional[StrictBool] = Field(
+        default=None, description="Indicate last data frame"
+    )
     __properties: ClassVar[List[str]] = ["data", "close"]
 
-    @field_validator('data')
+    @field_validator("data", mode="before")
     def data_validate_regular_expression(cls, value):
         """Validates the regular expression"""
         if value is None:
             return value
 
-        if not isinstance(value, str):
-            value = str(value)
-
-        if not re.match(r"^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$", value):
-            raise ValueError(r"must validate the regular expression /^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$/")
+        if isinstance(value, str) and not re.match(
+            r"^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$",
+            value,
+        ):
+            raise ValueError(
+                r"must validate the regular expression /^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$/"
+            )
         return value
 
     model_config = ConfigDict(
@@ -51,7 +59,6 @@ class ExecCommandIO(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -76,8 +83,7 @@ class ExecCommandIO(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -95,10 +101,5 @@ class ExecCommandIO(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "data": obj.get("data"),
-            "close": obj.get("close")
-        })
+        _obj = cls.model_validate({"data": obj.get("data"), "close": obj.get("close")})
         return _obj
-
-

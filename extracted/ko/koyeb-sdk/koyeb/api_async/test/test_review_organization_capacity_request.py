@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.review_organization_capacity_request import ReviewOrganizationCapacityRequest
+from koyeb.api_async.models.review_organization_capacity_request import (
+    ReviewOrganizationCapacityRequest,
+)
+
 
 class TestReviewOrganizationCapacityRequest(unittest.TestCase):
     """ReviewOrganizationCapacityRequest unit test stubs"""
@@ -27,9 +30,9 @@ class TestReviewOrganizationCapacityRequest(unittest.TestCase):
 
     def make_instance(self, include_optional) -> ReviewOrganizationCapacityRequest:
         """Test ReviewOrganizationCapacityRequest
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `ReviewOrganizationCapacityRequest`
         """
         model = ReviewOrganizationCapacityRequest()
@@ -48,5 +51,6 @@ class TestReviewOrganizationCapacityRequest(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

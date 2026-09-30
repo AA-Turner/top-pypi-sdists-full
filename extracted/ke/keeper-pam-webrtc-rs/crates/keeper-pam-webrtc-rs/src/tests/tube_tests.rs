@@ -8,6 +8,7 @@ use bytes::Bytes;
 use chrono::Utc;
 use log::{error, info, warn};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
@@ -648,6 +649,95 @@ async fn perform_signaling_and_ice_exchange(
 
     info!("[perform_signaling] ✅ P2P signaling and ICE exchange complete! Tube1 candidates: {}, Tube2 candidates: {}",
         total_candidates_tube1, total_candidates_tube2);
+    Ok(())
+}
+
+#[tokio::test]
+async fn remote_data_channel_reports_connection_open_once() -> Result<(), Box<dyn std::error::Error>>
+{
+    let tube1 = Tube::new(
+        false,
+        None,
+        None,
+        None,
+        crate::tube_protocol::Capabilities::NONE,
+        None,
+    )?;
+    let tube2 = Tube::new(
+        false,
+        None,
+        None,
+        None,
+        crate::tube_protocol::Capabilities::NONE,
+        None,
+    )?;
+
+    let report_count = Arc::new(AtomicUsize::new(0));
+    tube2.set_connection_open_reporter_for_test({
+        let report_count = Arc::clone(&report_count);
+        Arc::new(move || {
+            report_count.fetch_add(1, Ordering::SeqCst);
+        })
+    });
+
+    let (signal_tx1, mut signal_rx1) = mpsc::unbounded_channel();
+    let (signal_tx2, mut signal_rx2) = mpsc::unbounded_channel();
+    let mut settings = HashMap::new();
+    settings.insert("conversationType".to_string(), serde_json::json!("tunnel"));
+
+    tube1
+        .create_peer_connection(
+            Some(RTCConfiguration::default()),
+            true,
+            false,
+            "TEST_MODE_KSM_CONFIG_T1_OPEN_ONCE".to_string(),
+            "test_token_t1_open_once".to_string(),
+            "test",
+            settings.clone(),
+            signal_tx1,
+            false,
+        )
+        .await?;
+    tube2
+        .create_peer_connection(
+            Some(RTCConfiguration::default()),
+            true,
+            false,
+            "TEST_MODE_KSM_CONFIG_T2_OPEN_ONCE".to_string(),
+            "test_token_t2_open_once".to_string(),
+            "test",
+            settings,
+            signal_tx2,
+            false,
+        )
+        .await?;
+
+    tube1
+        .create_data_channel(
+            "open-once",
+            "TEST_MODE_KSM_CONFIG_T1_OPEN_ONCE".to_string(),
+            "test_token_t1_open_once".to_string(),
+            "test",
+        )
+        .await?;
+
+    perform_signaling_and_ice_exchange(&tube1, &tube2, &mut signal_rx1, &mut signal_rx2).await?;
+
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while report_count.load(Ordering::SeqCst) == 0 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("timed out waiting for connection_open report");
+
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    assert_eq!(
+        report_count.load(Ordering::SeqCst),
+        1,
+        "one incoming data channel must emit exactly one connection_open report"
+    );
+
     Ok(())
 }
 

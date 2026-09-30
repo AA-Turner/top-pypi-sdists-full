@@ -151,7 +151,7 @@ def _persister(
             storage_uri=f"s3://canonical/new-{write_count['n']}",
             version_number=1,
             is_new=True,
-            visibility="internal",
+            published_to_web=False,
         )
 
     write = AsyncMock(side_effect=fake_write)

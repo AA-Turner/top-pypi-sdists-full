@@ -25,10 +25,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class PublicOrganization(BaseModel):
     """
     PublicOrganization
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
     plan: Optional[Plan] = Plan.HOBBY
@@ -42,7 +44,6 @@ class PublicOrganization(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -67,8 +68,7 @@ class PublicOrganization(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -86,13 +86,15 @@ class PublicOrganization(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "name": obj.get("name"),
-            "plan": obj.get("plan") if obj.get("plan") is not None else Plan.HOBBY,
-            "status": obj.get("status") if obj.get("status") is not None else OrganizationStatus.WARNING,
-            "external_id": obj.get("external_id")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "name": obj.get("name"),
+                "plan": obj.get("plan") if obj.get("plan") is not None else Plan.HOBBY,
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else OrganizationStatus.WARNING,
+                "external_id": obj.get("external_id"),
+            }
+        )
         return _obj
-
-

@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 from matrx_utils import vcprint
+from matrx_utils.row_access import legacy_level_echo
 
 if TYPE_CHECKING:
     from matrx_ai.catalog.models import ResolvedCallProfile
@@ -470,15 +471,18 @@ class BaseMediaGeneration(ABC):
             kwargs["mime_type"] = asset.mime_type or self._default_mime()
         metadata = dict(asset.metadata or {})
         if isinstance(envelope, MediaPersistResult):
-            # The row's visibility and its PERMANENT cdn_url (public rows only)
-            # travel on the block. Without them the frontend adapter guessed
+            # The row's access words (published_to_web / shown_to) and its
+            # PERMANENT cdn_url (published rows only) travel on the block. Without them the frontend adapter guessed
             # "public" and bound the authenticated durable
             # `/files/{id}/download?inline=1` URL straight to an <img> — the
             # cookie lane — for a `personal` row, which 401s forever in any
             # browser that blocks third-party cookies (2026-09-16, "Image
             # unavailable" in Arman's Chrome). The truth is on the envelope.
-            if envelope.visibility:
-                metadata.setdefault("visibility", envelope.visibility)
+            metadata.setdefault("published_to_web", envelope.published_to_web)
+            if envelope.shown_to:
+                metadata.setdefault("shown_to", envelope.shown_to)
+            # from-image-output-data.ts still reads the old single level word.
+            metadata.setdefault("visibility", legacy_level_echo(metadata))  # T-13 transitional wire echo
             if envelope.cdn_url:
                 metadata.setdefault("cdn_url", envelope.cdn_url)
         if metadata:
@@ -865,7 +869,8 @@ class BaseMediaGeneration(ABC):
                 "file_name": envelope.file_name,
                 "mime_type": envelope.mime_type or mime_type,
                 "size_bytes": envelope.size_bytes,
-                "visibility": envelope.visibility,
+                "published_to_web": envelope.published_to_web,
+                "shown_to": envelope.shown_to,
                 # Phase 3b — surface probed intrinsics on the synthetic
                 # record so the stream's UnifiedMediaBlock carries them
                 # (cloud_file_to_media_block reads width/height/duration_ms

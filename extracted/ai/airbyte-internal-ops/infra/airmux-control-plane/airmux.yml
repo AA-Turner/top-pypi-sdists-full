@@ -1,0 +1,10 @@
+# Pulumi publishes this file as the airmux-config Secret Manager secret.
+control_plane:
+  database:
+    url: ${env:DATABASE_URL}
+  bootstrap:
+    token: ${env:AIRMUX_DATAPLANE_MANAGEMENT_KEY}
+  console_url: ${env:AIRMUX_CONSOLE_URL}
+  public_signup: false
+  secrets:
+    kind: env

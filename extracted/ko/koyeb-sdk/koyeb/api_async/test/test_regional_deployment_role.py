@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.regional_deployment_role import RegionalDeploymentRole
 
+
 class TestRegionalDeploymentRole(unittest.TestCase):
     """RegionalDeploymentRole unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestRegionalDeploymentRole(unittest.TestCase):
         """Test RegionalDeploymentRole"""
         # inst = RegionalDeploymentRole()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -27,12 +27,22 @@ _LAZY_IMPORTS = {
     "GatewayMessage": ("praisonaiagents.gateway.protocols", "GatewayMessage"),
     "EventType": ("praisonaiagents.gateway.protocols", "EventType"),
     "OperatorScope": ("praisonaiagents.gateway.protocols", "OperatorScope"),
+    # Multi-observer session sharing (Issue #5192)
+    "SessionVisibility": ("praisonaiagents.gateway.protocols", "SessionVisibility"),
+    "SessionSharingRole": ("praisonaiagents.gateway.protocols", "SessionSharingRole"),
+    "SessionObserverProtocol": ("praisonaiagents.gateway.protocols", "SessionObserverProtocol"),
+    # Session-projection reducer (Issue #5324)
+    "SessionProjection": ("praisonaiagents.gateway.session_projection", "SessionProjection"),
+    "SessionProjectionState": ("praisonaiagents.gateway.session_projection", "SessionProjectionState"),
+    "RunView": ("praisonaiagents.gateway.session_projection", "RunView"),
     "GatewayCloseCode": ("praisonaiagents.gateway.protocols", "GatewayCloseCode"),
     # Declarative method -> required-scope registry (Issue #3206)
     "GatewayMethodDescriptor": ("praisonaiagents.gateway.protocols", "GatewayMethodDescriptor"),
     "GATEWAY_METHODS": ("praisonaiagents.gateway.protocols", "GATEWAY_METHODS"),
     "register_gateway_method": ("praisonaiagents.gateway.protocols", "register_gateway_method"),
     "resolve_required_scope": ("praisonaiagents.gateway.protocols", "resolve_required_scope"),
+    "authorize_method": ("praisonaiagents.gateway.protocols", "authorize_method"),
+    "GatewayUnauthorized": ("praisonaiagents.gateway.protocols", "GatewayUnauthorized"),
     # Config hot-reload observability (Issue #3049)
     "ReloadStatus": ("praisonaiagents.gateway.protocols", "ReloadStatus"),
     "compute_config_revision": ("praisonaiagents.gateway.protocols", "compute_config_revision"),
@@ -67,10 +77,18 @@ _LAZY_IMPORTS = {
     # Agent/gateway-callable thread creation (Issue #3987)
     "ThreadResult": ("praisonaiagents.gateway.protocols", "ThreadResult"),
     "ThreadStatus": ("praisonaiagents.gateway.protocols", "ThreadStatus"),
+    # Agent-callable message mutation: edit/delete (Issue #5054)
+    "MessageActionResult": ("praisonaiagents.gateway.protocols", "MessageActionResult"),
+    "MessageActionStatus": ("praisonaiagents.gateway.protocols", "MessageActionStatus"),
     # Agent-callable cross-conversation request/reply (Issue #3689)
     "ConversationReply": ("praisonaiagents.gateway.protocols", "ConversationReply"),
     "ConversationReplyStatus": ("praisonaiagents.gateway.protocols", "ConversationReplyStatus"),
     "ConversationRequestProtocol": ("praisonaiagents.gateway.protocols", "ConversationRequestProtocol"),
+    # Server→client interactive request/reply over the transport (Issue #5351)
+    "GatewayRequestKind": ("praisonaiagents.gateway.protocols", "GatewayRequestKind"),
+    "GatewayServerRequest": ("praisonaiagents.gateway.protocols", "GatewayServerRequest"),
+    "GatewayServerReply": ("praisonaiagents.gateway.protocols", "GatewayServerReply"),
+    "GatewayRequestChannelProtocol": ("praisonaiagents.gateway.protocols", "GatewayRequestChannelProtocol"),
     # Agent-facing live status/health (Issue #3688)
     "GatewayStatusProtocol": ("praisonaiagents.gateway.protocols", "GatewayStatusProtocol"),
     "GatewayStatus": ("praisonaiagents.gateway.protocols", "GatewayStatus"),
@@ -203,6 +221,9 @@ _LAZY_IMPORTS = {
     "ConnectRecoveryStep": ("praisonaiagents.gateway.protocols", "ConnectRecoveryStep"),
     "is_recoverable": ("praisonaiagents.gateway.protocols", "is_recoverable"),
     "MessageParams": ("praisonaiagents.gateway.protocols", "MessageParams"),
+    # First-class attachment contract (Issue #5207)
+    "AttachmentRef": ("praisonaiagents.gateway.protocols", "AttachmentRef"),
+    "AttachmentStoreProtocol": ("praisonaiagents.gateway.protocols", "AttachmentStoreProtocol"),
     "LeaveParams": ("praisonaiagents.gateway.protocols", "LeaveParams"),
     "JoinParams": ("praisonaiagents.gateway.protocols", "JoinParams"),
     "FrameDecodeError": ("praisonaiagents.gateway.protocols", "FrameDecodeError"),
@@ -240,6 +261,8 @@ _LAZY_IMPORTS = {
     "SessionConfig": ("praisonaiagents.gateway.config", "SessionConfig"),
     "ApiConfig": ("praisonaiagents.gateway.config", "ApiConfig"),
     "EmergencyStopConfig": ("praisonaiagents.gateway.config", "EmergencyStopConfig"),
+    # Attachment ceilings config (Issue #5207)
+    "AttachmentConfig": ("praisonaiagents.gateway.config", "AttachmentConfig"),
     "ChannelRouteConfig": ("praisonaiagents.gateway.config", "ChannelRouteConfig"),
     "MultiChannelGatewayConfig": ("praisonaiagents.gateway.config", "MultiChannelGatewayConfig"),
     # Config version stamp + doctor-driven migration (Issue #3841)
@@ -264,6 +287,12 @@ _LAZY_IMPORTS = {
     # Reload scope classification (Issue #3440)
     "ReloadScope": ("praisonaiagents.gateway.config", "ReloadScope"),
     "classify_reload": ("praisonaiagents.gateway.config", "classify_reload"),
+    # Candidate validation + rollback contract (Issue #5144)
+    "CandidateReport": ("praisonaiagents.gateway.config", "CandidateReport"),
+    "ReloadValidationProtocol": (
+        "praisonaiagents.gateway.config",
+        "ReloadValidationProtocol",
+    ),
 }
 
 # Lazy loading cache (shared with wrapper-backed implementations below)
@@ -348,12 +377,22 @@ __all__ = [
     "GatewayMessage",
     "EventType",
     "OperatorScope",
+    # Multi-observer session sharing (Issue #5192)
+    "SessionVisibility",
+    "SessionSharingRole",
+    "SessionObserverProtocol",
+    # Session-projection reducer (Issue #5324)
+    "SessionProjection",
+    "SessionProjectionState",
+    "RunView",
     "GatewayCloseCode",
     # Declarative method -> required-scope registry (Issue #3206)
     "GatewayMethodDescriptor",
     "GATEWAY_METHODS",
     "register_gateway_method",
     "resolve_required_scope",
+    "authorize_method",
+    "GatewayUnauthorized",
     # Config hot-reload observability (Issue #3049)
     "ReloadStatus",
     "compute_config_revision",
@@ -382,11 +421,18 @@ __all__ = [
     "ReactionResult",
     "ReactionStatus",
     "ThreadResult",
+    "MessageActionResult",
+    "MessageActionStatus",
     "ThreadStatus",
     # Agent-callable cross-conversation request/reply (Issue #3689)
     "ConversationReply",
     "ConversationReplyStatus",
     "ConversationRequestProtocol",
+    # Server→client interactive request/reply over the transport (Issue #5351)
+    "GatewayRequestKind",
+    "GatewayServerRequest",
+    "GatewayServerReply",
+    "GatewayRequestChannelProtocol",
     # Agent-facing live status/health (Issue #3688)
     "GatewayStatusProtocol",
     "GatewayStatus",
@@ -516,6 +562,9 @@ __all__ = [
     "ConnectRecoveryStep",
     "is_recoverable",
     "MessageParams",
+    # First-class attachment contract (Issue #5207)
+    "AttachmentRef",
+    "AttachmentStoreProtocol",
     "LeaveParams",
     "JoinParams",
     "FrameDecodeError",
@@ -553,6 +602,8 @@ __all__ = [
     "SessionConfig",
     "ApiConfig",
     "EmergencyStopConfig",
+    # Attachment ceilings config (Issue #5207)
+    "AttachmentConfig",
     "ChannelRouteConfig",
     "MultiChannelGatewayConfig",
     # Config version stamp + doctor-driven migration (Issue #3841)
@@ -575,6 +626,8 @@ __all__ = [
     "is_hot_appliable",
     "ReloadScope",
     "classify_reload",
+    "CandidateReport",
+    "ReloadValidationProtocol",
     # Implementations (lazy loaded from praisonai wrapper)
     "WebSocketGateway",
     "GatewaySession",

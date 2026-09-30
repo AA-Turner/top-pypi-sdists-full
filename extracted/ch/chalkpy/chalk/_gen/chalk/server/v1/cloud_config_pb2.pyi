@@ -267,17 +267,24 @@ class AzureCloudConfig(_message.Message):
         gcp_workload_identity: _Optional[_Union[GCPWorkloadIdentity, _Mapping]] = ...,
     ) -> None: ...
 
+class LocalCloudConfig(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class CloudConfig(_message.Message):
-    __slots__ = ("aws", "gcp", "azure")
+    __slots__ = ("aws", "gcp", "azure", "local")
     AWS_FIELD_NUMBER: _ClassVar[int]
     GCP_FIELD_NUMBER: _ClassVar[int]
     AZURE_FIELD_NUMBER: _ClassVar[int]
+    LOCAL_FIELD_NUMBER: _ClassVar[int]
     aws: AWSCloudConfig
     gcp: GCPCloudConfig
     azure: AzureCloudConfig
+    local: LocalCloudConfig
     def __init__(
         self,
         aws: _Optional[_Union[AWSCloudConfig, _Mapping]] = ...,
         gcp: _Optional[_Union[GCPCloudConfig, _Mapping]] = ...,
         azure: _Optional[_Union[AzureCloudConfig, _Mapping]] = ...,
+        local: _Optional[_Union[LocalCloudConfig, _Mapping]] = ...,
     ) -> None: ...

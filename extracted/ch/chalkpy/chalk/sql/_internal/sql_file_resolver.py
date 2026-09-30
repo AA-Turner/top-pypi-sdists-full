@@ -125,11 +125,11 @@ CHALK_SQL_FILE_RESOLVER_FILENAME_SUFFIX = ".chalk.sql"
 
 CHALK_SQL_SOURCE_NAME = "chalksql"
 """Reserved value for the `-- source:` comment. Instead of naming an integration, it declares that
-the query is written in ChalkSQL and is compiled into a logical plan by the Chalk engine itself,
+the query is written in Chalk SQL and is compiled into a logical plan by the Chalk engine itself,
 so no external datasource is bound to the resolver."""
 
 CHALK_SQL_SQLGLOT_DIALECT = "duckdb"
-"""ChalkSQL follows DuckDB's dialect, so that is what `source: chalksql` queries are validated as."""
+"""Chalk SQL follows DuckDB's dialect, so that is what `source: chalksql` queries are validated as."""
 
 
 class IncrementalSettingsSQLFileResolver(BaseModel):
@@ -874,7 +874,7 @@ def _validate_chalk_sql_resolver(
 ) -> List[ResolverError]:
     """Reject the parts of the SQL file resolver surface that `source: chalksql` does not support yet.
 
-    A ChalkSQL resolver is compiled into a logical plan by the engine before any rows exist, so it
+    A Chalk SQL resolver is compiled into a logical plan by the engine before any rows exist, so it
     can only be a root (parameterless) resolver that returns every row it selects. Features that
     depend on executing the query per input row -- bound parameters, `one`/`one_or_none` finalizers
     -- or on the datasource-side incrementalization path are rejected here rather than silently
@@ -885,7 +885,7 @@ def _validate_chalk_sql_resolver(
     if args:
         message = (
             f"SQL file resolvers with 'source: {CHALK_SQL_SOURCE_NAME}' cannot take input parameters, but this "
-            f"resolver references {sorted(args.values())}. ChalkSQL resolvers are compiled into a query plan "
+            f"resolver references {sorted(args.values())}. Chalk SQL resolvers are compiled into a query plan "
             f"without any bound inputs, so they must select their rows directly."
         )
         error_builder.add_diagnostic(
@@ -2267,7 +2267,7 @@ def make_sql_file_resolver(
         the source if it is a type, e.g. `snowflake` if there is only
         one database of that type. Optional if `source` is specified in `sql`.
         The reserved name `"chalksql"` binds no integration at all: the query is
-        written in ChalkSQL and compiled into the query plan by the Chalk engine.
+        written in Chalk SQL and compiled into the query plan by the Chalk engine.
     resolves
         Describes the feature namespace to which the outputs belong.
         Optional if `resolves` is specified in `sql`.

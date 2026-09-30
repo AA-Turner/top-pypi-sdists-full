@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rubicon-objc
-Version: 0.5.6
+Version: 0.5.7
 Summary: A bridge between an Objective C runtime environment and Python.
 Author-email: Russell Keith-Magee <russell@keith-magee.com>
 Maintainer-email: BeeWare Team <team@beeware.org>
@@ -15,7 +15,6 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Objective C
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -23,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file

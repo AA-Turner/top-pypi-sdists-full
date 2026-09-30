@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use rumdl_lib::code_block_tools::executor::ExecutorError;
 use rumdl_lib::code_block_tools::processor::ProcessorError;
 
-use super::discovery::{AuxiliaryExecutionPlan, RuleSets, resolve_display_path, to_display_path};
+use super::discovery::{AuxiliaryExecutionPlan, RuleSets, discovered_display_path, resolve_discovered_display_path};
 use super::embedded::{
     check_embedded_markdown_blocks, format_embedded_markdown_blocks, has_fenced_code_blocks,
     should_format_embedded_markdown, should_lint_embedded_markdown,
@@ -134,14 +134,13 @@ pub fn process_file_with_formatter(
 
     // The same display path the batch formats show for this file: relative
     // unless --show-full-path is set, normalized either way.
-    let display_path = resolve_display_path(file_path, show_full_path, project_root);
+    let display_path = resolve_discovered_display_path(file_path, show_full_path, project_root);
 
     let ProcessFileResult {
         warnings: all_warnings,
         mut content,
         total_warnings,
         fixable_warnings,
-        original_line_ending,
         line_ending_map,
         file_index,
         file_index_reused,
@@ -376,7 +375,7 @@ pub fn process_file_with_formatter(
             // ends in a newline, so consecutive files' diffs concatenate into one
             // patch the way `diff -u` and `git diff` print them.
             let on_disk = line_ending_map.restore(&original_content);
-            let fixed = rumdl_lib::utils::normalize_line_ending(&content, original_line_ending);
+            let fixed = line_ending_map.restore_fixed(&original_content, &content);
             let diff_output = formatter::generate_diff(&on_disk, &fixed, &display_path);
             output_writer.write(&diff_output).unwrap_or_else(|e| {
                 eprintln!("Error writing diff output: {e}");
@@ -432,7 +431,7 @@ pub fn process_file_with_formatter(
         // Write fixed content back to file
         if content_changed {
             // Denormalize back to original line ending before writing
-            let content_to_write = rumdl_lib::utils::normalize_line_ending(&content, original_line_ending).into_owned();
+            let content_to_write = line_ending_map.restore_fixed(&original_content, &content).into_owned();
 
             // Write atomically (temp file + rename) so an interrupted or failed
             // write can never truncate the user's file: the original is only
@@ -553,7 +552,7 @@ pub fn process_file_with_formatter(
         // Return remaining warnings for batch format collection
         // Exit 0 if all violations are fixed (Ruff convention)
         let fixed_line_ending_map = if content_changed {
-            let output_content = rumdl_lib::utils::normalize_line_ending(&content, original_line_ending).into_owned();
+            let output_content = line_ending_map.restore_fixed(&original_content, &content);
             rumdl_lib::utils::NormalizedLineEndingMap::new(&output_content)
         } else {
             line_ending_map.clone()
@@ -626,13 +625,9 @@ fn relint_fixed_file_content(
         format: false,
         relint: false,
     };
-    warnings.extend(auxiliary_warnings(
-        content,
-        file_path,
-        &rule_sets.embedded_markdown,
-        relint_plan,
-        config,
-    ));
+    // The check pass already reported any tool that could not run, so the
+    // re-lint's own account of the same failure is not repeated.
+    warnings.extend(auxiliary_warnings(content, file_path, &rule_sets.embedded_markdown, relint_plan, config).warnings);
     warnings
 }
 
@@ -746,19 +741,9 @@ fn apply_auxiliary_fixes(
                 if !silent {
                     eprintln!("Warning: {}", format_tool_error(&e, display_path));
                 }
-                // The error carries no position, so it is reported against the
-                // file rather than a block, exactly as the lint path reports the
-                // same error.
-                tool_failures.push(rumdl_lib::rule::LintWarning {
-                    message: e.to_string(),
-                    line: 1,
-                    column: 1,
-                    end_line: 1,
-                    end_column: 1,
-                    severity: rumdl_lib::rule::Severity::Error,
-                    fix: None,
-                    rule_name: Some(CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.to_string()),
-                });
+                // Reported at the block that stopped the run, exactly as the lint
+                // path reports the same error.
+                tool_failures.push(e.to_lint_warning());
             }
         }
     }
@@ -802,12 +787,14 @@ fn auxiliary_warnings(
     embedded_markdown_rules: &[Box<dyn Rule>],
     plan: AuxiliaryExecutionPlan,
     config: &rumdl_config::Config,
-) -> Vec<rumdl_lib::rule::LintWarning> {
+) -> AuxiliaryLint {
     if !plan.lint || is_rust_source(Path::new(file_path)) {
-        return Vec::new();
+        return AuxiliaryLint::default();
     }
 
     let mut warnings = Vec::new();
+    let mut tool_warnings = Vec::new();
+    let mut tool_failed = false;
 
     // An embedded block is part of this file, so its findings are this file's and
     // the caller's per-file-ignores decides which of them are reported.
@@ -824,33 +811,40 @@ fn auxiliary_warnings(
                 &config.code_block_tools,
                 config.get_flavor_for_file(Path::new(file_path)),
             );
-            match processor.lint(content) {
-                Ok(diagnostics) => warnings.extend(diagnostics.iter().map(|d| d.to_lint_warning())),
+            match processor.lint_output(content) {
+                Ok(output) => {
+                    warnings.extend(output.diagnostics.iter().map(|d| d.to_lint_warning()));
+                    tool_warnings = output.warnings;
+                    tool_failed = output.incomplete;
+                }
+                // A `fail-fast` setting stopped the document. Reported as a finding
+                // so it counts toward the exit code.
                 Err(e) => {
-                    // Convert processor error to a warning so it counts toward exit code
-                    warnings.push(rumdl_lib::rule::LintWarning {
-                        message: e.to_string(),
-                        line: 1,
-                        column: 1,
-                        end_line: 1,
-                        end_column: 1,
-                        severity: rumdl_lib::rule::Severity::Error,
-                        fix: None,
-                        rule_name: Some(CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.to_string()),
-                    });
+                    warnings.push(e.to_lint_warning());
+                    tool_failed = true;
                 }
             }
         });
     }
 
-    warnings
+    AuxiliaryLint {
+        warnings,
+        tool_warnings,
+        tool_failed,
+    }
 }
 
-/// The name a code block tools processor error is reported under.
-///
-/// Not a rule name and not a tool id: it names the class of problem, so nothing
-/// looks it up in the rule registry.
-const CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME: &str = "code-block-tools";
+/// What the sources beside the document lint had to say about a file.
+#[derive(Default)]
+struct AuxiliaryLint {
+    /// Findings, reported and counted like the document's own.
+    warnings: Vec<rumdl_lib::rule::LintWarning>,
+    /// Code-block tools that could not run under `on-error = "warn"`, in the form
+    /// [`format_tool_warning`] turns into a line for the reader. Not findings.
+    tool_warnings: Vec<String>,
+    /// Whether a code-block tool could not run, leaving a block unchecked.
+    tool_failed: bool,
+}
 
 /// Result type for file processing that includes index data for cross-file analysis
 pub struct ProcessFileResult {
@@ -858,7 +852,6 @@ pub struct ProcessFileResult {
     pub content: String,
     pub total_warnings: usize,
     pub fixable_warnings: usize,
-    pub original_line_ending: rumdl_lib::utils::LineEnding,
     pub line_ending_map: rumdl_lib::utils::NormalizedLineEndingMap,
     pub file_index: rumdl_lib::workspace_index::FileIndex,
     pub file_index_reused: bool,
@@ -881,13 +874,21 @@ impl CacheHashes {
     pub fn new(config: &rumdl_config::Config, rule_sets: &RuleSets) -> Self {
         Self {
             config_hash: LintCache::hash_config(config),
-            rules_hash: Self::hash_rule_sets(rule_sets),
+            rules_hash: Self::hash_rule_sets(rule_sets, config),
         }
     }
 
-    fn hash_rule_sets(rule_sets: &RuleSets) -> String {
+    /// The rules a result came from, and the tools when it came from any: a
+    /// code-block tool's verdict belongs to the binary that gave it, so a
+    /// different binary on `PATH` must not be answered from the cache.
+    fn hash_rule_sets(rule_sets: &RuleSets, config: &rumdl_config::Config) -> String {
+        let tools = if rule_sets.auxiliary.lint {
+            rumdl_lib::code_block_tools::lint_tools_fingerprint(&config.code_block_tools)
+        } else {
+            String::new()
+        };
         let material = format!(
-            "code-block-tool-modes-v1\0{}\0{}\0{}\0{}",
+            "code-block-tool-modes-v2\0{}\0{}\0{}\0{}\0{tools}",
             rule_sets.mode.as_str(),
             rule_sets.auxiliary.cache_key(),
             LintCache::hash_rules(&rule_sets.document),
@@ -914,12 +915,12 @@ pub fn process_file_with_index(
 
     let start_time = Instant::now();
     if verbose && !quiet {
-        // Display a relative path for better UX, even if file_path is canonical
-        // (absolute). to_display_path canonicalizes both the file and the base
-        // before stripping, so it relativizes correctly on Windows where the
-        // discovered path carries a `\\?\` verbatim prefix and a long name while
-        // the cwd may be an 8.3 short name. It also normalizes separators to `/`.
-        let display_path = to_display_path(file_path, None);
+        // Display a relative path for better UX. file_path is the canonical path
+        // discovery produced; the base is canonicalized when a raw strip fails,
+        // so it relativizes correctly on Windows where the discovered path
+        // carries a `\\?\` verbatim prefix and a long name while the cwd may be
+        // an 8.3 short name. It also normalizes separators to `/`.
+        let display_path = discovered_display_path(file_path, None);
         println!("Processing file: {display_path}");
     }
 
@@ -928,7 +929,6 @@ pub fn process_file_with_index(
         content: String::new(),
         total_warnings: 0,
         fixable_warnings: 0,
-        original_line_ending: rumdl_lib::utils::LineEnding::Lf,
         line_ending_map: rumdl_lib::utils::NormalizedLineEndingMap::default(),
         file_index: rumdl_lib::workspace_index::FileIndex::new(),
         file_index_reused: false,
@@ -1009,10 +1009,6 @@ pub fn process_file_with_index(
     // Detect original line ending and retain a mapping back to the original
     // byte boundaries before any processing.
     let line_ending_map = rumdl_lib::utils::NormalizedLineEndingMap::new(&content);
-    let original_line_ending = rumdl_lib::time_function!(
-        "file: detect line endings",
-        rumdl_lib::utils::detect_line_ending_enum(&content)
-    );
 
     // Normalize to LF for all internal processing
     content = rumdl_lib::time_function!(
@@ -1022,14 +1018,7 @@ pub fn process_file_with_index(
 
     // Route Rust files to doc comment linting instead of regular markdown linting
     if is_rust_source(Path::new(file_path)) {
-        return process_rust_file_doc_comments(
-            file_path,
-            &content,
-            &rule_sets.document,
-            config,
-            original_line_ending,
-            line_ending_map,
-        );
+        return process_rust_file_doc_comments(file_path, &content, &rule_sets.document, config, line_ending_map);
     }
 
     // The rules per-file-ignores takes away for this file. Resolved here rather
@@ -1070,7 +1059,7 @@ pub fn process_file_with_index(
         if !silent {
             // The same relative form the findings for this file carry, so both
             // name the file the way the user typed it.
-            let display_path = to_display_path(file_path, None);
+            let display_path = discovered_display_path(file_path, None);
             for warn in inline_warnings {
                 warn.print_warning(&display_path);
             }
@@ -1081,7 +1070,6 @@ pub fn process_file_with_index(
     // Early content analysis for ultra-fast skip decisions
     if content.is_empty() {
         return ProcessFileResult {
-            original_line_ending,
             line_ending_map,
             ..empty_result
         };
@@ -1091,14 +1079,16 @@ pub fn process_file_with_index(
     // warnings carry a fix the CLI will apply.
     let document_rules = rules_reconfigured_by_document(&rule_sets.document, config, &content);
 
-    // Compute hashes for cache (Ruff-style: file content + config + enabled rules)
-    let (config_hash, rules_hash) = if let Some(hashes) = cache_hashes {
-        (Cow::Borrowed(&hashes.config_hash), Cow::Borrowed(&hashes.rules_hash))
-    } else {
-        (
+    // Compute hashes for cache (Ruff-style: file content + config + enabled rules).
+    // Only the cache reads them, and the rules hash looks every code-block tool
+    // up on PATH, so a run without a cache does not pay for them per file.
+    let (config_hash, rules_hash) = match (cache_hashes, &cache) {
+        (Some(hashes), _) => (Cow::Borrowed(&hashes.config_hash), Cow::Borrowed(&hashes.rules_hash)),
+        (None, Some(_)) => (
             Cow::Owned(LintCache::hash_config(config)),
-            Cow::Owned(CacheHashes::hash_rule_sets(rule_sets)),
-        )
+            Cow::Owned(CacheHashes::hash_rule_sets(rule_sets, config)),
+        ),
+        (None, None) => (Cow::Owned(String::new()), Cow::Owned(String::new())),
     };
     let file_hash = LintCache::hash_content(&content);
     let md057_rule = if ignored_rules_for_file.contains("MD057") {
@@ -1114,7 +1104,8 @@ pub fn process_file_with_index(
     // Note: Cache only stores single-file warnings; cross-file checks must run fresh
     if let Some(ref cache_arc) = cache {
         let flavor = config.get_flavor_for_file(Path::new(file_path));
-        let canonical_path = std::fs::canonicalize(file_path).unwrap_or_else(|_| PathBuf::from(file_path));
+        // Discovery already canonicalized file_path, matching the index keys.
+        let canonical_path = PathBuf::from(file_path);
         let cached_file_index = workspace_index
             .as_deref()
             .and_then(|index| index.get_file(&canonical_path))
@@ -1180,7 +1171,6 @@ pub fn process_file_with_index(
                     content,
                     total_warnings,
                     fixable_warnings,
-                    original_line_ending,
                     line_ending_map,
                     file_index,
                     file_index_reused,
@@ -1238,19 +1228,27 @@ pub fn process_file_with_index(
     // Warnings from the sources beside the document lint: markdown embedded in a
     // fenced block, and code blocks handed to external tools. Both go through the
     // funnel the re-lint uses, so a fix run reconciles like against like.
-    {
+    let tool_failed = {
         // An embedded block is part of this file, so its findings are this file's
         // and per-file-ignores decides which of them are reported.
         let filtered_rule_sets =
             rumdl_lib::time_function!("file: filter rules", rule_sets.for_file(&ignored_rules_for_file));
-        all_warnings.extend(auxiliary_warnings(
+        let auxiliary = auxiliary_warnings(
             &content,
             file_path,
             &filtered_rule_sets.embedded_markdown,
             filtered_rule_sets.auxiliary,
             config,
-        ));
-    }
+        );
+        if !silent && !auxiliary.tool_warnings.is_empty() {
+            let display_path = discovered_display_path(file_path, None);
+            for msg in &auxiliary.tool_warnings {
+                eprintln!("Warning: {}", format_tool_warning(msg, &display_path));
+            }
+        }
+        all_warnings.extend(auxiliary.warnings);
+        auxiliary.tool_failed
+    };
 
     // Sort warnings by line number, then column
     rumdl_lib::time_section!("file: sort warnings", {
@@ -1288,8 +1286,12 @@ pub fn process_file_with_index(
         println!("Total processing time for {file_path}: {total_time:?}");
     }
 
-    // Store in cache before returning (ignore if mutex is poisoned)
-    if let Some(ref cache_arc) = cache {
+    // Store in cache before returning (ignore if mutex is poisoned). A result in
+    // which a code-block tool could not run left a block unchecked, so the next
+    // run has to try again rather than replay it.
+    if let Some(ref cache_arc) = cache
+        && !tool_failed
+    {
         rumdl_lib::time_section!("cache: store total", {
             let dependency_fingerprint = md057_rule.map(|rule| {
                 rule.cache_dependency_fingerprint(
@@ -1313,7 +1315,6 @@ pub fn process_file_with_index(
         content,
         total_warnings,
         fixable_warnings,
-        original_line_ending,
         line_ending_map,
         file_index,
         file_index_reused: false,
@@ -1641,7 +1642,6 @@ fn process_rust_file_doc_comments(
     content: &str,
     rules: &[Box<dyn Rule>],
     config: &rumdl_config::Config,
-    original_line_ending: rumdl_lib::utils::LineEnding,
     line_ending_map: rumdl_lib::utils::NormalizedLineEndingMap,
 ) -> ProcessFileResult {
     // Filter rules based on per-file-ignores configuration
@@ -1675,7 +1675,6 @@ fn process_rust_file_doc_comments(
         content: content.to_string(),
         total_warnings,
         fixable_warnings,
-        original_line_ending,
         line_ending_map,
         file_index: rumdl_lib::workspace_index::FileIndex::new(),
         file_index_reused: false,

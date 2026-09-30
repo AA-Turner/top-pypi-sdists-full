@@ -127,6 +127,7 @@ class SURENF(nn.Module):
                  z_dim: int = 50,
                  z_dist: Literal['normal','studentt','laplacian','cauchy','gumbel','nsf'] = 'studentt',
                  loss_func: Literal['negbinomial','poisson','multinomial','bernoulli'] = 'negbinomial',
+                 total_count: int = 10000,
                  dispersion: float = 10.0,
                  use_zeroinflate: bool = True,
                  hidden_layers: list = [500],
@@ -165,6 +166,7 @@ class SURENF(nn.Module):
         self.post_act_fct = post_act_fct
         self.hidden_layer_activation = hidden_layer_activation
         self.covariate_dim = covariate_dim
+        self.total_count = int(total_count)
         
         self.codebook_weights = None
         self.centroids = None
@@ -534,7 +536,7 @@ class SURENF(nn.Module):
                 else:
                     pyro.sample('x', dist.Poisson(rate=rate).to_event(1), obs=xs.round())
             elif self.loss_func == 'multinomial':
-                pyro.sample('x', dist.Multinomial(total_count=int(1e8), probs=theta), obs=xs)
+                pyro.sample('x', dist.Multinomial(total_count=self.total_count, probs=theta), obs=xs)
             elif self.loss_func == 'bernoulli':
                 if self.use_zeroinflate:
                     pyro.sample('x', dist.ZeroInflatedDistribution(dist.Bernoulli(logits=log_theta),gate_logits=gate_logits).to_event(1), obs=xs)
@@ -555,6 +557,19 @@ class SURENF(nn.Module):
             #alpha = self.encoder_n(zns)
             alpha = self.encoder_alpha(zns)
             ns = pyro.sample('n', dist.OneHotCategorical(logits=alpha))
+    
+    def _decode_latent(self, zs):
+        zas = self.latent_decoder(zs)
+        zts = torch.cat([zas,torch.zeros_like(zas)], dim=1)            
+        log_mu = self.decoder_log_mu(zts)
+        logits = log_mu - log_mu.logsumexp(-1, keepdim=True)  # log softmax
+        mu = logits.exp()
+        return mu
+    
+    def log_prob(self, xs, zs):
+        mu = self._decode_latent(zs)
+        logp = dist.Multinomial(probs=mu).log_prob(xs).sum()
+        return logp
     
     def _codebook(self):
         I = torch.eye(self.codebook_size)

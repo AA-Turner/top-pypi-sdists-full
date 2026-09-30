@@ -102,6 +102,8 @@ class MaterializedFeatureView:
             reference selects only that feature's ``default_version`` -- write ``f @ 2`` to
             materialize version 2 as well. Changing ``default_version`` therefore changes which
             column this view materializes.
+        resource_group: The resource group used to run fill & maintence jobs for this materialized feature view.
+            If not specified, uses the 'default' resource group.
 
             >>> from chalk.features import features
             >>> from chalk.queries.materialized_feature_view import MaterializedFeatureView
@@ -172,6 +174,7 @@ class MaterializedFeatureView:
         background_compaction: bool = True,
         plannable: bool = True,
         features: "Collection[FeatureReference] | None" = None,
+            resource_group: str | None = None,
     ):
         super().__init__()
 
@@ -246,6 +249,7 @@ class MaterializedFeatureView:
         # Order-preserving dedup, matching ScheduledAggregateBackfill. `None` stays `None` so the
         # proto converter can distinguish "materialize everything" from an explicit selection.
         self.features = None if features is None else tuple(dict.fromkeys(str(feature) for feature in features))
+        self.resource_group: str | None = resource_group
         self.filename = caller_filename
         self.source_line_start = source_line_start
         self.source_line_end = source_line_end

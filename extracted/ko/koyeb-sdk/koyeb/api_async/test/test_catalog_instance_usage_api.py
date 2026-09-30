@@ -27,11 +27,9 @@ class TestCatalogInstanceUsageApi(unittest.IsolatedAsyncioTestCase):
         await self.api.api_client.close()
 
     async def test_list_usage(self) -> None:
-        """Test case for list_usage
-
-        """
+        """Test case for list_usage"""
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -1,13 +1,16 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.kubernetes.v1 import deployments_pb2 as _deployments_pb2
 from chalk._gen.chalk.kubernetes.v1 import events_pb2 as _events_pb2
+from chalk._gen.chalk.kubernetes.v1 import grpcroute_pb2 as _grpcroute_pb2
 from chalk._gen.chalk.kubernetes.v1 import horizontalpodautoscaler_pb2 as _horizontalpodautoscaler_pb2
+from chalk._gen.chalk.kubernetes.v1 import httproute_pb2 as _httproute_pb2
 from chalk._gen.chalk.kubernetes.v1 import jobs_pb2 as _jobs_pb2
 from chalk._gen.chalk.kubernetes.v1 import namespaces_pb2 as _namespaces_pb2
 from chalk._gen.chalk.kubernetes.v1 import persistentvolume_pb2 as _persistentvolume_pb2
 from chalk._gen.chalk.kubernetes.v1 import pods_pb2 as _pods_pb2
 from chalk._gen.chalk.kubernetes.v1 import scaledobject_pb2 as _scaledobject_pb2
 from chalk._gen.chalk.kubernetes.v1 import serviceaccounts_pb2 as _serviceaccounts_pb2
+from chalk._gen.chalk.kubernetes.v1 import services_pb2 as _services_pb2
 from chalk._gen.chalk.kubernetes.v1 import statefulsets_pb2 as _statefulsets_pb2
 from chalk._gen.chalk.kubernetes.v1 import storageclass_pb2 as _storageclass_pb2
 from google.protobuf.internal import containers as _containers
@@ -97,6 +100,32 @@ class GetKubernetesEventsResponse(_message.Message):
         self, events: _Optional[_Iterable[_Union[_events_pb2.ChalkKubernetesEvent, _Mapping]]] = ...
     ) -> None: ...
 
+class GetKubernetesPodLogsRequest(_message.Message):
+    __slots__ = ("cluster_name", "namespace", "pod_name", "container_name")
+    CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    POD_NAME_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_NAME_FIELD_NUMBER: _ClassVar[int]
+    cluster_name: str
+    namespace: str
+    pod_name: str
+    container_name: str
+    def __init__(
+        self,
+        cluster_name: _Optional[str] = ...,
+        namespace: _Optional[str] = ...,
+        pod_name: _Optional[str] = ...,
+        container_name: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetKubernetesPodLogsResponse(_message.Message):
+    __slots__ = ("logs", "container_name")
+    LOGS_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_NAME_FIELD_NUMBER: _ClassVar[int]
+    logs: str
+    container_name: str
+    def __init__(self, logs: _Optional[str] = ..., container_name: _Optional[str] = ...) -> None: ...
+
 class GetKubernetesNamespacesRequest(_message.Message):
     __slots__ = ("environment_id", "label_selector")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -180,6 +209,35 @@ class GetKubernetesServiceAccountsResponse(_message.Message):
         service_accounts: _Optional[_Iterable[_Union[_serviceaccounts_pb2.KubernetesServiceAccount, _Mapping]]] = ...,
     ) -> None: ...
 
+class GetKubernetesServicesFilters(_message.Message):
+    __slots__ = ("environment_id", "namespace", "label_selector")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    LABEL_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    namespace: str
+    label_selector: str
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        namespace: _Optional[str] = ...,
+        label_selector: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetKubernetesServicesRequest(_message.Message):
+    __slots__ = ("filters",)
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    filters: GetKubernetesServicesFilters
+    def __init__(self, filters: _Optional[_Union[GetKubernetesServicesFilters, _Mapping]] = ...) -> None: ...
+
+class GetKubernetesServicesResponse(_message.Message):
+    __slots__ = ("services",)
+    SERVICES_FIELD_NUMBER: _ClassVar[int]
+    services: _containers.RepeatedCompositeFieldContainer[_services_pb2.KubernetesService]
+    def __init__(
+        self, services: _Optional[_Iterable[_Union[_services_pb2.KubernetesService, _Mapping]]] = ...
+    ) -> None: ...
+
 class GetKubernetesAutoscalersRequest(_message.Message):
     __slots__ = ("cluster_name", "namespace", "label_selector")
     CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -227,6 +285,64 @@ class GetKubernetesDeploymentsResponse(_message.Message):
     deployments: _containers.RepeatedCompositeFieldContainer[_deployments_pb2.KubernetesDeployment]
     def __init__(
         self, deployments: _Optional[_Iterable[_Union[_deployments_pb2.KubernetesDeployment, _Mapping]]] = ...
+    ) -> None: ...
+
+class GetKubernetesHTTPRoutesFilters(_message.Message):
+    __slots__ = ("environment_id", "namespace", "label_selector")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    LABEL_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    namespace: str
+    label_selector: str
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        namespace: _Optional[str] = ...,
+        label_selector: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetKubernetesHTTPRoutesRequest(_message.Message):
+    __slots__ = ("filters",)
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    filters: GetKubernetesHTTPRoutesFilters
+    def __init__(self, filters: _Optional[_Union[GetKubernetesHTTPRoutesFilters, _Mapping]] = ...) -> None: ...
+
+class GetKubernetesHTTPRoutesResponse(_message.Message):
+    __slots__ = ("http_routes",)
+    HTTP_ROUTES_FIELD_NUMBER: _ClassVar[int]
+    http_routes: _containers.RepeatedCompositeFieldContainer[_httproute_pb2.KubernetesHTTPRoute]
+    def __init__(
+        self, http_routes: _Optional[_Iterable[_Union[_httproute_pb2.KubernetesHTTPRoute, _Mapping]]] = ...
+    ) -> None: ...
+
+class GetKubernetesGRPCRoutesFilters(_message.Message):
+    __slots__ = ("environment_id", "namespace", "label_selector")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    LABEL_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    namespace: str
+    label_selector: str
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        namespace: _Optional[str] = ...,
+        label_selector: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetKubernetesGRPCRoutesRequest(_message.Message):
+    __slots__ = ("filters",)
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    filters: GetKubernetesGRPCRoutesFilters
+    def __init__(self, filters: _Optional[_Union[GetKubernetesGRPCRoutesFilters, _Mapping]] = ...) -> None: ...
+
+class GetKubernetesGRPCRoutesResponse(_message.Message):
+    __slots__ = ("grpc_routes",)
+    GRPC_ROUTES_FIELD_NUMBER: _ClassVar[int]
+    grpc_routes: _containers.RepeatedCompositeFieldContainer[_grpcroute_pb2.KubernetesGRPCRoute]
+    def __init__(
+        self, grpc_routes: _Optional[_Iterable[_Union[_grpcroute_pb2.KubernetesGRPCRoute, _Mapping]]] = ...
     ) -> None: ...
 
 class GetKubernetesStatefulSetsRequest(_message.Message):

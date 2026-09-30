@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Type, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.update_instance_datatable_role_response_200_cluster import UpdateInstanceDatatableRoleResponse200Cluster
+
 T = TypeVar("T", bound="UpdateInstanceDatatableRoleResponse200")
 
 
@@ -13,17 +15,22 @@ class UpdateInstanceDatatableRoleResponse200:
         id (str):
         name (str):
         enabled (bool):
+        cluster (UpdateInstanceDatatableRoleResponse200Cluster): The Windmill-managed Postgres cluster a data table role
+            is a login on: Windmill's own (behind `instance` data tables) or the external instance cluster (behind
+            `external_instance` ones). Defaults to `instance`.
     """
 
     id: str
     name: str
     enabled: bool
+    cluster: UpdateInstanceDatatableRoleResponse200Cluster
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         id = self.id
         name = self.name
         enabled = self.enabled
+        cluster = self.cluster.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -32,6 +39,7 @@ class UpdateInstanceDatatableRoleResponse200:
                 "id": id,
                 "name": name,
                 "enabled": enabled,
+                "cluster": cluster,
             }
         )
 
@@ -46,10 +54,13 @@ class UpdateInstanceDatatableRoleResponse200:
 
         enabled = d.pop("enabled")
 
+        cluster = UpdateInstanceDatatableRoleResponse200Cluster(d.pop("cluster"))
+
         update_instance_datatable_role_response_200 = cls(
             id=id,
             name=name,
             enabled=enabled,
+            cluster=cluster,
         )
 
         update_instance_datatable_role_response_200.additional_properties = d

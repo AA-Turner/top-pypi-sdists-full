@@ -484,6 +484,8 @@ ENV_EMBEDDINGS_ONNX_PASSAGE_PREFIX = "HINDSIGHT_API_EMBEDDINGS_ONNX_PASSAGE_PREF
 ENV_EMBEDDINGS_ONNX_OUTPUT_NAME = "HINDSIGHT_API_EMBEDDINGS_ONNX_OUTPUT_NAME"
 ENV_EMBEDDINGS_ONNX_BATCH_SIZE = "HINDSIGHT_API_EMBEDDINGS_ONNX_BATCH_SIZE"
 ENV_EMBEDDINGS_ONNX_CPU_MEM_ARENA = "HINDSIGHT_API_EMBEDDINGS_ONNX_CPU_MEM_ARENA"
+ENV_EMBEDDINGS_ONNX_DEVICE = "HINDSIGHT_API_EMBEDDINGS_ONNX_DEVICE"
+ENV_EMBEDDINGS_ONNX_CUDA_DEVICE_ID = "HINDSIGHT_API_EMBEDDINGS_ONNX_CUDA_DEVICE_ID"
 ENV_EMBEDDINGS_TEI_URL = "HINDSIGHT_API_EMBEDDINGS_TEI_URL"
 ENV_EMBEDDINGS_TEI_BATCH_SIZE = "HINDSIGHT_API_EMBEDDINGS_TEI_BATCH_SIZE"
 ENV_EMBEDDINGS_OPENAI_API_KEY = "HINDSIGHT_API_EMBEDDINGS_OPENAI_API_KEY"
@@ -596,6 +598,7 @@ ENV_RERANKER_LOCAL_TRUST_REMOTE_CODE = "HINDSIGHT_API_RERANKER_LOCAL_TRUST_REMOT
 ENV_RERANKER_LOCAL_FP16 = "HINDSIGHT_API_RERANKER_LOCAL_FP16"
 ENV_RERANKER_LOCAL_BUCKET_BATCHING = "HINDSIGHT_API_RERANKER_LOCAL_BUCKET_BATCHING"
 ENV_RERANKER_LOCAL_BATCH_SIZE = "HINDSIGHT_API_RERANKER_LOCAL_BATCH_SIZE"
+ENV_RERANKER_LOCAL_TIMEOUT = "HINDSIGHT_API_RERANKER_LOCAL_TIMEOUT"
 ENV_RERANKER_TEI_URL = "HINDSIGHT_API_RERANKER_TEI_URL"
 ENV_RERANKER_TEI_BATCH_SIZE = "HINDSIGHT_API_RERANKER_TEI_BATCH_SIZE"
 ENV_RERANKER_TEI_MAX_CONCURRENT = "HINDSIGHT_API_RERANKER_TEI_MAX_CONCURRENT"
@@ -708,6 +711,8 @@ ENV_LINK_EXPANSION_TIMEOUT = "HINDSIGHT_API_LINK_EXPANSION_TIMEOUT"
 ENV_RETAIN_BATCH_DOCUMENT_WRITES = "HINDSIGHT_API_RETAIN_BATCH_DOCUMENT_WRITES"
 ENV_BANK_INFO_CACHE_TTL_SECONDS = "HINDSIGHT_API_BANK_INFO_CACHE_TTL_SECONDS"
 ENV_BANK_INFO_CACHE_MAX_ENTRIES = "HINDSIGHT_API_BANK_INFO_CACHE_MAX_ENTRIES"
+ENV_BANK_ALIAS_CACHE_TTL_SECONDS = "HINDSIGHT_API_BANK_ALIAS_CACHE_TTL_SECONDS"
+ENV_BANK_ALIAS_CACHE_MAX_ENTRIES = "HINDSIGHT_API_BANK_ALIAS_CACHE_MAX_ENTRIES"
 ENV_BANK_STATS_CACHE_TTL_SECONDS = "HINDSIGHT_API_BANK_STATS_CACHE_TTL_SECONDS"
 ENV_BANK_STATS_CACHE_MAX_ENTRIES = "HINDSIGHT_API_BANK_STATS_CACHE_MAX_ENTRIES"
 # Request headers copied into RequestContext.extra_headers for extensions to read.
@@ -725,6 +730,7 @@ ENV_OTEL_SERVICE_NAME = "HINDSIGHT_API_OTEL_SERVICE_NAME"
 ENV_OTEL_DEPLOYMENT_ENVIRONMENT = "HINDSIGHT_API_OTEL_DEPLOYMENT_ENVIRONMENT"
 ENV_METRICS_INCLUDE_BANK_ID = "HINDSIGHT_API_METRICS_INCLUDE_BANK_ID"
 ENV_METRICS_BACKLOG_ENABLED = "HINDSIGHT_API_METRICS_BACKLOG_ENABLED"
+ENV_METRICS_INCLUDE_TENANT = "HINDSIGHT_API_METRICS_INCLUDE_TENANT"
 
 # Runtime-stall observability (loop watchdog + DB pool acquire instrumentation)
 ENV_LOOP_WATCHDOG_ENABLED = "HINDSIGHT_API_LOOP_WATCHDOG_ENABLED"
@@ -854,6 +860,7 @@ ENV_CONSOLIDATION_MAX_ATTEMPTS = "HINDSIGHT_API_CONSOLIDATION_MAX_ATTEMPTS"
 ENV_OBSERVATIONS_MISSION = "HINDSIGHT_API_OBSERVATIONS_MISSION"
 ENV_MAX_OBSERVATIONS_PER_SCOPE = "HINDSIGHT_API_MAX_OBSERVATIONS_PER_SCOPE"
 ENV_OBSERVATION_SCOPE_LIMITS = "HINDSIGHT_API_OBSERVATION_SCOPE_LIMITS"
+ENV_CONSOLIDATION_STRATEGIES = "HINDSIGHT_API_CONSOLIDATION_STRATEGIES"
 ENV_ENABLE_OBSERVATION_HISTORY = "HINDSIGHT_API_ENABLE_OBSERVATION_HISTORY"
 ENV_OBSERVATION_HISTORY_MAX_ENTRIES = "HINDSIGHT_API_OBSERVATION_HISTORY_MAX_ENTRIES"
 ENV_ENABLE_MENTAL_MODEL_HISTORY = "HINDSIGHT_API_ENABLE_MENTAL_MODEL_HISTORY"
@@ -1220,6 +1227,8 @@ DEFAULT_EMBEDDINGS_ONNX_PASSAGE_PREFIX = "passage: "
 # bounding the activation tensor a caller can trigger; 32 matches TEI and the reranker.
 DEFAULT_EMBEDDINGS_ONNX_BATCH_SIZE = 32
 DEFAULT_EMBEDDINGS_ONNX_CPU_MEM_ARENA = False  # Disable ONNX CPU memory arena to bound RSS
+DEFAULT_EMBEDDINGS_ONNX_DEVICE = "cpu"
+DEFAULT_EMBEDDINGS_ONNX_CUDA_DEVICE_ID = 0
 DEFAULT_EMBEDDINGS_OPENAI_MODEL = "text-embedding-3-small"
 DEFAULT_EMBEDDINGS_OPENAI_BATCH_SIZE = 100
 # Texts per TEI /embed request, and the unit the client fans out over (see
@@ -1272,6 +1281,12 @@ DEFAULT_RERANKER_LOCAL_TRUST_REMOTE_CODE = (
 DEFAULT_RERANKER_LOCAL_FP16 = False  # FP16 inference: opt-in, faster on CUDA (not CPU)
 DEFAULT_RERANKER_LOCAL_BUCKET_BATCHING = False  # Length-sorted bucket batching: opt-in, 36-54% speedup
 DEFAULT_RERANKER_LOCAL_BATCH_SIZE = 32  # Batch size for local reranker predict() calls
+# Wall-clock ceiling for scoring ONE recall's candidates on an in-process model.
+# Deliberately far above any healthy rerank (the shipped MiniLM scores 300 pairs in
+# well under a second): this is the valve that stops a mis-sized local model from
+# turning one recall into an hours-long compute (#4696), not a latency target.
+# 0 disables the ceiling.
+DEFAULT_RERANKER_LOCAL_TIMEOUT = 300.0
 DEFAULT_RERANKER_TEI_BATCH_SIZE = 128
 DEFAULT_RERANKER_TEI_MAX_CONCURRENT = 8
 DEFAULT_RERANKER_TEI_HTTP_TIMEOUT = 30.0  # HTTP timeout for TEI reranker requests (seconds)
@@ -1596,6 +1611,16 @@ DEFAULT_LINK_EXPANSION_TIMEOUT = 10.0  # Timeout (seconds) for entity expansion 
 DEFAULT_RETAIN_BATCH_DOCUMENT_WRITES = False
 DEFAULT_BANK_INFO_CACHE_TTL_SECONDS = 30.0
 DEFAULT_BANK_INFO_CACHE_MAX_ENTRIES = 2048  # LRU bound across (schema, bank) keys
+# Alias -> canonical bank id, cached per process. Unlike the caches above this one ROUTES a
+# request, so it gets its own knob rather than borrowing theirs: raising the info-cache TTL to
+# save reads must not silently widen how long a deleted alias keeps serving traffic. It also
+# caches misses, which bank_info_cache deliberately does not -- nearly every request names a real
+# bank and would otherwise pay a lookup that can only ever answer "not an alias". The cost is that
+# a newly added alias takes up to the TTL to work on pods other than the one that added it.
+# 10s, not 30: a phased migration adds an alias and immediately points traffic at it.
+# 0 disables the cache and reads on every call.
+DEFAULT_BANK_ALIAS_CACHE_TTL_SECONDS = 10.0
+DEFAULT_BANK_ALIAS_CACHE_MAX_ENTRIES = 2048  # LRU bound across (schema, alias) keys
 DEFAULT_BANK_STATS_CACHE_TTL_SECONDS = 60.0  # TTL for get_bank_stats result cache; 0 disables
 DEFAULT_BANK_STATS_CACHE_MAX_ENTRIES = 1024  # LRU bound across (schema, bank) keys
 
@@ -1741,9 +1766,20 @@ DEFAULT_CONSOLIDATION_SOURCE_FACTS_MAX_TOKENS_PER_OBSERVATION = (
 )
 DEFAULT_OBSERVATIONS_MISSION = None  # Declarative spec of what observations are for this bank
 DEFAULT_MAX_OBSERVATIONS_PER_SCOPE = -1  # Max observations per tag scope (-1 = unlimited)
+# DEPRECATED — use DEFAULT_CONSOLIDATION_STRATEGIES below, which carries the
+# mission too. Still honoured, and still consulted after the strategies.
 # Per-scope overrides of the cap above: list of {"scope": [tag-globs], "limit": int}.
 # First rule whose pattern exact-covers a scope's tags wins; else the default above.
 DEFAULT_OBSERVATION_SCOPE_LIMITS: list | None = None
+# Per-scope consolidation settings: list of
+# {"scopes": [{"tags": [tag-globs], "tags_match": "all"|"exact"}, ...], "observations_mission": str, ...}
+# (each setting optional). A strategy claims a scope when ANY of its patterns
+# exact-covers it. The first claiming strategy wins, whole: unset values come
+# from the bank-wide ones, never from a later strategy. Supersedes
+# DEFAULT_OBSERVATION_SCOPE_LIMITS. Lets one bank be federated across
+# user/team/company scopes where the shared scope consolidates under a different
+# brief (e.g. "record only generalized trends, name no one").
+DEFAULT_CONSOLIDATION_STRATEGIES: list | None = None
 
 # Database migrations
 DEFAULT_RUN_MIGRATIONS_ON_STARTUP = True
@@ -1861,6 +1897,14 @@ DEFAULT_REFLECT_MAX_ITERATIONS = 10  # Max tool call iterations before forcing r
 # Step-by-step context caching for the reflect tool loop (Gemini). On by default;
 # requires the global prompt cache (HINDSIGHT_API_LLM_PROMPT_CACHE_ENABLED) to also
 # be on. Set false to force reflect to run uncached even when prompt caching is on.
+#
+# Worth knowing before tuning it: Gemini bills an explicit cache's CREATION at the
+# full input rate, plus storage per token-hour, and the rolling cache each step
+# builds is read by exactly one later call. Measured on the refresh-cost eval, that
+# came to ~4.6% MORE than sending the same tokens uncached (and cache creation alone
+# was 38% of the bill on gemini-3.8-flash), while Gemini's implicit caching gives the
+# same read discount with no create or storage fee. Left on pending a cache that is
+# read more than once — `false` is the cheaper setting on Gemini today.
 DEFAULT_REFLECT_PROMPT_CACHE_ENABLED = True
 DEFAULT_REFLECT_MAX_CONTEXT_TOKENS = 100_000  # Max accumulated context tokens before forcing final prompt
 DEFAULT_REFLECT_WALL_TIMEOUT = 300  # Wall-clock timeout in seconds for the entire reflect operation (5 minutes)
@@ -1914,6 +1958,7 @@ DEFAULT_OTEL_SERVICE_NAME = "hindsight-api"
 DEFAULT_OTEL_DEPLOYMENT_ENVIRONMENT = "development"
 DEFAULT_METRICS_INCLUDE_BANK_ID = False  # Disabled by default to avoid high-cardinality OTel metric growth
 DEFAULT_METRICS_BACKLOG_ENABLED = False  # Disabled by default: runs periodic per-schema COUNT queries
+DEFAULT_METRICS_INCLUDE_TENANT = False  # Disabled by default to avoid high-cardinality OTel metric growth
 
 # Runtime-stall observability defaults. Both are cheap and on by default: the
 # watchdog is a single background thread pinging the loop; the DB-pool acquire
@@ -2601,6 +2646,7 @@ class RerankerMemberConfig:
     local_fp16: bool
     local_bucket_batching: bool
     local_batch_size: int
+    local_timeout: float
     # tei
     tei_url: str | None
     tei_batch_size: int
@@ -2756,6 +2802,7 @@ def _parse_reranker_members() -> list[RerankerMemberConfig]:
                     base, "LOCAL_BUCKET_BATCHING", DEFAULT_RERANKER_LOCAL_BUCKET_BATCHING
                 ),
                 local_batch_size=_member_int(base, "LOCAL_BATCH_SIZE", DEFAULT_RERANKER_LOCAL_BATCH_SIZE),
+                local_timeout=_member_float(base, "LOCAL_TIMEOUT", DEFAULT_RERANKER_LOCAL_TIMEOUT),
                 tei_url=_member_opt_str(base, "TEI_URL"),
                 tei_batch_size=_member_int(base, "TEI_BATCH_SIZE", DEFAULT_RERANKER_TEI_BATCH_SIZE),
                 tei_max_concurrent=_member_int(base, "TEI_MAX_CONCURRENT", DEFAULT_RERANKER_TEI_MAX_CONCURRENT),
@@ -3109,6 +3156,8 @@ class HindsightConfig:
     embeddings_onnx_output_name: str | None
     embeddings_onnx_batch_size: int
     embeddings_onnx_cpu_mem_arena: bool
+    embeddings_onnx_device: str
+    embeddings_onnx_cuda_device_id: int
     embeddings_tei_url: str | None
     embeddings_openai_api_key: str | None
     embeddings_openai_model: str
@@ -3153,6 +3202,7 @@ class HindsightConfig:
     reranker_local_fp16: bool
     reranker_local_bucket_batching: bool
     reranker_local_batch_size: int
+    reranker_local_timeout: float
     reranker_tei_url: str | None
     reranker_tei_batch_size: int
     reranker_tei_max_concurrent: int
@@ -3273,6 +3323,8 @@ class HindsightConfig:
     retain_batch_document_writes: bool
     bank_info_cache_ttl_seconds: float
     bank_info_cache_max_entries: int
+    bank_alias_cache_ttl_seconds: float
+    bank_alias_cache_max_entries: int
     bank_stats_cache_ttl_seconds: float
     bank_stats_cache_max_entries: int
 
@@ -3348,8 +3400,15 @@ class HindsightConfig:
     max_observations_per_scope: int
     # Per-scope observation caps overriding max_observations_per_scope.
     # Raw JSON shape: [{"scope": ["run_*", "shared"], "limit": 1}, ...]
-    # (validated/applied in engine.consolidation.consolidator._effective_scope_limit)
+    # DEPRECATED — superseded by consolidation_strategies below, which carries
+    # the mission too. Still honoured, consulted after the strategies.
     observation_scope_limits: list | None
+    # Per-scope consolidation settings (mission / observation cap).
+    # Raw JSON shape: [{"scopes": [{"tags": ["company:*"]}], "observations_mission": "...",
+    #                   "max_observations_per_scope": 20}, ...]
+    # Supersedes observation_scope_limits; parsed in
+    # engine.consolidation.consolidator._parse_consolidation_strategies.
+    consolidation_strategies: list | None
 
     # Entity labels (controlled vocabulary of key:value classification labels extracted at retain time)
     # List of label group dicts: [{key, description, type, optional, values: [{value, description}]}]
@@ -3454,6 +3513,7 @@ class HindsightConfig:
     otel_deployment_environment: str
     metrics_include_bank_id: bool
     metrics_backlog_enabled: bool
+    metrics_include_tenant: bool
 
     # Runtime-stall observability (static, server-level only)
     loop_watchdog_enabled: bool
@@ -3691,6 +3751,7 @@ class HindsightConfig:
         "observations_mission",
         "max_observations_per_scope",
         "observation_scope_limits",
+        "consolidation_strategies",
         # Mental model settings
         "mental_model_min_refresh_interval_seconds",
         "knowledge_page_default_trigger",
@@ -3751,6 +3812,7 @@ class HindsightConfig:
             local_fp16=self.reranker_local_fp16,
             local_bucket_batching=self.reranker_local_bucket_batching,
             local_batch_size=self.reranker_local_batch_size,
+            local_timeout=self.reranker_local_timeout,
             tei_url=self.reranker_tei_url,
             tei_batch_size=self.reranker_tei_batch_size,
             tei_max_concurrent=self.reranker_tei_max_concurrent,
@@ -4369,6 +4431,17 @@ class HindsightConfig:
                 ENV_EMBEDDINGS_ONNX_CPU_MEM_ARENA, str(DEFAULT_EMBEDDINGS_ONNX_CPU_MEM_ARENA)
             ).lower()
             == "true",
+            embeddings_onnx_device=_parse_optional_choice(
+                ENV_EMBEDDINGS_ONNX_DEVICE,
+                os.getenv(ENV_EMBEDDINGS_ONNX_DEVICE),
+                frozenset({"cpu", "cuda"}),
+            )
+            or DEFAULT_EMBEDDINGS_ONNX_DEVICE,
+            embeddings_onnx_cuda_device_id=_parse_non_negative_int(
+                ENV_EMBEDDINGS_ONNX_CUDA_DEVICE_ID,
+                os.getenv(ENV_EMBEDDINGS_ONNX_CUDA_DEVICE_ID),
+                DEFAULT_EMBEDDINGS_ONNX_CUDA_DEVICE_ID,
+            ),
             embeddings_tei_url=os.getenv(ENV_EMBEDDINGS_TEI_URL),
             # Falls back to the shared LLM key, the way every other OpenAI-compatible
             # embeddings provider here does: one key configured once covers both.
@@ -4557,6 +4630,7 @@ class HindsightConfig:
             reranker_local_batch_size=int(
                 os.getenv(ENV_RERANKER_LOCAL_BATCH_SIZE, str(DEFAULT_RERANKER_LOCAL_BATCH_SIZE))
             ),
+            reranker_local_timeout=float(os.getenv(ENV_RERANKER_LOCAL_TIMEOUT, str(DEFAULT_RERANKER_LOCAL_TIMEOUT))),
             reranker_tei_url=os.getenv(ENV_RERANKER_TEI_URL),
             reranker_tei_batch_size=int(os.getenv(ENV_RERANKER_TEI_BATCH_SIZE, str(DEFAULT_RERANKER_TEI_BATCH_SIZE))),
             reranker_tei_max_concurrent=int(
@@ -4788,6 +4862,12 @@ class HindsightConfig:
             bank_info_cache_max_entries=int(
                 os.getenv(ENV_BANK_INFO_CACHE_MAX_ENTRIES, str(DEFAULT_BANK_INFO_CACHE_MAX_ENTRIES))
             ),
+            bank_alias_cache_ttl_seconds=float(
+                os.getenv(ENV_BANK_ALIAS_CACHE_TTL_SECONDS, str(DEFAULT_BANK_ALIAS_CACHE_TTL_SECONDS))
+            ),
+            bank_alias_cache_max_entries=int(
+                os.getenv(ENV_BANK_ALIAS_CACHE_MAX_ENTRIES, str(DEFAULT_BANK_ALIAS_CACHE_MAX_ENTRIES))
+            ),
             bank_stats_cache_ttl_seconds=float(
                 os.getenv(ENV_BANK_STATS_CACHE_TTL_SECONDS, str(DEFAULT_BANK_STATS_CACHE_TTL_SECONDS))
             ),
@@ -4994,6 +5074,8 @@ class HindsightConfig:
             ),
             observation_scope_limits=json.loads(os.getenv(ENV_OBSERVATION_SCOPE_LIMITS, "null"))
             or DEFAULT_OBSERVATION_SCOPE_LIMITS,
+            consolidation_strategies=json.loads(os.getenv(ENV_CONSOLIDATION_STRATEGIES, "null"))
+            or DEFAULT_CONSOLIDATION_STRATEGIES,
             entity_labels=None,
             entities_allow_free_form=True,
             memory_defense=None,
@@ -5138,6 +5220,8 @@ class HindsightConfig:
             metrics_include_bank_id=os.getenv(ENV_METRICS_INCLUDE_BANK_ID, str(DEFAULT_METRICS_INCLUDE_BANK_ID)).lower()
             in ("true", "1", "yes"),
             metrics_backlog_enabled=os.getenv(ENV_METRICS_BACKLOG_ENABLED, str(DEFAULT_METRICS_BACKLOG_ENABLED)).lower()
+            in ("true", "1", "yes"),
+            metrics_include_tenant=os.getenv(ENV_METRICS_INCLUDE_TENANT, str(DEFAULT_METRICS_INCLUDE_TENANT)).lower()
             in ("true", "1", "yes"),
             # Runtime-stall observability (static, server-level only)
             loop_watchdog_enabled=os.getenv(ENV_LOOP_WATCHDOG_ENABLED, str(DEFAULT_LOOP_WATCHDOG_ENABLED)).lower()

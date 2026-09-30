@@ -136,10 +136,21 @@ reads -- the reply may well carry more.
 from __future__ import annotations
 
 import re
-from typing import Annotated, Any
+from collections.abc import Mapping
+from datetime import datetime, timezone
+from typing import Annotated, Any, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, WrapValidator, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    WrapValidator,
+    field_validator,
+)
 from pydantic_core import PydanticUseDefault
+
+from .transport import _report_failure
 
 # A Mongo ObjectId as it arrives on the wire, and the all-zero placeholder the
 # platform writes for "this reference is unset" rather than omitting the key.
@@ -766,15 +777,20 @@ class ServiceShutdownRequest(Body):
 class UnknownPersonEnrollRequest(Body):
     """Endpoint 21 -- ``POST /v1/facial_recognition/enroll_unknown_person``.
 
-    UNVERIFIED: no published schema.
+    UNVERIFIED: no published schema. What this route accepts cannot be checked from here;
+    what it has been receiving can, and that is what these defaults reproduce.
 
-    ``timestamp`` is unlike the other optional fields: the caller substitutes the
-    current UTC time when none is given, so it is always sent. ``image_source`` and
-    ``location`` are omitted when empty.
+    ``timestamp`` is unlike the other optional fields: it is **always sent**, so the
+    default has to be a usable value rather than a blank. ``exclude_none`` drops ``None``
+    and keeps ``""``, so a default of ``""`` would not omit the key -- it would put an
+    empty string on the wire, which the sidecar cannot tell from a deliberate blank. The
+    factory generates the same value the caller would have had to remember to pass, which
+    is why it lives here and not in a docstring asking them to. A caller who supplies one
+    is not overridden. ``image_source`` and ``location`` are omitted when empty.
     """
 
     embedding: list[float] = Field(default_factory=list)
-    timestamp: str = ""
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     image_source: str | None = Field(default=None, alias="imageSource")
     location: str | None = None
 
@@ -840,6 +856,93 @@ def normalise_location_id(value: Any) -> str:
     return text
 
 
+# ---------------------------------------------------------------------------
+# Request factories -- where a refused request is reported from
+#
+# Building one of these models is the only place in the package where a failure
+# is OURS rather than a producer's: `extra="forbid"` means a misspelled keyword
+# is a bug at the call site, and a missing required field is a request that
+# would have been rejected on the wire. Nothing reported it, because nothing had
+# been sent -- `rpc.send_request` and its `@log_errors` are still one call away.
+#
+# The factories exist so that the report happens once, here, rather than at each
+# call site -- and so no consumer has to import `matrice_common` to get it. They
+# change nothing else: the exception pydantic raises is re-raised unchanged, so
+# a caller caching `ValidationError`, `ValueError`, or nothing at all behaves
+# exactly as it does today.
+# ---------------------------------------------------------------------------
+
+
+_BodyT = TypeVar("_BodyT", bound=Body)
+
+
+def _built(
+    model: type[_BodyT],
+    payload: Mapping[str, Any] | None,
+    fields: Mapping[str, Any],
+) -> _BodyT:
+    """Build ``model``, reporting a refusal on the way out and re-raising it unchanged.
+
+    No ``path`` is passed to the report. ``target_service`` names the backend a failing
+    call addressed, and this call was never made -- attributing it to the producer we
+    were about to speak to would blame them for a request we built wrong.
+    """
+    try:
+        return model.model_validate(payload) if payload is not None else model(**fields)
+    except ValidationError as refused:
+        _report_failure(refused)
+        raise
+
+
+def build_staff_enroll(
+    payload: Mapping[str, Any] | None = None, **fields: Any
+) -> StaffEnrollRequest:
+    """A :class:`StaffEnrollRequest` from a mapping or from keywords."""
+    return _built(StaffEnrollRequest, payload, fields)
+
+
+def build_similar_face_search(
+    payload: Mapping[str, Any] | None = None, **fields: Any
+) -> SimilarFaceSearchRequest:
+    """A :class:`SimilarFaceSearchRequest` from a mapping or from keywords."""
+    return _built(SimilarFaceSearchRequest, payload, fields)
+
+
+def build_people_activity(
+    payload: Mapping[str, Any] | None = None, **fields: Any
+) -> PeopleActivityRequest:
+    """A :class:`PeopleActivityRequest` from a mapping or from keywords."""
+    return _built(PeopleActivityRequest, payload, fields)
+
+
+def build_staff_image_update(
+    payload: Mapping[str, Any] | None = None, **fields: Any
+) -> StaffImageUpdateRequest:
+    """A :class:`StaffImageUpdateRequest` from a mapping or from keywords."""
+    return _built(StaffImageUpdateRequest, payload, fields)
+
+
+def build_service_shutdown(
+    payload: Mapping[str, Any] | None = None, **fields: Any
+) -> ServiceShutdownRequest:
+    """A :class:`ServiceShutdownRequest` from a mapping or from keywords."""
+    return _built(ServiceShutdownRequest, payload, fields)
+
+
+def build_unknown_person_enroll(
+    payload: Mapping[str, Any] | None = None, **fields: Any
+) -> UnknownPersonEnrollRequest:
+    """An :class:`UnknownPersonEnrollRequest` from a mapping or from keywords."""
+    return _built(UnknownPersonEnrollRequest, payload, fields)
+
+
+def build_detection(
+    payload: Mapping[str, Any] | None = None, **fields: Any
+) -> CreateDetectionRequest:
+    """A :class:`CreateDetectionRequest` from a mapping or from keywords."""
+    return _built(CreateDetectionRequest, payload, fields)
+
+
 __all__ = [
     "ActionRecord",
     "Application",
@@ -870,6 +973,13 @@ __all__ = [
     "UnknownPersonEnrollRequest",
     "UnknownPersonEnrollResult",
     "UsecaseDownload",
+    "build_detection",
+    "build_people_activity",
+    "build_service_shutdown",
+    "build_similar_face_search",
+    "build_staff_enroll",
+    "build_staff_image_update",
+    "build_unknown_person_enroll",
     "looks_like_object_id",
     "normalise_location_id",
 ]

@@ -16,6 +16,8 @@ from chalk._gen.chalk.server.v1.host_pool_pb2 import (
     DeleteClusterHostPoolResponse,
     DeleteEnvironmentHostPoolRequest,
     DeleteEnvironmentHostPoolResponse,
+    GetHostPoolCapacityRequest,
+    GetHostPoolCapacityResponse,
     GetHostPoolRequest,
     GetHostPoolResponse,
     ListHostPoolsRequest,
@@ -66,6 +68,14 @@ class HostPoolServiceStub:
         ListHostPoolsRequest,
         ListHostPoolsResponse,
     ]
+    GetHostPoolCapacity: UnaryUnaryMultiCallable[
+        GetHostPoolCapacityRequest,
+        GetHostPoolCapacityResponse,
+    ]
+    """Reports live host capacity for the environment: what is free now, what a full scale-out would
+    add, and the scaling configuration that bounds both. Host pools back sandboxes and other
+    host-compute-class containers, which serverless environments do not use.
+    """
 
 class HostPoolServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -116,5 +126,15 @@ class HostPoolServiceServicer(metaclass=ABCMeta):
         request: ListHostPoolsRequest,
         context: ServicerContext,
     ) -> ListHostPoolsResponse: ...
+    @abstractmethod
+    def GetHostPoolCapacity(
+        self,
+        request: GetHostPoolCapacityRequest,
+        context: ServicerContext,
+    ) -> GetHostPoolCapacityResponse:
+        """Reports live host capacity for the environment: what is free now, what a full scale-out would
+        add, and the scaling configuration that bounds both. Host pools back sandboxes and other
+        host-compute-class containers, which serverless environments do not use.
+        """
 
 def add_HostPoolServiceServicer_to_server(servicer: HostPoolServiceServicer, server: Server) -> None: ...

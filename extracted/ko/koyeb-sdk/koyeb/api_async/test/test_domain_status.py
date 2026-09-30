@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.domain_status import DomainStatus
 
+
 class TestDomainStatus(unittest.TestCase):
     """DomainStatus unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestDomainStatus(unittest.TestCase):
         """Test DomainStatus"""
         # inst = DomainStatus()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

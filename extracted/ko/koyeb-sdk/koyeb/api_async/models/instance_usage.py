@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class InstanceUsage(BaseModel):
     """
     InstanceUsage
-    """ # noqa: E501
+    """  # noqa: E501
+
     duration_seconds: Optional[StrictInt] = None
     __properties: ClassVar[List[str]] = ["duration_seconds"]
 
@@ -36,7 +38,6 @@ class InstanceUsage(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -61,8 +62,7 @@ class InstanceUsage(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -80,9 +80,5 @@ class InstanceUsage(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "duration_seconds": obj.get("duration_seconds")
-        })
+        _obj = cls.model_validate({"duration_seconds": obj.get("duration_seconds")})
         return _obj
-
-

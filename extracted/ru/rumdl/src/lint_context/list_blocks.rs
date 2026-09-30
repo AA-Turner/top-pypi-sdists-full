@@ -632,8 +632,14 @@ pub(super) fn parse_list_blocks(content: &str, lines: &[LineInfo]) -> Vec<ListBl
                     );
                 }
 
+                // A list that starts inside a blockquote ends with it, so an
+                // item at a shallower quote depth never continues it.
+                let left_the_quote =
+                    blockquote_prefix.matches('>').count() < block.blockquote_prefix.matches('>').count();
+
                 // WORKAROUND: If items are truly consecutive (no blank lines), they MUST be in the same list
                 if !continues_list
+                    && !left_the_quote
                     && (is_nested || same_type)
                     && reasonable_distance
                     && line_num > 0
@@ -997,7 +1003,9 @@ pub(super) fn parse_list_blocks(content: &str, lines: &[LineInfo]) -> Vec<ListBl
 ///
 /// Lazy continuation only applies to paragraph text, so a heading CommonMark
 /// accepts, a fenced code opener, or an HTML block opener ends the item however
-/// short its indent. A block-level tag interrupts a paragraph and rumdl reads
+/// short its indent. A fence counts only when the parser opened one there: a
+/// backtick line indented four or more columns outside the item is paragraph
+/// text, not a fence. A block-level tag interrupts a paragraph and rumdl reads
 /// the lines it opens as HTML rather than list text; the same tag indented to
 /// the content column is the item's own content and never reaches this check.
 /// `inner_content` is the trimmed text after any blockquote prefix and
@@ -1015,8 +1023,7 @@ fn opens_own_block(line_info: &LineInfo, inner_content: &str, indent_columns: us
         || (!inside_item
             && indent_columns <= 3
             && crate::utils::html_block::parse_html_block_start(inner_content).is_some())
-        || inner_content.starts_with("```")
-        || inner_content.starts_with("~~~")
+        || (line_info.in_code_block && (inner_content.starts_with("```") || inner_content.starts_with("~~~")))
 }
 
 /// Merge adjacent list blocks that should be treated as one

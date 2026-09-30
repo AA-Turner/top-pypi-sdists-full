@@ -3,6 +3,7 @@
 
 #include "Test.h"
 
+#include "slang/diagnostics/PreprocessorDiags.h"
 #include "slang/driver/Driver.h"
 #include "slang/parsing/Parser.h"
 #include "slang/parsing/Preprocessor.h"
@@ -119,7 +120,7 @@ TEST_CASE("Include directive errors") {
     preprocess(text, options);
 
     REQUIRE(diagnostics.size() == 5);
-    CHECK(diagnostics[0].code == diag::CouldNotOpenIncludeFile);
+    CHECK(diagnostics[0].code == diag::ExceededMaxIncludeDepth);
     CHECK(diagnostics[1].code == diag::ExpectedIncludeFileName);
     CHECK(diagnostics[2].code == diag::ExpectedIncludeFileName);
     CHECK(diagnostics[3].code == diag::ExpectedIncludeFileName);
@@ -225,6 +226,95 @@ TEST_CASE("Macro usage (simple)") {
     REQUIRE(token.kind == TokenKind::IntegerLiteral);
     CHECK(token.intValue() == 42);
     CHECK_DIAGNOSTICS_EMPTY;
+}
+
+TEST_CASE("Skipped conditional branches keep nested disabled tokens") {
+    auto& text = R"(
+`ifdef NOT_DEFINED
+    outer
+    `ifdef INNER
+        inner
+    `endif
+`else
+    kept
+`endif
+)";
+
+    Token token = lexToken(text);
+    REQUIRE(token.kind == TokenKind::Identifier);
+    CHECK(token.valueText() == "kept");
+    CHECK_DIAGNOSTICS_EMPTY;
+
+    const ConditionalBranchDirectiveSyntax* branch = nullptr;
+    for (auto trivia : token.trivia()) {
+        if (trivia.kind == TriviaKind::Directive &&
+            trivia.syntax()->kind == SyntaxKind::IfDefDirective) {
+            branch = &trivia.syntax()->as<ConditionalBranchDirectiveSyntax>();
+            break;
+        }
+    }
+
+    REQUIRE(branch);
+    std::vector<SyntaxKind> directiveKinds;
+    for (auto disabled : branch->disabledTokens) {
+        if (disabled.kind == TokenKind::Directive)
+            directiveKinds.push_back(disabled.directiveKind());
+    }
+
+    CHECK(directiveKinds ==
+          std::vector<SyntaxKind>{SyntaxKind::IfDefDirective, SyntaxKind::EndIfDirective});
+}
+
+TEST_CASE("Macro usage metadata") {
+    auto tree = SyntaxTree::fromText(R"(
+`define FOO 1
+int a = `FOO;
+`undef FOO
+`define BAR(x) x
+int b = `BAR(2);
+`undef MISSING
+)");
+
+    CHECK(tree->diagnostics().empty());
+    auto usages = tree->getMacroRefs();
+    REQUIRE(usages.size() == 3);
+
+    CHECK(usages[0].syntax->kind == SyntaxKind::MacroUsage);
+    CHECK(usages[0].definition->name.valueText() == "FOO");
+
+    CHECK(usages[1].syntax->kind == SyntaxKind::UndefDirective);
+    CHECK(usages[1].definition->name.valueText() == "FOO");
+
+    CHECK(usages[2].syntax->kind == SyntaxKind::MacroUsage);
+    CHECK(usages[2].definition->name.valueText() == "BAR");
+
+    BumpAllocator newAlloc;
+    auto newRoot = deepClone(tree->root(), newAlloc);
+    auto cloned = std::make_shared<SyntaxTree>(newRoot, tree->sourceManager(), std::move(newAlloc),
+                                               nullptr, tree);
+
+    auto clonedUsages = cloned->getMacroRefs();
+    CHECK(clonedUsages.empty());
+    CHECK(cloned->getDefinedMacros().empty());
+}
+
+TEST_CASE("SyntaxTree metadata tracks pushed source buffers") {
+    SourceManager sm;
+    sm.setDisableProximatePaths(true);
+    auto includePath = (fs::temp_directory_path() / "slang_tracked_ids.svh").string();
+    auto rootPath = (fs::temp_directory_path() / "slang_tracked_root.sv").string();
+    sm.assignText(includePath, "int b;\n");
+
+    auto tree = SyntaxTree::fromFileInMemory(
+        "module m;\n`include \"slang_tracked_ids.svh\"\nint a;\nendmodule\n", sm, "", rootPath);
+    CHECK(tree->diagnostics().empty());
+
+    auto bufferIds = tree->getSourceBufferIds();
+    REQUIRE(bufferIds.size() == 2);
+    bool sawInclude = false;
+    for (auto id : bufferIds)
+        sawInclude |= sm.getFullPath(id) == includePath;
+    CHECK(sawInclude);
 }
 
 TEST_CASE("Function macro (simple)") {

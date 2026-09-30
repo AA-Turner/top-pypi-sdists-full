@@ -11,9 +11,9 @@ from cython.cimports.av.container.output import OutputContainer
 from cython.cimports.av.container.pyio import pyio_close_custom_gil, pyio_close_gil
 from cython.cimports.av.error import err_check, stash_exception
 from cython.cimports.av.format import build_container_format
+from cython.cimports.av.rational import from_avrational
 from cython.cimports.av.utils import (
     avdict_to_dict,
-    avrational_to_fraction,
     dict_to_avdict,
     to_avrational,
 )
@@ -89,9 +89,7 @@ def pyav_io_open_gil(
                     cython.cast(
                         cython.pointer[cython.pointer[lib.AVDictionary]], options
                     )
-                ),
-                encoding=container.metadata_encoding,
-                errors=container.metadata_errors,
+                )
             )
         else:
             options_dict = {}
@@ -234,10 +232,7 @@ class Container:
         format_name,
         options,
         container_options,
-        stream_options,
         hwaccel,
-        metadata_encoding,
-        metadata_errors,
         buffer_size,
         open_timeout,
         read_timeout,
@@ -257,16 +252,9 @@ class Container:
 
         self.options = dict(options or ())
         self.container_options = dict(container_options or ())
-        self.stream_options = [dict(x) for x in stream_options or ()]
-
         self.hwaccel = hwaccel
-
-        self.metadata_encoding = metadata_encoding
-        self.metadata_errors = metadata_errors
-
         self.open_timeout = open_timeout
         self.read_timeout = read_timeout
-
         self.buffer_size = buffer_size
         self.io_open = io_open
 
@@ -304,15 +292,19 @@ class Container:
             # We need the context before we open the input AND setup Python IO.
             self.ptr = lib.avformat_alloc_context()
 
-            # Setup interrupt callback
-            if self.open_timeout is not None or self.read_timeout is not None:
-                self.ptr.interrupt_callback.callback = interrupt_cb
-                self.ptr.interrupt_callback.opaque = cython.address(
-                    self.interrupt_callback_info
-                )
-
             if acodec is not None:
                 self.ptr.audio_codec_id = getattr(AudioCodec, acodec)
+
+        # Setup interrupt callback. Muxing needs it as much as demuxing does,
+        # since writing the header to a network URL can block indefinitely.
+        if self.open_timeout is not None or self.read_timeout is not None:
+            # Start disarmed, so nothing between here and the first
+            # start_timeout() can be interrupted by a zeroed deadline.
+            self.set_timeout(None)
+            self.ptr.interrupt_callback.callback = interrupt_cb
+            self.ptr.interrupt_callback.opaque = cython.address(
+                self.interrupt_callback_info
+            )
 
         self.ptr.flags |= lib.AVFMT_FLAG_GENPTS
         self.ptr.opaque = cython.cast(cython.p_void, self)
@@ -375,18 +367,18 @@ class Container:
         return "".join(log[2] for log in logs)
 
     @cython.cfunc
-    def set_timeout(self, timeout):
+    def set_timeout(self, timeout) -> cython.void:
         if timeout is None:
             self.interrupt_callback_info.timeout = -1.0
         else:
             self.interrupt_callback_info.timeout = timeout
 
     @cython.cfunc
-    def start_timeout(self):
+    def start_timeout(self) -> cython.void:
         self.interrupt_callback_info.start_time = time.monotonic()
 
     @cython.cfunc
-    def _assert_open(self):
+    def _assert_open(self) -> cython.void:
         if self.ptr == cython.NULL:
             raise AssertionError("Container is not open")
 
@@ -424,7 +416,7 @@ class Container:
 
     def chapters(self):
         self._assert_open()
-        result: list = []
+        result: list[dict] = []
         i: cython.Py_ssize_t
         for i in range(self.ptr.nb_chapters):
             ch = self.ptr.chapters[i]
@@ -433,10 +425,8 @@ class Container:
                     "id": ch.id,
                     "start": ch.start,
                     "end": ch.end,
-                    "time_base": avrational_to_fraction(cython.address(ch.time_base)),
-                    "metadata": avdict_to_dict(
-                        ch.metadata, self.metadata_encoding, self.metadata_errors
-                    ),
+                    "time_base": from_avrational(ch.time_base),
+                    "metadata": avdict_to_dict(ch.metadata),
                 }
             )
         return result
@@ -479,12 +469,7 @@ class Container:
             to_avrational(entry["time_base"], cython.address(ch.time_base))
             ch.metadata = cython.NULL
             if "metadata" in entry:
-                dict_to_avdict(
-                    cython.address(ch.metadata),
-                    entry["metadata"],
-                    self.metadata_encoding,
-                    self.metadata_errors,
-                )
+                dict_to_avdict(cython.address(ch.metadata), entry["metadata"])
             ch_array[i] = ch
 
         self.ptr.nb_chapters = cython.cast(cython.uint, count)
@@ -497,9 +482,6 @@ def open(
     format=None,
     options=None,
     container_options=None,
-    stream_options=None,
-    metadata_encoding="utf-8",
-    metadata_errors="strict",
     buffer_size=32768,
     timeout=None,
     io_open=None,
@@ -514,15 +496,19 @@ def open(
     :param str format: Specific format to use. Defaults to autodect.
     :param dict options: Options to pass to the container and all streams.
     :param dict container_options: Options to pass to the container.
-    :param list stream_options: Options to pass to each stream.
-    :param str metadata_encoding: Encoding to use when reading or writing file metadata.
-        Defaults to ``"utf-8"``.
-    :param str metadata_errors: Specifies how to handle encoding errors; behaves like
-        ``str.encode`` parameter. Defaults to ``"strict"``.
     :param int buffer_size: Size of buffer for Python input/output operations in bytes.
         Honored only when ``file`` is a file-like object. Defaults to 32768 (32k).
     :param timeout: How many seconds to wait for data before giving up, as a float, or a
-        ``(open timeout, read timeout)`` tuple.
+        ``(open timeout, read timeout)`` tuple. The open timeout covers both connecting
+        and reading or writing the header. The read timeout covers each subsequent
+        demux, mux, or close, so a stalled peer gives up rather than blocking forever.
+        Each demux and mux gets the full timeout; a close shares one across writing
+        the trailer and flushing, so it cannot outlast the timeout either. On output,
+        it applies only where the destination is unseekable, such as a socket or a
+        pipe. A seekable file is left alone, since the time a write takes there scales
+        with the file rather than with a peer, and giving up part-way would leave it
+        unreadable. A mux that does time out leaves the error on the I/O context, so
+        every later mux and the trailer fail at once. There is no retrying after one.
     :param callable io_open: Custom I/O callable for opening files/streams.
         This option is intended for formats that need to open additional
         file-like objects to ``file`` using custom I/O.
@@ -581,30 +567,20 @@ def open(
             format,
             options,
             container_options,
-            stream_options,
             hwaccel,
-            metadata_encoding,
-            metadata_errors,
             buffer_size,
             open_timeout,
             read_timeout,
             io_open,
         )
 
-    if stream_options:
-        raise ValueError(
-            "Provide stream options via Container.add_stream(..., options={})."
-        )
     return OutputContainer(
         _cinit_sentinel,
         file,
         format,
         options,
         container_options,
-        stream_options,
         None,
-        metadata_encoding,
-        metadata_errors,
         buffer_size,
         open_timeout,
         read_timeout,

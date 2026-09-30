@@ -7,7 +7,7 @@ from tqdm.rich import tqdm
 from geocif.progress import pbar as _pbar
 
 
-def compute_last_year_yield(df, target_col="Yield (tn per ha)"):
+def compute_last_year_yield(df, target_col="Yield (tn per ha)", forecast_season=None):
     """
     Computes the yield of the previous year for each region.
 
@@ -28,6 +28,9 @@ def compute_last_year_yield(df, target_col="Yield (tn per ha)"):
     Args:
         df (DataFrame): The original DataFrame containing yield data.
         target_col (str): The column name from which to compute the previous year yield.
+        forecast_season (int, optional): LOOCV held-out season. Its yield is
+            treated as unreported, so the next year's row looks back past it
+            (see ``compute_lag_yield``). None keeps every observed yield.
 
     Returns:
         DataFrame: The original DataFrame enhanced with a new column for the previous year yield.
@@ -40,9 +43,13 @@ def compute_last_year_yield(df, target_col="Yield (tn per ha)"):
     for region, group in _pbar(
         df.groupby("Region"), desc="Last year yields", leave=False
     ):
+        observed = group
+        if forecast_season is not None:
+            observed = group[group["Harvest Year"] != int(forecast_season)]
+
         # One value per year for this region, sorted so we can look backwards.
         per_year = (
-            group.dropna(subset=[target_col])
+            observed.dropna(subset=[target_col])
             .groupby("Harvest Year")[target_col]
             .first()
             .sort_index()
@@ -97,7 +104,7 @@ def compute_closest_years(all_years, harvest_year, number_lag_years, only_histor
 
 def compute_median_statistics(
     df, all_seasons_with_yield, number_median_years, target_col="Yield (tn per ha)",
-    only_historic=True,
+    only_historic=True, forecast_season=None,
 ):
     """
     Enhances the DataFrame with a new column that contains the median yield from the closest lag years.
@@ -115,6 +122,9 @@ def compute_median_statistics(
             every hindcast fold (directly when *_as_feature was on, and via the
             ``nbr_`` neighbor wrapper even when it was off). Earliest years now
             get NaN instead of a future-only window; NaN-native models handle it.
+        forecast_season (int, optional): LOOCV held-out season. Its value is
+            left out of every window, so later training rows cannot average it
+            in (see ``compute_lag_yield``). None keeps every observed value.
 
     Returns:
         DataFrame: The original DataFrame enhanced with a new column for median lag yield.
@@ -125,6 +135,13 @@ def compute_median_statistics(
     df[f"Median {target_col}"] = np.nan
 
     for region, group in _pbar(df.groupby("Region"), desc="Median yield", leave=False):
+        if forecast_season is not None:
+            group = group.assign(**{
+                target_col: group[target_col].where(
+                    group["Harvest Year"] != int(forecast_season)
+                )
+            })
+
         unique_years = group["Harvest Year"].unique()
 
         # Check if the target column is empty for the current group
@@ -213,6 +230,19 @@ def compute_lag_yield(
             df[col] = np.nan
 
     for region, group in _pbar(df.groupby("Region"), desc="Lag yields", leave=False):
+        # LOOCV: the held-out season's yield is unknown in this fold. Every row
+        # only looks backwards, but without this the LATER training rows carry
+        # it (2012 fold: the 2014 row's t -2 = the 2012 yield), and so does the
+        # closest-years mean used for a year the region did not report. The
+        # held-out row's own lags are earlier years and stay as they are; an
+        # operational forecast season has no yield, so this is a no-op there.
+        if forecast_season is not None:
+            group = group.assign(**{
+                target_col: group[target_col].where(
+                    group["Harvest Year"] != int(forecast_season)
+                )
+            })
+
         unique_years = group["Harvest Year"].unique()
 
         # Check if the target column is empty for the current group

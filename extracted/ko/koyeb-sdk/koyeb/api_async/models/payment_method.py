@@ -25,10 +25,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class PaymentMethod(BaseModel):
     """
     PaymentMethod
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -50,7 +52,29 @@ class PaymentMethod(BaseModel):
     card_last_digits: Optional[StrictStr] = None
     card_expiration_month: Optional[StrictInt] = None
     card_expiration_year: Optional[StrictInt] = None
-    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "version", "organization_id", "type", "provider", "status", "messages", "stripe_payment_method_id", "authorization_verified_at", "authorization_canceled_at", "authorization_stripe_payment_intent_id", "authorization_stripe_payment_intent_client_secret", "card_brand", "card_country", "card_funding", "card_fingerprint", "card_last_digits", "card_expiration_month", "card_expiration_year"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "created_at",
+        "updated_at",
+        "version",
+        "organization_id",
+        "type",
+        "provider",
+        "status",
+        "messages",
+        "stripe_payment_method_id",
+        "authorization_verified_at",
+        "authorization_canceled_at",
+        "authorization_stripe_payment_intent_id",
+        "authorization_stripe_payment_intent_client_secret",
+        "card_brand",
+        "card_country",
+        "card_funding",
+        "card_fingerprint",
+        "card_last_digits",
+        "card_expiration_month",
+        "card_expiration_year",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -58,7 +82,6 @@ class PaymentMethod(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -83,8 +106,7 @@ class PaymentMethod(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -102,29 +124,35 @@ class PaymentMethod(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "created_at": obj.get("created_at"),
-            "updated_at": obj.get("updated_at"),
-            "version": obj.get("version"),
-            "organization_id": obj.get("organization_id"),
-            "type": obj.get("type"),
-            "provider": obj.get("provider"),
-            "status": obj.get("status") if obj.get("status") is not None else PaymentMethodStatus.INVALID,
-            "messages": obj.get("messages"),
-            "stripe_payment_method_id": obj.get("stripe_payment_method_id"),
-            "authorization_verified_at": obj.get("authorization_verified_at"),
-            "authorization_canceled_at": obj.get("authorization_canceled_at"),
-            "authorization_stripe_payment_intent_id": obj.get("authorization_stripe_payment_intent_id"),
-            "authorization_stripe_payment_intent_client_secret": obj.get("authorization_stripe_payment_intent_client_secret"),
-            "card_brand": obj.get("card_brand"),
-            "card_country": obj.get("card_country"),
-            "card_funding": obj.get("card_funding"),
-            "card_fingerprint": obj.get("card_fingerprint"),
-            "card_last_digits": obj.get("card_last_digits"),
-            "card_expiration_month": obj.get("card_expiration_month"),
-            "card_expiration_year": obj.get("card_expiration_year")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "created_at": obj.get("created_at"),
+                "updated_at": obj.get("updated_at"),
+                "version": obj.get("version"),
+                "organization_id": obj.get("organization_id"),
+                "type": obj.get("type"),
+                "provider": obj.get("provider"),
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else PaymentMethodStatus.INVALID,
+                "messages": obj.get("messages"),
+                "stripe_payment_method_id": obj.get("stripe_payment_method_id"),
+                "authorization_verified_at": obj.get("authorization_verified_at"),
+                "authorization_canceled_at": obj.get("authorization_canceled_at"),
+                "authorization_stripe_payment_intent_id": obj.get(
+                    "authorization_stripe_payment_intent_id"
+                ),
+                "authorization_stripe_payment_intent_client_secret": obj.get(
+                    "authorization_stripe_payment_intent_client_secret"
+                ),
+                "card_brand": obj.get("card_brand"),
+                "card_country": obj.get("card_country"),
+                "card_funding": obj.get("card_funding"),
+                "card_fingerprint": obj.get("card_fingerprint"),
+                "card_last_digits": obj.get("card_last_digits"),
+                "card_expiration_month": obj.get("card_expiration_month"),
+                "card_expiration_year": obj.get("card_expiration_year"),
+            }
+        )
         return _obj
-
-

@@ -4,6 +4,8 @@ from contextvars import ContextVar
 from contextlib import contextmanager
 from dataclasses import dataclass
 
+from testmu_selenium._step_variables import pop_step_variables, reset_step_variables
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,6 +31,9 @@ def _reset_step_counter() -> None:
     """Internal — called by _session.run() so each test starts from STEP 1."""
     global _step_counter
     _step_counter = 0
+    # A step-variable buffer left over from a previous run would be attributed
+    # to this run's first step.
+    reset_step_variables()
 
 
 def get_step_count() -> int:
@@ -50,6 +55,25 @@ def _emit_step_hook(verb: str, payload: dict) -> None:
         get_driver().execute_script(f"{verb}=" + json.dumps(payload))
     except Exception as e:  # noqa: BLE001 — never propagate reporter errors
         logger.debug("[testmu] step hook %s skipped: %s", verb, e)
+
+
+# The step end hook must carry WHY a failed step failed, so HPS can map
+# a step to its commands and show the per-step failure disposition. The wire
+# vocabulary is the runtime's FailureCondition enum, which each binding names
+# differently — map explicitly rather than sending the binding's own token.
+_WIRE_FAILURE_CONDITION = {
+    "fail": "FAIL_TEST_IMMEDIATELY",
+    "continue": "FAIL_BUT_CONTINUE_EXECUTING",
+    # Accepted for forward-compatibility with the other bindings' vocabularies;
+    # selenium-python's step() only exposes fail/continue today.
+    "fail-continue": "FAIL_BUT_CONTINUE_EXECUTING",
+    "warn-continue": "WARN_BUT_CONTINUE_EXECUTING",
+}
+
+
+def _wire_failure_condition(on_failure: str) -> str:
+    """Map the binding's on_failure token to the runtime's FailureCondition name."""
+    return _WIRE_FAILURE_CONDITION.get((on_failure or "").strip().lower(), "")
 
 
 @contextmanager
@@ -90,8 +114,21 @@ def step(description: str, timeout_ms: int | None = None, on_failure: str = "fai
         )
         # End hook — closes the step with its verdict. name MUST match the start hook.
         # auto_heal: set by the action engine when this step fell to the heal cascade.
-        _emit_step_hook(
-            "lambda-testCase-end",
-            {"name": description, "status": status, "auto_heal": info.auto_heal},
-        )
+        #
+        # Report the values this step ran with, not just the names. The
+        # buffer is DRAINED unconditionally (even off the cloud run target, where
+        # the hook itself is a no-op) so a local run cannot leak one step's reads
+        # into the next step's payload.
+        step_variables = pop_step_variables()
+        payload = {"name": description, "status": status, "auto_heal": info.auto_heal}
+        if step_variables:
+            payload["variables"] = step_variables
+            logger.info("  [STEP %d] variables=%s", n, sorted(step_variables))
+        # Only on a failure — the disposition is meaningless for a
+        # passing step, and the source omits it there too.
+        if status == "failed":
+            wire_condition = _wire_failure_condition(on_failure)
+            if wire_condition:
+                payload["failure_condition"] = wire_condition
+        _emit_step_hook("lambda-testCase-end", payload)
         _current_step.reset(token)

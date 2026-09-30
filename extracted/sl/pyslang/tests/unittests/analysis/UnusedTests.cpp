@@ -155,7 +155,7 @@ endmodule
 
     Compilation compilation;
     auto diags = analyze(text, compilation);
-    diags = diags.filter({diag::StaticInitOrder, diag::StaticInitValue});
+    diags = diags.filter({diag::StaticInitOrder, diag::StaticInitValue, diag::ImplicitNet});
     REQUIRE(diags.size() == 19);
     CHECK(diags[0].code == diag::UnusedPort);
     CHECK(diags[1].code == diag::UndrivenPort);
@@ -298,6 +298,72 @@ endmodule
     Compilation compilation;
     auto diags = analyze(text, compilation);
     CHECK_DIAGS_EMPTY;
+}
+
+TEST_CASE("No unused warning for error typed value") {
+    auto& text = R"(
+module m;
+    missing_type unused;
+endmodule
+)";
+
+    Compilation compilation;
+    auto diags = analyze(text, compilation);
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].isError());
+}
+
+TEST_CASE("Unused diagnostics cover the symbol name") {
+    auto& text = R"(
+module m;
+    int unused_name;
+endmodule
+)";
+
+    Compilation compilation;
+    auto diags = analyze(text, compilation);
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UnusedVariable);
+    REQUIRE(diags[0].ranges.size() == 1);
+
+    auto range = diags[0].ranges[0];
+    auto sm = compilation.getSourceManager();
+    CHECK(range.end() - range.start() == 11);
+    CHECK(sm->getColumnNumber(range.start()) == 9);
+    CHECK(sm->getColumnNumber(range.end()) == 20);
+}
+
+TEST_CASE("Unused definition inside macro expansion uses point diagnostic") {
+    auto libTree = SyntaxTree::fromText(R"(
+`define DEFINE_UNUSED_DEF module unused_from_macro; endmodule
+`DEFINE_UNUSED_DEF
+)");
+    libTree->isLibraryUnit = true;
+
+    auto userTree = SyntaxTree::fromText(R"(
+module top;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(libTree);
+    compilation.addSyntaxTree(userTree);
+
+    auto diags = compilation.getAllDiagnostics();
+    compilation.freeze();
+
+    AnalysisOptions options;
+    options.flags = AnalysisFlags::CheckUnused;
+    AnalysisManager analysisManager(options);
+    analysisManager.analyze(compilation);
+
+    diags.append_range(analysisManager.getDiagnostics());
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UnusedDefinition);
+    REQUIRE(diags[0].args.size() == 1);
+    CHECK(std::get<std::string>(diags[0].args[0]) == "module");
+    CHECK(compilation.getSourceManager()->isMacroLoc(diags[0].location));
+    CHECK(diags[0].ranges.empty());
 }
 
 TEST_CASE("Undriven net via unused modport writer") {
@@ -868,6 +934,27 @@ import "DPI-C" function void dpi_func(int i);
     CHECK(diags[5].code == diag::UnusedDPIImport);
 }
 
+TEST_CASE("DPI exported subroutines are not unused -- GH #1969") {
+    auto& text = R"(
+module m;
+    export "DPI-C" function sv_f;
+    export "DPI-C" task     sv_t;
+
+    function void sv_f(int x);
+        $display("f %0d", x);
+    endfunction
+
+    task sv_t(int x);
+        $display("t %0d", x);
+    endtask
+endmodule
+)";
+
+    Compilation compilation;
+    auto diags = analyze(text, compilation);
+    CHECK_DIAGS_EMPTY;
+}
+
 TEST_CASE("Unused class properties") {
     auto& text = R"(
 class C;
@@ -947,6 +1034,60 @@ endmodule
     CHECK(diags[3].code == diag::UnusedLocalClassProperty);
     CHECK(diags[4].code == diag::UnusedButSetLocalProperty);
     CHECK(diags[5].code == diag::UnassignedLocalProperty);
+}
+
+TEST_CASE("Unused class property false positive on class handle array") {
+    auto& text = R"(
+class C;
+    bit clear;
+
+    function int f();
+        if (clear) begin
+        end
+        return 0;
+    endfunction
+endclass
+
+class A;
+    C c1[];
+    C c2;
+    C c3[4];
+    C c4[string];
+
+    function new();
+        c1 = new[4];
+        c2 = new;
+    endfunction
+
+    function void setup(int i, C c);
+        c1[i] = c;
+        c3[i] = c;
+        c4["a"] = c;
+    endfunction
+
+    function void clr(int i);
+        c1[i].clear = 1'b1;
+        c2.clear = 1'b1;
+        c3[i].clear = 1'b1;
+        c4["a"].clear = 1'b1;
+    endfunction
+endclass
+
+module top;
+    A a;
+    initial begin
+        automatic C c = new();
+        a = new();
+        a.setup(0, c);
+        a.clr(0);
+        $display(c.f());
+    end
+endmodule
+)";
+
+    Compilation compilation;
+    auto diags = analyze(text, compilation);
+    CHECK_DIAGS_EMPTY;
 }
 
 // Helper that runs analysis with only the CheckShadow flag enabled.

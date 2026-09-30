@@ -22,6 +22,7 @@ For a quick test run, pass `args: {limit: 10}` in the task YAML to stop
 after the first 10 warehouses found (see search()) instead of crawling
 every state.
 """
+import html as html_lib
 import json
 import re
 import time
@@ -45,6 +46,13 @@ US_STATE_ABBRS = [
 ]
 
 WAREHOUSE_LINK_RE = re.compile(r'href="(/w/-/[a-z0-9-]+/[a-z0-9-]+/(\d+))"')
+
+#: The warehouse's marketing name (e.g. "Aurora Village Warehouse") - has no
+#: relation to its mailing address city (store 106 is "Aurora Village" but
+#: sits in Shoreline, WA) and isn't in the LocalBusiness JSON-LD block at all
+#: (verified 2026-09-20 against costco.com/w/-/wa/shoreline/106) - it's only
+#: in this plain <h1>, so it needs its own regex.
+WAREHOUSE_NAME_RE = re.compile(r'<h1[^>]*>(.*?)</h1>', re.S)
 
 DAY_ORDER = [
     ("mon", "Monday"), ("tue", "Tuesday"), ("wed", "Wednesday"),
@@ -71,6 +79,7 @@ class CostcoStrategy(RetailerStrategy):
     field_map = {
         "store_number": "store_number",
         "store_name": "store_name",
+        "warehouse_name": "warehouse_name",
         "street_address": "street_address",
         "city": "city",
         "state_code": "state_code",
@@ -127,9 +136,14 @@ class CostcoStrategy(RetailerStrategy):
         address = local_business.get("address") or {}
         geo = local_business.get("geo") or {}
         zipcode = (address.get("postalCode") or "").split("-")[0].strip() or None
+        name_match = WAREHOUSE_NAME_RE.search(html)
+        warehouse_name = html_lib.unescape(name_match.group(1)).strip() if name_match else None
         return {
             "store_number": number,
+            # Fallback only - the real name is warehouse_name below. Kept for
+            # pages where the <h1> match fails for some reason.
             "store_name": f"{address.get('addressLocality', '')} {address.get('addressRegion', '')}".strip() or None,
+            "warehouse_name": warehouse_name or None,
             "street_address": address.get("streetAddress"),
             "city": address.get("addressLocality"),
             "state_code": address.get("addressRegion"),

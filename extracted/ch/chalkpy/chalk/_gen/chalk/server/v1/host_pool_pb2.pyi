@@ -4,6 +4,7 @@ from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -16,8 +17,36 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class HostPoolPhase(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    HOST_POOL_PHASE_UNSPECIFIED: _ClassVar[HostPoolPhase]
+    HOST_POOL_PHASE_INACTIVE: _ClassVar[HostPoolPhase]
+    HOST_POOL_PHASE_PENDING: _ClassVar[HostPoolPhase]
+    HOST_POOL_PHASE_RUNNING: _ClassVar[HostPoolPhase]
+    HOST_POOL_PHASE_DEGRADED: _ClassVar[HostPoolPhase]
+    HOST_POOL_PHASE_ERROR: _ClassVar[HostPoolPhase]
+    HOST_POOL_PHASE_UNKNOWN: _ClassVar[HostPoolPhase]
+
+HOST_POOL_PHASE_UNSPECIFIED: HostPoolPhase
+HOST_POOL_PHASE_INACTIVE: HostPoolPhase
+HOST_POOL_PHASE_PENDING: HostPoolPhase
+HOST_POOL_PHASE_RUNNING: HostPoolPhase
+HOST_POOL_PHASE_DEGRADED: HostPoolPhase
+HOST_POOL_PHASE_ERROR: HostPoolPhase
+HOST_POOL_PHASE_UNKNOWN: HostPoolPhase
+
 class HostPoolSpec(_message.Message):
-    __slots__ = ("name", "min_hosts", "max_hosts", "idle_timeout", "cpu", "memory", "machine_family", "compute_class")
+    __slots__ = (
+        "name",
+        "min_hosts",
+        "max_hosts",
+        "idle_timeout",
+        "cpu",
+        "memory",
+        "machine_family",
+        "compute_class",
+        "gpu",
+    )
     NAME_FIELD_NUMBER: _ClassVar[int]
     MIN_HOSTS_FIELD_NUMBER: _ClassVar[int]
     MAX_HOSTS_FIELD_NUMBER: _ClassVar[int]
@@ -26,6 +55,7 @@ class HostPoolSpec(_message.Message):
     MEMORY_FIELD_NUMBER: _ClassVar[int]
     MACHINE_FAMILY_FIELD_NUMBER: _ClassVar[int]
     COMPUTE_CLASS_FIELD_NUMBER: _ClassVar[int]
+    GPU_FIELD_NUMBER: _ClassVar[int]
     name: str
     min_hosts: int
     max_hosts: int
@@ -34,6 +64,7 @@ class HostPoolSpec(_message.Message):
     memory: str
     machine_family: str
     compute_class: str
+    gpu: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -44,6 +75,7 @@ class HostPoolSpec(_message.Message):
         memory: _Optional[str] = ...,
         machine_family: _Optional[str] = ...,
         compute_class: _Optional[str] = ...,
+        gpu: _Optional[str] = ...,
     ) -> None: ...
 
 class HostPool(_message.Message):
@@ -191,3 +223,162 @@ class ListHostPoolsResponse(_message.Message):
     HOST_POOLS_FIELD_NUMBER: _ClassVar[int]
     host_pools: _containers.RepeatedCompositeFieldContainer[HostPool]
     def __init__(self, host_pools: _Optional[_Iterable[_Union[HostPool, _Mapping]]] = ...) -> None: ...
+
+class HostPoolResources(_message.Message):
+    __slots__ = ("cpu_cores", "memory_bytes")
+    CPU_CORES_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_BYTES_FIELD_NUMBER: _ClassVar[int]
+    cpu_cores: float
+    memory_bytes: int
+    def __init__(self, cpu_cores: _Optional[float] = ..., memory_bytes: _Optional[int] = ...) -> None: ...
+
+class HostCapacity(_message.Message):
+    __slots__ = ("host_id", "ready", "placed_containers", "capacity", "allocated", "available")
+    HOST_ID_FIELD_NUMBER: _ClassVar[int]
+    READY_FIELD_NUMBER: _ClassVar[int]
+    PLACED_CONTAINERS_FIELD_NUMBER: _ClassVar[int]
+    CAPACITY_FIELD_NUMBER: _ClassVar[int]
+    ALLOCATED_FIELD_NUMBER: _ClassVar[int]
+    AVAILABLE_FIELD_NUMBER: _ClassVar[int]
+    host_id: str
+    ready: bool
+    placed_containers: int
+    capacity: HostPoolResources
+    allocated: HostPoolResources
+    available: HostPoolResources
+    def __init__(
+        self,
+        host_id: _Optional[str] = ...,
+        ready: bool = ...,
+        placed_containers: _Optional[int] = ...,
+        capacity: _Optional[_Union[HostPoolResources, _Mapping]] = ...,
+        allocated: _Optional[_Union[HostPoolResources, _Mapping]] = ...,
+        available: _Optional[_Union[HostPoolResources, _Mapping]] = ...,
+    ) -> None: ...
+
+class HostPoolCapacity(_message.Message):
+    __slots__ = (
+        "host_pool_id",
+        "name",
+        "cluster_scoped",
+        "system_managed",
+        "min_hosts",
+        "max_hosts",
+        "idle_timeout",
+        "cpu",
+        "memory",
+        "phase",
+        "message",
+        "desired_hosts",
+        "ready_hosts",
+        "idle_hosts",
+        "idle_since",
+        "ready",
+        "allocated",
+        "available",
+        "at_max_scale",
+        "largest_placeable",
+        "largest_placeable_at_max_scale",
+        "placed_containers",
+        "placed_containers_in_environment",
+        "hosts",
+    )
+    HOST_POOL_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_SCOPED_FIELD_NUMBER: _ClassVar[int]
+    SYSTEM_MANAGED_FIELD_NUMBER: _ClassVar[int]
+    MIN_HOSTS_FIELD_NUMBER: _ClassVar[int]
+    MAX_HOSTS_FIELD_NUMBER: _ClassVar[int]
+    IDLE_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
+    CPU_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_FIELD_NUMBER: _ClassVar[int]
+    PHASE_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    DESIRED_HOSTS_FIELD_NUMBER: _ClassVar[int]
+    READY_HOSTS_FIELD_NUMBER: _ClassVar[int]
+    IDLE_HOSTS_FIELD_NUMBER: _ClassVar[int]
+    IDLE_SINCE_FIELD_NUMBER: _ClassVar[int]
+    READY_FIELD_NUMBER: _ClassVar[int]
+    ALLOCATED_FIELD_NUMBER: _ClassVar[int]
+    AVAILABLE_FIELD_NUMBER: _ClassVar[int]
+    AT_MAX_SCALE_FIELD_NUMBER: _ClassVar[int]
+    LARGEST_PLACEABLE_FIELD_NUMBER: _ClassVar[int]
+    LARGEST_PLACEABLE_AT_MAX_SCALE_FIELD_NUMBER: _ClassVar[int]
+    PLACED_CONTAINERS_FIELD_NUMBER: _ClassVar[int]
+    PLACED_CONTAINERS_IN_ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    HOSTS_FIELD_NUMBER: _ClassVar[int]
+    host_pool_id: str
+    name: str
+    cluster_scoped: bool
+    system_managed: bool
+    min_hosts: int
+    max_hosts: int
+    idle_timeout: _duration_pb2.Duration
+    cpu: str
+    memory: str
+    phase: HostPoolPhase
+    message: str
+    desired_hosts: int
+    ready_hosts: int
+    idle_hosts: int
+    idle_since: _timestamp_pb2.Timestamp
+    ready: HostPoolResources
+    allocated: HostPoolResources
+    available: HostPoolResources
+    at_max_scale: HostPoolResources
+    largest_placeable: HostPoolResources
+    largest_placeable_at_max_scale: HostPoolResources
+    placed_containers: int
+    placed_containers_in_environment: int
+    hosts: _containers.RepeatedCompositeFieldContainer[HostCapacity]
+    def __init__(
+        self,
+        host_pool_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        cluster_scoped: bool = ...,
+        system_managed: bool = ...,
+        min_hosts: _Optional[int] = ...,
+        max_hosts: _Optional[int] = ...,
+        idle_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        cpu: _Optional[str] = ...,
+        memory: _Optional[str] = ...,
+        phase: _Optional[_Union[HostPoolPhase, str]] = ...,
+        message: _Optional[str] = ...,
+        desired_hosts: _Optional[int] = ...,
+        ready_hosts: _Optional[int] = ...,
+        idle_hosts: _Optional[int] = ...,
+        idle_since: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        ready: _Optional[_Union[HostPoolResources, _Mapping]] = ...,
+        allocated: _Optional[_Union[HostPoolResources, _Mapping]] = ...,
+        available: _Optional[_Union[HostPoolResources, _Mapping]] = ...,
+        at_max_scale: _Optional[_Union[HostPoolResources, _Mapping]] = ...,
+        largest_placeable: _Optional[_Union[HostPoolResources, _Mapping]] = ...,
+        largest_placeable_at_max_scale: _Optional[_Union[HostPoolResources, _Mapping]] = ...,
+        placed_containers: _Optional[int] = ...,
+        placed_containers_in_environment: _Optional[int] = ...,
+        hosts: _Optional[_Iterable[_Union[HostCapacity, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetHostPoolCapacityRequest(_message.Message):
+    __slots__ = ("environment_id",)
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+
+class GetHostPoolCapacityResponse(_message.Message):
+    __slots__ = ("host_pools", "pending_containers", "largest_pending_request", "observed_at")
+    HOST_POOLS_FIELD_NUMBER: _ClassVar[int]
+    PENDING_CONTAINERS_FIELD_NUMBER: _ClassVar[int]
+    LARGEST_PENDING_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    OBSERVED_AT_FIELD_NUMBER: _ClassVar[int]
+    host_pools: _containers.RepeatedCompositeFieldContainer[HostPoolCapacity]
+    pending_containers: int
+    largest_pending_request: HostPoolResources
+    observed_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        host_pools: _Optional[_Iterable[_Union[HostPoolCapacity, _Mapping]]] = ...,
+        pending_containers: _Optional[int] = ...,
+        largest_pending_request: _Optional[_Union[HostPoolResources, _Mapping]] = ...,
+        observed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...

@@ -547,6 +547,9 @@ SeverityCountsTypeDef = TypedDict(
         "medium": NotRequired[int],
         "high": NotRequired[int],
         "critical": NotRequired[int],
+        "low": NotRequired[int],
+        "informational": NotRequired[int],
+        "untriaged": NotRequired[int],
     },
 )
 

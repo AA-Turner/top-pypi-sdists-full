@@ -95,6 +95,7 @@ __all__ = (
     "UserRoleType",
     "ValidationModeType",
     "ValidationStatusType",
+    "WebhookActionType",
 )
 
 AccessTypeType = Literal["PRIVATE", "PUBLIC"]
@@ -148,7 +149,7 @@ PrivateConnectionStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "DELETE_FAILED", "DELETE_IN_PROGRESS"
 ]
 PrivateConnectionTypeType = Literal["SELF_MANAGED", "SERVICE_MANAGED"]
-ProviderType = Literal["BITBUCKET", "CONFLUENCE", "GITHUB", "GITLAB"]
+ProviderType = Literal["AZURE_DEVOPS", "BITBUCKET", "CONFLUENCE", "GITHUB", "GITLAB"]
 ProviderTypeType = Literal["DOCUMENTATION", "SOURCE_CODE"]
 ResourceConfigDnsResolutionType = Literal["IN_VPC", "PUBLIC"]
 ResourceTypeType = Literal["CODE_REPOSITORY", "DOCUMENT"]
@@ -208,6 +209,7 @@ ValidationModeType = Literal["DISABLED", "SIMULATED"]
 ValidationStatusType = Literal[
     "CONFIRMED", "NOT_REPRODUCED", "NOT_VALIDATED", "VALIDATING", "VALIDATION_FAILED"
 ]
+WebhookActionType = Literal["CREATE_IF_ABSENT", "ROTATE"]
 SecurityAgentServiceName = Literal["securityagent"]
 ServiceName = Literal[
     "accessanalyzer",

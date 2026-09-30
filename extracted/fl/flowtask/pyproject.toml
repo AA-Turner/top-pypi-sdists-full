@@ -120,8 +120,13 @@ dependencies = [
     "asyncdb[all]>=2.11.7",
     "navconfig[uvloop,default]>=1.7.13",
     "navigator-auth>=0.15.8",
+    # navigator-auth 0.28.0 uses aiohttp's web.RequestKey (SAML SP backend) but
+    # declares only aiohttp>=3.9.5; web.RequestKey first ships in aiohttp 3.14, so
+    # without this floor `from navigator_auth import AuthHandler` (app.py:9) raises
+    # AttributeError and the whole web app fails to import.
+    "aiohttp>=3.14",
     "navigator-api[uvloop,locale]>=2.12.22",
-    "ai-parrot[llms]>=0.17.4",
+    "ai-parrot[llms]>=1.0.5",
     "msal>=1.30.0,<2",
     "azure-core>=1.38.0,<2",
     "azure-identity>=1.20.0,<2",
@@ -182,14 +187,18 @@ ai = [
     # graphindex,retrieval extras required by ParrotKnowledgeBuilder (FEAT-028).
     # graphindex → rustworkx>=0.15, tree-sitter>=0.23 (GraphAssembler, LoaderExtractor).
     # retrieval  → rank_bm25==0.2.2 (PageIndex hybrid search).
-    # pageindex module only exists in ai-parrot dev 0.25.7 — enable the editable-source
-    # toggle in [tool.uv.sources] below and run `uv sync --extra ai` to activate.
-    "ai-parrot[llms,agents,images,graphindex,retrieval]>=0.20.4",
-    "ai-parrot-loaders[youtube,audio,pdf,web,ebook,video,document,scraping,ml]>=0.1.0",
-    "ai-parrot-tools[jira,pdf,slack,aws,docker,git,analysis,excel,sandbox,codeinterpreter,pulumi,sitesearch,scraping,finance,db,flowtask,google,arxiv,wikipedia,weather,messaging]>=0.1.0",
-    "ai-parrot-pipelines>=0.1.0",
-    "ai-parrot-server[all]>=0.1.0",
-    "ai-parrot-integrations[all]>=0.0.17",
+    # The whole ai-parrot family is released in lockstep; keep these pins equal.
+    # As of 1.0.5 the modules that used to require the editable-source toggle
+    # below ship in the published packages: parrot.knowledge.pageindex,
+    # parrot.flows.dev_loop.sdd_coder (ai-parrot) and
+    # parrot_tools.tool_optimizations (ai-parrot-tools). parrot.mcp.transports
+    # lives in ai-parrot-server, which is why [all] is pinned here too.
+    "ai-parrot[llms,agents,images,graphindex,retrieval]>=1.0.5",
+    "ai-parrot-loaders[youtube,audio,pdf,web,ebook,video,document,scraping,ml]>=1.0.5",
+    "ai-parrot-tools[jira,pdf,slack,aws,docker,git,analysis,excel,sandbox,codeinterpreter,pulumi,sitesearch,scraping,finance,db,flowtask,google,arxiv,wikipedia,weather,messaging]>=1.0.5",
+    "ai-parrot-pipelines>=1.0.5",
+    "ai-parrot-server[all]>=1.0.5",
+    "ai-parrot-integrations[all]>=1.0.5",
 ]
 
 dev = [
@@ -269,6 +278,15 @@ override-dependencies = [
     "babel>=2.16.0",
     # CVE: keep requests above 2.33.x; <2.34 stays compatible with arxiv's requests pin
     "arxiv>=4.0.0",
+    # asyncdb[all]==2.16.2 hard-pins uvloop==0.21.0 while navconfig[uvloop]==2.5.2
+    # requires uvloop>=0.22.1 — the two newest NAV releases are mutually
+    # unsatisfiable, which blocks the ai-parrot 1.0.5 family (it needs both).
+    # Pinned to 0.21.0 (asyncdb's side): uvloop 0.22 removed the implicit loop
+    # creation in EventLoopPolicy.get_event_loop(), and flowtask acquires a loop
+    # at import time (flowtask/storages/tasks/database.py:20, reached from
+    # settings/settings.py) — 0.22.1 breaks collection of the whole test suite.
+    # Revisit once those ~32 asyncio.get_event_loop() call sites are fixed.
+    "uvloop==0.21.0",
 ]
 
 [tool.mypy]
@@ -292,13 +310,17 @@ dev = [
 
 [tool.uv.sources]
 # ── Parrot editable-source wiring (local dev, sibling monorepo) ────────────────
-# Points the whole ai-parrot family at the local uv workspace living at
-# ../ai-parrot (packages/*). This is what makes the SDD infra copied from that
-# repo actually runnable here: `parrot mcp-local sdd-coder` needs
-# `parrot.flows.dev_loop.sdd_coder`, and the bounded-source / targeted-writer
-# MCP toolkits plus the PreToolUse tool-optimizations hook need
-# `parrot_tools.tool_optimizations` — neither module exists in the published
-# wheels.
+# Points the whole ai-parrot family at a local uv workspace checkout (packages/*).
+#
+# NOTE: as of the 1.0.5 pins above this block is NO LONGER REQUIRED for the SDD
+# infra. `parrot.flows.dev_loop.sdd_coder` and `parrot_tools.tool_optimizations`
+# — the modules `parrot mcp-local sdd-coder`, the bounded-source /
+# targeted-writer MCP toolkits and the PreToolUse tool-optimizations hook need —
+# now ship in the published packages. Use this block only to develop against an
+# unreleased parrot change.
+#
+# The paths below assume the sibling checkout is at ../ai-parrot; adjust them to
+# wherever yours actually lives (e.g. ../AI-BOTS/ai-parrot).
 #
 # Apply with:
 #     source .venv/bin/activate && uv sync --extra ai

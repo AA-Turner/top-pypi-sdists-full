@@ -45,6 +45,7 @@ class BaseAthena:
 
 
 
+    session_credential : typing.Optional[str]
     api_key : typing.Optional[str]
     headers : typing.Optional[typing.Dict[str, str]]
         Additional headers to send with every request.
@@ -63,6 +64,7 @@ class BaseAthena:
     from athena import Athena
 
     client = Athena(
+        session_credential="YOUR_SESSION_CREDENTIAL",
         api_key="YOUR_API_KEY",
     )
     """
@@ -72,6 +74,7 @@ class BaseAthena:
         *,
         base_url: typing.Optional[str] = None,
         environment: AthenaEnvironment = AthenaEnvironment.PRODUCTION,
+        session_credential: typing.Optional[str] = os.getenv("ATHENA_CLI_SESSION_KEY"),
         api_key: typing.Optional[str] = os.getenv("ATHENA_API_KEY"),
         headers: typing.Optional[typing.Dict[str, str]] = None,
         timeout: typing.Optional[float] = None,
@@ -87,6 +90,7 @@ class BaseAthena:
             )
         self._client_wrapper = SyncClientWrapper(
             base_url=_get_base_url(base_url=base_url, environment=environment),
+            session_credential=session_credential,
             api_key=api_key,
             headers=headers,
             httpx_client=httpx_client
@@ -242,6 +246,7 @@ class AsyncBaseAthena:
 
 
 
+    session_credential : typing.Optional[str]
     api_key : typing.Optional[str]
     headers : typing.Optional[typing.Dict[str, str]]
         Additional headers to send with every request.
@@ -260,6 +265,7 @@ class AsyncBaseAthena:
     from athena import AsyncAthena
 
     client = AsyncAthena(
+        session_credential="YOUR_SESSION_CREDENTIAL",
         api_key="YOUR_API_KEY",
     )
     """
@@ -269,6 +275,7 @@ class AsyncBaseAthena:
         *,
         base_url: typing.Optional[str] = None,
         environment: AthenaEnvironment = AthenaEnvironment.PRODUCTION,
+        session_credential: typing.Optional[str] = os.getenv("ATHENA_CLI_SESSION_KEY"),
         api_key: typing.Optional[str] = os.getenv("ATHENA_API_KEY"),
         headers: typing.Optional[typing.Dict[str, str]] = None,
         timeout: typing.Optional[float] = None,
@@ -284,6 +291,7 @@ class AsyncBaseAthena:
             )
         self._client_wrapper = AsyncClientWrapper(
             base_url=_get_base_url(base_url=base_url, environment=environment),
+            session_credential=session_credential,
             api_key=api_key,
             headers=headers,
             httpx_client=httpx_client

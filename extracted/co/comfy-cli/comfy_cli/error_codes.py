@@ -324,6 +324,15 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "check `details.body` for the server's message",
     ),
     ErrorCode(
+        "cloud_rate_limited",
+        "Comfy Cloud only: the cloud API throttled the request (HTTP 429). Throttling is not a verdict "
+        "on the request, so do not edit it; `details.retry_after` carries the server's Retry-After seconds "
+        "when it sent one. A 429 does not by itself prove the request had no effect. A local server's 429 "
+        "is reported as `client_error` with `details.status` 429.",
+        "wait `details.retry_after` seconds (or a few seconds), then retry; before re-running a submit, "
+        "check `comfy jobs ls --where cloud` so a job that did go through is not queued twice",
+    ),
+    ErrorCode(
         "cloud_billing_unavailable",
         "`comfy cloud status` could not read `/api/billing/status`, so there is no tier or "
         "subscription state to report. Distinct from `cloud_unauthorized` (a rejected "
@@ -1009,8 +1018,10 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "emit_workflow_unsupported_model",
         "`generate --emit-workflow` has no ComfyUI partner-node mapping for the requested model "
         "(`details.model`); most of the proxy catalog is proxy-only. `details.supported` lists the "
-        "aliases that can be emitted — the same set `generate list` flags with `emit_supported: true`.",
-        "pick a model with `emit_supported: true` in `comfy --json generate list`, or drop "
+        "aliases that can be emitted — the same set `generate list` flags with `emit_supported: true`; "
+        "`details.suggested` is the subset producing the same media as the requested model whose required "
+        "inputs the request already carries, same partner first (empty when none fits as given).",
+        "retry with the first alias in `details.suggested`, or pick any with `emit_supported: true`, or drop "
         "--emit-workflow and call the model through the proxy",
     ),
     ErrorCode(
@@ -1196,7 +1207,12 @@ REGISTRY: tuple[ErrorCode, ...] = (
     ErrorCode(
         "build_spec_invalid",
         "A build spec or legacy scan definition could not be read, has an unsupported schema, or is invalid. "
-        "`details.path` carries the path when one is available.",
+        "`details.path` carries the path when one is available. When `validate` or `push` found model "
+        "entries the builder would refuse (a type that is not a model directory, an unsafe filename, a link "
+        "with no file extension and no filename, a malformed sha256), the message lists every one and "
+        "`details.invalid` carries each as `{field, reason, model}`, `model` naming the entry. `push` checks "
+        "the link a local model keeps after it hashes the model's file, so a bad kept link is reported once "
+        "the other problems are fixed.",
         "fix the named field, or regenerate the file with `comfy build init`",
     ),
     ErrorCode(
@@ -1207,9 +1223,9 @@ REGISTRY: tuple[ErrorCode, ...] = (
     ),
     ErrorCode(
         "build_not_signed_in",
-        "A Builder-backed `comfy build` command found no usable Cloud JWT — the builder authenticates with "
-        "the OAuth session token, and there isn't a valid one.",
-        "run `comfy cloud login` first",
+        "A Builder-backed `comfy build` command found no workspace API key and no usable Cloud JWT, or the "
+        "builder refused the one it sent with HTTP 401.",
+        "run `comfy cloud login`, or set COMFY_CLOUD_API_KEY to a workspace API key",
     ),
     ErrorCode(
         "build_builder_error",
@@ -1240,6 +1256,25 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "which could not vouch for one or more pins. Pushing anyway would save a definition that cannot "
         "reconstruct every requested public node.",
         "edit the spec to name a published registry version or normalized repository, or remove the node",
+    ),
+    ErrorCode(
+        "build_definition_invalid",
+        "The builder refused the build's definition, most often at `push --release` or `release create`. "
+        "When the builder lists its reasons, the message lists each problem as `<field>: <reason>`, and "
+        "`details.invalid` carries each as `{field, reason}`; otherwise the message is the builder's own "
+        "and `details.invalid` is absent. `models[<n>]` counts the models as the spec file lists them after a push, and "
+        "under `push --release` each such line and entry also names its model (`model`: its filename, "
+        "else its link without query, fragment or userinfo, else its local path). "
+        "The cut refuses two things under this code that are not the definition, and the message then "
+        "says the builder refused the release: a `targets[<n>]` field (a repeated os/gpu pair, one the "
+        "builder cannot build) is the n-th `--target` value, and the hint points at "
+        "`comfy build refs build-targets`; a `blob:<id>` field (`not uploaded`, `unknown blob`, an uploaded "
+        "size or content that does not match) is a model's file or a node's zip that never reached the "
+        "builder whole, and the hint says to delete that `blobId` from its entry and push again, which "
+        "uploads the file; an entry with no `source: local` first needs one, with a `localPath`, or "
+        "another source it can take (a model's `sourceUri`, a node's `registryVersion` or `repository`). "
+        "A refusal of several kinds names each fix.",
+        "fix each named field in the spec, then push again; a retry of the same definition is refused the same way",
     ),
     ErrorCode(
         "build_release_held",
@@ -1385,13 +1420,14 @@ REGISTRY: tuple[ErrorCode, ...] = (
     ),
     ErrorCode(
         "deploy_server_error",
-        "A deploy control-plane request failed in transport or returned an HTTP 5xx. Mutating requests are not retried because their outcome may be unknown.",
+        "A deploy control-plane request failed in transport or returned an HTTP 5xx. Mutating requests are not retried because their outcome may be unknown; a watch's reads are retried first (see `deploy_watch_lost`).",
         "check network access and COMFY_DEPLOY_URL; retry only after confirming the deployment state",
     ),
     ErrorCode(
         "deploy_not_signed_in",
-        "A deploy control-plane request found no usable Cloud JWT, or the server rejected it with HTTP 401.",
-        "run `comfy cloud login`, then retry",
+        "A deploy control-plane request found no workspace API key and no usable Cloud JWT, or the server "
+        "rejected the one it sent with HTTP 401.",
+        "run `comfy cloud login`, or set COMFY_CLOUD_API_KEY to a workspace API key, then retry",
     ),
     ErrorCode(
         "deploy_not_found",
@@ -1447,6 +1483,14 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "`unhealthy`, inspect `comfy deploy logs`, or `comfy deploy stop` to stop billing",
     ),
     ErrorCode(
+        "deploy_watch_lost",
+        "The deploy control plane left the reads of a watch (`comfy deploy up`, `comfy deploy status --watch`) "
+        "unanswered, with an HTTP 5xx or no response, for the whole retry window of about a minute. Only the watch "
+        "ended: the deployment's outcome is unknown and it may still be coming up. The exit code is 75, not 1, so a "
+        "script can tell this from a deployment that failed. `details.deployment_id` names the deployment.",
+        "re-attach with `comfy deploy status --deployment <id> --watch` once the deploy service answers again",
+    ),
+    ErrorCode(
         "deploy_delete_needs_confirm",
         "`comfy deploy delete` was run without `--yes` in a non-interactive context. The irreversible "
         "teardown and soft-delete are refused without explicit consent; `details.deploymentId` names the "
@@ -1480,6 +1524,18 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "`details.node_errors` carries structured per-node failures only when the server sent them, which "
         "this route usually does not.",
         "fix the workflow as `message` describes, then submit again with a new idempotency key",
+    ),
+    ErrorCode(
+        "deploy_workflow_too_large",
+        "The job submission is larger than a deployment accepts, 10,000,000 bytes (10 MB), so no job was "
+        "created. Usually raised locally before the job request is sent, with `details.request_bytes` and "
+        "`details.limit_bytes`; an HTTP 413 from the deployment, which refuses the request before creating a "
+        "job, maps here too. Files the workflow names may already have been uploaded as assets by then; a "
+        "resubmit finds them by hash and does not upload them again. The size is almost always data held inline in the workflow, such as an embedded "
+        "base64 image or a long text value. Files the workflow names by path are uploaded separately and do "
+        "not count.",
+        "make the workflow smaller: move large inline data into a file under the install's input/ directory "
+        "and name that file in the node's input where the node accepts one, then submit again",
     ),
     ErrorCode(
         "deploy_workflow_empty",
@@ -1528,8 +1584,11 @@ REGISTRY: tuple[ErrorCode, ...] = (
     ),
     ErrorCode(
         "deploy_job_submit_unknown",
-        "A job submission timed out, lost its connection, or returned HTTP 5xx, so the job may exist. The v2 API has no job-list endpoint, idempotency-key lookup, or client-supplied job id with which to find it.",
-        "do not resubmit automatically because the possibly-created job cannot be found through the v2 API",
+        "A job submission timed out, lost its connection, or returned HTTP 5xx, so the job may exist. No job id "
+        "came back, and the CLI has no command that finds a job by its idempotency key, so it cannot say whether "
+        "the job was created. `details.idempotency_key` is the key sent with the submission.",
+        "do not resubmit automatically: every `comfy deploy run` uses a new idempotency key, so a resubmit is a "
+        "second billed job if the first one was created",
     ),
     ErrorCode(
         "deploy_job_failed",

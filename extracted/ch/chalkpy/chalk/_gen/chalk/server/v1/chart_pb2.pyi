@@ -19,6 +19,12 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class SelectedOutput(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SELECTED_OUTPUT_UNSPECIFIED: _ClassVar[SelectedOutput]
+    SELECTED_OUTPUT_SERIES: _ClassVar[SelectedOutput]
+    SELECTED_OUTPUT_FORMULA: _ClassVar[SelectedOutput]
+
 class ChartMetricsBackend(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     CHART_METRICS_BACKEND_UNSPECIFIED: _ClassVar[ChartMetricsBackend]
@@ -53,6 +59,9 @@ class MetricHealthStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_HEALTH_STATUS_UNHEALTHY: _ClassVar[MetricHealthStatus]
     METRIC_HEALTH_STATUS_NO_CHECKS: _ClassVar[MetricHealthStatus]
 
+SELECTED_OUTPUT_UNSPECIFIED: SelectedOutput
+SELECTED_OUTPUT_SERIES: SelectedOutput
+SELECTED_OUTPUT_FORMULA: SelectedOutput
 CHART_METRICS_BACKEND_UNSPECIFIED: ChartMetricsBackend
 CHART_METRICS_BACKEND_TIMESCALE: ChartMetricsBackend
 CHART_METRICS_BACKEND_VICTORIA_METRICS: ChartMetricsBackend
@@ -401,6 +410,29 @@ class UpdateMetricConfigResponse(_message.Message):
     metric_config: _chart_pb2.MetricConfig
     def __init__(self, metric_config: _Optional[_Union[_chart_pb2.MetricConfig, _Mapping]] = ...) -> None: ...
 
+class DecompileMetricConfigRequest(_message.Message):
+    __slots__ = ("metric_config", "selected_output", "metric_context_index")
+    METRIC_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    SELECTED_OUTPUT_FIELD_NUMBER: _ClassVar[int]
+    METRIC_CONTEXT_INDEX_FIELD_NUMBER: _ClassVar[int]
+    metric_config: _chart_pb2.MetricConfig
+    selected_output: SelectedOutput
+    metric_context_index: int
+    def __init__(
+        self,
+        metric_config: _Optional[_Union[_chart_pb2.MetricConfig, _Mapping]] = ...,
+        selected_output: _Optional[_Union[SelectedOutput, str]] = ...,
+        metric_context_index: _Optional[int] = ...,
+    ) -> None: ...
+
+class DecompileMetricConfigResponse(_message.Message):
+    __slots__ = ("mql_series", "mql_formula")
+    MQL_SERIES_FIELD_NUMBER: _ClassVar[int]
+    MQL_FORMULA_FIELD_NUMBER: _ClassVar[int]
+    mql_series: _containers.RepeatedScalarFieldContainer[str]
+    mql_formula: str
+    def __init__(self, mql_series: _Optional[_Iterable[str]] = ..., mql_formula: _Optional[str] = ...) -> None: ...
+
 class GetChartSnapshotRequest(_message.Message):
     __slots__ = (
         "metric_config",
@@ -537,21 +569,24 @@ class GetChartSnapshotByQueryResponse(_message.Message):
     ) -> None: ...
 
 class StatisticResult(_message.Message):
-    __slots__ = ("value", "unit", "previous_value", "comparison_lookback_offset")
+    __slots__ = ("value", "unit", "previous_value", "comparison_lookback_offset", "evaluated_window")
     VALUE_FIELD_NUMBER: _ClassVar[int]
     UNIT_FIELD_NUMBER: _ClassVar[int]
     PREVIOUS_VALUE_FIELD_NUMBER: _ClassVar[int]
     COMPARISON_LOOKBACK_OFFSET_FIELD_NUMBER: _ClassVar[int]
+    EVALUATED_WINDOW_FIELD_NUMBER: _ClassVar[int]
     value: float
     unit: str
     previous_value: float
     comparison_lookback_offset: _duration_pb2.Duration
+    evaluated_window: _duration_pb2.Duration
     def __init__(
         self,
         value: _Optional[float] = ...,
         unit: _Optional[str] = ...,
         previous_value: _Optional[float] = ...,
         comparison_lookback_offset: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        evaluated_window: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...
 
 class DeleteChartRequest(_message.Message):

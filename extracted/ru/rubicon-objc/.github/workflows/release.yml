@@ -5,17 +5,28 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     name: CI
-    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      pull-requests: write
+    uses: $/.github/workflows/ci.yml
     with:
       attest-package: "true"
 
   docs:
     name: Verify Docs Build
+    permissions:
+      contents: read
     uses: beeware/.github/.github/workflows/docs-build-verify.yml@main
-    secrets: inherit
+    secrets:
+      RTD_API_TOKEN: ${{ secrets.RTD_API_TOKEN }}
     with:
       project-name: "rubicon-objc"
       project-version: ${{ github.ref_name }}
@@ -32,13 +43,20 @@ jobs:
         run: |
           echo "VERSION=${GITHUB_REF_NAME#v}" | tee -a $GITHUB_ENV
 
-      - name: Set up Python
-        uses: actions/setup-python@v6.3.0
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: "3.X"
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.x"
 
       - name: Get packages
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           name: ${{ needs.ci.outputs.artifact-name }}
           path: dist
@@ -53,13 +71,16 @@ jobs:
           set -x
           test $(python -c "from rubicon.objc import __version__; print(__version__)") = $VERSION
 
-      - name: Create Release
-        uses: ncipollo/release-action@v1.21.0
-        with:
-          name: ${{ env.VERSION }}
-          draft: true
-          artifacts: dist/*
-          artifactErrorsFailBuild: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${VERSION}" \
+            --draft \
+            --verify-tag \
+            dist/*
 
   test-publish:
     name: Publish test package
@@ -71,12 +92,12 @@ jobs:
       id-token: write
     steps:
       - name: Get packages
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           name: ${{ needs.ci.outputs.artifact-name }}
           path: dist
 
       - name: Publish release to Test PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/

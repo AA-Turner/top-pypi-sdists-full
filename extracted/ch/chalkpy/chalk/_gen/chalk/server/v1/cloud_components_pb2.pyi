@@ -790,17 +790,19 @@ class DeploymentManifestUpdate(_message.Message):
     def __init__(self) -> None: ...
 
 class ClusterDeploymentManifest(_message.Message):
-    __slots__ = ("cluster", "cloud_config", "team", "vpc", "cluster_id")
+    __slots__ = ("cluster", "cloud_config", "team", "vpc", "cluster_id", "replication_source")
     CLUSTER_FIELD_NUMBER: _ClassVar[int]
     CLOUD_CONFIG_FIELD_NUMBER: _ClassVar[int]
     TEAM_FIELD_NUMBER: _ClassVar[int]
     VPC_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    REPLICATION_SOURCE_FIELD_NUMBER: _ClassVar[int]
     cluster: CloudComponentCluster
     cloud_config: _cloud_config_pb2.CloudConfig
     team: _team_pb2.Team
     vpc: CloudComponentVpc
     cluster_id: str
+    replication_source: ClusterReplicationSource
     def __init__(
         self,
         cluster: _Optional[_Union[CloudComponentCluster, _Mapping]] = ...,
@@ -808,6 +810,7 @@ class ClusterDeploymentManifest(_message.Message):
         team: _Optional[_Union[_team_pb2.Team, _Mapping]] = ...,
         vpc: _Optional[_Union[CloudComponentVpc, _Mapping]] = ...,
         cluster_id: _Optional[str] = ...,
+        replication_source: _Optional[_Union[ClusterReplicationSource, _Mapping]] = ...,
     ) -> None: ...
 
 class VpcDeploymentManifest(_message.Message):
@@ -845,6 +848,7 @@ class CloudComponentClusterResponse(_message.Message):
         "status",
         "status_error",
         "effective_maintenance_window",
+        "cluster_replication_source_id",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -861,6 +865,7 @@ class CloudComponentClusterResponse(_message.Message):
     STATUS_FIELD_NUMBER: _ClassVar[int]
     STATUS_ERROR_FIELD_NUMBER: _ClassVar[int]
     EFFECTIVE_MAINTENANCE_WINDOW_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_REPLICATION_SOURCE_ID_FIELD_NUMBER: _ClassVar[int]
     name: str
     id: str
     designator: str
@@ -876,6 +881,7 @@ class CloudComponentClusterResponse(_message.Message):
     status: str
     status_error: str
     effective_maintenance_window: MaintenanceWindow
+    cluster_replication_source_id: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -893,6 +899,7 @@ class CloudComponentClusterResponse(_message.Message):
         status: _Optional[str] = ...,
         status_error: _Optional[str] = ...,
         effective_maintenance_window: _Optional[_Union[MaintenanceWindow, _Mapping]] = ...,
+        cluster_replication_source_id: _Optional[str] = ...,
     ) -> None: ...
 
 class CloudComponentClusterRequest(_message.Message):
@@ -917,10 +924,16 @@ class CloudComponentClusterRequest(_message.Message):
     ) -> None: ...
 
 class CreateCloudComponentClusterRequest(_message.Message):
-    __slots__ = ("cluster",)
+    __slots__ = ("cluster", "cluster_replication_source_id")
     CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_REPLICATION_SOURCE_ID_FIELD_NUMBER: _ClassVar[int]
     cluster: CloudComponentClusterRequest
-    def __init__(self, cluster: _Optional[_Union[CloudComponentClusterRequest, _Mapping]] = ...) -> None: ...
+    cluster_replication_source_id: str
+    def __init__(
+        self,
+        cluster: _Optional[_Union[CloudComponentClusterRequest, _Mapping]] = ...,
+        cluster_replication_source_id: _Optional[str] = ...,
+    ) -> None: ...
 
 class CreateCloudComponentClusterResponse(_message.Message):
     __slots__ = ("cluster",)
@@ -1023,6 +1036,61 @@ class ListServerlessClustersResponse(_message.Message):
     CLUSTERS_FIELD_NUMBER: _ClassVar[int]
     clusters: _containers.RepeatedCompositeFieldContainer[ServerlessCluster]
     def __init__(self, clusters: _Optional[_Iterable[_Union[ServerlessCluster, _Mapping]]] = ...) -> None: ...
+
+class RecoveryClusterTarget(_message.Message):
+    __slots__ = (
+        "id",
+        "environment_id",
+        "cluster_id",
+        "dataplane_db_backup_secret",
+        "dataplane_db_backup_direct_secret",
+        "active",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    DATAPLANE_DB_BACKUP_SECRET_FIELD_NUMBER: _ClassVar[int]
+    DATAPLANE_DB_BACKUP_DIRECT_SECRET_FIELD_NUMBER: _ClassVar[int]
+    ACTIVE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    environment_id: str
+    cluster_id: str
+    dataplane_db_backup_secret: str
+    dataplane_db_backup_direct_secret: str
+    active: bool
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        environment_id: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
+        dataplane_db_backup_secret: _Optional[str] = ...,
+        dataplane_db_backup_direct_secret: _Optional[str] = ...,
+        active: bool = ...,
+    ) -> None: ...
+
+class CreateRecoverClusterTargetRequest(_message.Message):
+    __slots__ = ("environment_id", "cluster_id", "dataplane_db_backup_secret", "dataplane_db_backup_direct_secret")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    DATAPLANE_DB_BACKUP_SECRET_FIELD_NUMBER: _ClassVar[int]
+    DATAPLANE_DB_BACKUP_DIRECT_SECRET_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    cluster_id: str
+    dataplane_db_backup_secret: str
+    dataplane_db_backup_direct_secret: str
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
+        dataplane_db_backup_secret: _Optional[str] = ...,
+        dataplane_db_backup_direct_secret: _Optional[str] = ...,
+    ) -> None: ...
+
+class CreateRecoverClusterTargetResponse(_message.Message):
+    __slots__ = ("recovery_cluster_target",)
+    RECOVERY_CLUSTER_TARGET_FIELD_NUMBER: _ClassVar[int]
+    recovery_cluster_target: RecoveryClusterTarget
+    def __init__(self, recovery_cluster_target: _Optional[_Union[RecoveryClusterTarget, _Mapping]] = ...) -> None: ...
 
 class CreateCloudComponentStorageRequest(_message.Message):
     __slots__ = ("storage",)
@@ -1724,3 +1792,51 @@ class DataplaneControllerDynamicConfig(_message.Message):
 class HypervisorDynamicConfig(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class ListRecoveryClusterTargetsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListRecoveryClusterTargetsResponse(_message.Message):
+    __slots__ = ("recovery_cluster_targets",)
+    RECOVERY_CLUSTER_TARGETS_FIELD_NUMBER: _ClassVar[int]
+    recovery_cluster_targets: _containers.RepeatedCompositeFieldContainer[RecoveryClusterTarget]
+    def __init__(
+        self, recovery_cluster_targets: _Optional[_Iterable[_Union[RecoveryClusterTarget, _Mapping]]] = ...
+    ) -> None: ...
+
+class ActivateRecoveryClusterTargetRequest(_message.Message):
+    __slots__ = ("recovery_cluster_target_id",)
+    RECOVERY_CLUSTER_TARGET_ID_FIELD_NUMBER: _ClassVar[int]
+    recovery_cluster_target_id: str
+    def __init__(self, recovery_cluster_target_id: _Optional[str] = ...) -> None: ...
+
+class ActivateRecoveryClusterTargetResponse(_message.Message):
+    __slots__ = ("recovery_cluster_target",)
+    RECOVERY_CLUSTER_TARGET_FIELD_NUMBER: _ClassVar[int]
+    recovery_cluster_target: RecoveryClusterTarget
+    def __init__(self, recovery_cluster_target: _Optional[_Union[RecoveryClusterTarget, _Mapping]] = ...) -> None: ...
+
+class DeactivateRecoveryClusterTargetRequest(_message.Message):
+    __slots__ = ("recovery_cluster_target_id",)
+    RECOVERY_CLUSTER_TARGET_ID_FIELD_NUMBER: _ClassVar[int]
+    recovery_cluster_target_id: str
+    def __init__(self, recovery_cluster_target_id: _Optional[str] = ...) -> None: ...
+
+class DeactivateRecoveryClusterTargetResponse(_message.Message):
+    __slots__ = ("recovery_cluster_target",)
+    RECOVERY_CLUSTER_TARGET_FIELD_NUMBER: _ClassVar[int]
+    recovery_cluster_target: RecoveryClusterTarget
+    def __init__(self, recovery_cluster_target: _Optional[_Union[RecoveryClusterTarget, _Mapping]] = ...) -> None: ...
+
+class ClusterReplicationSource(_message.Message):
+    __slots__ = ("source_cluster", "source_cloud_credentials")
+    SOURCE_CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_CLOUD_CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
+    source_cluster: CloudComponentCluster
+    source_cloud_credentials: _cloud_config_pb2.CloudConfig
+    def __init__(
+        self,
+        source_cluster: _Optional[_Union[CloudComponentCluster, _Mapping]] = ...,
+        source_cloud_credentials: _Optional[_Union[_cloud_config_pb2.CloudConfig, _Mapping]] = ...,
+    ) -> None: ...

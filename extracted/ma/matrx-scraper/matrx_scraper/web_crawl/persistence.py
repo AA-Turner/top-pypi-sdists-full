@@ -1920,12 +1920,12 @@ class CanonicalBodyPersister:
             "owner_id": self.state.file_owner_id,
             "organization_id": self.state.organization_id,
             "mime_type": mime_type,
-            # ORG-INTERNAL, never personal. A crawl artifact belongs to the
-            # organization, not the individual who triggered the run — every
-            # member (e.g. the marketing team) must be able to see it. `personal`
-            # is owner-only and would hide crawl data from the org. This is a hard
-            # product rule (Arman): crawler output is NEVER personal.
-            "visibility": "internal",
+            # THE ORGANIZATION'S, never kept to one person and never published to the
+            # web. A crawl artifact belongs to the organization, not the individual who
+            # triggered the run — every member (e.g. the marketing team) must be able to
+            # find it, so shown_to stays NULL (the type's knob), never ``only_me``. This
+            # is a hard product rule (Arman): crawler output is NEVER personal.
+            "published_to_web": False,
             "change_summary": "Immutable web crawl capture",
             "metadata": {
                 "organization_id": self.state.organization_id,
@@ -1948,9 +1948,10 @@ class CanonicalBodyPersister:
             raise RuntimeError(f"canonical file write returned no result for {file_path}")
         if not result.is_new:
             raise RuntimeError(f"immutable artifact reused an existing file row: {file_path}")
-        if result.visibility != "internal":
+        if result.published_to_web or result.shown_to == "only_me":
             raise RuntimeError(
-                f"crawler artifact must be org-internal, not {result.visibility!r}: "
+                "crawler artifact must be the organization's and unpublished, not "
+                f"published_to_web={result.published_to_web!r} shown_to={result.shown_to!r}: "
                 f"{result.file_id} (crawl output is never personal — the org must see it)"
             )
         if not result.storage_uri.startswith("s3://"):

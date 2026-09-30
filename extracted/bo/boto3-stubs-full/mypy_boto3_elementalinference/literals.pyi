@@ -26,6 +26,7 @@ __all__ = (
     "DictionaryLanguageType",
     "DictionaryStatusType",
     "ElementalInferenceServiceName",
+    "ExtendedAnalysisModeType",
     "FeedDeletedWaiterName",
     "FeedStatusType",
     "FilterNameType",
@@ -45,6 +46,7 @@ __all__ = (
 DataSourceSportType = Literal["american-football", "basketball"]
 DictionaryLanguageType = Literal["deu", "eng", "fra", "ita", "por", "spa"]
 DictionaryStatusType = Literal["AVAILABLE", "CREATING", "DELETED", "DELETING", "REFERENCED"]
+ExtendedAnalysisModeType = Literal["DISABLED", "ENABLED"]
 FeedDeletedWaiterName = Literal["feed_deleted"]
 FeedStatusType = Literal[
     "ACTIVE", "ARCHIVED", "AVAILABLE", "CREATING", "DELETED", "DELETING", "UPDATING"

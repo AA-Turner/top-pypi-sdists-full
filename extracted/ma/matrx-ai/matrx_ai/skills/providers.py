@@ -19,6 +19,7 @@ from typing import Any, Literal, Protocol
 from uuid import UUID
 
 from matrx_utils import vcprint
+from matrx_utils.row_access import is_published
 
 from matrx_ai.skills.models import SkillBody, SkillHint, not_runnable_tooling
 
@@ -195,7 +196,7 @@ class DbSkillProvider:
 
     Ownership filter: when ``user_id`` is passed, results are scoped to
     skills the user owns (``created_by``) OR system skills (``is_system=true``)
-    OR public skills (``visibility='public'``). Mirrors ``_visible_rows`` in
+    OR skills published to the web (``published_to_web``). Mirrors ``_visible_rows`` in
     ``aidream/api/routers/skills.py``.
     """
 
@@ -302,17 +303,17 @@ class DbSkillProvider:
                 return cached[1]
             mgr = self._defs_manager()
             # `is_system` is a curation flag ("platform-maintained, not
-            # user-authored") — NOT a visibility override. Filesystem ingest
+            # user-authored") — NOT an access override. Filesystem ingest
             # (`ingest_filesystem`) writes every row with is_system=true, so
-            # without the visibility check here every ingested dev-tooling
-            # skill (default visibility='internal') would leak into every
+            # without the published check here every ingested dev-tooling
+            # skill (default: not published) would leak into every
             # user's agent catalog. Only public system skills belong here;
             # internal ones stay admin-only, same as the RLS/`has_access`
             # semantics on the direct-Supabase read path.
             system_rows = await mgr.filter_items(
-                is_active=True, is_system=True, visibility="public"
+                is_active=True, is_system=True, published_to_web=True
             )
-            public_rows = await mgr.filter_items(is_active=True, visibility="public")
+            public_rows = await mgr.filter_items(is_active=True, published_to_web=True)
             seen: set[str] = set()
             rows: list[Any] = []
             for row in [*system_rows, *public_rows]:
@@ -418,11 +419,11 @@ class DbSkillProvider:
             return None
 
         # Ownership gate — same shape as the universe in _fetch_visible.
-        # `is_system` alone doesn't grant visibility (see _get_system_public_rows) —
-        # a non-owner needs the row to actually be public.
+        # `is_system` alone doesn't grant access (see _get_system_public_rows) —
+        # a non-owner needs the row to actually be published to the web.
         if user_id is not None:
             is_owner = str(getattr(row, "created_by", "") or "") == str(user_id)
-            is_public = getattr(row, "visibility", None) == "public"
+            is_public = is_published(row)
             if not (is_owner or is_public):
                 return None
 

@@ -154,7 +154,7 @@ def table(monkeypatch: pytest.MonkeyPatch) -> RlsNotesTable:
             "folder_name": "Pharmacy",
             "content": NOTE_BODY,
             "tags": ["dea", "pharmacy"],
-            "visibility": "internal",
+            "published_to_web": False,
             "organization_id": CLINIC_ORG,
             "created_by": OWNER,
             "version": 4,

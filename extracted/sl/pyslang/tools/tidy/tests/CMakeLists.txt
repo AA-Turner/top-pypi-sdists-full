@@ -30,7 +30,17 @@ add_executable(
   UnusedSensitiveSignalTest.cpp
   PrintConfigTest.cpp
   UndrivenRangeTest.cpp
-  LoopBeforeResetCheckTest.cpp)
+  LoopBeforeResetCheckTest.cpp
+  NoCaseXTest.cpp
+  NoDefParamTest.cpp
+  TypedefEnumsTest.cpp
+  TypedefStructUnionTest.cpp
+  CoverageNameTest.cpp
+  EnumNameTest.cpp
+  StructNameTest.cpp
+  UnionNameTest.cpp
+  TypedefNameTest.cpp
+  StructFieldsInSameProcessTest.cpp)
 
 target_link_libraries(tidy_unittests PRIVATE Catch2::Catch2 slang_tidy_obj_lib)
 target_compile_definitions(tidy_unittests PRIVATE UNITTESTS)

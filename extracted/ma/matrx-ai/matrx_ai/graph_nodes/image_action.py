@@ -92,7 +92,7 @@ class GeneratedImage(BaseModel):
     # to re-mint one. Same envelope shape as the sibling ``image.edit.apply``
     # node (aidream/graph_actions/image/edit.py); the fields it can fill from a
     # cld_files record but an ``ImageContent`` block does not carry
-    # (``download_url``, ``visibility``) are
+    # (``download_url``, ``published_to_web``) are
     # deliberately absent rather than guessed — resolve them from ``file_id``.
     file_id: str | None = Field(
         default=None,

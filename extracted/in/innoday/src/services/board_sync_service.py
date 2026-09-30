@@ -1332,7 +1332,7 @@ board_sync_service = BoardSyncService()
 
 
 #: What an orphaned row says about itself once it has been reaped -- written for
-#: whoever reads `board sync-status` next, so it names the cause rather than
+#: whoever reads `innoday status` next, so it names the cause rather than
 #: leaving a bare FAILED.
 #:
 #: It deliberately does **not** say the run is dead, and does not say "just sync

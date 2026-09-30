@@ -1,4 +1,5 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.server.v1 import datasets_pb2 as _datasets_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -193,7 +194,15 @@ class GetSqlQuerySignedUrlsRequest(_message.Message):
     def __init__(self, query_id: _Optional[str] = ...) -> None: ...
 
 class GetSqlQuerySignedUrlsResponse(_message.Message):
-    __slots__ = ("signed_result_urls",)
+    __slots__ = ("signed_result_urls", "performance_summary_links")
     SIGNED_RESULT_URLS_FIELD_NUMBER: _ClassVar[int]
+    PERFORMANCE_SUMMARY_LINKS_FIELD_NUMBER: _ClassVar[int]
     signed_result_urls: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, signed_result_urls: _Optional[_Iterable[str]] = ...) -> None: ...
+    performance_summary_links: _containers.RepeatedCompositeFieldContainer[_datasets_pb2.ShardPerformanceSummaryLink]
+    def __init__(
+        self,
+        signed_result_urls: _Optional[_Iterable[str]] = ...,
+        performance_summary_links: _Optional[
+            _Iterable[_Union[_datasets_pb2.ShardPerformanceSummaryLink, _Mapping]]
+        ] = ...,
+    ) -> None: ...

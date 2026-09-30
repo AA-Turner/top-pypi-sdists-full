@@ -14,10 +14,11 @@ BUSINESS_METRICS_MANAGER`` keeps working and no importer had to change.
 
 import logging
 import os
-import re
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
+from ...clients import identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.bootstrap import get_action_id
 from .business_metrics_aggregation_utils import (
     AGGREGATION_TYPES,
     BUSINESS_METRICS_MANAGER,
@@ -48,11 +49,21 @@ class BusinessMetricsManagerFactory:
     following the same pattern as IncidentManagerFactory.
     """
 
-    ACTION_ID_PATTERN = re.compile(r"^[0-9a-f]{8,}$", re.IGNORECASE)
-
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(
+        self,
+        logger: Optional[logging.Logger] = None,
+        client: Optional[AnalyticsClient] = None,
+    ):
+        """
+        Args:
+            logger: Python logger instance.
+            client: The platform client to make calls through. Absent one, a client is built
+                on the session this factory already resolves, so a caller that passes nothing
+                sends exactly the requests it sent before.
+        """
         self.logger = logger or logging.getLogger(__name__)
         self._initialized = False
+        self._client = client
         self._business_metrics_manager: Optional[BUSINESS_METRICS_MANAGER] = None
 
         # Store these for later access
@@ -63,6 +74,16 @@ class BusinessMetricsManagerFactory:
         self._app_deployment_id: Optional[str] = None
         self._application_id: Optional[str] = None  # Store application_id from jobParams
         self._external_ip: Optional[str] = None
+
+    def _platform(self) -> AnalyticsClient:
+        """The client every platform call in this factory goes through.
+
+        The caller's when one was injected, otherwise one riding the session resolved above --
+        so the requests are the same either way.
+        """
+        if self._client is None:
+            self._client = AnalyticsClient(session=self._session)
+        return self._client
 
     def _resolve_session(self, config: Any, session_cls: Any) -> Any:
         """The session to make control-plane calls with: config's, else one from env."""
@@ -100,62 +121,36 @@ class BusinessMetricsManagerFactory:
     ) -> None:
         """Pull the deployment/application identifiers out of the action document.
 
-        ``application_id`` lives PRIMARILY in ``jobParams`` -- that is where the
-        control plane writes it; the ``actionDetails`` spellings are only a
-        fallback for older actions.
+        The per-field search order is the resolvers' and is not symmetric:
+        ``application_id`` is read from ``jobParams`` before ``actionDetails`` because that is
+        where the control plane writes it, and ``app_deployment_id`` the other way round. The
+        two slices disagree, so reading either in the other's order answers with the wrong id.
+
+        The camelCase spellings this used to try are gone. The action record carries
+        ``application_id`` and ``app_deployment_id`` and no other form of either, confirmed
+        with the platform, so those branches never fired.
         """
         self._deployment_id = action_details.get("_idDeployment") or action_details.get(
             "deployment_id"
         )
 
-        # app_deployment_id: check actionDetails first, then jobParams
-        self._app_deployment_id = (
-            action_details.get("app_deployment_id")
-            or action_details.get("appDeploymentId")
-            or action_details.get("app_deploymentId")
-            or job_params.get("app_deployment_id")
-            or job_params.get("appDeploymentId")
-            or job_params.get("app_deploymentId")
-            or ""
-        )
-
-        # application_id: PRIMARILY from jobParams (this is where it lives!)
-        self._application_id = (
-            job_params.get("application_id")
-            or job_params.get("applicationId")
-            or job_params.get("app_id")
-            or job_params.get("appId")
-            or action_details.get("application_id")
-            or action_details.get("applicationId")
-            or ""
-        )
+        record = {"actionDetails": action_details, "jobParams": job_params}
+        self._app_deployment_id = identity.resolve_app_deployment_id(action_record=lambda: record)
+        self._application_id = identity.resolve_application_id(action_record=lambda: record)
 
         self._instance_id = action_details.get("instanceID") or action_details.get("instanceId")
         self._external_ip = action_details.get("externalIP") or action_details.get("externalIp")
 
-    def _load_action_details(self, rpc: Any) -> Optional[Dict[str, Any]]:
+    def _load_action_details(self) -> Optional[Dict[str, Any]]:
         """Fetch this action's details and store its identifiers.
 
         Returns the ``actionDetails`` sub-document, or ``None`` when the call
         failed -- which the caller treats as "no metrics transport is possible".
         """
         try:
-            action_url = f"/v1/actions/action/{self._action_id}/details"
-            action_resp = rpc.get(action_url)
-            if not (action_resp and action_resp.get("success", False)):
-                raise RuntimeError(
-                    action_resp.get("message", "Unknown error")
-                    if isinstance(action_resp, dict)
-                    else "Unknown error"
-                )
-            action_doc = action_resp.get("data", {}) if isinstance(action_resp, dict) else {}
-            action_details = (
-                action_doc.get("actionDetails", {}) if isinstance(action_doc, dict) else {}
-            )
-
-            # IMPORTANT: jobParams contains application_id
-            # Structure: response['data']['jobParams']['application_id']
-            job_params = action_doc.get("jobParams", {}) if isinstance(action_doc, dict) else {}
+            record = self._platform().actions.get_action_details(self._action_id)
+            action_details = record.action_details
+            job_params = record.job_params
 
             # Extract server details
             server_id = (
@@ -245,18 +240,23 @@ class BusinessMetricsManagerFactory:
         )
         return False
 
-    def _redis_stream_kwargs(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Turn the instance's Redis server document into MatriceStream kwargs.
+    def _redis_stream_kwargs(self, server: Any) -> Dict[str, Any]:
+        """Turn the instance's Redis server record into MatriceStream kwargs.
 
-        Sentinel fields are only added when the document carries a sentinel
+        Sentinel fields are only added when the record carries a sentinel
         config, because MatriceStream switches to HA discovery on their presence.
+
+        ``username``, ``db`` and ``connection_timeout`` are stated rather than read. The
+        producer's published schema for this route declares none of the three, so the reads
+        they replace (``data.get("username")``, ``.get("db", 0)``,
+        ``.get("connection_timeout", 120)``) resolved to exactly these values on every call.
         """
-        password = data.get("password", "")
+        password = server.password
 
         # Sentinel HA support
         sentinel_hosts = None
         master_name = None
-        sentinel_cfg = data.get("sentinelConfig") or {}
+        sentinel_cfg = server.sentinel_config or {}
         if sentinel_cfg.get("sentinelHosts"):
             sentinel_hosts = [(h, 26379) for h in sentinel_cfg["sentinelHosts"]]
             master_name = sentinel_cfg.get("masterName")
@@ -267,35 +267,35 @@ class BusinessMetricsManagerFactory:
 
         print("----- BUSINESS METRICS MANAGER REDIS SERVER PARAMS -----")
         print(f"instance_id: {self._instance_id}")
-        print(f"host: {data.get('host')}")
-        print(f"port: {data.get('port')}")
-        print(f"username: {data.get('username')}")
+        print(f"host: {server.host}")
+        print(f"port: {server.port}")
+        print(f"username: {None}")
         print(f"password: {'*' * len(password) if password else ''}")
-        print(f"db: {data.get('db', 0)}")
-        print(f"connection_timeout: {data.get('connection_timeout', 120)}")
+        print(f"db: {0}")
+        print(f"connection_timeout: {120}")
         print(f"sentinel: {sentinel_str}")
         print("--------------------------------------------------------")
 
         self.logger.info(
             f"[BUSINESS_METRICS_MANAGER_FACTORY] Redis params - "
-            f"host={data.get('host')}, port={data.get('port')}, "
-            f"user={data.get('username')}, sentinel={sentinel_str}"
+            f"host={server.host}, port={server.port}, "
+            f"user={None}, sentinel={sentinel_str}"
         )
 
         stream_kwargs = dict(
-            host=data.get("host"),
-            port=int(data.get("port")),
+            host=server.host,
+            port=int(server.port),
             password=password,
-            username=data.get("username"),
-            db=data.get("db", 0),
-            connection_timeout=data.get("connection_timeout", 120),
+            username=None,
+            db=0,
+            connection_timeout=120,
         )
         if sentinel_hosts and master_name:
             stream_kwargs["sentinel_hosts"] = sentinel_hosts
             stream_kwargs["master_name"] = master_name
         return stream_kwargs
 
-    def _build_redis_client(self, rpc: Any, stream_cls: Any, stream_type: Any) -> Optional[Any]:
+    def _build_redis_client(self, stream_cls: Any, stream_type: Any) -> Optional[Any]:
         """Look up this instance's Redis server and open a stream on it.
 
         Returns ``None`` -- never raises -- when the instance id is unknown, the
@@ -309,20 +309,19 @@ class BusinessMetricsManagerFactory:
             return None
 
         try:
-            url = f"/v1/actions/get_redis_server_by_instance_id/{self._instance_id}"
             self.logger.info(
                 f"[BUSINESS_METRICS_MANAGER_FACTORY] Fetching Redis server info for instance: {self._instance_id}"
             )
-            response = rpc.get(url)
+            server = self._platform().actions.fetch_redis_server(self._instance_id)
 
-            if not (isinstance(response, dict) and response.get("success", False)):
+            if server is None:
                 self.logger.warning(
-                    f"[BUSINESS_METRICS_MANAGER_FACTORY] Failed to fetch Redis server info: "
-                    f"{response.get('message', 'Unknown error') if isinstance(response, dict) else 'Unknown error'}"
+                    "[BUSINESS_METRICS_MANAGER_FACTORY] Failed to fetch Redis server info: "
+                    f"no record for instance {self._instance_id}"
                 )
                 return None
 
-            stream_kwargs = self._redis_stream_kwargs(response.get("data", {}))
+            stream_kwargs = self._redis_stream_kwargs(server)
             redis_client = stream_cls(stream_type.REDIS, **stream_kwargs)
             # Setup for metrics publishing
             redis_client.setup("business_metrics")
@@ -401,10 +400,9 @@ class BusinessMetricsManagerFactory:
             )
 
             self._session = self._resolve_session(config, Session)
-            rpc = self._session.rpc
 
             # Discover action_id
-            self._action_id = self._discover_action_id()
+            self._action_id = get_action_id()
             if not self._action_id:
                 self.logger.error(
                     "[BUSINESS_METRICS_MANAGER_FACTORY] ❌ Could not discover action_id"
@@ -419,7 +417,7 @@ class BusinessMetricsManagerFactory:
                 f"[BUSINESS_METRICS_MANAGER_FACTORY] ✓ Discovered action_id: {self._action_id}"
             )
 
-            action_details = self._load_action_details(rpc)
+            action_details = self._load_action_details()
             if action_details is None:
                 self._initialized = True
                 return None
@@ -436,7 +434,7 @@ class BusinessMetricsManagerFactory:
             # STRICT SWITCH: Only Redis if localhost, Only Kafka if cloud
             if is_localhost:
                 # Initialize Redis client (ONLY) using instance_id
-                redis_client = self._build_redis_client(rpc, MatriceStream, StreamType)
+                redis_client = self._build_redis_client(MatriceStream, StreamType)
 
             # Create business metrics manager if we have at least one transport
             if redis_client or kafka_client:
@@ -467,56 +465,6 @@ class BusinessMetricsManagerFactory:
             self._initialized = True
             return None
 
-    def _discover_action_id(self) -> Optional[str]:
-        """Discover action_id from current working directory name (and parents)."""
-        try:
-            candidates: List[str] = []
-
-            try:
-                cwd = Path.cwd()
-                candidates.append(cwd.name)
-                for parent in cwd.parents:
-                    candidates.append(parent.name)
-            except OSError:
-                # Narrowed from `Exception`: everything in this block that can fail is a
-                # filesystem call -- `Path.cwd()` raises OSError when the process's cwd has
-                # been unlinked underneath it, and `.name`/`.parents` are pure string work.
-                # Non-fatal: cwd is only one of several action_id candidate sources.
-                self.logger.debug(
-                    "[BUSINESS_METRICS_MANAGER] cwd scan for action_id candidates failed",
-                    exc_info=True,
-                )
-
-            try:
-                usr_src = Path("/usr/src")
-                if usr_src.exists():
-                    for child in usr_src.iterdir():
-                        if child.is_dir():
-                            candidates.append(child.name)
-            except OSError:
-                # Narrowed from `Exception`: `exists`/`iterdir`/`is_dir` raise OSError
-                # subclasses (NotADirectoryError, PermissionError) and nothing else.
-                # Non-fatal: /usr/src is absent outside the container image.
-                self.logger.debug(
-                    "[BUSINESS_METRICS_MANAGER] /usr/src scan for action_id candidates failed",
-                    exc_info=True,
-                )
-
-            for candidate in candidates:
-                if candidate and len(candidate) >= 8 and self.ACTION_ID_PATTERN.match(candidate):
-                    return candidate
-        except Exception:  # noqa: BLE001 - outermost guard of a best-effort probe
-            # Kept broad deliberately: this is the function's never-raise boundary. Its
-            # contract is "return an action_id or None", callers have no handling for
-            # anything else, and it runs on the analytics startup path -- so an
-            # unanticipated failure anywhere below (including in either inner block once
-            # they are narrowed to OSError) must still read as "not discoverable".
-            # Non-fatal: callers treat an unresolved action_id as "not discoverable".
-            self.logger.debug(
-                "[BUSINESS_METRICS_MANAGER] action_id discovery failed", exc_info=True
-            )
-        return None
-
     def _get_public_ip(self) -> str:
         """This host's public IP; see :func:`.public_ip.resolve_public_ip_once`.
 
@@ -530,17 +478,6 @@ class BusinessMetricsManagerFactory:
         public_ip = resolve_public_ip_once(self.logger)
         self.logger.debug(f"[BUSINESS_METRICS_MANAGER_FACTORY] Public IP: {public_ip}")
         return public_ip
-
-    def _get_backend_base_url(self) -> str:
-        """Resolve backend base URL based on ENV variable."""
-        env = os.getenv("ENV", "prod").strip().lower()
-        if env in ("prod", "production"):
-            host = "prod.backend.app.matrice.ai"
-        elif env in ("dev", "development"):
-            host = "dev.backend.app.matrice.ai"
-        else:
-            host = "staging.backend.app.matrice.ai"
-        return f"https://{host}"
 
     @property
     def is_initialized(self) -> bool:

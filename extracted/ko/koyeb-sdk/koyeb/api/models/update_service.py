@@ -26,17 +26,29 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class UpdateService(BaseModel):
     """
     UpdateService
-    """ # noqa: E501
+    """  # noqa: E501
+
     definition: Optional[DeploymentDefinition] = None
     metadata: Optional[DeploymentMetadata] = None
-    skip_build: Optional[StrictBool] = Field(default=None, description="If set to true, the build stage will be skipped and the image coming from the last successful build step will be used instead. The call fails if no previous successful builds happened.")
+    skip_build: Optional[StrictBool] = Field(
+        default=None,
+        description="If set to true, the build stage will be skipped and the image coming from the last successful build step will be used instead. The call fails if no previous successful builds happened.",
+    )
     save_only: Optional[StrictBool] = None
     life_cycle: Optional[ServiceLifeCycle] = None
     instance_snapshot_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["definition", "metadata", "skip_build", "save_only", "life_cycle", "instance_snapshot_id"]
+    __properties: ClassVar[List[str]] = [
+        "definition",
+        "metadata",
+        "skip_build",
+        "save_only",
+        "life_cycle",
+        "instance_snapshot_id",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -44,7 +56,6 @@ class UpdateService(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -69,8 +80,7 @@ class UpdateService(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -79,13 +89,13 @@ class UpdateService(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of definition
         if self.definition:
-            _dict['definition'] = self.definition.to_dict()
+            _dict["definition"] = self.definition.to_dict()
         # override the default output from pydantic by calling `to_dict()` of metadata
         if self.metadata:
-            _dict['metadata'] = self.metadata.to_dict()
+            _dict["metadata"] = self.metadata.to_dict()
         # override the default output from pydantic by calling `to_dict()` of life_cycle
         if self.life_cycle:
-            _dict['life_cycle'] = self.life_cycle.to_dict()
+            _dict["life_cycle"] = self.life_cycle.to_dict()
         return _dict
 
     @classmethod
@@ -97,14 +107,20 @@ class UpdateService(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "definition": DeploymentDefinition.from_dict(obj["definition"]) if obj.get("definition") is not None else None,
-            "metadata": DeploymentMetadata.from_dict(obj["metadata"]) if obj.get("metadata") is not None else None,
-            "skip_build": obj.get("skip_build"),
-            "save_only": obj.get("save_only"),
-            "life_cycle": ServiceLifeCycle.from_dict(obj["life_cycle"]) if obj.get("life_cycle") is not None else None,
-            "instance_snapshot_id": obj.get("instance_snapshot_id")
-        })
+        _obj = cls.model_validate(
+            {
+                "definition": DeploymentDefinition.from_dict(obj["definition"])
+                if obj.get("definition") is not None
+                else None,
+                "metadata": DeploymentMetadata.from_dict(obj["metadata"])
+                if obj.get("metadata") is not None
+                else None,
+                "skip_build": obj.get("skip_build"),
+                "save_only": obj.get("save_only"),
+                "life_cycle": ServiceLifeCycle.from_dict(obj["life_cycle"])
+                if obj.get("life_cycle") is not None
+                else None,
+                "instance_snapshot_id": obj.get("instance_snapshot_id"),
+            }
+        )
         return _obj
-
-

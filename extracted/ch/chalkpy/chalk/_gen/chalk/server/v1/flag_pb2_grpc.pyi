@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.flag_pb2 import (
     GetFeatureFlagResponse,
     GetFeatureFlagsRequest,
     GetFeatureFlagsResponse,
+    GetTeamFeatureFlagsRequest,
+    GetTeamFeatureFlagsResponse,
     SetFeatureFlagRequest,
     SetFeatureFlagResponse,
 )
@@ -27,6 +29,10 @@ class FeatureFlagServiceStub:
     GetFeatureFlags: UnaryUnaryMultiCallable[
         GetFeatureFlagsRequest,
         GetFeatureFlagsResponse,
+    ]
+    GetTeamFeatureFlags: UnaryUnaryMultiCallable[
+        GetTeamFeatureFlagsRequest,
+        GetTeamFeatureFlagsResponse,
     ]
     GetFeatureFlag: UnaryUnaryMultiCallable[
         GetFeatureFlagRequest,
@@ -44,6 +50,12 @@ class FeatureFlagServiceServicer(metaclass=ABCMeta):
         request: GetFeatureFlagsRequest,
         context: ServicerContext,
     ) -> GetFeatureFlagsResponse: ...
+    @abstractmethod
+    def GetTeamFeatureFlags(
+        self,
+        request: GetTeamFeatureFlagsRequest,
+        context: ServicerContext,
+    ) -> GetTeamFeatureFlagsResponse: ...
     @abstractmethod
     def GetFeatureFlag(
         self,

@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
+    ActivateRecoveryClusterTargetRequest,
+    ActivateRecoveryClusterTargetResponse,
     CreateBindingClusterBackgroundPersistenceDeploymentRequest,
     CreateBindingClusterBackgroundPersistenceDeploymentResponse,
     CreateBindingClusterCloudStorageRequest,
@@ -36,6 +38,10 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     CreateCloudComponentStorageResponse,
     CreateCloudComponentVpcRequest,
     CreateCloudComponentVpcResponse,
+    CreateRecoverClusterTargetRequest,
+    CreateRecoverClusterTargetResponse,
+    DeactivateRecoveryClusterTargetRequest,
+    DeactivateRecoveryClusterTargetResponse,
     DeleteBindingClusterBackgroundPersistenceDeploymentRequest,
     DeleteBindingClusterBackgroundPersistenceDeploymentResponse,
     DeleteBindingClusterCloudStorageRequest,
@@ -120,6 +126,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     ListCloudComponentStorageResponse,
     ListCloudComponentVpcRequest,
     ListCloudComponentVpcResponse,
+    ListRecoveryClusterTargetsRequest,
+    ListRecoveryClusterTargetsResponse,
     ListServerlessClustersRequest,
     ListServerlessClustersResponse,
     TestClusterConnectionRequest,
@@ -159,6 +167,22 @@ class CloudComponentsServiceStub:
     CreateCloudComponentCluster: UnaryUnaryMultiCallable[
         CreateCloudComponentClusterRequest,
         CreateCloudComponentClusterResponse,
+    ]
+    CreateRecoverClusterTarget: UnaryUnaryMultiCallable[
+        CreateRecoverClusterTargetRequest,
+        CreateRecoverClusterTargetResponse,
+    ]
+    ListRecoveryClusterTargets: UnaryUnaryMultiCallable[
+        ListRecoveryClusterTargetsRequest,
+        ListRecoveryClusterTargetsResponse,
+    ]
+    ActivateRecoveryClusterTarget: UnaryUnaryMultiCallable[
+        ActivateRecoveryClusterTargetRequest,
+        ActivateRecoveryClusterTargetResponse,
+    ]
+    DeactivateRecoveryClusterTarget: UnaryUnaryMultiCallable[
+        DeactivateRecoveryClusterTargetRequest,
+        DeactivateRecoveryClusterTargetResponse,
     ]
     UpdateCloudComponentCluster: UnaryUnaryMultiCallable[
         UpdateCloudComponentClusterRequest,
@@ -419,6 +443,30 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: CreateCloudComponentClusterRequest,
         context: ServicerContext,
     ) -> CreateCloudComponentClusterResponse: ...
+    @abstractmethod
+    def CreateRecoverClusterTarget(
+        self,
+        request: CreateRecoverClusterTargetRequest,
+        context: ServicerContext,
+    ) -> CreateRecoverClusterTargetResponse: ...
+    @abstractmethod
+    def ListRecoveryClusterTargets(
+        self,
+        request: ListRecoveryClusterTargetsRequest,
+        context: ServicerContext,
+    ) -> ListRecoveryClusterTargetsResponse: ...
+    @abstractmethod
+    def ActivateRecoveryClusterTarget(
+        self,
+        request: ActivateRecoveryClusterTargetRequest,
+        context: ServicerContext,
+    ) -> ActivateRecoveryClusterTargetResponse: ...
+    @abstractmethod
+    def DeactivateRecoveryClusterTarget(
+        self,
+        request: DeactivateRecoveryClusterTargetRequest,
+        context: ServicerContext,
+    ) -> DeactivateRecoveryClusterTargetResponse: ...
     @abstractmethod
     def UpdateCloudComponentCluster(
         self,

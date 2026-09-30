@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.trigger_deployment_metadata_actor_type import TriggerDeploymentMetadataActorType
+from koyeb.api_async.models.trigger_deployment_metadata_actor_type import (
+    TriggerDeploymentMetadataActorType,
+)
+
 
 class TestTriggerDeploymentMetadataActorType(unittest.TestCase):
     """TriggerDeploymentMetadataActorType unit test stubs"""
@@ -29,5 +32,6 @@ class TestTriggerDeploymentMetadataActorType(unittest.TestCase):
         """Test TriggerDeploymentMetadataActorType"""
         # inst = TriggerDeploymentMetadataActorType()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

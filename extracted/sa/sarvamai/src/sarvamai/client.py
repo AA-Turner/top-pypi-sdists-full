@@ -35,6 +35,7 @@ if typing.TYPE_CHECKING:
     from .text.client import AsyncTextClient, TextClient
     from .text_to_speech.client import AsyncTextToSpeechClient, TextToSpeechClient
     from .text_to_speech_streaming.client import AsyncTextToSpeechStreamingClient, TextToSpeechStreamingClient
+    from .voice_cloning.client import AsyncVoiceCloningClient, VoiceCloningClient
 
 
 class SarvamAI:
@@ -112,6 +113,7 @@ class SarvamAI:
         self._text: typing.Optional[TextClient] = None
         self._speech_to_text: typing.Optional[SpeechToTextClient] = None
         self._text_to_speech: typing.Optional[TextToSpeechClient] = None
+        self._voice_cloning: typing.Optional[VoiceCloningClient] = None
         self._pronunciation_dictionary: typing.Optional[PronunciationDictionaryClient] = None
         self._chat: typing.Optional[ChatClient] = None
         self._speech_to_text_job: typing.Optional[SpeechToTextJobClient] = None
@@ -164,6 +166,14 @@ class SarvamAI:
 
             self._text_to_speech = TextToSpeechClient(client_wrapper=self._client_wrapper)
         return self._text_to_speech
+
+    @property
+    def voice_cloning(self):
+        if self._voice_cloning is None:
+            from .voice_cloning.client import VoiceCloningClient  # noqa: E402
+
+            self._voice_cloning = VoiceCloningClient(client_wrapper=self._client_wrapper)
+        return self._voice_cloning
 
     @property
     def pronunciation_dictionary(self):
@@ -341,6 +351,7 @@ class AsyncSarvamAI:
         self._text: typing.Optional[AsyncTextClient] = None
         self._speech_to_text: typing.Optional[AsyncSpeechToTextClient] = None
         self._text_to_speech: typing.Optional[AsyncTextToSpeechClient] = None
+        self._voice_cloning: typing.Optional[AsyncVoiceCloningClient] = None
         self._pronunciation_dictionary: typing.Optional[AsyncPronunciationDictionaryClient] = None
         self._chat: typing.Optional[AsyncChatClient] = None
         self._speech_to_text_job: typing.Optional[AsyncSpeechToTextJobClient] = None
@@ -393,6 +404,14 @@ class AsyncSarvamAI:
 
             self._text_to_speech = AsyncTextToSpeechClient(client_wrapper=self._client_wrapper)
         return self._text_to_speech
+
+    @property
+    def voice_cloning(self):
+        if self._voice_cloning is None:
+            from .voice_cloning.client import AsyncVoiceCloningClient  # noqa: E402
+
+            self._voice_cloning = AsyncVoiceCloningClient(client_wrapper=self._client_wrapper)
+        return self._voice_cloning
 
     @property
     def pronunciation_dictionary(self):

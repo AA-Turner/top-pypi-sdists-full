@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.get_datatable_permissions_response_200_cluster import GetDatatablePermissionsResponse200Cluster
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -23,13 +24,16 @@ T = TypeVar("T", bound="GetDatatablePermissionsResponse200")
 class GetDatatablePermissionsResponse200:
     """
     Attributes:
-        supported (bool): Whether this data table can be put under roles at all. Only one backed by the instance
-            database can: a role is a login on that cluster.
+        supported (bool): Whether this data table can be put under roles at all. Only one on a database Windmill manages
+            can: a role is a login on that database's cluster.
         permissioned (bool):
         default_role (str):
         roles (List['GetDatatablePermissionsResponse200RolesItem']):
         editable (bool):
         available_roles (List['GetDatatablePermissionsResponse200AvailableRolesItem']):
+        cluster (Union[Unset, GetDatatablePermissionsResponse200Cluster]): The Windmill-managed Postgres cluster a data
+            table role is a login on: Windmill's own (behind `instance` data tables) or the external instance cluster
+            (behind `external_instance` ones). Defaults to `instance`.
         governing_workspace_id (Union[Unset, str]):
         clone_of (Union[Unset, GetDatatablePermissionsResponse200CloneOf]): for a clone, the data table whose roles it
             takes
@@ -42,6 +46,7 @@ class GetDatatablePermissionsResponse200:
     roles: List["GetDatatablePermissionsResponse200RolesItem"]
     editable: bool
     available_roles: List["GetDatatablePermissionsResponse200AvailableRolesItem"]
+    cluster: Union[Unset, GetDatatablePermissionsResponse200Cluster] = UNSET
     governing_workspace_id: Union[Unset, str] = UNSET
     clone_of: Union[Unset, "GetDatatablePermissionsResponse200CloneOf"] = UNSET
     ungoverned_reachers: Union[Unset, List["GetDatatablePermissionsResponse200UngovernedReachersItem"]] = UNSET
@@ -63,6 +68,10 @@ class GetDatatablePermissionsResponse200:
             available_roles_item = available_roles_item_data.to_dict()
 
             available_roles.append(available_roles_item)
+
+        cluster: Union[Unset, str] = UNSET
+        if not isinstance(self.cluster, Unset):
+            cluster = self.cluster.value
 
         governing_workspace_id = self.governing_workspace_id
         clone_of: Union[Unset, Dict[str, Any]] = UNSET
@@ -89,6 +98,8 @@ class GetDatatablePermissionsResponse200:
                 "available_roles": available_roles,
             }
         )
+        if cluster is not UNSET:
+            field_dict["cluster"] = cluster
         if governing_workspace_id is not UNSET:
             field_dict["governing_workspace_id"] = governing_workspace_id
         if clone_of is not UNSET:
@@ -136,6 +147,13 @@ class GetDatatablePermissionsResponse200:
 
             available_roles.append(available_roles_item)
 
+        _cluster = d.pop("cluster", UNSET)
+        cluster: Union[Unset, GetDatatablePermissionsResponse200Cluster]
+        if isinstance(_cluster, Unset):
+            cluster = UNSET
+        else:
+            cluster = GetDatatablePermissionsResponse200Cluster(_cluster)
+
         governing_workspace_id = d.pop("governing_workspace_id", UNSET)
 
         _clone_of = d.pop("clone_of", UNSET)
@@ -161,6 +179,7 @@ class GetDatatablePermissionsResponse200:
             roles=roles,
             editable=editable,
             available_roles=available_roles,
+            cluster=cluster,
             governing_workspace_id=governing_workspace_id,
             clone_of=clone_of,
             ungoverned_reachers=ungoverned_reachers,

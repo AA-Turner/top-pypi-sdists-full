@@ -363,10 +363,14 @@ _META_COMMANDS = (
 
 
 def _selfupdate_parser() -> argparse.ArgumentParser:
+    from xbsl.selfupdate import STOP_MODES, STOP_SERVERS
+
     parser = i18n.ArgumentParser(prog="xbsl self-update",
                                  description=i18n.t("cli.help.commands.self-update"))
     parser.add_argument("--version", help=i18n.t("cli.help.selfupdate-version"))
-    parser.add_argument("--stop-holders", action="store_true",
+    # The bare flag stops the servers alone; the running commands of other sessions are ended
+    # only when asked for by name, `--stop-holders=all`.
+    parser.add_argument("--stop-holders", nargs="?", const=STOP_SERVERS, choices=STOP_MODES,
                         help=i18n.t("cli.help.selfupdate-stop"))
     return parser
 
@@ -377,7 +381,7 @@ def _selfupdate_main(argv: list[str]) -> int:
 
     args = _selfupdate_parser().parse_args(argv)
     try:
-        old, new = selfupdate.self_update(version=args.version, stop_busy=args.stop_holders,
+        old, new = selfupdate.self_update(version=args.version, stop=args.stop_holders or "",
                                           log=lambda msg: print(msg, file=sys.stderr))
     except selfupdate.SelfUpdateError as exc:
         print(json.dumps({"error": str(exc)}, ensure_ascii=False))
@@ -493,9 +497,10 @@ def _mcplog_line(event: dict) -> str:
     elif kind == "stale":
         # Written by the server that found the engine on disk replaced under it
         # (xbsl/freshness.py): a version on disk it refuses over, plugins it answers with a
-        # warning over, or sources changed under a failing call.
+        # warning over, sources changed under a failing call, or data files it read that
+        # changed since.
         reason = event.get("reason")
-        key = f"mcplog.stale.{reason}" if reason in ("sources", "plugins") else (
+        key = f"mcplog.stale.{reason}" if reason in ("sources", "plugins", "data") else (
             "mcplog.stale.version")
         error = event.get("error")
         changes = ""
@@ -504,6 +509,10 @@ def _mcplog_line(event: dict) -> str:
 
             changes = freshness.plugin_changes(event.get("changed") or []) or (
                 f"{event.get('loaded', '?')} -> {event.get('on_disk', '?')}")
+        elif reason == "data":
+            from xbsl import freshness
+
+            changes = freshness.data_changes(event) or "?"
         text = i18n.t(key, loaded=event.get("loaded", "?"), on_disk=event.get("on_disk", "?"),
                       tool=event.get("tool", "?"), changes=changes)
         if error:
@@ -511,7 +520,7 @@ def _mcplog_line(event: dict) -> str:
     elif kind == "restart":
         # Written by the supervisor (xbsl/mcp_supervisor.py): the worker it retires and why.
         reason = event.get("reason")
-        if reason in ("version", "sources", "plugins", "exited"):
+        if reason in ("version", "sources", "plugins", "data", "exited"):
             cause = i18n.t(f"mcplog.restart.{reason}", loaded=event.get("loaded", "?"),
                            on_disk=event.get("on_disk", "?"), code=event.get("code", "?"))
             text = i18n.t("mcplog.restart", target=event.get("target", "?"), cause=cause)
@@ -792,6 +801,11 @@ def _scaffold_parser() -> argparse.ArgumentParser:
     p.add_argument("--routes", help=i18n.t("cli.help.scaf.new-object-routes"))
     p.add_argument("--report", help=i18n.t("cli.help.scaf.new-object-report"))
     p.add_argument("--presentation", help=i18n.t("cli.help.scaf.no-presentation"))
+    p.add_argument("--object-presentation",
+                   help=i18n.t("cli.help.scaf.no-object-presentation"))
+    p.add_argument("--record-presentation",
+                   help=i18n.t("cli.help.scaf.no-record-presentation"))
+    p.add_argument("--periodicity", help=i18n.t("cli.help.scaf.no-periodicity"))
     p.add_argument("--base", help=i18n.t("cli.help.scaf.no-base"))
 
     p = command("add-field")
@@ -1206,6 +1220,9 @@ def _scaffold_main(argv: list[str]) -> int:
                 scope=args.scope, environment=args.environment, access=args.access,
                 routes=args.routes, presentation=args.presentation, base=args.base,
                 report=json.loads(args.report) if args.report else None,
+                object_presentation=args.object_presentation,
+                record_presentation=args.record_presentation,
+                periodicity=args.periodicity,
             )
         elif args.command == "add-field":
             result = scaffold.op_add_field(
@@ -1453,11 +1470,14 @@ def _scaffold_main(argv: list[str]) -> int:
             ))
             return 0
         elif args.command == "resource-references":
-            print(json.dumps(
-                scaffold.resource_references(Path(args.root), Path(args.resource_path),
-                                             limit=args.limit),
-                ensure_ascii=False,
-            ))
+            answer = scaffold.resource_references(Path(args.root), Path(args.resource_path),
+                                                  limit=args.limit)
+            print(json.dumps(answer, ensure_ascii=False))
+            if answer["hasMore"]:
+                # stdout stays one JSON document for a reader that parses it; the person at
+                # the terminal learns from stderr that the list is not all of the places.
+                print(i18n.t("cli.resource-references-more", shown=len(answer["references"]),
+                             total=answer["total"]), file=sys.stderr)
             return 0
         elif args.command == "unused-resources":
             from xbsl import resource_usage

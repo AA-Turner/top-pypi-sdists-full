@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 1.10.2
+Version: 1.10.3
 Summary: Crawlee for Python
 Keywords: apify,automation,chrome,crawlee,crawler,headless,scraper,scraping
 Author: Apify Technologies s.r.o.
@@ -22,6 +22,7 @@ Requires-Dist: cachetools>=5.5.0
 Requires-Dist: colorama>=0.4.0
 Requires-Dist: impit>=0.13.2
 Requires-Dist: more-itertools>=10.2.0
+Requires-Dist: proclimits>=0.2.0
 Requires-Dist: protego>=0.5.0
 Requires-Dist: psutil>=6.0.0
 Requires-Dist: pydantic-settings>=2.12.0
@@ -49,7 +50,6 @@ Requires-Dist: browserforge>=1.2.3 ; extra == 'httpx'
 Requires-Dist: opentelemetry-api>=1.34.1 ; extra == 'otel'
 Requires-Dist: opentelemetry-distro[otlp]>=0.54 ; extra == 'otel'
 Requires-Dist: opentelemetry-instrumentation>=0.54 ; extra == 'otel'
-Requires-Dist: opentelemetry-instrumentation-httpx>=0.54 ; extra == 'otel'
 Requires-Dist: opentelemetry-sdk>=1.34.1 ; extra == 'otel'
 Requires-Dist: opentelemetry-semantic-conventions>=0.54 ; extra == 'otel'
 Requires-Dist: wrapt>=1.17.0 ; extra == 'otel'

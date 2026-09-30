@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
@@ -76,6 +77,7 @@ class ScalingSpec(_message.Message):
         "gpu_utilization_trigger",
         "cron_scaling_trigger",
         "scale_from_zero_request_policy",
+        "task_queue_trigger",
     )
     MIN_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     MAX_REPLICAS_FIELD_NUMBER: _ClassVar[int]
@@ -86,6 +88,7 @@ class ScalingSpec(_message.Message):
     GPU_UTILIZATION_TRIGGER_FIELD_NUMBER: _ClassVar[int]
     CRON_SCALING_TRIGGER_FIELD_NUMBER: _ClassVar[int]
     SCALE_FROM_ZERO_REQUEST_POLICY_FIELD_NUMBER: _ClassVar[int]
+    TASK_QUEUE_TRIGGER_FIELD_NUMBER: _ClassVar[int]
     min_replicas: int
     max_replicas: int
     target_cpu_utilization_percentage: int
@@ -95,6 +98,7 @@ class ScalingSpec(_message.Message):
     gpu_utilization_trigger: GpuUtilizationScalingTrigger
     cron_scaling_trigger: CronScalingTrigger
     scale_from_zero_request_policy: ScaleFromZeroRequestPolicy
+    task_queue_trigger: TaskQueueScalingTrigger
     def __init__(
         self,
         min_replicas: _Optional[int] = ...,
@@ -106,6 +110,7 @@ class ScalingSpec(_message.Message):
         gpu_utilization_trigger: _Optional[_Union[GpuUtilizationScalingTrigger, _Mapping]] = ...,
         cron_scaling_trigger: _Optional[_Union[CronScalingTrigger, _Mapping]] = ...,
         scale_from_zero_request_policy: _Optional[_Union[ScaleFromZeroRequestPolicy, str]] = ...,
+        task_queue_trigger: _Optional[_Union[TaskQueueScalingTrigger, _Mapping]] = ...,
     ) -> None: ...
 
 class FunctionQueueDepthScalingTrigger(_message.Message):
@@ -128,6 +133,12 @@ class GpuUtilizationScalingTrigger(_message.Message):
     TARGET_UTILIZATION_PERCENTAGE_FIELD_NUMBER: _ClassVar[int]
     target_utilization_percentage: int
     def __init__(self, target_utilization_percentage: _Optional[int] = ...) -> None: ...
+
+class TaskQueueScalingTrigger(_message.Message):
+    __slots__ = ("task_queue",)
+    TASK_QUEUE_FIELD_NUMBER: _ClassVar[int]
+    task_queue: str
+    def __init__(self, task_queue: _Optional[str] = ...) -> None: ...
 
 class CronScalingTrigger(_message.Message):
     __slots__ = ("timezone", "windows")
@@ -178,6 +189,8 @@ class ScalingGroupResponse(_message.Message):
         "ready_replicas",
         "available_replicas",
         "metadata",
+        "status_details",
+        "created_by",
     )
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -202,6 +215,8 @@ class ScalingGroupResponse(_message.Message):
     READY_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     AVAILABLE_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
+    STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     revision_id: str
@@ -215,6 +230,8 @@ class ScalingGroupResponse(_message.Message):
     ready_replicas: int
     available_replicas: int
     metadata: _containers.MessageMap[str, _struct_pb2.Value]
+    status_details: str
+    created_by: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -230,6 +247,8 @@ class ScalingGroupResponse(_message.Message):
         ready_replicas: _Optional[int] = ...,
         available_replicas: _Optional[int] = ...,
         metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        status_details: _Optional[str] = ...,
+        created_by: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateScalingGroupRequest(_message.Message):
@@ -379,6 +398,8 @@ class ScalingGroupRevisionResponse(_message.Message):
         "metadata",
         "latest",
         "deleted_at",
+        "status_details",
+        "created_by",
     )
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -400,6 +421,8 @@ class ScalingGroupRevisionResponse(_message.Message):
     METADATA_FIELD_NUMBER: _ClassVar[int]
     LATEST_FIELD_NUMBER: _ClassVar[int]
     DELETED_AT_FIELD_NUMBER: _ClassVar[int]
+    STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     id: str
     scaling_group_id: str
     scaling_group_name: str
@@ -410,6 +433,8 @@ class ScalingGroupRevisionResponse(_message.Message):
     metadata: _containers.MessageMap[str, _struct_pb2.Value]
     latest: bool
     deleted_at: _timestamp_pb2.Timestamp
+    status_details: str
+    created_by: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -422,6 +447,8 @@ class ScalingGroupRevisionResponse(_message.Message):
         metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         latest: bool = ...,
         deleted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        status_details: _Optional[str] = ...,
+        created_by: _Optional[str] = ...,
     ) -> None: ...
 
 class GetScalingGroupRevisionRequest(_message.Message):
@@ -505,21 +532,46 @@ class DeleteScalingGroupResponse(_message.Message):
     def __init__(self, scaling_group: _Optional[_Union[ScalingGroupResponse, _Mapping]] = ...) -> None: ...
 
 class UpdateScalingGroupStatusRequest(_message.Message):
-    __slots__ = ("scaling_group_id", "status", "status_message", "observed_revision_id")
+    __slots__ = (
+        "scaling_group_id",
+        "status",
+        "status_message",
+        "observed_revision_id",
+        "desired_replicas",
+        "ready_replicas",
+        "available_replicas",
+        "observed_at",
+        "status_details",
+    )
     SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     STATUS_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     OBSERVED_REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    DESIRED_REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    READY_REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    AVAILABLE_REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    OBSERVED_AT_FIELD_NUMBER: _ClassVar[int]
+    STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
     scaling_group_id: str
     status: str
     status_message: str
     observed_revision_id: str
+    desired_replicas: int
+    ready_replicas: int
+    available_replicas: int
+    observed_at: _timestamp_pb2.Timestamp
+    status_details: str
     def __init__(
         self,
         scaling_group_id: _Optional[str] = ...,
         status: _Optional[str] = ...,
         status_message: _Optional[str] = ...,
         observed_revision_id: _Optional[str] = ...,
+        desired_replicas: _Optional[int] = ...,
+        ready_replicas: _Optional[int] = ...,
+        available_replicas: _Optional[int] = ...,
+        observed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        status_details: _Optional[str] = ...,
     ) -> None: ...
 
 class BatchUpdateScalingGroupStatusRequest(_message.Message):

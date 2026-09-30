@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: class-resolver
-Version: 0.8.1
+Version: 0.8.2
 Summary: Lookup and instantiate classes with style.
 Keywords: snekpack,cookiecutter,development tool,configurability
 Author: Charles Tapley Hoyt

@@ -55,7 +55,7 @@ from ._watcher import (
     get_bundle_watcher,
     in_site_packages,
 )
-from .theme import MaterialDesign
+from .theme import PANEL_DESIGN_HOOKS, THEME_MANAGED_VAR, MaterialDesign
 
 if t.TYPE_CHECKING:
     from bokeh.document import Document
@@ -126,12 +126,15 @@ _env.filters['json'] = lambda obj: Markup(json.dumps(obj, cls=json_dumps))
 _env.filters['conffilter'] = conffilter
 _env.filters['sorted'] = sorted
 
-BASE_TEMPLATE = _env.get_template('base.html')
-
-# Replace the default convert template and loading spinner
-panel.io.convert.BASE_TEMPLATE = panel.io.resources.BASE_TEMPLATE = BASE_TEMPLATE
-
-panel.io.convert.loading_resources = lambda template, inline: [PN_LOADING_MSG_CSS]
+if PANEL_DESIGN_HOOKS:
+    # Panel's base template renders the Material document styles when the
+    # design sets the material_ui template variable.
+    BASE_TEMPLATE = panel.io.resources.BASE_TEMPLATE
+else:
+    BASE_TEMPLATE = _env.get_template('base.html')
+    # Replace the default convert template and loading spinner
+    panel.io.convert.BASE_TEMPLATE = panel.io.resources.BASE_TEMPLATE = BASE_TEMPLATE
+    panel.io.convert.loading_resources = lambda template, inline: [PN_LOADING_MSG_CSS]
 
 FONT_WOFF = [
     str(p) for p in DIST_PATH.glob('material-icons-*.woff*')
@@ -155,10 +158,11 @@ FONT_CSS = [str(DIST_PATH / "material-icons.css")]
 mimetypes.add_type("font/woff", ".woff")
 mimetypes.add_type("font/woff2", ".woff2")
 
-try:
-    panel.io.server.BASE_TEMPLATE = BASE_TEMPLATE
-except AttributeError:
-    pass
+if not PANEL_DESIGN_HOOKS:
+    try:
+        panel.io.server.BASE_TEMPLATE = BASE_TEMPLATE
+    except AttributeError:
+        pass
 
 
 class ESMTransform:
@@ -289,6 +293,14 @@ function {output}(props, ref) {{
 """
 
 
+def _compiled_ancestor(cls: type) -> type:
+    """Returns the closest class in the MRO that is compiled into the bundle."""
+    for scls in cls.__mro__:
+        if scls.__module__.startswith("panel_material_ui."):
+            return scls
+    return cls
+
+
 class MaterialComponent(ReactComponent):
     """
     Baseclass for all MaterialComponents which defines the bundle location,
@@ -393,6 +405,14 @@ class MaterialComponent(ReactComponent):
         watcher = current_bundle_watcher()
         if watcher is not None and not self._models:
             watcher.unsubscribe(self)
+
+    @classproperty  # type: ignore
+    def _bundle_path(cls) -> os.PathLike | None:
+        # Panel resolves the bundle relative to the module of the class, which
+        # fails for classes defined interactively, e.g. in IPython.
+        if isinstance(cls._bundle, os.PathLike) and not (config.autoreload and cls._esm):
+            return cls._bundle
+        return super(MaterialComponent, cls)._bundle_path
 
     @classmethod
     def _esm_path(cls, compiled=True):
@@ -501,6 +521,10 @@ class MaterialComponent(ReactComponent):
         props = super()._get_properties(doc)
         props.pop('loading', None)
         props['data'].loading = self.loading
+        if props.get('bundle') is not None:
+            # The bundle only exports the components defined in this package,
+            # so subclasses defined elsewhere render with their compiled ancestor.
+            props['class_name'] = _compiled_ancestor(type(self)).__name__
         return props
 
     @property
@@ -592,7 +616,7 @@ class MaterialComponent(ReactComponent):
         if not template_variables:
             template_variables = {}
         if any(isinstance(c, ThemeToggle) for c in self.select()):
-            template_variables['is_page'] = True
+            template_variables[THEME_MANAGED_VAR] = True
         super().save(
             filename,
             title,
@@ -611,7 +635,7 @@ class MaterialComponent(ReactComponent):
         doc.title = title or 'Panel Application'
         doc.template = BASE_TEMPLATE
         if any(isinstance(c, ThemeToggle) for c in self.select()):
-            doc.template_variables['is_page'] = True
+            doc.template_variables[THEME_MANAGED_VAR] = True
         return doc
 
     def preview(self, width: int | None = 800, height: int | None = 600, border: str="1px solid #ccc", **kwargs):
@@ -728,7 +752,9 @@ class MaterialUIComponent(MaterialComponent):
 
     def _get_properties(self, doc: Document | None) -> dict[str, t.Any]:
         props = super()._get_properties(doc)
-        props['bundle'] = None
+        # Renders its own ESM, so it keeps its own name rather than the one of
+        # the ancestor it would be looked up by in the bundle.
+        props.update(bundle=None, class_name=type(self).__name__)
         return props
 
     @classmethod

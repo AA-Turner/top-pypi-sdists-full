@@ -7,6 +7,9 @@
         "extra_compile_args": [
             "-O3"
         ],
+        "extra_link_args": [
+            "-Wl,--strip-all"
+        ],
         "language": "c",
         "name": "querysource.parsers.sosql",
         "sources": [
@@ -1532,6 +1535,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser {
   PyObject *fields;
   PyObject *ordering;
   PyObject *grouping;
+  PyObject *having;
   PyObject *program_slug;
   int refresh;
   PyObject *tablename;
@@ -1734,6 +1738,7 @@ struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser {
   void (*_query_limit_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
   void (*_offset_pagination_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
   void (*_grouping_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
+  void (*_having_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
   void (*_ordering_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
   void (*_filter_options_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
   void (*_query_filter_sync)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *);
@@ -3011,7 +3016,7 @@ static const char __pyx_k_SOQLParser_filter_conditions[] = "SOQLParser.filter_co
 static const char __pyx_k_querysource_parsers_sosql_pyx[] = "querysource/parsers/sosql.pyx";
 static const char __pyx_k_SalesForce_SOQL_Parser_Build_SO[] = "\nSalesForce SOQL Parser.\n\nBuild SOQL-Queries for SalesForce, validation and parsing.\n";
 static const char __pyx_k_filter_conditions_cy_locals_gen[] = "_filter_conditions_cy.<locals>.genexpr";
-static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0xef5da1a, 0x773468c, 0x805c171) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))";
+static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0xf30560f, 0x70287ac, 0xe77b164) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))";
 static const char __pyx_k_SELECT_fields_FROM_tablename_fil[] = "SELECT {fields} FROM {tablename} {filter} {offset} {limit}";
 static const char __pyx_k_SOQLParser__filter_conditions_cy[] = "SOQLParser._filter_conditions_cy";
 static const char __pyx_k_SalesForce_SOQL_Error_no_SQL_que[] = "SalesForce SOQL Error, no SQL query to parse.";
@@ -3285,9 +3290,9 @@ typedef struct {
   PyObject *__pyx_n_u_where_cond;
   PyObject *__pyx_kp_u_where_cond_2;
   PyObject *__pyx_int_1;
-  PyObject *__pyx_int_124995212;
-  PyObject *__pyx_int_134594929;
-  PyObject *__pyx_int_250993178;
+  PyObject *__pyx_int_117606316;
+  PyObject *__pyx_int_242725220;
+  PyObject *__pyx_int_254825999;
   PyObject *__pyx_slice__23;
   PyObject *__pyx_tuple__27;
   PyObject *__pyx_tuple__28;
@@ -3562,9 +3567,9 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_u_where_cond);
   Py_CLEAR(clear_module_state->__pyx_kp_u_where_cond_2);
   Py_CLEAR(clear_module_state->__pyx_int_1);
-  Py_CLEAR(clear_module_state->__pyx_int_124995212);
-  Py_CLEAR(clear_module_state->__pyx_int_134594929);
-  Py_CLEAR(clear_module_state->__pyx_int_250993178);
+  Py_CLEAR(clear_module_state->__pyx_int_117606316);
+  Py_CLEAR(clear_module_state->__pyx_int_242725220);
+  Py_CLEAR(clear_module_state->__pyx_int_254825999);
   Py_CLEAR(clear_module_state->__pyx_slice__23);
   Py_CLEAR(clear_module_state->__pyx_tuple__27);
   Py_CLEAR(clear_module_state->__pyx_tuple__28);
@@ -3817,9 +3822,9 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_u_where_cond);
   Py_VISIT(traverse_module_state->__pyx_kp_u_where_cond_2);
   Py_VISIT(traverse_module_state->__pyx_int_1);
-  Py_VISIT(traverse_module_state->__pyx_int_124995212);
-  Py_VISIT(traverse_module_state->__pyx_int_134594929);
-  Py_VISIT(traverse_module_state->__pyx_int_250993178);
+  Py_VISIT(traverse_module_state->__pyx_int_117606316);
+  Py_VISIT(traverse_module_state->__pyx_int_242725220);
+  Py_VISIT(traverse_module_state->__pyx_int_254825999);
   Py_VISIT(traverse_module_state->__pyx_slice__23);
   Py_VISIT(traverse_module_state->__pyx_tuple__27);
   Py_VISIT(traverse_module_state->__pyx_tuple__28);
@@ -4088,9 +4093,9 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_u_where_cond __pyx_mstate_global->__pyx_n_u_where_cond
 #define __pyx_kp_u_where_cond_2 __pyx_mstate_global->__pyx_kp_u_where_cond_2
 #define __pyx_int_1 __pyx_mstate_global->__pyx_int_1
-#define __pyx_int_124995212 __pyx_mstate_global->__pyx_int_124995212
-#define __pyx_int_134594929 __pyx_mstate_global->__pyx_int_134594929
-#define __pyx_int_250993178 __pyx_mstate_global->__pyx_int_250993178
+#define __pyx_int_117606316 __pyx_mstate_global->__pyx_int_117606316
+#define __pyx_int_242725220 __pyx_mstate_global->__pyx_int_242725220
+#define __pyx_int_254825999 __pyx_mstate_global->__pyx_int_254825999
 #define __pyx_slice__23 __pyx_mstate_global->__pyx_slice__23
 #define __pyx_tuple__27 __pyx_mstate_global->__pyx_tuple__27
 #define __pyx_tuple__28 __pyx_mstate_global->__pyx_tuple__28
@@ -9842,7 +9847,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
   /* "(tree fragment)":5
  *     cdef object _dict
  *     cdef bint use_setstate
- *     state = (self._add_fields, self._base_sql, self._conditions, self._connection, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)             # <<<<<<<<<<<<<<
+ *     state = (self._add_fields, self._base_sql, self._conditions, self._connection, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.having, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)             # <<<<<<<<<<<<<<
  *     _dict = getattr(self, '__dict__', None)
  *     if _dict is not None:
  */
@@ -9870,7 +9875,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
   __Pyx_GOTREF(__pyx_t_11);
   __pyx_t_12 = __Pyx_PyBool_FromLong(__pyx_v_self->__pyx_base.__pyx_base.string_literal); if (unlikely(!__pyx_t_12)) __PYX_ERR(1, 5, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
-  __pyx_t_13 = PyTuple_New(41); if (unlikely(!__pyx_t_13)) __PYX_ERR(1, 5, __pyx_L1_error)
+  __pyx_t_13 = PyTuple_New(42); if (unlikely(!__pyx_t_13)) __PYX_ERR(1, 5, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_13);
   __Pyx_GIVEREF(__pyx_t_1);
   if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 0, __pyx_t_1)) __PYX_ERR(1, 5, __pyx_L1_error);
@@ -9945,44 +9950,47 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.grouping);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.grouping);
   if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 26, __pyx_v_self->__pyx_base.__pyx_base.grouping)) __PYX_ERR(1, 5, __pyx_L1_error);
+  __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.having);
+  __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.having);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 27, __pyx_v_self->__pyx_base.__pyx_base.having)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.logger);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.logger);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 27, __pyx_v_self->__pyx_base.__pyx_base.logger)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 28, __pyx_v_self->__pyx_base.__pyx_base.logger)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.ordering);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.ordering);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 28, __pyx_v_self->__pyx_base.__pyx_base.ordering)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 29, __pyx_v_self->__pyx_base.__pyx_base.ordering)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.params);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.params);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 29, __pyx_v_self->__pyx_base.__pyx_base.params)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 30, __pyx_v_self->__pyx_base.__pyx_base.params)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.program_slug);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.program_slug);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 30, __pyx_v_self->__pyx_base.__pyx_base.program_slug)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 31, __pyx_v_self->__pyx_base.__pyx_base.program_slug)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.query_object);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.query_object);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 31, __pyx_v_self->__pyx_base.__pyx_base.query_object)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 32, __pyx_v_self->__pyx_base.__pyx_base.query_object)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.query_parsed);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.query_parsed);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 32, __pyx_v_self->__pyx_base.__pyx_base.query_parsed)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 33, __pyx_v_self->__pyx_base.__pyx_base.query_parsed)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.query_raw);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.query_raw);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 33, __pyx_v_self->__pyx_base.__pyx_base.query_raw)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 34, __pyx_v_self->__pyx_base.__pyx_base.query_raw)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_9);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 34, __pyx_t_9)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 35, __pyx_t_9)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_10);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 35, __pyx_t_10)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 36, __pyx_t_10)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.schema);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.schema);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 36, __pyx_v_self->__pyx_base.__pyx_base.schema)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 37, __pyx_v_self->__pyx_base.__pyx_base.schema)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_11);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 37, __pyx_t_11)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 38, __pyx_t_11)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_12);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 38, __pyx_t_12)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 39, __pyx_t_12)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.__pyx_base.tablename);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.__pyx_base.tablename);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 39, __pyx_v_self->__pyx_base.__pyx_base.tablename)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 40, __pyx_v_self->__pyx_base.__pyx_base.tablename)) __PYX_ERR(1, 5, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_self->__pyx_base.valid_operators);
   __Pyx_GIVEREF(__pyx_v_self->__pyx_base.valid_operators);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 40, __pyx_v_self->__pyx_base.valid_operators)) __PYX_ERR(1, 5, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 41, __pyx_v_self->__pyx_base.valid_operators)) __PYX_ERR(1, 5, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
@@ -10000,7 +10008,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
 
   /* "(tree fragment)":6
  *     cdef bint use_setstate
- *     state = (self._add_fields, self._base_sql, self._conditions, self._connection, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
+ *     state = (self._add_fields, self._base_sql, self._conditions, self._connection, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.having, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
  *     _dict = getattr(self, '__dict__', None)             # <<<<<<<<<<<<<<
  *     if _dict is not None:
  *         state += (_dict,)
@@ -10011,7 +10019,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
   __pyx_t_13 = 0;
 
   /* "(tree fragment)":7
- *     state = (self._add_fields, self._base_sql, self._conditions, self._connection, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
+ *     state = (self._add_fields, self._base_sql, self._conditions, self._connection, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.having, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
  *     _dict = getattr(self, '__dict__', None)
  *     if _dict is not None:             # <<<<<<<<<<<<<<
  *         state += (_dict,)
@@ -10043,12 +10051,12 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
  *         state += (_dict,)
  *         use_setstate = True             # <<<<<<<<<<<<<<
  *     else:
- *         use_setstate = self._base_sql is not None or self._conditions is not None or self._connection is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
+ *         use_setstate = self._base_sql is not None or self._conditions is not None or self._connection is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.having is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
  */
     __pyx_v_use_setstate = 1;
 
     /* "(tree fragment)":7
- *     state = (self._add_fields, self._base_sql, self._conditions, self._connection, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
+ *     state = (self._add_fields, self._base_sql, self._conditions, self._connection, self._distinct, self._hierarchy, self._limit, self._name_, self._offset, self._page_, self._paged, self._qry_options, self._query_filters, self._redis, self._safe_substitution, self._select_pattern, self._slug, self.attributes, self.c_length, self.cond_definition, self.conditions, self.database, self.definition, self.fields, self.filter, self.filter_options, self.grouping, self.having, self.logger, self.ordering, self.params, self.program_slug, self.query_object, self.query_parsed, self.query_raw, self.querylimit, self.refresh, self.schema, self.schema_based, self.string_literal, self.tablename, self.valid_operators)
  *     _dict = getattr(self, '__dict__', None)
  *     if _dict is not None:             # <<<<<<<<<<<<<<
  *         state += (_dict,)
@@ -10060,9 +10068,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
   /* "(tree fragment)":11
  *         use_setstate = True
  *     else:
- *         use_setstate = self._base_sql is not None or self._conditions is not None or self._connection is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None             # <<<<<<<<<<<<<<
+ *         use_setstate = self._base_sql is not None or self._conditions is not None or self._connection is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.having is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None             # <<<<<<<<<<<<<<
  *     if use_setstate:
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, None), state
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, None), state
  */
   /*else*/ {
     __pyx_t_15 = (__pyx_v_self->__pyx_base._base_sql != ((PyObject*)Py_None));
@@ -10179,6 +10187,12 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
       __pyx_t_14 = __pyx_t_15;
       goto __pyx_L4_bool_binop_done;
     }
+    __pyx_t_15 = (__pyx_v_self->__pyx_base.__pyx_base.having != Py_None);
+    if (!__pyx_t_15) {
+    } else {
+      __pyx_t_14 = __pyx_t_15;
+      goto __pyx_L4_bool_binop_done;
+    }
     __pyx_t_15 = (__pyx_v_self->__pyx_base.__pyx_base.logger != Py_None);
     if (!__pyx_t_15) {
     } else {
@@ -10242,19 +10256,19 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
 
   /* "(tree fragment)":12
  *     else:
- *         use_setstate = self._base_sql is not None or self._conditions is not None or self._connection is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
+ *         use_setstate = self._base_sql is not None or self._conditions is not None or self._connection is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.having is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
  *     if use_setstate:             # <<<<<<<<<<<<<<
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, None), state
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, None), state
  *     else:
  */
   if (__pyx_v_use_setstate) {
 
     /* "(tree fragment)":13
- *         use_setstate = self._base_sql is not None or self._conditions is not None or self._connection is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
+ *         use_setstate = self._base_sql is not None or self._conditions is not None or self._connection is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.having is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
  *     if use_setstate:
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, None), state             # <<<<<<<<<<<<<<
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, None), state             # <<<<<<<<<<<<<<
  *     else:
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, state)
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, state)
  */
     __Pyx_XDECREF(__pyx_r);
     __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_n_s_pyx_unpickle_SOQLParser); if (unlikely(!__pyx_t_12)) __PYX_ERR(1, 13, __pyx_L1_error)
@@ -10264,9 +10278,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
     __Pyx_INCREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
     __Pyx_GIVEREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
     if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 0, ((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))))) __PYX_ERR(1, 13, __pyx_L1_error);
-    __Pyx_INCREF(__pyx_int_250993178);
-    __Pyx_GIVEREF(__pyx_int_250993178);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 1, __pyx_int_250993178)) __PYX_ERR(1, 13, __pyx_L1_error);
+    __Pyx_INCREF(__pyx_int_254825999);
+    __Pyx_GIVEREF(__pyx_int_254825999);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 1, __pyx_int_254825999)) __PYX_ERR(1, 13, __pyx_L1_error);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
     if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 2, Py_None)) __PYX_ERR(1, 13, __pyx_L1_error);
@@ -10287,17 +10301,17 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
 
     /* "(tree fragment)":12
  *     else:
- *         use_setstate = self._base_sql is not None or self._conditions is not None or self._connection is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
+ *         use_setstate = self._base_sql is not None or self._conditions is not None or self._connection is not None or self._hierarchy is not None or self._name_ is not None or self._qry_options is not None or self._query_filters is not None or self._redis is not None or self._select_pattern is not None or self._slug is not None or self.attributes is not None or self.cond_definition is not None or self.conditions is not None or self.database is not None or self.definition is not None or self.fields is not None or self.filter is not None or self.filter_options is not None or self.grouping is not None or self.having is not None or self.logger is not None or self.ordering is not None or self.params is not None or self.program_slug is not None or self.query_object is not None or self.query_parsed is not None or self.query_raw is not None or self.schema is not None or self.tablename is not None or self.valid_operators is not None
  *     if use_setstate:             # <<<<<<<<<<<<<<
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, None), state
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, None), state
  *     else:
  */
   }
 
   /* "(tree fragment)":15
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, None), state
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, None), state
  *     else:
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, state)             # <<<<<<<<<<<<<<
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, state)             # <<<<<<<<<<<<<<
  * def __setstate_cython__(self, __pyx_state):
  *     __pyx_unpickle_SOQLParser__set_state(self, __pyx_state)
  */
@@ -10310,9 +10324,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
     __Pyx_INCREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
     __Pyx_GIVEREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
     if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 0, ((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))))) __PYX_ERR(1, 15, __pyx_L1_error);
-    __Pyx_INCREF(__pyx_int_250993178);
-    __Pyx_GIVEREF(__pyx_int_250993178);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 1, __pyx_int_250993178)) __PYX_ERR(1, 15, __pyx_L1_error);
+    __Pyx_INCREF(__pyx_int_254825999);
+    __Pyx_GIVEREF(__pyx_int_254825999);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 1, __pyx_int_254825999)) __PYX_ERR(1, 15, __pyx_L1_error);
     __Pyx_INCREF(__pyx_v_state);
     __Pyx_GIVEREF(__pyx_v_state);
     if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 2, __pyx_v_state)) __PYX_ERR(1, 15, __pyx_L1_error);
@@ -10362,7 +10376,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_16__reduce_
 
 /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, state)
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_SOQLParser__set_state(self, __pyx_state)
  */
@@ -10474,7 +10488,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_18__setstat
   __Pyx_RefNannySetupContext("__setstate_cython__", 1);
 
   /* "(tree fragment)":17
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, state)
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, state)
  * def __setstate_cython__(self, __pyx_state):
  *     __pyx_unpickle_SOQLParser__set_state(self, __pyx_state)             # <<<<<<<<<<<<<<
  */
@@ -10485,7 +10499,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql_10SOQLParser_18__setstat
 
   /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, state)
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_SOQLParser__set_state(self, __pyx_state)
  */
@@ -10654,9 +10668,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParse
   /* "(tree fragment)":4
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0xef5da1a, 0x773468c, 0x805c171):             # <<<<<<<<<<<<<<
+ *     if __pyx_checksum not in (0xf30560f, 0x70287ac, 0xe77b164):             # <<<<<<<<<<<<<<
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xef5da1a, 0x773468c, 0x805c171) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xf30560f, 0x70287ac, 0xe77b164) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  */
   __pyx_t_1 = __Pyx_PyInt_From_long(__pyx_v___pyx_checksum); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -10666,9 +10680,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParse
 
     /* "(tree fragment)":5
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0xef5da1a, 0x773468c, 0x805c171):
+ *     if __pyx_checksum not in (0xf30560f, 0x70287ac, 0xe77b164):
  *         from pickle import PickleError as __pyx_PickleError             # <<<<<<<<<<<<<<
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xef5da1a, 0x773468c, 0x805c171) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xf30560f, 0x70287ac, 0xe77b164) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  *     __pyx_result = SOQLParser.__new__(__pyx_type)
  */
     __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 5, __pyx_L1_error)
@@ -10687,9 +10701,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParse
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
     /* "(tree fragment)":6
- *     if __pyx_checksum not in (0xef5da1a, 0x773468c, 0x805c171):
+ *     if __pyx_checksum not in (0xf30560f, 0x70287ac, 0xe77b164):
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xef5da1a, 0x773468c, 0x805c171) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum             # <<<<<<<<<<<<<<
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xf30560f, 0x70287ac, 0xe77b164) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum             # <<<<<<<<<<<<<<
  *     __pyx_result = SOQLParser.__new__(__pyx_type)
  *     if __pyx_state is not None:
  */
@@ -10705,15 +10719,15 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParse
     /* "(tree fragment)":4
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0xef5da1a, 0x773468c, 0x805c171):             # <<<<<<<<<<<<<<
+ *     if __pyx_checksum not in (0xf30560f, 0x70287ac, 0xe77b164):             # <<<<<<<<<<<<<<
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xef5da1a, 0x773468c, 0x805c171) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xf30560f, 0x70287ac, 0xe77b164) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  */
   }
 
   /* "(tree fragment)":7
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xef5da1a, 0x773468c, 0x805c171) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xf30560f, 0x70287ac, 0xe77b164) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  *     __pyx_result = SOQLParser.__new__(__pyx_type)             # <<<<<<<<<<<<<<
  *     if __pyx_state is not None:
  *         __pyx_unpickle_SOQLParser__set_state(<SOQLParser> __pyx_result, __pyx_state)
@@ -10746,7 +10760,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParse
   __pyx_t_1 = 0;
 
   /* "(tree fragment)":8
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xef5da1a, 0x773468c, 0x805c171) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xf30560f, 0x70287ac, 0xe77b164) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  *     __pyx_result = SOQLParser.__new__(__pyx_type)
  *     if __pyx_state is not None:             # <<<<<<<<<<<<<<
  *         __pyx_unpickle_SOQLParser__set_state(<SOQLParser> __pyx_result, __pyx_state)
@@ -10768,7 +10782,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParse
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
     /* "(tree fragment)":8
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xef5da1a, 0x773468c, 0x805c171) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xf30560f, 0x70287ac, 0xe77b164) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  *     __pyx_result = SOQLParser.__new__(__pyx_type)
  *     if __pyx_state is not None:             # <<<<<<<<<<<<<<
  *         __pyx_unpickle_SOQLParser__set_state(<SOQLParser> __pyx_result, __pyx_state)
@@ -10781,7 +10795,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParse
  *         __pyx_unpickle_SOQLParser__set_state(<SOQLParser> __pyx_result, __pyx_state)
  *     return __pyx_result             # <<<<<<<<<<<<<<
  * cdef __pyx_unpickle_SOQLParser__set_state(SOQLParser __pyx_result, tuple __pyx_state):
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
  */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v___pyx_result);
@@ -10813,8 +10827,8 @@ static PyObject *__pyx_pf_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParse
  *         __pyx_unpickle_SOQLParser__set_state(<SOQLParser> __pyx_result, __pyx_state)
  *     return __pyx_result
  * cdef __pyx_unpickle_SOQLParser__set_state(SOQLParser __pyx_result, tuple __pyx_state):             # <<<<<<<<<<<<<<
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):
  */
 
 static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser__set_state(struct __pyx_obj_11querysource_7parsers_5sosql_SOQLParser *__pyx_v___pyx_result, PyObject *__pyx_v___pyx_state) {
@@ -10837,9 +10851,9 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
   /* "(tree fragment)":12
  *     return __pyx_result
  * cdef __pyx_unpickle_SOQLParser__set_state(SOQLParser __pyx_result, tuple __pyx_state):
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]             # <<<<<<<<<<<<<<
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):
- *         __pyx_result.__dict__.update(__pyx_state[41])
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]             # <<<<<<<<<<<<<<
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):
+ *         __pyx_result.__dict__.update(__pyx_state[42])
  */
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
@@ -11119,6 +11133,17 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
   __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 27);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
+  __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.having);
+  __Pyx_DECREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.having);
+  __pyx_v___pyx_result->__pyx_base.__pyx_base.having = __pyx_t_2;
+  __pyx_t_2 = 0;
+  if (unlikely(__pyx_v___pyx_state == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+    __PYX_ERR(1, 12, __pyx_L1_error)
+  }
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 28);
+  __Pyx_INCREF(__pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.logger);
   __Pyx_DECREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.logger);
   __pyx_v___pyx_result->__pyx_base.__pyx_base.logger = __pyx_t_2;
@@ -11127,8 +11152,8 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyList_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 28)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 28)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", PyTuple_GET_ITEM(__pyx_v___pyx_state, 28)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 28);
+  if (!(likely(PyList_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 29);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.ordering);
@@ -11139,8 +11164,8 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyDict_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", PyTuple_GET_ITEM(__pyx_v___pyx_state, 29)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 29);
+  if (!(likely(PyDict_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 30);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.params);
@@ -11151,8 +11176,8 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 30)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 30);
+  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 31)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 31)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 31)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 31);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.program_slug);
@@ -11163,7 +11188,7 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 31);
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 32);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.query_object);
@@ -11174,8 +11199,8 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 32)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 32)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 32)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 32);
+  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 33);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.query_parsed);
@@ -11186,8 +11211,8 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 33)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 33);
+  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 34)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 34)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 34)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 34);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.query_raw);
@@ -11198,20 +11223,20 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_4 = __Pyx_PyInt_As_int(PyTuple_GET_ITEM(__pyx_v___pyx_state, 34)); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyInt_As_int(PyTuple_GET_ITEM(__pyx_v___pyx_state, 35)); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
   __pyx_v___pyx_result->__pyx_base.__pyx_base.querylimit = __pyx_t_4;
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 35)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 36)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
   __pyx_v___pyx_result->__pyx_base.__pyx_base.refresh = __pyx_t_1;
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 36)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 36)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 36)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 36);
+  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 37)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 37)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 37)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 37);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.schema);
@@ -11222,20 +11247,20 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 37)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 38)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
   __pyx_v___pyx_result->__pyx_base.__pyx_base.schema_based = __pyx_t_1;
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 38)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(PyTuple_GET_ITEM(__pyx_v___pyx_state, 39)); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 12, __pyx_L1_error)
   __pyx_v___pyx_result->__pyx_base.__pyx_base.string_literal = __pyx_t_1;
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 39)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 39)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 39)))) __PYX_ERR(1, 12, __pyx_L1_error)
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 39);
+  if (!(likely(PyUnicode_CheckExact(PyTuple_GET_ITEM(__pyx_v___pyx_state, 40)))||((PyTuple_GET_ITEM(__pyx_v___pyx_state, 40)) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", PyTuple_GET_ITEM(__pyx_v___pyx_state, 40)))) __PYX_ERR(1, 12, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 40);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.__pyx_base.tablename);
@@ -11246,7 +11271,7 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
     __PYX_ERR(1, 12, __pyx_L1_error)
   }
-  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 40);
+  __pyx_t_2 = PyTuple_GET_ITEM(__pyx_v___pyx_state, 41);
   __Pyx_INCREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v___pyx_result->__pyx_base.valid_operators);
@@ -11256,16 +11281,16 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
 
   /* "(tree fragment)":13
  * cdef __pyx_unpickle_SOQLParser__set_state(SOQLParser __pyx_result, tuple __pyx_state):
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
- *         __pyx_result.__dict__.update(__pyx_state[41])
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
+ *         __pyx_result.__dict__.update(__pyx_state[42])
  */
   if (unlikely(__pyx_v___pyx_state == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
     __PYX_ERR(1, 13, __pyx_L1_error)
   }
   __pyx_t_5 = __Pyx_PyTuple_GET_SIZE(__pyx_v___pyx_state); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(1, 13, __pyx_L1_error)
-  __pyx_t_6 = (__pyx_t_5 > 41);
+  __pyx_t_6 = (__pyx_t_5 > 42);
   if (__pyx_t_6) {
   } else {
     __pyx_t_1 = __pyx_t_6;
@@ -11277,9 +11302,9 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
   if (__pyx_t_1) {
 
     /* "(tree fragment)":14
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):
- *         __pyx_result.__dict__.update(__pyx_state[41])             # <<<<<<<<<<<<<<
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):
+ *         __pyx_result.__dict__.update(__pyx_state[42])             # <<<<<<<<<<<<<<
  */
     __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v___pyx_result), __pyx_n_s_dict); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 14, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
@@ -11305,7 +11330,7 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_7, PyTuple_GET_ITEM(__pyx_v___pyx_state, 41)};
+      PyObject *__pyx_callargs[2] = {__pyx_t_7, PyTuple_GET_ITEM(__pyx_v___pyx_state, 42)};
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 14, __pyx_L1_error)
@@ -11316,9 +11341,9 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
 
     /* "(tree fragment)":13
  * cdef __pyx_unpickle_SOQLParser__set_state(SOQLParser __pyx_result, tuple __pyx_state):
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
- *         __pyx_result.__dict__.update(__pyx_state[41])
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):             # <<<<<<<<<<<<<<
+ *         __pyx_result.__dict__.update(__pyx_state[42])
  */
   }
 
@@ -11326,8 +11351,8 @@ static PyObject *__pyx_f_11querysource_7parsers_5sosql___pyx_unpickle_SOQLParser
  *         __pyx_unpickle_SOQLParser__set_state(<SOQLParser> __pyx_result, __pyx_state)
  *     return __pyx_result
  * cdef __pyx_unpickle_SOQLParser__set_state(SOQLParser __pyx_result, tuple __pyx_state):             # <<<<<<<<<<<<<<
- *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.logger = __pyx_state[27]; __pyx_result.ordering = __pyx_state[28]; __pyx_result.params = __pyx_state[29]; __pyx_result.program_slug = __pyx_state[30]; __pyx_result.query_object = __pyx_state[31]; __pyx_result.query_parsed = __pyx_state[32]; __pyx_result.query_raw = __pyx_state[33]; __pyx_result.querylimit = __pyx_state[34]; __pyx_result.refresh = __pyx_state[35]; __pyx_result.schema = __pyx_state[36]; __pyx_result.schema_based = __pyx_state[37]; __pyx_result.string_literal = __pyx_state[38]; __pyx_result.tablename = __pyx_state[39]; __pyx_result.valid_operators = __pyx_state[40]
- *     if len(__pyx_state) > 41 and hasattr(__pyx_result, '__dict__'):
+ *     __pyx_result._add_fields = __pyx_state[0]; __pyx_result._base_sql = __pyx_state[1]; __pyx_result._conditions = __pyx_state[2]; __pyx_result._connection = __pyx_state[3]; __pyx_result._distinct = __pyx_state[4]; __pyx_result._hierarchy = __pyx_state[5]; __pyx_result._limit = __pyx_state[6]; __pyx_result._name_ = __pyx_state[7]; __pyx_result._offset = __pyx_state[8]; __pyx_result._page_ = __pyx_state[9]; __pyx_result._paged = __pyx_state[10]; __pyx_result._qry_options = __pyx_state[11]; __pyx_result._query_filters = __pyx_state[12]; __pyx_result._redis = __pyx_state[13]; __pyx_result._safe_substitution = __pyx_state[14]; __pyx_result._select_pattern = __pyx_state[15]; __pyx_result._slug = __pyx_state[16]; __pyx_result.attributes = __pyx_state[17]; __pyx_result.c_length = __pyx_state[18]; __pyx_result.cond_definition = __pyx_state[19]; __pyx_result.conditions = __pyx_state[20]; __pyx_result.database = __pyx_state[21]; __pyx_result.definition = __pyx_state[22]; __pyx_result.fields = __pyx_state[23]; __pyx_result.filter = __pyx_state[24]; __pyx_result.filter_options = __pyx_state[25]; __pyx_result.grouping = __pyx_state[26]; __pyx_result.having = __pyx_state[27]; __pyx_result.logger = __pyx_state[28]; __pyx_result.ordering = __pyx_state[29]; __pyx_result.params = __pyx_state[30]; __pyx_result.program_slug = __pyx_state[31]; __pyx_result.query_object = __pyx_state[32]; __pyx_result.query_parsed = __pyx_state[33]; __pyx_result.query_raw = __pyx_state[34]; __pyx_result.querylimit = __pyx_state[35]; __pyx_result.refresh = __pyx_state[36]; __pyx_result.schema = __pyx_state[37]; __pyx_result.schema_based = __pyx_state[38]; __pyx_result.string_literal = __pyx_state[39]; __pyx_result.tablename = __pyx_state[40]; __pyx_result.valid_operators = __pyx_state[41]
+ *     if len(__pyx_state) > 42 and hasattr(__pyx_result, '__dict__'):
  */
 
   /* function exit code */
@@ -12852,11 +12877,11 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   /* "(tree fragment)":4
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
- *     if __pyx_checksum not in (0xef5da1a, 0x773468c, 0x805c171):             # <<<<<<<<<<<<<<
+ *     if __pyx_checksum not in (0xf30560f, 0x70287ac, 0xe77b164):             # <<<<<<<<<<<<<<
  *         from pickle import PickleError as __pyx_PickleError
- *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xef5da1a, 0x773468c, 0x805c171) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
+ *         raise __pyx_PickleError, "Incompatible checksums (0x%x vs (0xf30560f, 0x70287ac, 0xe77b164) = (_add_fields, _base_sql, _conditions, _connection, _distinct, _hierarchy, _limit, _name_, _offset, _page_, _paged, _qry_options, _query_filters, _redis, _safe_substitution, _select_pattern, _slug, attributes, c_length, cond_definition, conditions, database, definition, fields, filter, filter_options, grouping, having, logger, ordering, params, program_slug, query_object, query_parsed, query_raw, querylimit, refresh, schema, schema_based, string_literal, tablename, valid_operators))" % __pyx_checksum
  */
-  __pyx_tuple__27 = PyTuple_Pack(3, __pyx_int_250993178, __pyx_int_124995212, __pyx_int_134594929); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(1, 4, __pyx_L1_error)
+  __pyx_tuple__27 = PyTuple_Pack(3, __pyx_int_254825999, __pyx_int_117606316, __pyx_int_242725220); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__27);
   __Pyx_GIVEREF(__pyx_tuple__27);
 
@@ -12932,7 +12957,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
 
   /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, state)
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_SOQLParser__set_state(self, __pyx_state)
  */
@@ -12965,9 +12990,9 @@ static CYTHON_SMALL_CODE int __Pyx_InitConstants(void) {
   __pyx_umethod_PyUnicode_Type_rstrip.method_name = &__pyx_n_s_rstrip;
   if (__Pyx_CreateStringTabAndInitStrings() < 0) __PYX_ERR(0, 1, __pyx_L1_error);
   __pyx_int_1 = PyInt_FromLong(1); if (unlikely(!__pyx_int_1)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_int_124995212 = PyInt_FromLong(124995212L); if (unlikely(!__pyx_int_124995212)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_int_134594929 = PyInt_FromLong(134594929L); if (unlikely(!__pyx_int_134594929)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_int_250993178 = PyInt_FromLong(250993178L); if (unlikely(!__pyx_int_250993178)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_117606316 = PyInt_FromLong(117606316L); if (unlikely(!__pyx_int_117606316)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_242725220 = PyInt_FromLong(242725220L); if (unlikely(!__pyx_int_242725220)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_254825999 = PyInt_FromLong(254825999L); if (unlikely(!__pyx_int_254825999)) __PYX_ERR(0, 1, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -13862,7 +13887,7 @@ if (!__Pyx_RefNanny) {
 
   /* "(tree fragment)":16
  *     else:
- *         return __pyx_unpickle_SOQLParser, (type(self), 0xef5da1a, state)
+ *         return __pyx_unpickle_SOQLParser, (type(self), 0xf30560f, state)
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_SOQLParser__set_state(self, __pyx_state)
  */

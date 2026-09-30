@@ -11,6 +11,7 @@ To add a new strategy, define a function matching the
 ``(detections, config) -> (float, float)`` signature and register it in
 the ``_STRATEGIES`` dispatch table.
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,7 +19,6 @@ from collections.abc import Callable
 from typing import Any
 
 from .schemas import QuantStrategyConfig
-
 
 logger = logging.getLogger(__name__)
 

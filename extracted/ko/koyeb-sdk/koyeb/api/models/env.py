@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class Env(BaseModel):
     """
     Env
-    """ # noqa: E501
+    """  # noqa: E501
+
     key: Optional[StrictStr] = None
     value: Optional[StrictStr] = None
     secret: Optional[StrictStr] = None
@@ -38,7 +40,6 @@ class Env(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,8 +64,7 @@ class Env(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -82,11 +82,11 @@ class Env(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "key": obj.get("key"),
-            "value": obj.get("value"),
-            "secret": obj.get("secret")
-        })
+        _obj = cls.model_validate(
+            {
+                "key": obj.get("key"),
+                "value": obj.get("value"),
+                "secret": obj.get("secret"),
+            }
+        )
         return _obj
-
-

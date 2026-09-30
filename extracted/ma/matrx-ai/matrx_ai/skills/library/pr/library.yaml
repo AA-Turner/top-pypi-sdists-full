@@ -15,7 +15,7 @@
 
 set_id: ai-matrx-pr
 title: "PR & media skills (AI Matrx)"
-visibility: public
+published_to_web: true
 skill_type: workflow
 parent_pack: elvisun-pr-skills
 

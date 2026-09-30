@@ -14,8 +14,6 @@ class PythoncomImportError(ImportError):
     """
     def __init__(self):
         msg  = "Must import the pywin32 module.  Use:  \n"
-        msg += "\tconda install -c conda-forge pywin32\n"
-        msg += "   or\n"
         msg += "\tpip install pywin32"
         super().__init__(msg)
         exit(msg)

@@ -2271,7 +2271,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
                     # warn, but don't crash
                     logger.warning(f"error calling {function} on scheduler comm: {e}")
 
-    def send_private_envs(self: ClusterSyncAsync, env: dict):
+    def send_private_envs(self: ClusterSyncAsync, env: dict, raise_on_error: bool | None = None):
         """
         Send potentially private environment variables to be set on scheduler and all workers.
 
@@ -2282,9 +2282,9 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         The Dask scheduler will ensure that these environment variables are set on any new workers you add to the
         cluster.
         """
-        return self.sync(self._send_env_vars, env)
+        return self.sync(self._send_env_vars, env, raise_on_error=raise_on_error)
 
-    async def _send_env_vars(self, env: dict, retries=5):
+    async def _send_env_vars(self, env: dict, retries=5, raise_on_error: bool | None = False):
         try:
             scheduler_comm = self._ensure_scheduler_comm()
             await scheduler_comm.coiled_update_env_vars(env=env)
@@ -2293,11 +2293,15 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
                 # sending credentials sometimes fails on a poor internet connection
                 # so try a few times before giving up and showing warning
                 if retries > 0:
-                    await self._send_env_vars(env, retries=retries - 1)
+                    await self._send_env_vars(env, retries=retries - 1, raise_on_error=raise_on_error)
                 else:
                     # no more retries!
                     # warn, but don't crash
                     logger.warning(f"error sending environment variables to cluster: {e}")
+                    if raise_on_error:
+                        # note that if cluster is shutting down we aren't raising, we know why that didn't work
+                        # and don't expect it to work.
+                        raise e from None
 
     def unset_env_vars(self: ClusterSyncAsync, unset: Iterable[str]):
         return self.sync(self._unset_env_vars, list(unset))

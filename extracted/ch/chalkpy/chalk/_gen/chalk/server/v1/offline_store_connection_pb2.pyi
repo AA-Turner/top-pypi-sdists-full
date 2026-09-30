@@ -237,39 +237,45 @@ class IcebergOfflineStoreConnectionConfig(_message.Message):
     def __init__(self, glue_s3: _Optional[_Union[IcebergGlueS3CatalogConfig, _Mapping]] = ...) -> None: ...
 
 class OfflineStoreConnectionConfigInput(_message.Message):
-    __slots__ = ("snowflake", "bigquery", "iceberg", "databricks")
+    __slots__ = ("snowflake", "bigquery", "iceberg", "databricks", "upload_bucket_uri")
     SNOWFLAKE_FIELD_NUMBER: _ClassVar[int]
     BIGQUERY_FIELD_NUMBER: _ClassVar[int]
     ICEBERG_FIELD_NUMBER: _ClassVar[int]
     DATABRICKS_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_BUCKET_URI_FIELD_NUMBER: _ClassVar[int]
     snowflake: SnowflakeOfflineStoreConnectionConfigInput
     bigquery: BigQueryOfflineStoreConnectionConfig
     iceberg: IcebergOfflineStoreConnectionConfig
     databricks: DatabricksOfflineStoreConnectionConfigInput
+    upload_bucket_uri: str
     def __init__(
         self,
         snowflake: _Optional[_Union[SnowflakeOfflineStoreConnectionConfigInput, _Mapping]] = ...,
         bigquery: _Optional[_Union[BigQueryOfflineStoreConnectionConfig, _Mapping]] = ...,
         iceberg: _Optional[_Union[IcebergOfflineStoreConnectionConfig, _Mapping]] = ...,
         databricks: _Optional[_Union[DatabricksOfflineStoreConnectionConfigInput, _Mapping]] = ...,
+        upload_bucket_uri: _Optional[str] = ...,
     ) -> None: ...
 
 class OfflineStoreConnectionConfigStored(_message.Message):
-    __slots__ = ("snowflake", "bigquery", "iceberg", "databricks")
+    __slots__ = ("snowflake", "bigquery", "iceberg", "databricks", "upload_bucket_uri")
     SNOWFLAKE_FIELD_NUMBER: _ClassVar[int]
     BIGQUERY_FIELD_NUMBER: _ClassVar[int]
     ICEBERG_FIELD_NUMBER: _ClassVar[int]
     DATABRICKS_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_BUCKET_URI_FIELD_NUMBER: _ClassVar[int]
     snowflake: SnowflakeOfflineStoreConnectionConfigStored
     bigquery: BigQueryOfflineStoreConnectionConfig
     iceberg: IcebergOfflineStoreConnectionConfig
     databricks: DatabricksOfflineStoreConnectionConfigStored
+    upload_bucket_uri: str
     def __init__(
         self,
         snowflake: _Optional[_Union[SnowflakeOfflineStoreConnectionConfigStored, _Mapping]] = ...,
         bigquery: _Optional[_Union[BigQueryOfflineStoreConnectionConfig, _Mapping]] = ...,
         iceberg: _Optional[_Union[IcebergOfflineStoreConnectionConfig, _Mapping]] = ...,
         databricks: _Optional[_Union[DatabricksOfflineStoreConnectionConfigStored, _Mapping]] = ...,
+        upload_bucket_uri: _Optional[str] = ...,
     ) -> None: ...
 
 class OfflineStoreConnectionInput(_message.Message):
@@ -457,3 +463,133 @@ class MigrateOfflineStoreConnectionRequest(_message.Message):
 class MigrateOfflineStoreConnectionResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class IcebergCatalogOptimizationSettings(_message.Message):
+    __slots__ = ("compaction", "retention", "orphan_file_deletion", "optimizer_role_arn", "last_updated_at")
+    class CompactionEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class RetentionEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class OrphanFileDeletionEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    COMPACTION_FIELD_NUMBER: _ClassVar[int]
+    RETENTION_FIELD_NUMBER: _ClassVar[int]
+    ORPHAN_FILE_DELETION_FIELD_NUMBER: _ClassVar[int]
+    OPTIMIZER_ROLE_ARN_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    compaction: _containers.ScalarMap[str, str]
+    retention: _containers.ScalarMap[str, str]
+    orphan_file_deletion: _containers.ScalarMap[str, str]
+    optimizer_role_arn: str
+    last_updated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        compaction: _Optional[_Mapping[str, str]] = ...,
+        retention: _Optional[_Mapping[str, str]] = ...,
+        orphan_file_deletion: _Optional[_Mapping[str, str]] = ...,
+        optimizer_role_arn: _Optional[str] = ...,
+        last_updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetIcebergCatalogOptimizationStatusRequest(_message.Message):
+    __slots__ = ("offline_store_connection_id",)
+    OFFLINE_STORE_CONNECTION_ID_FIELD_NUMBER: _ClassVar[int]
+    offline_store_connection_id: str
+    def __init__(self, offline_store_connection_id: _Optional[str] = ...) -> None: ...
+
+class GetIcebergCatalogOptimizationStatusResponse(_message.Message):
+    __slots__ = ("settings", "error")
+    SETTINGS_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    settings: IcebergCatalogOptimizationSettings
+    error: str
+    def __init__(
+        self,
+        settings: _Optional[_Union[IcebergCatalogOptimizationSettings, _Mapping]] = ...,
+        error: _Optional[str] = ...,
+    ) -> None: ...
+
+class IcebergTableOptimizationOverride(_message.Message):
+    __slots__ = ("table_name", "compaction", "retention", "orphan_file_deletion")
+    class CompactionEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class RetentionEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class OrphanFileDeletionEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    COMPACTION_FIELD_NUMBER: _ClassVar[int]
+    RETENTION_FIELD_NUMBER: _ClassVar[int]
+    ORPHAN_FILE_DELETION_FIELD_NUMBER: _ClassVar[int]
+    table_name: str
+    compaction: _containers.ScalarMap[str, str]
+    retention: _containers.ScalarMap[str, str]
+    orphan_file_deletion: _containers.ScalarMap[str, str]
+    def __init__(
+        self,
+        table_name: _Optional[str] = ...,
+        compaction: _Optional[_Mapping[str, str]] = ...,
+        retention: _Optional[_Mapping[str, str]] = ...,
+        orphan_file_deletion: _Optional[_Mapping[str, str]] = ...,
+    ) -> None: ...
+
+class GetIcebergTableOptimizationOverridesRequest(_message.Message):
+    __slots__ = ("offline_store_connection_id", "table_names")
+    OFFLINE_STORE_CONNECTION_ID_FIELD_NUMBER: _ClassVar[int]
+    TABLE_NAMES_FIELD_NUMBER: _ClassVar[int]
+    offline_store_connection_id: str
+    table_names: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self, offline_store_connection_id: _Optional[str] = ..., table_names: _Optional[_Iterable[str]] = ...
+    ) -> None: ...
+
+class GetIcebergTableOptimizationOverridesResponse(_message.Message):
+    __slots__ = ("overrides", "missing_table_count", "failed_table_count")
+    OVERRIDES_FIELD_NUMBER: _ClassVar[int]
+    MISSING_TABLE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    FAILED_TABLE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    overrides: _containers.RepeatedCompositeFieldContainer[IcebergTableOptimizationOverride]
+    missing_table_count: int
+    failed_table_count: int
+    def __init__(
+        self,
+        overrides: _Optional[_Iterable[_Union[IcebergTableOptimizationOverride, _Mapping]]] = ...,
+        missing_table_count: _Optional[int] = ...,
+        failed_table_count: _Optional[int] = ...,
+    ) -> None: ...

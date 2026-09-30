@@ -17,6 +17,19 @@ logging.getLogger("httpx").setLevel(logging.ERROR)  # only surface httpx errors
 _log = logging.getLogger(__name__)
 TRANSIENT_HTTP_STATUS_CODES = {408, 429, 499, 502, 503, 504}
 
+# 500 is deliberately NOT in the set above. The heal tiers
+# (desktop_locate / desktop_locate_full_page / list_xpaths) run their own
+# application-level retry that takes a FRESH SCREENSHOT each attempt, and they
+# rely on a plain 500 returning immediately so that loop drives the retry —
+# blind HTTP-level retry would re-POST an identical stale screenshot and turn
+# 3 attempts into 9.
+#
+# The vision/textual calls have no such loop, so for them a single transient
+# Automind 500 failed the step outright (a vision query briefly
+# erroring with "'thought' must be a non-empty string"). Those callers opt in
+# via retry_on_server_error=True.
+SERVER_ERROR_STATUS = 500
+
 
 class TransientHTTPError(Exception):
     """Exception raised for transient HTTP errors that should be retried."""
@@ -33,8 +46,14 @@ class KaneAICreditsExhausted(Exception):
     kaneai_error_code = "INSUFFICIENT_CREDITS"
 
 
-def _is_transient_http_error(status_code: int) -> bool:
-    """Check if the HTTP status code is a transient error that should be retried."""
+def _is_transient_http_error(status_code: int, retry_on_server_error: bool = False) -> bool:
+    """Check if the HTTP status code is a transient error that should be retried.
+
+    ``retry_on_server_error`` additionally treats a 500 as transient — see the
+    SERVER_ERROR_STATUS note above for why that is opt-in rather than global.
+    """
+    if retry_on_server_error and status_code == SERVER_ERROR_STATUS:
+        return True
     return status_code in TRANSIENT_HTTP_STATUS_CODES
 
 
@@ -59,6 +78,7 @@ def make_http_request_with_retry(
     timeout: int = 120,
     auth: tuple = None,
     silent: bool = False,
+    retry_on_server_error: bool = False,
 ) -> httpx.Response:
     """
     Makes HTTP requests using httpx with fresh connections and retry mechanism.
@@ -107,7 +127,7 @@ def make_http_request_with_retry(
             )
         # Terminal, so it must be raised before the transient-retry check.
         _raise_if_insufficient_credits(response)
-        if _is_transient_http_error(response.status_code):
+        if _is_transient_http_error(response.status_code, retry_on_server_error):
             raise TransientHTTPError(
                 response.status_code,
                 f"Transient HTTP error: {response.status_code} for {method} {url}",

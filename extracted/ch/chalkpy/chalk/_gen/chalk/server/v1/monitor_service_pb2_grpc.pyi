@@ -20,6 +20,8 @@ from chalk._gen.chalk.server.v1.monitor_service_pb2 import (
     GetMonitorResponse,
     ListMonitorsRequest,
     ListMonitorsResponse,
+    MuteMonitorRequest,
+    MuteMonitorResponse,
     UpdateMonitorRequest,
     UpdateMonitorResponse,
 )
@@ -55,6 +57,10 @@ class MonitorServiceStub:
     DeleteMonitor: UnaryUnaryMultiCallable[
         DeleteMonitorRequest,
         DeleteMonitorResponse,
+    ]
+    MuteMonitor: UnaryUnaryMultiCallable[
+        MuteMonitorRequest,
+        MuteMonitorResponse,
     ]
     ListMonitors: UnaryUnaryMultiCallable[
         ListMonitorsRequest,
@@ -98,6 +104,12 @@ class MonitorServiceServicer(metaclass=ABCMeta):
         request: DeleteMonitorRequest,
         context: ServicerContext,
     ) -> DeleteMonitorResponse: ...
+    @abstractmethod
+    def MuteMonitor(
+        self,
+        request: MuteMonitorRequest,
+        context: ServicerContext,
+    ) -> MuteMonitorResponse: ...
     @abstractmethod
     def ListMonitors(
         self,

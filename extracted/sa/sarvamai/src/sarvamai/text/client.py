@@ -52,6 +52,30 @@ class TextClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TranslationResponse:
         """
+        <Note>
+          **Short text** — strings, chat messages, and snippets. You are on the right endpoint (`POST /translate`).
+
+          **Whole files** — PDF, Word, Excel, PowerPoint, or HTML with layout preserved. Use the [Document Translation API](/api-reference/translate-document/create-doc-translation) (`POST /translate/document/jobs`) instead of pasting file contents into this endpoint.
+        </Note>
+
+        <CardGroup cols={2}>
+          <Card
+            title="Document Translation"
+            icon="file-export"
+            href="/api-reference/translate-document/create-doc-translation"
+          >
+            Upload once, translate into multiple languages per job, and export in the same format as the source (PDF→PDF, DOCX→DOCX).
+          </Card>
+
+          <Card
+            title="Document Translation guide"
+            icon="book-open"
+            href="/api/api-guides-tutorials/doc-translation/overview"
+          >
+            Overview, pricing, and step-by-step flows for doc-to-doc translation.
+          </Card>
+        </CardGroup>
+
         **Translation** converts text from one language to another while preserving its meaning.
         For Example: **'मैं ऑफिस जा रहा हूँ'** translates to **'I am going to the office'** in English, where the script and language change, but the original meaning remains the same.
 
@@ -370,6 +394,30 @@ class AsyncTextClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TranslationResponse:
         """
+        <Note>
+          **Short text** — strings, chat messages, and snippets. You are on the right endpoint (`POST /translate`).
+
+          **Whole files** — PDF, Word, Excel, PowerPoint, or HTML with layout preserved. Use the [Document Translation API](/api-reference/translate-document/create-doc-translation) (`POST /translate/document/jobs`) instead of pasting file contents into this endpoint.
+        </Note>
+
+        <CardGroup cols={2}>
+          <Card
+            title="Document Translation"
+            icon="file-export"
+            href="/api-reference/translate-document/create-doc-translation"
+          >
+            Upload once, translate into multiple languages per job, and export in the same format as the source (PDF→PDF, DOCX→DOCX).
+          </Card>
+
+          <Card
+            title="Document Translation guide"
+            icon="book-open"
+            href="/api/api-guides-tutorials/doc-translation/overview"
+          >
+            Overview, pricing, and step-by-step flows for doc-to-doc translation.
+          </Card>
+        </CardGroup>
+
         **Translation** converts text from one language to another while preserving its meaning.
         For Example: **'मैं ऑफिस जा रहा हूँ'** translates to **'I am going to the office'** in English, where the script and language change, but the original meaning remains the same.
 

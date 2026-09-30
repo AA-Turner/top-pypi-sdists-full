@@ -13,7 +13,7 @@ T = TypeVar("T", bound="NewWorkspaceDependencies")
 class NewWorkspaceDependencies:
     """
     Attributes:
-        workspace_id (str):
+        workspace_id (str): must equal the workspace in the request path
         language (NewWorkspaceDependenciesLanguage):
         content (str):
         name (Union[Unset, str]):

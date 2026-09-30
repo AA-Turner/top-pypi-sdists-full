@@ -89,7 +89,7 @@ class BadFileError(Exception):
         self.characters_written = ''
 
     def get_module_folder(self):
-        # get teh path to the current module's __init__.py file
+        # get the path to the current module's __init__.py file
 
         # point to the current file if it's __init__.py
         module_path = __file__

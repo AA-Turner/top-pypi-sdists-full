@@ -1,3 +1,5 @@
+"""GridFlow: a container that flows widgets of equal width into a grid."""
+
 from __future__ import annotations
 
 import typing
@@ -40,9 +42,9 @@ class GridFlow(
     WidgetContainerMixin[int],
     WidgetContainerListContentsMixin[GridFlowContentsItem],
 ):
-    """
-    The GridFlow widget is a flow widget that renders all the widgets it contains the same width,
-    and it arranges them from left to right and top to bottom.
+    """Flow widget that renders all the widgets it contains the same width.
+
+    Arranges them from left to right and top to bottom.
     """
 
     def sizing(self) -> frozenset[Sizing]:
@@ -63,7 +65,8 @@ class GridFlow(
         align: Literal["left", "center", "right"] | Align | tuple[Literal["relative", WHSettings.RELATIVE], int],
         focus: int | AbstractFlowWidget | None = None,
     ) -> None:
-        """
+        """Create the GridFlow widget.
+
         :param cells: iterable of flow widgets to display
         :param cell_width: column width for each cell
         :param h_sep: blank columns between each cell horizontally
@@ -120,6 +123,7 @@ class GridFlow(
         return remove_defaults(attrs, GridFlow.__init__)
 
     def __rich_repr__(self) -> Iterator[tuple[str | None, typing.Any] | typing.Any]:
+        """Yield this widget's constructor arguments as `(name, value)` pairs, for `rich`'s repr protocol."""
         yield "cells", [widget for widget, _ in self.contents]
         yield "cell_width", self.cell_width
         yield "h_sep", self.h_sep
@@ -128,6 +132,7 @@ class GridFlow(
         yield "focus", self.focus_position
 
     def __len__(self) -> int:
+        """Return the number of cells."""
         return len(self._contents)
 
     def _invalidate(self) -> None:
@@ -199,9 +204,9 @@ class GridFlow(
 
     @property
     def cell_width(self) -> int:
-        """
-        The width of each cell in the GridFlow. Setting this value affects
-        all cells.
+        """The width of each cell in the GridFlow.
+
+        Setting this value affects all cells.
         """
         return self._cell_width
 
@@ -214,9 +219,7 @@ class GridFlow(
 
     @property
     def contents(self) -> MonitoredFocusList[GridFlowContentsItem]:
-        """
-        The contents of this GridFlow as a list of (widget, options)
-        tuples.
+        """The contents of this GridFlow as a list of (widget, options) tuples.
 
         options is currently a tuple in the form `('fixed', number)`.
         number is the number of screen columns to allocate to this cell.
@@ -289,7 +292,7 @@ class GridFlow(
 
     @property
     def focus(self) -> AbstractFlowWidget | None:
-        """the child widget in focus or None when GridFlow is empty"""
+        """The child widget in focus or None when GridFlow is empty."""
         if not self.contents:
             return None
         return self.contents[self.focus_position][0]
@@ -361,8 +364,8 @@ class GridFlow(
 
     @property
     def focus_position(self) -> int:
-        """
-        index of child widget in focus.
+        """Index of child widget in focus.
+
         Raises :exc:`IndexError` if read when GridFlow is empty, or when set to an invalid index.
 
         :raises IndexError: the GridFlow is empty.
@@ -405,10 +408,9 @@ class GridFlow(
         return maxcol
 
     def get_display_widget(self, size: tuple[int] | tuple[()]) -> Divider | Pile:
-        """
-        Arrange the cells into columns (and possibly a pile) for
-        display, input or to calculate rows, and update the display
-        widget.
+        """Arrange the cells into columns (and possibly a pile) for display, input or to calculate rows.
+
+        Also updates the display widget.
         """
         maxcol = self._get_maxcol(size)
 
@@ -422,9 +424,7 @@ class GridFlow(
         return self._w
 
     def generate_display_widget(self, size: tuple[int] | tuple[()]) -> Divider | Pile:
-        """
-        Actually generate display widget (ignoring cache)
-        """
+        """Actually generate display widget (ignoring cache)."""
         maxcol = self._get_maxcol(size)
 
         divider = Divider()
@@ -482,9 +482,7 @@ class GridFlow(
         return p
 
     def _set_focus_from_display_widget(self) -> None:
-        """
-        Set the focus to the item in focus in the display widget.
-        """
+        """Set the focus to the item in focus in the display widget."""
         # display widget (self._w) is always built as:
         #
         # Pile([
@@ -513,8 +511,8 @@ class GridFlow(
         size: tuple[int] | tuple[()],
         key: str,
     ) -> str | None:
-        """
-        Pass keypress to display widget for handling.
+        """Pass keypress to display widget for handling.
+
         Captures focus changes.
         """
         self.get_display_widget(size)
@@ -534,6 +532,7 @@ class GridFlow(
         size: tuple[int] | tuple[()] = (),
         focus: bool = False,
     ) -> tuple[int, int]:
+        """Return the number of screen columns and rows this widget requires."""
         if size:
             return super().pack(size, focus)  # type: ignore[safe-super]  # dynamic base
         if self:
@@ -543,6 +542,7 @@ class GridFlow(
         return cols, self.rows((cols,), focus)
 
     def rows(self, size: tuple[int], focus: bool = False) -> int:
+        """Return the number of rows this widget requires for the given size."""
         self.get_display_widget(size)
         return typing.cast("int", super().rows(size, focus=focus))  # int or Never - depends on kind
 
@@ -551,6 +551,7 @@ class GridFlow(
         size: tuple[int] | tuple[()],
         focus: bool = False,
     ) -> Canvas:
+        """Render this widget's current display widget at the given size."""
         self.get_display_widget(size)
         return super().render(size, focus)  # type: ignore[safe-super]  # dynamic base
 
@@ -575,6 +576,7 @@ class GridFlow(
         row: int,
         focus: bool,
     ) -> Literal[True]:
+        """Handle a mouse event, updating the focus based on the resulting display widget."""
         self.get_display_widget(size)
         focus_before = self.contents.focus
         super().mouse_event(size, event, button, col, row, focus)  # type: ignore[safe-super]  # dynamic base

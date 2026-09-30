@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.next_invoice_reply_discount_type import NextInvoiceReplyDiscountType
+from koyeb.api_async.models.next_invoice_reply_discount_type import (
+    NextInvoiceReplyDiscountType,
+)
+
 
 class TestNextInvoiceReplyDiscountType(unittest.TestCase):
     """NextInvoiceReplyDiscountType unit test stubs"""
@@ -29,5 +32,6 @@ class TestNextInvoiceReplyDiscountType(unittest.TestCase):
         """Test NextInvoiceReplyDiscountType"""
         # inst = NextInvoiceReplyDiscountType()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -137,21 +137,32 @@ class ListModelScalingGroupsResponse(_message.Message):
     ) -> None: ...
 
 class CallModelRequest(_message.Message):
-    __slots__ = ("model_version", "remote_call_request")
+    __slots__ = ("model_version", "remote_call_request", "enqueue_remote_call_request")
     MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
     REMOTE_CALL_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    ENQUEUE_REMOTE_CALL_REQUEST_FIELD_NUMBER: _ClassVar[int]
     model_version: ModelVersionSelector
     remote_call_request: _remote_python_call_pb2.CallFunctionRequest
+    enqueue_remote_call_request: _remote_python_call_pb2.EnqueueRemoteCallRequest
     def __init__(
         self,
         model_version: _Optional[_Union[ModelVersionSelector, _Mapping]] = ...,
         remote_call_request: _Optional[_Union[_remote_python_call_pb2.CallFunctionRequest, _Mapping]] = ...,
+        enqueue_remote_call_request: _Optional[
+            _Union[_remote_python_call_pb2.EnqueueRemoteCallRequest, _Mapping]
+        ] = ...,
     ) -> None: ...
 
 class CallModelResponse(_message.Message):
-    __slots__ = ("remote_call_response",)
+    __slots__ = ("remote_call_response", "enqueue_remote_call_response")
     REMOTE_CALL_RESPONSE_FIELD_NUMBER: _ClassVar[int]
+    ENQUEUE_REMOTE_CALL_RESPONSE_FIELD_NUMBER: _ClassVar[int]
     remote_call_response: _remote_python_call_pb2.CallFunctionResponse
+    enqueue_remote_call_response: _remote_python_call_pb2.EnqueueRemoteCallResponse
     def __init__(
-        self, remote_call_response: _Optional[_Union[_remote_python_call_pb2.CallFunctionResponse, _Mapping]] = ...
+        self,
+        remote_call_response: _Optional[_Union[_remote_python_call_pb2.CallFunctionResponse, _Mapping]] = ...,
+        enqueue_remote_call_response: _Optional[
+            _Union[_remote_python_call_pb2.EnqueueRemoteCallResponse, _Mapping]
+        ] = ...,
     ) -> None: ...

@@ -26,10 +26,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class Snapshot(BaseModel):
     """
     The object that represents a snapshot. It can either be local, on a node, or remote, in a cold storage.
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
     size: Optional[StrictInt] = None
@@ -41,7 +43,19 @@ class Snapshot(BaseModel):
     region: Optional[StrictStr] = None
     status: Optional[SnapshotStatus] = SnapshotStatus.SNAPSHOT_STATUS_INVALID
     type: Optional[SnapshotType] = SnapshotType.SNAPSHOT_TYPE_INVALID
-    __properties: ClassVar[List[str]] = ["id", "name", "size", "created_at", "updated_at", "deleted_at", "organization_id", "parent_volume_id", "region", "status", "type"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "name",
+        "size",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+        "organization_id",
+        "parent_volume_id",
+        "region",
+        "status",
+        "type",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -49,7 +63,6 @@ class Snapshot(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -74,8 +87,7 @@ class Snapshot(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -93,19 +105,23 @@ class Snapshot(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "name": obj.get("name"),
-            "size": obj.get("size"),
-            "created_at": obj.get("created_at"),
-            "updated_at": obj.get("updated_at"),
-            "deleted_at": obj.get("deleted_at"),
-            "organization_id": obj.get("organization_id"),
-            "parent_volume_id": obj.get("parent_volume_id"),
-            "region": obj.get("region"),
-            "status": obj.get("status") if obj.get("status") is not None else SnapshotStatus.SNAPSHOT_STATUS_INVALID,
-            "type": obj.get("type") if obj.get("type") is not None else SnapshotType.SNAPSHOT_TYPE_INVALID
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "name": obj.get("name"),
+                "size": obj.get("size"),
+                "created_at": obj.get("created_at"),
+                "updated_at": obj.get("updated_at"),
+                "deleted_at": obj.get("deleted_at"),
+                "organization_id": obj.get("organization_id"),
+                "parent_volume_id": obj.get("parent_volume_id"),
+                "region": obj.get("region"),
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else SnapshotStatus.SNAPSHOT_STATUS_INVALID,
+                "type": obj.get("type")
+                if obj.get("type") is not None
+                else SnapshotType.SNAPSHOT_TYPE_INVALID,
+            }
+        )
         return _obj
-
-

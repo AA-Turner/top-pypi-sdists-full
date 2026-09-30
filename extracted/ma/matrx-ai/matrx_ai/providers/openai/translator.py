@@ -445,18 +445,29 @@ class OpenAITranslator(BaseTranslator):
         tool_call_blocks: list[ToolCallContent] = []
         web_search_blocks: list[WebSearchCallContent] = []
         text_blocks: list[TextContent] = []
+        # Reasoning and web_search_call items in OpenAI's OWN interleaved order
+        # (rs_1, ws_1, rs_2, ws_2 …). Each search call must be replayed right after
+        # the reasoning item that produced it; grouping all reasoning first and all
+        # searches after it made OpenAI refuse the next turn ("web_search_call was
+        # provided without its required 'reasoning' item").
+        ordered_pre_text: list[ThinkingContent | WebSearchCallContent] = []
 
         for item in output_items:
             # vcprint(item, "[OPENAI TRANSLATOR] Output Item", color="cyan")
 
             if item.type == "reasoning":
-                thinking_blocks.append(ThinkingContent.from_openai(item))
+                thinking = ThinkingContent.from_openai(item)
+                thinking_blocks.append(thinking)
+                if thinking is not None:
+                    ordered_pre_text.append(thinking)
 
             elif item.type == "function_call":
                 tool_call_blocks.append(ToolCallContent.from_openai(item))
 
             elif item.type == "web_search_call":
-                web_search_blocks.append(WebSearchCallContent.from_openai(item))
+                search = WebSearchCallContent.from_openai(item)
+                web_search_blocks.append(search)
+                ordered_pre_text.append(search)
 
             elif item.type == "message":
                 for content_item in item.content:
@@ -505,7 +516,7 @@ class OpenAITranslator(BaseTranslator):
         # also satisfies the Responses API rule that a reasoning item be
         # immediately followed by its associated output item (previously the
         # function_call was replayed between the reasoning and its message).
-        pre_text_content = [*thinking_blocks, *web_search_blocks]
+        pre_text_content = list(ordered_pre_text)
 
         if pre_text_content:
             role = Role.OUTPUT if has_thinking else Role.ASSISTANT

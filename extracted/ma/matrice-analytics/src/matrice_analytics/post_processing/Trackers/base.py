@@ -19,13 +19,13 @@ class BaseObjectTracker(ABC):
     ) -> List[DetectionDict]:
         """Attach ``track_id`` to each detection dict."""
 
-    def reset(self) -> None:
+    def reset(self) -> None:  # noqa: B027 - optional hook, no-op by default
         """Reset internal tracker state."""
 
-    def restore_state(self) -> None:
+    def restore_state(self) -> None:  # noqa: B027 - optional hook
         """Restore persisted state if supported."""
 
-    def save_state(self) -> None:
+    def save_state(self) -> None:  # noqa: B027 - optional hook
         """Persist tracker state if supported."""
 
 

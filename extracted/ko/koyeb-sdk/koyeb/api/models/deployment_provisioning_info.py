@@ -19,18 +19,29 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api.models.deployment_provisioning_info_stage import DeploymentProvisioningInfoStage
+from koyeb.api.models.deployment_provisioning_info_stage import (
+    DeploymentProvisioningInfoStage,
+)
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeploymentProvisioningInfo(BaseModel):
     """
     DeploymentProvisioningInfo
-    """ # noqa: E501
-    sha: Optional[StrictStr] = Field(default=None, description="The git sha for this build (we resolve the reference at the start of the build).")
-    image: Optional[StrictStr] = Field(default=None, description="The docker image built as a result of this build.")
-    stages: Optional[List[DeploymentProvisioningInfoStage]] = Field(default=None, description="Some info about the build.")
+    """  # noqa: E501
+
+    sha: Optional[StrictStr] = Field(
+        default=None,
+        description="The git sha for this build (we resolve the reference at the start of the build).",
+    )
+    image: Optional[StrictStr] = Field(
+        default=None, description="The docker image built as a result of this build."
+    )
+    stages: Optional[List[DeploymentProvisioningInfoStage]] = Field(
+        default=None, description="Some info about the build."
+    )
     __properties: ClassVar[List[str]] = ["sha", "image", "stages"]
 
     model_config = ConfigDict(
@@ -39,7 +50,6 @@ class DeploymentProvisioningInfo(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +74,7 @@ class DeploymentProvisioningInfo(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -76,9 +85,10 @@ class DeploymentProvisioningInfo(BaseModel):
         _items = []
         if self.stages:
             for _item_stages in self.stages:
-                if _item_stages:
-                    _items.append(_item_stages.to_dict())
-            _dict['stages'] = _items
+                _items.append(
+                    _item_stages.to_dict() if _item_stages is not None else None
+                )
+            _dict["stages"] = _items
         return _dict
 
     @classmethod
@@ -90,11 +100,16 @@ class DeploymentProvisioningInfo(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "sha": obj.get("sha"),
-            "image": obj.get("image"),
-            "stages": [DeploymentProvisioningInfoStage.from_dict(_item) for _item in obj["stages"]] if obj.get("stages") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "sha": obj.get("sha"),
+                "image": obj.get("image"),
+                "stages": [
+                    DeploymentProvisioningInfoStage.from_dict(_item)
+                    for _item in obj["stages"]
+                ]
+                if obj.get("stages") is not None
+                else None,
+            }
+        )
         return _obj
-
-

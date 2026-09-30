@@ -13,6 +13,10 @@ so the driver is resolved from the active session rather than passed in.
 
 from testmu_selenium._heal import Heal
 from testmu_selenium._helpers.driver import get_driver
+from testmu_selenium._helpers._page_ready import (
+    PAGE_NOT_READY_ERROR,
+    page_not_ready_message,
+)
 from testmu_selenium._helpers.smart_wait import SmartWait
 
 
@@ -52,7 +56,10 @@ def visionQuery(description, return_type, *, driver=None):
     # Resolve ${param}/{{var}} templates before the description is placed into
     # current_action (operation_intent + queried_value) and sent to the analyzer.
     from testmu_selenium._vars import var
-    description = var(description)
+    from testmu_selenium._helpers._vision_fence import fence_templates
+    # Fence substituted values: a multi-line captured value spliced
+    # inline makes the model bind the predicate to its last line only.
+    description = fence_templates(description, var)
 
     # The automind /v1/heal endpoints hard-subscript operation_id /
     # instruction_id and read the query from
@@ -87,6 +94,12 @@ def visionQuery(description, return_type, *, driver=None):
 
     data = resp.json()
     if isinstance(data, dict) and data.get("error"):
+        # page_not_ready survived the retry budget in Heal.vision_query — the page
+        # was still loading, the action did not fail. Keep the loader diagnostics
+        # (and the literal "page_not_ready" substring auteur's code_generation
+        # routes on) so the step error says what actually happened.
+        if data["error"] == PAGE_NOT_READY_ERROR:
+            raise RuntimeError(page_not_ready_message("visionQuery failed", data))
         raise RuntimeError(f"visionQuery failed: {data['error']}")
 
     raw = data.get("vision_query") if isinstance(data, dict) else None

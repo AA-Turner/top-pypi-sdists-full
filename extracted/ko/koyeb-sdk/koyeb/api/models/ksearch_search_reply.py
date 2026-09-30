@@ -30,10 +30,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class KsearchSearchReply(BaseModel):
     """
     KsearchSearchReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     organizations: Optional[List[KsearchOrganization]] = None
     users: Optional[List[KsearchUser]] = None
     apps: Optional[List[KsearchApp]] = None
@@ -41,7 +43,15 @@ class KsearchSearchReply(BaseModel):
     global_deployments: Optional[List[KsearchGlobalDeployment]] = None
     regional_deployments: Optional[List[KsearchRegionalDeployment]] = None
     instances: Optional[List[KsearchInstance]] = None
-    __properties: ClassVar[List[str]] = ["organizations", "users", "apps", "services", "global_deployments", "regional_deployments", "instances"]
+    __properties: ClassVar[List[str]] = [
+        "organizations",
+        "users",
+        "apps",
+        "services",
+        "global_deployments",
+        "regional_deployments",
+        "instances",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -49,7 +59,6 @@ class KsearchSearchReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -74,8 +83,7 @@ class KsearchSearchReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -86,51 +94,62 @@ class KsearchSearchReply(BaseModel):
         _items = []
         if self.organizations:
             for _item_organizations in self.organizations:
-                if _item_organizations:
-                    _items.append(_item_organizations.to_dict())
-            _dict['organizations'] = _items
+                _items.append(
+                    _item_organizations.to_dict()
+                    if _item_organizations is not None
+                    else None
+                )
+            _dict["organizations"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in users (list)
         _items = []
         if self.users:
             for _item_users in self.users:
-                if _item_users:
-                    _items.append(_item_users.to_dict())
-            _dict['users'] = _items
+                _items.append(
+                    _item_users.to_dict() if _item_users is not None else None
+                )
+            _dict["users"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in apps (list)
         _items = []
         if self.apps:
             for _item_apps in self.apps:
-                if _item_apps:
-                    _items.append(_item_apps.to_dict())
-            _dict['apps'] = _items
+                _items.append(_item_apps.to_dict() if _item_apps is not None else None)
+            _dict["apps"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in services (list)
         _items = []
         if self.services:
             for _item_services in self.services:
-                if _item_services:
-                    _items.append(_item_services.to_dict())
-            _dict['services'] = _items
+                _items.append(
+                    _item_services.to_dict() if _item_services is not None else None
+                )
+            _dict["services"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in global_deployments (list)
         _items = []
         if self.global_deployments:
             for _item_global_deployments in self.global_deployments:
-                if _item_global_deployments:
-                    _items.append(_item_global_deployments.to_dict())
-            _dict['global_deployments'] = _items
+                _items.append(
+                    _item_global_deployments.to_dict()
+                    if _item_global_deployments is not None
+                    else None
+                )
+            _dict["global_deployments"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in regional_deployments (list)
         _items = []
         if self.regional_deployments:
             for _item_regional_deployments in self.regional_deployments:
-                if _item_regional_deployments:
-                    _items.append(_item_regional_deployments.to_dict())
-            _dict['regional_deployments'] = _items
+                _items.append(
+                    _item_regional_deployments.to_dict()
+                    if _item_regional_deployments is not None
+                    else None
+                )
+            _dict["regional_deployments"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in instances (list)
         _items = []
         if self.instances:
             for _item_instances in self.instances:
-                if _item_instances:
-                    _items.append(_item_instances.to_dict())
-            _dict['instances'] = _items
+                _items.append(
+                    _item_instances.to_dict() if _item_instances is not None else None
+                )
+            _dict["instances"] = _items
         return _dict
 
     @classmethod
@@ -142,15 +161,42 @@ class KsearchSearchReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "organizations": [KsearchOrganization.from_dict(_item) for _item in obj["organizations"]] if obj.get("organizations") is not None else None,
-            "users": [KsearchUser.from_dict(_item) for _item in obj["users"]] if obj.get("users") is not None else None,
-            "apps": [KsearchApp.from_dict(_item) for _item in obj["apps"]] if obj.get("apps") is not None else None,
-            "services": [KsearchService.from_dict(_item) for _item in obj["services"]] if obj.get("services") is not None else None,
-            "global_deployments": [KsearchGlobalDeployment.from_dict(_item) for _item in obj["global_deployments"]] if obj.get("global_deployments") is not None else None,
-            "regional_deployments": [KsearchRegionalDeployment.from_dict(_item) for _item in obj["regional_deployments"]] if obj.get("regional_deployments") is not None else None,
-            "instances": [KsearchInstance.from_dict(_item) for _item in obj["instances"]] if obj.get("instances") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "organizations": [
+                    KsearchOrganization.from_dict(_item)
+                    for _item in obj["organizations"]
+                ]
+                if obj.get("organizations") is not None
+                else None,
+                "users": [KsearchUser.from_dict(_item) for _item in obj["users"]]
+                if obj.get("users") is not None
+                else None,
+                "apps": [KsearchApp.from_dict(_item) for _item in obj["apps"]]
+                if obj.get("apps") is not None
+                else None,
+                "services": [
+                    KsearchService.from_dict(_item) for _item in obj["services"]
+                ]
+                if obj.get("services") is not None
+                else None,
+                "global_deployments": [
+                    KsearchGlobalDeployment.from_dict(_item)
+                    for _item in obj["global_deployments"]
+                ]
+                if obj.get("global_deployments") is not None
+                else None,
+                "regional_deployments": [
+                    KsearchRegionalDeployment.from_dict(_item)
+                    for _item in obj["regional_deployments"]
+                ]
+                if obj.get("regional_deployments") is not None
+                else None,
+                "instances": [
+                    KsearchInstance.from_dict(_item) for _item in obj["instances"]
+                ]
+                if obj.get("instances") is not None
+                else None,
+            }
+        )
         return _obj
-
-

@@ -1,39 +1,42 @@
 __all__ = (
-    'anim_attrs',
-    'anim_attrs_abbr',
-    'anim_with_ratio',
-    'block_touch_events',
-    'cancel_managed_tasks',
-    'event',
-    'event_freq',
-    'interpolate',
-    'interpolate_seq',
-    'managed_start',
-    'move_on_after',
-    'n_frames',
-    'rest_of_touch_events',
-    'run_in_executor',
-    'run_in_thread',
-    'sandwich_canvas',
-    'sleep',
-    'sleep_free',
-    'sleep_freq',
-    'smooth_attr',
-    'stencil_mask',
-    'stencil_widget_mask',
-    'suppress_event',
-    'sync_attr',
-    'sync_attrs',
-    'transform',
-    'visibility_aware_touch_events',
+    "anim_attrs",
+    "anim_attrs_abbr",
+    "anim_with_ratio",
+    "block_touch_events",
+    "cancel_managed_tasks",
+    "event",
+    "event_freq",
+    "interpolate",
+    "interpolate_seq",
+    "managed_start",
+    "move_on_after",
+    "n_frames",
+    "RecursiveActivationError",
+    "rest_of_touch_events",
+    "run_in_executor",
+    "run_in_thread",
+    "sandwich_canvas",
+    "sleep",
+    "sleep_freq",
+    "smooth_attr",
+    "stencil_mask",
+    "stencil_widget_mask",
+    "suppress_event",
+    "sync_attr",
+    "sync_attrs",
+    "transform",
+    "visibility_aware_touch_events",
 )
 
 from asyncgui import *
-from ._sleep import sleep, sleep_free, move_on_after, n_frames, sleep_freq, anim_with_ratio
+from ._sleep import sleep, move_on_after, n_frames, sleep_freq, anim_with_ratio
 from ._event import event, event_freq, suppress_event, rest_of_touch_events, \
     block_touch_events, visibility_aware_touch_events
 from ._anim_attrs import anim_attrs, anim_attrs_abbr
 from ._interpolate import interpolate, interpolate_seq
 from ._threading import run_in_executor, run_in_thread
-from ._etc import transform, sync_attr, sync_attrs, stencil_mask, stencil_widget_mask, sandwich_canvas, smooth_attr
+from ._etc import (
+    transform, sync_attr, sync_attrs, stencil_mask, stencil_widget_mask, sandwich_canvas, smooth_attr,
+    RecursiveActivationError,
+)
 from ._managed_start import managed_start, cancel_managed_tasks

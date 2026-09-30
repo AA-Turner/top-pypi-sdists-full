@@ -44,6 +44,14 @@ class UsageChartTimeRange(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     USAGE_CHART_TIME_RANGE_1D: _ClassVar[UsageChartTimeRange]
     USAGE_CHART_TIME_RANGE_7D: _ClassVar[UsageChartTimeRange]
 
+class MaterializedFeatureViewUsageKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    MATERIALIZED_FEATURE_VIEW_USAGE_KIND_UNSPECIFIED: _ClassVar[MaterializedFeatureViewUsageKind]
+    MATERIALIZED_FEATURE_VIEW_USAGE_KIND_FILL: _ClassVar[MaterializedFeatureViewUsageKind]
+    MATERIALIZED_FEATURE_VIEW_USAGE_KIND_COMPACTION: _ClassVar[MaterializedFeatureViewUsageKind]
+    MATERIALIZED_FEATURE_VIEW_USAGE_KIND_WIDE_TABLE_READ: _ClassVar[MaterializedFeatureViewUsageKind]
+    MATERIALIZED_FEATURE_VIEW_USAGE_KIND_OTHER_READ: _ClassVar[MaterializedFeatureViewUsageKind]
+
 USAGE_CHART_PERIOD_UNSPECIFIED: UsageChartPeriod
 USAGE_CHART_PERIOD_DAILY: UsageChartPeriod
 USAGE_CHART_PERIOD_MONTHLY: UsageChartPeriod
@@ -56,6 +64,11 @@ USAGE_CHART_GROUPING_WORKLOAD_TYPE: UsageChartGrouping
 USAGE_CHART_TIME_RANGE_UNSPECIFIED: UsageChartTimeRange
 USAGE_CHART_TIME_RANGE_1D: UsageChartTimeRange
 USAGE_CHART_TIME_RANGE_7D: UsageChartTimeRange
+MATERIALIZED_FEATURE_VIEW_USAGE_KIND_UNSPECIFIED: MaterializedFeatureViewUsageKind
+MATERIALIZED_FEATURE_VIEW_USAGE_KIND_FILL: MaterializedFeatureViewUsageKind
+MATERIALIZED_FEATURE_VIEW_USAGE_KIND_COMPACTION: MaterializedFeatureViewUsageKind
+MATERIALIZED_FEATURE_VIEW_USAGE_KIND_WIDE_TABLE_READ: MaterializedFeatureViewUsageKind
+MATERIALIZED_FEATURE_VIEW_USAGE_KIND_OTHER_READ: MaterializedFeatureViewUsageKind
 
 class GetUsageChartRequest(_message.Message):
     __slots__ = ("start_ms", "end_ms", "period", "grouping", "time_range")
@@ -154,6 +167,16 @@ class PublishNodeUsageResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class PublishPodUsageRequest(_message.Message):
+    __slots__ = ("pods",)
+    PODS_FIELD_NUMBER: _ClassVar[int]
+    pods: _containers.RepeatedCompositeFieldContainer[_pod_status_pb2.PodStatusPubSub]
+    def __init__(self, pods: _Optional[_Iterable[_Union[_pod_status_pb2.PodStatusPubSub, _Mapping]]] = ...) -> None: ...
+
+class PublishPodUsageResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class GetNodesAndPodsUIRequest(_message.Message):
     __slots__ = ("namespace", "pod_label_selector", "environment_id")
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
@@ -200,19 +223,35 @@ class GetCreditBundlesResponse(_message.Message):
     def __init__(self, bundles: _Optional[_Iterable[_Union[CreditBundle, _Mapping]]] = ...) -> None: ...
 
 class CreditBundle(_message.Message):
-    __slots__ = ("bundle_id", "purchase_date", "credit_quantity", "purchase_price", "expires_on", "remaining_credits")
+    __slots__ = (
+        "bundle_id",
+        "purchase_date",
+        "credit_quantity",
+        "purchase_price",
+        "expires_on",
+        "remaining_credits",
+        "billing_model",
+        "consumed_commitment",
+        "consumption_by_workload_type",
+    )
     BUNDLE_ID_FIELD_NUMBER: _ClassVar[int]
     PURCHASE_DATE_FIELD_NUMBER: _ClassVar[int]
     CREDIT_QUANTITY_FIELD_NUMBER: _ClassVar[int]
     PURCHASE_PRICE_FIELD_NUMBER: _ClassVar[int]
     EXPIRES_ON_FIELD_NUMBER: _ClassVar[int]
     REMAINING_CREDITS_FIELD_NUMBER: _ClassVar[int]
+    BILLING_MODEL_FIELD_NUMBER: _ClassVar[int]
+    CONSUMED_COMMITMENT_FIELD_NUMBER: _ClassVar[int]
+    CONSUMPTION_BY_WORKLOAD_TYPE_FIELD_NUMBER: _ClassVar[int]
     bundle_id: str
     purchase_date: _date_pb2.Date
     credit_quantity: int
     purchase_price: int
     expires_on: _date_pb2.Date
     remaining_credits: int
+    billing_model: str
+    consumed_commitment: float
+    consumption_by_workload_type: _containers.RepeatedCompositeFieldContainer[BundleWorkloadConsumption]
     def __init__(
         self,
         bundle_id: _Optional[str] = ...,
@@ -221,7 +260,18 @@ class CreditBundle(_message.Message):
         purchase_price: _Optional[int] = ...,
         expires_on: _Optional[_Union[_date_pb2.Date, _Mapping]] = ...,
         remaining_credits: _Optional[int] = ...,
+        billing_model: _Optional[str] = ...,
+        consumed_commitment: _Optional[float] = ...,
+        consumption_by_workload_type: _Optional[_Iterable[_Union[BundleWorkloadConsumption, _Mapping]]] = ...,
     ) -> None: ...
+
+class BundleWorkloadConsumption(_message.Message):
+    __slots__ = ("workload_type", "consumed_commitment")
+    WORKLOAD_TYPE_FIELD_NUMBER: _ClassVar[int]
+    CONSUMED_COMMITMENT_FIELD_NUMBER: _ClassVar[int]
+    workload_type: str
+    consumed_commitment: float
+    def __init__(self, workload_type: _Optional[str] = ..., consumed_commitment: _Optional[float] = ...) -> None: ...
 
 class GetInstanceUsageRequest(_message.Message):
     __slots__ = ("start_ms", "end_ms", "environment_id")
@@ -264,6 +314,88 @@ class GetInstanceUsageResponse(_message.Message):
     INSTANCES_FIELD_NUMBER: _ClassVar[int]
     instances: _containers.RepeatedCompositeFieldContainer[InstanceUsage]
     def __init__(self, instances: _Optional[_Iterable[_Union[InstanceUsage, _Mapping]]] = ...) -> None: ...
+
+class GetMaterializedFeatureViewUsageRequest(_message.Message):
+    __slots__ = ("start_ms", "end_ms", "bucket_seconds")
+    START_MS_FIELD_NUMBER: _ClassVar[int]
+    END_MS_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    start_ms: int
+    end_ms: int
+    bucket_seconds: int
+    def __init__(
+        self, start_ms: _Optional[int] = ..., end_ms: _Optional[int] = ..., bucket_seconds: _Optional[int] = ...
+    ) -> None: ...
+
+class MaterializedFeatureViewUsageBucket(_message.Message):
+    __slots__ = (
+        "bucket_start_ms",
+        "environment_id",
+        "environment_name",
+        "namespace",
+        "kind",
+        "instance_type",
+        "compute_hours",
+    )
+    BUCKET_START_MS_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_NAME_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    COMPUTE_HOURS_FIELD_NUMBER: _ClassVar[int]
+    bucket_start_ms: int
+    environment_id: str
+    environment_name: str
+    namespace: str
+    kind: MaterializedFeatureViewUsageKind
+    instance_type: str
+    compute_hours: float
+    def __init__(
+        self,
+        bucket_start_ms: _Optional[int] = ...,
+        environment_id: _Optional[str] = ...,
+        environment_name: _Optional[str] = ...,
+        namespace: _Optional[str] = ...,
+        kind: _Optional[_Union[MaterializedFeatureViewUsageKind, str]] = ...,
+        instance_type: _Optional[str] = ...,
+        compute_hours: _Optional[float] = ...,
+    ) -> None: ...
+
+class MaterializedFeatureViewUsageEnvironment(_message.Message):
+    __slots__ = ("environment_id", "environment_name")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_NAME_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    environment_name: str
+    def __init__(self, environment_id: _Optional[str] = ..., environment_name: _Optional[str] = ...) -> None: ...
+
+class GetMaterializedFeatureViewUsageResponse(_message.Message):
+    __slots__ = (
+        "buckets",
+        "attributed_attempts",
+        "unattributed_attempts",
+        "unavailable_environment_ids",
+        "environments",
+    )
+    BUCKETS_FIELD_NUMBER: _ClassVar[int]
+    ATTRIBUTED_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
+    UNATTRIBUTED_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
+    UNAVAILABLE_ENVIRONMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENTS_FIELD_NUMBER: _ClassVar[int]
+    buckets: _containers.RepeatedCompositeFieldContainer[MaterializedFeatureViewUsageBucket]
+    attributed_attempts: int
+    unattributed_attempts: int
+    unavailable_environment_ids: _containers.RepeatedScalarFieldContainer[str]
+    environments: _containers.RepeatedCompositeFieldContainer[MaterializedFeatureViewUsageEnvironment]
+    def __init__(
+        self,
+        buckets: _Optional[_Iterable[_Union[MaterializedFeatureViewUsageBucket, _Mapping]]] = ...,
+        attributed_attempts: _Optional[int] = ...,
+        unattributed_attempts: _Optional[int] = ...,
+        unavailable_environment_ids: _Optional[_Iterable[str]] = ...,
+        environments: _Optional[_Iterable[_Union[MaterializedFeatureViewUsageEnvironment, _Mapping]]] = ...,
+    ) -> None: ...
 
 class GetPodTimeRangesRequest(_message.Message):
     __slots__ = (

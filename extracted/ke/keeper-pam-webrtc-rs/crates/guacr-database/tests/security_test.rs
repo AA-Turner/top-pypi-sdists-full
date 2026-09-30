@@ -15,14 +15,16 @@ mod sqlserver_tls_tests {
         p
     }
 
-    /// SQL Server default config must NOT set trust_server_certificate=true.
+    /// SQL Server default config must not send an explicit trust override.
     ///
-    /// When trust_server_certificate is true, tiberius accepts any certificate
-    /// regardless of CA chain or hostname — equivalent to accepting invalid certs.
-    /// This test FAILS before the fix and passes after.
+    /// guacr leaves the choice to keeperdb when the param is absent. keeperdb then
+    /// trusts the certificate for SQL and Windows logins (encrypted wire, chain not
+    /// validated) and validates it for Azure AD. Strict validation for SQL and
+    /// Windows logins requires trust-server-certificate=false; see
+    /// sqlserver_explicit_strict_param_is_respected.
     #[test]
     #[ignore]
-    fn sqlserver_default_config_does_not_trust_all_certs() {
+    fn sqlserver_default_config_sends_no_trust_override() {
         let info = build_connection_info(DatabaseType::Mssql, &base_params()).unwrap();
 
         let trusts_all = matches!(
@@ -35,8 +37,30 @@ mod sqlserver_tls_tests {
 
         assert!(
             !trusts_all,
-            "Default SQL Server config must NOT set trust_server_certificate=true — \
-             this bypasses TLS certificate validation and enables MITM attacks"
+            "Default SQL Server config must NOT set trust_server_certificate=true"
+        );
+    }
+
+    /// Explicit trust-server-certificate=false must be passed through as Some(false),
+    /// the only value that makes keeperdb validate SQL and Windows logins.
+    #[test]
+    #[ignore]
+    fn sqlserver_explicit_strict_param_is_respected() {
+        let mut params = base_params();
+        params.insert("trust-server-certificate".to_string(), "false".to_string());
+        let info = build_connection_info(DatabaseType::Mssql, &params).unwrap();
+
+        let strict = matches!(
+            &info.advanced_options,
+            Some(AdvancedOptions::Mssql(MssqlAdvancedOptions {
+                trust_server_certificate: Some(false),
+                ..
+            }))
+        );
+
+        assert!(
+            strict,
+            "trust-server-certificate=false param must be passed through to the driver"
         );
     }
 

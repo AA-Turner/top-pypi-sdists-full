@@ -17,20 +17,33 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictFloat,
+    StrictInt,
+    StrictStr,
+)
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from koyeb.api.models.catalog_gpu_details import CatalogGPUDetails
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class CatalogInstanceListItem(BaseModel):
     """
     CatalogInstanceListItem
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     description: Optional[StrictStr] = None
-    vcpu: Optional[StrictInt] = Field(default=None, description="The number of cpus. Deprecated. Use vcpu_shares instead.")
+    vcpu: Optional[StrictInt] = Field(
+        default=None,
+        description="The number of cpus. Deprecated. Use vcpu_shares instead.",
+    )
     memory: Optional[StrictStr] = None
     disk: Optional[StrictStr] = None
     price_per_second: Optional[StrictStr] = None
@@ -39,7 +52,9 @@ class CatalogInstanceListItem(BaseModel):
     regions: Optional[List[StrictStr]] = None
     status: Optional[StrictStr] = None
     require_plan: Optional[List[StrictStr]] = None
-    vcpu_shares: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The number of vcpu shares reserved for the instance.")
+    vcpu_shares: Optional[Union[StrictFloat, StrictInt]] = Field(
+        default=None, description="The number of vcpu shares reserved for the instance."
+    )
     display_name: Optional[StrictStr] = None
     aliases: Optional[List[StrictStr]] = None
     type: Optional[StrictStr] = None
@@ -47,7 +62,27 @@ class CatalogInstanceListItem(BaseModel):
     service_types: Optional[List[StrictStr]] = None
     volumes_enabled: Optional[StrictBool] = None
     light_sleep_enabled: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = ["id", "description", "vcpu", "memory", "disk", "price_per_second", "price_hourly", "price_monthly", "regions", "status", "require_plan", "vcpu_shares", "display_name", "aliases", "type", "gpu", "service_types", "volumes_enabled", "light_sleep_enabled"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "description",
+        "vcpu",
+        "memory",
+        "disk",
+        "price_per_second",
+        "price_hourly",
+        "price_monthly",
+        "regions",
+        "status",
+        "require_plan",
+        "vcpu_shares",
+        "display_name",
+        "aliases",
+        "type",
+        "gpu",
+        "service_types",
+        "volumes_enabled",
+        "light_sleep_enabled",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -55,7 +90,6 @@ class CatalogInstanceListItem(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -80,8 +114,7 @@ class CatalogInstanceListItem(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -90,7 +123,7 @@ class CatalogInstanceListItem(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of gpu
         if self.gpu:
-            _dict['gpu'] = self.gpu.to_dict()
+            _dict["gpu"] = self.gpu.to_dict()
         return _dict
 
     @classmethod
@@ -102,27 +135,29 @@ class CatalogInstanceListItem(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "description": obj.get("description"),
-            "vcpu": obj.get("vcpu"),
-            "memory": obj.get("memory"),
-            "disk": obj.get("disk"),
-            "price_per_second": obj.get("price_per_second"),
-            "price_hourly": obj.get("price_hourly"),
-            "price_monthly": obj.get("price_monthly"),
-            "regions": obj.get("regions"),
-            "status": obj.get("status"),
-            "require_plan": obj.get("require_plan"),
-            "vcpu_shares": obj.get("vcpu_shares"),
-            "display_name": obj.get("display_name"),
-            "aliases": obj.get("aliases"),
-            "type": obj.get("type"),
-            "gpu": CatalogGPUDetails.from_dict(obj["gpu"]) if obj.get("gpu") is not None else None,
-            "service_types": obj.get("service_types"),
-            "volumes_enabled": obj.get("volumes_enabled"),
-            "light_sleep_enabled": obj.get("light_sleep_enabled")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "description": obj.get("description"),
+                "vcpu": obj.get("vcpu"),
+                "memory": obj.get("memory"),
+                "disk": obj.get("disk"),
+                "price_per_second": obj.get("price_per_second"),
+                "price_hourly": obj.get("price_hourly"),
+                "price_monthly": obj.get("price_monthly"),
+                "regions": obj.get("regions"),
+                "status": obj.get("status"),
+                "require_plan": obj.get("require_plan"),
+                "vcpu_shares": obj.get("vcpu_shares"),
+                "display_name": obj.get("display_name"),
+                "aliases": obj.get("aliases"),
+                "type": obj.get("type"),
+                "gpu": CatalogGPUDetails.from_dict(obj["gpu"])
+                if obj.get("gpu") is not None
+                else None,
+                "service_types": obj.get("service_types"),
+                "volumes_enabled": obj.get("volumes_enabled"),
+                "light_sleep_enabled": obj.get("light_sleep_enabled"),
+            }
+        )
         return _obj
-
-

@@ -18,6 +18,7 @@ State machine behaviour (unchanged from the original INCIDENT_MANAGER):
   incident ends and an ``"info"`` end-signal event is emitted.
 * After the end signal a new *cycle* begins (``cycle_id`` increments).
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,7 +32,6 @@ from .schemas import (
     LifecycleConfig,
     SeverityLevel,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -315,10 +315,16 @@ class IncidentLifecycle:
             incident_type=incident_type,
             severity_level=mapped_level,
             human_text=(
-                "Incident ended" if is_end_signal else f"INCIDENT DETECTED: {incident_type} severity={mapped_level}"
+                "Incident ended"
+                if is_end_signal
+                else f"INCIDENT DETECTED: {incident_type} severity={mapped_level}"
             ),
             start_time=state.start_time,
-            end_time=("" if not is_end_signal else datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
+            end_time=(
+                ""
+                if not is_end_signal
+                else datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            ),
             camera_id=camera_id,
             cycle_id=state.incident_cycle_id,
             is_escalation=is_escalation,

@@ -3,6 +3,7 @@ import os
 import re
 import struct
 from fontTools import ttLib
+from fontTools.ttLib import TTLibError
 from fontTools.fontBuilder import FontBuilder
 import unittest
 from fontTools.ttLib.tables._c_m_a_p import (
@@ -189,6 +190,20 @@ class CmapSubtableTest(unittest.TestCase):
             font = ttLib.TTFont()
             font.setGlyphOrder([".notdef"])
             data = subtable.compile(font)
+
+    def test_compile_2_high_gids(self):
+        font = ttLib.TTFont()
+        font.setGlyphOrder([".notdef"] + ["glyph%05d" % i for i in range(1, 65536)])
+        for gids in [(32767,), (32768,), (32769,), (40000, 40001), (65535,)]:
+            with self.subTest(gids=gids):
+                subtable = self.makeSubtable(2, 1, 1, 0)
+                subtable.cmap = {
+                    0x8140 + i: "glyph%05d" % gid for i, gid in enumerate(gids)
+                }
+                data = subtable.compile(font)
+                subtable2 = CmapSubtable.newSubtable(2)
+                subtable2.decompile(data, font)
+                self.assertEqual(subtable2.cmap, subtable.cmap)
 
     def test_compile_decompile_4_empty(self):
         subtable = self.makeSubtable(4, 3, 1, 0)
@@ -378,6 +393,17 @@ class CmapSubtableTest(unittest.TestCase):
             glyphIndexArray=[1, 2, 3, 4, 0],
         )
         self.assertEqual(cmap, {0x41: "a", 0x42: "d", 0x43: "c"})
+
+    def test_decompile_4_idRangeOffset_out_of_bounds(self):
+        # rangeOffset is in bytes from the segment's own idRangeOffset entry:
+        # 2 lands before glyphIndexArray, 0xFFF0 lands past its end.
+        for rangeOffset in (2, 0xFFF0):
+            with self.subTest(rangeOffset=rangeOffset):
+                with self.assertRaises(TTLibError):
+                    self._decompile_4(
+                        [(0x41, 0x41, 0, rangeOffset)],
+                        glyphIndexArray=[1, 2, 3],
+                    )
 
     def test_buildReversed(self):
         c4 = self.makeSubtable(4, 3, 1, 0)

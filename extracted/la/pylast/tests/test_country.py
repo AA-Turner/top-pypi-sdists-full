@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Integration (not unit) tests for pylast.py
 """
@@ -32,7 +31,7 @@ class TestPyLastCountry(TestPyLastWithLastFm):
         assert "Italy" in rep
         assert "pylast.Country" in rep
         assert text == "Italy"
-        assert country1 == country1
+        assert country1 == pylast.Country("Italy", self.network)
         assert country1 != country2
         assert url == "https://www.last.fm/place/italy"
 

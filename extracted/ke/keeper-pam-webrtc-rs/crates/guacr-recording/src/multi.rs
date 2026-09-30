@@ -13,6 +13,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use crate::config::RecordingConfig;
 use crate::ses::{GuacamoleSesRecorder, RecordingDirection, RecordingError};
+#[cfg(feature = "zmq-transport")]
 use crate::zmq_transport::ZmqRecordingSender;
 
 /// Multi-format session recorder
@@ -26,6 +27,7 @@ pub struct MultiFormatRecorder {
     asciicast_writer: Option<std::io::BufWriter<std::fs::File>>,
     typescript_writer: Option<std::io::BufWriter<std::fs::File>>,
     typescript_timing_writer: Option<std::io::BufWriter<std::fs::File>>,
+    #[cfg(feature = "zmq-transport")]
     zmq_sender: Option<ZmqRecordingSender>,
     start_time: Instant,
     config: RecordingConfig,
@@ -126,6 +128,7 @@ impl MultiFormatRecorder {
                 (None, None)
             };
 
+        #[cfg(feature = "zmq-transport")]
         let zmq_sender = if let Some(ref addr) = config.zmq_addr {
             match ZmqRecordingSender::connect(addr, config.allow_unrecorded) {
                 Ok(s) => {
@@ -163,6 +166,7 @@ impl MultiFormatRecorder {
             asciicast_writer,
             typescript_writer,
             typescript_timing_writer,
+            #[cfg(feature = "zmq-transport")]
             zmq_sender,
             start_time: Instant::now(),
             config: config.clone(),
@@ -177,7 +181,22 @@ impl MultiFormatRecorder {
         self.ses_recorder.is_some()
             || self.asciicast_writer.is_some()
             || self.typescript_writer.is_some()
-            || self.zmq_sender.is_some()
+            || self.zmq_active()
+    }
+
+    /// Whether a ZMQ recording sink is attached.
+    ///
+    /// Always false when the `zmq-transport` feature is off, so callers do not
+    /// need their own `cfg` blocks.
+    fn zmq_active(&self) -> bool {
+        #[cfg(feature = "zmq-transport")]
+        {
+            self.zmq_sender.is_some()
+        }
+        #[cfg(not(feature = "zmq-transport"))]
+        {
+            false
+        }
     }
 
     /// Record a Guacamole protocol instruction (.ses format)
@@ -211,6 +230,7 @@ impl MultiFormatRecorder {
         // Non-blocking: try_send avoids blocking the async Tokio runtime when
         // Python is slow to consume. Under load (e.g. cmatrix) dropped events
         // are acceptable when allow_unrecorded=true; strict sessions fail fast.
+        #[cfg(feature = "zmq-transport")]
         if let Some(ref sender) = self.zmq_sender {
             if let Err(e) = sender.try_send(asciicast_line.as_bytes()) {
                 if !self.config.allow_unrecorded {
@@ -268,6 +288,7 @@ impl MultiFormatRecorder {
             writer.write_all(resize_line.as_bytes())?;
         }
 
+        #[cfg(feature = "zmq-transport")]
         if let Some(ref sender) = self.zmq_sender {
             if let Err(e) = sender.try_send(resize_line.as_bytes()) {
                 if !self.config.allow_unrecorded {
@@ -347,7 +368,8 @@ impl MultiFormatRecorder {
             writer.flush()?;
         }
 
-        // Close ZMQ sender — signals end-of-recording to Python.
+        // Close ZMQ sender: signals end-of-recording to Python.
+        #[cfg(feature = "zmq-transport")]
         if let Some(sender) = self.zmq_sender.take() {
             sender.close();
         }
@@ -363,7 +385,7 @@ impl Drop for MultiFormatRecorder {
         if self.ses_recorder.is_some()
             || self.asciicast_writer.is_some()
             || self.typescript_writer.is_some()
-            || self.zmq_sender.is_some()
+            || self.zmq_active()
         {
             if let Err(e) = self.finalize_internal() {
                 // Can't propagate error from Drop, just log it

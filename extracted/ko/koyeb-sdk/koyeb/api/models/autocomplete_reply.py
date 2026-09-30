@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class AutocompleteReply(BaseModel):
     """
     AutocompleteReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     secrets: Optional[List[StrictStr]] = None
     user_env: Optional[List[StrictStr]] = None
     system_env: Optional[List[StrictStr]] = None
@@ -38,7 +40,6 @@ class AutocompleteReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,8 +64,7 @@ class AutocompleteReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -82,11 +82,11 @@ class AutocompleteReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "secrets": obj.get("secrets"),
-            "user_env": obj.get("user_env"),
-            "system_env": obj.get("system_env")
-        })
+        _obj = cls.model_validate(
+            {
+                "secrets": obj.get("secrets"),
+                "user_env": obj.get("user_env"),
+                "system_env": obj.get("system_env"),
+            }
+        )
         return _obj
-
-

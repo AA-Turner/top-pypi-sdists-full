@@ -481,7 +481,7 @@ def test_use_unrelated_existing_lockfile(lock, lifetime):
     # related lock file, then trying to lock it shouldn't destroy the existing
     # file.
     #
-    # https://gitlab.com/warsaw/flufl.lock/-/issues/25
+    # https://gitlab.com/flufl/flufl.lock/-/issues/25
     #
     # There are two cases, one where the lock's lifetime is less than the
     # timeout value and one where the lifetime is greater than the timeout

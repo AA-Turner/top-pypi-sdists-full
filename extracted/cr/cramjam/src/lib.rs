@@ -94,55 +94,114 @@ pub mod zstd;
 use io::{PythonBuffer, RustyBuffer};
 use pyo3::prelude::*;
 
-use crate::io::{AsBytes, RustyFile};
+use crate::io::RustyFile;
 use exceptions::{CompressionError, DecompressionError};
 use std::io::{Read, Seek, SeekFrom, Write};
+use std::ops::{Deref, DerefMut};
 
 /// Any possible input/output to de/compression algorithms.
 /// Typically, as a Python user, you never have to worry about this object. It's exposed here in
 /// the documentation to see what types are acceptable for de/compression functions.
-#[derive(FromPyObject)]
 pub enum BytesType<'a> {
     /// [`cramjam.Buffer`](io/struct.RustyBuffer.html)
-    #[pyo3(transparent, annotation = "Buffer")]
     RustyBuffer(Bound<'a, RustyBuffer>),
     /// [`cramjam.File`](io/struct.RustyFile.html)
-    #[pyo3(transparent, annotation = "File")]
     RustyFile(Bound<'a, RustyFile>),
     /// `object` implementing the Buffer Protocol
-    #[pyo3(transparent, annotation = "pybuffer")]
     PyBuffer(PythonBuffer),
 }
 
-impl<'a> AsBytes for BytesType<'a> {
-    fn as_bytes(&self) -> &[u8] {
+// Hand-written rather than derived: the derive tries each variant in turn and builds a
+// formatted Python exception for every miss, ~1.7 µs per call for the most common inputs
+// (bytes, bytearray, numpy), which all fall through to the last variant.
+impl<'a, 'py> FromPyObject<'a, 'py> for BytesType<'py> {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(buffer) = obj.cast::<RustyBuffer>() {
+            return Ok(Self::RustyBuffer(buffer.to_owned()));
+        }
+        if let Ok(file) = obj.cast::<RustyFile>() {
+            return Ok(Self::RustyFile(file.to_owned()));
+        }
+        PythonBuffer::try_from(&*obj).map(Self::PyBuffer).map_err(|cause| {
+            let expected = "expected Buffer, File or a C-contiguous bytes-like object";
+            let msg = match obj.get_type().name() {
+                Ok(name) => format!("{expected}, not '{name}'"),
+                Err(_) => expected.to_string(),
+            };
+            let err = pyo3::exceptions::PyTypeError::new_err(msg);
+            err.set_cause(obj.py(), Some(cause));
+            err
+        })
+    }
+}
+
+/// Bytes borrowed from a [`BytesType`]. For `Buffer` this holds the PyCell borrow, so the
+/// underlying Vec can't be resized/freed (e.g. `set_len` from another thread) while in use,
+/// including while the GIL is released.
+pub(crate) enum BytesRef<'a> {
+    Buffer(PyRef<'a, RustyBuffer>),
+    Slice(&'a [u8]),
+}
+
+impl Deref for BytesRef<'_> {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
         match self {
-            BytesType::RustyBuffer(b) => {
-                let py_ref = b.borrow();
-                let bytes = py_ref.as_bytes();
-                unsafe { std::slice::from_raw_parts(bytes.as_ptr(), bytes.len()) }
-            }
-            BytesType::PyBuffer(b) => b.as_slice(),
-            BytesType::RustyFile(b) => {
-                let py_ref = b.borrow();
-                let bytes = py_ref.as_bytes();
-                unsafe { std::slice::from_raw_parts(bytes.as_ptr(), bytes.len()) }
-            }
+            Self::Buffer(b) => b.inner.get_ref(),
+            Self::Slice(s) => s,
         }
     }
-    fn as_bytes_mut(&mut self) -> PyResult<&mut [u8]> {
+}
+
+/// Mutable counterpart of [`BytesRef`], holding the exclusive PyCell borrow for `Buffer`.
+pub(crate) enum BytesRefMut<'a> {
+    Buffer(PyRefMut<'a, RustyBuffer>),
+    Slice(&'a mut [u8]),
+}
+
+impl Deref for BytesRefMut<'_> {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        match self {
+            Self::Buffer(b) => b.inner.get_ref(),
+            Self::Slice(s) => s,
+        }
+    }
+}
+
+impl DerefMut for BytesRefMut<'_> {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        match self {
+            Self::Buffer(b) => b.inner.get_mut().as_mut_slice().expect("checked in as_bytes_mut"),
+            Self::Slice(s) => s,
+        }
+    }
+}
+
+const FILE_AS_BYTES_ERR: &str = "Converting a File to bytes is not supported, as it'd require reading the \
+    entire file into memory; consider using cramjam.Buffer";
+
+impl<'a> BytesType<'a> {
+    /// Borrow the underlying bytes; the borrow is held for as long as the returned guard lives.
+    pub(crate) fn as_bytes(&self) -> PyResult<BytesRef<'_>> {
+        match self {
+            BytesType::RustyBuffer(b) => Ok(BytesRef::Buffer(b.try_borrow()?)),
+            BytesType::PyBuffer(b) => Ok(BytesRef::Slice(b.as_slice())),
+            BytesType::RustyFile(_) => Err(pyo3::exceptions::PyTypeError::new_err(FILE_AS_BYTES_ERR)),
+        }
+    }
+    /// Mutably borrow the underlying bytes; the borrow is held for as long as the returned guard lives.
+    pub(crate) fn as_bytes_mut(&mut self) -> PyResult<BytesRefMut<'_>> {
         match self {
             BytesType::RustyBuffer(b) => {
-                let mut py_ref = b.borrow_mut();
-                let bytes = py_ref.as_bytes_mut()?;
-                Ok(unsafe { std::slice::from_raw_parts_mut(bytes.as_mut_ptr(), bytes.len()) })
+                let mut buf = b.try_borrow_mut()?;
+                buf.inner.get_mut().as_mut_slice()?; // a view of a read-only source errors here
+                Ok(BytesRefMut::Buffer(buf))
             }
-            BytesType::PyBuffer(b) => b.as_slice_mut(),
-            BytesType::RustyFile(b) => {
-                let mut py_ref = b.borrow_mut();
-                let bytes = py_ref.as_bytes_mut()?;
-                Ok(unsafe { std::slice::from_raw_parts_mut(bytes.as_mut_ptr(), bytes.len()) })
-            }
+            BytesType::PyBuffer(b) => Ok(BytesRefMut::Slice(b.as_slice_mut()?)),
+            BytesType::RustyFile(_) => Err(pyo3::exceptions::PyTypeError::new_err(FILE_AS_BYTES_ERR)),
         }
     }
 }
@@ -150,7 +209,7 @@ impl<'a> AsBytes for BytesType<'a> {
 impl<'a> Write for BytesType<'a> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let result = match self {
-            BytesType::RustyBuffer(out) => out.borrow_mut().inner.write(buf)?,
+            BytesType::RustyBuffer(out) => Write::write(&mut *out.borrow_mut(), buf)?,
             BytesType::RustyFile(out) => out.borrow_mut().inner.write(buf)?,
             BytesType::PyBuffer(out) => out.write(buf)?,
         };
@@ -185,10 +244,10 @@ impl<'a> Seek for BytesType<'a> {
 
 impl<'a> BytesType<'a> {
     /// Length in bytes
-    fn len(&self) -> usize {
+    fn len(&self) -> PyResult<usize> {
         match self {
-            BytesType::RustyFile(file) => file.borrow().len().unwrap(),
-            _ => self.as_bytes().len(),
+            BytesType::RustyFile(file) => file.try_borrow()?.len(),
+            _ => Ok(self.as_bytes()?.len()),
         }
     }
     /// The item size, in bytes, that the buffer/bytes represent.
@@ -201,8 +260,8 @@ impl<'a> BytesType<'a> {
     }
     /// Empty
     #[allow(dead_code)]
-    fn is_empty(&self) -> bool {
-        self.len() == 0
+    fn is_empty(&self) -> PyResult<bool> {
+        Ok(self.len()? == 0)
     }
 }
 
@@ -220,14 +279,14 @@ macro_rules! generic {
             };
             match $input {
                 BytesType::RustyFile(f) => {
-                    let borrowed = f.borrow();
+                    let borrowed = f.try_borrow()?;
                     let file = &borrowed.inner;
                     $py.detach(|| {
                         $op(file, &mut Cursor::new(&mut output) $(, $args)* )
                     })
                 },
                 _ => {
-                    let bytes = $input.as_bytes();
+                    let bytes: &[u8] = &$input.as_bytes()?;
                     $py.detach(|| {
                         $op(bytes, &mut Cursor::new(&mut output) $(, $args)* )
                     })
@@ -240,25 +299,25 @@ macro_rules! generic {
         {
             match $input {
                 BytesType::RustyFile(f) => {
-                    let borrowed = f.borrow();
+                    let borrowed = f.try_borrow()?;
                     let f_in = &borrowed.inner;
                     match $output {
                         BytesType::RustyFile(f) => {
-                            let mut borrowed = f.borrow_mut();
+                            let mut borrowed = f.try_borrow_mut()?;
                             let mut f_out = &mut borrowed.inner;
                             $py.detach(|| {
                                 $op(f_in, &mut f_out $(, $args)* )
                             })
                         },
                         BytesType::RustyBuffer(buffer) => {
-                            let mut borrowed = buffer.borrow_mut();
-                            let mut buf_out = &mut borrowed.inner;
+                            let mut borrowed = buffer.try_borrow_mut()?;
+                            let mut buf_out = &mut *borrowed;
                             $py.detach(|| {
                                 $op(f_in, &mut buf_out $(, $args)* )
                             })
                         },
                         _ => {
-                            let bytes_out = $output.as_bytes_mut()?;
+                            let bytes_out: &mut [u8] = &mut $output.as_bytes_mut()?;
                             $py.detach(|| {
                                 $op(f_in, &mut Cursor::new(bytes_out) $(, $args)* )
                             })
@@ -266,24 +325,24 @@ macro_rules! generic {
                     }
                 },
                 _ =>  {
-                    let bytes_in = $input.as_bytes();
+                    let bytes_in: &[u8] = &$input.as_bytes()?;
                     match $output {
                         BytesType::RustyFile(f) => {
-                            let mut borrowed = f.borrow_mut();
+                            let mut borrowed = f.try_borrow_mut()?;
                             let mut f_out = &mut borrowed.inner;
                             $py.detach(|| {
                                 $op(bytes_in, &mut f_out $(, $args)* )
                             })
                         },
                         BytesType::RustyBuffer(buffer) => {
-                            let mut borrowed = buffer.borrow_mut();
-                            let mut buf_out = &mut borrowed.inner;
+                            let mut borrowed = buffer.try_borrow_mut()?;
+                            let mut buf_out = &mut *borrowed;
                             $py.detach(|| {
                                 $op(bytes_in, &mut buf_out $(, $args)* )
                             })
                         },
                         _ => {
-                            let bytes_out = $output.as_bytes_mut()?;
+                            let bytes_out: &mut [u8] = &mut $output.as_bytes_mut()?;
                             $py.detach(|| {
                                 $op(bytes_in, &mut Cursor::new(bytes_out) $(, $args)*)
                             })
@@ -329,12 +388,12 @@ macro_rules! make_decompressor {
                 match self.inner.as_mut() {
                     Some(ref mut inner) => match &mut input {
                         BytesType::RustyFile(f) => {
-                            let mut borrowed = f.borrow_mut();
+                            let mut borrowed = f.try_borrow_mut()?;
                             let f_in = &mut borrowed.inner;
                             py.detach(|| libcramjam::$codec::decompress(f_in, inner).map_err(Into::into))
                         }
                         _ => {
-                            let bytes = input.as_bytes();
+                            let bytes: &[u8] = &input.as_bytes()?;
                             py.detach(|| {
                                 libcramjam::$codec::decompress(&mut Cursor::new(bytes), inner).map_err(Into::into)
                             })
@@ -375,14 +434,14 @@ macro_rules! make_decompressor {
             fn __len__(&self) -> usize {
                 self.len()
             }
-            fn __contains__(&self, py: Python, x: BytesType) -> bool {
-                let bytes = x.as_bytes();
-                py.detach(|| {
+            fn __contains__(&self, py: Python, x: BytesType) -> PyResult<bool> {
+                let bytes: &[u8] = &x.as_bytes()?;
+                Ok(py.detach(|| {
                     self.inner
                         .as_ref()
                         .map(|c| c.get_ref().windows(bytes.len()).any(|w| w == bytes))
                         .unwrap_or_else(|| false)
-                })
+                }))
             }
             fn __repr__(&self) -> String {
                 format!("Decompressor<len={}>", self.len())

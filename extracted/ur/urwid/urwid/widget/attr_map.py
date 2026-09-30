@@ -1,3 +1,5 @@
+"""AttrMap: a decoration widget that maps display attributes of its child."""
+
 from __future__ import annotations
 
 import typing
@@ -16,15 +18,15 @@ WrappedWidget = typing.TypeVar("WrappedWidget", bound="AbstractWidget")
 
 
 class AttrMapError(WidgetError):
-    pass
+    """AttrMap related errors."""
 
 
 class AttrMap(
     delegate_to_widget_mixin("_original_widget"),  # type: ignore[misc]
     WidgetDecoration[WrappedWidget],
 ):
-    """
-    AttrMap is a decoration that maps one set of attributes to another.
+    """A decoration that maps one set of display attributes to another.
+
     This object will pass all function calls and variable references to the
     wrapped widget.
     """
@@ -86,13 +88,14 @@ class AttrMap(
         return d
 
     def get_attr_map(self) -> dict[Hashable, Hashable]:
+        """Return a copy of the attribute mapping dictionary."""
         # make a copy so ours is not accidentally modified
         # FIXME: a dictionary that detects modifications would be better
         return dict(self._attr_map)
 
     def set_attr_map(self, attr_map: dict[Hashable, Hashable]) -> None:
         """
-        Set the attribute mapping dictionary {from_attr: to_attr, ...}
+        Set the attribute mapping dictionary {from_attr: to_attr, ...}.
 
         Note this function does not accept a single attribute the way the
         constructor does.  You must specify {None: attribute} instead.
@@ -117,6 +120,7 @@ class AttrMap(
     attr_map = property(get_attr_map, set_attr_map)
 
     def get_focus_map(self) -> dict[Hashable, Hashable] | None:
+        """Return a copy of the focus attribute mapping dictionary, or None if unset."""
         # make a copy so ours is not accidentally modified
         # FIXME: a dictionary that detects modifications would be better
         if self._focus_map:
@@ -124,9 +128,7 @@ class AttrMap(
         return None
 
     def set_focus_map(self, focus_map: dict[Hashable, Hashable] | None) -> None:
-        """
-        Set the focus attribute mapping dictionary
-        {from_attr: to_attr, ...}
+        """Set the focus attribute mapping dictionary {from_attr: to_attr, ...}.
 
         If None this widget will use the attr mapping instead (no change
         when in focus).
@@ -161,9 +163,7 @@ class AttrMap(
         size: tuple[()] | tuple[int] | tuple[int, int],
         focus: bool = False,
     ) -> CompositeCanvas:
-        """
-        Render wrapped widget and apply attribute. Return canvas.
-        """
+        """Render wrapped widget and apply attribute. Return canvas."""
         attr_map = self._attr_map
         if focus and self._focus_map is not None:
             attr_map = self._focus_map

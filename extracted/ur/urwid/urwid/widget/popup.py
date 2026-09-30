@@ -18,6 +18,8 @@
 # Urwid web site: https://urwid.org/
 
 
+"""Pop-up support: a launcher widget and the target that displays its pop-up."""
+
 from __future__ import annotations
 
 import typing
@@ -37,6 +39,8 @@ if typing.TYPE_CHECKING:
     from .widget import AbstractBoxWidget, AbstractWidget
 
     class PopUpParametersModel(TypedDict):
+        """Position and box size a :class:`PopUpLauncher` requests for its pop-up."""
+
         left: int
         top: int
         overlay_width: int
@@ -50,14 +54,17 @@ class PopUpLauncher(
     delegate_to_widget_mixin("_original_widget"),  # type: ignore[misc]
     WidgetDecoration[WrappedWidget],
 ):
+    """Decoration that lets a wrapped widget open and close a pop-up widget above it."""
+
     def __init__(self, original_widget: WrappedWidget) -> None:
+        """Wrap `original_widget`, with no pop-up open yet."""
         super().__init__(original_widget)
         self._pop_up_widget: AbstractWidget | None = None
 
     def create_pop_up(self) -> AbstractWidget:
-        """
-        Subclass must override this method and return a widget
-        to be used for the pop-up.  This method is called once each time
+        """Return the widget to be used for the pop-up.
+
+        Subclass must override this method. It is called once each time
         the pop-up is opened.
 
         :class:`PopUpTarget` renders the pop-up with the box size declared by
@@ -70,22 +77,21 @@ class PopUpLauncher(
         raise NotImplementedError("Subclass must override this method")
 
     def get_pop_up_parameters(self) -> PopUpParametersModel:
-        """
-        Subclass must override this method and have it return a dict, eg:
+        """Return a dict of pop-up parameters, eg: {'left':0, 'top':1, 'overlay_width':30, 'overlay_height':4}.
 
-        {'left':0, 'top':1, 'overlay_width':30, 'overlay_height':4}
-
-        This method is called each time this widget is rendered.
+        Subclass must override this method. It is called each time this widget is rendered.
 
         :raises NotImplementedError: the subclass does not override this method.
         """
         raise NotImplementedError("Subclass must override this method")
 
     def open_pop_up(self) -> None:
+        """Create the pop-up widget via :meth:`create_pop_up` and invalidate this widget."""
         self._pop_up_widget = self.create_pop_up()
         self._invalidate()
 
     def close_pop_up(self) -> None:
+        """Discard the currently open pop-up widget, if any, and invalidate this widget."""
         self._pop_up_widget = None
         self._invalidate()
 
@@ -94,6 +100,7 @@ class PopUpLauncher(
         size: tuple[()] | tuple[int] | tuple[int, int],
         focus: bool = False,
     ) -> CompositeCanvas | Canvas:
+        """Render the wrapped widget, attaching the open pop-up widget to the canvas, if any."""
         canv = super().render(size, focus)
         if self._pop_up_widget:
             canv = CompositeCanvas(canv)
@@ -186,6 +193,7 @@ class PopUpTarget(WidgetDecoration[WrappedWidget]):
         size: tuple[int, int],  # type: ignore[override]
         focus: bool = False,
     ) -> Canvas:
+        """Rebuild the pop-up overlay chain for *size* and render the resulting widget."""
         self._update_overlay(size, focus)
         return self._current_widget.render(size, focus=focus)
 
@@ -220,6 +228,7 @@ class PopUpTarget(WidgetDecoration[WrappedWidget]):
         size: tuple[int, int],  # type: ignore[override]
         key: str,
     ) -> str | None:
+        """Rebuild the pop-up overlay chain for *size* and forward the keypress to it."""
         self._update_overlay(size, True)
         return self._current_widget.keypress(size, key)
 
@@ -245,6 +254,7 @@ class PopUpTarget(WidgetDecoration[WrappedWidget]):
         row: int,
         focus: bool,
     ) -> bool | None:
+        """Rebuild the pop-up overlay chain for *size* and forward the mouse event to it."""
         self._update_overlay(size, focus)
         return self._current_widget.mouse_event(size, event, button, col, row, focus)
 
@@ -253,6 +263,7 @@ class PopUpTarget(WidgetDecoration[WrappedWidget]):
         size: tuple[int, int] | tuple[()] = (),
         focus: bool = False,
     ) -> tuple[int, int]:
+        """Rebuild the pop-up overlay chain for *size* and return the current widget's packed size."""
         self._update_overlay(size, focus)  # type: ignore[arg-type]
         return self._current_widget.pack(size)
 

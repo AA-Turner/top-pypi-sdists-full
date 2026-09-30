@@ -7933,6 +7933,63 @@ class TestOrchestratorRunner:
         assert "force_sequential_levels" not in execute.await_args.kwargs
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("parallel", [True, False])
+    @pytest.mark.parametrize("criteria", [1, 2])
+    async def test_a_check_package_uses_ac_executor_path_and_keeps_sequential_runs_sequential(
+        self,
+        mock_adapter: MagicMock,
+        mock_event_store: AsyncMock,
+        mock_console: MagicMock,
+        sample_seed: Seed,
+        parallel: bool,
+        criteria: int,
+    ) -> None:
+        """An installed check package decides only on the per-AC path, even for one AC.
+
+        A run requested as sequential stays sequential on that path.
+        """
+        assert len(sample_seed.acceptance_criteria) >= criteria
+        single_ac_seed = sample_seed.model_copy(
+            update={"acceptance_criteria": sample_seed.acceptance_criteria[:criteria]}
+        )
+        tracker = SessionTracker.create("exec_single_pkg", single_ac_seed.metadata.seed_id)
+        runner = OrchestratorRunner(mock_adapter, mock_event_store, mock_console)
+        runner.acceptance_authority = MagicMock()
+        tracker = _attach_live_process_local_contract(
+            runner,
+            tracker,
+            single_ac_seed,
+            session_id=tracker.session_id,
+        )
+        expected: Result[OrchestratorResult, OrchestratorError] = Result.ok(
+            OrchestratorResult(
+                success=True,
+                session_id=tracker.session_id,
+                execution_id=tracker.execution_id,
+            )
+        )
+
+        with (
+            patch.object(runner, "_check_startup_cancellation", AsyncMock(return_value=False)),
+            patch.object(
+                runner,
+                "_get_merged_tools",
+                AsyncMock(wraps=runner._get_merged_tools),
+            ),
+            patch.object(runner, "_execute_parallel", AsyncMock(return_value=expected)) as execute,
+        ):
+            result = await runner.execute_precreated_session(
+                single_ac_seed,
+                tracker,
+                parallel=parallel,
+            )
+
+        assert result is expected
+        assert execute.await_args.kwargs["seed"] is single_ac_seed
+        sequential = execute.await_args.kwargs.get("force_sequential_levels", False)
+        assert sequential is (not parallel)
+
+    @pytest.mark.asyncio
     async def test_single_ac_investment_uses_ac_executor_path(
         self,
         mock_adapter: MagicMock,

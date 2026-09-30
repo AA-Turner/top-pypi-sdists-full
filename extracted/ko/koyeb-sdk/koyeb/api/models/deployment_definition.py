@@ -40,11 +40,16 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeploymentDefinition(BaseModel):
     """
     DeploymentDefinition
-    """ # noqa: E501
-    name: Optional[StrictStr] = Field(default=None, description="Service name. Deprecated, set it directly in the Service when creating it.")
+    """  # noqa: E501
+
+    name: Optional[StrictStr] = Field(
+        default=None,
+        description="Service name. Deprecated, set it directly in the Service when creating it.",
+    )
     type: Optional[DeploymentDefinitionType] = DeploymentDefinitionType.INVALID
     strategy: Optional[DeploymentStrategy] = None
     routes: Optional[List[DeploymentRoute]] = None
@@ -64,7 +69,28 @@ class DeploymentDefinition(BaseModel):
     git: Optional[GitSource] = None
     database: Optional[DatabaseSource] = None
     archive: Optional[ArchiveSource] = None
-    __properties: ClassVar[List[str]] = ["name", "type", "strategy", "routes", "ports", "proxy_ports", "env", "regions", "scalings", "instance_types", "health_checks", "volumes", "config_files", "skip_cache", "mesh", "network_policy", "docker", "git", "database", "archive"]
+    __properties: ClassVar[List[str]] = [
+        "name",
+        "type",
+        "strategy",
+        "routes",
+        "ports",
+        "proxy_ports",
+        "env",
+        "regions",
+        "scalings",
+        "instance_types",
+        "health_checks",
+        "volumes",
+        "config_files",
+        "skip_cache",
+        "mesh",
+        "network_policy",
+        "docker",
+        "git",
+        "database",
+        "archive",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -72,7 +98,6 @@ class DeploymentDefinition(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -97,8 +122,7 @@ class DeploymentDefinition(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -107,85 +131,100 @@ class DeploymentDefinition(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of strategy
         if self.strategy:
-            _dict['strategy'] = self.strategy.to_dict()
+            _dict["strategy"] = self.strategy.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in routes (list)
         _items = []
         if self.routes:
             for _item_routes in self.routes:
-                if _item_routes:
-                    _items.append(_item_routes.to_dict())
-            _dict['routes'] = _items
+                _items.append(
+                    _item_routes.to_dict() if _item_routes is not None else None
+                )
+            _dict["routes"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in ports (list)
         _items = []
         if self.ports:
             for _item_ports in self.ports:
-                if _item_ports:
-                    _items.append(_item_ports.to_dict())
-            _dict['ports'] = _items
+                _items.append(
+                    _item_ports.to_dict() if _item_ports is not None else None
+                )
+            _dict["ports"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in proxy_ports (list)
         _items = []
         if self.proxy_ports:
             for _item_proxy_ports in self.proxy_ports:
-                if _item_proxy_ports:
-                    _items.append(_item_proxy_ports.to_dict())
-            _dict['proxy_ports'] = _items
+                _items.append(
+                    _item_proxy_ports.to_dict()
+                    if _item_proxy_ports is not None
+                    else None
+                )
+            _dict["proxy_ports"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in env (list)
         _items = []
         if self.env:
             for _item_env in self.env:
-                if _item_env:
-                    _items.append(_item_env.to_dict())
-            _dict['env'] = _items
+                _items.append(_item_env.to_dict() if _item_env is not None else None)
+            _dict["env"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in scalings (list)
         _items = []
         if self.scalings:
             for _item_scalings in self.scalings:
-                if _item_scalings:
-                    _items.append(_item_scalings.to_dict())
-            _dict['scalings'] = _items
+                _items.append(
+                    _item_scalings.to_dict() if _item_scalings is not None else None
+                )
+            _dict["scalings"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in instance_types (list)
         _items = []
         if self.instance_types:
             for _item_instance_types in self.instance_types:
-                if _item_instance_types:
-                    _items.append(_item_instance_types.to_dict())
-            _dict['instance_types'] = _items
+                _items.append(
+                    _item_instance_types.to_dict()
+                    if _item_instance_types is not None
+                    else None
+                )
+            _dict["instance_types"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in health_checks (list)
         _items = []
         if self.health_checks:
             for _item_health_checks in self.health_checks:
-                if _item_health_checks:
-                    _items.append(_item_health_checks.to_dict())
-            _dict['health_checks'] = _items
+                _items.append(
+                    _item_health_checks.to_dict()
+                    if _item_health_checks is not None
+                    else None
+                )
+            _dict["health_checks"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in volumes (list)
         _items = []
         if self.volumes:
             for _item_volumes in self.volumes:
-                if _item_volumes:
-                    _items.append(_item_volumes.to_dict())
-            _dict['volumes'] = _items
+                _items.append(
+                    _item_volumes.to_dict() if _item_volumes is not None else None
+                )
+            _dict["volumes"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in config_files (list)
         _items = []
         if self.config_files:
             for _item_config_files in self.config_files:
-                if _item_config_files:
-                    _items.append(_item_config_files.to_dict())
-            _dict['config_files'] = _items
+                _items.append(
+                    _item_config_files.to_dict()
+                    if _item_config_files is not None
+                    else None
+                )
+            _dict["config_files"] = _items
         # override the default output from pydantic by calling `to_dict()` of network_policy
         if self.network_policy:
-            _dict['network_policy'] = self.network_policy.to_dict()
+            _dict["network_policy"] = self.network_policy.to_dict()
         # override the default output from pydantic by calling `to_dict()` of docker
         if self.docker:
-            _dict['docker'] = self.docker.to_dict()
+            _dict["docker"] = self.docker.to_dict()
         # override the default output from pydantic by calling `to_dict()` of git
         if self.git:
-            _dict['git'] = self.git.to_dict()
+            _dict["git"] = self.git.to_dict()
         # override the default output from pydantic by calling `to_dict()` of database
         if self.database:
-            _dict['database'] = self.database.to_dict()
+            _dict["database"] = self.database.to_dict()
         # override the default output from pydantic by calling `to_dict()` of archive
         if self.archive:
-            _dict['archive'] = self.archive.to_dict()
+            _dict["archive"] = self.archive.to_dict()
         return _dict
 
     @classmethod
@@ -197,28 +236,76 @@ class DeploymentDefinition(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "type": obj.get("type") if obj.get("type") is not None else DeploymentDefinitionType.INVALID,
-            "strategy": DeploymentStrategy.from_dict(obj["strategy"]) if obj.get("strategy") is not None else None,
-            "routes": [DeploymentRoute.from_dict(_item) for _item in obj["routes"]] if obj.get("routes") is not None else None,
-            "ports": [DeploymentPort.from_dict(_item) for _item in obj["ports"]] if obj.get("ports") is not None else None,
-            "proxy_ports": [DeploymentProxyPort.from_dict(_item) for _item in obj["proxy_ports"]] if obj.get("proxy_ports") is not None else None,
-            "env": [DeploymentEnv.from_dict(_item) for _item in obj["env"]] if obj.get("env") is not None else None,
-            "regions": obj.get("regions"),
-            "scalings": [DeploymentScaling.from_dict(_item) for _item in obj["scalings"]] if obj.get("scalings") is not None else None,
-            "instance_types": [DeploymentInstanceType.from_dict(_item) for _item in obj["instance_types"]] if obj.get("instance_types") is not None else None,
-            "health_checks": [DeploymentHealthCheck.from_dict(_item) for _item in obj["health_checks"]] if obj.get("health_checks") is not None else None,
-            "volumes": [DeploymentVolume.from_dict(_item) for _item in obj["volumes"]] if obj.get("volumes") is not None else None,
-            "config_files": [ConfigFile.from_dict(_item) for _item in obj["config_files"]] if obj.get("config_files") is not None else None,
-            "skip_cache": obj.get("skip_cache"),
-            "mesh": obj.get("mesh") if obj.get("mesh") is not None else DeploymentMesh.DEPLOYMENT_MESH_AUTO,
-            "network_policy": NetworkPolicy.from_dict(obj["network_policy"]) if obj.get("network_policy") is not None else None,
-            "docker": DockerSource.from_dict(obj["docker"]) if obj.get("docker") is not None else None,
-            "git": GitSource.from_dict(obj["git"]) if obj.get("git") is not None else None,
-            "database": DatabaseSource.from_dict(obj["database"]) if obj.get("database") is not None else None,
-            "archive": ArchiveSource.from_dict(obj["archive"]) if obj.get("archive") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "name": obj.get("name"),
+                "type": obj.get("type")
+                if obj.get("type") is not None
+                else DeploymentDefinitionType.INVALID,
+                "strategy": DeploymentStrategy.from_dict(obj["strategy"])
+                if obj.get("strategy") is not None
+                else None,
+                "routes": [DeploymentRoute.from_dict(_item) for _item in obj["routes"]]
+                if obj.get("routes") is not None
+                else None,
+                "ports": [DeploymentPort.from_dict(_item) for _item in obj["ports"]]
+                if obj.get("ports") is not None
+                else None,
+                "proxy_ports": [
+                    DeploymentProxyPort.from_dict(_item) for _item in obj["proxy_ports"]
+                ]
+                if obj.get("proxy_ports") is not None
+                else None,
+                "env": [DeploymentEnv.from_dict(_item) for _item in obj["env"]]
+                if obj.get("env") is not None
+                else None,
+                "regions": obj.get("regions"),
+                "scalings": [
+                    DeploymentScaling.from_dict(_item) for _item in obj["scalings"]
+                ]
+                if obj.get("scalings") is not None
+                else None,
+                "instance_types": [
+                    DeploymentInstanceType.from_dict(_item)
+                    for _item in obj["instance_types"]
+                ]
+                if obj.get("instance_types") is not None
+                else None,
+                "health_checks": [
+                    DeploymentHealthCheck.from_dict(_item)
+                    for _item in obj["health_checks"]
+                ]
+                if obj.get("health_checks") is not None
+                else None,
+                "volumes": [
+                    DeploymentVolume.from_dict(_item) for _item in obj["volumes"]
+                ]
+                if obj.get("volumes") is not None
+                else None,
+                "config_files": [
+                    ConfigFile.from_dict(_item) for _item in obj["config_files"]
+                ]
+                if obj.get("config_files") is not None
+                else None,
+                "skip_cache": obj.get("skip_cache"),
+                "mesh": obj.get("mesh")
+                if obj.get("mesh") is not None
+                else DeploymentMesh.DEPLOYMENT_MESH_AUTO,
+                "network_policy": NetworkPolicy.from_dict(obj["network_policy"])
+                if obj.get("network_policy") is not None
+                else None,
+                "docker": DockerSource.from_dict(obj["docker"])
+                if obj.get("docker") is not None
+                else None,
+                "git": GitSource.from_dict(obj["git"])
+                if obj.get("git") is not None
+                else None,
+                "database": DatabaseSource.from_dict(obj["database"])
+                if obj.get("database") is not None
+                else None,
+                "archive": ArchiveSource.from_dict(obj["archive"])
+                if obj.get("archive") is not None
+                else None,
+            }
+        )
         return _obj
-
-

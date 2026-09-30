@@ -17,6 +17,11 @@ class ExternalFunctionCatalogServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.EnsureExternalFunction = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/EnsureExternalFunction",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.EnsureExternalFunctionRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.EnsureExternalFunctionResponse.FromString,
+        )
         self.CreateExternalFunction = channel.unary_unary(
             "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/CreateExternalFunction",
             request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionRequest.SerializeToString,
@@ -81,6 +86,12 @@ class ExternalFunctionCatalogServiceStub(object):
 
 class ExternalFunctionCatalogServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def EnsureExternalFunction(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def CreateExternalFunction(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -166,6 +177,11 @@ class ExternalFunctionCatalogServiceServicer(object):
 
 def add_ExternalFunctionCatalogServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "EnsureExternalFunction": grpc.unary_unary_rpc_method_handler(
+            servicer.EnsureExternalFunction,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.EnsureExternalFunctionRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.EnsureExternalFunctionResponse.SerializeToString,
+        ),
         "CreateExternalFunction": grpc.unary_unary_rpc_method_handler(
             servicer.CreateExternalFunction,
             request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionRequest.FromString,
@@ -236,6 +252,35 @@ def add_ExternalFunctionCatalogServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class ExternalFunctionCatalogService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def EnsureExternalFunction(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/EnsureExternalFunction",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.EnsureExternalFunctionRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.EnsureExternalFunctionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def CreateExternalFunction(

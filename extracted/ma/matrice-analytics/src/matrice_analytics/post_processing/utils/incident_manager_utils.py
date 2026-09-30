@@ -17,16 +17,18 @@ import json
 import logging
 import os
 import random
-import re
 import string
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from ...clients import identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.bootstrap import get_action_id
+from ...clients.response import CallFailure
 from .location_name_cache import LocationNameCache
 
 # Severity level ordering for comparison (none = no incident)
@@ -79,6 +81,17 @@ LOITERING_DEFAULT_THRESHOLDS = [
 OVERCROWDING_DEFAULT_THRESHOLDS = [
     {"level": "significant", "percentage": 100},
     {"level": "critical", "percentage": 120},
+]
+
+# Vehicle speed estimation: incident_quant is the worst overage above the posted limit, in
+# percent, capped at 100. Without this table it fell through to DEFAULT_THRESHOLDS (fire's
+# coverage-% scale, critical at 30), so a car 30% over the limit read "critical". These are
+# the use case's own severity_for rungs: 25% over medium, 50% significant, double critical.
+SPEEDING_DEFAULT_THRESHOLDS = [
+    {"level": "low", "percentage": 1},
+    {"level": "medium", "percentage": 25},
+    {"level": "significant", "percentage": 50},
+    {"level": "critical", "percentage": 100},
 ]
 
 # Cache for location names to avoid repeated API calls
@@ -487,6 +500,8 @@ class INCIDENT_MANAGER:
                 return LOITERING_DEFAULT_THRESHOLDS, None
             if incident_type in ("overcrowding_detection", "overcrowding"):
                 return OVERCROWDING_DEFAULT_THRESHOLDS, None
+            if incident_type == "vehicle_speed_estimation":
+                return SPEEDING_DEFAULT_THRESHOLDS, None
             return DEFAULT_THRESHOLDS, None
 
     def _calculate_severity_from_quant(
@@ -817,36 +832,32 @@ class INCIDENT_MANAGER:
             return default_location
 
         try:
-            endpoint = f"/v1/inference/get_location/{location_id}"
-            self.logger.info(f"[INCIDENT_MANAGER] Fetching location name from API: {endpoint}")
+            self.logger.info(f"[INCIDENT_MANAGER] Fetching location name from API: {location_id}")
 
-            response = self._factory_ref._session.rpc.get(endpoint)
+            site = self._factory_ref._platform().inference.fetch_location(location_id)
 
-            if response and isinstance(response, dict):
-                success = response.get("success", False)
-                if success:
-                    data = response.get("data", {})
-                    location_name = data.get("locationName", default_location)
-                    self.logger.info(
-                        f"[INCIDENT_MANAGER] ✓ Fetched location name: '{location_name}' for location_id: '{location_id}'"
-                    )
-
-                    # Cache the result
-                    _location_name_cache.store(location_id, location_name)
-                    return location_name
-                else:
-                    self.logger.warning(
-                        f"[INCIDENT_MANAGER] API returned success=false for location_id '{location_id}': "
-                        f"{response.get('message', 'Unknown error')}"
-                    )
-            else:
-                self.logger.warning(
-                    f"[INCIDENT_MANAGER] Invalid response format from API: {response}"
+            if site is not None:
+                location_name = site.location_name or default_location
+                self.logger.info(
+                    f"[INCIDENT_MANAGER] ✓ Fetched location name: '{location_name}' for location_id: '{location_id}'"
                 )
 
-        except Exception as e:
+                # Cache the result
+                _location_name_cache.store(location_id, location_name)
+                return location_name
+
+            # No such site. Previously this arrived as an envelope with success=false or as a
+            # shape that was not an envelope at all, and the two were logged differently; the
+            # client reports both as an absence, so there is one branch where there were two.
+            self.logger.warning(
+                f"[INCIDENT_MANAGER] No location record for location_id '{location_id}'"
+            )
+
+        except CallFailure as exc:
+            # Narrowed from `except Exception`. The call itself now raises exactly this, and a
+            # broader catch here would also swallow a bug in the caching or logging below it.
             self.logger.error(
-                f"[INCIDENT_MANAGER] Error fetching location name for '{location_id}': {e}",
+                f"[INCIDENT_MANAGER] Error fetching location name for '{location_id}': {exc}",
                 exc_info=True,
             )
 
@@ -1791,12 +1802,24 @@ class IncidentManagerFactory:
     following the same pattern as license_plate_monitoring.py.
     """
 
-    ACTION_ID_PATTERN = re.compile(r"^[0-9a-f]{8,}$", re.IGNORECASE)
-
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(
+        self,
+        logger: Optional[logging.Logger] = None,
+        client: Optional[AnalyticsClient] = None,
+    ):
+        """
+        Args:
+            logger: Python logger instance.
+            client: The platform client to make calls through. Optional: absent it, one is
+                built on the session this factory already resolves, so a caller that passes
+                nothing sends exactly the requests it sent before. It exists so a test can
+                drive this class without a platform, and so a caller that already holds a
+                client does not open a second session.
+        """
         self.logger = logger or logging.getLogger(__name__)
         self._initialized = False
         self._incident_manager: Optional[INCIDENT_MANAGER] = None
+        self._client = client
 
         # Store these for later access
         self._session = None
@@ -1841,43 +1864,44 @@ class IncidentManagerFactory:
         )
         self.logger.info("[INCIDENT_MANAGER_FACTORY] Created session from environment")
 
-    def _fetch_and_store_action_details(self, rpc: Any) -> Optional[dict]:
-        """Fetch action details from API and store identifiers. Returns action_details or None on failure."""
+    def _platform(self) -> AnalyticsClient:
+        """The client every platform call in this factory goes through.
+
+        The caller's when one was injected, otherwise one riding the session resolved above --
+        so the requests are the same either way and the injection only decides *whose* session
+        pays for them.
+        """
+        if self._client is None:
+            self._client = AnalyticsClient(session=self._session)
+        return self._client
+
+    def _fetch_and_store_action_details(self) -> Optional[dict]:
+        """Read this worker's action record and store the identifiers off it.
+
+        Returns the ``actionDetails`` slice, or ``None`` when the record could not be read.
+
+        The identifier lookups used to try five spellings each -- ``appDeploymentId``,
+        ``app_deploymentId``, ``applicationId``, ``app_id``, ``appId`` alongside the snake_case
+        pair. The action record carries **only** ``application_id`` and ``app_deployment_id``,
+        confirmed with the platform, so those branches never fired and the shared resolvers
+        read the two keys that exist. The resolvers also fix the search order, which this copy
+        had right by luck rather than by statement: ``app_deployment_id`` is read from
+        ``actionDetails`` before ``jobParams`` and ``application_id`` the other way round,
+        because the two slices disagree and each field has its own answer.
+        """
         try:
-            action_url = f"/v1/actions/action/{self._action_id}/details"
-            action_resp = rpc.get(action_url)
-            if not (action_resp and action_resp.get("success", False)):
-                raise RuntimeError(
-                    action_resp.get("message", "Unknown error")
-                    if isinstance(action_resp, dict)
-                    else "Unknown error"
-                )
-            action_doc = action_resp.get("data", {}) if isinstance(action_resp, dict) else {}
-            action_details = (
-                action_doc.get("actionDetails", {}) if isinstance(action_doc, dict) else {}
-            )
-            job_params = action_doc.get("jobParams", {}) if isinstance(action_doc, dict) else {}
+            record = self._platform().actions.get_action_details(self._action_id)
+            action_details = record.action_details
+            job_params = record.job_params
 
             self._deployment_id = action_details.get("_idDeployment") or action_details.get(
                 "deployment_id"
             )
-            self._app_deployment_id = (
-                action_details.get("app_deployment_id")
-                or action_details.get("appDeploymentId")
-                or action_details.get("app_deploymentId")
-                or job_params.get("app_deployment_id")
-                or job_params.get("appDeploymentId")
-                or job_params.get("app_deploymentId")
-                or ""
+            self._app_deployment_id = identity.resolve_app_deployment_id(
+                action_record=lambda: {"actionDetails": action_details, "jobParams": job_params}
             )
-            self._application_id = (
-                job_params.get("application_id")
-                or job_params.get("applicationId")
-                or job_params.get("app_id")
-                or job_params.get("appId")
-                or action_details.get("application_id")
-                or action_details.get("applicationId")
-                or ""
+            self._application_id = identity.resolve_application_id(
+                action_record=lambda: {"actionDetails": action_details, "jobParams": job_params}
             )
             self._instance_id = action_details.get("instanceID") or action_details.get("instanceId")
             self._external_ip = action_details.get("externalIP") or action_details.get("externalIp")
@@ -1905,7 +1929,7 @@ class IncidentManagerFactory:
             )
             return None
 
-    def _create_redis_client(self, rpc: Any):
+    def _create_redis_client(self):
         """Create and return a Redis MatriceStream client, or None on failure."""
         try:
             from matrice_streaming.databus.matrice_stream import MatriceStream, StreamType
@@ -1917,29 +1941,23 @@ class IncidentManagerFactory:
             self.logger.error("[INCIDENT_MANAGER_FACTORY] Localhost mode but instance_id missing")
             return None
         try:
-            url = f"/v1/actions/get_redis_server_by_instance_id/{self._instance_id}"
             self.logger.info(
                 f"[INCIDENT_MANAGER_FACTORY] Fetching Redis server info for instance: {self._instance_id}"
             )
-            response = rpc.get(url)
+            server = self._platform().actions.fetch_redis_server(self._instance_id)
 
-            if not (isinstance(response, dict) and response.get("success", False)):
-                msg = (
-                    response.get("message", "Unknown error")
-                    if isinstance(response, dict)
-                    else "Unknown error"
-                )
+            if server is None:
                 self.logger.warning(
-                    f"[INCIDENT_MANAGER_FACTORY] Failed to fetch Redis server info: {msg}"
+                    "[INCIDENT_MANAGER_FACTORY] Failed to fetch Redis server info: "
+                    f"no record for instance {self._instance_id}"
                 )
                 return None
 
-            data = response.get("data", {})
-            host = data.get("host")
-            port = data.get("port")
-            password = data.get("password", "")
+            host = server.host
+            port = server.port
+            password = server.password
 
-            sentinel_cfg = data.get("sentinelConfig") or {}
+            sentinel_cfg = server.sentinel_config or {}
             sentinel_hosts = (
                 [(h, 26379) for h in sentinel_cfg["sentinelHosts"]]
                 if sentinel_cfg.get("sentinelHosts")
@@ -1949,13 +1967,18 @@ class IncidentManagerFactory:
 
             self.logger.info(f"[INCIDENT_MANAGER_FACTORY] Redis params - host={host}, port={port}")
 
+            # username / db / connection_timeout are stated rather than read. The producer's
+            # published schema for this route declares neither, so the reads they replace
+            # (`data.get("username")`, `.get("db", 0)`, `.get("connection_timeout", 120)`)
+            # resolved to these same values on every call. Writing them here says that the
+            # values are ours, rather than implying a producer that supplies them.
             stream_kwargs = dict(
                 host=host,
                 port=int(port),
                 password=password,
-                username=data.get("username"),
-                db=data.get("db", 0),
-                connection_timeout=data.get("connection_timeout", 120),
+                username=None,
+                db=0,
+                connection_timeout=120,
             )
             if sentinel_hosts and master_name:
                 stream_kwargs["sentinel_hosts"] = sentinel_hosts
@@ -1987,9 +2010,7 @@ class IncidentManagerFactory:
         try:
             self.logger.info("[INCIDENT_MANAGER_FACTORY] ===== STARTING INITIALIZATION =====")
             self._get_or_create_session(config)
-            rpc = self._session.rpc
-
-            self._action_id = self._discover_action_id()
+            self._action_id = get_action_id()
             if not self._action_id:
                 self.logger.error("[INCIDENT_MANAGER_FACTORY] Could not discover action_id")
                 self._initialized = True
@@ -1997,13 +2018,13 @@ class IncidentManagerFactory:
 
             self.logger.info(f"[INCIDENT_MANAGER_FACTORY] Discovered action_id: {self._action_id}")
 
-            action_details = self._fetch_and_store_action_details(rpc)
+            action_details = self._fetch_and_store_action_details()
             if action_details is None:
                 self._initialized = True
                 return None
 
             # Historical deployment behavior: always initialize via Redis
-            redis_client = self._create_redis_client(rpc)
+            redis_client = self._create_redis_client()
 
             if redis_client:
                 self._incident_manager = INCIDENT_MANAGER(
@@ -2035,51 +2056,6 @@ class IncidentManagerFactory:
             )
             self._initialized = True
             return None
-
-    def _discover_action_id(self) -> Optional[str]:
-        """Discover action_id from current working directory name (and parents)."""
-        try:
-            candidates: List[str] = []
-
-            try:
-                cwd = Path.cwd()
-                candidates.append(cwd.name)
-                for parent in cwd.parents:
-                    candidates.append(parent.name)
-            except Exception:  # noqa: BLE001 - cwd is only one of several action_id candidate sources
-                self.logger.debug(
-                    "[INCIDENT_MANAGER] cwd scan for action_id candidates failed", exc_info=True
-                )
-
-            try:
-                usr_src = Path("/usr/src")
-                if usr_src.exists():
-                    for child in usr_src.iterdir():
-                        if child.is_dir():
-                            candidates.append(child.name)
-            except Exception:  # noqa: BLE001 - /usr/src is absent outside the container image
-                self.logger.debug(
-                    "[INCIDENT_MANAGER] /usr/src scan for action_id candidates failed",
-                    exc_info=True,
-                )
-
-            for candidate in candidates:
-                if candidate and len(candidate) >= 8 and self.ACTION_ID_PATTERN.match(candidate):
-                    return candidate
-        except Exception:  # noqa: BLE001 - callers treat an unresolved action_id as "not discoverable"
-            self.logger.debug("[INCIDENT_MANAGER] action_id discovery failed", exc_info=True)
-        return None
-
-    def _get_backend_base_url(self) -> str:
-        """Resolve backend base URL based on ENV variable."""
-        env = os.getenv("ENV", "prod").strip().lower()
-        if env in ("prod", "production"):
-            host = "prod.backend.app.matrice.ai"
-        elif env in ("dev", "development"):
-            host = "dev.backend.app.matrice.ai"
-        else:
-            host = "staging.backend.app.matrice.ai"
-        return f"https://{host}"
 
     @property
     def is_initialized(self) -> bool:

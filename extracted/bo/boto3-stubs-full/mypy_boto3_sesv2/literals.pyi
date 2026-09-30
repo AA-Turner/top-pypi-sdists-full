@@ -27,6 +27,7 @@ __all__ = (
     "BehaviorOnMxFailureType",
     "BounceTypeType",
     "BulkEmailStatusType",
+    "ConfigurationSetFilterKeyType",
     "ContactLanguageType",
     "ContactListImportActionType",
     "DataFormatType",
@@ -44,6 +45,7 @@ __all__ = (
     "FeatureStatusType",
     "HttpsPolicyType",
     "IdentityCertificateStatusType",
+    "IdentityFilterKeyType",
     "IdentityTypeType",
     "ImportDestinationTypeType",
     "JobStatusType",
@@ -54,6 +56,7 @@ __all__ = (
     "ListResourceTenantsPaginatorName",
     "ListTenantResourcesFilterKeyType",
     "ListTenantResourcesPaginatorName",
+    "ListTenantsFilterKeyType",
     "ListTenantsPaginatorName",
     "MailFromDomainStatusType",
     "MailTypeType",
@@ -110,6 +113,7 @@ BulkEmailStatusType = Literal[
     "TEMPLATE_NOT_FOUND",
     "TRANSIENT_FAILURE",
 ]
+ConfigurationSetFilterKeyType = Literal["CONFIGURATION_SET_NAME_CONTAINS"]
 ContactLanguageType = Literal["EN", "JA"]
 ContactListImportActionType = Literal["DELETE", "PUT"]
 DataFormatType = Literal["CSV", "JSON"]
@@ -174,6 +178,7 @@ HttpsPolicyType = Literal["OPTIONAL", "REQUIRE", "REQUIRE_OPEN_ONLY"]
 IdentityCertificateStatusType = Literal[
     "ACTIVE", "DEPROVISIONING", "FAILED", "INACTIVE", "PROVISIONING"
 ]
+IdentityFilterKeyType = Literal["IDENTITY_NAME_CONTAINS", "IDENTITY_TYPE", "VERIFICATION_STATUS"]
 IdentityTypeType = Literal["DOMAIN", "EMAIL_ADDRESS", "MANAGED_DOMAIN"]
 ImportDestinationTypeType = Literal["CONTACT_LIST", "SUPPRESSION_LIST"]
 JobStatusType = Literal["CANCELLED", "COMPLETED", "CREATED", "FAILED", "PROCESSING"]
@@ -184,6 +189,7 @@ ListReputationEntitiesPaginatorName = Literal["list_reputation_entities"]
 ListResourceTenantsPaginatorName = Literal["list_resource_tenants"]
 ListTenantResourcesFilterKeyType = Literal["RESOURCE_TYPE"]
 ListTenantResourcesPaginatorName = Literal["list_tenant_resources"]
+ListTenantsFilterKeyType = Literal["SENDING_STATUS", "TENANT_NAME_CONTAINS"]
 ListTenantsPaginatorName = Literal["list_tenants"]
 MailFromDomainStatusType = Literal["FAILED", "PENDING", "SUCCESS", "TEMPORARY_FAILURE"]
 MailTypeType = Literal["MARKETING", "TRANSACTIONAL"]

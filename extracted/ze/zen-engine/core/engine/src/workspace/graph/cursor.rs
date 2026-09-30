@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use zen_expression::variable::VariableType;
-use zen_types::decision::{DecisionNode, DecisionNodeKind, DecisionTableContent};
+use zen_types::decision::{
+    DecisionNode, DecisionNodeKind, DecisionTableContent, DecisionTableHitPolicy,
+    TransformAttributes, TransformExecutionMode,
+};
 
 use crate::policy::blocks::IntelliSenseSource;
 use crate::policy::queries::scope::VariableTypeScope;
@@ -31,26 +34,44 @@ impl Db {
     ) -> Option<(Arc<str>, ExpressionKind, VariableType)> {
         if matches!(cursor.target, CursorTarget::TransformInput) {
             let attributes = super::editor::NodePaths::attributes(node)?;
-            let field = attributes.input_field.as_ref()?;
+            let field = attributes
+                .input_field
+                .clone()
+                .unwrap_or_else(|| Arc::from(""));
             let scope =
                 GraphAnalyzer::scope_with_nodes(&node_analysis.input, &node_analysis.nodes_scope);
-            return Some((field.clone(), ExpressionKind::Standard, scope));
+            return Some((field, ExpressionKind::Standard, scope));
         }
 
         match &node.kind {
             DecisionNodeKind::ExpressionNode { content } => {
+                if let CursorTarget::ExpressionKey { id } = &cursor.target {
+                    let key = id
+                        .as_ref()
+                        .and_then(|id| content.expressions.iter().find(|row| row.id == *id))
+                        .map(|row| row.key.clone());
+                    let scope = GraphAnalyzer::scope_with_nodes(
+                        &if key.is_some() {
+                            Self::own_output(node_analysis, &content.transform_attributes, false)
+                        } else {
+                            node_analysis.input.shallow_clone()
+                        },
+                        &node_analysis.nodes_scope,
+                    );
+                    return Some((
+                        key.unwrap_or_else(|| Arc::from("")),
+                        ExpressionKind::Standard,
+                        scope,
+                    ));
+                }
                 let CursorTarget::Expression { id } = &cursor.target else {
                     return None;
                 };
                 let row = content.expressions.iter().find(|row| row.id == *id)?;
-                let dollar = node_analysis
-                    .dollar
-                    .clone()
-                    .unwrap_or_else(VariableType::empty_object);
                 let scope = GraphAnalyzer::scope_with(
                     &node_analysis.handler_input,
                     &[
-                        ("$", dollar),
+                        ("$", node_analysis.dollar_before(&content.expressions, id)),
                         ("$nodes", node_analysis.nodes_scope.shallow_clone()),
                     ],
                 );
@@ -74,6 +95,30 @@ impl Db {
         }
     }
 
+    fn own_output(
+        node_analysis: &GraphNodeAnalysis,
+        attributes: &TransformAttributes,
+        collect: bool,
+    ) -> VariableType {
+        let element = |output: VariableType| {
+            output
+                .iterator()
+                .map(|item| item.as_ref().shallow_clone())
+                .unwrap_or(VariableType::Any)
+        };
+        let mut output = node_analysis.output.shallow_clone();
+        if let Some(path) = &attributes.output_path {
+            output = output.dot(path).unwrap_or(VariableType::Any);
+        }
+        if matches!(attributes.execution_mode, TransformExecutionMode::Loop) {
+            output = element(output);
+        }
+        if collect {
+            output = element(output);
+        }
+        output
+    }
+
     fn resolve_in_table(
         &self,
         content: &DecisionTableContent,
@@ -86,9 +131,20 @@ impl Db {
         );
         match &cursor.target {
             CursorTarget::DecisionTableHead { col } => {
-                let column = content.inputs.iter().find(|c| c.id == *col)?;
-                let field = column.field.as_ref()?;
-                Some((field.clone(), ExpressionKind::Standard, base_scope))
+                if let Some(column) = content.inputs.iter().find(|c| c.id == *col) {
+                    let field = column.field.clone().unwrap_or_else(|| Arc::from(""));
+                    return Some((field, ExpressionKind::Standard, base_scope));
+                }
+                let field = content.outputs.iter().find(|c| c.id == *col)?.field.clone();
+                let scope = GraphAnalyzer::scope_with_nodes(
+                    &Self::own_output(
+                        node_analysis,
+                        &content.transform_attributes,
+                        matches!(content.hit_policy, DecisionTableHitPolicy::Collect),
+                    ),
+                    &node_analysis.nodes_scope,
+                );
+                Some((field, ExpressionKind::Standard, scope))
             }
             CursorTarget::DecisionTableCell { row, col } => {
                 let rule = content

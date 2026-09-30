@@ -53,15 +53,18 @@ dependencies = [
   "distlib>=0.3.7,<1",
   "filelock>=3.16.1,<=3.19.1; python_version<'3.10'",
   "filelock>=3.24.2,<5; python_version>='3.10'",
+  "packaging>=23.1",
   "platformdirs>=3.9.1,<5",
   "python-discovery>=1.6",
   "typing-extensions>=4.13.2; python_version<'3.11'",
 ]
+urls."thanks.dev" = "https://thanks.dev/u/gh/gaborbernat"
 urls.Changelog = "https://virtualenv.pypa.io/en/latest/changelog.html"
 urls.Documentation = "https://virtualenv.pypa.io"
 urls.Funding = "https://github.com/sponsors/gaborbernat"
 urls.Homepage = "https://github.com/pypa/virtualenv"
 urls.Source = "https://github.com/pypa/virtualenv"
+urls.Tidelift = "https://tidelift.com/funding/github/pypi/virtualenv"
 urls.Tracker = "https://github.com/pypa/virtualenv/issues"
 scripts.virtualenv = "virtualenv.__main__:run_with_catch"
 entry-points."virtualenv.activate".bash = "virtualenv.activation.bash:BashActivator"
@@ -104,16 +107,13 @@ dev = [
   { include-group = "docs" },
   { include-group = "lint" },
   { include-group = "pkg-meta" },
-  { include-group = "test" },
+  { include-group = "tasks" },
   { include-group = "type" },
 ]
 test = [
-  "covdefaults>=2.3",
-  "coverage>=7.2.7",
   "coverage-enable-subprocess>=1",
-  "hatchling>=1.27",
+  { include-group = "coverage" },
   "packaging>=23.1",
-  "pre-commit-uv>=4.2; python_version=='3.14' and implementation_name=='cpython'",
   "pytest>=7.4",
   "pytest-env>=0.8.2",
   """\
@@ -126,7 +126,6 @@ test = [
   "pytest-rerunfailures>=15",
   "pytest-timeout>=2.1",
   "pytest-xdist>=3.5",
-  "ruff>=0.16.8; python_version=='3.14' and implementation_name=='cpython'",
   "setuptools>=68",
   "time-machine>=2.10; platform_python_implementation=='CPython'",
   "tomli>=2.0.1; python_version<'3.11'",
@@ -149,6 +148,10 @@ docs = [
   "sphinxcontrib-towncrier>=0.2.1a0",
   "towncrier>=23.6",
 ]
+coverage = [
+  "covdefaults>=2.3",
+  "coverage>=7.2.7",
+]
 fuzz = [
   # atheris only ships prebuilt Linux wheels for these CPython versions; everywhere else it needs a
   # custom clang+libFuzzer build, so skip it there rather than triggering a doomed source build.
@@ -168,9 +171,31 @@ property = [
   "hypothesis>=6.140",
   { include-group = "test" },
 ]
+release = [
+  "docstrfmt>=2.2.1",
+  "gitpython>=3.1.44",
+  "hatch-vcs>=0.4",
+  "hatchling>=1.28",
+  "packaging>=25",
+  "pypi-attestations>=0.0.28",
+  "towncrier>=24.8",
+  "tox>=4.45",
+  "tox-uv>=1.28",
+  "uv>=0.12.17",
+  { include-group = "sbom" },
+]
 sbom = [
   "cyclonedx-python-lib[json-validation]>=11.12",
   "spdx-tools>=0.8.5",
+]
+tasks = [
+  "docstrfmt>=2.2.1",
+  "gitpython>=3.1.44",
+  "hatchling>=1.28",
+  "pre-commit-uv>=4.2",
+  "ruff>=0.16.8",
+  "towncrier>=24.8",
+  { include-group = "test" },
 ]
 
 [tool.hatch]
@@ -307,6 +332,8 @@ report.omit = [
   # site.py is run before the coverage can be enabled, no way to measure coverage on this
   "**/src/virtualenv/create/via_global_ref/builtin/python2/site.py",
   "**/src/virtualenv/seed/wheels/embed/pip-*.whl/pip/**",
+  # hatch-vcs writes version.py at build time, so the checkout that combines every run has no source for it
+  "**/virtualenv/version.py",
 ]
 html.show_contexts = true
 html.skip_covered = false

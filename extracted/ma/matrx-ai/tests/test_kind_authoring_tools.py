@@ -732,7 +732,7 @@ async def test_kindcomp_get_context_viewer_sees_no_incidents(
         authoring_owner="python",
         version=1,
         is_active=False,
-        visibility="internal",
+        published_to_web=False,
         organization_id=uuid4(),
         created_by=uuid4(),
         emitted_fingerprint=None,
@@ -1078,7 +1078,7 @@ class _FakeQuery:
 
 def _install_fake_kind_db(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[dict[str, Any]]]:
     """Fake the four models kind_create's composed write touches, recording
-    every create_item payload by table so tests can assert org/visibility on
+    every create_item payload by table so tests can assert org/web lane on
     EVERY row type the tool writes."""
     created: dict[str, list[dict[str, Any]]] = {
         "kind_definition": [],
@@ -1166,7 +1166,7 @@ async def test_kind_create_default_stays_caller_org_internal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No platform_kind → exactly today's behavior, even for an admin: caller
-    org on every row, visibility='internal' on the definitions."""
+    org on every row, not published to the web on the definitions."""
     from matrx_ai.tools.implementations import kind_authoring
 
     created = _install_fake_kind_db(monkeypatch)
@@ -1176,7 +1176,7 @@ async def test_kind_create_default_stays_caller_org_internal(
     assert result.success, result.error
     assert result.output_self_capped is True
     assert result.output.platform_kind is False
-    assert result.output.visibility == "internal"
+    assert result.output.published_to_web is False
 
     rows = _all_created_rows(created)
     assert {t for t, _ in rows} == {
@@ -1186,7 +1186,8 @@ async def test_kind_create_default_stays_caller_org_internal(
     for _table, row in rows:
         assert str(row["organization_id"]) == CALLER_ORG
     for defn in created["kind_definition"]:
-        assert defn["visibility"] == "internal"
+        assert defn["published_to_web"] is False  # written explicitly, never the default
+        assert defn["published_to_web_by"] is None
         assert defn["created_by"] == CALLER_USER
 
 
@@ -1233,7 +1234,7 @@ async def test_kind_create_platform_kind_admin_stamps_system_org_public_everywhe
     assert result.success, result.error
     system_org = system_organization_id()
     assert result.output.platform_kind is True
-    assert result.output.visibility == "public"
+    assert result.output.published_to_web is True
     assert result.output.organization_id == system_org
 
     rows = _all_created_rows(created)
@@ -1246,7 +1247,8 @@ async def test_kind_create_platform_kind_admin_stamps_system_org_public_everywhe
     for _table, row in rows:
         assert str(row["organization_id"]) == system_org
     for defn in created["kind_definition"]:
-        assert defn["visibility"] == "public"
+        assert defn["published_to_web"] is True
+        assert defn["published_to_web_by"] == CALLER_USER
         # Attribution stays honest — the admin caller, never a fabricated user.
         assert defn["created_by"] == CALLER_USER
 
@@ -1289,13 +1291,14 @@ def test_kind_create_args_declare_platform_kind_default_false() -> None:
 
 
 # ---------------------------------------------------------------------------
-# kind_create_content_block — visibility enum serialization (feedback 194575e6)
+# kind_create_content_block — the block follows its kind's row-access words
+# (feedback 194575e6: enums serialize by VALUE)
 # ---------------------------------------------------------------------------
-# KindDefinition.visibility hydrates as a (str, Enum) member of content_ir's
-# Visibility class; RenderDefinition validates against skill's own Visibility
-# class. Serializing with str(member) yields the repr 'Visibility.INTERNAL',
-# which every wave-4 content-block write died on. The row must carry the plain
-# value ('internal' / 'public').
+# KindDefinition.shown_to hydrates as a (str, Enum) member of content_ir's
+# ShownTo class; RenderDefinition validates against skill's own class.
+# Serializing with str(member) yields the repr 'ShownTo.MY_TEAM', which every
+# wave-4 content-block write died on (then on the retiring level column). The
+# row must carry the plain value, and ``published_to_web`` explicitly.
 
 
 def _install_fake_content_block_db(
@@ -1307,11 +1310,11 @@ def _install_fake_content_block_db(
 
     created: dict[str, list[dict[str, Any]]] = {"render_definition": []}
 
-    class SkillVisibility(str, Enum):
-        PERSONAL = "personal"
-        INTERNAL = "internal"
-        LINK = "link"
-        PUBLIC = "public"
+    class SkillShownTo(str, Enum):
+        ONLY_ME = "only_me"
+        MY_TEAM = "my_team"
+        EVERYONE = "everyone"
+        EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
 
     class KindExample:
         @classmethod
@@ -1327,10 +1330,12 @@ def _install_fake_content_block_db(
 
         @classmethod
         async def create_item(cls, **payload: Any) -> Any:
-            # Enforce the real model's contract: the visibility payload must be
-            # a valid value of skill's OWN Visibility enum. The repr string
-            # 'Visibility.INTERNAL' raises exactly like the live EnumField did.
-            SkillVisibility(payload["visibility"])
+            # Enforce the real model's contract: published_to_web is written
+            # explicitly, and shown_to is a valid value of skill's OWN enum —
+            # the repr string 'ShownTo.MY_TEAM' raises like the live EnumField.
+            assert isinstance(payload["published_to_web"], bool)
+            if "shown_to" in payload:
+                SkillShownTo(payload["shown_to"])
             created["render_definition"].append(payload)
             return SimpleNamespace(id=uuid4(), **payload)
 
@@ -1362,30 +1367,30 @@ def _install_fake_content_block_db(
     return created
 
 
-def _kd_with_enum_visibility(visibility: Any) -> Any:
+def _kd_with_words(published_to_web: Any, shown_to: Any) -> Any:
     return SimpleNamespace(
         id=uuid4(),
         kind="research_coverage_audit",
         label="Research Coverage Audit",
         organization_id=uuid4(),
-        visibility=visibility,
+        published_to_web=published_to_web,
+        shown_to=shown_to,
     )
 
 
-@pytest.mark.parametrize("value", ["internal", "public"])
+@pytest.mark.parametrize(("published", "shown"), [(True, None), (False, "my_team")])
 @pytest.mark.asyncio
-async def test_content_block_serializes_visibility_enum_by_value(
-    monkeypatch: pytest.MonkeyPatch, value: str
+async def test_content_block_follows_its_kind_and_serializes_enums_by_value(
+    monkeypatch: pytest.MonkeyPatch, published: bool, shown: str | None
 ) -> None:
     from enum import Enum
 
     from matrx_ai.tools.implementations import kind_authoring
 
-    class KdVisibility(str, Enum):  # content_ir's own class — NOT skill's
-        INTERNAL = "internal"
-        PUBLIC = "public"
+    class KdShownTo(str, Enum):  # content_ir's own class — NOT skill's
+        MY_TEAM = "my_team"
 
-    kd = _kd_with_enum_visibility(KdVisibility(value))
+    kd = _kd_with_words(published, KdShownTo(shown) if shown else None)
     created = _install_fake_content_block_db(monkeypatch, kd)
 
     result = await kind_authoring.kind_create_content_block(
@@ -1393,16 +1398,17 @@ async def test_content_block_serializes_visibility_enum_by_value(
     )
     assert result.success, result.error and result.error.message
     [row] = created["render_definition"]
-    assert row["visibility"] == value  # plain value, never 'Visibility.INTERNAL'
+    assert row["published_to_web"] is published
+    assert row.get("shown_to") == shown  # plain value, never 'ShownTo.MY_TEAM'
 
 
 @pytest.mark.asyncio
-async def test_content_block_visibility_defaults_internal_when_unset(
+async def test_content_block_is_unpublished_when_its_kind_says_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from matrx_ai.tools.implementations import kind_authoring
 
-    kd = _kd_with_enum_visibility(None)
+    kd = _kd_with_words(None, None)
     created = _install_fake_content_block_db(monkeypatch, kd)
 
     result = await kind_authoring.kind_create_content_block(
@@ -1410,7 +1416,8 @@ async def test_content_block_visibility_defaults_internal_when_unset(
     )
     assert result.success, result.error and result.error.message
     [row] = created["render_definition"]
-    assert row["visibility"] == "internal"
+    assert row["published_to_web"] is False
+    assert "shown_to" not in row
 
 
 # --------------------------------------------------------------------------- #

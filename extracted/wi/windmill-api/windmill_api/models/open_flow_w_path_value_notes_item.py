@@ -21,9 +21,10 @@ class OpenFlowWPathValueNotesItem:
     Attributes:
         id (str): Unique identifier for the note
         text (str): Content of the note
-        color (str): Color of the note (e.g., "yellow", "#ffff00")
-        type (OpenFlowWPathValueNotesItemType): Type of note - 'free' for standalone notes, 'group' for notes that group
-            other nodes
+        color (str): Color of the note, one of: yellow, blue, green, purple, pink, orange, red, cyan, lime, gray. Any
+            other value renders unstyled.
+        type (OpenFlowWPathValueNotesItemType): Type of note - 'free' for standalone notes. 'group' notes are
+            deprecated; segment a flow with FlowValue.groups instead.
         position (Union[Unset, OpenFlowWPathValueNotesItemPosition]): Position of the note in the flow editor
         size (Union[Unset, OpenFlowWPathValueNotesItemSize]): Size of the note in the flow editor
         locked (Union[Unset, bool]): Whether the note is locked and cannot be edited or moved

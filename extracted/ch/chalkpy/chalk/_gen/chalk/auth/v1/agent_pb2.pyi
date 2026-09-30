@@ -263,6 +263,7 @@ class ResourceShareAgent(_message.Message):
 
 class Agent(_message.Message):
     __slots__ = (
+        "sandbox_id",
         "user_agent",
         "service_token_agent",
         "engine_agent",
@@ -271,6 +272,7 @@ class Agent(_message.Message):
         "self_hosted_license_agent",
         "resource_share_agent",
     )
+    SANDBOX_ID_FIELD_NUMBER: _ClassVar[int]
     USER_AGENT_FIELD_NUMBER: _ClassVar[int]
     SERVICE_TOKEN_AGENT_FIELD_NUMBER: _ClassVar[int]
     ENGINE_AGENT_FIELD_NUMBER: _ClassVar[int]
@@ -278,6 +280,7 @@ class Agent(_message.Message):
     METADATA_SERVICE_AGENT_FIELD_NUMBER: _ClassVar[int]
     SELF_HOSTED_LICENSE_AGENT_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_SHARE_AGENT_FIELD_NUMBER: _ClassVar[int]
+    sandbox_id: str
     user_agent: UserAgent
     service_token_agent: ServiceTokenAgent
     engine_agent: EngineAgent
@@ -287,6 +290,7 @@ class Agent(_message.Message):
     resource_share_agent: ResourceShareAgent
     def __init__(
         self,
+        sandbox_id: _Optional[str] = ...,
         user_agent: _Optional[_Union[UserAgent, _Mapping]] = ...,
         service_token_agent: _Optional[_Union[ServiceTokenAgent, _Mapping]] = ...,
         engine_agent: _Optional[_Union[EngineAgent, _Mapping]] = ...,

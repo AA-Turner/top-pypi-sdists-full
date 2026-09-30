@@ -2,6 +2,7 @@ use crate::lint_context::LazyContLine;
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::utils::blockquote::{content_after_blockquote, effective_indent_in_blockquote, parse_blockquote_prefix};
 use crate::utils::calculate_indentation_width_default;
+use crate::utils::list_fix_guard::{Allowed, drop_structure_changing_fixes};
 use crate::utils::pandoc;
 use crate::utils::range_utils::calculate_line_range;
 use regex::Regex;
@@ -115,6 +116,37 @@ pub struct MD032BlanksAroundLists {
     config: MD032Config,
 }
 
+/// The lines covered by MD032's list blocks, answering whether a line lies
+/// in any of them by binary search. The blocks may overlap and need not be
+/// ordered: sorted by start, each keeps the furthest end reached so far, so a
+/// line is covered exactly when the last block starting at or before it
+/// reaches it.
+struct ListCoverage {
+    starts: Vec<usize>,
+    reach: Vec<usize>,
+}
+
+impl ListCoverage {
+    fn new(list_blocks: &[(usize, usize, String)]) -> Self {
+        let mut spans: Vec<(usize, usize)> = list_blocks.iter().map(|&(start, end, _)| (start, end)).collect();
+        spans.sort_unstable();
+        let mut furthest = 0;
+        let (starts, reach) = spans
+            .into_iter()
+            .map(|(start, end)| {
+                furthest = furthest.max(end);
+                (start, furthest)
+            })
+            .unzip();
+        Self { starts, reach }
+    }
+
+    fn contains(&self, line_num: usize) -> bool {
+        let before = self.starts.partition_point(|&start| start <= line_num);
+        before > 0 && self.reach[before - 1] >= line_num
+    }
+}
+
 impl MD032BlanksAroundLists {
     pub fn from_config_struct(config: MD032Config) -> Self {
         Self { config }
@@ -193,13 +225,10 @@ impl MD032BlanksAroundLists {
     /// should act on: inside a list block, and not a transparent div marker.
     fn is_reportable_lazy_line(
         ctx: &crate::lint_context::LintContext,
-        list_blocks: &[(usize, usize, String)],
+        coverage: &ListCoverage,
         line_num: usize,
     ) -> bool {
-        let is_within_block = list_blocks
-            .iter()
-            .any(|(start, end, _)| line_num >= *start && line_num <= *end);
-        if !is_within_block {
+        if !coverage.contains(line_num) {
             return false;
         }
         ctx.lines
@@ -336,6 +365,29 @@ impl MD032BlanksAroundLists {
 
     // Shared by check() and fix(): standalone code blocks need separation,
     // while indented code belonging to the list must remain attached.
+    /// The blockquote prefix for a blank line inserted after a list.
+    ///
+    /// The list's last line gives the prefix, keeping its marker spacing. That
+    /// line can be lazy paragraph text quoted less deeply than the list, so the
+    /// following line, which sits at the list's depth, gives it then.
+    fn prefix_for_blank_after(
+        ctx: &crate::lint_context::LintContext,
+        end_line: usize,
+        following_line: usize,
+        list_bq_level: usize,
+    ) -> String {
+        let end_bq_level = ctx
+            .line_info(end_line)
+            .and_then(|info| info.blockquote.as_ref())
+            .map_or(0, |bq| bq.nesting_level);
+        let source = if end_bq_level == list_bq_level {
+            end_line
+        } else {
+            following_line
+        };
+        ctx.blockquote_prefix_for_blank_line(source - 1)
+    }
+
     fn is_following_content_excluded(ctx: &crate::lint_context::LintContext, line_num: usize, prefix: &str) -> bool {
         ctx.line_info(line_num).is_some_and(|info| {
             info.in_front_matter
@@ -435,41 +487,12 @@ impl MD032BlanksAroundLists {
                 segments.push((current_start, prev_item_line));
             }
 
-            // Check if this list block was split by code fences
-            let has_code_fence_splits = segments.len() > 1 && {
-                // Check if any segments were created due to code fences
-                let mut found_fence = false;
-                for i in 0..segments.len() - 1 {
-                    let seg_end = segments[i].1;
-                    let next_start = segments[i + 1].0;
-                    // Check if there's a code fence between these segments
-                    for check_line in (seg_end + 1)..next_start {
-                        if check_line - 1 < ctx.lines.len() {
-                            let line = &ctx.lines[check_line - 1];
-                            let line_content = line.content(ctx.content);
-                            if line.in_code_block
-                                && (line_content.trim().starts_with("```") || line_content.trim().starts_with("~~~"))
-                            {
-                                found_fence = true;
-                                break;
-                            }
-                        }
-                    }
-                    if found_fence {
-                        break;
-                    }
-                }
-                found_fence
-            };
-
             // Convert segments to blocks
             for (start, end) in &segments {
                 // Extend the end to include any continuation lines immediately after the last item
                 let mut actual_end = *end;
 
-                // If this list was split by code fences, don't extend any segments
-                // They should remain as individual list items for MD032 purposes
-                if !has_code_fence_splits && *end < block.end_line {
+                if *end < block.end_line {
                     // Get the blockquote level for this block
                     let block_bq_level = block.blockquote_prefix.chars().filter(|&c| c == '>').count();
 
@@ -554,9 +577,10 @@ impl MD032BlanksAroundLists {
         ctx: &crate::lint_context::LintContext,
         lines: &[&str],
         list_blocks: &[(usize, usize, String)],
-    ) -> Vec<LintWarning> {
+    ) -> (Vec<LintWarning>, usize) {
         let mut warnings = Vec::new();
         let num_lines = lines.len();
+        let coverage = ListCoverage::new(list_blocks);
 
         // Check for ordered lists starting with non-1 that aren't recognized as lists
         // These need blank lines before them to be parsed as lists by CommonMark
@@ -564,10 +588,7 @@ impl MD032BlanksAroundLists {
             let line_num = line_idx + 1;
 
             // Skip if this line is already part of a recognized list
-            let is_in_list = list_blocks
-                .iter()
-                .any(|(start, end, _)| line_num >= *start && line_num <= *end);
-            if is_in_list {
+            if coverage.contains(line_num) {
                 continue;
             }
 
@@ -720,6 +741,10 @@ impl MD032BlanksAroundLists {
             }
         }
 
+        // The warnings above turn paragraph text into a list, which is their
+        // point; the ones below separate lists that already parse as lists.
+        let separating_from = warnings.len();
+
         for &(start_line, end_line, ref prefix) in list_blocks {
             let block_bq_level = prefix.chars().filter(|&c| c == '>').count();
             // Skip lists that start inside HTML/MDX comments
@@ -807,14 +832,17 @@ impl MD032BlanksAroundLists {
                             message: "List should be followed by blank line".to_string(),
                             fix: Some(Fix::new(
                                 ctx.line_column_byte_range_with_length(end_line + 1, 1, 0),
-                                format!("{}\n", ctx.blockquote_prefix_for_blank_line(end_line - 1)),
+                                format!(
+                                    "{}\n",
+                                    Self::prefix_for_blank_after(ctx, end_line, content_line, block_bq_level)
+                                ),
                             )),
                         });
                     }
                 }
             }
         }
-        warnings
+        (warnings, separating_from)
     }
 }
 
@@ -828,19 +856,49 @@ impl Rule for MD032BlanksAroundLists {
     }
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
+        let (mut warnings, separating_from) = self.unguarded_warnings(ctx);
+        drop_structure_changing_fixes(ctx, &mut warnings[separating_from..], Allowed::Nothing);
+        Ok(warnings)
+    }
+
+    fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
+        Ok(self.fix_with_structure_impl(ctx, &self.withheld_fixes(ctx)))
+    }
+
+    fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
+        // Skip if no list blocks exist (includes ordered and unordered lists)
+        // Note: list_blocks is pre-computed in LintContext, so this is already efficient
+        ctx.content.is_empty() || ctx.list_blocks.is_empty()
+    }
+
+    fn category(&self) -> RuleCategory {
+        RuleCategory::List
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    crate::impl_rule_config_methods!(MD032Config);
+}
+
+impl MD032BlanksAroundLists {
+    /// Every warning with its fix as computed, and the index from which the
+    /// warnings separate lists that already parse as lists.
+    fn unguarded_warnings(&self, ctx: &crate::lint_context::LintContext) -> (Vec<LintWarning>, usize) {
         let lines = ctx.raw_lines();
         // Early return for empty content
         if lines.is_empty() {
-            return Ok(Vec::new());
+            return (Vec::new(), 0);
         }
 
         let list_blocks = self.convert_list_blocks(ctx);
 
         if list_blocks.is_empty() {
-            return Ok(Vec::new());
+            return (Vec::new(), 0);
         }
 
-        let mut warnings = self.perform_checks(ctx, lines, &list_blocks);
+        let (mut warnings, separating_from) = self.perform_checks(ctx, lines, &list_blocks);
 
         // When lazy continuation is not allowed, detect and warn about lazy continuation
         // lines WITHIN list blocks (text that continues a list item but with less
@@ -848,6 +906,7 @@ impl Rule for MD032BlanksAroundLists {
         // already handled by the segment extension logic above.
         if !self.config.allow_lazy_continuation {
             let lazy_cont_lines = ctx.lazy_continuation_lines();
+            let coverage = ListCoverage::new(&list_blocks);
 
             for lazy_info in lazy_cont_lines.iter() {
                 let line_num = lazy_info.line_num;
@@ -855,7 +914,7 @@ impl Rule for MD032BlanksAroundLists {
                 // Only warn about lazy continuation lines that are WITHIN a list block
                 // (i.e., between list items). End-of-block lazy continuation is already
                 // handled by the existing "list should be followed by blank line" logic.
-                if !Self::is_reportable_lazy_line(ctx, &list_blocks, line_num) {
+                if !Self::is_reportable_lazy_line(ctx, &coverage, line_num) {
                     continue;
                 }
 
@@ -883,33 +942,35 @@ impl Rule for MD032BlanksAroundLists {
             }
         }
 
-        Ok(warnings)
+        (warnings, separating_from)
     }
 
-    fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
-        Ok(self.fix_with_structure_impl(ctx))
+    /// The fixes the structure guard withholds, as the line each one edits and
+    /// whether it inserts a blank line before that line (else it re-indents a
+    /// lazy continuation line). The fix path builds its own edits, so it reads
+    /// the guard's verdict from the warnings.
+    fn withheld_fixes(&self, ctx: &crate::lint_context::LintContext) -> std::collections::HashSet<(usize, bool)> {
+        let (unguarded, separating_from) = self.unguarded_warnings(ctx);
+        let mut guarded = unguarded[separating_from..].to_vec();
+        drop_structure_changing_fixes(ctx, &mut guarded, Allowed::Nothing);
+        unguarded[separating_from..]
+            .iter()
+            .zip(&guarded)
+            .filter(|(_, after)| after.fix.is_none())
+            .filter_map(|(before, _)| before.fix.as_ref())
+            .map(|fix| {
+                let line = ctx.offset_to_line_col(fix.range.start).0;
+                (line, fix.range.is_empty() && fix.replacement.ends_with('\n'))
+            })
+            .collect()
     }
 
-    fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        // Skip if no list blocks exist (includes ordered and unordered lists)
-        // Note: list_blocks is pre-computed in LintContext, so this is already efficient
-        ctx.content.is_empty() || ctx.list_blocks.is_empty()
-    }
-
-    fn category(&self) -> RuleCategory {
-        RuleCategory::List
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    crate::impl_rule_config_methods!(MD032Config);
-}
-
-impl MD032BlanksAroundLists {
     /// Helper method for fixing implementation
-    fn fix_with_structure_impl(&self, ctx: &crate::lint_context::LintContext) -> String {
+    fn fix_with_structure_impl(
+        &self,
+        ctx: &crate::lint_context::LintContext,
+        withheld: &std::collections::HashSet<(usize, bool)>,
+    ) -> String {
         let lines = ctx.raw_lines();
         let num_lines = lines.len();
         if num_lines == 0 {
@@ -926,10 +987,11 @@ impl MD032BlanksAroundLists {
         let mut lazy_fixes: std::collections::BTreeMap<usize, LazyContLine> = std::collections::BTreeMap::new();
         if !self.config.allow_lazy_continuation {
             let lazy_cont_lines = ctx.lazy_continuation_lines();
+            let coverage = ListCoverage::new(&list_blocks);
             for lazy_info in lazy_cont_lines.iter() {
                 let line_num = lazy_info.line_num;
                 // Only fix lines within a list block
-                if !Self::is_reportable_lazy_line(ctx, &list_blocks, line_num) {
+                if !Self::is_reportable_lazy_line(ctx, &coverage, line_num) {
                     continue;
                 }
                 // Only fix if not in code block, front matter, or HTML comment
@@ -938,7 +1000,9 @@ impl MD032BlanksAroundLists {
                 {
                     continue;
                 }
-                lazy_fixes.insert(line_num, lazy_info.clone());
+                if !withheld.contains(&(line_num, false)) {
+                    lazy_fixes.insert(line_num, lazy_info.clone());
+                }
             }
         }
 
@@ -973,7 +1037,9 @@ impl MD032BlanksAroundLists {
                     if !is_prev_excluded && prev_bq_level == block_bq_level && should_require {
                         // Use centralized helper for consistent blockquote prefix (no trailing space)
                         let bq_prefix = ctx.blockquote_prefix_for_blank_line(start_line - 1);
-                        insertions.insert(start_line, bq_prefix);
+                        if !withheld.contains(&(start_line, true)) {
+                            insertions.insert(start_line, bq_prefix);
+                        }
                     }
                 }
             }
@@ -1003,8 +1069,10 @@ impl MD032BlanksAroundLists {
                     // Skip if exiting a blockquote - boundary provides separation
                     if !is_next_excluded && next_line_bq_level == block_bq_level && !exits_blockquote {
                         // Use centralized helper for consistent blockquote prefix (no trailing space)
-                        let bq_prefix = ctx.blockquote_prefix_for_blank_line(end_line - 1);
-                        insertions.insert(end_line + 1, bq_prefix);
+                        let bq_prefix = Self::prefix_for_blank_after(ctx, end_line, content_line, block_bq_level);
+                        if !withheld.contains(&(end_line + 1, true)) {
+                            insertions.insert(end_line + 1, bq_prefix);
+                        }
                     }
                 }
             }
@@ -1059,6 +1127,22 @@ mod tests {
     use crate::lint_context::LintContext;
     use crate::rule::Rule;
 
+    #[test]
+    fn test_list_coverage_matches_every_block_whatever_their_order() {
+        // Out of order, overlapping, one nested inside another and ending
+        // before it, one a single line, with gaps between them.
+        let blocks: Vec<(usize, usize, String)> = [(20, 22), (3, 10), (5, 6), (9, 14), (30, 30), (17, 17)]
+            .into_iter()
+            .map(|(start, end)| (start, end, String::new()))
+            .collect();
+        let coverage = ListCoverage::new(&blocks);
+        for line in 0..=35 {
+            let expected = blocks.iter().any(|&(start, end, _)| start <= line && line <= end);
+            assert_eq!(coverage.contains(line), expected, "line {line}");
+        }
+        assert!(!ListCoverage::new(&[]).contains(1));
+    }
+
     fn lint(content: &str) -> Vec<LintWarning> {
         let rule = MD032BlanksAroundLists::default();
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
@@ -1112,6 +1196,70 @@ mod tests {
         ] {
             assert!(lint(content).is_empty(), "{content:?}: {:?}", lint(content));
             assert_eq!(fix(content), content);
+        }
+    }
+
+    #[test]
+    fn test_fix_after_a_list_split_by_a_fence_keeps_its_continuation_lines() {
+        // A fence at the margin ends the list, and the lines before it, indented
+        // or lazy, still belong to the last item's paragraph.
+        for (content, expected) in [
+            (
+                "1. a\n2. b\n   c\n```\nx\n```\n3. d\n",
+                "1. a\n2. b\n   c\n\n```\nx\n```\n3. d\n",
+            ),
+            (
+                "* a\n```\n```\n* b\n](x)\n\ntext\n",
+                "* a\n\n```\n```\n* b\n](x)\n\ntext\n",
+            ),
+        ] {
+            assert_eq!(fix(content), expected, "{content:?}");
+        }
+        let warnings = lint("1. a\n2. b\n   c\n```\nx\n```\n3. d\n");
+        assert_eq!(warnings.iter().map(|w| w.line).collect::<Vec<_>>(), vec![3]);
+    }
+
+    #[test]
+    fn test_backtick_line_short_of_the_content_column_is_lazy_text() {
+        // Four columns of indent outside the item make the backticks paragraph
+        // text rather than a fence, so the list runs on through them.
+        let content = "   1.  a\n    ```\n    code\n";
+        assert!(lint(content).is_empty(), "{:?}", lint(content));
+        assert_eq!(fix(content), content);
+    }
+
+    #[test]
+    fn test_blank_after_a_quoted_list_ending_in_lazy_text_stays_in_the_quote() {
+        let content = "> 1. a\nlazy\n> - b\n";
+        let warnings = lint(content);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(fix(content), "> 1. a\nlazy\n>\n> - b\n");
+    }
+
+    #[test]
+    fn test_fix_never_changes_how_the_lists_parse() {
+        // Items indented between two content columns, or quoted apart from
+        // the list before them, are read as one list by the parser and as
+        // several by the list model. A blank line between them would make the
+        // list loose or move items into another list, so those fixes are
+        // withheld while the fixes that only separate lists stay.
+        for (content, expected) in [
+            ("1.   item 41\n   +  item 51\n+ item 52\n", None),
+            (" *   item 17\n   10.  item 21\n1. item 22\n", None),
+            ("-  item 6\n>         ```\n   10. item 23\n 1.  item 24\n", None),
+            (
+                "   10. item 43\n>   +  item 47\n>  continuation text\n>      1. item 50\n",
+                Some("   10. item 43\n>\n>   +  item 47\n>  continuation text\n>      1. item 50\n"),
+            ),
+            (
+                "   1.  item 63\n>    +  item 65\n> +   item 66\n",
+                Some("   1.  item 63\n>\n>    +  item 65\n> +   item 66\n"),
+            ),
+        ] {
+            let expected = expected.unwrap_or(content);
+            assert_eq!(fix(content), expected, "{content:?}");
+            let fixable = lint(content).iter().filter(|w| w.fix.is_some()).count();
+            assert_eq!(fixable, usize::from(expected != content), "{content:?}");
         }
     }
 
@@ -1249,14 +1397,26 @@ mod tests {
     #[test]
     fn test_div_closer_after_list_is_a_lazy_continuation_in_standard() {
         // Outside the Pandoc-compatible flavors `:::` is ordinary text, so it
-        // lazily continues the item exactly as CommonMark reads it.
+        // lazily continues the item exactly as CommonMark reads it. Indented
+        // into the item it would start a definition list description, so the
+        // warning comes without a fix.
         let rule = MD032BlanksAroundLists::from_config_struct(MD032Config {
             allow_lazy_continuation: false,
         });
         let content = "Intro\n\n- List item 1\n- List item 2\n:::\n";
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
-        let fixed = rule.fix(&ctx).expect("Lint fix failed");
-        assert_eq!(fixed, "Intro\n\n- List item 1\n- List item 2\n  :::\n");
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(warnings[0].line, 5);
+        assert!(warnings[0].fix.is_none(), "{warnings:?}");
+        assert_eq!(rule.fix(&ctx).unwrap(), content);
+
+        let content = "Intro\n\n- List item 1\n- List item 2\nlazy\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(
+            rule.fix(&ctx).unwrap(),
+            "Intro\n\n- List item 1\n- List item 2\n  lazy\n"
+        );
     }
 
     // Test that warnings include Fix objects

@@ -41,6 +41,16 @@ class GetFeatureFlagsResponse(_message.Message):
     flags: _containers.RepeatedCompositeFieldContainer[FeatureFlagValue]
     def __init__(self, flags: _Optional[_Iterable[_Union[FeatureFlagValue, _Mapping]]] = ...) -> None: ...
 
+class GetTeamFeatureFlagsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetTeamFeatureFlagsResponse(_message.Message):
+    __slots__ = ("flags",)
+    FLAGS_FIELD_NUMBER: _ClassVar[int]
+    flags: _containers.RepeatedCompositeFieldContainer[FeatureFlagValue]
+    def __init__(self, flags: _Optional[_Iterable[_Union[FeatureFlagValue, _Mapping]]] = ...) -> None: ...
+
 class GetFeatureFlagRequest(_message.Message):
     __slots__ = ("flag", "default_value")
     FLAG_FIELD_NUMBER: _ClassVar[int]

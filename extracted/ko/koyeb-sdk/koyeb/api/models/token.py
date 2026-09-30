@@ -24,15 +24,22 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class Token(BaseModel):
     """
     Token
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     user_id: Optional[StrictStr] = None
     organization_id: Optional[StrictStr] = None
     expires_at: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["id", "user_id", "organization_id", "expires_at"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "user_id",
+        "organization_id",
+        "expires_at",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -40,7 +47,6 @@ class Token(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +71,7 @@ class Token(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -84,12 +89,12 @@ class Token(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "user_id": obj.get("user_id"),
-            "organization_id": obj.get("organization_id"),
-            "expires_at": obj.get("expires_at")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "user_id": obj.get("user_id"),
+                "organization_id": obj.get("organization_id"),
+                "expires_at": obj.get("expires_at"),
+            }
+        )
         return _obj
-
-

@@ -164,14 +164,16 @@ def test_cache_gate_counts_argument_savings() -> None:
         "est_cache_ttl_secs": 300,
     }
 
-    results_only = [_tool_result(2_500) for _ in range(30)]
+    # Six eligible 2,200-char results: 13,200 chars, ~4.6K tokens by the one measured
+    # estimator (2.9 chars/token) — under the 5K floor.
+    results_only = [_tool_result(2_200) for _ in range(30)]
     protected = trim_messages_context(results_only, cache_state=fresh_cache)
     assert protected.blocks_rewritten == 0
     assert protected.eligible_but_skipped_reason == "cache_protect"
     assert protected.policy["cache_gate"]["est_savings_tokens"] < 5000
 
     with_arguments = [_tool_call(40_000)]
-    with_arguments.extend(_tool_result(2_500) for _ in range(29))
+    with_arguments.extend(_tool_result(2_200) for _ in range(29))
     trimmed = trim_messages_context(with_arguments, cache_state=fresh_cache)
     assert trimmed.eligible_but_skipped_reason is None
     assert trimmed.arguments_rewritten == 1

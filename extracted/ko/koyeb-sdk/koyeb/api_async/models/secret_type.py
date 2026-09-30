@@ -26,13 +26,11 @@ class SecretType(str, Enum):
     """
     allowed enum values
     """
-    SIMPLE = 'SIMPLE'
-    REGISTRY = 'REGISTRY'
-    MANAGED = 'MANAGED'
+    SIMPLE = "SIMPLE"
+    REGISTRY = "REGISTRY"
+    MANAGED = "MANAGED"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of SecretType from a JSON string"""
         return cls(json.loads(json_str))
-
-

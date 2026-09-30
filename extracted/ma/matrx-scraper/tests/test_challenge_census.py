@@ -42,3 +42,27 @@ def test_a_real_article_with_a_comment_captcha_is_not_a_wall() -> None:
     article = "<p>" + ("Python's asyncio runs coroutines on an event loop. " * 80) + "</p>"
     html = f"<html><head><title>Asyncio: the complete guide</title></head><body>{article}<div class='g-recaptcha'></div></body></html>"
     assert detect_challenge_reasons(soup=HTMLParser(html), title="Asyncio: the complete guide") == []
+
+
+# ── the text-only census (coverage keeps an excerpt, not the DOM) ────────────
+# Live 2026-09-29: every one of these was stored as a successful capture and counted as coverage.
+TEXT_WALLS = {
+    "cloudfront-403": ("ERROR: The request could not be satisfied", "403 ERROR\nThe request could not be satisfied.\nRequest blocked. We can't connect to the server for this app or website at this time."),
+    "akamai": ("Access Denied", 'Access Denied\nYou don\'t have permission to access "http://mdpi.com/x" on this server.\nReference #18.4e951eb8'),
+    "human-verification": ("Human Verification", "Let's confirm you are human\nComplete the security check before continuing."),
+    "cloudflare-captcha": ("archive.li", "One more step\nPlease complete the security check to access\nWhy do I have to complete a CAPTCHA?\nCompleting the CAPTCHA proves you are a human"),
+}
+
+
+@pytest.mark.parametrize("vendor", sorted(TEXT_WALLS))
+def test_a_wall_reduced_to_title_and_text_is_still_a_wall(vendor: str) -> None:
+    from matrx_scraper.scraper import challenge_text_reason
+
+    title, text = TEXT_WALLS[vendor]
+    assert challenge_text_reason(title=title, text=text), vendor
+
+
+def test_a_long_article_titled_access_denied_is_an_article() -> None:
+    from matrx_scraper.scraper import challenge_text_reason
+
+    assert challenge_text_reason(title="Access Denied: how insurers refuse claims", text="word " * 800) is None

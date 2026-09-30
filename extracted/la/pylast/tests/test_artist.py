@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Integration (not unit) tests for pylast.py
 """

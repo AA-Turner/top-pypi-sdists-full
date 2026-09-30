@@ -46,6 +46,27 @@ class Type(Enum):
     DYNAMIC_HDR_VIVID = lib.AV_FRAME_DATA_DYNAMIC_HDR_VIVID
     AMBIENT_VIEWING_ENVIRONMENT = lib.AV_FRAME_DATA_AMBIENT_VIEWING_ENVIRONMENT
     VIDEO_HINT = lib.AV_FRAME_DATA_VIDEO_HINT
+    LCEVC = lib.AV_FRAME_DATA_LCEVC
+    VIEW_ID = lib.AV_FRAME_DATA_VIEW_ID
+    THREE_D_REFERENCE_DISPLAYS = lib.AV_FRAME_DATA_3D_REFERENCE_DISPLAYS
+    EXIF = lib.AV_FRAME_DATA_EXIF
+
+    @classmethod
+    def _missing_(cls, value):
+        """Name types added by an FFmpeg newer than the one PyAV was written against.
+
+        The members above only cover what the oldest supported FFmpeg defines,
+        so a frame decoded by a newer one can carry a type that is not here.
+        Give it an ``UNKNOWN_<value>`` member instead of raising ``ValueError``
+        and taking :attr:`av.Frame.side_data` down with it.
+        """
+        if not isinstance(value, int):
+            return None
+
+        member = object.__new__(cls)
+        member._name_ = f"UNKNOWN_{value}"
+        member._value_ = value
+        return cls._value2member_map_.setdefault(value, member)
 
 
 @cython.cfunc
@@ -106,7 +127,7 @@ class SideData(Buffer):
 class _SideDataContainer:
     def __init__(self, frame: Frame):
         self.frame = frame
-        self._by_index: list = []
+        self._by_index: list[SideData] = []
         self._by_type: dict = {}
 
         i: cython.int
@@ -118,12 +139,20 @@ class _SideDataContainer:
             self._by_type[data.type] = data
 
     def __len__(self):
-        return len(self._by_index)
+        return len(self._by_type)
 
     def __iter__(self):
-        return iter(self._by_index)
+        """Iterate the :class:`Type` keys, as a mapping must.
+
+        The values are reachable positionally too, via an integer or a slice.
+        """
+        return iter(self._by_type)
 
     def __getitem__(self, key):
+        if isinstance(key, slice):
+            # Typed as list[SideData], so slice through an untyped alias.
+            entries: object = self._by_index
+            return entries[key]
         if isinstance(key, int):
             return self._by_index[key]
         if isinstance(key, str):

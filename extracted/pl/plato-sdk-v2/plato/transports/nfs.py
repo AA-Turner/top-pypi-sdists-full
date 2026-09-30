@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shlex
 import time as _time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from plato.transports.base import Transport, build_auditctl_commands
+from plato.transports.base import Transport
 from plato.utils.subprocess import run_local, run_ssh
 
 if TYPE_CHECKING:
@@ -279,21 +278,14 @@ class NFSTransport(Transport):
             attempt,
         )
 
-        # Step 3: post-mount steps (mount info log + optional audit rules).
-        post_parts = [f"echo \"NFS_MOUNT_INFO=$(mount | grep '{remote}')\""]
-        audit_key = mount.audit_key
-        tracked = mount.tracked
-        if tracked and audit_key:
-            post_parts.extend(build_auditctl_commands(remote, audit_key))
-
+        # Step 3: post-mount mount info log.
         exit_code, stdout, stderr = await run_ssh(
             self.ssh_key_path,
             hostname,
-            " && ".join(post_parts),
+            f"echo \"NFS_MOUNT_INFO=$(mount | grep '{remote}')\"",
             timeout=60,
         )
-        post_ok = exit_code == 0
-        if not post_ok:
+        if exit_code != 0:
             logger.warning(
                 "NFS post-mount setup returned non-zero on %s: %s",
                 hostname,
@@ -304,38 +296,6 @@ class NFSTransport(Transport):
             if line.startswith("NFS_MOUNT_INFO="):
                 logger.info("NFS mounted on %s: %s", hostname, line[15:])
                 break
-
-        if tracked and audit_key:
-            if post_ok:
-                logger.info("Filesystem audit enabled on agent VM for %s (key=%s)", remote, audit_key)
-            else:
-                logger.warning(
-                    "Filesystem audit may NOT be active on agent VM for %s (key=%s) — "
-                    "post-mount auditctl setup failed; tool attribution will be incomplete",
-                    remote,
-                    audit_key,
-                )
-
-    async def collect_audit_log(
-        self,
-        hostname: str,
-        audit_key: str | None = None,
-    ) -> str | None:
-        """Collect filesystem audit log from agent VM."""
-        try:
-            key = audit_key or "plato_workspace"
-            exit_code, stdout, _ = await run_ssh(
-                self.ssh_key_path,
-                hostname,
-                f"ausearch -if /var/log/audit/audit.log --format raw -k {shlex.quote(key)} 2>/dev/null || true",
-                timeout=30,
-            )
-            if exit_code != 0 or not stdout.strip():
-                return None
-            return stdout
-        except Exception:
-            logger.warning("Failed to collect audit log from agent VM", exc_info=True)
-            return None
 
     async def sync_back(
         self,

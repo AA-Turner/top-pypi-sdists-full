@@ -412,7 +412,7 @@ async def execute_agent_tool(
         # it would be pure leakage. `inline_once` is an INLINE mode — its full
         # output is delivered to the caller and the user THIS turn, and only
         # stubbed on LATER turns; the "once" is about context retention across
-        # turns, not about visibility now. Muting it would hide output the
+        # turns, not about what is shown now. Muting it would hide output the
         # caller explicitly asked to see inline. Recorded in
         # scripts/nested_agent_streams_baseline.json.
         reference_mode = tool_def.result_mode in ("reference", "inline_once")

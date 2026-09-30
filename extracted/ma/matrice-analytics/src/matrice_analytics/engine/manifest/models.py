@@ -786,7 +786,9 @@ class UniqueCountConfig(PrimitiveConfig):
     """
 
     PRIMITIVE: ClassVar[str] = "unique_count"
-    STATIC_OUTPUTS: ClassVar[frozenset[str]] = frozenset({"new", "new_in_window", "total"})
+    STATIC_OUTPUTS: ClassVar[frozenset[str]] = frozenset(
+        {"new", "new_in_window", "present_in_window", "total"}
+    )
     REQUIRES: ClassVar[tuple[str, ...]] = ("track",)
 
     kind: Literal["unique_count"] = "unique_count"
@@ -806,10 +808,12 @@ class UniqueCountConfig(PrimitiveConfig):
     categories: list[str] = Field(min_length=1, description="Entity names to de-duplicate.")
 
     def frame_output_names(self) -> frozenset[str]:
-        # window() republishes exactly these four: `new` is genuinely additive over the window,
+        # window() republishes exactly these: `new` is genuinely additive over the window,
         # `new_in_window` is the running total the window collapses to (the same reading, read
         # one frame earlier -- source it with agg_type: last for a live arrivals-so-far figure),
-        # and `total` / `per_category.*` are cumulative levels. No key here has a second reading
+        # `present_in_window` is the same shape for "distinct ids seen this window, first
+        # sighting or not" (an interval rate's denominator), and `total` / `per_category.*` are
+        # cumulative levels. No key here has a second reading
         # that a peak would name.
         return self.STATIC_OUTPUTS | {f"per_category.{c}" for c in self.categories}
 
@@ -2336,6 +2340,18 @@ class CustomConfig(PrimitiveConfig):
             "the standard partition. all_in_one: one instance, in the 'global' bucket only, "
             "seeing every detection with det.zone still carrying the zone each one was assigned "
             "to. Opt into it only for logic that must observe a TRANSITION between zones."
+        ),
+    )
+    window_outputs: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Value keys this stage's own window() publishes at the window boundary. Empty "
+            "(the default): the stage has no window(), and the runtime collapses each value's "
+            "per-frame samples with the metric's agg_type -- one agg_type then decides both "
+            "the in-window collapse and the backend's rollup across windows. A key listed here "
+            "is instead published verbatim from window(), like a registered primitive's, so "
+            "agg_type only drives the rollup, and it may be an operand of a scope: window "
+            "derived metric. The class must define window() when this is non-empty."
         ),
     )
 
@@ -3914,7 +3930,9 @@ def _operand_availability(manifest: AppManifest, resolved: ResolvedSource) -> tu
     if config is None:  # pragma: no cover - resolve_source already proved the stage exists
         return (False, False)
     if config.OPEN_OUTPUTS:
-        return (True, False)
+        # Frame-only unless the stage declares that its own window() publishes this key
+        # (`custom.window_outputs`), in which case it is a window value like any primitive's.
+        return (True, resolved.value in getattr(config, "window_outputs", ()))
     # `output_patterns()` is the frame-scope pattern set. For `zone_occupancy` with
     # `zones: all` it is one pattern covering count / count_peak / avg, so a per-frame
     # operand naming a window-only per-zone reading (`count_peak`) is accepted here and then

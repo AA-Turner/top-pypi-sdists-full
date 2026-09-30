@@ -8,10 +8,14 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.clickhouse_pb2 import (
+    GetClickhouseAdminDiagnosticsRequest,
+    GetClickhouseAdminDiagnosticsResponse,
     GetClickhouseInfoRequest,
     GetClickhouseInfoResponse,
     GetClickhouseOtelTtlsRequest,
     GetClickhouseOtelTtlsResponse,
+    GetClickhouseRetentionHistoryRequest,
+    GetClickhouseRetentionHistoryResponse,
     GetClickhouseUriRequest,
     GetClickhouseUriResponse,
     SetClickhouseOtelTtlsRequest,
@@ -43,6 +47,21 @@ class ClickhouseServiceStub:
         GetClickhouseInfoRequest,
         GetClickhouseInfoResponse,
     ]
+    GetClickhouseRetentionHistory: UnaryUnaryMultiCallable[
+        GetClickhouseRetentionHistoryRequest,
+        GetClickhouseRetentionHistoryResponse,
+    ]
+    """Charts the retention, disk, and server-health gauges the cluster manager
+    publishes for the environment's telemetry ClickHouse, read from VictoriaMetrics.
+    """
+    GetClickhouseAdminDiagnostics: UnaryUnaryMultiCallable[
+        GetClickhouseAdminDiagnosticsRequest,
+        GetClickhouseAdminDiagnosticsResponse,
+    ]
+    """Returns query-level performance data and physical table configuration.
+    Keep this separate from GetClickhouseInfo so non-admin readers never receive
+    normalized query text or operational schema details.
+    """
 
 class ClickhouseServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -70,5 +89,24 @@ class ClickhouseServiceServicer(metaclass=ABCMeta):
         request: GetClickhouseInfoRequest,
         context: ServicerContext,
     ) -> GetClickhouseInfoResponse: ...
+    @abstractmethod
+    def GetClickhouseRetentionHistory(
+        self,
+        request: GetClickhouseRetentionHistoryRequest,
+        context: ServicerContext,
+    ) -> GetClickhouseRetentionHistoryResponse:
+        """Charts the retention, disk, and server-health gauges the cluster manager
+        publishes for the environment's telemetry ClickHouse, read from VictoriaMetrics.
+        """
+    @abstractmethod
+    def GetClickhouseAdminDiagnostics(
+        self,
+        request: GetClickhouseAdminDiagnosticsRequest,
+        context: ServicerContext,
+    ) -> GetClickhouseAdminDiagnosticsResponse:
+        """Returns query-level performance data and physical table configuration.
+        Keep this separate from GetClickhouseInfo so non-admin readers never receive
+        normalized query text or operational schema details.
+        """
 
 def add_ClickhouseServiceServicer_to_server(servicer: ClickhouseServiceServicer, server: Server) -> None: ...

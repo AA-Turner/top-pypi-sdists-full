@@ -438,6 +438,7 @@ class SlimProtoCLI:
         clientid: str = ""
         response = []
         streaming = False
+        long_poll = False
         json_msg: list[dict[str, Any]] = await request.json()
         # cometd message is an array of commands/messages
         for cometd_msg in json_msg:
@@ -525,6 +526,7 @@ class SlimProtoCLI:
                 # (re)connect message
                 logger.debug("Client (re-)connected: %s", clientid)
                 streaming = cometd_msg["connectionType"] == "streaming"
+                long_poll = not streaming
                 cometd_client.streaming = streaming
                 # confirm the connection
                 response.append(
@@ -692,9 +694,9 @@ class SlimProtoCLI:
             "Connection": "keep-alive",
         }
         if not streaming:
-            # Long-polling mode: if we don't already have queued data messages,
+            # Long-polling connect: if we don't already have queued data messages,
             # hold the connection open until a message arrives or timeout (30s).
-            if not any(
+            if long_poll and not any(
                 msg for msg in response if msg.get("channel", "").startswith("/slim/")
             ):
                 try:
@@ -955,8 +957,11 @@ class SlimProtoCLI:
         **kwargs,
     ) -> ServerStatusResponse:
         """Handle server status command."""
+        # Devices sometimes send ['serverstatus', '-', '-', []]]
         if start_index == "-":
             start_index = 0
+        if limit == "-":
+            limit = float("inf")
         players: list[PlayerItem] = []
         for index, player in enumerate(self.server.players):
             if isinstance(start_index, int) and index < start_index:
@@ -1156,7 +1161,7 @@ class SlimProtoCLI:
             return
         if subcommand.startswith("preset_") and subcommand.endswith(".single"):
             # only handle http-based presets, ignore/forward all other
-            preset_id = subcommand.split("preset_")[1].split(".")[0]
+            preset_id = subcommand.split("preset_")[1].split(".", maxsplit=1)[0]
             preset_index = int(preset_id) - 1
             if len(player.presets) >= preset_index + 1:
                 preset = player.presets[preset_index]

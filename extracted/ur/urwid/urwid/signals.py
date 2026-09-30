@@ -18,6 +18,8 @@
 # Urwid web site: https://urwid.org/
 
 
+"""Signal registration and delivery between widgets and other objects."""
+
 from __future__ import annotations
 
 import abc
@@ -32,10 +34,7 @@ if typing.TYPE_CHECKING:
 
 
 class MetaSignals(abc.ABCMeta):
-    """
-    register the list of signals in the class variable signals,
-    including signals in superclasses.
-    """
+    """Register the list of signals in the class variable signals, including signals in superclasses."""
 
     def __init__(
         cls,
@@ -43,6 +42,7 @@ class MetaSignals(abc.ABCMeta):
         bases: tuple[type, ...],
         d: dict[str, typing.Any],
     ) -> None:
+        """Collect `signals` from the new class and its superclasses into the new class's own list."""
         signals = d.get("signals", [])
         for superclass in cls.__bases__:
             signals.extend(getattr(superclass, "signals", []))
@@ -53,6 +53,7 @@ class MetaSignals(abc.ABCMeta):
 
 
 def setdefaultattr(obj: typing.Any, name: str, value: _T) -> _T:
+    """Return the existing attribute ``name`` on ``obj``, setting it to ``value`` first if missing."""
     # like dict.setdefault() for object attributes
     if hasattr(obj, name):
         return typing.cast("_T", getattr(obj, name))
@@ -61,10 +62,7 @@ def setdefaultattr(obj: typing.Any, name: str, value: _T) -> _T:
 
 
 class Key:
-    """
-    Minimal class, whose only purpose is to produce objects with a
-    unique hash
-    """
+    """Minimal class, whose only purpose is to produce objects with a unique hash."""
 
     __slots__ = ()
 
@@ -83,18 +81,22 @@ if typing.TYPE_CHECKING:
 
 
 class Signals:
+    """Registry of signal-emitting classes and the handlers connected to their signals."""
+
     _signal_attr = "_urwid_signals"  # attribute to attach to signal senders
 
     def __init__(self) -> None:
+        """Initialize with no signal-emitting classes registered yet."""
         self._supported: dict[MetaSignals, Container[Hashable]] = {}
 
     def register(self, sig_cls: MetaSignals, signals: Container[Hashable]) -> None:
-        """
-        :param sig_cls: the class of an object that will be sending signals
-        :param signals: a list of signals that may be sent, typically each signal is represented by a string
+        """Register the signals `sig_cls` objects may send.
 
         This function must be called for a class before connecting any
-        signal callbacks or emitting any signals from that class' objects
+        signal callbacks or emitting any signals from that class' objects.
+
+        :param sig_cls: the class of an object that will be sending signals
+        :param signals: a list of signals that may be sent, typically each signal is represented by a string
         """
         self._supported[sig_cls] = signals
 
@@ -108,7 +110,8 @@ class Signals:
         weak_args: Iterable[typing.Any] = (),
         user_args: Iterable[typing.Any] = (),
     ) -> Key:
-        """
+        """Connect `callback` to `obj`'s `name` signal.
+
         :param obj: the object sending a signal
         :param name: the signal to listen for, typically a string
         :param callback: the function to call when that signal is sent
@@ -179,7 +182,6 @@ class Signals:
         handler can also be disconnected by calling
         urwid.disconnect_signal, which doesn't need this key.
         """
-
         sig_cls = obj.__class__
         if name not in self._supported.get(sig_cls, ()):
             raise NameError(f"No such signal {name!r} for object {obj!r}")
@@ -231,20 +233,18 @@ class Signals:
         weak_args: Iterable[typing.Any] = (),
         user_args: Iterable[typing.Any] = (),
     ) -> None:
-        """
+        """Remove a callback from the list connected to a signal with connect_signal().
+
+        The arguments passed should be exactly the same as those passed to connect_signal().
+
+        If the callback is not connected or already disconnected, this function will simply do nothing.
+
         :param obj: the object to disconnect the signal from
         :param name: the signal to disconnect, typically a string
         :param callback: the callback function passed to connect_signal
         :param user_arg: the user_arg parameter passed to connect_signal
         :param weak_args: the weak_args parameter passed to connect_signal
         :param user_args: the weak_args parameter passed to connect_signal
-
-        This function will remove a callback from the list connected
-        to a signal with connect_signal(). The arguments passed should
-        be exactly the same as those passed to connect_signal().
-
-        If the callback is not connected or already disconnected, this
-        function will simply do nothing.
         """
         signals: _SignalStore = setdefaultattr(obj, self._signal_attr, {})
         if name not in signals:
@@ -263,33 +263,29 @@ class Signals:
         return None
 
     def disconnect_by_key(self, obj: typing.Any, name: Hashable, key: Key) -> None:
-        """
+        """Remove a callback from the list connected to a signal with connect_signal().
+
+        The key passed should be the value returned by connect_signal().
+
+        If the callback is not connected or already disconnected, this function will simply do nothing.
+
         :param obj: the object to disconnect the signal from
         :param name: the signal to disconnect, typically a string
         :param key: the key for this signal handler, as returned by
                     connect_signal().
-
-        This function will remove a callback from the list connected
-        to a signal with connect_signal(). The key passed should be the
-        value returned by connect_signal().
-
-        If the callback is not connected or already disconnected, this
-        function will simply do nothing.
         """
         signals: _SignalStore = setdefaultattr(obj, self._signal_attr, {})
         handlers = signals.get(name, ())
         signals[name] = tuple(h for h in handlers if h[0] is not key)
 
     def emit(self, obj: typing.Any, name: Hashable, *args: typing.Any) -> bool:
-        """
+        """Call each of the callbacks connected to this signal with the args arguments as positional parameters.
+
+        Returns True if any of the callbacks returned True.
+
         :param obj: the object sending a signal
         :param name: the signal to send, typically a string
         :param args: zero or more positional arguments to pass to the signal callback functions
-
-        This function calls each of the callbacks connected to this signal
-        with the args arguments as positional parameters.
-
-        This function returns True if any of the callbacks returned True.
         """
         result = False
         handlers = getattr(obj, self._signal_attr, {}).get(name, ())

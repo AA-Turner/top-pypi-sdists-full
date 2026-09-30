@@ -41,14 +41,20 @@ import {
   scrollPastEnd,
 } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
-import initRumdlWasm, { Linter, get_version as getRumdlVersion } from 'rumdl-wasm';
+// The engine is this checkout's own wasm package (`make build-wasm` writes it
+// to pkg/), so the playground always runs the rumdl its docs describe.
+import initRumdlWasm, { Linter, get_version as getRumdlVersion } from '../../../pkg/rumdl_lib.js';
 
 const externalUpdate = Annotation.define();
 const setDocumentMetadata = StateEffect.define();
 let wasmReady;
 
 export async function loadRumdl() {
-  wasmReady ||= initRumdlWasm();
+  // A failed load must not stay cached, or a retry would replay the rejection.
+  wasmReady ||= initRumdlWasm().catch((error) => {
+    wasmReady = undefined;
+    throw error;
+  });
   await wasmReady;
   return { Linter, get_version: getRumdlVersion };
 }
@@ -125,7 +131,16 @@ export function createRumdlEditor({
   onFix,
   onFixAll,
   onHistoryChange,
+  onLineEndingsNormalized,
 }) {
+  // CodeMirror stores every line break as LF, so CRLF text arriving through
+  // paste or drop is converted. Remember that it happened so the page can say so.
+  let incomingCarriageReturns = false;
+  const noteIncomingText = (text) => {
+    incomingCarriageReturns = typeof text === 'string' && text.includes('\r');
+    return false;
+  };
+
   const documentMetadata = StateField.define({
     create() {
       return metadata;
@@ -193,6 +208,10 @@ export function createRumdlEditor({
         autocomplete: 'off',
         spellcheck: 'false',
       }),
+      EditorView.domEventHandlers({
+        paste: (event) => noteIncomingText(event.clipboardData?.getData('text/plain')),
+        drop: (event) => noteIncomingText(event.dataTransfer?.getData('text/plain')),
+      }),
       EditorView.updateListener.of((update) => {
         onHistoryChange?.({
           canUndo: undoDepth(update.state) > 0,
@@ -203,6 +222,11 @@ export function createRumdlEditor({
           if (!isExternal) {
             onChange(update.state.doc.toString(), update.state.field(documentMetadata));
           }
+          const receivedText = update.transactions.some((transaction) => (
+            transaction.isUserEvent('input.paste') || transaction.isUserEvent('input.drop')
+          ));
+          if (receivedText && incomingCarriageReturns) onLineEndingsNormalized?.();
+          if (receivedText) incomingCarriageReturns = false;
         }
       }),
     ],

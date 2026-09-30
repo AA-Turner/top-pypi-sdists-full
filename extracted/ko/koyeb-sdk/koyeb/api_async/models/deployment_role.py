@@ -26,14 +26,12 @@ class DeploymentRole(str, Enum):
     """
     allowed enum values
     """
-    INVALID = 'INVALID'
-    ACTIVE = 'ACTIVE'
-    UPCOMING = 'UPCOMING'
-    CURRENT = 'CURRENT'
+    INVALID = "INVALID"
+    ACTIVE = "ACTIVE"
+    UPCOMING = "UPCOMING"
+    CURRENT = "CURRENT"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of DeploymentRole from a JSON string"""
         return cls(json.loads(json_str))
-
-

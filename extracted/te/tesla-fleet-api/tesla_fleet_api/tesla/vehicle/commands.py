@@ -44,6 +44,7 @@ from tesla_fleet_api.tesla.vehicle.vehicle import Vehicle
 from tesla_fleet_api.const import (
     LOGGER,
     AutoSeat,
+    Level,
     Trunk,
     ClimateKeeperMode,
     CabinOverheatProtectionTemp,
@@ -249,10 +250,12 @@ HvacSeatCoolerLevels = (
     HvacSeatCoolerActions.HvacSeatCoolerLevel_High,
 )
 
-HvacSeatCoolerPositions = (
-    HvacSeatCoolerActions.HvacSeatCoolerPosition_FrontLeft,
-    HvacSeatCoolerActions.HvacSeatCoolerPosition_FrontRight,
-)
+# Keyed by the REST seat_position, which Tesla's vehicle-command proxy reads
+# as the proto enum value (1 front left, 2 front right), not the 0-based Seat.
+HvacSeatCoolerPositions: dict[int, HvacSeatCoolerActions.HvacSeatCoolerPosition_E] = {
+    1: HvacSeatCoolerActions.HvacSeatCoolerPosition_FrontLeft,
+    2: HvacSeatCoolerActions.HvacSeatCoolerPosition_FrontRight,
+}
 
 HvacClimateKeeperActions = (
     HvacClimateKeeperAction.ClimateKeeperAction_Off,
@@ -267,11 +270,47 @@ CopActivationTemps = (
     ClimateState.CopActivationTemp.CopActivationTempHigh,
 )
 
-StwHeatLevels = (
-    StwHeatLevel.StwHeatLevel_Off,
-    StwHeatLevel.StwHeatLevel_Low,
-    StwHeatLevel.StwHeatLevel_High,
-)
+# Keyed by the REST wire value (Level), which accepts only 0, 1 and 3: the
+# protocol has no medium steering wheel heat level.
+StwHeatLevels: dict[int, StwHeatLevel] = {
+    Level.OFF: StwHeatLevel.StwHeatLevel_Off,
+    Level.LOW: StwHeatLevel.StwHeatLevel_Low,
+    Level.HIGH: StwHeatLevel.StwHeatLevel_High,
+}
+
+# Day names Tesla's vehicle-command proxy accepts for days_of_week, which the
+# REST route takes as a comma-joined string rather than the proto bitmask.
+DAY_OF_WEEK_BITS: dict[str, int] = {
+    "SUN": 1,
+    "SUNDAY": 1,
+    "MON": 2,
+    "MONDAY": 2,
+    "TUES": 4,
+    "TUESDAY": 4,
+    "WED": 8,
+    "WEDNESDAY": 8,
+    "THURS": 16,
+    "THURSDAY": 16,
+    "FRI": 32,
+    "FRIDAY": 32,
+    "SAT": 64,
+    "SATURDAY": 64,
+    "ALL": 127,
+    "WEEKDAYS": 62,
+}
+
+
+def days_of_week_mask(days_of_week: str | int) -> int:
+    """Convert a bitmask or comma-joined day names to the proto bitmask."""
+    if isinstance(days_of_week, int) or days_of_week.strip().isdigit():
+        return int(days_of_week)
+    mask = 0
+    for day in days_of_week.split(","):
+        name = day.strip().upper()
+        if name not in DAY_OF_WEEK_BITS:
+            raise ValueError(f"Invalid day of week: {day}")
+        mask |= DAY_OF_WEEK_BITS[name]
+    return mask
 
 
 def vcsec_command_name(command: UnsignedMessage) -> str:
@@ -824,12 +863,32 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
                     vcsec.commandStatus.operationStatus
                     == OperationStatus_E.OPERATIONSTATUS_ERROR
                 ):
-                    if resp.HasField("signedMessageStatus"):
-                        exception = SIGNED_MESSAGE_INFORMATION_FAULTS[
-                            vcsec.commandStatus.signedMessageStatus.signedMessageInformation
-                        ]
-                        if exception:
-                            raise exception
+                    # ERROR is a car-side refusal whatever the sub-message
+                    # carries, so it must never reach the success return
+                    # below; the inner status only picks the exception.
+                    status = vcsec.commandStatus
+                    if status.HasField("signedMessageStatus"):
+                        info = status.signedMessageStatus.signedMessageInformation
+                        if info < len(SIGNED_MESSAGE_INFORMATION_FAULTS):
+                            exception = SIGNED_MESSAGE_INFORMATION_FAULTS[info]
+                            if exception:
+                                raise exception
+                    elif status.HasField("whitelistOperationStatus"):
+                        info = status.whitelistOperationStatus.whitelistOperationInformation
+                        if info < len(WHITELIST_OPERATION_STATUS):
+                            exception = WHITELIST_OPERATION_STATUS[info]
+                            if exception:
+                                raise exception
+                        else:
+                            raise WhitelistOperationStatus(
+                                f"Unknown whitelist operation failure: {info}"
+                            )
+                    return {
+                        "response": {
+                            "result": False,
+                            "reason": OperationStatus_E.Name(status.operationStatus),
+                        }
+                    }
 
             elif resp.from_destination.domain == Domain.DOMAIN_INFOTAINMENT:
                 try:
@@ -1158,7 +1217,12 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
             raise SigningDisabled()
 
         LOGGER.debug(f"Handshake with domain {Domain.Name(domain)}")
-        msg = RoutableMessage(
+        await self._send(self._session_info_request(domain), "session_info")
+        return self._sessions[domain].ready
+
+    def _session_info_request(self, domain: Domain) -> RoutableMessage:
+        """Build the unsigned session-info request that opens a domain session."""
+        return RoutableMessage(
             to_destination=Destination(
                 domain=domain,
             ),
@@ -1166,9 +1230,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
             session_info_request=SessionInfoRequest(public_key=self._public_key),
             uuid=randbytes(16),
         )
-
-        await self._send(msg, "session_info")
-        return self._sessions[domain].ready
 
     async def ping(self) -> dict[str, Any]:
         """Ping the vehicle."""
@@ -1563,6 +1624,8 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
         # HvacSeatCoolerPosition_Unknown = 0;
         # HvacSeatCoolerPosition_FrontLeft = 1;
         # HvacSeatCoolerPosition_FrontRight = 2;
+        if seat_position not in HvacSeatCoolerPositions:
+            raise ValueError(f"Invalid seat position: {seat_position}")
         return await self._sendInfotainment(
             Action(
                 vehicleAction=VehicleAction(
@@ -1656,13 +1719,20 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
         )
 
     async def remote_steering_wheel_heat_level_request(
-        self, level: int
+        self, level: Level | int
     ) -> dict[str, Any]:
         """Sets steering wheel heat level.
 
-        The vehicle can reject remote comfort commands when
-        ``climate_state().remote_heater_control_enabled`` is false.
+        Accepts ``Level.OFF``, ``Level.LOW`` or ``Level.HIGH`` (0, 1, 3), the
+        same values as the REST route; there is no medium level, so any other
+        value raises ``ValueError``. The vehicle can reject remote comfort
+        commands when ``climate_state().remote_heater_control_enabled`` is
+        false.
         """
+        if level not in StwHeatLevels:
+            raise ValueError(
+                f"Invalid steering wheel heat level {level!r}; expected 0, 1 or 3"
+            )
         return await self._sendInfotainment(
             Action(
                 vehicleAction=VehicleAction(
@@ -1893,19 +1963,23 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
         update the vehicle's shared ``scheduled_charging_mode``; disabling one
         while the other is active can turn scheduling off entirely.
 
-        ``preconditioning_enabled`` and ``off_peak_charging_enabled`` are
-        accepted by the Python signature for compatibility but the signed
-        command protobuf has no fields for them, so they are not sent.
+        Preconditioning and off-peak charging are sent only when their
+        ``*_enabled`` or ``*_weekdays_only`` argument is true; otherwise the
+        recurrence is left unset, which the vehicle reads as off.
         """
 
+        # The proto has no enable flags: a present *_times block switches that
+        # feature on, so it is omitted when off, as Tesla's proxy does.
+        preconditioning_times = None
         if preconditioning_weekdays_only:
             preconditioning_times = PreconditioningTimes(weekdays=Void())
-        else:
+        elif preconditioning_enabled:
             preconditioning_times = PreconditioningTimes(all_week=Void())
 
+        off_peak_charging_times = None
         if off_peak_charging_weekdays_only:
             off_peak_charging_times = OffPeakChargingTimes(weekdays=Void())
-        else:
+        elif off_peak_charging_enabled:
             off_peak_charging_times = OffPeakChargingTimes(all_week=Void())
 
         return await self._sendInfotainment(
@@ -2231,10 +2305,10 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
         name: str | None = None,
     ) -> dict[str, Any]:
         """Add a schedule for vehicle charging."""
-        if not start_time and not end_time:
+        if start_time is None and end_time is None:
             raise ValueError("Either start_time or end_time or both must be provided")
         schedule = ChargeSchedule(
-            days_of_week=int(days_of_week),
+            days_of_week=days_of_week_mask(days_of_week),
             enabled=enabled,
             start_enabled=start_time is not None,
             end_enabled=end_time is not None,

@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.availability_level import AvailabilityLevel
 
+
 class TestAvailabilityLevel(unittest.TestCase):
     """AvailabilityLevel unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestAvailabilityLevel(unittest.TestCase):
         """Test AvailabilityLevel"""
         # inst = AvailabilityLevel()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v2.integrations_pb2 import (
+    ListRunningDatasourceQueriesRequest,
+    ListRunningDatasourceQueriesResponse,
     TestIntegrationRequest,
     TestIntegrationResponse,
 )
@@ -28,6 +30,20 @@ class IntegrationsServiceStub:
     chalk.server.v1.IntegrationsService.TestIntegration, which remains for older clients and is
     implemented as a thin adapter over this so the two cannot drift.
     """
+    ListRunningDatasourceQueries: UnaryUnaryMultiCallable[
+        ListRunningDatasourceQueriesRequest,
+        ListRunningDatasourceQueriesResponse,
+    ]
+    """Lists the queries one data source reports as currently in flight.
+
+    Same permission as TestIntegration, and for the same reason: both connect to the data source
+    with the caller-supplied or saved credentials and return only what the source says about
+    itself. It carries customer SQL, which is the point -- an operator looking at this page is
+    looking for the statement that is stuck -- but nothing about how the connection was made.
+
+    Read-only, so no audit option: it changes nothing and runs on a refresh timer, and auditing
+    every poll would bury the mutations in the same log.
+    """
 
 class IntegrationsServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -39,6 +55,22 @@ class IntegrationsServiceServicer(metaclass=ABCMeta):
         """Tests a data source and reports per-check findings rather than a single boolean. Supersedes
         chalk.server.v1.IntegrationsService.TestIntegration, which remains for older clients and is
         implemented as a thin adapter over this so the two cannot drift.
+        """
+    @abstractmethod
+    def ListRunningDatasourceQueries(
+        self,
+        request: ListRunningDatasourceQueriesRequest,
+        context: ServicerContext,
+    ) -> ListRunningDatasourceQueriesResponse:
+        """Lists the queries one data source reports as currently in flight.
+
+        Same permission as TestIntegration, and for the same reason: both connect to the data source
+        with the caller-supplied or saved credentials and return only what the source says about
+        itself. It carries customer SQL, which is the point -- an operator looking at this page is
+        looking for the statement that is stuck -- but nothing about how the connection was made.
+
+        Read-only, so no audit option: it changes nothing and runs on a refresh timer, and auditing
+        every poll would bury the mutations in the same log.
         """
 
 def add_IntegrationsServiceServicer_to_server(servicer: IntegrationsServiceServicer, server: Server) -> None: ...

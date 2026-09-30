@@ -1,0 +1,1 @@
+import{B as e,z as t}from"./streamdown-BTZkhGm3.js";var n=t({extend:{classGroups:{"font-size":[`text-ui`]}}});function r(...t){return n(e(t))}export{r as t};

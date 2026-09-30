@@ -1,13 +1,14 @@
 import warnings
-from fractions import Fraction
 
 import cython
 from cython.cimports.av.audio.format import AudioFormat
 from cython.cimports.av.audio.frame import AudioFrame
 from cython.cimports.av.audio.layout import AudioLayout
+from cython.cimports.av.codec.hwaccel import HWDevice
 from cython.cimports.av.error import err_check
 from cython.cimports.av.filter.context import FilterContext, wrap_filter_context
 from cython.cimports.av.filter.filter import Filter, wrap_filter
+from cython.cimports.av.rational import AVRational
 from cython.cimports.av.video.format import VideoFormat
 from cython.cimports.av.video.frame import VideoFrame
 
@@ -15,20 +16,37 @@ from cython.cimports.av.video.frame import VideoFrame
 @cython.final
 @cython.cclass
 class Graph:
-    def __cinit__(self):
+    """Graph(hw_device=None)
+
+    A graph of audio and/or video filters.
+
+    :param HWDevice hw_device: An optional hardware device for filters such as
+        ``hwupload``. A reference is attached to every filter which declares
+        ``AVFILTER_FLAG_HWDEVICE`` before that filter is initialized.
+    """
+
+    def __cinit__(self, hw_device=None):
         self.ptr = lib.avfilter_graph_alloc()
+        if not self.ptr:
+            raise MemoryError("Could not allocate AVFilterGraph")
+        if hw_device is not None and not isinstance(hw_device, HWDevice):
+            raise TypeError("hw_device must be an HWDevice or None")
+        self._hw_device = hw_device
         self.configured = False
         self._name_counts = {}
         self._nb_filters_seen = 0
         self._context_by_ptr = {}
         self._context_by_type = {}
-        self._video_sources = []
-        self._audio_sources = []
 
     def __dealloc__(self):
         if self.ptr:
             # This frees the graph, filter contexts, links, etc..
             lib.avfilter_graph_free(cython.address(self.ptr))
+
+    @property
+    def hw_device(self):
+        """The hardware device supplied when this graph was created."""
+        return self._hw_device
 
     @property
     def threads(self):
@@ -96,6 +114,14 @@ class Graph:
         if not ptr:
             raise RuntimeError("Could not allocate AVFilterContext")
 
+        if (
+            self._hw_device is not None
+            and cy_filter.ptr.flags & lib.AVFILTER_FLAG_HWDEVICE
+        ):
+            ptr.hw_device_ctx = lib.av_buffer_ref(self._hw_device.ptr)
+            if not ptr.hw_device_ctx:
+                raise MemoryError("Could not reference graph hardware device")
+
         # Manually construct this context (so we can return it).
         ctx: FilterContext = wrap_filter_context(self, cy_filter, ptr)
         ctx.init(args, **kwargs)
@@ -109,17 +135,13 @@ class Graph:
         return ctx
 
     @cython.cfunc
-    def _register_context(self, ctx: FilterContext):
+    def _register_context(self, ctx: FilterContext) -> cython.void:
         name: str = ctx.filter.ptr.name
         self._context_by_ptr[cython.cast(cython.size_t, ctx.ptr)] = ctx
         self._context_by_type.setdefault(name, []).append(ctx)
-        if name == "buffer":
-            self._video_sources.append(ctx)
-        elif name == "abuffer":
-            self._audio_sources.append(ctx)
 
     @cython.cfunc
-    def _auto_register(self):
+    def _auto_register(self) -> cython.void:
         i: cython.int
         c_ctx: cython.pointer[lib.AVFilterContext]
         filter_: Filter
@@ -166,7 +188,7 @@ class Graph:
                 "This is deprecated and may be removed in future releases.",
                 DeprecationWarning,
             )
-            time_base = Fraction(1, 1000)
+            time_base = AVRational(1, 1000)
 
         return self.add(
             "buffer",
@@ -210,7 +232,7 @@ class Graph:
         if layout is None and channels is None:
             raise ValueError("missing layout or channels")
         if time_base is None:
-            time_base = Fraction(1, sample_rate)
+            time_base = AVRational(1, sample_rate)
 
         kwargs = {
             "sample_rate": f"{sample_rate}",
@@ -250,11 +272,13 @@ class Graph:
             every buffer source matching the frame's type.
         """
         if frame is None:
-            contexts = self._video_sources + self._audio_sources
+            contexts = self._get_context_by_type("buffer") + self._get_context_by_type(
+                "abuffer"
+            )
         elif isinstance(frame, VideoFrame):
-            contexts = self._video_sources
+            contexts = self._get_context_by_type("buffer")
         elif isinstance(frame, AudioFrame):
-            contexts = self._audio_sources
+            contexts = self._get_context_by_type("abuffer")
         else:
             raise ValueError(
                 f"can only AudioFrame, VideoFrame or None; got {type(frame)}"
@@ -273,7 +297,7 @@ class Graph:
 
     def vpush(self, frame: VideoFrame | None, at: cython.int = -1):
         """Like :meth:`push`, but only for :class:`.VideoFrame`."""
-        contexts = self._video_sources
+        contexts = self._get_context_by_type("buffer")
         if at >= 0:
             if at >= len(contexts):
                 raise IndexError(

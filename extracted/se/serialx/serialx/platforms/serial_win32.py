@@ -6,7 +6,7 @@ import asyncio
 import functools
 import logging
 import os
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 from typing_extensions import Buffer, Unpack
 from win32con import (
@@ -21,6 +21,7 @@ from win32con import (
     GENERIC_READ,
     GENERIC_WRITE,
     MARKPARITY,
+    MAXDWORD,
     NOPARITY,
     ODDPARITY,
     ONE5STOPBITS,
@@ -32,7 +33,6 @@ from win32con import (
     SPACEPARITY,
     TWOSTOPBITS,
 )
-from win32event import INFINITE, WAIT_TIMEOUT
 from win32file import (
     OVERLAPPED,
     PURGE_RXABORT,
@@ -52,6 +52,7 @@ from ..common import (
     ModemPins,
     Parity,
     PinState,
+    PortSettingsUpdate,
     StopBits,
     register_uri_handler,
 )
@@ -72,7 +73,6 @@ from ._win32api import (
     SetCommState,
     SetCommTimeouts,
     SetupComm,
-    WaitForSingleObject,
     WriteFile,
 )
 
@@ -117,6 +117,16 @@ def _normalize_windows_port_path(path: os.PathLike[str] | str) -> str:
         normalized = "\\\\.\\" + normalized
 
     return normalized
+
+
+class CommTimeouts(NamedTuple):
+    """COMMTIMEOUTS struct as a 5-tuple, accepted directly by SetCommTimeouts."""
+
+    ReadIntervalTimeout: int
+    ReadTotalTimeoutMultiplier: int
+    ReadTotalTimeoutConstant: int
+    WriteTotalTimeoutMultiplier: int
+    WriteTotalTimeoutConstant: int
 
 
 def _safe_close_handle(handle: int) -> None:
@@ -172,6 +182,51 @@ class Win32Serial(BaseSerial):
         self._write_buffer_size = write_buffer_size
         self._overlapped_read: PyOVERLAPPED | None = None
         self._overlapped_write: PyOVERLAPPED | None = None
+        self._commtimeouts: CommTimeouts | None = None
+
+    def _apply_commtimeouts(
+        self,
+        *,
+        read_timeout: float | None = None,
+        write_timeout: float | None = None,
+    ) -> None:
+        """Encode and push timeouts to the kernel; skip the syscall if unchanged."""
+        assert self._handle is not None
+        interval = (
+            max(int(self._inter_byte_timeout * 1000), 1)
+            if self._inter_byte_timeout
+            else 0
+        )
+
+        if read_timeout == 0:
+            # Documented sentinel: return immediately with whatever's buffered
+            read_interval_timeout = MAXDWORD
+            read_total_timeout_constant = 0
+        elif read_timeout is None:
+            read_interval_timeout = interval
+            read_total_timeout_constant = 0
+        else:
+            read_interval_timeout = interval
+            read_total_timeout_constant = max(int(read_timeout * 1000), 1)
+
+        if write_timeout is None or write_timeout == 0:
+            write_total_timeout_constant = 0
+        else:
+            write_total_timeout_constant = max(int(write_timeout * 1000), 1)
+
+        timeouts = CommTimeouts(
+            ReadIntervalTimeout=read_interval_timeout,
+            ReadTotalTimeoutMultiplier=0,
+            ReadTotalTimeoutConstant=read_total_timeout_constant,
+            WriteTotalTimeoutMultiplier=0,
+            WriteTotalTimeoutConstant=write_total_timeout_constant,
+        )
+
+        if self._commtimeouts == timeouts:
+            return
+
+        SetCommTimeouts(self._handle, timeouts)
+        self._commtimeouts = timeouts
 
     def _open(self) -> None:
         """Open the serial port."""
@@ -203,79 +258,76 @@ class Win32Serial(BaseSerial):
         self._overlapped_write.hEvent = CreateEvent(None, 1, 0, None)
 
         self._auto_close = True
+        self._setup_comm()
 
     @property
     def is_open(self) -> bool:
         """Check if the serial port is open."""
         return self._handle is not None
 
-    def _configure_port(self) -> None:
+    def _setup_comm(self) -> None:
+        """Set up and clear the driver buffers, once per open."""
+        assert self._handle is not None
+        SetupComm(self._handle, self._read_buffer_size, self._write_buffer_size)
+        PurgeComm(
+            self._handle,
+            PURGE_TXABORT | PURGE_RXABORT | PURGE_TXCLEAR | PURGE_RXCLEAR,
+        )
+
+    def _reconfigure_port(self, update: PortSettingsUpdate) -> None:
         """Configure the serial port settings."""
         assert self._handle is not None
 
         try:
-            interval = int(1000 * self._inter_byte_timeout)
-            if interval <= 0 and self._inter_byte_timeout > 0:
-                interval = 1  # Minimum 1ms if burst timeout is set but small
-
-            timeouts = (
-                # ReadIntervalTimeout
-                interval,
-                # ReadTotalTimeoutMultiplier
-                0,
-                # ReadTotalTimeoutConstant
-                0,
-                # WriteTotalTimeoutMultiplier
-                0,
-                # WriteTotalTimeoutConstant
-                0,
-            )
-            SetCommTimeouts(self._handle, timeouts)
-
-            # Setup buffers
-            SetupComm(self._handle, self._read_buffer_size, self._write_buffer_size)
-
-            # Clear buffers
-            PurgeComm(
-                self._handle,
-                PURGE_TXABORT | PURGE_RXABORT | PURGE_TXCLEAR | PURGE_RXCLEAR,
-            )
+            self._apply_commtimeouts()
 
             # Configure DCB (Device Control Block)
             dcb = cast(Any, GetCommState(self._handle))  # TODO: fix in typeshed
-            dcb.BaudRate = self._baudrate
-            dcb.ByteSize = self._byte_size
-            dcb.StopBits = WIN32_STOPBITS_MAP[self._stopbits]
-            dcb.Parity = WIN32_PARITY_MAP[self._parity]
+
+            if update.baudrate is not None:
+                dcb.BaudRate = update.baudrate
+
+            if update.byte_size is not None:
+                dcb.ByteSize = update.byte_size
+
+            if update.stopbits is not None:
+                dcb.StopBits = WIN32_STOPBITS_MAP[update.stopbits]
+
+            if update.parity is not None:
+                dcb.Parity = WIN32_PARITY_MAP[update.parity]
+
             dcb.fBinary = 1  # Always True on Windows
 
             # Flow Control
-            if self._rtscts:
-                dcb.fRtsControl = RTS_CONTROL_HANDSHAKE
-                dcb.fOutxCtsFlow = 1
-            elif self._rts_on_open is PinState.LOW:
-                dcb.fRtsControl = RTS_CONTROL_DISABLE
-                dcb.fOutxCtsFlow = 0
-            else:
-                dcb.fRtsControl = RTS_CONTROL_ENABLE
-                dcb.fOutxCtsFlow = 0
+            if update.rtscts is not None:
+                if update.rtscts:
+                    dcb.fRtsControl = RTS_CONTROL_HANDSHAKE
+                    dcb.fOutxCtsFlow = 1
+                elif self._rts_on_open is PinState.LOW:
+                    dcb.fRtsControl = RTS_CONTROL_DISABLE
+                    dcb.fOutxCtsFlow = 0
+                else:
+                    dcb.fRtsControl = RTS_CONTROL_ENABLE
+                    dcb.fOutxCtsFlow = 0
 
-            if self._xonxoff:
-                dcb.fOutX = 1
-                dcb.fInX = 1
-            else:
-                dcb.fOutX = 0
-                dcb.fInX = 0
+            if update.xonxoff is not None:
+                if update.xonxoff:
+                    dcb.fOutX = 1
+                    dcb.fInX = 1
+                else:
+                    dcb.fOutX = 0
+                    dcb.fInX = 0
 
-            if self._dsrdtr:
-                dcb.fDtrControl = DTR_CONTROL_HANDSHAKE
-                dcb.fOutxDsrFlow = 1
-            elif self._dtr_on_open is PinState.LOW:
-                dcb.fDtrControl = DTR_CONTROL_DISABLE
-                dcb.fOutxDsrFlow = 0
-            else:
-                dcb.fDtrControl = DTR_CONTROL_ENABLE
-                dcb.fOutxDsrFlow = 0
+            if update.dsrdtr is not None:
+                if update.dsrdtr:
+                    dcb.fDtrControl = DTR_CONTROL_HANDSHAKE
+                    dcb.fOutxDsrFlow = 1
+                elif self._dtr_on_open is PinState.LOW:
+                    dcb.fDtrControl = DTR_CONTROL_DISABLE
+                    dcb.fOutxDsrFlow = 0
+                else:
+                    dcb.fDtrControl = DTR_CONTROL_ENABLE
+                    dcb.fOutxDsrFlow = 0
 
             dcb.fDsrSensitivity = 0
             dcb.fErrorChar = 0
@@ -316,6 +368,7 @@ class Win32Serial(BaseSerial):
 
             _safe_close_handle(self._handle)
             self._handle = None
+            self._commtimeouts = None
 
         if self._overlapped_read is not None and self._overlapped_read.hEvent:
             _safe_close_handle(self._overlapped_read.hEvent)
@@ -382,49 +435,37 @@ class Win32Serial(BaseSerial):
         """Read data into the provided bytearray."""
         assert self._overlapped_read is not None
         assert self._handle is not None
+
+        self._apply_commtimeouts(read_timeout=timeout)
         ResetEvent(self._overlapped_read.hEvent)
 
-        rc, _ = ReadFile(self._handle, b, self._overlapped_read)  # type:ignore[call-overload]
+        ReadFile(self._handle, b, self._overlapped_read)
 
-        if rc == ERROR_IO_PENDING:
-            # IO is pending, wait for it
-            timeout_ms = int(timeout * 1000) if timeout is not None else INFINITE
-            res = WaitForSingleObject(self._overlapped_read.hEvent, timeout_ms)
-
-            if res == WAIT_TIMEOUT:
-                CancelIo(self._handle)
-                # Wait for cancellation to complete to avoid data corruption or races
-                WaitForSingleObject(self._overlapped_read.hEvent, INFINITE)
-                return 0
-
-        # Get the actual number of bytes read
         return GetOverlappedResult(self._handle, self._overlapped_read, True)
 
     def _write(self, data: Buffer, *, timeout: float | None) -> int:
         """Write data to the serial port synchronously."""
         assert self._overlapped_write is not None
         assert self._handle is not None
+
+        self._apply_commtimeouts(write_timeout=timeout)
         ResetEvent(self._overlapped_write.hEvent)
 
-        err, n = WriteFile(self._handle, data, self._overlapped_write)  # type:ignore[arg-type]
+        err, _ = WriteFile(self._handle, data, self._overlapped_write)  # type:ignore[arg-type]
 
-        if err == ERROR_IO_PENDING:
-            if timeout == 0:
-                # Non-blocking: the kernel accepted the whole write
-                return memoryview(data).nbytes
+        if err == ERROR_IO_PENDING and timeout == 0:
+            # Fire-and-forget: the kernel accepted the whole write.
+            return memoryview(data).nbytes
 
-            # IO is pending, wait for it
-            timeout_ms = int(timeout * 1000) if timeout is not None else INFINITE
-            res = WaitForSingleObject(self._overlapped_write.hEvent, timeout_ms)
+        n = GetOverlappedResult(self._handle, self._overlapped_write, True)
 
-            if res == WAIT_TIMEOUT:
-                CancelIo(self._handle)
-                # Wait for cancellation to complete
-                WaitForSingleObject(self._overlapped_write.hEvent, INFINITE)
-                raise TimeoutError("Write timeout") from None
+        expected_bytes = memoryview(data).nbytes
+        if timeout is not None and timeout > 0 and n != expected_bytes:
+            raise TimeoutError(
+                f"Write timeout: wrote {n} of {expected_bytes} in {timeout:0.2f}"
+            )
 
-        # Get the actual number of bytes written
-        return GetOverlappedResult(self._handle, self._overlapped_write, True)
+        return n
 
 
 class _MethodProxy:
@@ -632,7 +673,7 @@ class Win32SerialTransport(BaseSerialTransport):
             # If 0 (default), ReadFile with default timeouts might wait for full buffer.
             original_inter_byte_timeout = kwargs.get("inter_byte_timeout", 0)
             if original_inter_byte_timeout == 0:
-                kwargs["inter_byte_timeout"] = 0.01  # type: ignore[typeddict-unknown-key]
+                kwargs["inter_byte_timeout"] = 0.01
 
             self._serial = Win32Serial(
                 **kwargs,
@@ -641,7 +682,10 @@ class Win32SerialTransport(BaseSerialTransport):
             )
             self._extra["serial"] = self._serial
 
-            await self._loop.run_in_executor(None, self._serial.configure_port)
+            await self._loop.run_in_executor(None, self._serial._setup_comm)
+            await self._loop.run_in_executor(
+                None, self._serial._reconfigure_port, self._serial._all_settings()
+            )
 
             if self._closing:
                 await self._loop.run_in_executor(None, self._serial.close)  # type: ignore[unreachable]
@@ -727,6 +771,8 @@ class Win32SerialTransport(BaseSerialTransport):
     def close(self) -> None:
         """Close the transport."""
         self._closing = True
+        self._arm_close_timeout()
+
         if self._internal_transport is not None:
             # Internal transport closes self._serial via sock.close()
             self._internal_transport.close()
@@ -779,6 +825,10 @@ class Win32SerialTransport(BaseSerialTransport):
         """Set modem control bits, internal."""
         assert self._serial is not None
         await self._loop.run_in_executor(None, self._serial.set_modem_pins, modem_pins)
+
+    async def _reconfigure_port(self, update: PortSettingsUpdate) -> None:
+        assert self._serial is not None
+        await self._loop.run_in_executor(None, self._serial._reconfigure_port, update)
 
 
 def win32_list_serial_ports() -> list[SerialPortInfo]:

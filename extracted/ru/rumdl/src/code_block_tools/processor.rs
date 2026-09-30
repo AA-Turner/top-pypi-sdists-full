@@ -216,6 +216,53 @@ impl std::fmt::Display for ProcessorError {
     }
 }
 
+impl ProcessorError {
+    /// The 1-indexed line of the code block the error is about, when it is about one.
+    pub fn line(&self) -> Option<usize> {
+        match self {
+            Self::ToolErrorAt { line, .. }
+            | Self::NoToolsConfigured { line, .. }
+            | Self::ToolBinaryNotFound { line, .. } => Some(*line),
+            Self::ToolError(_) | Self::Aborted { .. } => None,
+        }
+    }
+
+    /// The error without the position [`Display`](std::fmt::Display) prefixes it with.
+    fn detail(&self) -> String {
+        match self {
+            Self::ToolErrorAt { error, .. } => error.to_string(),
+            Self::NoToolsConfigured { language, .. } => format!("No tools configured for language '{language}'"),
+            Self::ToolBinaryNotFound { tool, .. } => format!("Tool binary '{tool}' not found in PATH"),
+            Self::ToolError(_) | Self::Aborted { .. } => self.to_string(),
+        }
+    }
+
+    /// Report the error as a finding, at its code block when it names one.
+    ///
+    /// A run that stopped on this error still has to report it where the reader
+    /// can find it, in every output format, and under the same name whichever
+    /// path (lint, format, LSP) hit it.
+    pub fn to_lint_warning(&self) -> LintWarning {
+        let line = self.line().unwrap_or(1);
+        LintWarning {
+            message: self.detail(),
+            line,
+            column: 1,
+            end_line: line,
+            end_column: 1,
+            severity: Severity::Error,
+            fix: None,
+            rule_name: Some(CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.to_string()),
+        }
+    }
+}
+
+/// The name a failure of the code-block-tools machinery itself is reported under.
+///
+/// Not a rule name and not a tool id: it names the class of problem, so nothing
+/// looks it up in the rule registry.
+pub const CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME: &str = "code-block-tools";
+
 impl std::error::Error for ProcessorError {}
 
 impl From<ExecutorError> for ProcessorError {
@@ -255,6 +302,21 @@ pub struct FormatOutput {
     /// instead of only in a line of stderr. Messages collected under
     /// `on-error = "warn"` are not failures and are not here.
     pub failures: Vec<CodeBlockDiagnostic>,
+}
+
+/// Result of linting the code blocks in a document.
+#[derive(Debug, Default)]
+pub struct LintOutput {
+    /// Findings, including a tool that could not run under `on-error = "fail"`.
+    pub diagnostics: Vec<CodeBlockDiagnostic>,
+    /// Tools that could not run under `on-error = "warn"`, in the prose form
+    /// [`FormatOutput::error_messages`] uses. They are for the reader and are not
+    /// findings: `warn` asks to be told and to carry on.
+    pub warnings: Vec<String>,
+    /// Whether a tool failed to run under any `on-error` setting, so that some
+    /// block went unchecked. Such a result says nothing about that block and is
+    /// not one to cache.
+    pub incomplete: bool,
 }
 
 impl FormatOutput {
@@ -376,6 +438,13 @@ impl<'a> CodeBlockToolProcessor<'a> {
 
         let lines: Vec<&str> = content.lines().collect();
 
+        // Byte offset at which each line starts, so a fence's line number is a binary
+        // search rather than a newline count over everything before it.
+        let line_starts: Vec<usize> = std::iter::once(0)
+            .chain(content.match_indices('\n').map(|(i, _)| i + 1))
+            .collect();
+        let line_of = |offset: usize| line_starts.partition_point(|&start| start <= offset) - 1;
+
         for (event, range) in parser {
             match event {
                 Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) => {
@@ -383,7 +452,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                     let language = info_string.split_whitespace().next().unwrap_or("").to_string();
 
                     // Find start line
-                    let start_line = content[..range.start].chars().filter(|&c| c == '\n').count();
+                    let start_line = line_of(range.start);
 
                     // Find content start (after opening fence line)
                     let content_start = content[range.start..]
@@ -415,7 +484,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                 Event::End(TagEnd::CodeBlock) => {
                     if let Some(builder) = current_block.take() {
                         // Find end line
-                        let end_line = content[..range.end].chars().filter(|&c| c == '\n').count();
+                        let end_line = line_of(range.end);
 
                         // Find content end (before closing fence line)
                         let search_start = builder.content_start.min(range.end);
@@ -662,8 +731,18 @@ impl<'a> CodeBlockToolProcessor<'a> {
 
     /// Lint all code blocks in the content.
     ///
-    /// Returns diagnostics from all configured linters.
+    /// Returns diagnostics from all configured linters. Tools that could not run
+    /// under `on-error = "warn"` are left out; [`Self::lint_output`] returns them.
     pub fn lint(&self, content: &str) -> Result<Vec<CodeBlockDiagnostic>, ProcessorError> {
+        self.lint_output(content).map(|output| output.diagnostics)
+    }
+
+    /// Lint all code blocks in the content, with the tool failures `warn` reports.
+    ///
+    /// Returns `Err` only for `fail-fast` settings. A tool that cannot run under
+    /// `on-error = "fail"` stops the document and is reported as a finding at its
+    /// block, beside the findings of the blocks checked before it.
+    pub fn lint_output(&self, content: &str) -> Result<LintOutput, ProcessorError> {
         // Skip the expensive parse when no tools could possibly produce output.
         // With on_missing=Ignore (default) and no languages with lint tools configured,
         // every block would be skipped, so the parse is wasted work.
@@ -674,7 +753,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                 .values()
                 .any(|lc| lc.enabled && !lc.lint.is_empty())
         {
-            return Ok(Vec::new());
+            return Ok(LintOutput::default());
         }
 
         // Quick content check: skip parsing if no configured language appears in the content.
@@ -682,10 +761,12 @@ impl<'a> CodeBlockToolProcessor<'a> {
         if self.config.on_missing_language_definition.skips_the_block()
             && !self.has_potential_matching_blocks(content, true)
         {
-            return Ok(Vec::new());
+            return Ok(LintOutput::default());
         }
 
         let mut all_diagnostics = Vec::new();
+        let mut warnings = Vec::new();
+        let mut incomplete = false;
         let blocks = self.extract_code_blocks(content);
 
         for block in blocks {
@@ -726,7 +807,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                                 column: None,
                                 message: format!("No lint tools configured for language '{canonical_lang}'"),
                                 severity: DiagnosticSeverity::Error,
-                                tool: "code-block-tools".to_string(),
+                                tool: CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.to_string(),
                                 code_block_start: block.start_line + 1,
                             });
                             continue;
@@ -782,7 +863,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                                 column: None,
                                 message: format!("Tool binary '{tool_name}' not found in PATH"),
                                 severity: DiagnosticSeverity::Error,
-                                tool: "code-block-tools".to_string(),
+                                tool: CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.to_string(),
                                 code_block_start: block.start_line + 1,
                             });
                             continue;
@@ -822,23 +903,45 @@ impl<'a> CodeBlockToolProcessor<'a> {
                     Ok(diagnostics) => {
                         all_diagnostics.extend(diagnostics);
                     }
-                    Err(e) => {
-                        let on_error = self.get_on_error(&canonical_lang);
-                        match on_error {
-                            OnError::Fail => return Err(e.into()),
-                            OnError::Warn => {
-                                log::warn!("Tool '{tool_id}' failed: {e}");
-                            }
-                            OnError::Skip => {
-                                // Silently skip
-                            }
+                    Err(error) => match self.get_on_error(&canonical_lang) {
+                        // `fail` stops the document here. What the blocks before
+                        // this one reported is still true, so it is kept, and the
+                        // failure is reported at the block it happened in.
+                        OnError::Fail => {
+                            let failure = ProcessorError::ToolErrorAt {
+                                error,
+                                line: block.start_line + 1,
+                                language: canonical_lang,
+                            };
+                            all_diagnostics.push(CodeBlockDiagnostic {
+                                file_line: block.start_line + 1,
+                                column: None,
+                                message: failure.detail(),
+                                severity: DiagnosticSeverity::Error,
+                                tool: CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.to_string(),
+                                code_block_start: block.start_line + 1,
+                            });
+                            return Ok(LintOutput {
+                                diagnostics: all_diagnostics,
+                                warnings,
+                                incomplete: true,
+                            });
                         }
-                    }
+                        OnError::Warn => {
+                            incomplete = true;
+                            warnings.push(format!("line {} ({canonical_lang}): {error}", block.start_line + 1));
+                        }
+                        OnError::Skip => incomplete = true,
+                    },
                 }
             }
         }
 
-        Ok(all_diagnostics)
+        Ok(LintOutput {
+            diagnostics: all_diagnostics,
+            warnings,
+            incomplete,
+        })
     }
 
     /// Format all code blocks in the content.
@@ -970,7 +1073,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                                 column: None,
                                 message: format!("No format tools configured for language '{canonical_lang}'"),
                                 severity: DiagnosticSeverity::Error,
-                                tool: "code-block-tools".to_string(),
+                                tool: CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.to_string(),
                                 code_block_start: block.start_line + 1,
                             });
                             continue;
@@ -1039,7 +1142,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                                 column: None,
                                 message: format!("Tool binary '{tool_name}' not found in PATH"),
                                 severity: DiagnosticSeverity::Error,
-                                tool: "code-block-tools".to_string(),
+                                tool: CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.to_string(),
                                 code_block_start: block.start_line + 1,
                             });
                             continue;
@@ -1057,14 +1160,6 @@ impl<'a> CodeBlockToolProcessor<'a> {
                 let tool_input = ensure_trailing_newline(&formatted);
                 match self.executor.format(tool_def, &tool_input, Some(self.config.timeout)) {
                     Ok(output) => {
-                        // Guard against formatters that produce empty output for non-empty input.
-                        // This prevents data loss from misconfigured tools (e.g., a lint tool
-                        // used as a formatter that validates but doesn't output content).
-                        if output.trim().is_empty() && !formatted.trim().is_empty() {
-                            log::warn!("Formatter '{tool_id}' produced empty output for non-empty input, skipping");
-                            continue;
-                        }
-
                         // Ensure trailing newline matches original (unindented)
                         formatted = output;
                         if code_content.ends_with('\n') && !formatted.ends_with('\n') {
@@ -1119,7 +1214,9 @@ impl<'a> CodeBlockToolProcessor<'a> {
     /// flag survives alongside the stdin argument the tool also needs).
     ///
     /// The comparison mirrors the one [`Self::format`] makes before rewriting a
-    /// block, so `check` reports exactly the blocks `fmt` would change.
+    /// block, so `check` reports exactly the blocks `fmt` would change. A
+    /// formatter that emptied a non-empty block never gets here: the executor
+    /// reports it as a tool failure, for `on-error` to handle.
     fn format_check_diagnostics(
         &self,
         output: &str,
@@ -1127,13 +1224,6 @@ impl<'a> CodeBlockToolProcessor<'a> {
         tool_id: &str,
         code_block_start_line: usize,
     ) -> Vec<CodeBlockDiagnostic> {
-        // Same guard the format path applies: a formatter that empties a non-empty block
-        // is misconfigured, not a finding about the block.
-        if output.trim().is_empty() && !code_content.trim().is_empty() {
-            log::warn!("Formatter '{tool_id}' produced empty output for non-empty input, skipping");
-            return Vec::new();
-        }
-
         let mut formatted = output.to_string();
         if code_content.ends_with('\n') && !formatted.ends_with('\n') {
             formatted.push('\n');
@@ -1720,6 +1810,21 @@ fn main() {}
 
         assert_eq!(blocks.len(), 1);
         assert_eq!(blocks[0].indent_prefix, "    ");
+    }
+
+    /// Fence line numbers across content where byte offsets, character counts and line
+    /// counts all diverge: multibyte text, CRLF endings, a block in a blockquote, and a
+    /// final block with no trailing newline.
+    #[test]
+    fn test_extract_code_blocks_line_numbers() {
+        let config = default_config();
+        let processor = CodeBlockToolProcessor::new(&config, MarkdownFlavor::default());
+
+        let content = "# Ünïcödé 标题\r\n\r\n```python\r\nx = 'é'\r\n```\r\n\r\n> ```sh\n> echo 你好\n> ```\n\n~~~rust\nfn main() {}\n~~~";
+        let blocks = processor.extract_code_blocks(content);
+
+        let lines: Vec<(usize, usize)> = blocks.iter().map(|b| (b.start_line, b.end_line)).collect();
+        assert_eq!(lines, vec![(2, 4), (6, 8), (10, 12)]);
     }
 
     #[test]
@@ -3152,46 +3257,58 @@ console.log('hi');
     // =========================================================================
 
     /// A formatter that produces no stdout (like `tombi lint -` mistakenly used
-    /// as a formatter) should not replace non-empty content with an empty string.
-    /// This test uses `true` which exits 0 with no output, simulating the bug.
+    /// as a formatter) must never replace non-empty content with an empty string.
+    /// It is a formatter that failed, so `on-error` decides what is reported.
+    /// This test uses `true`, which exits 0 with no output.
     #[test]
     fn test_format_empty_output_does_not_erase_content() {
         use super::super::config::LanguageToolConfig;
 
-        let mut config = default_config();
-        config.languages.insert(
-            "toml".to_string(),
-            LanguageToolConfig {
-                format: vec!["empty-formatter".to_string()],
-                ..Default::default()
-            },
-        );
-        // Define a tool that exits 0 but produces no stdout (simulates `tombi lint -`)
-        config.tools.insert(
-            "empty-formatter".to_string(),
-            super::super::config::ToolDefinition {
-                command: vec!["true".to_string()],
-                stdin: true,
-                stdout: true,
-                lint_args: vec![],
-                format_args: vec![],
-            },
-        );
-
-        let processor = CodeBlockToolProcessor::new(&config, MarkdownFlavor::default());
-
         let content = "```toml\nkey = \"value\"\n```\n";
-        let result = processor.format(content);
+        let config_for = |on_error: OnError| {
+            let mut config = default_config();
+            config.on_error = on_error;
+            config.languages.insert(
+                "toml".to_string(),
+                LanguageToolConfig {
+                    format: vec!["empty-formatter".to_string()],
+                    ..Default::default()
+                },
+            );
+            config.tools.insert(
+                "empty-formatter".to_string(),
+                super::super::config::ToolDefinition {
+                    command: vec!["true".to_string()],
+                    stdin: true,
+                    stdout: true,
+                    lint_args: vec![],
+                    format_args: vec![],
+                },
+            );
+            config
+        };
 
-        assert!(result.is_ok(), "Format should not error");
-        let output = result.unwrap();
-
-        // The content must NOT be erased — original content should be preserved
+        let config = config_for(OnError::Fail);
+        let result = CodeBlockToolProcessor::new(&config, MarkdownFlavor::default()).format(content);
         assert!(
-            output.content.contains("key = \"value\""),
-            "Empty formatter output should not erase content. Got: {:?}",
-            output.content
+            matches!(result, Err(ProcessorError::ToolErrorAt { line: 1, .. })),
+            "fail must stop at the block: {result:?}"
         );
+
+        let config = config_for(OnError::Warn);
+        let output = CodeBlockToolProcessor::new(&config, MarkdownFlavor::default())
+            .format(content)
+            .unwrap();
+        assert_eq!(output.content, content, "warn must leave the block as it was");
+        assert_eq!(output.error_messages.len(), 1, "{:?}", output.error_messages);
+        assert!(output.error_messages[0].starts_with("line 1 (toml): "));
+
+        let config = config_for(OnError::Skip);
+        let output = CodeBlockToolProcessor::new(&config, MarkdownFlavor::default())
+            .format(content)
+            .unwrap();
+        assert_eq!(output.content, content, "skip must leave the block as it was");
+        assert!(output.error_messages.is_empty(), "{:?}", output.error_messages);
     }
 
     /// A formatter that echoes input back (like `cat`) should preserve content.

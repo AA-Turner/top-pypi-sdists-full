@@ -26,14 +26,12 @@ class TriggerDeploymentMetadataTriggerType(str, Enum):
     """
     allowed enum values
     """
-    UNKNOWN_TYPE = 'UNKNOWN_TYPE'
-    GIT = 'GIT'
-    RESUME = 'RESUME'
-    DATABASE_SYNC = 'DATABASE_SYNC'
+    UNKNOWN_TYPE = "UNKNOWN_TYPE"
+    GIT = "GIT"
+    RESUME = "RESUME"
+    DATABASE_SYNC = "DATABASE_SYNC"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of TriggerDeploymentMetadataTriggerType from a JSON string"""
         return cls(json.loads(json_str))
-
-

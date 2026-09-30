@@ -49,6 +49,7 @@ from matrx_ai.skills.ingest import (
     _parse_content,
     _parse_frontmatter,
     _row_config,
+    declared_published_to_web,
     ensure_skill_category,
     upsert_parsed_skills,
 )
@@ -144,7 +145,7 @@ class PackManifest:
     authors: list[str]
     skills_dir: str
     imported_on: str
-    visibility: str
+    published_to_web: bool
     category: dict[str, Any]
     renames: dict[str, dict[str, str]] = field(default_factory=dict)
     documents: list[PackDocument] = field(default_factory=list)
@@ -171,9 +172,6 @@ class PackManifest:
         return list(dict.fromkeys(paths))
 
 
-_VISIBILITIES = frozenset({"private", "internal", "public"})
-
-
 def load_manifest(path: Path | str) -> PackManifest:
     """Read and validate one pack manifest. Raises :class:`PackError`."""
     import yaml  # type: ignore[import-not-found]
@@ -190,7 +188,7 @@ def load_manifest(path: Path | str) -> PackManifest:
             authors=[str(a) for a in source["authors"]],
             skills_dir=str(source.get("skills_dir", "skills")),
             imported_on=str(raw["imported_on"]),
-            visibility=str(raw.get("visibility", "internal")),
+            published_to_web=declared_published_to_web(raw, f"skill pack manifest {path}"),
             category=dict(raw["category"]),
             renames={str(k): dict(v) for k, v in (raw.get("renames") or {}).items()},
             documents=[
@@ -238,10 +236,8 @@ def load_manifest(path: Path | str) -> PackManifest:
         )
     except KeyError as exc:
         raise PackError(f"manifest {path} is missing required key {exc}") from exc
-    if manifest.visibility not in _VISIBILITIES:
-        raise PackError(
-            f"manifest visibility {manifest.visibility!r} is not one of {sorted(_VISIBILITIES)}"
-        )
+    except ValueError as exc:
+        raise PackError(f"manifest {path}: {exc}") from exc
     if not manifest.category.get("slug") or not manifest.category.get("name"):
         raise PackError("manifest category needs both slug and name")
     for old, spec in manifest.renames.items():
@@ -732,7 +728,7 @@ def walk_pack(manifest: PackManifest, source_root: Path | str) -> PackWalk:
                 version=None,
                 source_hash=_hash(final_body),
                 source_path=rel_path,
-                visibility=manifest.visibility,
+                published_to_web=manifest.published_to_web,
                 ingested_from=OUTSIDE_PACK_SOURCE,
                 extra_config={
                     **_provenance(manifest, rel_path, folder_id, head),
@@ -791,7 +787,7 @@ def walk_pack(manifest: PackManifest, source_root: Path | str) -> PackWalk:
                 version=None,
                 source_hash=_hash(final_body),
                 source_path=rel_path,
-                visibility=manifest.visibility,
+                published_to_web=manifest.published_to_web,
                 ingested_from=OUTSIDE_PACK_SOURCE,
                 extra_config={
                     **_provenance(manifest, rel_path, doc.key, head),
@@ -840,7 +836,7 @@ async def _ensure_category(
     """Make sure the pack's skill category exists (see :func:`ensure_skill_category`)."""
     return await ensure_skill_category(
         manifest.category,
-        visibility=manifest.visibility,
+        published_to_web=manifest.published_to_web,
         extra_metadata={"pack_id": manifest.pack_id, "source_repo": manifest.repo_url},
         admin_user_id=admin_user_id,
         dry_run=dry_run,

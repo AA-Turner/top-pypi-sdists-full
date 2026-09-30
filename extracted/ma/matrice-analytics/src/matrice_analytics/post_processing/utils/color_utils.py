@@ -34,7 +34,9 @@ except RuntimeError as runtime_err:
     # Handle the specific "can't register atexit after shutdown" error
     if "atexit" in str(runtime_err):
         SKLEARN_AVAILABLE = False
-        logger.warning(f"sklearn import failed due to shutdown race condition: {runtime_err}. Using fallback method.")
+        logger.warning(
+            f"sklearn import failed due to shutdown race condition: {runtime_err}. Using fallback method."
+        )
     else:
         raise
 
@@ -58,7 +60,7 @@ def extract_major_colors(image: np.ndarray, k: int = 3) -> List[Tuple[str, str, 
     try:
         # Use sklearn method
         return _extract_major_colors_sklearn(image, k)
-    except Exception as sk_err:
+    except Exception as sk_err:  # noqa: BLE001 - fallback chain, next extractor takes over
         logger.warning(f"sklearn color extraction failed: {sk_err}. Using OpenCV fallback.")
         return _extract_major_colors_opencv_fallback(image, k)
 
@@ -78,12 +80,12 @@ def _extract_major_colors_sklearn(image: np.ndarray, k: int = 3) -> List[Tuple[s
     labels = kmeans.labels_
 
     # Calculate percentages
-    unique_labels, counts = np.unique(labels, return_counts=True)
+    _unique_labels, counts = np.unique(labels, return_counts=True)
     percentages = counts / len(labels)
 
     # Convert to color names and hex
     colors = []
-    for i, (center, percentage) in enumerate(zip(centers, percentages)):
+    for _i, (center, percentage) in enumerate(zip(centers, percentages)):  # noqa: B905 - kmeans centers and shares are parallel
         hex_color = "#{:02x}{:02x}{:02x}".format(center[0], center[1], center[2])
         color_name = _rgb_to_color_name(center)
         colors.append((color_name, hex_color, float(percentage)))
@@ -94,7 +96,9 @@ def _extract_major_colors_sklearn(image: np.ndarray, k: int = 3) -> List[Tuple[s
     return colors
 
 
-def _extract_major_colors_opencv_fallback(image: np.ndarray, k: int = 3) -> List[Tuple[str, str, float]]:
+def _extract_major_colors_opencv_fallback(
+    image: np.ndarray, k: int = 3
+) -> List[Tuple[str, str, float]]:
     """Extract major colors using OpenCV's K-means clustering as fallback."""
     try:
         # Reshape image to be a list of pixels
@@ -109,12 +113,12 @@ def _extract_major_colors_opencv_fallback(image: np.ndarray, k: int = 3) -> List
         centers = np.uint8(centers)
 
         # Calculate percentages
-        unique_labels, counts = np.unique(labels, return_counts=True)
+        _unique_labels, counts = np.unique(labels, return_counts=True)
         percentages = counts / len(labels)
 
         # Convert to color names and hex
         colors = []
-        for i, (center, percentage) in enumerate(zip(centers, percentages)):
+        for _i, (center, percentage) in enumerate(zip(centers, percentages)):  # noqa: B905 - kmeans centers and shares are parallel
             hex_color = "#{:02x}{:02x}{:02x}".format(center[0], center[1], center[2])
             color_name = _rgb_to_color_name(center)
             colors.append((color_name, hex_color, float(percentage)))
@@ -124,7 +128,7 @@ def _extract_major_colors_opencv_fallback(image: np.ndarray, k: int = 3) -> List
 
         return colors
 
-    except Exception as cv_err:
+    except Exception as cv_err:  # noqa: BLE001 - fallback chain, next extractor takes over
         logger.error(f"OpenCV color extraction failed: {cv_err}. Using basic color analysis.")
         return _extract_colors_basic_fallback(image, k)
 
@@ -144,12 +148,15 @@ def _extract_colors_basic_fallback(image: np.ndarray, _k: int = 3) -> List[Tuple
         # For simplicity, return the average color as the dominant color
         return [(color_name, hex_color, 1.0)]
 
-    except Exception as basic_err:
+    except Exception as basic_err:  # noqa: BLE001 - last fallback returns the default color
         logger.error(f"Basic color extraction failed: {basic_err}. Returning default.")
         return [("unknown", "#808080", 1.0)]  # Gray as default
 
 
-XKCD_COLORS = {name.replace("xkcd:", ""): mcolors.to_rgb(hex_str) for name, hex_str in mcolors.XKCD_COLORS.items()}
+XKCD_COLORS = {
+    name.replace("xkcd:", ""): mcolors.to_rgb(hex_str)
+    for name, hex_str in mcolors.XKCD_COLORS.items()
+}
 
 # Canonical colors you want to allow
 CANONICAL_COLOR_NAMES = [
@@ -187,7 +194,8 @@ CANONICAL_COLOR_RGB = {
 
 # Pre-convert to LAB for speed
 CANONICAL_COLOR_LAB = {
-    name: color.rgb2lab([[np.array(rgb) / 255.0]])[0][0] for name, rgb in CANONICAL_COLOR_RGB.items()
+    name: color.rgb2lab([[np.array(rgb) / 255.0]])[0][0]
+    for name, rgb in CANONICAL_COLOR_RGB.items()
 }
 
 
@@ -332,7 +340,9 @@ class VideoColorClassifier:
         cap.release()
         logger.info(f"Completed processing {frame_count} frames")
 
-    def _process_frame_detections(self, frame: np.ndarray, detections: List[Dict], frame_id: str, timestamp: float):
+    def _process_frame_detections(
+        self, frame: np.ndarray, detections: List[Dict], frame_id: str, timestamp: float
+    ):
         """
         Process all detections in a single frame.
         """
@@ -458,7 +468,9 @@ class VideoColorClassifier:
 
             # Find dominant color
             if category_analysis["color_breakdown"]:
-                dominant_color = max(category_analysis["color_breakdown"].items(), key=lambda x: x[1])
+                dominant_color = max(
+                    category_analysis["color_breakdown"].items(), key=lambda x: x[1]
+                )
                 category_analysis["dominant_color"] = {
                     "color": dominant_color[0],
                     "count": dominant_color[1],
@@ -500,7 +512,9 @@ class VideoColorClassifier:
         for category, analysis in summary_report["category_color_analysis"].items():
             if analysis["dominant_color"]:
                 dominant = analysis["dominant_color"]
-                insights.append(f"{category.title()}: predominantly {dominant['color']} ({dominant['percentage']}%)")
+                insights.append(
+                    f"{category.title()}: predominantly {dominant['color']} ({dominant['percentage']}%)"
+                )
 
             if analysis["color_diversity"] > 5:
                 insights.append(

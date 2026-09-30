@@ -1373,6 +1373,13 @@ def kind_title_key(kd: Any) -> str | None:
     return None
 
 
+def enum_str(value: Any) -> str | None:
+    """An ORM enum member (or plain string) as its plain value; ``None`` stays ``None``."""
+    if value is None:
+        return None
+    return str(getattr(value, "value", value))
+
+
 def kind_summary(kd: Any) -> dict[str, Any]:
     return {
         "id": str(kd.id),
@@ -1381,7 +1388,8 @@ def kind_summary(kd: Any) -> dict[str, Any]:
         "authoring_owner": kd.authoring_owner,
         "version": kd.version,
         "is_active": kd.is_active,
-        "visibility": str(getattr(kd.visibility, "value", kd.visibility)),
+        "published_to_web": bool(getattr(kd, "published_to_web", False)),
+        "shown_to": enum_str(getattr(kd, "shown_to", None)),
         "organization_id": str(kd.organization_id) if kd.organization_id else None,
         "created_by": str(kd.created_by) if kd.created_by else None,
         "emitted_fingerprint": kd.emitted_fingerprint,

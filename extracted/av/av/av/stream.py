@@ -4,9 +4,9 @@ import cython
 from cython.cimports import libav as lib
 from cython.cimports.av.error import err_check
 from cython.cimports.av.index import wrap_index_entries
+from cython.cimports.av.rational import from_avrational
 from cython.cimports.av.utils import (
     avdict_to_dict,
-    avrational_to_fraction,
     dict_to_avdict,
     to_avrational,
 )
@@ -113,30 +113,37 @@ class Stream:
         container: Container,
         stream: cython.pointer[lib.AVStream],
         codec_context: CodecContext,
-    ):
+    ) -> cython.void:
         self.container = container
         self.ptr = stream
-        self.index_entries = wrap_index_entries(self.ptr)
+        self.index_entries = wrap_index_entries(self)
 
         self.codec_context = codec_context
-        if self.codec_context:
-            self.codec_context.stream_index = stream.index
 
-        self.metadata = avdict_to_dict(
-            stream.metadata,
-            encoding=self.container.metadata_encoding,
-            errors=self.container.metadata_errors,
-        )
+        self.metadata = avdict_to_dict(stream.metadata)
+
+    @cython.cfunc
+    def _is_open(self) -> cython.bint:
+        return self.container is not None and self.container.ptr != cython.NULL
+
+    @cython.cfunc
+    def _assert_open(self) -> cython.void:
+        if self.container is None or self.container.ptr == cython.NULL:
+            raise AssertionError("Container is not open")
 
     @cython.cfunc
     def _assert_has_codec_context(
         self, err: cython.int = lib.AVERROR_DECODER_NOT_FOUND
-    ):
-        # Calling into a NULL codec_context is a segfault, not an AttributeError.
+    ) -> cython.void:
         if self.codec_context is None:
             err_check(err)
 
     def __repr__(self):
+        if not self._is_open():
+            return (
+                f"<av.{self.__class__.__name__} (container closed) at 0x{id(self):x}>"
+            )
+
         name = getattr(self, "name", None)
         return (
             f"<av.{self.__class__.__name__} #{self.index} {self.type or '<notype>'}/"
@@ -144,6 +151,8 @@ class Stream:
         )
 
     def __setattr__(self, name, value):
+        if name in ("id", "disposition", "discard", "time_base"):
+            self._assert_open()
         if name == "id":
             self._set_id(value)
             return
@@ -162,13 +171,8 @@ class Stream:
             setattr(self.codec_context, name, value)
 
     @cython.cfunc
-    def _finalize_for_output(self):
-        dict_to_avdict(
-            cython.address(self.ptr.metadata),
-            self.metadata,
-            encoding=self.container.metadata_encoding,
-            errors=self.container.metadata_errors,
-        )
+    def _finalize_for_output(self) -> cython.void:
+        dict_to_avdict(cython.address(self.ptr.metadata), self.metadata)
 
         if self.codec_context is None:
             return
@@ -191,10 +195,11 @@ class Stream:
         :type: int
 
         """
+        self._assert_open()
         return self.ptr.id
 
     @cython.cfunc
-    def _set_id(self, value):
+    def _set_id(self, value) -> cython.void:
         if value is None:
             self.ptr.id = 0
         else:
@@ -231,6 +236,7 @@ class Stream:
 
         :type: int
         """
+        self._assert_open()
         return self.ptr.index
 
     @property
@@ -238,10 +244,11 @@ class Stream:
         """
         The unit of time (in fractional seconds) in which timestamps are expressed.
 
-        :type: fractions.Fraction | None
+        :type: AVRational
 
         """
-        return avrational_to_fraction(cython.address(self.ptr.time_base))
+        self._assert_open()
+        return from_avrational(self.ptr.time_base)
 
     @property
     def start_time(self):
@@ -251,6 +258,7 @@ class Stream:
 
         :type: int | None
         """
+        self._assert_open()
         if self.ptr.start_time != lib.AV_NOPTS_VALUE:
             return self.ptr.start_time
 
@@ -262,6 +270,7 @@ class Stream:
         :type: int | None
 
         """
+        self._assert_open()
         if self.ptr.duration != lib.AV_NOPTS_VALUE:
             return self.ptr.duration
 
@@ -274,6 +283,7 @@ class Stream:
 
         :type: int
         """
+        self._assert_open()
         return self.ptr.nb_frames
 
     @property
@@ -287,6 +297,7 @@ class Stream:
 
     @property
     def disposition(self):
+        self._assert_open()
         return Disposition(self.ptr.disposition)
 
     @property
@@ -300,6 +311,7 @@ class Stream:
 
         :type: Discard
         """
+        self._assert_open()
         return Discard(self.ptr.discard)
 
     @property
@@ -309,6 +321,7 @@ class Stream:
 
         :type: Literal["audio", "video", "subtitle", "data", "attachment"]
         """
+        self._assert_open()
         media_type = lib.av_get_media_type_string(self.ptr.codecpar.codec_type)
         return "unknown" if media_type == cython.NULL else media_type
 
@@ -317,6 +330,11 @@ class Stream:
 @cython.cclass
 class DataStream(Stream):
     def __repr__(self):
+        if not self._is_open():
+            return (
+                f"<av.{self.__class__.__name__} (container closed) at 0x{id(self):x}>"
+            )
+
         return (
             f"<av.{self.__class__.__name__} #{self.index} data/"
             f"{self.name or '<nocodec>'} at 0x{id(self):x}>"
@@ -324,6 +342,7 @@ class DataStream(Stream):
 
     @property
     def name(self):
+        self._assert_open()
         desc: cython.pointer[cython.const[lib.AVCodecDescriptor]] = (
             lib.avcodec_descriptor_get(self.ptr.codecpar.codec_id)
         )
@@ -361,6 +380,7 @@ class AttachmentStream(Stream):
     @property
     def data(self):
         """Return the raw attachment payload as bytes."""
+        self._assert_open()
         extradata: cython.p_uchar = self.ptr.codecpar.extradata
         size: cython.Py_ssize_t = self.ptr.codecpar.extradata_size
         if extradata == cython.NULL or size <= 0:

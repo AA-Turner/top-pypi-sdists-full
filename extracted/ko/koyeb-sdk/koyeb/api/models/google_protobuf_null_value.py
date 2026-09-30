@@ -26,11 +26,9 @@ class GoogleProtobufNullValue(str, Enum):
     """
     allowed enum values
     """
-    NULL_VALUE = 'NULL_VALUE'
+    NULL_VALUE = "NULL_VALUE"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of GoogleProtobufNullValue from a JSON string"""
         return cls(json.loads(json_str))
-
-

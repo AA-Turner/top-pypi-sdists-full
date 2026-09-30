@@ -438,8 +438,10 @@ _CORE_MESSAGES = {
         "en": "show the engine location, interpreter and Element data (path, source, versions) and exit",
     },
     "cli.help.element-version": {
-        "ru": "версия данных Элемента (по умолчанию – последняя из бандла)",
-        "en": "Element data version (default: the latest in the bundle)",
+        "ru": "версия данных Элемента (по умолчанию – env XBSL_ELEMENT_VERSION, а без него – "
+              "default в index.json корня данных)",
+        "en": "Element data version (default: env XBSL_ELEMENT_VERSION, otherwise the default "
+              "in index.json of the data root)",
     },
     "cli.help.data-dir": {
         "ru": "корень данных Элемента (каталог с index.json); также env XBSL_DATA_DIR",
@@ -723,6 +725,12 @@ _CORE_MESSAGES = {
         "en": "the plugins on disk changed after the server started: {changes} (call {tool}); "
               "the tools answer with a warning until a restart",
     },
+    "mcplog.stale.data": {
+        "ru": "данные платформы на диске изменились после запуска сервера: {changes} (вызов "
+              "{tool}); инструменты отвечают отказом до перезапуска",
+        "en": "the platform data on disk changed after the server started: {changes} (call "
+              "{tool}); the tools refuse until a restart",
+    },
     "mcplog.stale.error": {"ru": "ошибка: {error}", "en": "error: {error}"},
     # Written by the supervisor (xbsl/mcp_supervisor.py) when it retires a worker.
     "mcplog.restart": {
@@ -740,6 +748,10 @@ _CORE_MESSAGES = {
     "mcplog.restart.plugins": {
         "ru": "надстройки на диске сменились",
         "en": "the plugins on disk changed",
+    },
+    "mcplog.restart.data": {
+        "ru": "данные платформы на диске изменились",
+        "en": "the platform data on disk changed",
     },
     "mcplog.restart.exited": {
         "ru": "процесс завершился с кодом {code}",
@@ -911,10 +923,14 @@ _CORE_MESSAGES = {
         "en": "target version (default: the latest from PyPI)",
     },
     "cli.help.selfupdate-stop": {
-        "ru": "снять процессы, держащие установку (LSP-сервер редактора, MCP-сессии), "
-              "и обновиться; без флага команда только назовёт их",
-        "en": "stop the processes holding the installation (the editor's LSP server, MCP "
-              "sessions) and update; without the flag the command only names them",
+        "ru": "снять серверы, держащие установку (LSP-сервер редактора, MCP-сессии), и "
+              "обновиться. Идущие команды xbsl других сессий называются по pid и не трогаются; "
+              "со значением all снимаются и они, и такая команда обрывается без результата. "
+              "Без флага держатели только называются",
+        "en": "stop the servers holding the installation (the editor's LSP server, MCP "
+              "sessions) and update. Running xbsl commands of other sessions are named by pid "
+              "and left alone; with the value all they are stopped too, and such a command "
+              "ends without a result. Without the flag the holders are only named",
     },
     # -- self-update (selfupdate.py): everything the command says to the user --
     "selfupdate.editable": {
@@ -996,25 +1012,55 @@ _CORE_MESSAGES = {
     },
     "selfupdate.busy": {
         "ru": "установку сейчас не заменить – файлы заняты ({error}). {holders}. "
-              "Закройте их и повторите, либо запустите с --stop-holders. "
               "Прежняя установка НЕ ТРОНУТА и работает",
         "en": "the installation cannot be replaced right now – files are held ({error}). "
-              "{holders}. Close them and repeat, or run with --stop-holders. The previous "
-              "installation is UNTOUCHED and working",
+              "{holders}. The previous installation is UNTOUCHED and working",
     },
     "selfupdate.holders": {
-        "ru": "держат установку: {list}",
-        "en": "holding the installation: {list}",
+        "ru": "Держат установку серверы: {list}",
+        "en": "Servers holding the installation: {list}",
+    },
+    "selfupdate.holders-commands": {
+        "ru": "Идут команды: {list}",
+        "en": "Commands are running: {list}",
     },
     "selfupdate.holders-unknown": {
-        "ru": "определить держателей не удалось; обычно это LSP-сервер открытого редактора "
+        "ru": "Определить держателей не удалось; обычно это LSP-сервер открытого редактора "
               "и MCP-сессии агента",
-        "en": "could not tell which processes hold it; usually the open editor's LSP server "
+        "en": "Could not tell which processes hold it; usually the open editor's LSP server "
               "and the agent's MCP sessions",
     },
-    "selfupdate.holder-stopped": {
-        "ru": "снят держатель {name} (pid {pid})",
-        "en": "stopped the holder {name} (pid {pid})",
+    "selfupdate.advice-servers": {
+        "ru": "Закройте их и повторите, либо запустите с --stop-holders",
+        "en": "Close them and repeat, or run with --stop-holders",
+    },
+    "selfupdate.advice-close": {
+        "ru": "Закройте их и повторите",
+        "en": "Close them and repeat",
+    },
+    "selfupdate.advice-commands": {
+        "ru": "Это чужая работа, и --stop-holders ее не трогает: дождитесь конца команд и "
+              "повторите. Ключ --stop-holders=all снимет и их, но такая команда оборвется без "
+              "результата",
+        "en": "That is someone else's work, and --stop-holders leaves it alone: wait for the "
+              "commands to finish and repeat. --stop-holders=all stops them as well, and such "
+              "a command ends without a result",
+    },
+    "selfupdate.server-stopped": {
+        "ru": "остановлен сервер: {process}",
+        "en": "stopped the server: {process}",
+    },
+    "selfupdate.command-stopped": {
+        "ru": "остановлена команда: {process}",
+        "en": "stopped the command: {process}",
+    },
+    "selfupdate.stop-failed": {
+        "ru": "не удалось остановить {process}: {error}",
+        "en": "could not stop {process}: {error}",
+    },
+    "selfupdate.command-spared": {
+        "ru": "не трогаю идущую команду: {process}",
+        "en": "leaving a running command alone: {process}",
     },
     "selfupdate.process": {"ru": "процесс", "en": "process"},
     "selfupdate.extract-failed": {
@@ -1310,11 +1356,44 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.no-presentation": {
         "ru": "заголовок элемента: пишется туда, где его держит вид – в Представление или, у "
-              "справочника, документа, регистра и обработки, в раздел Интерфейс (без него "
-              "первый же линт дает naming/presentation)",
+              "справочника, документа, регистра, набора констант и обработки, в раздел "
+              "Интерфейс; у справочника, документа, регистра и периодического набора констант "
+              "это заголовок списка, а заголовок объекта задает --object-presentation, "
+              "заголовок записи регистра сведений и периодического набора – "
+              "--record-presentation (без заголовка первый же линт дает naming/presentation)",
         "en": "the element caption: written where the kind keeps it - into Presentation or, "
-              "for a catalog, a document, a register and a processing, into the Interface "
-              "section (without it the very first lint answers naming/presentation)",
+              "for a catalog, a document, a register, a constants set and a processing, into "
+              "the Interface section; for a catalog, a document, a register and a periodic "
+              "constants set it is the list caption, and --object-presentation gives the object "
+              "one, --record-presentation the record one of an information register or a "
+              "periodic set (without a caption the very first lint answers naming/presentation)",
+    },
+    "cli.help.scaf.no-object-presentation": {
+        "ru": "заголовок объекта в единственном числе: пишется в Интерфейс.Объект.Представление "
+              "справочника, документа, плана обмена и хранилища настроек, другой вид его не "
+              "принимает; вместе с --presentation новый объект проходит naming/presentation",
+        "en": "the object caption in the singular: written into Interface.Object.Presentation "
+              "of a catalog, a document, an exchange plan and a settings storage, any other "
+              "kind refuses it; with --presentation the new object passes naming/presentation",
+    },
+    "cli.help.scaf.no-record-presentation": {
+        "ru": "заголовок записи в единственном числе: пишется в Интерфейс.Запись.Представление "
+              "регистра сведений и периодического набора констант, другой вид его не принимает "
+              "(у непериодического набора заголовок записи пишет --presentation); вместе с "
+              "--presentation новый регистр или набор проходит naming/presentation",
+        "en": "the record caption in the singular: written into Interface.Record.Presentation "
+              "of an information register or a periodic constants set, any other kind refuses "
+              "it (the record caption of a set that is not periodic is what --presentation "
+              "writes); with --presentation the new register or set passes naming/presentation",
+    },
+    "cli.help.scaf.no-periodicity": {
+        "ru": "периодичность набора констант: День, Месяц, Квартал или Год (Непериодический – "
+              "значение по умолчанию); у периодического набора есть список, поэтому "
+              "--presentation пишет заголовок списка, а --record-presentation – заголовок "
+              "записи; другой вид параметр не принимает",
+        "en": "the periodicity of a constants set: Day, Month, Quarter or Year (NonPeriodic is "
+              "the default); a periodic set has a list, so --presentation writes the list "
+              "caption and --record-presentation the record one; any other kind refuses it",
     },
     "cli.help.scaf.no-base": {
         "ru": "базовый тип компонента интерфейса (Группа, ФормаОбъекта<Товар.Объект>); "
@@ -1452,7 +1531,7 @@ _CORE_MESSAGES = {
     "cli.help.scaf.add-dependency": {
         "ru": "подключить библиотеку к проекту (секция Библиотеки Проект.yaml); см. также "
               "project-info – какие библиотеки уже подключены",
-        "en": "attach a library to the project (the Библиотеки section of Project.yaml); see also "
+        "en": "attach a library to the project (the Libraries section of Project.yaml); see also "
               "project-info for the libraries already attached",
     },
     "cli.help.scaf.add-dependency-vendor": {
@@ -1584,7 +1663,7 @@ _CORE_MESSAGES = {
     "cli.help.scaf.set-access": {
         "ru": "задать КонтрольДоступа.Разрешения объекта; см. также object-info – текущие права и "
               "их набор у этого вида",
-        "en": "set the object's AccessControl.Разрешения; see also object-info for the current "
+        "en": "set the object's AccessControl.Permissions; see also object-info for the current "
               "rights and the set this kind has",
     },
     "cli.help.scaf.set-access-default": {
@@ -1634,10 +1713,18 @@ _CORE_MESSAGES = {
         "en": "also return files protected by bounded dynamic or uncertain paths",
     },
     "cli.help.scaf.resource-references-limit": {
-        "ru": "не более N мест в списке references; total считает все места (по умолчанию 100, "
-              "как у meta_resource_references)",
-        "en": "list at most N places in references; total counts every place (default: 100, "
-              "as in meta_resource_references)",
+        "ru": "не более N мест в списке references; total считает все места, а hasMore: true "
+              "и строка в stderr говорят, что список обрезан (по умолчанию 100, как у "
+              "meta_resource_references)",
+        "en": "list at most N places in references; total counts every place, and hasMore: "
+              "true with a line on stderr says the list is cut (default: 100, as in "
+              "meta_resource_references)",
+    },
+    "cli.resource-references-more": {
+        "ru": "Список references обрезан: показано {shown} из {total}; весь список даст "
+              "--limit {total}",
+        "en": "The references list is cut: {shown} of {total} shown; --limit {total} lists "
+              "them all",
     },
     "cli.help.scaf.unused-resources-limit": {
         "ru": "не более N записей в каждом возвращаемом списке; итоги всегда полные "

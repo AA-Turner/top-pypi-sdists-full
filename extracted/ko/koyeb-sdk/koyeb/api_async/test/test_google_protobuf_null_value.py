@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.google_protobuf_null_value import GoogleProtobufNullValue
 
+
 class TestGoogleProtobufNullValue(unittest.TestCase):
     """GoogleProtobufNullValue unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestGoogleProtobufNullValue(unittest.TestCase):
         """Test GoogleProtobufNullValue"""
         # inst = GoogleProtobufNullValue()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

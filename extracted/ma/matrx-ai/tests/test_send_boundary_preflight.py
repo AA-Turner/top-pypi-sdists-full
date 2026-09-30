@@ -30,11 +30,16 @@ ONE_MILLION = 1_000_000
 
 
 def _config(tokens: int, model: str = "claude-opus-4-5") -> SimpleNamespace:
-    # chars/4 is the estimator, so N tokens of prompt = 4N chars.
+    # The ONE estimator counts prose at the measured chars/token, so N tokens of
+    # prompt = N x ratio chars (the message's JSON envelope adds a few).
+    from matrx_ai.config.context_trim import CHARS_PER_TOKEN_MEASURED
+
     return SimpleNamespace(
         model=model,
         matrx_model_name=model,
-        messages=[{"role": "user", "content": "x" * (tokens * 4)}],
+        messages=[
+            {"role": "user", "content": "x" * int(tokens * CHARS_PER_TOKEN_MEASURED["prose"])}
+        ],
         system_instruction=None,
         tools=[],
         prompt_cache_key=None,

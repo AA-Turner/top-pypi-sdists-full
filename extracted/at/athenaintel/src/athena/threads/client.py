@@ -53,6 +53,7 @@ class ThreadsClient:
         from athena import Athena, ThreadBatchStopRequest
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.threads.batch_stop_by_asset_id(
@@ -88,6 +89,7 @@ class ThreadsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.threads.get_status_batch(
@@ -120,6 +122,7 @@ class ThreadsClient:
         from athena import Athena, ThreadBatchStopRequest
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.threads.batch_stop(
@@ -162,6 +165,7 @@ class ThreadsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.threads.get_status(
@@ -195,6 +199,7 @@ class ThreadsClient:
         from athena import Athena
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.threads.stop(
@@ -245,6 +250,7 @@ class AsyncThreadsClient:
         from athena import AsyncAthena, ThreadBatchStopRequest
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -288,6 +294,7 @@ class AsyncThreadsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -331,6 +338,7 @@ class AsyncThreadsClient:
         from athena import AsyncAthena, ThreadBatchStopRequest
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -381,6 +389,7 @@ class AsyncThreadsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -424,6 +433,7 @@ class AsyncThreadsClient:
         from athena import AsyncAthena
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 

@@ -44,6 +44,7 @@ async def main():
         created_files = await fs.ls("/tmp")
         batch_files = [f for f in created_files if f.startswith("file")]
         print(f"Files: {batch_files}")
+        assert set(batch_files) >= {"file1.txt", "file2.txt", "file3.txt"}
 
         # Create project structure
         project_files = [
@@ -55,6 +56,7 @@ async def main():
         await fs.mkdir("/tmp/project")
         await fs.write_files(project_files)
         print("Created project structure")
+        assert await fs.exists("/tmp/project/main.py")
 
         return 0
 

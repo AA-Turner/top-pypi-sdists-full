@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class AutoRelease(BaseModel):
     """
     AutoRelease
-    """ # noqa: E501
+    """  # noqa: E501
+
     groups: Optional[List[AutoReleaseGroup]] = None
     __properties: ClassVar[List[str]] = ["groups"]
 
@@ -37,7 +39,6 @@ class AutoRelease(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class AutoRelease(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -74,9 +74,10 @@ class AutoRelease(BaseModel):
         _items = []
         if self.groups:
             for _item_groups in self.groups:
-                if _item_groups:
-                    _items.append(_item_groups.to_dict())
-            _dict['groups'] = _items
+                _items.append(
+                    _item_groups.to_dict() if _item_groups is not None else None
+                )
+            _dict["groups"] = _items
         return _dict
 
     @classmethod
@@ -88,9 +89,11 @@ class AutoRelease(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "groups": [AutoReleaseGroup.from_dict(_item) for _item in obj["groups"]] if obj.get("groups") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "groups": [AutoReleaseGroup.from_dict(_item) for _item in obj["groups"]]
+                if obj.get("groups") is not None
+                else None
+            }
+        )
         return _obj
-
-

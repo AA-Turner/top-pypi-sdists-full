@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: lib_layered_config
-Version: 5.7.0
+Version: 6.0.0
 Summary: Cross-platform layered configuration loader for Python
 Project-URL: Homepage, https://github.com/bitranox/lib_layered_config
 Project-URL: Repository, https://github.com/bitranox/lib_layered_config.git
@@ -30,7 +30,7 @@ Requires-Dist: build>=1.6.1; extra == 'dev'
 Requires-Dist: click>=8.5.0; extra == 'dev'
 Requires-Dist: coverage[toml]>=7.16.2; extra == 'dev'
 Requires-Dist: httpx2>=2.13.1; extra == 'dev'
-Requires-Dist: hypothesis>=6.168.2; extra == 'dev'
+Requires-Dist: hypothesis>=6.168.3; extra == 'dev'
 Requires-Dist: import-linter>=2.15; extra == 'dev'
 Requires-Dist: pip-audit>=2.10.1; extra == 'dev'
 Requires-Dist: pyright[nodejs]>=1.1.414; extra == 'dev'
@@ -398,7 +398,10 @@ config = read_config(
 The command-line interface mirrors the Python API: read and inspect configuration, deploy
 files across the app/host/user layers, scaffold example trees, and compute environment
 prefixes. It also documents the file-overwrite and backup behavior and the per-layer
-permission and secret-handling guidance.
+permission and secret-handling guidance. `deploy` sets each layer's modes from
+`--dir-mode`/`--file-mode`, the configured `[lib_layered_config.default_permissions]`, or the
+built-in 755/644 and 700/600, applies them to each file it writes, and refuses any mode that
+would let the group or the world write a file that can hold credentials.
 
 The full command reference lives in **[docs/cli-reference.md](docs/cli-reference.md)**.
 

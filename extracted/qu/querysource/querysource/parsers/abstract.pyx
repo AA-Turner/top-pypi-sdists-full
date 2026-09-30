@@ -79,6 +79,7 @@ cdef class AbstractParser:
         self.filter_options = {}
         self.ordering = []
         self.grouping = []
+        self.having = {}
         self.program_slug = None
         self.tablename = None
         self.schema = None
@@ -154,6 +155,7 @@ cdef class AbstractParser:
         self._query_limit_sync()
         self._offset_pagination_sync()
         self._grouping_sync()
+        self._having_sync()
         self._ordering_sync()
         self._filter_options_sync()
         self._qry_options_sync()
@@ -255,6 +257,19 @@ cdef class AbstractParser:
                 self.grouping = self.definition.grouping
             except AttributeError:
                 self.grouping = []
+
+    cdef void _having_sync(self):
+        """Pop the ``having`` condition so it never becomes a WHERE filter (FEAT-153).
+
+        The value is kept as-is (validated later by the JSONB-unnest planner, which
+        raises ``ParserError`` for non-mapping values); ``None`` becomes ``{}``.
+        """
+        try:
+            self.having = self.conditions.pop('having', {})
+        except (KeyError, AttributeError):
+            self.having = {}
+        if self.having is None:
+            self.having = {}
 
     cdef void _ordering_sync(self):
         cdef object order1 = []
@@ -467,7 +482,9 @@ cdef class AbstractParser:
         cdef str fn
         cdef object result
         if isinstance(val, dict):
-            op, value = val.popitem()
+            if not val:
+                return False
+            op, value = next(reversed(val.items()))  # never popitem(): the dict is the caller's
             result = is_valid(key, value, _type)
             self._conditions[key] = {op: result}
             return True
@@ -548,7 +565,11 @@ cdef class AbstractParser:
         """Process a single element for the WHERE clause."""
 
         if isinstance(value, dict):
-            op, v = value.popitem()
+            if not value:
+                return key, value
+            # Read the (last) operator without popitem(): the dict belongs to the caller, who may reuse it
+            # (e.g. a linked dashboard re-sending the same filter); mutating it empties the filter.
+            op, v = next(reversed(value.items()))
             result = is_valid(key, v, noquote=self.string_literal)
             return key, {op: result}
 

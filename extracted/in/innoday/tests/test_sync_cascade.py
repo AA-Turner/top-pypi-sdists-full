@@ -322,7 +322,7 @@ class TestSyncBoardWaitsForCompletion:
         assert client.polls, "gave up without ever asking"
         assert "did not finish" in out.lower(), out
         # The operator is left with a run in flight, so point at how to watch it.
-        assert "innoday board sync-status --board-id board-1" in out
+        assert "Check status with: innoday status" in out
 
     @pytest.mark.asyncio
     async def test_a_sync_the_server_gave_no_id_for_is_not_matched_by_recency(
@@ -380,7 +380,7 @@ class TestSyncBoardWaitsForCompletion:
         assert result == 0
         assert "Board sync queued for Board One" in out
         assert "sync-1" in out
-        assert "innoday board sync-status --board-id board-1" in out
+        assert "Check status with: innoday status" in out
         assert not client.polls, "--no-wait polled anyway"
 
 

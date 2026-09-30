@@ -112,11 +112,6 @@ DEFAULT_CACHE_TTLS_SECS: dict[str, int] = {
 }
 CACHE_GATE_TTL_RATIO = 0.8
 
-# Chars-per-token estimate for the savings calc. Conservative on purpose — we
-# want to UNDER-estimate savings (which leans toward "not enough, skip") so
-# the gate is more cautious about breaking cache. Real ratios are ~3.5-4.
-CHARS_PER_TOKEN_ESTIMATE = 4.0
-
 # THE BUDGET ESTIMATE — "will this fit / how big is it", shown to a person or
 # checked against a model's window. The opposite direction from the savings
 # divisor above: here an UNDER-count is the dangerous error (it promises a fit
@@ -526,9 +521,10 @@ def _estimate_savings_tokens(
     2026-09-13, stale tool_call argument payloads, so the cache gate makes
     the right call on a conversation whose weight is all on the call side
     (the Conductor case: 408 of 419 requests measured ``est_savings_tokens:
-    0`` while assistant content held 1.5M chars). Conservative — uses
-    CHARS_PER_TOKEN_ESTIMATE divisor (under-estimates real tokens, which
-    is the safe direction: makes the gate more cautious about firing).
+    0`` while assistant content held 1.5M chars). Counted with the ONE
+    estimator (``estimate_budget_tokens``, measured ratios) so the savings the
+    gate weighs and the size the preflight refuses are the same tokens; the
+    caution lives in ``CACHE_GATE_MIN_SAVED_TOKENS``, never in a second divisor.
     """
     total_chars = 0
     max_persisted_position = max(
@@ -567,7 +563,7 @@ def _estimate_savings_tokens(
             if _already_trimmed(block):
                 continue
             total_chars += chars
-    return int(total_chars / CHARS_PER_TOKEN_ESTIMATE)
+    return estimate_budget_tokens(total_chars, "prose")
 
 
 # --------------------------------------------------------------------------- #

@@ -25,9 +25,10 @@ class ListQueueResponse200ItemRawFlowNotesItem:
     Attributes:
         id (str): Unique identifier for the note
         text (str): Content of the note
-        color (str): Color of the note (e.g., "yellow", "#ffff00")
-        type (ListQueueResponse200ItemRawFlowNotesItemType): Type of note - 'free' for standalone notes, 'group' for
-            notes that group other nodes
+        color (str): Color of the note, one of: yellow, blue, green, purple, pink, orange, red, cyan, lime, gray. Any
+            other value renders unstyled.
+        type (ListQueueResponse200ItemRawFlowNotesItemType): Type of note - 'free' for standalone notes. 'group' notes
+            are deprecated; segment a flow with FlowValue.groups instead.
         position (Union[Unset, ListQueueResponse200ItemRawFlowNotesItemPosition]): Position of the note in the flow
             editor
         size (Union[Unset, ListQueueResponse200ItemRawFlowNotesItemSize]): Size of the note in the flow editor

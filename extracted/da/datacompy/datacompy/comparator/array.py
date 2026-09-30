@@ -16,6 +16,7 @@
 """Array Like Comparator Class."""
 
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -29,12 +30,13 @@ POLARS_ARRAY_TYPE = ["List", "Array"]
 
 try:
     import pyspark as ps
-    import pyspark.sql.functions as psf
 
-    from datacompy.comparator.utility import get_spark_column_dtypes
+    from datacompy.comparator.utility import (
+        get_spark_column_dtypes,
+        get_spark_functions,
+    )
 except ImportError:
     ps = None
-    psf = None
 
 try:
     import snowflake.snowpark as sp
@@ -83,11 +85,18 @@ class PandasArrayLikeComparator(BaseComparator):
             and not any(not isinstance(item, list | np.ndarray) for item in col2)
         ):
             temp_df = pd.DataFrame({"col1": col1, "col2": col2})
-            return temp_df.apply(
-                lambda row: np.array_equal(row.col1, row.col2, equal_nan=True), axis=1
-            )
+            return temp_df.apply(lambda row: _array_equal(row.col1, row.col2), axis=1)
         else:
             return None
+
+
+def _array_equal(left: list[Any] | np.ndarray, right: list[Any] | np.ndarray) -> bool:
+    """Compare two array like values, treating NaN as equal where supported."""
+    try:
+        return bool(np.array_equal(left, right, equal_nan=True))
+    except TypeError:
+        # equal_nan needs isnan, which is not defined for strings or objects.
+        return bool(np.array_equal(left, right))
 
 
 class PolarsArrayLikeComparator(BaseComparator):
@@ -152,6 +161,7 @@ class SparkArrayLikeComparator(BaseComparator):
         None
             if the columns are not comparable.
         """
+        psf = get_spark_functions(dataframe)
         base_dtype, compare_dtype = get_spark_column_dtypes(dataframe, col1, col2)
         if base_dtype.startswith("array") and compare_dtype.startswith("array"):
             when_clause = psf.col(col1).eqNullSafe(psf.col(col2))

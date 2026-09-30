@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.create_budget_reply import CreateBudgetReply
 
+
 class TestCreateBudgetReply(unittest.TestCase):
     """CreateBudgetReply unit test stubs"""
 
@@ -27,9 +28,9 @@ class TestCreateBudgetReply(unittest.TestCase):
 
     def make_instance(self, include_optional) -> CreateBudgetReply:
         """Test CreateBudgetReply
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `CreateBudgetReply`
         """
         model = CreateBudgetReply()
@@ -51,5 +52,6 @@ class TestCreateBudgetReply(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

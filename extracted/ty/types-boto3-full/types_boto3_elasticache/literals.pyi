@@ -31,6 +31,7 @@ __all__ = (
     "CacheClusterDeletedWaiterName",
     "ChangeTypeType",
     "ClusterModeType",
+    "ConnectionTypeType",
     "DataStorageUnitType",
     "DataTieringStatusType",
     "DescribeCacheClustersPaginatorName",
@@ -93,6 +94,7 @@ CacheClusterAvailableWaiterName = Literal["cache_cluster_available"]
 CacheClusterDeletedWaiterName = Literal["cache_cluster_deleted"]
 ChangeTypeType = Literal["immediate", "requires-reboot"]
 ClusterModeType = Literal["compatible", "disabled", "enabled"]
+ConnectionTypeType = Literal["public", "vpc"]
 DataStorageUnitType = Literal["GB"]
 DataTieringStatusType = Literal["disabled", "enabled"]
 DescribeCacheClustersPaginatorName = Literal["describe_cache_clusters"]

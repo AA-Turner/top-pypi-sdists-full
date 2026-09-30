@@ -26,13 +26,11 @@ class SnapshotType(str, Enum):
     """
     allowed enum values
     """
-    SNAPSHOT_TYPE_INVALID = 'SNAPSHOT_TYPE_INVALID'
-    SNAPSHOT_TYPE_LOCAL = 'SNAPSHOT_TYPE_LOCAL'
-    SNAPSHOT_TYPE_REMOTE = 'SNAPSHOT_TYPE_REMOTE'
+    SNAPSHOT_TYPE_INVALID = "SNAPSHOT_TYPE_INVALID"
+    SNAPSHOT_TYPE_LOCAL = "SNAPSHOT_TYPE_LOCAL"
+    SNAPSHOT_TYPE_REMOTE = "SNAPSHOT_TYPE_REMOTE"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of SnapshotType from a JSON string"""
         return cls(json.loads(json_str))
-
-

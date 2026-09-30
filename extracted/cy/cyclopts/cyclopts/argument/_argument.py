@@ -666,17 +666,45 @@ class Argument:
             if self.parameter.allow_repeating is False:
                 raise RepeatArgumentError(token=token)
             _, consume_all = self.token_count(token.keys)
+            is_flag_repeat = not token.keys and any(
+                self._is_whole_implicit_value(x.implicit_value)
+                for x in (token, *self.tokens)
+                if x.address == token.address
+            )
             if self.parameter.allow_repeating is True:
-                if not consume_all:
+                if is_flag_repeat:
+                    # A flag replaces the whole value, including every element of a multi-token occurrence.
+                    self.tokens = [x for x in self.tokens if x.keys != token.keys]
+                elif not consume_all:
                     # "last wins" for scalar types — remove old tokens with same address
                     self.tokens = [x for x in self.tokens if x.address != token.address]
-            elif not consume_all and not self.parameter.count:
+            elif (not consume_all or is_flag_repeat) and not self.parameter.count:
                 raise RepeatArgumentError(token=token)
 
         if self.tokens:
             if bool(token.keys) ^ any(x.keys for x in self.tokens):
                 raise MixedArgumentError(argument=self)
         self.tokens.append(token)
+
+    def _is_whole_implicit_value(self, value: Any) -> bool:
+        """Whether a flag's implicit value is this argument's complete value.
+
+        ``False`` for an element of an iterable, like each ``--flag`` of a ``list[bool]``.
+        """
+        if value is UNSET:
+            return False
+        hint = self.resolved_hint
+        for member in get_args(hint) if is_union(hint) else (hint,):
+            member = resolve_annotated(member)
+            origin = get_origin(member) or member
+            if not isinstance(origin, type):
+                continue
+            try:
+                if isinstance(value, origin):
+                    return True
+            except TypeError:  # e.g. TypedDict and non-runtime Protocols reject isinstance.
+                continue
+        return False
 
     @property
     def has_tokens(self) -> bool:
@@ -762,9 +790,7 @@ class Argument:
             if self.parameter.choices:
                 expanded_tokens = self._validate_choices(expanded_tokens)
             for token in expanded_tokens:
-                if token.implicit_value is not UNSET and isinstance(
-                    token.implicit_value, get_origin(self.resolved_hint) or self.resolved_hint
-                ):
+                if self._is_whole_implicit_value(token.implicit_value):
                     assert len(expanded_tokens) == 1
                     return token.implicit_value
 
@@ -816,6 +842,20 @@ class Argument:
             # ``--x={}`` on the cli) means "instantiate from defaults", not "missing".
             explicit_empty_mapping = False
 
+            if (
+                self._enum_flag_type
+                and is_union(self.resolved_hint)
+                and not any(token.keys for token in self.tokens)
+                and not any(child.has_tokens for child in self.children)
+            ):
+                # e.g. ``bool | MyFlag``; the other members need a chance at the tokens.
+                # With ``--x.<key>`` tokens too, the Flag path below combines or rejects them.
+                positional_tokens = self.tokens
+                if len(positional_tokens) == 1 and self._is_whole_implicit_value(positional_tokens[0].implicit_value):
+                    return positional_tokens[0].implicit_value
+                if positional_tokens:
+                    return safe_converter(self.hint, tuple(positional_tokens))
+
             if self._enum_flag_type:
                 out = self._enum_flag_type(0)
 
@@ -854,6 +894,8 @@ class Argument:
                     positional_tokens = [
                         token for token in positional_tokens if not isinstance(token.implicit_value, dict)
                     ]
+                if len(positional_tokens) == 1 and self._is_whole_implicit_value(positional_tokens[0].implicit_value):
+                    return positional_tokens[0].implicit_value
                 if positional_tokens:
                     return safe_converter(self.hint, tuple(positional_tokens))
 
@@ -884,26 +926,27 @@ class Argument:
 
             self._run_missing_keys_checker(data)
 
-            if self._enum_flag_type:
+            member = None
+            if self._union_branches and data:
+                # ``instantiate_from_dict`` cannot build a bare ``Union``; pick the branch
+                # whose fields accept the supplied data.
+                member = self._resolve_union_member(set(data))
+                if member is None or (member is not self._enum_flag_type and out):
+                    # Supplied fields span multiple branches / match no single one, or
+                    # sibling-member fields were mixed with enum.Flag values.
+                    raise CoercionError(
+                        msg=f"Cannot determine which {get_hint_name(self.hint)} variant the supplied fields belong to.",
+                        argument=self,
+                        target_type=self.hint,
+                    )
+
+            if self._enum_flag_type and member in (None, self._enum_flag_type):
                 out |= enum_flag_from_dict(self._enum_flag_type, data, self.parameter.name_transform)
                 if not out:
                     out = UNSET
             elif data or explicit_empty_mapping:
                 # Use resolved_hint to get the actual class type (Optional stripped)
-                target_hint = self.resolved_hint
-                if self._union_branches:
-                    # ``instantiate_from_dict`` cannot build a bare ``Union``; pick the branch
-                    # whose fields accept the supplied data.
-                    member = self._resolve_union_member(set(data))
-                    if member is None:
-                        # Supplied fields span multiple branches / match no single one.
-                        raise CoercionError(
-                            msg=f"Cannot determine which {get_hint_name(self.hint)} variant the supplied fields belong to.",
-                            argument=self,
-                            target_type=self.hint,
-                        )
-                    target_hint = member
-                out = instantiate_from_dict(target_hint, data)
+                out = instantiate_from_dict(member or self.resolved_hint, data)
             elif self.required:
                 raise MissingArgumentError(argument=self)  # pragma: no cover
             else:

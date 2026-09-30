@@ -1243,7 +1243,7 @@ class ChalkClient:
             feature values at the same index of the `input` lists.
             See https://docs.chalk.ai/docs/temporal-consistency for more information.
         input_sql
-            An alternative to `input`: a ChalkSQL query that returns values
+            An alternative to `input`: a Chalk SQL query that returns values
             to use as inputs.
         output
             The features that you'd like to sample, if they exist.

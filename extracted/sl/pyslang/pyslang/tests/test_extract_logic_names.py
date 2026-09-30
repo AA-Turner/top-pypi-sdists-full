@@ -4,7 +4,6 @@
 """Tests for the logic declaration name extractor example."""
 
 import pytest
-
 from extract_logic_names import (
     LogicDeclarationExtractor,
     extract_logic_declaration_names,
@@ -83,9 +82,6 @@ def test_complex_module_with_ports():
     """
 
     assert set(extract_logic_declaration_names(code)) == {
-        "clk",
-        "reset_n",
-        "data_in",
         "data_out",
         "valid",
         "internal_counter",

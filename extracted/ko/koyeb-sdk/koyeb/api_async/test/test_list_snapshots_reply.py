@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.list_snapshots_reply import ListSnapshotsReply
 
+
 class TestListSnapshotsReply(unittest.TestCase):
     """ListSnapshotsReply unit test stubs"""
 
@@ -27,9 +28,9 @@ class TestListSnapshotsReply(unittest.TestCase):
 
     def make_instance(self, include_optional) -> ListSnapshotsReply:
         """Test ListSnapshotsReply
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `ListSnapshotsReply`
         """
         model = ListSnapshotsReply()
@@ -63,5 +64,6 @@ class TestListSnapshotsReply(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

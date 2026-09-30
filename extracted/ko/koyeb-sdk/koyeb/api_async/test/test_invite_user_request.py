@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.invite_user_request import InviteUserRequest
 
+
 class TestInviteUserRequest(unittest.TestCase):
     """InviteUserRequest unit test stubs"""
 
@@ -27,9 +28,9 @@ class TestInviteUserRequest(unittest.TestCase):
 
     def make_instance(self, include_optional) -> InviteUserRequest:
         """Test InviteUserRequest
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `InviteUserRequest`
         """
         model = InviteUserRequest()
@@ -49,5 +50,6 @@ class TestInviteUserRequest(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

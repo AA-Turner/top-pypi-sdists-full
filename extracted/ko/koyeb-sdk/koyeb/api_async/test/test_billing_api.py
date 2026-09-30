@@ -34,9 +34,7 @@ class TestBillingApi(unittest.IsolatedAsyncioTestCase):
         pass
 
     async def test_manage(self) -> None:
-        """Test case for manage
-
-        """
+        """Test case for manage"""
         pass
 
     async def test_next_invoice(self) -> None:
@@ -47,5 +45,5 @@ class TestBillingApi(unittest.IsolatedAsyncioTestCase):
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

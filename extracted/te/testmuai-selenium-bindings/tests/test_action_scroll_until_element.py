@@ -175,7 +175,7 @@ def test_scroll_until_element_non_200_raises(mock_driver, monkeypatch):
     mock_driver.execute_script.side_effect = [[1920, 4000, 1920, 1080], None]
     fake_png = _make_png_b64(960, 2000)
 
-    respx.post(LOCATE_URL).mock(
+    route = respx.post(LOCATE_URL).mock(
         return_value=httpx.Response(500, json={"error": "boom"})
     )
 
@@ -183,6 +183,11 @@ def test_scroll_until_element_non_200_raises(mock_driver, monkeypatch):
         from testmu_selenium import scroll_until_element
         with pytest.raises(NoSuchElementException):
             scroll_until_element(mock_driver, description="thing")
+
+    # a 500 is now retried here (no tier-level retry protects this
+    # call), but an exhausted retry keeps the original NoSuchElementException
+    # contract rather than leaking a transport error.
+    assert route.call_count == 3
 
 
 # ---------------------------------------------------------------------------

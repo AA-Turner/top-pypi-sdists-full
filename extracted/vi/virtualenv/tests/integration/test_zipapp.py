@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import zipfile
 from contextlib import suppress
 from pathlib import Path
 
@@ -112,14 +113,28 @@ def test_zipapp_in_symlink(capsys, call_zipapp_symlink) -> None:
 
 
 @pytest.mark.timeout(600)
-def test_zipapp_help(call_zipapp, capsys) -> None:
-    call_zipapp("-h")
-    _out, err = capsys.readouterr()
-    assert not err
-
-
-@pytest.mark.timeout(600)
 @pytest.mark.slow
 @pytest.mark.parametrize("seeder", ["app-data", "pip"])
 def test_zipapp_create(call_zipapp, seeder) -> None:
     call_zipapp("--seeder", seeder)
+
+
+@pytest.mark.timeout(600)
+def test_zipapp_bundles_prebuilt_wheel(zipapp_build_env: str, tmp_path: Path) -> None:
+    (wheel_dir := tmp_path / "wheels").mkdir()
+    with zipfile.ZipFile(wheel_dir / "virtualenv-0-py3-none-any.whl", "w") as wheel:
+        wheel.writestr("virtualenv/prebuilt.txt", "prebuilt")
+    subprocess.run(
+        [
+            zipapp_build_env,
+            str(HERE.parent.parent / "tasks" / "make_zipapp.py"),
+            "--dest",
+            str(pyz := tmp_path / "virtualenv.pyz"),
+            "--wheel-dir",
+            str(wheel_dir),
+        ],
+        check=True,
+        timeout=300,
+    )
+    with zipfile.ZipFile(pyz) as archive:
+        assert archive.read("virtualenv/prebuilt.txt") == b"prebuilt"

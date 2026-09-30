@@ -1,3 +1,5 @@
+"""Base classes for decoration widgets that wrap a single child widget."""
+
 from __future__ import annotations
 
 import typing
@@ -46,6 +48,7 @@ class WidgetDecoration(Widget, typing.Generic[WrappedWidget]):  # pylint: disabl
     """
 
     def __init__(self, original_widget: WrappedWidget) -> None:
+        """Wrap `original_widget`, warning when it does not implement the Widget API."""
         super().__init__()
         if not isinstance(original_widget, AbstractWidget):
             obj_class_path = f"{original_widget.__class__.__module__}.{original_widget.__class__.__name__}"
@@ -61,6 +64,7 @@ class WidgetDecoration(Widget, typing.Generic[WrappedWidget]):  # pylint: disabl
 
     @property
     def original_widget(self) -> WrappedWidget:
+        """Return the widget this decoration wraps."""
         return self._original_widget
 
     @original_widget.setter
@@ -92,9 +96,11 @@ class WidgetDecoration(Widget, typing.Generic[WrappedWidget]):  # pylint: disabl
         return w
 
     def selectable(self) -> bool:
+        """Return whether the wrapped widget can take the input focus."""
         return self._original_widget.selectable()
 
     def sizing(self) -> frozenset[Sizing]:
+        """Return the set of sizing modes supported by the wrapped widget."""
         return self._original_widget.sizing()
 
 
@@ -102,9 +108,9 @@ class WidgetPlaceholder(
     delegate_to_widget_mixin("_original_widget"),  # type: ignore[misc]
     WidgetDecoration[WrappedWidget],
 ):
-    """
-    This is a do-nothing decoration widget that can be used for swapping
-    between widgets without modifying the container of this widget.
+    """Do-nothing decoration widget that can be used for swapping between widgets.
+
+    Swaps happen without modifying the container of this widget.
 
     This can be useful for making an interface with a number of distinct
     pages or for showing and hiding menu or status bars.
@@ -115,23 +121,25 @@ class WidgetPlaceholder(
 
 
 class WidgetDisable(WidgetDecoration[WrappedWidget]):
-    """
-    A decoration widget that disables interaction with the widget it
-    wraps.  This widget always passes focus=False to the wrapped widget,
-    even if it somehow does become the focus.
+    """Decoration widget that disables interaction with the widget it wraps.
+
+    This widget always passes focus=False to the wrapped widget, even if it somehow does become the focus.
     """
 
     no_cache: typing.ClassVar[list[str]] = ["rows"]
     ignore_focus = True
 
     def selectable(self) -> Literal[False]:
+        """Return ``False``: a disabled widget never takes the input focus."""
         return False
 
     def rows(self, size: tuple[int], focus: bool = False) -> int:
+        """Return the number of rows the wrapped widget occupies, always passing ``focus=False``."""
         # AttributeError is a valid case
         return self._original_widget.rows(size, False)  # type: ignore[attr-defined,no-any-return]
 
     def sizing(self) -> frozenset[Sizing]:
+        """Return the set of sizing modes supported by the wrapped widget."""
         return self._original_widget.sizing()
 
     def pack(
@@ -139,6 +147,7 @@ class WidgetDisable(WidgetDecoration[WrappedWidget]):
         size: tuple[()] | tuple[int] | tuple[int, int],
         focus: bool = False,
     ) -> tuple[int, int]:
+        """Return the size required by the wrapped widget, always passing ``focus=False``."""
         return self._original_widget.pack(size, False)
 
     def render(
@@ -146,5 +155,6 @@ class WidgetDisable(WidgetDecoration[WrappedWidget]):
         size: tuple[()] | tuple[int] | tuple[int, int],
         focus: bool = False,
     ) -> CompositeCanvas:
+        """Render the wrapped widget into a canvas, always passing ``focus=False``."""
         canv = self._original_widget.render(size, False)
         return CompositeCanvas(canv)

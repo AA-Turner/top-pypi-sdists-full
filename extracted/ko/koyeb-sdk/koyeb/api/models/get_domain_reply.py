@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class GetDomainReply(BaseModel):
     """
     GetDomainReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     domain: Optional[Domain] = None
     __properties: ClassVar[List[str]] = ["domain"]
 
@@ -37,7 +39,6 @@ class GetDomainReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class GetDomainReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -72,7 +72,7 @@ class GetDomainReply(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of domain
         if self.domain:
-            _dict['domain'] = self.domain.to_dict()
+            _dict["domain"] = self.domain.to_dict()
         return _dict
 
     @classmethod
@@ -84,9 +84,11 @@ class GetDomainReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "domain": Domain.from_dict(obj["domain"]) if obj.get("domain") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "domain": Domain.from_dict(obj["domain"])
+                if obj.get("domain") is not None
+                else None
+            }
+        )
         return _obj
-
-

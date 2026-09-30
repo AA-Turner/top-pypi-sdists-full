@@ -26,17 +26,15 @@ class PaymentMethodStatus(str, Enum):
     """
     allowed enum values
     """
-    INVALID = 'INVALID'
-    CREATED = 'CREATED'
-    AUTHORIZED = 'AUTHORIZED'
-    DECLINED = 'DECLINED'
-    CANCELED = 'CANCELED'
-    EXPIRED = 'EXPIRED'
-    UNCHECKED = 'UNCHECKED'
+    INVALID = "INVALID"
+    CREATED = "CREATED"
+    AUTHORIZED = "AUTHORIZED"
+    DECLINED = "DECLINED"
+    CANCELED = "CANCELED"
+    EXPIRED = "EXPIRED"
+    UNCHECKED = "UNCHECKED"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of PaymentMethodStatus from a JSON string"""
         return cls(json.loads(json_str))
-
-

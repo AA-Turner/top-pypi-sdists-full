@@ -26,13 +26,11 @@ class DeploymentMesh(str, Enum):
     """
     allowed enum values
     """
-    DEPLOYMENT_MESH_AUTO = 'DEPLOYMENT_MESH_AUTO'
-    DEPLOYMENT_MESH_ENABLED = 'DEPLOYMENT_MESH_ENABLED'
-    DEPLOYMENT_MESH_DISABLED = 'DEPLOYMENT_MESH_DISABLED'
+    DEPLOYMENT_MESH_AUTO = "DEPLOYMENT_MESH_AUTO"
+    DEPLOYMENT_MESH_ENABLED = "DEPLOYMENT_MESH_ENABLED"
+    DEPLOYMENT_MESH_DISABLED = "DEPLOYMENT_MESH_DISABLED"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of DeploymentMesh from a JSON string"""
         return cls(json.loads(json_str))
-
-

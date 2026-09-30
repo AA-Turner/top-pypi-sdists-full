@@ -18,6 +18,10 @@ from chalk._gen.chalk.server.v1.offline_store_connection_pb2 import (
     DeleteOfflineStoreConnectionResponse,
     GetBindingEnvironmentOfflineStoreConnectionRequest,
     GetBindingEnvironmentOfflineStoreConnectionResponse,
+    GetIcebergCatalogOptimizationStatusRequest,
+    GetIcebergCatalogOptimizationStatusResponse,
+    GetIcebergTableOptimizationOverridesRequest,
+    GetIcebergTableOptimizationOverridesResponse,
     GetOfflineStoreConnectionRequest,
     GetOfflineStoreConnectionResponse,
     ListOfflineStoreConnectionsRequest,
@@ -45,6 +49,14 @@ class OfflineStoreConnectionServiceStub:
     GetOfflineStoreConnection: UnaryUnaryMultiCallable[
         GetOfflineStoreConnectionRequest,
         GetOfflineStoreConnectionResponse,
+    ]
+    GetIcebergCatalogOptimizationStatus: UnaryUnaryMultiCallable[
+        GetIcebergCatalogOptimizationStatusRequest,
+        GetIcebergCatalogOptimizationStatusResponse,
+    ]
+    GetIcebergTableOptimizationOverrides: UnaryUnaryMultiCallable[
+        GetIcebergTableOptimizationOverridesRequest,
+        GetIcebergTableOptimizationOverridesResponse,
     ]
     ListOfflineStoreConnections: UnaryUnaryMultiCallable[
         ListOfflineStoreConnectionsRequest,
@@ -92,6 +104,18 @@ class OfflineStoreConnectionServiceServicer(metaclass=ABCMeta):
         request: GetOfflineStoreConnectionRequest,
         context: ServicerContext,
     ) -> GetOfflineStoreConnectionResponse: ...
+    @abstractmethod
+    def GetIcebergCatalogOptimizationStatus(
+        self,
+        request: GetIcebergCatalogOptimizationStatusRequest,
+        context: ServicerContext,
+    ) -> GetIcebergCatalogOptimizationStatusResponse: ...
+    @abstractmethod
+    def GetIcebergTableOptimizationOverrides(
+        self,
+        request: GetIcebergTableOptimizationOverridesRequest,
+        context: ServicerContext,
+    ) -> GetIcebergTableOptimizationOverridesResponse: ...
     @abstractmethod
     def ListOfflineStoreConnections(
         self,

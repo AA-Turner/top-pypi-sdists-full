@@ -20,19 +20,29 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from koyeb.api_async.models.exec_command_io import ExecCommandIO
-from koyeb.api_async.models.exec_command_request_terminal_size import ExecCommandRequestTerminalSize
+from koyeb.api_async.models.exec_command_request_terminal_size import (
+    ExecCommandRequestTerminalSize,
+)
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ExecCommandRequestBody(BaseModel):
     """
     ExecCommandRequestBody
-    """ # noqa: E501
-    command: Optional[List[StrictStr]] = Field(default=None, description="Command to exec. Mandatory in the first frame sent")
+    """  # noqa: E501
+
+    command: Optional[List[StrictStr]] = Field(
+        default=None, description="Command to exec. Mandatory in the first frame sent"
+    )
     tty_size: Optional[ExecCommandRequestTerminalSize] = None
     stdin: Optional[ExecCommandIO] = None
-    disable_tty: Optional[StrictBool] = Field(default=None, description="Disable TTY. It's enough to specify it in the first frame", alias="disableTty")
+    disable_tty: Optional[StrictBool] = Field(
+        default=None,
+        description="Disable TTY. It's enough to specify it in the first frame",
+        alias="disableTty",
+    )
     __properties: ClassVar[List[str]] = ["command", "tty_size", "stdin", "disableTty"]
 
     model_config = ConfigDict(
@@ -41,7 +51,6 @@ class ExecCommandRequestBody(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,8 +75,7 @@ class ExecCommandRequestBody(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -76,10 +84,10 @@ class ExecCommandRequestBody(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of tty_size
         if self.tty_size:
-            _dict['tty_size'] = self.tty_size.to_dict()
+            _dict["tty_size"] = self.tty_size.to_dict()
         # override the default output from pydantic by calling `to_dict()` of stdin
         if self.stdin:
-            _dict['stdin'] = self.stdin.to_dict()
+            _dict["stdin"] = self.stdin.to_dict()
         return _dict
 
     @classmethod
@@ -91,12 +99,16 @@ class ExecCommandRequestBody(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "command": obj.get("command"),
-            "tty_size": ExecCommandRequestTerminalSize.from_dict(obj["tty_size"]) if obj.get("tty_size") is not None else None,
-            "stdin": ExecCommandIO.from_dict(obj["stdin"]) if obj.get("stdin") is not None else None,
-            "disableTty": obj.get("disableTty")
-        })
+        _obj = cls.model_validate(
+            {
+                "command": obj.get("command"),
+                "tty_size": ExecCommandRequestTerminalSize.from_dict(obj["tty_size"])
+                if obj.get("tty_size") is not None
+                else None,
+                "stdin": ExecCommandIO.from_dict(obj["stdin"])
+                if obj.get("stdin") is not None
+                else None,
+                "disableTty": obj.get("disableTty"),
+            }
+        )
         return _obj
-
-

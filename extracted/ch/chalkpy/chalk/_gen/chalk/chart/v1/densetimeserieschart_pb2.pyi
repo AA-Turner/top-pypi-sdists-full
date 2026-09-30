@@ -21,13 +21,18 @@ class DensePoint(_message.Message):
     def __init__(self, value: _Optional[float] = ...) -> None: ...
 
 class GroupTag(_message.Message):
-    __slots__ = ("group_key", "value")
+    __slots__ = ("group_key", "value", "value_display")
     GROUP_KEY_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
+    VALUE_DISPLAY_FIELD_NUMBER: _ClassVar[int]
     group_key: str
     value: _arrow_pb2.ScalarValue
+    value_display: str
     def __init__(
-        self, group_key: _Optional[str] = ..., value: _Optional[_Union[_arrow_pb2.ScalarValue, _Mapping]] = ...
+        self,
+        group_key: _Optional[str] = ...,
+        value: _Optional[_Union[_arrow_pb2.ScalarValue, _Mapping]] = ...,
+        value_display: _Optional[str] = ...,
     ) -> None: ...
 
 class DenseTimeSeries(_message.Message):

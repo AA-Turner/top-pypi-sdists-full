@@ -6,6 +6,7 @@ from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -17,6 +18,14 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class ServiceKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SERVICE_KIND_UNSPECIFIED: _ClassVar[ServiceKind]
+    SERVICE_KIND_DATAPLANE_API_SERVER: _ClassVar[ServiceKind]
+
+SERVICE_KIND_UNSPECIFIED: ServiceKind
+SERVICE_KIND_DATAPLANE_API_SERVER: ServiceKind
 
 class AdapterUser(_message.Message):
     __slots__ = ("id", "email_verified", "team_id", "name", "email", "image")
@@ -476,6 +485,8 @@ class GetTokenResponse(_message.Message):
         "engines",
         "grpc_engines",
         "environment_id_to_name",
+        "environment_id_to_authority",
+        "service_prefixes",
     )
     class EnginesEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -501,6 +512,22 @@ class GetTokenResponse(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+    class EnvironmentIdToAuthorityEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class ServicePrefixesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: int
+        value: str
+        def __init__(self, key: _Optional[int] = ..., value: _Optional[str] = ...) -> None: ...
+
     ACCESS_TOKEN_FIELD_NUMBER: _ClassVar[int]
     TOKEN_TYPE_FIELD_NUMBER: _ClassVar[int]
     EXPIRES_IN_FIELD_NUMBER: _ClassVar[int]
@@ -510,6 +537,8 @@ class GetTokenResponse(_message.Message):
     ENGINES_FIELD_NUMBER: _ClassVar[int]
     GRPC_ENGINES_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_TO_NAME_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_TO_AUTHORITY_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_PREFIXES_FIELD_NUMBER: _ClassVar[int]
     access_token: str
     token_type: str
     expires_in: int
@@ -519,6 +548,8 @@ class GetTokenResponse(_message.Message):
     engines: _containers.ScalarMap[str, str]
     grpc_engines: _containers.ScalarMap[str, str]
     environment_id_to_name: _containers.ScalarMap[str, str]
+    environment_id_to_authority: _containers.ScalarMap[str, str]
+    service_prefixes: _containers.ScalarMap[int, str]
     def __init__(
         self,
         access_token: _Optional[str] = ...,
@@ -530,6 +561,8 @@ class GetTokenResponse(_message.Message):
         engines: _Optional[_Mapping[str, str]] = ...,
         grpc_engines: _Optional[_Mapping[str, str]] = ...,
         environment_id_to_name: _Optional[_Mapping[str, str]] = ...,
+        environment_id_to_authority: _Optional[_Mapping[str, str]] = ...,
+        service_prefixes: _Optional[_Mapping[int, str]] = ...,
     ) -> None: ...
 
 class UpdateLinkSessionRequest(_message.Message):

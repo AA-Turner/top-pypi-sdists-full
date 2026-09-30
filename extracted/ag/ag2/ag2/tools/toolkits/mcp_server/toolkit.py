@@ -4,11 +4,13 @@
 
 import asyncio
 import base64
+import hashlib
 from collections.abc import AsyncGenerator, Iterable
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager
 from dataclasses import replace
 from functools import partial
 from typing import Any, TypeAlias, get_args
+from urllib.parse import urlsplit
 
 import httpx2
 from mcp import ClientSession
@@ -176,6 +178,8 @@ class _MCPProxyTool(Tool):
 
     __slots__ = ("name", "schema", "_config", "_middleware", "_answering", "_remote_name")
 
+    declared_in_code = False
+
     def __init__(
         self,
         config: AnyMCPConfig,
@@ -217,7 +221,8 @@ class _MCPProxyTool(Tool):
             execution = _wrap_middleware(mw.on_tool_execution, execution)
 
         async def execute(event: "ToolCallEvent", context: "Context") -> None:
-            result = await execution(event, context)
+            source = f"mcp:{_endpoint(_resolve_config(self._config, context))}:{self._remote_name}"
+            result = await execution(event.handled_by(source), context)
             await context.send(result)
 
         # ``Event.field == value`` builds a Condition at runtime; mypy sees ``bool``.
@@ -493,6 +498,20 @@ def _resolve_value(value: Any, context: "Context") -> Any:
     raise KeyError(f"Context variable {name!r} not found and no default provided")
 
 
+def _endpoint(config: AnyMCPConfig) -> str:
+    """Which server a resolved ``config`` reaches, without the secrets a URL or argv may carry.
+
+    An HTTP server is its URL minus credentials and query; a stdio server is its
+    command plus a digest of its arguments.
+    """
+    if isinstance(config, MCPStdioServerConfig):
+        argv = config.args if isinstance(config.args, list) else []
+        args = hashlib.sha256("\0".join(argv).encode()).hexdigest()[:12]
+        return f"{config.command}#{args}"
+    url = urlsplit(str(config.server_url))
+    return f"{url.scheme}://{url.netloc.rpartition('@')[2]}{url.path}"
+
+
 def _resolve_config(config: AnyMCPConfig, context: "Context") -> AnyMCPConfig:
     if isinstance(config, MCPStdioServerConfig):
         return replace(
@@ -510,7 +529,7 @@ def _resolve_config(config: AnyMCPConfig, context: "Context") -> AnyMCPConfig:
 
     headers = dict(_resolve_value(config.headers, context) or {})
     auth = _resolve_value(config.authorization_token, context)
-    if auth and "Authorization" not in headers:
+    if auth and not any(key.lower() == "authorization" for key in headers):
         headers["Authorization"] = f"Bearer {auth}"
 
     return replace(

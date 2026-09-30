@@ -25,16 +25,24 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class NextInvoiceReplyLine(BaseModel):
     """
     NextInvoiceReplyLine
-    """ # noqa: E501
+    """  # noqa: E501
+
     amount_excluding_tax: Optional[StrictInt] = None
     period: Optional[NextInvoiceReplyLinePeriod] = None
     plan_nickname: Optional[StrictStr] = None
     price: Optional[NextInvoiceReplyLinePrice] = None
     quantity: Optional[StrictInt] = None
-    __properties: ClassVar[List[str]] = ["amount_excluding_tax", "period", "plan_nickname", "price", "quantity"]
+    __properties: ClassVar[List[str]] = [
+        "amount_excluding_tax",
+        "period",
+        "plan_nickname",
+        "price",
+        "quantity",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -42,7 +50,6 @@ class NextInvoiceReplyLine(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -67,8 +74,7 @@ class NextInvoiceReplyLine(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,10 +83,10 @@ class NextInvoiceReplyLine(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of period
         if self.period:
-            _dict['period'] = self.period.to_dict()
+            _dict["period"] = self.period.to_dict()
         # override the default output from pydantic by calling `to_dict()` of price
         if self.price:
-            _dict['price'] = self.price.to_dict()
+            _dict["price"] = self.price.to_dict()
         return _dict
 
     @classmethod
@@ -92,13 +98,17 @@ class NextInvoiceReplyLine(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "amount_excluding_tax": obj.get("amount_excluding_tax"),
-            "period": NextInvoiceReplyLinePeriod.from_dict(obj["period"]) if obj.get("period") is not None else None,
-            "plan_nickname": obj.get("plan_nickname"),
-            "price": NextInvoiceReplyLinePrice.from_dict(obj["price"]) if obj.get("price") is not None else None,
-            "quantity": obj.get("quantity")
-        })
+        _obj = cls.model_validate(
+            {
+                "amount_excluding_tax": obj.get("amount_excluding_tax"),
+                "period": NextInvoiceReplyLinePeriod.from_dict(obj["period"])
+                if obj.get("period") is not None
+                else None,
+                "plan_nickname": obj.get("plan_nickname"),
+                "price": NextInvoiceReplyLinePrice.from_dict(obj["price"])
+                if obj.get("price") is not None
+                else None,
+                "quantity": obj.get("quantity"),
+            }
+        )
         return _obj
-
-

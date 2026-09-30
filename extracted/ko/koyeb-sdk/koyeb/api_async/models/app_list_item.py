@@ -26,10 +26,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class AppListItem(BaseModel):
     """
     AppListItem
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
     organization_id: Optional[StrictStr] = None
@@ -38,7 +40,16 @@ class AppListItem(BaseModel):
     domains: Optional[List[Domain]] = None
     status: Optional[AppStatus] = AppStatus.STARTING
     messages: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["id", "name", "organization_id", "updated_at", "created_at", "domains", "status", "messages"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "name",
+        "organization_id",
+        "updated_at",
+        "created_at",
+        "domains",
+        "status",
+        "messages",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -46,7 +57,6 @@ class AppListItem(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -71,8 +81,7 @@ class AppListItem(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,9 +92,10 @@ class AppListItem(BaseModel):
         _items = []
         if self.domains:
             for _item_domains in self.domains:
-                if _item_domains:
-                    _items.append(_item_domains.to_dict())
-            _dict['domains'] = _items
+                _items.append(
+                    _item_domains.to_dict() if _item_domains is not None else None
+                )
+            _dict["domains"] = _items
         return _dict
 
     @classmethod
@@ -97,16 +107,20 @@ class AppListItem(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "name": obj.get("name"),
-            "organization_id": obj.get("organization_id"),
-            "updated_at": obj.get("updated_at"),
-            "created_at": obj.get("created_at"),
-            "domains": [Domain.from_dict(_item) for _item in obj["domains"]] if obj.get("domains") is not None else None,
-            "status": obj.get("status") if obj.get("status") is not None else AppStatus.STARTING,
-            "messages": obj.get("messages")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "name": obj.get("name"),
+                "organization_id": obj.get("organization_id"),
+                "updated_at": obj.get("updated_at"),
+                "created_at": obj.get("created_at"),
+                "domains": [Domain.from_dict(_item) for _item in obj["domains"]]
+                if obj.get("domains") is not None
+                else None,
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else AppStatus.STARTING,
+                "messages": obj.get("messages"),
+            }
+        )
         return _obj
-
-

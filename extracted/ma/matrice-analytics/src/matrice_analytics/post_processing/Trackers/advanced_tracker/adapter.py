@@ -95,7 +95,12 @@ class AdvancedTrackerAdapter(BaseObjectTracker):
     #: ``stream_info`` keys carrying a frame presentation time already in SECONDS.
     _SECONDS_KEYS = ("frame_timestamp", "frame_time", "pts_seconds", "timestamp")
     #: ``stream_info`` keys carrying a raw uint32 RTP timestamp (90 kHz clock).
-    _RTP_KEYS = ("rtp_timestamp", "rtp_ts")
+    #: ``rtp_number`` is the key the canonical ``build_stream_info`` emits.
+    _RTP_KEYS = ("rtp_timestamp", "rtp_ts", "rtp_number")
+    #: RTP keys where ``0`` means "not stamped" rather than tick zero. The canonical
+    #: builder writes ``rtp_number`` as ``""`` when the worker had none, and producers
+    #: that coerce a missing value to an integer send ``0``.
+    _RTP_ZERO_IS_ABSENT = frozenset({"rtp_number"})
 
     def _frame_timestamp(self, stream_info: Optional[Dict[str, Any]]) -> Optional[float]:
         """Pull this frame's presentation time (seconds) out of ``stream_info``.
@@ -110,13 +115,16 @@ class AdvancedTrackerAdapter(BaseObjectTracker):
 
         for key in self._RTP_KEYS:
             raw = stream_info.get(key)
-            if raw is None:
+            if raw is None or raw == "":
                 continue
             try:
-                return self._rtp_clock.to_seconds(int(raw))
+                ticks = int(raw)
             except (TypeError, ValueError):
                 logger.warning("AdvancedTrackerAdapter: ignoring non-integer %s=%r", key, raw)
                 return None
+            if ticks == 0 and key in self._RTP_ZERO_IS_ABSENT:
+                continue
+            return self._rtp_clock.to_seconds(ticks)
 
         for key in self._SECONDS_KEYS:
             raw = stream_info.get(key)

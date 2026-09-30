@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.list_persistent_volumes_reply import ListPersistentVolumesReply
+from koyeb.api_async.models.list_persistent_volumes_reply import (
+    ListPersistentVolumesReply,
+)
+
 
 class TestListPersistentVolumesReply(unittest.TestCase):
     """ListPersistentVolumesReply unit test stubs"""
@@ -27,9 +30,9 @@ class TestListPersistentVolumesReply(unittest.TestCase):
 
     def make_instance(self, include_optional) -> ListPersistentVolumesReply:
         """Test ListPersistentVolumesReply
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `ListPersistentVolumesReply`
         """
         model = ListPersistentVolumesReply()
@@ -66,5 +69,6 @@ class TestListPersistentVolumesReply(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

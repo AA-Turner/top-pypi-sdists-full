@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.payment_method_status import PaymentMethodStatus
 
+
 class TestPaymentMethodStatus(unittest.TestCase):
     """PaymentMethodStatus unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestPaymentMethodStatus(unittest.TestCase):
         """Test PaymentMethodStatus"""
         # inst = PaymentMethodStatus()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

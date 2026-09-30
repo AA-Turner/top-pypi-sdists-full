@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: matrice_analytics
-Version: 0.11.0
+Version: 0.14.0
 Summary: Post-processing analytics for Matrice.ai inference pipelines
 Author-email: "Matrice.ai" <dipendra@matrice.ai>
 License-Expression: LicenseRef-Proprietary
@@ -27,12 +27,12 @@ Provides-Extra: dev
 Requires-Dist: pytest>=9.0.3; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
-Requires-Dist: ruff==0.11.12; extra == "dev"
+Requires-Dist: ruff==0.15.21; extra == "dev"
 Requires-Dist: bandit[toml]==1.9.4; extra == "dev"
 Requires-Dist: mypy<2,>=1.0; extra == "dev"
 Requires-Dist: pre-commit==4.6.1; extra == "dev"
 Requires-Dist: pyyaml>=6.0; extra == "dev"
-Requires-Dist: matrice-common!=1.0.0,>=0.11.0; extra == "dev"
+Requires-Dist: matrice-common<1,>=0.11.0; extra == "dev"
 Requires-Dist: httpx==0.28.1; extra == "dev"
 Requires-Dist: redis>=8.1.0; extra == "dev"
 Requires-Dist: pydantic==2.13.5; extra == "dev"

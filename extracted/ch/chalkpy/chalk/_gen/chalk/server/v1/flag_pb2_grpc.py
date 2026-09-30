@@ -20,6 +20,11 @@ class FeatureFlagServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_flag__pb2.GetFeatureFlagsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_flag__pb2.GetFeatureFlagsResponse.FromString,
         )
+        self.GetTeamFeatureFlags = channel.unary_unary(
+            "/chalk.server.v1.FeatureFlagService/GetTeamFeatureFlags",
+            request_serializer=chalk_dot_server_dot_v1_dot_flag__pb2.GetTeamFeatureFlagsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_flag__pb2.GetTeamFeatureFlagsResponse.FromString,
+        )
         self.GetFeatureFlag = channel.unary_unary(
             "/chalk.server.v1.FeatureFlagService/GetFeatureFlag",
             request_serializer=chalk_dot_server_dot_v1_dot_flag__pb2.GetFeatureFlagRequest.SerializeToString,
@@ -36,6 +41,12 @@ class FeatureFlagServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetFeatureFlags(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetTeamFeatureFlags(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -60,6 +71,11 @@ def add_FeatureFlagServiceServicer_to_server(servicer, server):
             servicer.GetFeatureFlags,
             request_deserializer=chalk_dot_server_dot_v1_dot_flag__pb2.GetFeatureFlagsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_flag__pb2.GetFeatureFlagsResponse.SerializeToString,
+        ),
+        "GetTeamFeatureFlags": grpc.unary_unary_rpc_method_handler(
+            servicer.GetTeamFeatureFlags,
+            request_deserializer=chalk_dot_server_dot_v1_dot_flag__pb2.GetTeamFeatureFlagsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_flag__pb2.GetTeamFeatureFlagsResponse.SerializeToString,
         ),
         "GetFeatureFlag": grpc.unary_unary_rpc_method_handler(
             servicer.GetFeatureFlag,
@@ -99,6 +115,35 @@ class FeatureFlagService(object):
             "/chalk.server.v1.FeatureFlagService/GetFeatureFlags",
             chalk_dot_server_dot_v1_dot_flag__pb2.GetFeatureFlagsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_flag__pb2.GetFeatureFlagsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetTeamFeatureFlags(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.FeatureFlagService/GetTeamFeatureFlags",
+            chalk_dot_server_dot_v1_dot_flag__pb2.GetTeamFeatureFlagsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_flag__pb2.GetTeamFeatureFlagsResponse.FromString,
             options,
             channel_credentials,
             insecure,

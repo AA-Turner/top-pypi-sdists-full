@@ -25,10 +25,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class NextInvoiceReply(BaseModel):
     """
     NextInvoiceReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     stripe_invoice: Optional[Dict[str, Any]] = None
     lines: Optional[List[NextInvoiceReplyLine]] = None
     discounts: Optional[List[NextInvoiceReplyDiscount]] = None
@@ -40,7 +42,6 @@ class NextInvoiceReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +66,7 @@ class NextInvoiceReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,16 +77,18 @@ class NextInvoiceReply(BaseModel):
         _items = []
         if self.lines:
             for _item_lines in self.lines:
-                if _item_lines:
-                    _items.append(_item_lines.to_dict())
-            _dict['lines'] = _items
+                _items.append(
+                    _item_lines.to_dict() if _item_lines is not None else None
+                )
+            _dict["lines"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in discounts (list)
         _items = []
         if self.discounts:
             for _item_discounts in self.discounts:
-                if _item_discounts:
-                    _items.append(_item_discounts.to_dict())
-            _dict['discounts'] = _items
+                _items.append(
+                    _item_discounts.to_dict() if _item_discounts is not None else None
+                )
+            _dict["discounts"] = _items
         return _dict
 
     @classmethod
@@ -98,11 +100,20 @@ class NextInvoiceReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "stripe_invoice": obj.get("stripe_invoice"),
-            "lines": [NextInvoiceReplyLine.from_dict(_item) for _item in obj["lines"]] if obj.get("lines") is not None else None,
-            "discounts": [NextInvoiceReplyDiscount.from_dict(_item) for _item in obj["discounts"]] if obj.get("discounts") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "stripe_invoice": obj.get("stripe_invoice"),
+                "lines": [
+                    NextInvoiceReplyLine.from_dict(_item) for _item in obj["lines"]
+                ]
+                if obj.get("lines") is not None
+                else None,
+                "discounts": [
+                    NextInvoiceReplyDiscount.from_dict(_item)
+                    for _item in obj["discounts"]
+                ]
+                if obj.get("discounts") is not None
+                else None,
+            }
+        )
         return _obj
-
-

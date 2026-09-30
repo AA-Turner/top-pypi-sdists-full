@@ -198,7 +198,10 @@ class OfficeToolResult(KindModel):
     url: str | None = None
     download_url: str | None = None
     cdn_url: str | None = None
+    # Kept as an optional wire-compatibility field for pre-T-13 receipts.
     visibility: str | None = None
+    published_to_web: bool | None = None
+    shown_to: str | None = None
     #: ``extract`` — the markdown summary (`portions` is a COUNT here).
     markdown: str | None = None
     portions: int | None = None

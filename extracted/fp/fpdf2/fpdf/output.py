@@ -1053,6 +1053,7 @@ class OutputProducer:
         catalog_obj = self._add_catalog()
         page_objs = self._add_pages()
         sig_annotation_obj = self._add_annotations_as_objects()
+        self._add_annotation_appearance_streams()
         for embedded_file in fpdf.embedded_files:
             self._add_pdf_obj(embedded_file, "embedded_files")
             self._add_pdf_obj(embedded_file.file_spec(), "file_spec")
@@ -1229,6 +1230,27 @@ class OutputProducer:
                         sig_annotation_obj = annot_obj
         return sig_annotation_obj
 
+    def _add_annotation_appearance_streams(self) -> None:
+        """Build a normal appearance stream (/AP << /N ... >>) for every annotation
+        that requested one. The appearance is a Form XObject whose content stream is
+        the bytes stored on the annotation; an empty stream yields a blank appearance,
+        which portably hides the annotation's default icon - cf. issue #561."""
+        for page_obj in self.fpdf.pages.values():
+            assert isinstance(page_obj.annots, PDFArray)
+            for annot_obj in page_obj.annots:
+                appearance_stream = getattr(annot_obj, "_appearance_stream", None)
+                if appearance_stream is None:
+                    continue
+                width, height = annot_obj._appearance_bbox
+                xobject = PDFContentStream(contents=appearance_stream)
+                xobject.type = Name("XObject")  # type: ignore[attr-defined]
+                xobject.subtype = Name("Form")  # type: ignore[attr-defined]
+                xobject.b_box = PDFArray(  # type: ignore[attr-defined]
+                    [0, 0, round(width, 2), round(height, 2)]
+                )
+                self._add_pdf_obj(xobject, "annotations")
+                annot_obj.a_p = Raw(f"<< /N {xobject.ref} >>")
+
     def _add_fonts(
         self,
         image_objects_per_index: dict[int, PDFXObject],
@@ -1281,9 +1303,7 @@ class OutputProducer:
                         "1 begincodespacerange\n"
                         "<00> <FF>\n"
                         "endcodespacerange\n"
-                        f"{len(bfChar)} beginbfchar\n"
-                        f"{''.join(bfChar)}"
-                        "endbfchar\n"
+                        f"{_build_cmap_blocks(bfChar, 'bfchar')}"
                         "endcmap\n"
                         "CMapName currentdict /CMap defineresource pop\n"
                         "end\n"
@@ -1470,9 +1490,7 @@ class OutputProducer:
                         "1 begincodespacerange\n"
                         "<0000> <FFFF>\n"
                         "endcodespacerange\n"
-                        f"{len(bfChar)} beginbfchar\n"
-                        f"{''.join(bfChar)}"
-                        "endbfchar\n"
+                        f"{_build_cmap_blocks(bfChar, 'bfchar')}"
                         "endcmap\n"
                         "CMapName currentdict /CMap defineresource pop\n"
                         "end\n"
@@ -1507,9 +1525,7 @@ class OutputProducer:
                             "1 begincodespacerange\n"
                             "<0000> <FFFF>\n"
                             "endcodespacerange\n"
-                            f"{len(cid_mapping)} begincidchar\n"
-                            f"{''.join(cid_mapping)}"
-                            "endcidchar\n"
+                            f"{_build_cmap_blocks(cid_mapping, 'cidchar')}"
                             "endcmap\n"
                             "CMapName currentdict /CMap defineresource pop\n"
                             "end\n"
@@ -1555,6 +1571,25 @@ class OutputProducer:
                     )
                     self._add_pdf_obj(cid_to_gid_map_obj, "fonts")
                     cid_font_obj.c_i_d_to_g_i_d_map = cid_to_gid_map_obj
+
+                compliance = self.fpdf._compliance
+                if compliance and compliance.profile == "PDFA" and compliance.part == 1:
+                    # PDF/A-1 requires a CIDSet identifying the CIDs present in
+                    # the embedded font subset (veraPDF rule 6.3.5-3). It is
+                    # optional in later parts and deprecated since PDF 2.0.
+                    cids_present = {0}
+                    if is_cff_cid and code_to_cid:
+                        cids_present.update(code_to_cid.values())
+                    else:
+                        cids_present.update(code_to_glyph)
+                    cid_set = bytearray(max(cids_present) // 8 + 1)
+                    for cid in cids_present:
+                        cid_set[cid // 8] |= 0x80 >> (cid % 8)
+                    cid_set_obj = PDFContentStream(
+                        contents=bytes(cid_set), compress=True
+                    )
+                    self._add_pdf_obj(cid_set_obj, "fonts")
+                    font_descriptor_obj.c_i_d_set = cid_set_obj  # type: ignore[attr-defined]
 
                 font_file_cs_obj = PDFFontStream(contents=ttfontstream)
                 if is_cff_cid:
@@ -2253,73 +2288,24 @@ def stream_content_for_raster_image(
     )
 
 
+def _build_cmap_blocks(
+    entries: list[str], operator: Literal["bfchar", "cidchar"]
+) -> str:
+    """Limit CMap mapping blocks to 100 entries (Adobe Technical Note #5014)."""
+    blocks: list[str] = []
+    for start in range(0, len(entries), 100):
+        chunk = entries[start : start + 100]
+        blocks.append(f"{len(chunk)} begin{operator}\n{''.join(chunk)}end{operator}\n")
+    return "".join(blocks)
+
+
 def _tt_font_widths(font: TTFFont) -> str:
-    rangeid: int = 0
-    range_: dict[int, list[int]] = {}
-    range_interval: dict[int, bool] = {}
-    prevcid: int = -2
-    prevwidth: int = -1
-    interval: bool = False
-
-    # Glyphs sorted by mapped character id
-    glyphs = dict(sorted(font.subset.items(), key=lambda item: item[1]))
-
-    for glyph in glyphs:
-        assert glyph is not None
-        cid_mapped = glyphs[glyph]
-        if cid_mapped == (prevcid + 1):
-            if glyph.glyph_width == prevwidth:
-                if glyph.glyph_width == range_[rangeid][0]:
-                    range_.setdefault(rangeid, []).append(glyph.glyph_width)
-                else:
-                    range_[rangeid].pop()
-                    # new range
-                    rangeid = prevcid
-                    range_[rangeid] = [prevwidth, glyph.glyph_width]
-                interval = True
-                range_interval[rangeid] = True
-            else:
-                if interval:
-                    # new range
-                    rangeid = cid_mapped
-                    range_[rangeid] = [glyph.glyph_width]
-                else:
-                    range_[rangeid].append(glyph.glyph_width)
-                interval = False
-        else:
-            rangeid = cid_mapped
-            range_[rangeid] = [glyph.glyph_width]
-            interval = False
-        prevcid = cid_mapped
-        prevwidth = glyph.glyph_width
-    prevk = -1
-    nextk = -1
-    prevint = False
-
-    ri = range_interval
-    for k, ws in sorted(range_.items()):
-        cws = len(ws)
-        if k == nextk and not prevint and (k not in ri or cws < 3):
-            if k in ri:
-                del ri[k]
-            range_[prevk] = range_[prevk] + range_[k]
-            del range_[k]
-        else:
-            prevk = k
-        nextk = k + cws
-        if k in ri:
-            prevint = cws > 3
-            del ri[k]
-            nextk -= 1
-        else:
-            prevint = False
-    w: list[str] = []
-    for k, ws in sorted(range_.items()):
-        if len(set(ws)) == 1:
-            w.append(f" {k} {k + len(ws) - 1} {ws[0]}")
-        else:
-            w.append(f" {k} [ {' '.join(str(int(h)) for h in ws)} ]\n")
-    return f"[{''.join(w)}]"
+    cid_widths = {
+        cid: glyph.glyph_width
+        for glyph, cid in font.subset.items()
+        if glyph is not None
+    }
+    return _cid_font_widths(cid_widths)
 
 
 def _cid_font_widths(cid_widths: dict[int, int]) -> str:

@@ -16,6 +16,7 @@ The per-frame output and 1-minute aggregation output are structured to
 match the production ``PeopleCountingUseCase`` / ``AnalyticsPublisher``
 contract so that downstream consumers (UI, DB, Redis) see identical JSON.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,7 +27,6 @@ import numpy as np
 
 from ..base_processor import BaseMetricProcessor, MetricEntry
 from ..geometry import create_counter_from_zone_config, denormalize_zone_config
-
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +179,9 @@ class VolumeProcessor(BaseMetricProcessor):
         for cat, ids in self._per_cat_new.items():
             new_count = len(ids)
             if new_count > 0:
-                self._window_new_counts_sum[cat] = self._window_new_counts_sum.get(cat, 0) + new_count
+                self._window_new_counts_sum[cat] = (
+                    self._window_new_counts_sum.get(cat, 0) + new_count
+                )
 
         metrics: list[MetricEntry] = []
         if self._metrics_config:
@@ -220,7 +222,6 @@ class VolumeProcessor(BaseMetricProcessor):
     # ------------------------------------------------------------------
     # Aggregation-time category metrics
     # ------------------------------------------------------------------
-
 
     # ------------------------------------------------------------------
     # Aggregation output — match AnalyticsPublisher format
@@ -263,7 +264,9 @@ class VolumeProcessor(BaseMetricProcessor):
             total_current_counts.append({"category": cat, "count": prev_last + new_arrivals})
 
         total_counts: list[dict[str, Any]] = [
-            {"category": cat, "count": len(ids)} for cat, ids in self._per_cat_confirmed.items() if len(ids) > 0
+            {"category": cat, "count": len(ids)}
+            for cat, ids in self._per_cat_confirmed.items()
+            if len(ids) > 0
         ]
 
         return {
@@ -278,7 +281,9 @@ class VolumeProcessor(BaseMetricProcessor):
     # Human-readable text — match production PeopleCountingUseCase
     # ------------------------------------------------------------------
 
-    def _build_human_text(self, detections: list[dict[str, Any]], business_analytics: dict[str, Any]) -> str:
+    def _build_human_text(
+        self, detections: list[dict[str, Any]], business_analytics: dict[str, Any]
+    ) -> str:
         """Build per-frame human text matching production people_counting format."""
         default_cat = self.target_categories[0] if self.target_categories else "object"
         display_name = default_cat.title()

@@ -2930,6 +2930,29 @@ endmodule
     CHECK(diags[1].code == diag::RecursiveClassSpecialization);
 }
 
+TEST_CASE("Recursive generic class specialization via property") {
+    // Regression test: a generic class with a property whose type is the
+    // class itself parameterized by a decrementing value with no base case
+    // used to recurse infinitely while computing its bitstream width and
+    // overflow the stack. It should be diagnosed instead.
+    auto tree = SyntaxTree::fromText(R"(
+class Tree #(int DEPTH = 3);
+    Tree #(DEPTH-1) child;
+endclass
+
+module top;
+    Tree #(2) t;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::RecursiveClassSpecialization);
+}
+
 TEST_CASE("Extend from final class") {
     auto options = optionsFor(LanguageVersion::v1800_2023);
     auto tree = SyntaxTree::fromText(R"(
@@ -3867,6 +3890,32 @@ endclass
     CHECK(diags[0].code == diag::MemberImplNotFound);
 }
 
+TEST_CASE("super in randomize-with on array element doesn't crash -- GH #1862") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    rand bit [7:0] val;
+endclass
+module t;
+    C od[2];
+    initial begin
+        automatic int i = 0;
+        od[0] = new();
+        od[1] = new();
+        assert(od[i].randomize() with {
+            super.x;
+        });
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::SuperNoBase);
+}
+
 TEST_CASE("Generic class specializations are not assignment compatible") {
     auto tree = SyntaxTree::fromText(R"(
 class C #(int i);
@@ -4040,4 +4089,58 @@ endpackage
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::PackageImportInClass);
+}
+
+TEST_CASE("randc variable not allowed in dist constraint") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    randc bit [1:0] x;
+    constraint c { x dist {1 := 1}; }
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::RandCInDist);
+    CHECK(diags[1].code == diag::RandNeededInDist);
+}
+
+TEST_CASE("string type not valid in constraint expression") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    string s;
+    constraint c { s == "x"; }
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::StringConstraintExpr);
+}
+
+TEST_CASE("randomize with clause missing constraint block") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    rand int x;
+endclass
+
+module m;
+    C c = new;
+    int r;
+    initial r = c.randomize() with;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::MissingConstraintBlock);
 }

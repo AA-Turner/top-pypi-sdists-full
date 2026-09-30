@@ -28,10 +28,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class OrganizationMember(BaseModel):
     """
     OrganizationMember
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     organization_id: Optional[StrictStr] = None
     user_id: Optional[StrictStr] = None
@@ -41,7 +43,17 @@ class OrganizationMember(BaseModel):
     status: Optional[OrganizationMemberStatus] = OrganizationMemberStatus.INVALID
     user: Optional[PublicUser] = None
     organization: Optional[PublicOrganization] = None
-    __properties: ClassVar[List[str]] = ["id", "organization_id", "user_id", "external_id", "joined_at", "role", "status", "user", "organization"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "organization_id",
+        "user_id",
+        "external_id",
+        "joined_at",
+        "role",
+        "status",
+        "user",
+        "organization",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -49,7 +61,6 @@ class OrganizationMember(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -74,8 +85,7 @@ class OrganizationMember(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -84,10 +94,10 @@ class OrganizationMember(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of user
         if self.user:
-            _dict['user'] = self.user.to_dict()
+            _dict["user"] = self.user.to_dict()
         # override the default output from pydantic by calling `to_dict()` of organization
         if self.organization:
-            _dict['organization'] = self.organization.to_dict()
+            _dict["organization"] = self.organization.to_dict()
         return _dict
 
     @classmethod
@@ -99,17 +109,25 @@ class OrganizationMember(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "organization_id": obj.get("organization_id"),
-            "user_id": obj.get("user_id"),
-            "external_id": obj.get("external_id"),
-            "joined_at": obj.get("joined_at"),
-            "role": obj.get("role") if obj.get("role") is not None else UserRoleRole.INVALID,
-            "status": obj.get("status") if obj.get("status") is not None else OrganizationMemberStatus.INVALID,
-            "user": PublicUser.from_dict(obj["user"]) if obj.get("user") is not None else None,
-            "organization": PublicOrganization.from_dict(obj["organization"]) if obj.get("organization") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "organization_id": obj.get("organization_id"),
+                "user_id": obj.get("user_id"),
+                "external_id": obj.get("external_id"),
+                "joined_at": obj.get("joined_at"),
+                "role": obj.get("role")
+                if obj.get("role") is not None
+                else UserRoleRole.INVALID,
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else OrganizationMemberStatus.INVALID,
+                "user": PublicUser.from_dict(obj["user"])
+                if obj.get("user") is not None
+                else None,
+                "organization": PublicOrganization.from_dict(obj["organization"])
+                if obj.get("organization") is not None
+                else None,
+            }
+        )
         return _obj
-
-

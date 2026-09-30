@@ -423,3 +423,67 @@ async def test_every_combination_produces_valid_sql(
     """Every subset of the six options must yield syntactically valid SQL."""
     sql = await _build("SELECT * FROM t", **attrs)
     _assert_valid_sql(sql)
+
+
+# ---------------------------------------------------------------------------
+# A slug whose query_raw already carries an outer ORDER BY
+# ---------------------------------------------------------------------------
+
+_ORDERED_SLUG = (
+    "SELECT {fields} FROM polestar.vw_graduates_directory {where_cond} "
+    "ORDER BY CASE WHEN is_requalified THEN 0 ELSE 1 END"
+)
+
+
+@pytest.fixture(params=[True, False], ids=["rust", "cython"])
+def parser_backend(request, monkeypatch):
+    """Run a test against the Rust fast path and the Cython fallback."""
+    import querysource.parsers.sql as sql_mod
+
+    if request.param and not sql_mod.HAS_RUST:
+        pytest.skip("Rust parsers extension not available")
+    monkeypatch.setattr(sql_mod, "HAS_RUST", request.param)
+    return request.param
+
+
+@pytest.mark.asyncio
+async def test_ordering_extends_existing_outer_order_by(parser_backend):
+    sql = await _build(
+        _ORDERED_SLUG, fields=["student_uid", "full_name"], ordering=["student_uid"], querylimit=500
+    )
+    assert sql.count("ORDER BY") == 1
+    assert "ORDER BY CASE WHEN is_requalified THEN 0 ELSE 1 END, student_uid LIMIT 500" in sql
+    _assert_valid_sql(sql)
+
+
+@pytest.mark.asyncio
+async def test_ordering_ignores_order_by_inside_window(parser_backend):
+    query = "SELECT a, row_number() OVER (ORDER BY b) AS rn FROM t {where_cond}"
+    sql = await _build(query, ordering=["a"])
+    assert sql.rstrip().endswith("ORDER BY a")
+    _assert_valid_sql(sql)
+
+
+@pytest.mark.asyncio
+async def test_grouping_lands_before_existing_outer_order_by(parser_backend):
+    sql = await _build(
+        "SELECT {fields} FROM t {where_cond} ORDER BY 2 DESC",
+        fields=["country", "count(*) AS graduates"],
+        grouping=["country"],
+        querylimit=10,
+    )
+    assert "GROUP BY country ORDER BY 2 DESC LIMIT 10" in sql
+    _assert_valid_sql(sql)
+
+
+@pytest.mark.asyncio
+async def test_set_where_does_not_mutate_callers_operator_dict():
+    """set_where must read operator dicts, never popitem() them: callers re-send the same filter."""
+    from querysource.parsers.pgsql import pgSQLParser
+
+    flt = {"graduation_details": {"@>": [{"course": "Pilates Mat"}]}, "n": {">=": 3}}
+    for _ in range(2):  # the second pass used to see an emptied dict ("popitem(): dictionary is empty")
+        parser = pgSQLParser(definition=None, conditions=QueryObject(query_raw=_ORDERED_SLUG), query=_ORDERED_SLUG)
+        await parser.set_where(flt, None)
+        assert "@>" in parser.filter["graduation_details"]
+    assert flt == {"graduation_details": {"@>": [{"course": "Pilates Mat"}]}, "n": {">=": 3}}

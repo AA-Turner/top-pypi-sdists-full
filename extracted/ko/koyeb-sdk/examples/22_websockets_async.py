@@ -12,7 +12,7 @@ import random
 import string
 from koyeb import AsyncSandbox
 
-WS_SERVER_SCRIPT = r'''
+WS_SERVER_SCRIPT = r"""
 import asyncio
 import websockets
 import json
@@ -28,7 +28,7 @@ async def main():
         await asyncio.Future()
 
 asyncio.run(main())
-'''
+"""
 
 
 async def main():
@@ -67,7 +67,9 @@ async def main():
         await asyncio.sleep(2)
 
         # Connect and exchange messages
-        ws_url = exposed.exposed_at.replace("https://", "wss://").replace("http://", "ws://")
+        ws_url = exposed.exposed_at.replace("https://", "wss://").replace(
+            "http://", "ws://"
+        )
         print(f"\nConnecting to {ws_url}...")
 
         async with connect(ws_url) as ws:

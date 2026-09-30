@@ -21,6 +21,7 @@ Usage::
         if engine.should_aggregate(frame.ts):
             agg = engine.aggregate()
 """
+
 from __future__ import annotations
 
 import importlib
@@ -45,7 +46,6 @@ from .schemas import (
     StreamInfo,
     TrackingStats,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +125,9 @@ class AnalyticsEngine:
                 processor_cls = self._resolve_processor_class(cat)
                 if processor_cls is not None:
                     self._metric_category_classes[cat] = processor_cls
-                    logger.info("Resolved %s processor for app '%s'", cat, self._app_info.get("id", "?"))
+                    logger.info(
+                        "Resolved %s processor for app '%s'", cat, self._app_info.get("id", "?")
+                    )
                 else:
                     logger.warning("No processor found for category '%s'", cat)
 
@@ -279,7 +281,9 @@ class AnalyticsEngine:
 
         si = self._stream_info
         app_name = si.application_name or self._app_info.get("name", "")
-        app_key = si.application_key_name or (app_name.lower().replace(" ", "_") if app_name else "")
+        app_key = si.application_key_name or (
+            app_name.lower().replace(" ", "_") if app_name else ""
+        )
         result = AggregationResult(
             camera_id=si.camera_id,
             camera_name=si.camera_name,
@@ -344,14 +348,18 @@ class AnalyticsEngine:
 
                 if self._zone_polygons_px:
                     volume_section = self._manifest_config.get("volume", {})
-                    counter = volume_section.get("counter") if isinstance(volume_section, dict) else {}
+                    counter = (
+                        volume_section.get("counter") if isinstance(volume_section, dict) else {}
+                    )
                     counter = counter if isinstance(counter, dict) else {}
                     self._use_foot_center_for_zones = bool(counter.get("use_foot_center", False))
 
                     zone_names = list(self._zone_polygons_px.keys())
                     has_named_zones = True
                 else:
-                    logger.warning("No valid zone polygons after denormalization, falling back to global")
+                    logger.warning(
+                        "No valid zone polygons after denormalization, falling back to global"
+                    )
             else:
                 logger.warning("Invalid resolution for zone analytics, falling back to global")
 
@@ -383,7 +391,9 @@ class AnalyticsEngine:
         logger.info(
             "Zone processors initialised: zones=%s categories=%s",
             ", ".join(zone_names),
-            ", ".join(sorted({cat for procs in self._zone_metric_processors.values() for cat in procs})),
+            ", ".join(
+                sorted({cat for procs in self._zone_metric_processors.values() for cat in procs})
+            ),
         )
 
     def _assign_to_zones(
@@ -444,7 +454,14 @@ class AnalyticsEngine:
             logger.warning("set_zone_config: no geometry used for this zone")
             return
 
-        volume.set_zone_config(zone_config, width, height, method=method, in_direction=in_direction, use_foot_center=use_foot_center)
+        volume.set_zone_config(
+            zone_config,
+            width,
+            height,
+            method=method,
+            in_direction=in_direction,
+            use_foot_center=use_foot_center,
+        )
 
     def _get_volume_processor(self) -> Any:
         """Return the VOLUME processor for the ``"global"`` zone if present, else None."""
@@ -519,11 +536,7 @@ class AnalyticsEngine:
         auto-created VOLUME fallback (for apps that don't declare VOLUME
         in their manifest) is still surfaced.
         """
-        cats: set[str] = {
-            cat
-            for procs in self._zone_metric_processors.values()
-            for cat in procs
-        }
+        cats: set[str] = {cat for procs in self._zone_metric_processors.values() for cat in procs}
         sorted_cats = sorted(cats)
         if self._incident_processor is not None:
             sorted_cats.append("INCIDENT")
@@ -555,7 +568,9 @@ class AnalyticsEngine:
     @property
     def zones_active(self) -> bool:
         """Whether named zone analytics is active (not just the default global)."""
-        return not (len(self._zone_metric_processors) == 1 and "global" in self._zone_metric_processors)
+        return not (
+            len(self._zone_metric_processors) == 1 and "global" in self._zone_metric_processors
+        )
 
     @property
     def zone_processors(self) -> dict[str, Any]:
@@ -620,7 +635,9 @@ class AnalyticsEngine:
             manifest = yaml.safe_load(f)
 
         if not isinstance(manifest, dict):
-            raise TypeError(f"Invalid manifest format in {path}: expected dict, got {type(manifest)}")
+            raise TypeError(
+                f"Invalid manifest format in {path}: expected dict, got {type(manifest)}"
+            )
 
         logger.info("Loaded manifest from %s", path)
         return manifest
@@ -677,7 +694,13 @@ class AnalyticsEngine:
             )
 
         res = si.resolution
-        if not res or not isinstance(res, (list, tuple)) or len(res) < 2 or int(res[0]) <= 0 or int(res[1]) <= 0:
+        if (
+            not res
+            or not isinstance(res, (list, tuple))
+            or len(res) < 2
+            or int(res[0]) <= 0
+            or int(res[1]) <= 0
+        ):
             logger.warning(
                 "StreamInfo.resolution must be [width, height] with positive values; skipping geometry apply",
             )

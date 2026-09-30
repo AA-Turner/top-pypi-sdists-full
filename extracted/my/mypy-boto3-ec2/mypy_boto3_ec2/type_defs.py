@@ -87,6 +87,7 @@ from .literals import (
     CapacityReservationDeliveryPreferenceType,
     CapacityReservationFleetStateType,
     CapacityReservationInstancePlatformType,
+    CapacityReservationLaunchStatusType,
     CapacityReservationModificationQuoteStateType,
     CapacityReservationPreferenceType,
     CapacityReservationStateType,
@@ -19552,6 +19553,7 @@ class CapacityReservationTypeDef(TypedDict):
     AdjustmentDetails: NotRequired[CapacityReservationAdjustmentDetailsTypeDef]
     OriginalStartDate: NotRequired[datetime]
     ZeroSizePreference: NotRequired[ZeroSizePreferenceType]
+    LaunchStatus: NotRequired[CapacityReservationLaunchStatusType]
 
 
 class DescribeCapacityBlockStatusResultTypeDef(TypedDict):

@@ -15,6 +15,7 @@ Usage::
         ListGroupMembershipsForMemberPaginator,
         ListGroupMembershipsPaginator,
         ListGroupsPaginator,
+        ListIdentityStoresPaginator,
         ListUsersPaginator,
     )
 
@@ -24,6 +25,7 @@ Usage::
     list_group_memberships_for_member_paginator: ListGroupMembershipsForMemberPaginator = client.get_paginator("list_group_memberships_for_member")
     list_group_memberships_paginator: ListGroupMembershipsPaginator = client.get_paginator("list_group_memberships")
     list_groups_paginator: ListGroupsPaginator = client.get_paginator("list_groups")
+    list_identity_stores_paginator: ListIdentityStoresPaginator = client.get_paginator("list_identity_stores")
     list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
     ```
 """
@@ -42,6 +44,8 @@ from .type_defs import (
     ListGroupMembershipsResponseTypeDef,
     ListGroupsRequestPaginateTypeDef,
     ListGroupsResponseTypeDef,
+    ListIdentityStoresRequestPaginateTypeDef,
+    ListIdentityStoresResponseTypeDef,
     ListUsersRequestPaginateTypeDef,
     ListUsersResponseTypeDef,
 )
@@ -55,6 +59,7 @@ __all__ = (
     "ListGroupMembershipsForMemberPaginator",
     "ListGroupMembershipsPaginator",
     "ListGroupsPaginator",
+    "ListIdentityStoresPaginator",
     "ListUsersPaginator",
 )
 
@@ -112,6 +117,24 @@ class ListGroupsPaginator(_ListGroupsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/paginator/ListGroups.html#IdentityStore.Paginator.ListGroups.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/paginators/#listgroupspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListIdentityStoresPaginatorBase = Paginator[ListIdentityStoresResponseTypeDef]
+else:
+    _ListIdentityStoresPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListIdentityStoresPaginator(_ListIdentityStoresPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/paginator/ListIdentityStores.html#IdentityStore.Paginator.ListIdentityStores)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/paginators/#listidentitystorespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListIdentityStoresRequestPaginateTypeDef]
+    ) -> PageIterator[ListIdentityStoresResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore/paginator/ListIdentityStores.html#IdentityStore.Paginator.ListIdentityStores.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_identitystore/paginators/#listidentitystorespaginator)
         """
 
 if TYPE_CHECKING:

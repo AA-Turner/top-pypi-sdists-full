@@ -12,6 +12,7 @@ from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 import httpx
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.table import Table
@@ -48,14 +49,14 @@ def format_sync_status(raw_status: Optional[str], *, dry_run: bool = False) -> s
     status = str(display).upper().replace(" ", "_")
     if status in ("PENDING", "IN_PROGRESS"):
         label = status.lower().replace("_", " ")
-        return format_warning(f"🔄 Dry run {label}" if dry_run else f"🔄 Sync {label}")
+        return format_warning(f"Dry run {label}" if dry_run else f"Sync {label}")
     if status == "COMPLETED":
         # **Never in the past tense for a preview.** A dry run used to print
         # "Last sync completed successfully" over counts of tickets it had not
         # touched, which is how a stale board came to look freshly synced.
         if dry_run:
             return format_warning(
-                "🔍 Last run was a DRY RUN — nothing was written. "
+                "Last run was a DRY RUN — nothing was written. "
                 "The counts below are what it would have done."
             )
         return format_success("Last sync completed successfully")
@@ -101,41 +102,48 @@ def is_sync_completed(raw_status: Optional[str]) -> bool:
     return str(raw_status or "").upper().replace(" ", "_") == "COMPLETED"
 
 
-def render_sync_record(data: Dict[str, Any], *, dry_run: Optional[bool] = None) -> None:
+def render_sync_record(
+    data: Dict[str, Any], *, dry_run: Optional[bool] = None, indent: int = 0
+) -> None:
     """Print one sync-history row -- status line, counts, duration, error.
 
-    Shared by `board sync-status` and by the wait that both sync commands do
-    when their run finishes: what a completed sync *did* is one report, and
-    growing a second copy of it is how the two came to disagree before.
+    Shared by `innoday status` (a failed last sync, indented under its board)
+    and by the wait that both sync commands do when their run finishes: what a
+    sync *did* is one report, and growing a second copy of it is how the two
+    came to disagree before.
 
     `dry_run` overrides what the row says about itself, because the
     sync-history route does not return that column -- so a caller that *asked*
     for a preview must say so, or this reports "completed successfully" over
     counts nothing was written from.
     """
+    pad = " " * indent
     preview = bool(data.get("dry_run") if dry_run is None else dry_run)
-    console.print(format_sync_status(data.get("sync_status"), dry_run=preview))
+    console.print(pad + format_sync_status(data.get("sync_status"), dry_run=preview))
     verb = "would create" if preview else "created"
     verb_u = "would update" if preview else "updated"
 
+    lines = []
     if data.get("started_at"):
-        console.print(f"  Started: {data['started_at']}")
+        lines.append(f"Started: {data['started_at']}")
     if data.get("completed_at"):
-        console.print(f"  Completed: {data['completed_at']}")
+        lines.append(f"Completed: {data['completed_at']}")
     if data.get("tickets_found") is not None:
-        console.print(f"  Tickets found: {data['tickets_found']}")
+        lines.append(f"Tickets found: {data['tickets_found']}")
     if data.get("tickets_created") is not None:
-        console.print(f"  Tickets {verb}: {data['tickets_created']}")
+        lines.append(f"Tickets {verb}: {data['tickets_created']}")
     if data.get("tickets_updated") is not None:
-        console.print(f"  Tickets {verb_u}: {data['tickets_updated']}")
+        lines.append(f"Tickets {verb_u}: {data['tickets_updated']}")
     if data.get("tickets_unchanged"):
-        console.print(f"  Tickets unchanged: {data['tickets_unchanged']}")
+        lines.append(f"Tickets unchanged: {data['tickets_unchanged']}")
     if data.get("tickets_skipped") is not None:
-        console.print(f"  Tickets skipped: {data['tickets_skipped']}")
+        lines.append(f"Tickets skipped: {data['tickets_skipped']}")
     if data.get("duration_seconds") is not None:
-        console.print(f"  Duration: {data['duration_seconds']} seconds")
+        lines.append(f"Duration: {data['duration_seconds']} seconds")
     if data.get("error_message"):
-        console.print(f"  Error: {data['error_message']}")
+        lines.append(f"Error: {escape(str(data['error_message']))}")
+    for line in lines:
+        console.print(f"{pad}  {line}")
 
 
 class _ReadFailure(NamedTuple):
@@ -296,10 +304,7 @@ async def wait_and_report_board_sync(
                 "one's. Nothing was waited for."
             )
         )
-        console.print(
-            "  [dim]Check status with: "
-            f"innoday board sync-status --board-id {board_id}[/dim]"
-        )
+        console.print("  [dim]Check status with: innoday status[/dim]")
         return 1
 
     waited = DEFAULT_SYNC_WAIT_TIMEOUT if timeout is None else float(timeout)
@@ -321,7 +326,7 @@ async def wait_and_report_board_sync(
         console.print(format_error(f"Could not read the board sync's status: {error}"))
         console.print(
             "  [dim]The sync itself may still be running. Check it with: "
-            f"innoday board sync-status --board-id {board_id}[/dim]"
+            "innoday status[/dim]"
         )
         return 1
 
@@ -332,10 +337,7 @@ async def wait_and_report_board_sync(
                 "be running, so anything read now may be incomplete."
             )
         )
-        console.print(
-            "  [dim]Check status with: "
-            f"innoday board sync-status --board-id {board_id}[/dim]"
-        )
+        console.print("  [dim]Check status with: innoday status[/dim]")
         return 1
 
     if record is None:
@@ -564,20 +566,6 @@ class BoardCommands:
             help="Skip the confirmation prompt",
         )
 
-        # Sync status
-        sync_status_parser = subparsers.add_parser(
-            "sync-status", help="Check sync status for a board"
-        )
-        sync_status_parser.add_argument(
-            "--board-id",
-            dest="board_id",
-            required=False,
-            default=None,
-            help="Board registration ID. Optional: when omitted, resolved from "
-            "the current project (cwd's .innoday/project.yml) if it has "
-            "exactly one board.",
-        )
-
         # Set/rotate credential. `set-credential` stays registered as an alias:
         # it is the name in the docs and in anyone's shell history, and an
         # argparse alias costs nothing next to a command that silently vanished.
@@ -633,8 +621,6 @@ class BoardCommands:
                     return await BoardCommands._handle_clear(args, client, config)
                 elif command == "delete":
                     return await BoardCommands._handle_delete(args, client, config)
-                elif command == "sync-status":
-                    return await BoardCommands._handle_sync_status(args, client, config)
                 elif command in ("set-cred", "set-credential"):
                     return await BoardCommands._handle_set_credential(
                         args, client, config
@@ -643,7 +629,7 @@ class BoardCommands:
                     console.print(format_error("No board command specified"))
                     console.print(
                         "[dim]Available: summarize, summaries, summary-latest, list, "
-                        "register, sync, clear, sync-status, set-credential — run "
+                        "register, sync, clear, delete, set-credential — run "
                         "'innoday board --help' for details[/dim]"
                     )
                     return 1
@@ -1221,7 +1207,7 @@ class BoardCommands:
                     progress.update("Board registered successfully")
 
                     # Display registration info
-                    console.print(format_success(f"✅ Board registered: {data['id']}"))
+                    console.print(format_success(f"Board registered: {data['id']}"))
                     console.print(f"  Name: {data.get('board_name', 'Unknown')}")
                     console.print(f"  Type: {data.get('board_type', 'Unknown')}")
                     console.print(f"  URL: {data.get('board_url', 'Unknown')}")
@@ -1250,7 +1236,7 @@ class BoardCommands:
                         # minutes of an onboarding command blocked on a result it
                         # then discards, and a run that merely timed out printed
                         # as "the initial sync failed". The queued line already
-                        # names `board sync-status`, which is what the wait would
+                        # names `innoday status`, which is what the wait would
                         # have told them to run anyway.
                         sync_args = argparse.Namespace(
                             board_command="sync",
@@ -1515,16 +1501,13 @@ class BoardCommands:
                                 "result from an earlier one's."
                             )
                         )
-                        console.print(
-                            "  [dim]Check status with: "
-                            f"innoday board sync-status --board-id {board_id}[/dim]"
-                        )
+                        console.print("  [dim]Check status with: innoday status[/dim]")
                         return 1
 
                     progress.update("Board sync initiated")
 
                     # Display sync info
-                    console.print(format_success(f"✅ Sync started: {sync_id}"))
+                    console.print(format_success(f"Sync started: {sync_id}"))
 
                     # **The POST only queues the work.** The route hands the
                     # sync to a background task and returns at once, so this
@@ -1541,10 +1524,7 @@ class BoardCommands:
                             console.print(f"  Tickets found: {data['tickets_found']}")
 
                         console.print()
-                        console.print(
-                            "💡 Tip: Check sync status with: "
-                            f"innoday board sync-status --board-id {board_id}"
-                        )
+                        console.print("💡 Tip: Check sync status with: innoday status")
 
                         return 0
 
@@ -1569,7 +1549,7 @@ class BoardCommands:
                     # down to the fallback wording: the same refusal reached the
                     # operator two different ways, and the two were fixed twice
                     # and came out disagreeing about whether to print the
-                    # sync-status hint at all.
+                    # status hint at all.
                     try:
                         error_detail = response.json() if response.content else {}
                     except json.JSONDecodeError:
@@ -1584,10 +1564,7 @@ class BoardCommands:
                             )
                         )
                     )
-                    console.print(
-                        "  [dim]Check status with: "
-                        f"innoday board sync-status --board-id {board_id}[/dim]"
-                    )
+                    console.print("  [dim]Check status with: innoday status[/dim]")
                     # Exits 1: the sync did not happen. See the twin in
                     # `SyncCommands._sync_board` (#622).
                     return 1
@@ -1630,7 +1607,7 @@ class BoardCommands:
                 cleared = response.json().get("cleared", 0)
                 verb = "Would clear" if args.dry_run else "Cleared"
                 progress.update("Done")
-                console.print(format_success(f"✅ {verb} {cleared} ticket(s)"))
+                console.print(format_success(f"{verb} {cleared} ticket(s)"))
                 return 0
             console.print(format_error(f"Failed to clear board: {response}"))
             return 1
@@ -1670,70 +1647,12 @@ class BoardCommands:
                 progress.update("Done")
                 console.print(
                     format_success(
-                        f"✅ Board registration deleted (soft) -- {cleared} "
+                        f"Board registration deleted (soft) -- {cleared} "
                         "ticket(s) cleared, all rows preserved."
                     )
                 )
                 return 0
             console.print(format_error(f"Failed to delete board: {response}"))
-            return 1
-
-    @staticmethod
-    async def _handle_sync_status(
-        args: argparse.Namespace, client: InnoDayAPIClient, config
-    ) -> int:
-        """Handle board sync status command."""
-        org_alias = config.get_current_organization()
-        if not org_alias:
-            console.print(format_error("No organization selected"))
-            console.print(
-                format_info(
-                    "Run this from a directory with .innoday/project.yml, "
-                    "or pass --organization <alias> explicitly"
-                )
-            )
-            return 1
-        org_id = config.get_organization_id(org_alias)
-        if not org_id:
-            console.print(format_error(guidance.org_not_found(org_alias)))
-            return 1
-
-        board_id = await BoardCommands._resolve_board_id(args, client, config, org_id)
-        if not board_id:
-            return 1
-
-        try:
-            # Call sync status endpoint -- GET .../sync-history returns a
-            # JSON array of records ordered newest-first (response_model
-            # List[Dict] in src/routers/boards.py::get_sync_history), not a
-            # single status object. With limit=1 the most recent record is
-            # entries[0]. Field names also come straight from
-            # BoardSyncHistory (sync_status/tickets_found/...), not the
-            # status/tickets_processed names this used to assume.
-            response = await client.get(
-                f"/organizations/{org_id}/boards/{board_id}/sync-history",
-                params={"limit": 1},
-            )
-
-            if response.status_code == 200:
-                entries = response.json()
-
-                if not entries:
-                    console.print(
-                        format_warning("⚠️  Board has never been synchronized")
-                    )
-                    return 0
-
-                render_sync_record(entries[0])
-
-                return 0
-            else:
-                error_msg = response.json() if response.content else str(response)
-                console.print(format_error(f"Failed to get sync status: {error_msg}"))
-                return 1
-
-        except APIError as e:
-            console.print(format_error(f"Failed to get sync status: {str(e)}"))
             return 1
 
     @staticmethod
@@ -1796,7 +1715,7 @@ class BoardCommands:
             if response.status_code == 200:
                 data = response.json()
                 console.print(
-                    format_success(f"✅ Credential updated for board {board_id}")
+                    format_success(f"Credential updated for board {board_id}")
                 )
                 console.print(f"  Type: {data.get('board_type', board_type)}")
                 console.print(f"  Updated: {data.get('updated_at', 'unknown')}")

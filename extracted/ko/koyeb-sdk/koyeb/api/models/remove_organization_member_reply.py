@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class RemoveOrganizationMemberReply(BaseModel):
     """
     RemoveOrganizationMemberReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     member: Optional[OrganizationMember] = None
     __properties: ClassVar[List[str]] = ["member"]
 
@@ -37,7 +39,6 @@ class RemoveOrganizationMemberReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class RemoveOrganizationMemberReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -72,7 +72,7 @@ class RemoveOrganizationMemberReply(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of member
         if self.member:
-            _dict['member'] = self.member.to_dict()
+            _dict["member"] = self.member.to_dict()
         return _dict
 
     @classmethod
@@ -84,9 +84,11 @@ class RemoveOrganizationMemberReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "member": OrganizationMember.from_dict(obj["member"]) if obj.get("member") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "member": OrganizationMember.from_dict(obj["member"])
+                if obj.get("member") is not None
+                else None
+            }
+        )
         return _obj
-
-

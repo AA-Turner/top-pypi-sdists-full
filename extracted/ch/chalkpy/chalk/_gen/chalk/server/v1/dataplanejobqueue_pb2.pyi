@@ -531,6 +531,10 @@ class JobQueueConsumer(_message.Message):
         "instance_type",
         "created_at",
         "terminated_at",
+        "scheduled_at",
+        "container_started_at",
+        "first_ready_at",
+        "container_restart_count",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -545,6 +549,10 @@ class JobQueueConsumer(_message.Message):
     INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     TERMINATED_AT_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULED_AT_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    FIRST_READY_AT_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_RESTART_COUNT_FIELD_NUMBER: _ClassVar[int]
     id: int
     environment_id: str
     deployment_id: str
@@ -558,6 +566,10 @@ class JobQueueConsumer(_message.Message):
     instance_type: str
     created_at: _timestamp_pb2.Timestamp
     terminated_at: _timestamp_pb2.Timestamp
+    scheduled_at: _timestamp_pb2.Timestamp
+    container_started_at: _timestamp_pb2.Timestamp
+    first_ready_at: _timestamp_pb2.Timestamp
+    container_restart_count: int
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -573,6 +585,10 @@ class JobQueueConsumer(_message.Message):
         instance_type: _Optional[str] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         terminated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        scheduled_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        container_started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        first_ready_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        container_restart_count: _Optional[int] = ...,
     ) -> None: ...
 
 class ListJobQueueConsumersRequest(_message.Message):

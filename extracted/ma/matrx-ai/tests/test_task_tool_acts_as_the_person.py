@@ -106,7 +106,7 @@ class RlsTasksTable:
         who = self._who("create_item")
         self.seq += 1
         tid = f"91dd021c-0000-4000-8000-{self.seq + 100:012d}"
-        row = {"id": tid, "visibility": "internal", "version": 1, "deleted_at": None, **data}
+        row = {"id": tid, "published_to_web": False, "version": 1, "deleted_at": None, **data}
         self.seed(row, readers={who} if who else set(), writers={who} if who else set())
         return _Row(row)
 
@@ -144,7 +144,7 @@ def table(monkeypatch: pytest.MonkeyPatch) -> RlsTasksTable:
             "priority": "high",
             "organization_id": CLINIC_ORG,
             "created_by": MANAGER,
-            "visibility": "internal",
+            "published_to_web": False,
             "version": 3,
             "deleted_at": None,
             "parent_task_id": None,

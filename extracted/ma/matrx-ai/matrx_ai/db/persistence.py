@@ -271,7 +271,7 @@ async def _hide_superseded_failed_turns(conversation_id: str, up_to_position: in
     of the USER's view (``is_visible_to_user=False``) while KEEPING the rows for
     the record. They are already ``is_visible_to_model=False`` (the agent never
     saw them and still won't — we set it again here defensively). Net model
-    visibility is unchanged (false→false), so NO cache bust is needed.
+    exposure is unchanged (false→false), so NO cache bust is needed.
 
     Platform rule, not a one-off: a conversation's tail run of failed attempts
     collapses the instant a real response lands at or after them. Earlier

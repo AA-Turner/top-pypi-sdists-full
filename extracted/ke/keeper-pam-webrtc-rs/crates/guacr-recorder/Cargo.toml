@@ -16,4 +16,4 @@ tokio = { workspace = true, features = ["sync", "io-util", "time", "fs"] }
 zmq.workspace = true
 
 guacr-handlers = { path = "../guacr-handlers" }
-guacr-recording = { path = "../guacr-recording" }
+guacr-recording = { path = "../guacr-recording", features = ["zmq-transport"] }

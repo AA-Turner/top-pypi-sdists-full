@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.deployment_mesh import DeploymentMesh
 
+
 class TestDeploymentMesh(unittest.TestCase):
     """DeploymentMesh unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestDeploymentMesh(unittest.TestCase):
         """Test DeploymentMesh"""
         # inst = DeploymentMesh()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

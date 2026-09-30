@@ -38,6 +38,8 @@ for i in range(5):
             on_stderr=lambda data: print(f"ERR: {data.strip()}"),
         )
         print(f"\nExit code: {result.exit_code}")
+        assert result.exit_code == 0, result.stderr
+        assert "Line 5" in result.stdout
 
         # Stream a script
         sandbox.filesystem.write_file(
@@ -50,6 +52,8 @@ for i in range(5):
             "python3 /tmp/counter.py",
             on_stdout=lambda data: print(data.strip()),
         )
+        assert result.exit_code == 0, result.stderr
+        assert "Done!" in result.stdout
 
         # Failing command with streaming returns non-zero exit code
         result = sandbox.exec(

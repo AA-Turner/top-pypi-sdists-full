@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class GoogleRpcStatus(BaseModel):
     """
     GoogleRpcStatus
-    """ # noqa: E501
+    """  # noqa: E501
+
     code: Optional[StrictInt] = None
     message: Optional[StrictStr] = None
     details: Optional[List[GoogleProtobufAny]] = None
@@ -39,7 +41,6 @@ class GoogleRpcStatus(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +65,7 @@ class GoogleRpcStatus(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -76,9 +76,10 @@ class GoogleRpcStatus(BaseModel):
         _items = []
         if self.details:
             for _item_details in self.details:
-                if _item_details:
-                    _items.append(_item_details.to_dict())
-            _dict['details'] = _items
+                _items.append(
+                    _item_details.to_dict() if _item_details is not None else None
+                )
+            _dict["details"] = _items
         return _dict
 
     @classmethod
@@ -90,11 +91,15 @@ class GoogleRpcStatus(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "code": obj.get("code"),
-            "message": obj.get("message"),
-            "details": [GoogleProtobufAny.from_dict(_item) for _item in obj["details"]] if obj.get("details") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "code": obj.get("code"),
+                "message": obj.get("message"),
+                "details": [
+                    GoogleProtobufAny.from_dict(_item) for _item in obj["details"]
+                ]
+                if obj.get("details") is not None
+                else None,
+            }
+        )
         return _obj
-
-

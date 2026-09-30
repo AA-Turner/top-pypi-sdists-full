@@ -34,6 +34,12 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class SourceMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SOURCE_MODE_UNSPECIFIED: _ClassVar[SourceMode]
+    SOURCE_MODE_ARCHIVE: _ClassVar[SourceMode]
+    SOURCE_MODE_SOURCELESS: _ClassVar[SourceMode]
+
 class DeploymentBuildStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     DEPLOYMENT_BUILD_STATUS_UNSPECIFIED: _ClassVar[DeploymentBuildStatus]
@@ -174,6 +180,15 @@ class VectorCollectorRequestConcurrencyMode(int, metaclass=_enum_type_wrapper.En
     VECTOR_COLLECTOR_REQUEST_CONCURRENCY_MODE_FIXED: _ClassVar[VectorCollectorRequestConcurrencyMode]
     VECTOR_COLLECTOR_REQUEST_CONCURRENCY_MODE_ADAPTIVE: _ClassVar[VectorCollectorRequestConcurrencyMode]
 
+class TrafficZonalAffinity(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TRAFFIC_ZONAL_AFFINITY_UNSPECIFIED: _ClassVar[TrafficZonalAffinity]
+    TRAFFIC_ZONAL_AFFINITY_CROSS_ZONE: _ClassVar[TrafficZonalAffinity]
+    TRAFFIC_ZONAL_AFFINITY_LOCAL: _ClassVar[TrafficZonalAffinity]
+
+SOURCE_MODE_UNSPECIFIED: SourceMode
+SOURCE_MODE_ARCHIVE: SourceMode
+SOURCE_MODE_SOURCELESS: SourceMode
 DEPLOYMENT_BUILD_STATUS_UNSPECIFIED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_UNKNOWN: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_PENDING: DeploymentBuildStatus
@@ -248,6 +263,9 @@ VECTOR_AGGREGATOR_BUFFER_TYPE_DISK: VectorAggregatorBufferType
 VECTOR_COLLECTOR_REQUEST_CONCURRENCY_MODE_UNSPECIFIED: VectorCollectorRequestConcurrencyMode
 VECTOR_COLLECTOR_REQUEST_CONCURRENCY_MODE_FIXED: VectorCollectorRequestConcurrencyMode
 VECTOR_COLLECTOR_REQUEST_CONCURRENCY_MODE_ADAPTIVE: VectorCollectorRequestConcurrencyMode
+TRAFFIC_ZONAL_AFFINITY_UNSPECIFIED: TrafficZonalAffinity
+TRAFFIC_ZONAL_AFFINITY_CROSS_ZONE: TrafficZonalAffinity
+TRAFFIC_ZONAL_AFFINITY_LOCAL: TrafficZonalAffinity
 
 class ActivateDeploymentTarget(_message.Message):
     __slots__ = ("service_kind", "resource_group_name")
@@ -397,10 +415,12 @@ class StartShadowBuildFromDeploymentRequest(_message.Message):
     ) -> None: ...
 
 class StartShadowBuildFromDeploymentResponse(_message.Message):
-    __slots__ = ("build_id",)
+    __slots__ = ("build_id", "image_name")
     BUILD_ID_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_NAME_FIELD_NUMBER: _ClassVar[int]
     build_id: str
-    def __init__(self, build_id: _Optional[str] = ...) -> None: ...
+    image_name: str
+    def __init__(self, build_id: _Optional[str] = ..., image_name: _Optional[str] = ...) -> None: ...
 
 class DeployKubeComponentsRequest(_message.Message):
     __slots__ = ("existing_deployment_id", "targets")
@@ -430,6 +450,7 @@ class RebuildDeploymentRequest(_message.Message):
         "force_rebuild_dockerfile",
         "branch_name",
         "platform_version",
+        "destination_registry",
     )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NEW_IMAGE_TAG_FIELD_NUMBER: _ClassVar[int]
@@ -439,6 +460,7 @@ class RebuildDeploymentRequest(_message.Message):
     FORCE_REBUILD_DOCKERFILE_FIELD_NUMBER: _ClassVar[int]
     BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
     PLATFORM_VERSION_FIELD_NUMBER: _ClassVar[int]
+    DESTINATION_REGISTRY_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     new_image_tag: str
     base_image_override: str
@@ -447,6 +469,7 @@ class RebuildDeploymentRequest(_message.Message):
     force_rebuild_dockerfile: bool
     branch_name: str
     platform_version: str
+    destination_registry: str
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
@@ -457,6 +480,7 @@ class RebuildDeploymentRequest(_message.Message):
         force_rebuild_dockerfile: bool = ...,
         branch_name: _Optional[str] = ...,
         platform_version: _Optional[str] = ...,
+        destination_registry: _Optional[str] = ...,
     ) -> None: ...
 
 class RebuildDeploymentResponse(_message.Message):
@@ -552,6 +576,27 @@ class RedeployDeploymentResponse(_message.Message):
     deployment_id: str
     def __init__(self, build_id: _Optional[str] = ..., deployment_id: _Optional[str] = ...) -> None: ...
 
+class PrebuiltEngineImageSource(_message.Message):
+    __slots__ = ("image", "source_bundle_uri", "venv_uri", "export_uri", "source_mode")
+    IMAGE_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_BUNDLE_URI_FIELD_NUMBER: _ClassVar[int]
+    VENV_URI_FIELD_NUMBER: _ClassVar[int]
+    EXPORT_URI_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_MODE_FIELD_NUMBER: _ClassVar[int]
+    image: str
+    source_bundle_uri: str
+    venv_uri: str
+    export_uri: str
+    source_mode: SourceMode
+    def __init__(
+        self,
+        image: _Optional[str] = ...,
+        source_bundle_uri: _Optional[str] = ...,
+        venv_uri: _Optional[str] = ...,
+        export_uri: _Optional[str] = ...,
+        source_mode: _Optional[_Union[SourceMode, str]] = ...,
+    ) -> None: ...
+
 class UploadSourceRequest(_message.Message):
     __slots__ = (
         "deployment_id",
@@ -563,6 +608,7 @@ class UploadSourceRequest(_message.Message):
         "enable_profiling",
         "build_profile",
         "force_rebuild_dockerfile",
+        "prebuilt_image",
     )
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     ARCHIVE_FIELD_NUMBER: _ClassVar[int]
@@ -573,6 +619,7 @@ class UploadSourceRequest(_message.Message):
     ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
     BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
     FORCE_REBUILD_DOCKERFILE_FIELD_NUMBER: _ClassVar[int]
+    PREBUILT_IMAGE_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
     archive: bytes
     no_promote: bool
@@ -582,6 +629,7 @@ class UploadSourceRequest(_message.Message):
     enable_profiling: bool
     build_profile: _environment_pb2.DeploymentBuildProfile
     force_rebuild_dockerfile: bool
+    prebuilt_image: PrebuiltEngineImageSource
     def __init__(
         self,
         deployment_id: _Optional[str] = ...,
@@ -593,6 +641,7 @@ class UploadSourceRequest(_message.Message):
         enable_profiling: bool = ...,
         build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
         force_rebuild_dockerfile: bool = ...,
+        prebuilt_image: _Optional[_Union[PrebuiltEngineImageSource, _Mapping]] = ...,
     ) -> None: ...
 
 class UploadSourceResponse(_message.Message):
@@ -1816,6 +1865,8 @@ class EnvoyGatewayProviderConfig(_message.Message):
         "allow_colocation_with_chalk_workloads",
         "require_infrastructure_nodepool",
         "idle_timeout_sec",
+        "certificate_issuer_ref",
+        "traffic_zonal_affinity",
     )
     class NodeSelectorEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1838,6 +1889,8 @@ class EnvoyGatewayProviderConfig(_message.Message):
     ALLOW_COLOCATION_WITH_CHALK_WORKLOADS_FIELD_NUMBER: _ClassVar[int]
     REQUIRE_INFRASTRUCTURE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     IDLE_TIMEOUT_SEC_FIELD_NUMBER: _ClassVar[int]
+    CERTIFICATE_ISSUER_REF_FIELD_NUMBER: _ClassVar[int]
+    TRAFFIC_ZONAL_AFFINITY_FIELD_NUMBER: _ClassVar[int]
     timeout_duration: str
     dns_hostname: str
     replicas: int
@@ -1851,6 +1904,8 @@ class EnvoyGatewayProviderConfig(_message.Message):
     allow_colocation_with_chalk_workloads: bool
     require_infrastructure_nodepool: bool
     idle_timeout_sec: int
+    certificate_issuer_ref: CertManagerIssuerRef
+    traffic_zonal_affinity: TrafficZonalAffinity
     def __init__(
         self,
         timeout_duration: _Optional[str] = ...,
@@ -1866,6 +1921,8 @@ class EnvoyGatewayProviderConfig(_message.Message):
         allow_colocation_with_chalk_workloads: bool = ...,
         require_infrastructure_nodepool: bool = ...,
         idle_timeout_sec: _Optional[int] = ...,
+        certificate_issuer_ref: _Optional[_Union[CertManagerIssuerRef, _Mapping]] = ...,
+        traffic_zonal_affinity: _Optional[_Union[TrafficZonalAffinity, str]] = ...,
     ) -> None: ...
 
 class GCPGatewayProviderConfig(_message.Message):
@@ -2810,10 +2867,16 @@ class AggregatorSpec(_message.Message):
     ) -> None: ...
 
 class CustomerCollectorConfig(_message.Message):
-    __slots__ = ("config_yaml",)
+    __slots__ = ("config_yaml", "received_signals")
     CONFIG_YAML_FIELD_NUMBER: _ClassVar[int]
+    RECEIVED_SIGNALS_FIELD_NUMBER: _ClassVar[int]
     config_yaml: str
-    def __init__(self, config_yaml: _Optional[str] = ...) -> None: ...
+    received_signals: CustomerCollectorReceivedSignalsSpec
+    def __init__(
+        self,
+        config_yaml: _Optional[str] = ...,
+        received_signals: _Optional[_Union[CustomerCollectorReceivedSignalsSpec, _Mapping]] = ...,
+    ) -> None: ...
 
 class VectorClusterMetricsSpec(_message.Message):
     __slots__ = (
@@ -2974,17 +3037,19 @@ class VectorCollectorSinkSpec(_message.Message):
     ) -> None: ...
 
 class VectorStatsdSpec(_message.Message):
-    __slots__ = ("enabled", "uds", "udp", "pod_label_allowlist", "aggregator_sink")
+    __slots__ = ("enabled", "uds", "udp", "pod_label_allowlist", "aggregator_sink", "listen_on_standard_udp_port")
     ENABLED_FIELD_NUMBER: _ClassVar[int]
     UDS_FIELD_NUMBER: _ClassVar[int]
     UDP_FIELD_NUMBER: _ClassVar[int]
     POD_LABEL_ALLOWLIST_FIELD_NUMBER: _ClassVar[int]
     AGGREGATOR_SINK_FIELD_NUMBER: _ClassVar[int]
+    LISTEN_ON_STANDARD_UDP_PORT_FIELD_NUMBER: _ClassVar[int]
     enabled: bool
     uds: VectorStatsdUdsSpec
     udp: VectorStatsdUdpSpec
     pod_label_allowlist: _containers.RepeatedScalarFieldContainer[str]
     aggregator_sink: VectorCollectorSinkSpec
+    listen_on_standard_udp_port: bool
     def __init__(
         self,
         enabled: bool = ...,
@@ -2992,6 +3057,7 @@ class VectorStatsdSpec(_message.Message):
         udp: _Optional[_Union[VectorStatsdUdpSpec, _Mapping]] = ...,
         pod_label_allowlist: _Optional[_Iterable[str]] = ...,
         aggregator_sink: _Optional[_Union[VectorCollectorSinkSpec, _Mapping]] = ...,
+        listen_on_standard_udp_port: bool = ...,
     ) -> None: ...
 
 class MetricExportDestination(_message.Message):
@@ -3145,6 +3211,7 @@ class ClickHouseSpec(_message.Message):
         "instance_type",
         "serve_over_http",
         "chalk_machine_type",
+        "disabled",
     )
     CLICK_HOUSE_VERSION_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
@@ -3154,6 +3221,7 @@ class ClickHouseSpec(_message.Message):
     INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     SERVE_OVER_HTTP_FIELD_NUMBER: _ClassVar[int]
     CHALK_MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    DISABLED_FIELD_NUMBER: _ClassVar[int]
     click_house_version: str
     request: KubeResourceConfig
     limit: KubeResourceConfig
@@ -3162,6 +3230,7 @@ class ClickHouseSpec(_message.Message):
     instance_type: str
     serve_over_http: bool
     chalk_machine_type: str
+    disabled: bool
     def __init__(
         self,
         click_house_version: _Optional[str] = ...,
@@ -3172,6 +3241,7 @@ class ClickHouseSpec(_message.Message):
         instance_type: _Optional[str] = ...,
         serve_over_http: bool = ...,
         chalk_machine_type: _Optional[str] = ...,
+        disabled: bool = ...,
     ) -> None: ...
 
 class VictoriaMetricsSpec(_message.Message):
@@ -3193,6 +3263,7 @@ class VictoriaMetricsSpec(_message.Message):
         "insert_max_concurrent_inserts",
         "auth_replicas",
         "auth_request",
+        "datadog_export",
     )
     RETENTION_PERIOD_FIELD_NUMBER: _ClassVar[int]
     STORAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
@@ -3211,6 +3282,7 @@ class VictoriaMetricsSpec(_message.Message):
     INSERT_MAX_CONCURRENT_INSERTS_FIELD_NUMBER: _ClassVar[int]
     AUTH_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     AUTH_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    DATADOG_EXPORT_FIELD_NUMBER: _ClassVar[int]
     retention_period: str
     storage_size: str
     storage_class: str
@@ -3228,6 +3300,7 @@ class VictoriaMetricsSpec(_message.Message):
     insert_max_concurrent_inserts: int
     auth_replicas: int
     auth_request: KubeResourceConfig
+    datadog_export: VictoriaMetricsDatadogExportSpec
     def __init__(
         self,
         retention_period: _Optional[str] = ...,
@@ -3247,6 +3320,25 @@ class VictoriaMetricsSpec(_message.Message):
         insert_max_concurrent_inserts: _Optional[int] = ...,
         auth_replicas: _Optional[int] = ...,
         auth_request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        datadog_export: _Optional[_Union[VictoriaMetricsDatadogExportSpec, _Mapping]] = ...,
+    ) -> None: ...
+
+class VictoriaMetricsDatadogExportSpec(_message.Message):
+    __slots__ = ("request", "limit", "query_interval_seconds", "enabled")
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_INTERVAL_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    request: KubeResourceConfig
+    limit: KubeResourceConfig
+    query_interval_seconds: int
+    enabled: bool
+    def __init__(
+        self,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        query_interval_seconds: _Optional[int] = ...,
+        enabled: bool = ...,
     ) -> None: ...
 
 class ZombieKillerSpec(_message.Message):
@@ -4858,3 +4950,33 @@ class PrepareGraphSupplementRequest(_message.Message):
 class PrepareGraphSupplementResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class CertManagerIssuerRef(_message.Message):
+    __slots__ = ("name", "kind", "group")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    GROUP_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    kind: str
+    group: str
+    def __init__(self, name: _Optional[str] = ..., kind: _Optional[str] = ..., group: _Optional[str] = ...) -> None: ...
+
+class ValidateProjectSettingsRequest(_message.Message):
+    __slots__ = ("project_settings",)
+    PROJECT_SETTINGS_FIELD_NUMBER: _ClassVar[int]
+    project_settings: _export_pb2.ProjectSettings
+    def __init__(self, project_settings: _Optional[_Union[_export_pb2.ProjectSettings, _Mapping]] = ...) -> None: ...
+
+class ValidateProjectSettingsResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class CustomerCollectorReceivedSignalsSpec(_message.Message):
+    __slots__ = ("logs", "traces", "metrics")
+    LOGS_FIELD_NUMBER: _ClassVar[int]
+    TRACES_FIELD_NUMBER: _ClassVar[int]
+    METRICS_FIELD_NUMBER: _ClassVar[int]
+    logs: bool
+    traces: bool
+    metrics: bool
+    def __init__(self, logs: bool = ..., traces: bool = ..., metrics: bool = ...) -> None: ...

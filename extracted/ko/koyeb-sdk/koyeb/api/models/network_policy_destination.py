@@ -23,11 +23,16 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class NetworkPolicyDestination(BaseModel):
     """
     NetworkPolicyDestination
-    """ # noqa: E501
-    cidr: Optional[StrictStr] = Field(default=None, description="IPv4 or IPv6 CIDR (e.g. \"10.0.0.0/8\", \"2001:db8::/32\"). Bare IPs are accepted at the API boundary and normalized to /32 (IPv4) or /128 (IPv6) before storage.")
+    """  # noqa: E501
+
+    cidr: Optional[StrictStr] = Field(
+        default=None,
+        description='IPv4 or IPv6 CIDR (e.g. "10.0.0.0/8", "2001:db8::/32"). Bare IPs are accepted at the API boundary and normalized to /32 (IPv4) or /128 (IPv6) before storage.',
+    )
     __properties: ClassVar[List[str]] = ["cidr"]
 
     model_config = ConfigDict(
@@ -36,7 +41,6 @@ class NetworkPolicyDestination(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -61,8 +65,7 @@ class NetworkPolicyDestination(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -80,9 +83,5 @@ class NetworkPolicyDestination(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "cidr": obj.get("cidr")
-        })
+        _obj = cls.model_validate({"cidr": obj.get("cidr")})
         return _obj
-
-

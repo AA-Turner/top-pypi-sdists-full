@@ -50,6 +50,7 @@ __all__ = (
     "EnvironmentTemplateTypeType",
     "FileSystemLocationTypeType",
     "FleetActiveWaiterName",
+    "FleetSoftwareAddOnNameType",
     "FleetStatusType",
     "GetSessionsStatisticsAggregationPaginatorName",
     "JobAttachmentsFileSystemType",
@@ -214,6 +215,7 @@ Ec2MarketTypeType = Literal["on-demand", "spot", "wait-and-save"]
 EnvironmentTemplateTypeType = Literal["JSON", "YAML"]
 FileSystemLocationTypeType = Literal["LOCAL", "SHARED"]
 FleetActiveWaiterName = Literal["fleet_active"]
+FleetSoftwareAddOnNameType = Literal["docker"]
 FleetStatusType = Literal[
     "ACTIVE",
     "CREATE_FAILED",

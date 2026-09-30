@@ -2761,17 +2761,27 @@ int XrdOfs::SetupCksRT(XrdCksCalc*& cP, XrdOucEnv& Env,const char*& cT)
 // Check if the cipher can come from the environment
 //
    if (CksRTCgi && (cT = Env.Get("cks.type")))
-      return (ValidCST(cT) && (cP=Cks->Object(cT)) ? 0 : -ENOTSUP);
+      {if (!strcmp("default", cT))
+          {int csLen;
+           cT = CksRTCalc->Type(csLen);
+           cP = CksRTCalc->New();
+           return 0;
+          }
+       return (ValidCST(cT) && (cP=Cks->Object(cT)) ? 0 : -ENOTSUP);
+      }
 
-// Set of auto real-time is enabled
+// Set if auto real-time is enabled
 //
-   if (CksRTCalc)
+   if (CksRTName)
       {cP = CksRTCalc->New();
        cT = CksRTName;
+       return 0;
       }
 
 // All done
 //
+   cP = 0;
+   cT = 0;
    return 0;
 }
 

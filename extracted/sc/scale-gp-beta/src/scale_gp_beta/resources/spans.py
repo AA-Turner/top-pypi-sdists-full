@@ -355,7 +355,7 @@ class SpansResource(SyncAPIResource):
     def search(
         self,
         *,
-        allow_short_pages: bool | Omit = omit,
+        allow_partial_results: bool | Omit = omit,
         ending_before: str | Omit = omit,
         from_ts: Union[str, datetime] | Omit = omit,
         limit: int | Omit = omit,
@@ -421,18 +421,19 @@ class SpansResource(SyncAPIResource):
         deployments of the tracing service as the `search_texts` field describes.
 
         `x-project-id` narrows the result to traces whose root span carries that
-        project, when `PROJECT_SCOPED_SPAN_LISTING` is on for the account. An account
-        the tracing service serves holds no project placement, so a request carrying the
-        header is rejected with 422 there.
+        project, when `PROJECT_SCOPED_SPAN_LISTING` is on for the account, on either
+        store.
 
         Args:
-          allow_short_pages: Return however many spans fit the server byte budget instead of a 400
+          allow_partial_results: Return however many spans fit the server byte budget instead of a 400
               SEARCH_RESULT_TOO_LARGE, reporting the rest through has_more plus next_cursor
-              going forward or prev_cursor going back. Send it only if the client reads
-              has_more, because under it a page shorter than limit no longer means the end of
-              the list. Honored by the tracing service on either of its storage engines.
-              Accounts still served by the legacy trace store ignore it and page by item
-              count, where a short page still means the end of the list.
+              going forward or prev_cursor going back. A search that spends its time budget
+              before the page fills also returns what it found, with search_status partial,
+              searched_through and a next_cursor that resumes from there. Send it only if the
+              client reads has_more, because under it a page shorter than limit no longer
+              means the end of the list. Honored by the tracing service on either of its
+              storage engines. Accounts still served by the legacy trace store ignore it and
+              page by item count, where a short page still means the end of the list.
 
           from_ts: The starting (oldest) timestamp in ISO format.
 
@@ -609,7 +610,7 @@ class SpansResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
-                        "allow_short_pages": allow_short_pages,
+                        "allow_partial_results": allow_partial_results,
                         "ending_before": ending_before,
                         "from_ts": from_ts,
                         "limit": limit,
@@ -1002,7 +1003,7 @@ class AsyncSpansResource(AsyncAPIResource):
     def search(
         self,
         *,
-        allow_short_pages: bool | Omit = omit,
+        allow_partial_results: bool | Omit = omit,
         ending_before: str | Omit = omit,
         from_ts: Union[str, datetime] | Omit = omit,
         limit: int | Omit = omit,
@@ -1068,18 +1069,19 @@ class AsyncSpansResource(AsyncAPIResource):
         deployments of the tracing service as the `search_texts` field describes.
 
         `x-project-id` narrows the result to traces whose root span carries that
-        project, when `PROJECT_SCOPED_SPAN_LISTING` is on for the account. An account
-        the tracing service serves holds no project placement, so a request carrying the
-        header is rejected with 422 there.
+        project, when `PROJECT_SCOPED_SPAN_LISTING` is on for the account, on either
+        store.
 
         Args:
-          allow_short_pages: Return however many spans fit the server byte budget instead of a 400
+          allow_partial_results: Return however many spans fit the server byte budget instead of a 400
               SEARCH_RESULT_TOO_LARGE, reporting the rest through has_more plus next_cursor
-              going forward or prev_cursor going back. Send it only if the client reads
-              has_more, because under it a page shorter than limit no longer means the end of
-              the list. Honored by the tracing service on either of its storage engines.
-              Accounts still served by the legacy trace store ignore it and page by item
-              count, where a short page still means the end of the list.
+              going forward or prev_cursor going back. A search that spends its time budget
+              before the page fills also returns what it found, with search_status partial,
+              searched_through and a next_cursor that resumes from there. Send it only if the
+              client reads has_more, because under it a page shorter than limit no longer
+              means the end of the list. Honored by the tracing service on either of its
+              storage engines. Accounts still served by the legacy trace store ignore it and
+              page by item count, where a short page still means the end of the list.
 
           from_ts: The starting (oldest) timestamp in ISO format.
 
@@ -1256,7 +1258,7 @@ class AsyncSpansResource(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
-                        "allow_short_pages": allow_short_pages,
+                        "allow_partial_results": allow_partial_results,
                         "ending_before": ending_before,
                         "from_ts": from_ts,
                         "limit": limit,

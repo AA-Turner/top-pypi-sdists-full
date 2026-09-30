@@ -18,21 +18,25 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from koyeb.api_async.models.deployment_database_info import DeploymentDatabaseInfo
 from koyeb.api_async.models.deployment_definition import DeploymentDefinition
 from koyeb.api_async.models.deployment_metadata import DeploymentMetadata
-from koyeb.api_async.models.deployment_provisioning_info import DeploymentProvisioningInfo
+from koyeb.api_async.models.deployment_provisioning_info import (
+    DeploymentProvisioningInfo,
+)
 from koyeb.api_async.models.deployment_status import DeploymentStatus
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeploymentListItem(BaseModel):
     """
     DeploymentListItem
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -53,9 +57,37 @@ class DeploymentListItem(BaseModel):
     provisioning_info: Optional[DeploymentProvisioningInfo] = None
     database_info: Optional[DeploymentDatabaseInfo] = None
     instance_snapshot_id: Optional[StrictStr] = None
+    created_by: Optional[StrictStr] = Field(
+        default=None,
+        description="CreatedBy is the user_id of the user that called CreateService or UpdateService. It's optional because CreateService or UpdateService can be called by a machine, using a token that's organization scoped, not user scoped.",
+    )
     version: Optional[StrictStr] = None
     deployment_group: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "allocated_at", "started_at", "succeeded_at", "terminated_at", "organization_id", "project_id", "app_id", "service_id", "parent_id", "child_id", "status", "metadata", "definition", "messages", "provisioning_info", "database_info", "instance_snapshot_id", "version", "deployment_group"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "created_at",
+        "updated_at",
+        "allocated_at",
+        "started_at",
+        "succeeded_at",
+        "terminated_at",
+        "organization_id",
+        "project_id",
+        "app_id",
+        "service_id",
+        "parent_id",
+        "child_id",
+        "status",
+        "metadata",
+        "definition",
+        "messages",
+        "provisioning_info",
+        "database_info",
+        "instance_snapshot_id",
+        "created_by",
+        "version",
+        "deployment_group",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -63,7 +95,6 @@ class DeploymentListItem(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -88,8 +119,7 @@ class DeploymentListItem(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -98,16 +128,16 @@ class DeploymentListItem(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of metadata
         if self.metadata:
-            _dict['metadata'] = self.metadata.to_dict()
+            _dict["metadata"] = self.metadata.to_dict()
         # override the default output from pydantic by calling `to_dict()` of definition
         if self.definition:
-            _dict['definition'] = self.definition.to_dict()
+            _dict["definition"] = self.definition.to_dict()
         # override the default output from pydantic by calling `to_dict()` of provisioning_info
         if self.provisioning_info:
-            _dict['provisioning_info'] = self.provisioning_info.to_dict()
+            _dict["provisioning_info"] = self.provisioning_info.to_dict()
         # override the default output from pydantic by calling `to_dict()` of database_info
         if self.database_info:
-            _dict['database_info'] = self.database_info.to_dict()
+            _dict["database_info"] = self.database_info.to_dict()
         return _dict
 
     @classmethod
@@ -119,30 +149,43 @@ class DeploymentListItem(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "created_at": obj.get("created_at"),
-            "updated_at": obj.get("updated_at"),
-            "allocated_at": obj.get("allocated_at"),
-            "started_at": obj.get("started_at"),
-            "succeeded_at": obj.get("succeeded_at"),
-            "terminated_at": obj.get("terminated_at"),
-            "organization_id": obj.get("organization_id"),
-            "project_id": obj.get("project_id"),
-            "app_id": obj.get("app_id"),
-            "service_id": obj.get("service_id"),
-            "parent_id": obj.get("parent_id"),
-            "child_id": obj.get("child_id"),
-            "status": obj.get("status") if obj.get("status") is not None else DeploymentStatus.PENDING,
-            "metadata": DeploymentMetadata.from_dict(obj["metadata"]) if obj.get("metadata") is not None else None,
-            "definition": DeploymentDefinition.from_dict(obj["definition"]) if obj.get("definition") is not None else None,
-            "messages": obj.get("messages"),
-            "provisioning_info": DeploymentProvisioningInfo.from_dict(obj["provisioning_info"]) if obj.get("provisioning_info") is not None else None,
-            "database_info": DeploymentDatabaseInfo.from_dict(obj["database_info"]) if obj.get("database_info") is not None else None,
-            "instance_snapshot_id": obj.get("instance_snapshot_id"),
-            "version": obj.get("version"),
-            "deployment_group": obj.get("deployment_group")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "created_at": obj.get("created_at"),
+                "updated_at": obj.get("updated_at"),
+                "allocated_at": obj.get("allocated_at"),
+                "started_at": obj.get("started_at"),
+                "succeeded_at": obj.get("succeeded_at"),
+                "terminated_at": obj.get("terminated_at"),
+                "organization_id": obj.get("organization_id"),
+                "project_id": obj.get("project_id"),
+                "app_id": obj.get("app_id"),
+                "service_id": obj.get("service_id"),
+                "parent_id": obj.get("parent_id"),
+                "child_id": obj.get("child_id"),
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else DeploymentStatus.PENDING,
+                "metadata": DeploymentMetadata.from_dict(obj["metadata"])
+                if obj.get("metadata") is not None
+                else None,
+                "definition": DeploymentDefinition.from_dict(obj["definition"])
+                if obj.get("definition") is not None
+                else None,
+                "messages": obj.get("messages"),
+                "provisioning_info": DeploymentProvisioningInfo.from_dict(
+                    obj["provisioning_info"]
+                )
+                if obj.get("provisioning_info") is not None
+                else None,
+                "database_info": DeploymentDatabaseInfo.from_dict(obj["database_info"])
+                if obj.get("database_info") is not None
+                else None,
+                "instance_snapshot_id": obj.get("instance_snapshot_id"),
+                "created_by": obj.get("created_by"),
+                "version": obj.get("version"),
+                "deployment_group": obj.get("deployment_group"),
+            }
+        )
         return _obj
-
-

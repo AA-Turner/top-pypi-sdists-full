@@ -188,7 +188,8 @@ async def upload_image_master(
             file_path,
             blob_bytes,
             mime_type=mime_type,
-            visibility="personal",
+            published_to_web=False,
+            shown_to="only_me",
             change_summary=f"tool image master ({tool_name})" if tool_name else "tool image master",
             metadata={
                 "source": "tool_image_master",

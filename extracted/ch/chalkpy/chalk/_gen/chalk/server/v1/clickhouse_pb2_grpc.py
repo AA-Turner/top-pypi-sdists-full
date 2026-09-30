@@ -35,6 +35,16 @@ class ClickhouseServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoResponse.FromString,
         )
+        self.GetClickhouseRetentionHistory = channel.unary_unary(
+            "/chalk.server.v1.ClickhouseService/GetClickhouseRetentionHistory",
+            request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseRetentionHistoryRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseRetentionHistoryResponse.FromString,
+        )
+        self.GetClickhouseAdminDiagnostics = channel.unary_unary(
+            "/chalk.server.v1.ClickhouseService/GetClickhouseAdminDiagnostics",
+            request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsResponse.FromString,
+        )
 
 
 class ClickhouseServiceServicer(object):
@@ -64,6 +74,23 @@ class ClickhouseServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetClickhouseRetentionHistory(self, request, context):
+        """Charts the retention, disk, and server-health gauges the cluster manager
+        publishes for the environment's telemetry ClickHouse, read from VictoriaMetrics.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetClickhouseAdminDiagnostics(self, request, context):
+        """Returns query-level performance data and physical table configuration.
+        Keep this separate from GetClickhouseInfo so non-admin readers never receive
+        normalized query text or operational schema details.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ClickhouseServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -86,6 +113,16 @@ def add_ClickhouseServiceServicer_to_server(servicer, server):
             servicer.GetClickhouseInfo,
             request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoResponse.SerializeToString,
+        ),
+        "GetClickhouseRetentionHistory": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClickhouseRetentionHistory,
+            request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseRetentionHistoryRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseRetentionHistoryResponse.SerializeToString,
+        ),
+        "GetClickhouseAdminDiagnostics": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClickhouseAdminDiagnostics,
+            request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ClickhouseService", rpc_method_handlers)
@@ -202,6 +239,64 @@ class ClickhouseService(object):
             "/chalk.server.v1.ClickhouseService/GetClickhouseInfo",
             chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClickhouseRetentionHistory(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ClickhouseService/GetClickhouseRetentionHistory",
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseRetentionHistoryRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseRetentionHistoryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClickhouseAdminDiagnostics(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ClickhouseService/GetClickhouseAdminDiagnostics",
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsResponse.FromString,
             options,
             channel_credentials,
             insecure,

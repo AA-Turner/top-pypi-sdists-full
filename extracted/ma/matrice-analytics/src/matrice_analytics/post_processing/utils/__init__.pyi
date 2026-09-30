@@ -4,6 +4,12 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from ...analytics.engine_session import resolve_camera_fields_from_stream_info
 from ...analytics.engine_session import resolve_camera_fields_from_stream_info, resolve_location_for_publish
 from ...analytics.schemas import IncidentEvent, IncidentMessage, StreamInfo
+from ...clients import identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.bootstrap import get_action_id
+from ...clients.bootstrap import get_session
+from ...clients.models import Camera
+from ...clients.response import CallFailure
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from ..core.base import ResultFormat
 from ..core.base import registry
@@ -39,6 +45,7 @@ from .weapon_person_fusion_v1 import _norm_cat, _xyxy_from_det, coerce_frame_det
 AGGREGATION_TYPES: List[Any] = ...  # From business_metrics_aggregation_utils
 DEFAULT_AGGREGATION_INTERVAL: int = ...  # From business_metrics_aggregation_utils
 DEFAULT_METRICS_CONFIG: Dict[Any, Any] = ...  # From business_metrics_aggregation_utils
+LOCATION_LOOKUP_TIMEOUT_S: int = ...  # From business_metrics_aggregation_utils
 CANONICAL_COLOR_LAB: Any = ...  # From color_utils
 CANONICAL_COLOR_NAMES: List[Any] = ...  # From color_utils
 CANONICAL_COLOR_RGB: Dict[Any, Any] = ...  # From color_utils
@@ -50,6 +57,7 @@ DEFAULT_THRESHOLDS: List[Any] = ...  # From incident_manager_utils
 LOITERING_DEFAULT_THRESHOLDS: List[Any] = ...  # From incident_manager_utils
 OVERCROWDING_DEFAULT_THRESHOLDS: List[Any] = ...  # From incident_manager_utils
 SEVERITY_LEVELS: List[Any] = ...  # From incident_manager_utils
+SPEEDING_DEFAULT_THRESHOLDS: List[Any] = ...  # From incident_manager_utils
 WEAPON_DEFAULT_THRESHOLDS: List[Any] = ...  # From incident_manager_utils
 AGGREGATION_INTERVAL_SEC: float = ...  # From legacy_analytics_bridge
 ANALYTICS_ZONE_GLOBAL: str = ...  # From legacy_analytics_bridge
@@ -2033,9 +2041,15 @@ class BusinessMetricsManagerFactory:
     # Handles session initialization and Redis/Kafka client creation
     # following the same pattern as IncidentManagerFactory.
 
-    def __init__(self: Any, logger: Optional[Any.Any] = None) -> None: ...
-
-    ACTION_ID_PATTERN: Any
+    def __init__(self: Any, logger: Optional[Any.Any] = None, client: Optional[Any] = None) -> None:
+        """
+        Args:
+            logger: Python logger instance.
+            client: The platform client to make calls through. Absent one, a client is built
+                on the session this factory already resolves, so a caller that passes nothing
+                sends exactly the requests it sent before.
+        """
+        ...
 
     def business_metrics_manager(self: Any) -> Optional[Any]: ...
 
@@ -2394,9 +2408,17 @@ class IncidentManagerFactory:
     # Handles session initialization and Redis/Kafka client creation
     # following the same pattern as license_plate_monitoring.py.
 
-    def __init__(self: Any, logger: Optional[Any.Any] = None) -> None: ...
-
-    ACTION_ID_PATTERN: Any
+    def __init__(self: Any, logger: Optional[Any.Any] = None, client: Optional[Any] = None) -> None:
+        """
+        Args:
+            logger: Python logger instance.
+            client: The platform client to make calls through. Optional: absent it, one is
+                built on the session this factory already resolves, so a caller that passes
+                nothing sends exactly the requests it sent before. It exists so a test can
+                drive this class without a platform, and so a caller that already holds a
+                client does not open a second session.
+        """
+        ...
 
     def incident_manager(self: Any) -> Optional[Any]: ...
 
@@ -2557,7 +2579,21 @@ class PostProcessingConfigClient:
     # Wrapper for Matrice post-processing config: session, stream identifiers,
     # REST fetch by app deployment, and config filtering by camera_id.
 
-    def __init__(self: Any, session: Optional[Any] = None, access_key: Optional[str] = None, secret_key: Optional[str] = None, account_number: Optional[str] = None, logger: Optional[Any.Any] = None) -> None: ...
+    def __init__(self: Any, session: Optional[Any] = None, access_key: Optional[str] = None, secret_key: Optional[str] = None, account_number: Optional[str] = None, logger: Optional[Any.Any] = None, client: Optional[Any] = None) -> None:
+        """
+        Args:
+            session: An open ``matrice_common`` session. Absent one, a session is built
+                from the access/secret keys when both are available.
+            access_key: Matrice access key; falls back to ``MATRICE_ACCESS_KEY_ID``.
+            secret_key: Matrice secret key; falls back to ``MATRICE_SECRET_ACCESS_KEY``.
+            account_number: The account whose cameras this client reads; falls back to
+                ``MATRICE_ACCOUNT_NUMBER``, then to the session's own.
+            logger: Python logger instance.
+            client: The platform client to make calls through. Absent one, a client is
+                built on the session resolved here, so a caller that passes nothing sends
+                exactly the requests it sent before.
+        """
+        ...
 
     def denormalize_config(self: Any, config: Union[Dict[str, Any], List[Dict[str, Any]]], width: int, height: int) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """
@@ -2579,7 +2615,7 @@ class PostProcessingConfigClient:
 
     def get_camera_metadata(self: Any, camera_id: str) -> Dict[str, str]:
         """
-        Look up human-readable camera fields by id via CameraManagement API.
+        Look up human-readable camera fields by id via the platform API.
         """
         ...
 
@@ -2592,6 +2628,11 @@ class PostProcessingConfigClient:
     def get_post_processing_configs_by_app_deployment(self: Any, app_deployment_id: str) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str], Optional[str]]:
         """
         Fetch all post-processing configs for an app deployment via Matrice API.
+        
+                Returns:
+                    ``(configs, error, message)``. The configs are the producer's documents as
+                    dictionaries, which is the shape :meth:`filter_configs_by_camera_id`,
+                    :meth:`set_config_cache_from_api` and :meth:`denormalize_config` all read.
         """
         ...
 

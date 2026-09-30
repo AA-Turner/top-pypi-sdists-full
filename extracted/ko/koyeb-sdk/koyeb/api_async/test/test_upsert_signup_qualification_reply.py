@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.upsert_signup_qualification_reply import UpsertSignupQualificationReply
+from koyeb.api_async.models.upsert_signup_qualification_reply import (
+    UpsertSignupQualificationReply,
+)
+
 
 class TestUpsertSignupQualificationReply(unittest.TestCase):
     """UpsertSignupQualificationReply unit test stubs"""
@@ -27,9 +30,9 @@ class TestUpsertSignupQualificationReply(unittest.TestCase):
 
     def make_instance(self, include_optional) -> UpsertSignupQualificationReply:
         """Test UpsertSignupQualificationReply
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `UpsertSignupQualificationReply`
         """
         model = UpsertSignupQualificationReply()
@@ -81,5 +84,6 @@ class TestUpsertSignupQualificationReply(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

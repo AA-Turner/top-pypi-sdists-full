@@ -39,27 +39,32 @@ async def main():
         await fs.rename_file("/tmp/file1.txt", "/tmp/renamed_file.txt")
         renamed_exists = await fs.exists("/tmp/renamed_file.txt")
         print(f"Renamed: {renamed_exists}")
+        assert renamed_exists
 
         # Move file
         await fs.move_file("/tmp/file2.txt", "/tmp/test_dir/moved_file.txt")
         moved_exists = await fs.exists("/tmp/test_dir/moved_file.txt")
         print(f"Moved: {moved_exists}")
+        assert moved_exists
 
         # Copy file (read + write)
         original_content = await fs.read_file("/tmp/renamed_file.txt")
         await fs.write_file("/tmp/test_dir/copied_file.txt", original_content.content)
         copied_exists = await fs.exists("/tmp/test_dir/copied_file.txt")
         print(f"Copied: {copied_exists}")
+        assert copied_exists
 
         # Delete file
         await fs.rm("/tmp/renamed_file.txt")
         deleted_check = not await fs.exists("/tmp/renamed_file.txt")
         print(f"Deleted: {deleted_check}")
+        assert deleted_check
 
         # Delete directory
         await fs.rm("/tmp/test_dir", recursive=True)
         dir_deleted_check = not await fs.exists("/tmp/test_dir")
         print(f"Directory deleted: {dir_deleted_check}")
+        assert dir_deleted_check
 
         return 0
 

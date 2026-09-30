@@ -48,6 +48,7 @@ MIN_CLIENT_PROTOCOL_VERSION = 1
 
 if TYPE_CHECKING:
     import asyncio
+    from typing import BinaryIO
     from praisonai.gateway.pairing import PairedChannel
     from ..agent import Agent
     from ..bots.presentation import MessagePresentation
@@ -268,6 +269,84 @@ class OperatorScope(str, Enum):
         return list(cls)
 
 
+class SessionVisibility(str, Enum):
+    """How widely a Gateway session may be observed by other clients.
+
+    A session's visibility gates *whether* a second authorised client may
+    attach to watch (or co-drive) the same live turn stream, on top of the
+    orthogonal :class:`OperatorScope` authorisation. The vocabulary lives in
+    core so every client/impl agrees; enforcement happens in the wrapper.
+
+    Values:
+        PRIVATE:   Owner only. Today's behaviour and the default — a session
+                   stays bound 1:1 to its owning client.
+        SHARED:    Members may co-drive; additional authorised clients may
+                   attach with WRITE-capable roles.
+        READ_ONLY: Additional clients may attach as viewers to observe the
+                   transcript, but not send.
+    """
+
+    PRIVATE = "private"
+    SHARED = "shared"
+    READ_ONLY = "read_only"
+
+
+class SessionSharingRole(str, Enum):
+    """The role an attached client holds within a shared Gateway session.
+
+    Roles describe *what an attached client may do* within the session and
+    layer on top of :class:`OperatorScope`. Fan-out remains scope-aware: an
+    observer without ``READ`` receives nothing regardless of role.
+
+    Values:
+        OWNER:  Controls sharing/visibility; the session's original driver.
+        MEMBER: May co-drive (send) when the session is ``SHARED``.
+        VIEWER: Observes the live turn stream but cannot send.
+    """
+
+    OWNER = "owner"
+    MEMBER = "member"
+    VIEWER = "viewer"
+
+
+@runtime_checkable
+class SessionObserverProtocol(Protocol):
+    """Protocol for attaching multiple observers to one live session.
+
+    Extends the single-owner :class:`GatewaySessionProtocol` model so that a
+    session can fan its live turn stream (tokens, tool calls, results, final)
+    out to more than one authorised client. Implementations live in the
+    wrapper Gateway; the contract lives here so every client agrees on the
+    attach/detach/enumerate surface.
+
+    Default behaviour is unchanged: a ``PRIVATE`` session keeps a single
+    ``OWNER`` observer (today's 1:1 model).
+    """
+
+    def attach(
+        self,
+        session_id: str,
+        client_id: str,
+        role: SessionSharingRole = SessionSharingRole.VIEWER,
+    ) -> None:
+        """Attach ``client_id`` to ``session_id`` with the given role.
+
+        Adds an observer rather than re-pointing ownership, so a second
+        client can watch a session without hijacking it.
+        """
+        ...
+
+    def detach(self, session_id: str, client_id: str) -> None:
+        """Detach ``client_id`` from ``session_id`` (stop observing)."""
+        ...
+
+    def observers(
+        self, session_id: str
+    ) -> "List[Tuple[str, SessionSharingRole]]":
+        """Return ``(client_id, role)`` pairs currently attached to the session."""
+        ...
+
+
 @dataclass
 class HelloParams:
     """Parameters for initiating a versioned handshake.
@@ -297,14 +376,18 @@ class HelloResult:
     Attributes:
         protocol: The negotiated protocol version
         features: Supported methods and events
-        policy: Gateway policy limits (max_payload, heartbeat_ms, etc.)
+        policy: Gateway policy limits (max_payload, heartbeat_ms, and — Issue
+            #5207 — attachment ceilings max_attachment_bytes / max_attachments /
+            chunk_bytes so a client self-limits and chunks before sending). The
+            optional ``allowed_attachment_types`` list, when present, is carried
+            here too.
         session_id: The session ID for this connection
         resumed: Whether an existing session was resumed
         cursor: Current event cursor position
     """
     protocol: int
     features: Dict[str, List[str]]  # {"methods": [...], "events": [...]}
-    policy: Dict[str, int]  # {"max_payload": ..., "heartbeat_ms": ...}
+    policy: Dict[str, Any]  # {"max_payload": ..., "heartbeat_ms": ..., "max_attachment_bytes": ...}
     session_id: str
     resumed: bool
     cursor: int
@@ -466,6 +549,149 @@ def _require_str(value: Any, *, field_name: str) -> str:
 
 
 @dataclass
+class AttachmentRef:
+    """A first-class attachment reference on the gateway wire protocol (Issue #5207).
+
+    The gateway is the control plane every custom ``/ws`` client builds on, yet
+    the ``message`` frame carried only text or a free-form dict — a client had
+    no supported, size-bounded, validated way to hand the agent a file or to
+    receive an agent-generated artefact back. ``AttachmentRef`` is that missing
+    typed contract: one shape every client and gateway implementation agrees on,
+    additive and backward-compatible (no existing frame changes shape).
+
+    An attachment is carried one of two ways:
+
+    * **Inline** — ``data`` holds base64 for a small file, bounded by the
+      advertised ``max_attachment_bytes`` policy so a well-behaved client
+      self-limits before sending rather than discovering the limit by being
+      disconnected.
+    * **By reference** — ``ref_id`` names an entry the gateway materialised in
+      its attachment store (see :class:`AttachmentStoreProtocol`), used for
+      larger files streamed via chunked upload instead of a single frame.
+
+    The same shape is reused outbound: agent-generated files surface as
+    ``AttachmentRef`` entries a generic client can fetch over the same
+    connection, instead of relying on platform (Telegram/Slack/…) delivery.
+
+    Attributes:
+        filename: Client-facing file name (display / download target).
+        mime: MIME type of the payload (e.g. ``image/png``, ``application/pdf``).
+        size: Declared size in bytes (used to validate against policy ceilings).
+        data: Inline base64 payload for a small file, or ``None`` when the
+            attachment is carried by ``ref_id``.
+        ref_id: Identifier in the gateway attachment store for a chunked / large
+            file, or ``None`` for a purely inline attachment.
+    """
+
+    filename: str
+    mime: str
+    size: int
+    data: Optional[str] = None      # inline base64 for small files
+    ref_id: Optional[str] = None    # id in the gateway attachment store (chunked/large)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to a wire dict, omitting the unused carrier field."""
+        frame: Dict[str, Any] = {
+            "filename": self.filename,
+            "mime": self.mime,
+            "size": self.size,
+        }
+        if self.data is not None:
+            frame["data"] = self.data
+        if self.ref_id is not None:
+            frame["ref_id"] = self.ref_id
+        return frame
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AttachmentRef":
+        """Validate a raw attachment dict into a typed ref.
+
+        Rejects a malformed attachment deterministically with the same
+        structured ``HelloError`` envelope the rest of the inbound codec uses,
+        so handlers keep receiving already-validated objects.
+        """
+        if not isinstance(data, dict):
+            raise FrameDecodeError(
+                HelloError(
+                    code=ConnectErrorCode.CONFIGURATION_ERROR,
+                    message="Each attachment must be an object",
+                    next_step=ConnectRecoveryStep.DO_NOT_RETRY,
+                )
+            )
+        filename = _require_str(data.get("filename"), field_name="attachment.filename")
+        mime = _require_str(data.get("mime"), field_name="attachment.mime")
+        size = _coerce_int(data.get("size"), field_name="attachment.size", default=0)
+        if size < 0:
+            raise FrameDecodeError(
+                HelloError(
+                    code=ConnectErrorCode.CONFIGURATION_ERROR,
+                    message="Field 'attachment.size' must be >= 0",
+                    next_step=ConnectRecoveryStep.DO_NOT_RETRY,
+                )
+            )
+        inline = _as_opt_str(data.get("data"))
+        ref_id = _as_opt_str(data.get("ref_id"))
+        if inline is None and ref_id is None:
+            raise FrameDecodeError(
+                HelloError(
+                    code=ConnectErrorCode.CONFIGURATION_ERROR,
+                    message=(
+                        "An attachment must carry either inline 'data' (base64) "
+                        "or a store 'ref_id'"
+                    ),
+                    next_step=ConnectRecoveryStep.DO_NOT_RETRY,
+                )
+            )
+        if inline is not None and ref_id is not None:
+            raise FrameDecodeError(
+                HelloError(
+                    code=ConnectErrorCode.CONFIGURATION_ERROR,
+                    message=(
+                        "An attachment must carry exactly one of inline 'data' "
+                        "(base64) or a store 'ref_id', not both"
+                    ),
+                    next_step=ConnectRecoveryStep.DO_NOT_RETRY,
+                )
+            )
+        return cls(
+            filename=filename,
+            mime=mime,
+            size=size,
+            data=inline,
+            ref_id=ref_id,
+        )
+
+
+@runtime_checkable
+class AttachmentStoreProtocol(Protocol):
+    """Seam for a gateway-managed attachment store (Issue #5207).
+
+    Large files cannot ride inline inside a single ``message`` frame (bounded by
+    ``max_payload``), so they are streamed as chunks into a store keyed by a
+    reserved ``ref_id`` (reserve → put chunk at offset → close), then referenced
+    from :class:`AttachmentRef`. The contract lives in core so every client and
+    implementation agree on one shape; the concrete durable store (filesystem /
+    object store) is a wrapper/bot concern, kept out of the dependency-free core.
+    """
+
+    def reserve(self, filename: str, mime: str, size: int) -> str:
+        """Reserve an entry for an incoming file and return its ``ref_id``."""
+        ...
+
+    def put_chunk(self, ref_id: str, offset: int, data: bytes) -> None:
+        """Write ``data`` at ``offset`` for the reserved ``ref_id``."""
+        ...
+
+    def close(self, ref_id: str) -> AttachmentRef:
+        """Finalize the upload and return the resulting :class:`AttachmentRef`."""
+        ...
+
+    def open(self, ref_id: str) -> "BinaryIO":
+        """Open the stored attachment for reading (outbound download)."""
+        ...
+
+
+@dataclass
 class MessageParams:
     """Validated ``message`` frame — a client turn sent to the agent.
 
@@ -476,12 +702,23 @@ class MessageParams:
         content: The message body (text, or a structured payload).
         session_id: Optional session the message belongs to.
         message_id: Optional client-supplied idempotency/correlation id.
+        request_id: Optional client-supplied request-idempotency key (Issue
+            #5193). When present the gateway dedups a resend of the same
+            ``request_id`` — a request queued while reconnecting and flushed on
+            reconnect runs the turn exactly once instead of being lost or
+            double-run. Absent keeps the legacy fire-and-forget behaviour.
+        attachments: Optional list of :class:`AttachmentRef` (Issue #5207) — a
+            first-class, size-bounded way for any ``/ws`` client (not just
+            platform bots) to hand the agent files. Defaults to empty, so a
+            frame without attachments decodes exactly as before.
         metadata: Optional additional message metadata.
     """
 
     content: Union[str, Dict[str, Any]]
     session_id: Optional[str] = None
     message_id: Optional[str] = None
+    request_id: Optional[str] = None
+    attachments: List[AttachmentRef] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     type: str = field(default="message", init=False)
@@ -509,10 +746,24 @@ class MessageParams:
         metadata = data.get("metadata")
         if not isinstance(metadata, dict):
             metadata = {}
+        raw_attachments = data.get("attachments")
+        attachments: List[AttachmentRef] = []
+        if raw_attachments is not None:
+            if not isinstance(raw_attachments, (list, tuple)):
+                raise FrameDecodeError(
+                    HelloError(
+                        code=ConnectErrorCode.CONFIGURATION_ERROR,
+                        message="Field 'attachments' must be an array",
+                        next_step=ConnectRecoveryStep.DO_NOT_RETRY,
+                    )
+                )
+            attachments = [AttachmentRef.from_dict(a) for a in raw_attachments]
         return cls(
             content=content,
             session_id=_as_opt_str(data.get("session_id")),
             message_id=_as_opt_str(data.get("message_id")),
+            request_id=_as_opt_str(data.get("request_id")),
+            attachments=attachments,
             metadata=metadata,
         )
 
@@ -2823,6 +3074,57 @@ ReactionStatus = Literal["ok", "unsupported", "failed", "no_route"]
 """
 
 
+MessageActionStatus = Literal["ok", "unsupported", "failed", "no_route"]
+"""Closed set of outcomes for a message-mutation verb (``edit`` / ``delete``).
+
+Mirrors :data:`ReactionStatus` so every agent-callable message action returns
+the same typed shape:
+
+* ``ok`` — the message was edited/deleted.
+* ``unsupported`` — the channel has no matching capability
+  (``supports_edit`` / ``supports_delete``).
+* ``failed`` — the transport rejected the action (e.g. no such message, or the
+  message is not editable/deletable by this bot).
+* ``no_route`` — the target could not be resolved to a reachable channel.
+"""
+
+
+@dataclass
+class MessageActionResult:
+    """Outcome of an agent-initiated message mutation (Issue #5054).
+
+    Shared typed result for the ``edit`` and ``delete`` verbs of the unified
+    message-action surface. Every call resolves to exactly one
+    :data:`MessageActionStatus`, so a channel that cannot edit/delete returns a
+    typed ``unsupported`` outcome instead of raising — identical to how
+    :class:`ReactionResult` and :class:`ThreadResult` degrade.
+
+    Attributes:
+        status: The outcome (``ok`` / ``unsupported`` / ``failed`` /
+            ``no_route``).
+        target: The resolved target the action was routed to.
+        detail: Optional model-readable explanation.
+    """
+
+    status: MessageActionStatus
+    target: str = ""
+    detail: Optional[str] = None
+
+    @property
+    def ok(self) -> bool:
+        """Whether the action succeeded (``status == "ok"``)."""
+        return self.status == "ok"
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Convert to a serializable dictionary for the tool return value."""
+        data: Dict[str, Any] = {"status": self.status}
+        if self.target:
+            data["target"] = self.target
+        if self.detail:
+            data["detail"] = self.detail
+        return data
+
+
 @dataclass
 class ReactionResult:
     """Outcome of an agent-initiated message reaction (Issue #3917).
@@ -3008,6 +3310,51 @@ class OutboundMessengerProtocol(Protocol):
         """
         ...
 
+    async def edit(
+        self,
+        target: str,
+        message_id: str,
+        text: str,
+    ) -> "MessageActionResult":
+        """Edit a prior message this agent/session sent (Issue #5054).
+
+        Lets an agent update its own live status message in place rather than
+        posting a follow-up — e.g. editing "Working…" to "Done ✅". Gated on the
+        channel's ``PlatformCapabilities.supports_edit``; a channel that cannot
+        edit returns a typed ``unsupported`` outcome instead of raising.
+
+        Args:
+            target: Symbolic target token ("origin", "<platform>",
+                "<platform>:<chat_id>[:<thread_id>]", or a friendly alias).
+            message_id: The id of the message to edit.
+            text: The new message text.
+
+        Returns:
+            A :class:`MessageActionResult` describing the outcome.
+        """
+        ...
+
+    async def delete(
+        self,
+        target: str,
+        message_id: str,
+    ) -> "MessageActionResult":
+        """Delete/unsend a prior message this agent/session sent (Issue #5054).
+
+        Lets an agent retract a message it should not have sent. Gated on the
+        channel's ``PlatformCapabilities.supports_delete``; a channel that
+        cannot delete returns a typed ``unsupported`` outcome instead of raising.
+
+        Args:
+            target: Symbolic target token ("origin", "<platform>",
+                "<platform>:<chat_id>[:<thread_id>]", or a friendly alias).
+            message_id: The id of the message to delete.
+
+        Returns:
+            A :class:`MessageActionResult` describing the outcome.
+        """
+        ...
+
 
 # ---------------------------------------------------------------------------
 # Agent-callable cross-conversation request/reply (Issue #3689)
@@ -3111,6 +3458,122 @@ class ConversationRequestProtocol(Protocol):
         Returns:
             A :class:`ConversationReply` describing the outcome.
         """
+        ...
+
+
+# ---------------------------------------------------------------------------
+# Server→client interactive request/reply over the gateway transport
+# (Issue #5351)
+#
+# A blocked HITL turn (approval / choice / free-text input) needs to reach a
+# generic gateway client — a web dashboard, TUI, or custom app — and correlate
+# the client's answer back into the waiting turn. Structured elicitation today
+# only renders through per-channel button backends; a client on the gateway
+# WebSocket cannot see or answer one, and an in-flight prompt is lost when the
+# client drops (the ``since`` cursor replays *past events*, not *still-open
+# requests*).
+#
+# Core owns only the *shape*: the typed request (:class:`GatewayServerRequest`),
+# the correlated reply (:class:`GatewayServerReply`), and the protocol seam
+# (:class:`GatewayRequestChannelProtocol`) — including the ``open_requests``
+# contract that the resume path honours so a reconnecting client is re-sent
+# every still-open (and *only* still-open) request for its sessions. The socket
+# delivery, correlation, and durable open-request set are bound by the running
+# gateway (praisonai-bot) exactly as the outbound messenger is — no heavy
+# import lives in core.
+# ---------------------------------------------------------------------------
+
+GatewayRequestKind = Literal["approval", "choice", "input"]
+"""Closed set of server→client interactive request kinds.
+
+* ``approval`` — allow/deny; the reply ``value`` is ``"allow"`` or ``"deny"``.
+* ``choice`` — select one of ``options``; the reply ``value`` is the option.
+* ``input`` — free text; the reply ``value`` is the entered text.
+"""
+
+
+@dataclass
+class GatewayServerRequest:
+    """A typed server→client interactive request (Issue #5351).
+
+    Delivered to a connected gateway client as a ``server_request`` frame while
+    a turn is blocked awaiting a human answer, and re-issued verbatim on resume
+    for as long as it stays open.
+
+    Attributes:
+        request_id: Correlation id echoed back in the :class:`GatewayServerReply`.
+        kind: One of :data:`GatewayRequestKind`.
+        prompt: Human-readable prompt to render.
+        options: Selectable options, populated only for ``kind == "choice"``.
+        session_id: Session the request belongs to (used for resume replay).
+    """
+
+    request_id: str
+    kind: GatewayRequestKind
+    prompt: str
+    options: Optional[List[str]] = None
+    session_id: str = ""
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Convert to a serializable dictionary for the ``server_request`` frame."""
+        data: Dict[str, Any] = {
+            "request_id": self.request_id,
+            "kind": self.kind,
+            "prompt": self.prompt,
+        }
+        if self.options is not None:
+            data["options"] = list(self.options)
+        if self.session_id:
+            data["session_id"] = self.session_id
+        return data
+
+
+@dataclass
+class GatewayServerReply:
+    """A client's correlated answer to a :class:`GatewayServerRequest`.
+
+    Attributes:
+        request_id: The id of the request being answered.
+        value: ``"allow"``/``"deny"`` for approval, the chosen option for
+            choice, or the entered text for input.
+    """
+
+    request_id: str
+    value: str
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Convert to a serializable dictionary."""
+        return {"request_id": self.request_id, "value": self.value}
+
+
+@runtime_checkable
+class GatewayRequestChannelProtocol(Protocol):
+    """Protocol for server→client interactive request/reply over the transport.
+
+    A concrete implementation is bound by the running gateway (in praisonai-bot)
+    and registered into the per-turn context so a blocked HITL turn can deliver
+    an :class:`GatewayServerRequest` to the connected client and await the
+    correlated :class:`GatewayServerReply`. ``open_requests`` returns the
+    still-open requests for a session so the gateway's resume path can re-issue
+    them alongside the event replay — a dropped connection never wedges a turn.
+    """
+
+    async def request(
+        self,
+        req: "GatewayServerRequest",
+        *,
+        timeout_s: float = 120.0,
+    ) -> Optional["GatewayServerReply"]:
+        """Deliver ``req`` to the session's client and await its reply.
+
+        Returns the correlated :class:`GatewayServerReply`, or ``None`` when no
+        reply arrives within ``timeout_s`` (the request is then cleared from the
+        open set so it is not replayed on a later reconnect).
+        """
+        ...
+
+    def open_requests(self, session_id: str) -> List["GatewayServerRequest"]:
+        """Return the still-open (unanswered) requests for ``session_id``."""
         ...
 
 
@@ -3760,6 +4223,14 @@ class GatewayConcurrencyPolicyProtocol(Protocol):
     A config-driven default (:class:`ConcurrencyLimitPolicy`) is provided for
     the common "N concurrent runs, bounded wait queue, declared overflow"
     case.
+
+    On a shared/multi-tenant gateway the decision may additionally be scoped
+    by a tenant/profile token (Issue #5168), mirroring the ``scope`` axis of
+    :class:`RateLimitPolicyProtocol` / :class:`SpendBudgetPolicyProtocol` — the
+    wrapper passes the caller's ``scope`` plus the live per-scope in-flight and
+    queued counts so a single tenant cannot occupy every global slot. When no
+    per-scope sub-limit is configured the scope arguments are ignored and the
+    global-only decision is returned unchanged (backward compatible).
     """
 
     max_concurrent_runs: int
@@ -3771,6 +4242,9 @@ class GatewayConcurrencyPolicyProtocol(Protocol):
         in_flight: int,
         queued: int,
         session_id: str = "",
+        scope: str = "",
+        scope_in_flight: int = 0,
+        scope_queued: int = 0,
     ) -> AdmissionDecision:
         """Return an :class:`AdmissionDecision` for the supplied facts."""
         ...
@@ -3803,10 +4277,18 @@ class ConcurrencyLimitPolicy:
     A ``max_concurrent_runs`` of ``0`` disables admission control entirely
     (today's behaviour: every inbound turn is admitted immediately).
 
+    On a shared/multi-tenant gateway an optional ``max_concurrent_runs_per_scope``
+    caps concurrency *per tenant/scope* within the global ceiling (Issue #5168):
+    a tenant that already holds its sub-limit is queued/shed against its own
+    slice even when a global slot is notionally free, so a noisy neighbour
+    cannot starve quiet tenants. A value of ``0`` (the default) disables the
+    per-scope sub-limit, preserving the byte-for-byte global-only behaviour.
+
     Example::
 
         ConcurrencyLimitPolicy(max_concurrent_runs=32, queue_depth=128,
-                               overflow_policy="reject")
+                               overflow_policy="reject",
+                               max_concurrent_runs_per_scope=4)
     """
 
     _OVERFLOW = ("reject", "queue", "shed_oldest")
@@ -3816,6 +4298,7 @@ class ConcurrencyLimitPolicy:
         max_concurrent_runs: int = 0,
         queue_depth: int = 0,
         overflow_policy: str = "reject",
+        max_concurrent_runs_per_scope: int = 0,
     ):
         try:
             ceiling = int(max_concurrent_runs)
@@ -3842,9 +4325,22 @@ class ConcurrencyLimitPolicy:
                 f"overflow_policy must be one of {self._OVERFLOW}, "
                 f"got {overflow_policy!r}"
             )
+        try:
+            per_scope = int(max_concurrent_runs_per_scope)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"max_concurrent_runs_per_scope must be an integer, "
+                f"got {max_concurrent_runs_per_scope!r}"
+            )
+        if per_scope < 0:
+            raise ValueError(
+                f"max_concurrent_runs_per_scope must be >= 0, "
+                f"got {max_concurrent_runs_per_scope!r}"
+            )
         self.max_concurrent_runs = ceiling
         self.queue_depth = depth
         self.overflow_policy = overflow
+        self.max_concurrent_runs_per_scope = per_scope
 
     @property
     def enabled(self) -> bool:
@@ -3857,13 +4353,30 @@ class ConcurrencyLimitPolicy:
         in_flight: int,
         queued: int,
         session_id: str = "",
+        scope: str = "",
+        scope_in_flight: int = 0,
+        scope_queued: int = 0,
     ) -> AdmissionDecision:
         # Disabled: preserve legacy always-admit behaviour.
         if self.max_concurrent_runs <= 0:
             return AdmissionDecision.ADMIT
+        # Per-scope fairness (Issue #5168): a tenant already at its sub-limit
+        # is queued/shed against its own slice even when a global slot is free,
+        # so a noisy tenant cannot starve quiet ones. Applied first because it
+        # is the tighter, per-tenant ceiling; the global gate below still caps
+        # aggregate concurrency. ``scope`` must be non-empty for the sub-limit
+        # to apply (an unscoped caller falls through to the global decision).
+        if self.max_concurrent_runs_per_scope > 0 and scope:
+            if scope_in_flight >= self.max_concurrent_runs_per_scope:
+                return self._overflow(scope_queued)
         if in_flight < self.max_concurrent_runs:
             return AdmissionDecision.ADMIT
         # At the ceiling: consult the bounded wait queue.
+        return self._overflow(queued)
+
+    def _overflow(self, queued: int) -> AdmissionDecision:
+        # At a ceiling: queue while the bounded wait queue has room, else apply
+        # the declared overflow behaviour.
         if queued < self.queue_depth:
             return AdmissionDecision.QUEUE
         # Queue is full: declared overflow behaviour.
@@ -6968,12 +7481,80 @@ def resolve_required_scope(
 
     Default-deny: an unclassified/unknown method requires ``ADMIN`` so new
     control surface is closed until explicitly classified — the omission fails
-    **closed** rather than open.
+    **closed** rather than open. A non-string (or unhashable) ``method`` is
+    likewise treated as unclassified and requires ``ADMIN``, so a malformed
+    frame fails closed deterministically instead of raising ``TypeError``.
     """
+    if not isinstance(method, str):
+        return OperatorScope.ADMIN
     desc = GATEWAY_METHODS.get(method)
     if desc is None:
         return OperatorScope.ADMIN
     return desc.resolve(params)
+
+
+class GatewayUnauthorized(PermissionError):
+    """Raised when a caller lacks the scope a gateway method requires.
+
+    Carries the ``method`` and the ``required`` scope so the dispatcher can
+    render a structured, machine-readable denial (matching today's
+    ``insufficient scope`` envelope) without re-deriving either.
+    """
+
+    def __init__(self, method: str, required: OperatorScope) -> None:
+        self.method = method
+        self.required = required
+        super().__init__(
+            f"method {method!r} requires scope {required.value!r}"
+        )
+
+
+def _scope_satisfies(
+    held: "Set[OperatorScope]", required: OperatorScope
+) -> bool:
+    """Whether the ``held`` scopes satisfy ``required``.
+
+    Two implication rules, matching the wrapper's long-standing behaviour so
+    wiring the registry into dispatch does not regress already-classified
+    methods:
+
+    - ``ADMIN`` implies every scope (top of the lattice).
+    - ``READ`` is the baseline lifecycle/observation scope that every
+      authorised operator implicitly holds. An operator provisioned with any
+      actionable scope (``WRITE``/``APPROVALS``/``PAIRING``/``ADMIN``) can
+      therefore still complete the READ-classified session lifecycle
+      (``hello``/``join``/``leave``/status) — exactly as it could before this
+      guard existed, when those frames carried no per-endpoint scope check.
+
+    Otherwise a caller is authorised only when it holds the exact required
+    scope.
+    """
+    if OperatorScope.ADMIN in held:
+        return True
+    if required == OperatorScope.READ:
+        # Any authorised operator (holding at least one scope) may perform the
+        # read-only lifecycle/observation surface.
+        return bool(held)
+    return required in held
+
+
+def authorize_method(
+    method: str,
+    client_scopes: "Set[OperatorScope]",
+    params: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Central, default-deny authorisation gate for a gateway method.
+
+    Resolves the required scope from the single source of truth
+    (:func:`resolve_required_scope`) — so an unclassified/plugin-registered
+    method is ``ADMIN``-only by omission rather than reachable ungated — and
+    raises :class:`GatewayUnauthorized` when ``client_scopes`` do not satisfy
+    it. Dispatch calls this once, centrally, instead of scattering per-endpoint
+    checks that can drift from the registry.
+    """
+    required = resolve_required_scope(method, params)
+    if not _scope_satisfies(set(client_scopes), required):
+        raise GatewayUnauthorized(method=method, required=required)
 
 
 # Core method classification. Registered once at import so the dispatcher can
@@ -6990,8 +7571,15 @@ def _register_core_gateway_methods() -> None:
         "leave": OperatorScope.READ,
         "agent.message": OperatorScope.WRITE,
         "message": OperatorScope.WRITE,
-        # Aborting a turn mutates it, so it carries the same scope as sending one.
+        # Aborting a turn mutates it, so it carries the same scope as sending
+        # one. The wire also accepts the ``message_abort`` event-type alias for
+        # the same action, so both names carry the WRITE scope in lockstep.
         "abort": OperatorScope.WRITE,
+        "message_abort": OperatorScope.WRITE,
+        # Issue #5351: answering a server→client interactive request (approval /
+        # choice / input) on behalf of the blocked turn mutates it, so it needs
+        # the same WRITE scope as sending a message.
+        "server_reply": OperatorScope.WRITE,
         "session.status": OperatorScope.READ,
         "session.transcript": OperatorScope.READ,
         "approvals.resolve": OperatorScope.APPROVALS,

@@ -277,122 +277,6 @@ class AssignmentTypeInfo(BaseModel):
     description_template: Annotated[str, Field(title="Description Template")]
 
 
-class AuditEventCountsResponse(BaseModel):
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    counts: Annotated[dict[str, int] | None, Field(title="Counts")] = None
-    """
-    Mapping of span_id to the number of audit events for that span
-    """
-
-
-class Operation(Enum):
-    opened_file = "opened-file"
-    created_directory = "created-directory"
-    deleted = "deleted"
-    renamed = "renamed"
-    symlinked = "symlinked"
-    changed_file_attributes_of = "changed-file-attributes-of"
-    changed_file_permissions_of = "changed-file-permissions-of"
-    changed_file_ownership_of = "changed-file-ownership-of"
-    changed_timestamp_of = "changed-timestamp-of"
-    checked_metadata_of = "checked-metadata-of"
-    executed = "executed"
-    mounted = "mounted"
-    unmounted = "unmounted"
-
-
-class AttributionKind(Enum):
-    pid = "pid"
-    child_pid = "child_pid"
-    time_window = "time_window"
-    agent_span = "agent_span"
-
-
-class AuditEventInput(BaseModel):
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    timestamp: Annotated[datetime, Field(title="Timestamp")]
-    operation: Annotated[Operation, Field(title="Operation")]
-    path: Annotated[str, Field(title="Path")]
-    new_path: Annotated[str | None, Field(title="New Path")] = None
-    size_bytes: Annotated[int | None, Field(title="Size Bytes")] = None
-    uid: Annotated[int | None, Field(title="Uid")] = None
-    exe: Annotated[str | None, Field(title="Exe")] = None
-    pid: Annotated[int | None, Field(title="Pid")] = None
-    ppid: Annotated[int | None, Field(title="Ppid")] = None
-    comm: Annotated[str | None, Field(title="Comm")] = None
-    trace_id: Annotated[str | None, Field(title="Trace Id")] = None
-    span_id: Annotated[str | None, Field(title="Span Id")] = None
-    agent_id: Annotated[str | None, Field(title="Agent Id")] = None
-    agent_name: Annotated[str | None, Field(title="Agent Name")] = None
-    display_name: Annotated[str | None, Field(title="Display Name")] = None
-    audit_run_id: Annotated[str | None, Field(title="Audit Run Id")] = None
-    tool_name: Annotated[str | None, Field(title="Tool Name")] = None
-    attribution_kind: Annotated[AttributionKind | None, Field(title="Attribution Kind")] = None
-    metadata: Annotated[dict[str, str] | None, Field(title="Metadata")] = None
-
-
-class AuditEventResponse(BaseModel):
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    id: Annotated[int, Field(title="Id")]
-    ref_public_id: Annotated[str, Field(title="Ref Public Id")]
-    timestamp: Annotated[datetime, Field(title="Timestamp")]
-    operation: Annotated[Operation, Field(title="Operation")]
-    path: Annotated[str, Field(title="Path")]
-    new_path: Annotated[str | None, Field(title="New Path")] = None
-    size_bytes: Annotated[int | None, Field(title="Size Bytes")] = None
-    uid: Annotated[int | None, Field(title="Uid")] = None
-    exe: Annotated[str | None, Field(title="Exe")] = None
-    pid: Annotated[int | None, Field(title="Pid")] = None
-    ppid: Annotated[int | None, Field(title="Ppid")] = None
-    comm: Annotated[str | None, Field(title="Comm")] = None
-    trace_id: Annotated[str | None, Field(title="Trace Id")] = None
-    span_id: Annotated[str | None, Field(title="Span Id")] = None
-    agent_id: Annotated[str | None, Field(title="Agent Id")] = None
-    agent_name: Annotated[str | None, Field(title="Agent Name")] = None
-    display_name: Annotated[str | None, Field(title="Display Name")] = None
-    audit_run_id: Annotated[str | None, Field(title="Audit Run Id")] = None
-    tool_name: Annotated[str | None, Field(title="Tool Name")] = None
-    attribution_kind: Annotated[AttributionKind | None, Field(title="Attribution Kind")] = None
-    step_name: Annotated[str, Field(title="Step Name")]
-    repo_name: Annotated[str, Field(title="Repo Name")]
-    metadata: Annotated[dict[str, str] | None, Field(title="Metadata")] = None
-
-
-class AuditEventsListResponse(BaseModel):
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    events: Annotated[list[AuditEventResponse], Field(title="Events")]
-    total: Annotated[int, Field(title="Total")]
-
-
-class AuditSummaryEntry(BaseModel):
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    step_name: Annotated[str, Field(title="Step Name")]
-    repo_name: Annotated[str, Field(title="Repo Name")]
-    agent_id: Annotated[str | None, Field(title="Agent Id")] = None
-    agent_name: Annotated[str | None, Field(title="Agent Name")] = None
-    display_name: Annotated[str | None, Field(title="Display Name")] = None
-    tool_name: Annotated[str | None, Field(title="Tool Name")] = None
-    operation_counts: Annotated[dict[str, int], Field(title="Operation Counts")]
-    total_events: Annotated[int, Field(title="Total Events")]
-
-
-class AuditSummaryResponse(BaseModel):
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    entries: Annotated[list[AuditSummaryEntry], Field(title="Entries")]
-
-
 class AuthzCheckResponse(BaseModel):
     model_config = ConfigDict(
         extra="allow",
@@ -424,13 +308,6 @@ class BranchListResponse(BaseModel):
         extra="allow",
     )
     branches: Annotated[list[BranchInfo], Field(title="Branches")]
-
-
-class BulkRefAuditEventsRequest(BaseModel):
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    events: Annotated[list[AuditEventInput], Field(title="Events")]
 
 
 class CheckpointListItem(BaseModel):
@@ -1778,7 +1655,6 @@ class SessionLogsResponse(BaseModel):
     filtered_count: Annotated[int | None, Field(title="Filtered Count")] = None
     has_more: Annotated[bool | None, Field(title="Has More")] = False
     cursor: Annotated[str | None, Field(title="Cursor")] = None
-    audit_events: Annotated[dict[str, list[AuditEventResponse]] | None, Field(title="Audit Events")] = None
 
 
 class Kind7(Enum):
@@ -3845,6 +3721,29 @@ class AssignmentResponse(BaseModel):
     annotation_count: Annotated[int | None, Field(title="Annotation Count")] = 0
     created_at: Annotated[str, Field(title="Created At")]
     updated_at: Annotated[str, Field(title="Updated At")]
+    org_id: Annotated[int, Field(title="Org Id")]
+    """
+    The org that created (assigned) this assignment.
+    """
+    storage_session_id: Annotated[str | None, Field(title="Storage Session Id")] = None
+    claimed_review_id: Annotated[str | None, Field(title="Claimed Review Id")] = None
+    metadata: AssignmentMetadataOutput
+    plan: Annotated[dict[str, JsonValue] | None, Field(title="Plan")] = None
+    """
+    Source build plan for plan-created assignments; editable via PATCH /assignments/{id} while the assignment is unclaimed.
+    """
+    hooks: HooksConfigOutput | None = None
+    chain_id: Annotated[str | None, Field(title="Chain Id")] = None
+    chain_metadata: Annotated[dict[str, JsonValue] | None, Field(title="Chain Metadata")] = None
+    outputs: Annotated[dict[str, JsonValue], Field(title="Outputs")]
+    claimed_by: AssignmentClaimedBy | None = None
+    """
+    Populated once an assignment has been claimed; the user who took it.
+    """
+    claim_blocked_reason: Annotated[str | None, Field(title="Claim Blocked Reason")] = None
+    """
+    If the requesting user cannot claim this assignment because of an exclusivity rule, the human-readable reason. Only populated for assignee-side reads.
+    """
 
 
 class BatchAssignmentItem(BaseModel):
@@ -3937,6 +3836,7 @@ class ReviewResponse(BaseModel):
     is_ground_truth: Annotated[bool | None, Field(title="Is Ground Truth")] = False
     annotation_count: Annotated[int | None, Field(title="Annotation Count")] = 0
     session: SessionSummary | None = None
+    storage_session_id: Annotated[str | None, Field(title="Storage Session Id")] = None
 
 
 class SplitNodeInput(BaseModel):
@@ -3977,6 +3877,668 @@ class Children1(
     ]
 
 
+class ArtifactBrowserNodeInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["artifact_browser"], Field(title="Type")] = "artifact_browser"
+    id: Annotated[str, Field(title="Id")]
+    artifact_id: Annotated[str, Field(title="Artifact Id")]
+    route: Annotated[str, Field(title="Route")]
+    plato_session_id: Annotated[str | None, Field(title="Plato Session Id")] = None
+
+
+ArtifactBrowserNodeOutput = ArtifactBrowserNodeInput
+
+
+class ArtifactReviewNodeInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["artifact_review"], Field(title="Type")] = "artifact_review"
+    id: Annotated[str, Field(title="Id")]
+    artifact_id: Annotated[str, Field(title="Artifact Id")]
+    sim_name: Annotated[str | None, Field(title="Sim Name")] = ""
+    app_port: Annotated[int | None, Field(title="App Port")] = 3000
+    start_route: Annotated[str | None, Field(title="Start Route")] = "/"
+    instructions: Annotated[str | None, Field(title="Instructions")] = ""
+    stories: Annotated[str | None, Field(title="Stories")] = "[]"
+    verdict: Annotated[str | None, Field(title="Verdict")] = ""
+    current_session: Annotated[str | None, Field(title="Current Session")] = ""
+
+
+class ArtifactReviewNodeOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["artifact_review"], Field(title="Type")] = "artifact_review"
+    id: Annotated[str, Field(title="Id")]
+    artifact_id: Annotated[str, Field(title="Artifact Id")]
+    sim_name: Annotated[str, Field(title="Sim Name")]
+    app_port: Annotated[int, Field(title="App Port")]
+    start_route: Annotated[str, Field(title="Start Route")]
+    instructions: Annotated[str, Field(title="Instructions")]
+    stories: Annotated[str, Field(title="Stories")]
+    verdict: Annotated[str, Field(title="Verdict")]
+    current_session: Annotated[str, Field(title="Current Session")]
+
+
+class AssigneeFileRefInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["assignee_file"], Field(title="Type")] = "assignee_file"
+    path: Annotated[str, Field(title="Path")]
+
+
+class AssigneeFileRefOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["assignee_file"], Field(title="Type")] = "assignee_file"
+    path: Annotated[str, Field(title="Path")]
+
+
+class AssignerFileRefInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["assigner_file"], Field(title="Type")] = "assigner_file"
+    path: Annotated[str, Field(title="Path")]
+
+
+class AssignerFileRefOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["assigner_file"], Field(title="Type")] = "assigner_file"
+    path: Annotated[str, Field(title="Path")]
+
+
+class AssignmentClaimedBy(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    user_public_id: Annotated[str, Field(title="User Public Id")]
+    name: Annotated[str | None, Field(title="Name")] = None
+
+
+class AssignmentMetadataOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    group_name: Annotated[str | None, Field(title="Group Name")] = None
+    """
+    Label that groups assignments for exclusivity. Two assignments sharing this string are alternatives a single user cannot both claim when require_unique=true.
+    """
+    require_unique: Annotated[bool, Field(title="Require Unique")]
+    """
+    If true, ``claim_assignment`` rejects users who've already worked on any other assignment with the same group_name. Lifetime — past submissions count.
+    """
+    assignee: Annotated[str | None, Field(title="Assignee")] = None
+    """
+    Optional user public id to auto-claim the assignment when it is published.
+    """
+    assignees: Annotated[list[str] | None, Field(title="Assignees")] = None
+    """
+    Optional list of user public ids allowed to claim this assignment. When set and non-empty, only these users can claim; empty or omitted means anyone in the assignee org can claim.
+    """
+
+
+class Kind4(Enum):
+    webclone = "webclone"
+    mcp = "mcp"
+    other = "other"
+
+
+class ClickCollectorNodeInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["click_collector"], Field(title="Type")] = "click_collector"
+    id: Annotated[str, Field(title="Id")]
+    base_url: Annotated[str, Field(title="Base Url")]
+    login_instructions: Annotated[str | None, Field(title="Login Instructions")] = ""
+    instructions: Annotated[str | None, Field(title="Instructions")] = ""
+    chronos_url: Annotated[str | None, Field(title="Chronos Url")] = "https://chronos.plato.so"
+    setup_markdown: Annotated[str | None, Field(title="Setup Markdown")] = ""
+    rdp_mode: Annotated[bool | None, Field(title="Rdp Mode")] = False
+
+
+class ClickCollectorNodeOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["click_collector"], Field(title="Type")] = "click_collector"
+    id: Annotated[str, Field(title="Id")]
+    base_url: Annotated[str, Field(title="Base Url")]
+    login_instructions: Annotated[str, Field(title="Login Instructions")]
+    instructions: Annotated[str, Field(title="Instructions")]
+    chronos_url: Annotated[str, Field(title="Chronos Url")]
+    setup_markdown: Annotated[str, Field(title="Setup Markdown")]
+    rdp_mode: Annotated[bool, Field(title="Rdp Mode")]
+
+
+class HooksConfigInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    on_complete: Annotated[str | None, Field(title="On Complete")] = None
+    on_failed: Annotated[str | None, Field(title="On Failed")] = None
+    on_submit: Annotated[str | None, Field(title="On Submit")] = None
+    on_cancel: Annotated[str | None, Field(title="On Cancel")] = None
+
+
+HooksConfigOutput = HooksConfigInput
+
+
+class Status3(Enum):
+    running = "running"
+    succeeded = "succeeded"
+    failed = "failed"
+
+
+class Kind12(Enum):
+    session = "session"
+    assignment = "assignment"
+    slack = "slack"
+
+
+class LaunchedRef(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Annotated[Kind12, Field(title="Kind")]
+    public_id: Annotated[str | None, Field(title="Public Id")] = None
+
+
+class PromptConfirmNodeInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["prompt_confirm"], Field(title="Type")] = "prompt_confirm"
+    id: Annotated[str, Field(title="Id")]
+    prompt: Annotated[str, Field(title="Prompt")]
+    pr_url: Annotated[str | None, Field(title="Pr Url")] = ""
+    show_disassociate: Annotated[bool | None, Field(title="Show Disassociate")] = False
+    disassociate: Annotated[str | None, Field(title="Disassociate")] = "false"
+
+
+class PromptConfirmNodeOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["prompt_confirm"], Field(title="Type")] = "prompt_confirm"
+    id: Annotated[str, Field(title="Id")]
+    prompt: Annotated[str, Field(title="Prompt")]
+    pr_url: Annotated[str, Field(title="Pr Url")]
+    show_disassociate: Annotated[bool, Field(title="Show Disassociate")]
+    disassociate: Annotated[str, Field(title="Disassociate")]
+
+
+class SessionListWorldInfo(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    name: Annotated[str, Field(title="Name")]
+    package_name: Annotated[str, Field(title="Package Name")]
+    version: Annotated[str | None, Field(title="Version")] = None
+
+
+class SessionStatus(Enum):
+    pending = "pending"
+    queued = "queued"
+    starting = "starting"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+    cancelled = "cancelled"
+    timeout = "timeout"
+    needs_human_annotation = "needs_human_annotation"
+    review_starting = "review_starting"
+    reviewing = "reviewing"
+    review_completed = "review_completed"
+
+
+class SourceScreenshotRefInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["source_screenshot"], Field(title="Type")] = "source_screenshot"
+    session_id: Annotated[str | None, Field(title="Session Id")] = ""
+    repo_name: Annotated[str, Field(title="Repo Name")]
+    file_hash: Annotated[str, Field(title="File Hash")]
+    file_path: Annotated[str, Field(title="File Path")]
+
+
+class SourceScreenshotRefOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["source_screenshot"], Field(title="Type")] = "source_screenshot"
+    session_id: Annotated[str, Field(title="Session Id")]
+    repo_name: Annotated[str, Field(title="Repo Name")]
+    file_hash: Annotated[str, Field(title="File Hash")]
+    file_path: Annotated[str, Field(title="File Path")]
+
+
+class SpanSearchField(Enum):
+    message = "message"
+    reasoning = "reasoning"
+    tool_calls = "tool_calls"
+    observation = "observation"
+
+
+class SpanSearchHitField(Enum):
+    message = "message"
+    reasoning = "reasoning"
+    tool_calls = "tool_calls"
+    observation = "observation"
+    other = "other"
+
+
+class SpanSearchHit(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    session_id: Annotated[str, Field(title="Session Id")]
+    span_id: Annotated[str, Field(title="Span Id")]
+    span_name: Annotated[str, Field(title="Span Name")]
+    step_id: Annotated[int | None, Field(title="Step Id")] = None
+    source: Annotated[str | None, Field(title="Source")] = None
+    model_name: Annotated[str | None, Field(title="Model Name")] = None
+    start_time_unix_nano: Annotated[int, Field(title="Start Time Unix Nano")]
+    field: SpanSearchHitField
+    snippet: Annotated[str, Field(title="Snippet")]
+    """
+    Text around the first match; base64 runs become <b64>
+    """
+
+
+class SpanSearchMode(Enum):
+    any = "any"
+    all = "all"
+
+
+class SessionIds(RootModel[list[str]]):
+    root: Annotated[list[str], Field(max_length=1000, title="Session Ids")]
+    """
+    Explicit session public ids
+    """
+
+
+class OrgIds(RootModel[list[int]]):
+    root: Annotated[list[int], Field(max_length=10, min_length=1, title="Org Ids")]
+    """
+    Orgs whose sessions to search (default: the caller's). Naming any org other than the caller's own is Plato-org-admin-only
+    """
+
+
+class SpanSearchSessionCount(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    session_id: Annotated[str, Field(title="Session Id")]
+    hits: Annotated[int, Field(title="Hits")]
+
+
+class SpanSearchSource(Enum):
+    agent = "agent"
+    system = "system"
+    user = "user"
+
+
+class Source(RootModel[str]):
+    root: Annotated[str, Field(min_length=1, title="Source")]
+
+
+class WorldLaunchNodeInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["world_launch"], Field(title="Type")] = "world_launch"
+    id: Annotated[str, Field(title="Id")]
+    world: Annotated[dict[str, JsonValue], Field(title="World")]
+    launch_config: Annotated[dict[str, JsonValue] | None, Field(title="Launch Config")] = None
+    label: Annotated[str | None, Field(title="Label")] = "Start Session"
+    render_port: Annotated[int | None, Field(title="Render Port")] = 3000
+    current_session: Annotated[str | None, Field(title="Current Session")] = ""
+    completed_sessions: Annotated[str | None, Field(title="Completed Sessions")] = "[]"
+    selected_session_id: Annotated[str | None, Field(title="Selected Session Id")] = ""
+    selected_session: Annotated[str | None, Field(title="Selected Session")] = ""
+    selected_workspace_refs: Annotated[str | None, Field(title="Selected Workspace Refs")] = "{}"
+    code_initial_ref: Annotated[str | None, Field(title="Code Initial Ref")] = ""
+    code_final_ref: Annotated[str | None, Field(title="Code Final Ref")] = ""
+    graph_initial_ref: Annotated[str | None, Field(title="Graph Initial Ref")] = ""
+    graph_final_ref: Annotated[str | None, Field(title="Graph Final Ref")] = ""
+    tasks_initial_ref: Annotated[str | None, Field(title="Tasks Initial Ref")] = ""
+    tasks_final_ref: Annotated[str | None, Field(title="Tasks Final Ref")] = ""
+    reports_initial_ref: Annotated[str | None, Field(title="Reports Initial Ref")] = ""
+    reports_final_ref: Annotated[str | None, Field(title="Reports Final Ref")] = ""
+    architecture_initial_ref: Annotated[str | None, Field(title="Architecture Initial Ref")] = ""
+    architecture_final_ref: Annotated[str | None, Field(title="Architecture Final Ref")] = ""
+    done: Annotated[str | None, Field(title="Done")] = "false"
+
+
+class WorldLaunchNodeOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["world_launch"], Field(title="Type")] = "world_launch"
+    id: Annotated[str, Field(title="Id")]
+    world: Annotated[dict[str, JsonValue], Field(title="World")]
+    launch_config: Annotated[dict[str, JsonValue] | None, Field(title="Launch Config")] = None
+    label: Annotated[str, Field(title="Label")]
+    render_port: Annotated[int, Field(title="Render Port")]
+    current_session: Annotated[str, Field(title="Current Session")]
+    completed_sessions: Annotated[str, Field(title="Completed Sessions")]
+    selected_session_id: Annotated[str, Field(title="Selected Session Id")]
+    selected_session: Annotated[str, Field(title="Selected Session")]
+    selected_workspace_refs: Annotated[str, Field(title="Selected Workspace Refs")]
+    code_initial_ref: Annotated[str, Field(title="Code Initial Ref")]
+    code_final_ref: Annotated[str, Field(title="Code Final Ref")]
+    graph_initial_ref: Annotated[str, Field(title="Graph Initial Ref")]
+    graph_final_ref: Annotated[str, Field(title="Graph Final Ref")]
+    tasks_initial_ref: Annotated[str, Field(title="Tasks Initial Ref")]
+    tasks_final_ref: Annotated[str, Field(title="Tasks Final Ref")]
+    reports_initial_ref: Annotated[str, Field(title="Reports Initial Ref")]
+    reports_final_ref: Annotated[str, Field(title="Reports Final Ref")]
+    architecture_initial_ref: Annotated[str, Field(title="Architecture Initial Ref")]
+    architecture_final_ref: Annotated[str, Field(title="Architecture Final Ref")]
+    done: Annotated[str, Field(title="Done")]
+
+
+class ChainAssignmentNode(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    public_id: Annotated[str, Field(title="Public Id")]
+    status: Annotated[str, Field(title="Status")]
+    description: Annotated[str | None, Field(title="Description")] = None
+    assignee_org_id: Annotated[int | None, Field(title="Assignee Org Id")] = None
+    outputs: Annotated[dict[str, JsonValue], Field(title="Outputs")]
+    chain_metadata: Annotated[dict[str, JsonValue], Field(title="Chain Metadata")]
+    created_at: Annotated[datetime, Field(title="Created At")]
+    updated_at: Annotated[datetime | None, Field(title="Updated At")] = None
+
+
+class ChainListItem(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    chain_id: Annotated[str, Field(title="Chain Id")]
+    kind: Annotated[Kind4, Field(title="Kind")]
+    handlers: Annotated[list[str], Field(title="Handlers")]
+    session_count: Annotated[int, Field(title="Session Count")]
+    assignment_count: Annotated[int, Field(title="Assignment Count")]
+    invocation_count: Annotated[int, Field(title="Invocation Count")]
+    failed_invocation_count: Annotated[int, Field(title="Failed Invocation Count")]
+    metadata: Annotated[dict[str, JsonValue], Field(title="Metadata")]
+    tags: Annotated[list[str], Field(title="Tags")]
+    archived_at: Annotated[datetime | None, Field(title="Archived At")] = None
+    first_activity: Annotated[datetime, Field(title="First Activity")]
+    last_activity: Annotated[datetime, Field(title="Last Activity")]
+
+
+class ChainListResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    chains: Annotated[list[ChainListItem], Field(title="Chains")]
+    total: Annotated[int, Field(title="Total")]
+    """
+    Chains matching every filter, independent of paging.
+    """
+    sims: Annotated[list[str], Field(title="Sims")]
+    """
+    Every sim among the chains the archive/tag filters admit, so the sim picker is not limited to the current page.
+    """
+    handlers: Annotated[list[str], Field(title="Handlers")]
+    """
+    Every handler among the same chains, for the handler picker.
+    """
+
+
+class ChainSessionNode(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    public_id: Annotated[str, Field(title="Public Id")]
+    status: Annotated[str, Field(title="Status")]
+    world_package: Annotated[str | None, Field(title="World Package")] = None
+    tags: Annotated[list[str], Field(title="Tags")]
+    output: Annotated[dict[str, JsonValue], Field(title="Output")]
+    chain_metadata: Annotated[dict[str, JsonValue], Field(title="Chain Metadata")]
+    child_count: Annotated[int, Field(title="Child Count")]
+    created_at: Annotated[datetime, Field(title="Created At")]
+    ended_at: Annotated[datetime | None, Field(title="Ended At")] = None
+
+
+class ChildWorldConfigOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    mode: Annotated[Mode, Field(title="Mode")]
+    package: Annotated[str | None, Field(title="Package")] = None
+    world_name: Annotated[str | None, Field(title="World Name")] = None
+    config: Annotated[dict[str, JsonValue], Field(title="Config")]
+    runtime: Annotated[dict[str, JsonValue] | None, Field(title="Runtime")] = None
+    tags: Annotated[list[str], Field(title="Tags")]
+
+
+class ClickElementInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    id: Annotated[str, Field(title="Id")]
+    screenshot_element_id: Annotated[str | None, Field(title="Screenshot Element Id")] = ""
+    url: Annotated[str, Field(title="Url")]
+    label: Annotated[str | None, Field(title="Label")] = ""
+    bbox: Annotated[list[int] | None, Field(title="Bbox")] = None
+    screenshot: Annotated[
+        SourceScreenshotRefInput | AssignerFileRefInput | AssigneeFileRefInput | None,
+        Field(title="Screenshot"),
+    ] = None
+
+
+class ClickElementOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    id: Annotated[str, Field(title="Id")]
+    screenshot_element_id: Annotated[str, Field(title="Screenshot Element Id")]
+    url: Annotated[str, Field(title="Url")]
+    label: Annotated[str, Field(title="Label")]
+    bbox: Annotated[list[int], Field(title="Bbox")]
+    screenshot: Annotated[
+        SourceScreenshotRefOutput | AssignerFileRefOutput | AssigneeFileRefOutput | None,
+        Field(title="Screenshot"),
+    ] = None
+
+
+class InvocationResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    public_id: Annotated[str, Field(title="Public Id")]
+    handler_public_id: Annotated[str | None, Field(title="Handler Public Id")] = None
+    handler_name: Annotated[str, Field(title="Handler Name")]
+    event_type: Annotated[str, Field(title="Event Type")]
+    event_payload: Annotated[dict[str, JsonValue], Field(title="Event Payload")]
+    chain_id: Annotated[str | None, Field(title="Chain Id")] = None
+    status: Annotated[Status3, Field(title="Status")]
+    error: Annotated[str | None, Field(title="Error")] = None
+    logs: Annotated[list[str], Field(title="Logs")]
+    launched: Annotated[list[LaunchedRef], Field(title="Launched")]
+    refired_from_public_id: Annotated[str | None, Field(title="Refired From Public Id")] = None
+    created_at: Annotated[datetime, Field(title="Created At")]
+    ended_at: Annotated[datetime | None, Field(title="Ended At")] = None
+
+
+class Screenshots(RootModel[SourceScreenshotRefInput | AssignerFileRefInput | AssigneeFileRefInput]):
+    root: Annotated[
+        SourceScreenshotRefInput | AssignerFileRefInput | AssigneeFileRefInput,
+        Field(discriminator="type"),
+    ]
+
+
+class ScreenshotCarouselNodeInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["screenshot_carousel"], Field(title="Type")] = "screenshot_carousel"
+    id: Annotated[str, Field(title="Id")]
+    screenshots: Annotated[list[Screenshots] | None, Field(title="Screenshots")] = None
+
+
+class Screenshots1(RootModel[SourceScreenshotRefOutput | AssignerFileRefOutput | AssigneeFileRefOutput]):
+    root: Annotated[
+        SourceScreenshotRefOutput | AssignerFileRefOutput | AssigneeFileRefOutput,
+        Field(discriminator="type"),
+    ]
+
+
+class ScreenshotCarouselNodeOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["screenshot_carousel"], Field(title="Type")] = "screenshot_carousel"
+    id: Annotated[str, Field(title="Id")]
+    screenshots: Annotated[list[Screenshots1], Field(title="Screenshots")]
+
+
+class SpanSearchRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    tag: Annotated[str | None, Field(title="Tag")] = None
+    """
+    Sessions with a tag containing this (same matching as the session list, so 'platform_task_run' matches 'platform_task_run.<world>')
+    """
+    session_ids: Annotated[SessionIds | None, Field(title="Session Ids")] = None
+    """
+    Explicit session public ids
+    """
+    created_after: Annotated[datetime | None, Field(title="Created After")] = None
+    created_before: Annotated[datetime | None, Field(title="Created Before")] = None
+    status: SessionStatus | None = None
+    query: Annotated[list[str], Field(max_length=10, min_length=1, title="Query")]
+    """
+    Terms matched as case-insensitive substrings
+    """
+    mode: SpanSearchMode | None = SpanSearchMode.any
+    """
+    Whether a span must contain any or all terms
+    """
+    fields: Annotated[list[SpanSearchField] | None, Field(title="Fields")] = None
+    """
+    Only match these step attributes. Omitted: every searchable attribute, including span content and session errors/results
+    """
+    sources: Annotated[list[SpanSearchSource] | None, Field(title="Sources")] = None
+    """
+    Only step spans from these sources
+    """
+    is_error: Annotated[bool | None, Field(title="Is Error")] = None
+    """
+    Only error (true) or non-error spans
+    """
+    limit: Annotated[int | None, Field(ge=1, le=2000, title="Limit")] = 200
+    """
+    Max hits returned
+    """
+    per_session_limit: Annotated[int | None, Field(ge=1, le=500, title="Per Session Limit")] = 20
+    """
+    Max hits per session
+    """
+    snippet_chars: Annotated[int | None, Field(ge=40, le=4000, title="Snippet Chars")] = 300
+    org_ids: Annotated[OrgIds | None, Field(title="Org Ids")] = None
+    """
+    Orgs whose sessions to search (default: the caller's). Naming any org other than the caller's own is Plato-org-admin-only
+    """
+
+
+class SpanSearchResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    sessions_searched: Annotated[int, Field(title="Sessions Searched")]
+    hits: Annotated[list[SpanSearchHit], Field(title="Hits")]
+    session_counts: Annotated[list[SpanSearchSessionCount], Field(title="Session Counts")]
+    """
+    Matching spans per session, for every session with at least one
+    """
+    truncated: Annotated[bool, Field(title="Truncated")]
+    """
+    More hits matched than limit/per_session_limit returned
+    """
+
+
+class ChainViewResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    chain_id: Annotated[str, Field(title="Chain Id")]
+    sessions: Annotated[list[ChainSessionNode], Field(title="Sessions")]
+    assignments: Annotated[list[ChainAssignmentNode], Field(title="Assignments")]
+    invocations: Annotated[list[InvocationResponse], Field(title="Invocations")]
+
+
+class ClickCollectorElementsNodeInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["click_collector_elements"], Field(title="Type")] = "click_collector_elements"
+    id: Annotated[str, Field(title="Id")]
+    base_url: Annotated[str, Field(title="Base Url")]
+    login_instructions: Annotated[str | None, Field(title="Login Instructions")] = ""
+    instructions: Annotated[str | None, Field(title="Instructions")] = ""
+    chronos_url: Annotated[str | None, Field(title="Chronos Url")] = "https://chronos.plato.so"
+    setup_markdown: Annotated[str | None, Field(title="Setup Markdown")] = ""
+    rdp_mode: Annotated[bool | None, Field(title="Rdp Mode")] = False
+    explored_page_urls: Annotated[list[str] | None, Field(title="Explored Page Urls")] = None
+    elements: Annotated[list[ClickElementInput] | None, Field(title="Elements")] = None
+    element_statuses: Annotated[str | None, Field(title="Element Statuses")] = "{}"
+
+
+class ClickCollectorElementsNodeOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Annotated[Literal["click_collector_elements"], Field(title="Type")] = "click_collector_elements"
+    id: Annotated[str, Field(title="Id")]
+    base_url: Annotated[str, Field(title="Base Url")]
+    login_instructions: Annotated[str, Field(title="Login Instructions")]
+    instructions: Annotated[str, Field(title="Instructions")]
+    chronos_url: Annotated[str, Field(title="Chronos Url")]
+    setup_markdown: Annotated[str, Field(title="Setup Markdown")]
+    rdp_mode: Annotated[bool, Field(title="Rdp Mode")]
+    explored_page_urls: Annotated[list[str], Field(title="Explored Page Urls")]
+    elements: Annotated[list[ClickElementOutput], Field(title="Elements")]
+    element_statuses: Annotated[str, Field(title="Element Statuses")]
+
+
+class SessionListItem(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    public_id: Annotated[str, Field(title="Public Id")]
+    status: SessionStatus
+    status_reason: Annotated[str | None, Field(title="Status Reason")] = None
+    started_at: Annotated[datetime | None, Field(title="Started At")] = None
+    ended_at: Annotated[datetime | None, Field(title="Ended At")] = None
+    created_at: Annotated[datetime, Field(title="Created At")]
+    world: SessionListWorldInfo | None = None
+    world_config: SessionStoredWorldConfig
+    total_cost_usd: Annotated[float | None, Field(title="Total Cost Usd")] = None
+    tags: Annotated[list[str], Field(title="Tags")]
+    created_by: UserInfo | None = None
+    child_sessions: Annotated[list[ChildSessionSummary], Field(title="Child Sessions")]
+    child_count: Annotated[int, Field(title="Child Count")]
+    active_child_count: Annotated[int, Field(title="Active Child Count")]
+    archived_at: Annotated[datetime | None, Field(title="Archived At")] = None
+    total_active_env_count: Annotated[int | None, Field(title="Total Active Env Count")] = None
+
+
 FullLineageNode.model_rebuild()
 AnnotationResponse.model_rebuild()
 AssignmentListResponse.model_rebuild()
@@ -3989,3 +4551,48 @@ NodeTreeOutput.model_rebuild()
 ReviewListResponse.model_rebuild()
 SplitNodeInput.model_rebuild()
 SplitNodeOutput.model_rebuild()
+AssignmentResponse.model_rebuild()
+ReviewResponse.model_rebuild()
+ArtifactBrowserNodeInput.model_rebuild()
+ArtifactReviewNodeInput.model_rebuild()
+ArtifactReviewNodeOutput.model_rebuild()
+AssigneeFileRefInput.model_rebuild()
+AssigneeFileRefOutput.model_rebuild()
+AssignerFileRefInput.model_rebuild()
+AssignerFileRefOutput.model_rebuild()
+AssignmentClaimedBy.model_rebuild()
+AssignmentMetadataOutput.model_rebuild()
+ClickCollectorNodeInput.model_rebuild()
+ClickCollectorNodeOutput.model_rebuild()
+HooksConfigInput.model_rebuild()
+LaunchedRef.model_rebuild()
+PromptConfirmNodeInput.model_rebuild()
+PromptConfirmNodeOutput.model_rebuild()
+SessionListWorldInfo.model_rebuild()
+SourceScreenshotRefInput.model_rebuild()
+SourceScreenshotRefOutput.model_rebuild()
+SpanSearchHit.model_rebuild()
+SessionIds.model_rebuild()
+OrgIds.model_rebuild()
+SpanSearchSessionCount.model_rebuild()
+Source.model_rebuild()
+WorldLaunchNodeInput.model_rebuild()
+WorldLaunchNodeOutput.model_rebuild()
+ChainAssignmentNode.model_rebuild()
+ChainListItem.model_rebuild()
+ChainListResponse.model_rebuild()
+ChainSessionNode.model_rebuild()
+ChildWorldConfigOutput.model_rebuild()
+ClickElementInput.model_rebuild()
+ClickElementOutput.model_rebuild()
+InvocationResponse.model_rebuild()
+Screenshots.model_rebuild()
+ScreenshotCarouselNodeInput.model_rebuild()
+Screenshots1.model_rebuild()
+ScreenshotCarouselNodeOutput.model_rebuild()
+SpanSearchRequest.model_rebuild()
+SpanSearchResponse.model_rebuild()
+ChainViewResponse.model_rebuild()
+ClickCollectorElementsNodeInput.model_rebuild()
+ClickCollectorElementsNodeOutput.model_rebuild()
+SessionListItem.model_rebuild()

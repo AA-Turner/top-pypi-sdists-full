@@ -9,6 +9,7 @@ from typing import Callable, Dict, List, Optional, Union
 import cloudpickle
 
 from ... import terminal
+from ...references import validate_env
 from ...abstractions.base import BaseAbstraction
 from ...abstractions.image import Image, ImageBuildResult
 from ...abstractions.volume import Volume
@@ -133,6 +134,7 @@ class RunnerAbstraction(BaseAbstraction):
         block_network: bool = False,
         allow_list: Optional[List[str]] = None,
         docker_enabled: bool = False,
+        use_vm: bool = False,
         pool: Optional[Union[str, Pool]] = None,
         app_kind: str = "",
         serving_protocol: str = "",
@@ -151,6 +153,12 @@ class RunnerAbstraction(BaseAbstraction):
         formatted_env = []
         if env:
             formatted_env = [f"{k}={v}" for k, v in env.items()]
+            problems = validate_env(formatted_env)
+            if problems:
+                terminal.error(
+                    "Invalid ${{...}} reference in env:\n" + "\n".join(problems),
+                    code="INVALID_CONFIG",
+                )
 
         self.name = name
         self.app = app
@@ -194,6 +202,7 @@ class RunnerAbstraction(BaseAbstraction):
         self.checkpoint_readiness_timeout = checkpoint_readiness_timeout
         self.checkpoint_readiness_interval = checkpoint_readiness_interval
         self.docker_enabled = docker_enabled
+        self.use_vm = use_vm
         self.is_service = False
         self.serving = ServingConfig.from_options(
             app_kind=app_kind,
@@ -727,6 +736,7 @@ class RunnerAbstraction(BaseAbstraction):
             inputs=inputs,
             outputs=outputs,
             docker_enabled=self.docker_enabled,
+            use_vm=self.use_vm,
             tcp=self.tcp,
             block_network=self.block_network,
             allow_list=self.allow_list,

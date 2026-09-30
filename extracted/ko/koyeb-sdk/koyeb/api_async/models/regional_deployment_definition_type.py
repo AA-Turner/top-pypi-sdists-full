@@ -26,15 +26,13 @@ class RegionalDeploymentDefinitionType(str, Enum):
     """
     allowed enum values
     """
-    INVALID = 'INVALID'
-    WEB = 'WEB'
-    WORKER = 'WORKER'
-    UNDERSCORE = '_'
-    SANDBOX = 'SANDBOX'
+    INVALID = "INVALID"
+    WEB = "WEB"
+    WORKER = "WORKER"
+    UNDERSCORE = "_"
+    SANDBOX = "SANDBOX"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of RegionalDeploymentDefinitionType from a JSON string"""
         return cls(json.loads(json_str))
-
-

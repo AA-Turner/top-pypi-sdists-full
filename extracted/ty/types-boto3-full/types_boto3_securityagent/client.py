@@ -211,6 +211,8 @@ from .type_defs import (
     UpdateCodeReviewOutputTypeDef,
     UpdateFindingInputTypeDef,
     UpdateIntegratedResourcesInputTypeDef,
+    UpdateIntegrationInputTypeDef,
+    UpdateIntegrationOutputTypeDef,
     UpdatePentestInputTypeDef,
     UpdatePentestOutputTypeDef,
     UpdatePrivateConnectionCertificateInputTypeDef,
@@ -1138,6 +1140,17 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_integrated_resources.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/client/#update_integrated_resources)
+        """
+
+    def update_integration(
+        self, **kwargs: Unpack[UpdateIntegrationInputTypeDef]
+    ) -> UpdateIntegrationOutputTypeDef:
+        """
+        Creates an integration's webhook, or rotates the HMAC signing secret of an
+        existing one.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_integration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/client/#update_integration)
         """
 
     def update_pentest(

@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.git_hub_registry_configuration import GitHubRegistryConfiguration
+from koyeb.api_async.models.git_hub_registry_configuration import (
+    GitHubRegistryConfiguration,
+)
+
 
 class TestGitHubRegistryConfiguration(unittest.TestCase):
     """GitHubRegistryConfiguration unit test stubs"""
@@ -27,9 +30,9 @@ class TestGitHubRegistryConfiguration(unittest.TestCase):
 
     def make_instance(self, include_optional) -> GitHubRegistryConfiguration:
         """Test GitHubRegistryConfiguration
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `GitHubRegistryConfiguration`
         """
         model = GitHubRegistryConfiguration()
@@ -48,5 +51,6 @@ class TestGitHubRegistryConfiguration(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -327,6 +327,7 @@ BLOCK_TITLE_MARKERS = (
     "ddos-guard",                   # DDoS-Guard
     "access denied",                # Akamai edge refusal ("Reference #…")
     "security check",               # generic
+    "the request could not be satisfied",  # AWS CloudFront 403 ("ERROR: The request could not be satisfied")
 )
 BLOCK_BODY_MARKERS = (
     "prove your humanity",
@@ -340,6 +341,10 @@ BLOCK_BODY_MARKERS = (
     "why have i been blocked",                     # Cloudflare block page
     "you don't have permission to access",         # Akamai "Access Denied … Reference #"
     "request unsuccessful. incapsula incident id", # Imperva
+    "the request could not be satisfied",          # AWS CloudFront 403
+    "please complete the security check",          # Cloudflare legacy captcha ("One more step")
+    "completing the captcha proves you are a human",  # Cloudflare legacy captcha
+    "let's confirm you are human",                 # generic "Human Verification"
 )
 BLOCK_WIDGET_SELECTORS = (
     'iframe[src*="hcaptcha.com"]',
@@ -398,6 +403,29 @@ def detect_challenge_reasons(
                 if widget:
                     reasons.append({FailureReason.BLOCKED: f"Short page is a captcha: {widget}"})
     return reasons
+
+
+def challenge_text_reason(*, title: str | None, text: str | None) -> str | None:
+    """The same census over a page already reduced to TITLE + TEXT (no HTML kept).
+
+    For consumers that stored only the extracted text of a capture — coverage keeps an
+    excerpt, not the DOM. Only a SHORT page can be the wall itself: a long article whose
+    title happens to contain "Access Denied" is an article.
+    """
+    body = " ".join((text or "").split()).lower()
+    if len(body) > SHORT_PAGE_CHARS:
+        return None
+    lowered_title = (title or "").strip().lower()
+    marker = next(
+        (m for m in (*CHALLENGE_TITLE_MARKERS, *BLOCK_TITLE_MARKERS) if lowered_title and m in lowered_title),
+        None,
+    )
+    if marker:
+        return f"the page title is a bot or access wall ({title!s})"
+    phrase = next((m for m in BLOCK_BODY_MARKERS if m in body), None)
+    if phrase:
+        return f"the page is a bot or access wall ({phrase!r})"
+    return None
 
 
 def wall_reason_from_status(

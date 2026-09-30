@@ -1,9 +1,9 @@
 """Email resource"""
 
-from typing import List
+from typing import List, Union
 
 from .base import BaseResource
-from ..models.email import EmailRequest
+from ..models.email import EmailRequest, EmailsListRequest, EmailGetRequest
 from ..models.base import APIResponse
 
 
@@ -30,12 +30,12 @@ class Email(BaseResource):
         self.logger.debug("Sending email request to MailerSend API")
         self.logger.debug("Payload: %s", payload)
 
-        response = self.client.request(method="POST", path="email", body=payload)
-
-        # Create custom data with email ID from headers
-        email_data = {"id": response.headers.get("x-message-id")}
-
-        return self._create_response(response, email_data)
+        return self._request(
+            method="POST",
+            path="email",
+            body=payload,
+            data=lambda r: {"id": r.headers.get("x-message-id")},
+        )
 
     def send_bulk(self, emails: List[EmailRequest]) -> APIResponse:
         """
@@ -58,9 +58,7 @@ class Email(BaseResource):
         self.logger.debug("Sending bulk email request to MailerSend API")
         self.logger.debug("Payload: %s", payload)
 
-        response = self.client.request(method="POST", path="bulk-email", body=payload)
-
-        return self._create_response(response)
+        return self._request(method="POST", path="bulk-email", body=payload)
 
     def get_bulk_status(self, bulk_email_id: str) -> APIResponse:
         """
@@ -74,6 +72,46 @@ class Email(BaseResource):
         """
         self.logger.debug("Getting bulk email status")
 
-        response = self.client.request(method="GET", path=f"bulk-email/{bulk_email_id}")
+        return self._request(method="GET", path=f"bulk-email/{bulk_email_id}")
 
-        return self._create_response(response)
+    def list(self, request: EmailsListRequest) -> APIResponse:
+        """
+        Get a list of emails sent from a domain.
+
+        Paginated with ``page`` and ``limit``. ``response["meta"]`` carries
+        ``current_page``, ``per_page``, ``from`` and ``to``, but no ``total``
+        and no ``last_page`` — walk pages until ``links["next"]`` is ``None``.
+
+        Args:
+            request: A fully-validated EmailsListRequest object
+
+        Returns:
+            APIResponse with the emails, pagination links and metadata
+        """
+        self.logger.debug("Preparing to list emails")
+
+        params = request.to_query_params()
+
+        self.logger.debug(
+            "Listing emails for domain: %s", request.query_params.domain_id
+        )
+        self.logger.debug("Query params: %s", params)
+
+        return self._request(method="GET", path="emails", params=params)
+
+    def get(self, request: Union[EmailGetRequest, str]) -> APIResponse:
+        """
+        Get a single email, its content and its activity events.
+
+        Args:
+            request: An EmailGetRequest object, or the email ID as a string
+
+        Returns:
+            APIResponse with the email and its activity events
+        """
+        if isinstance(request, str):
+            request = EmailGetRequest(email_id=request)
+
+        self.logger.debug("Getting email: %s", request.email_id)
+
+        return self._request(method="GET", path=f"email/{request.email_id}")

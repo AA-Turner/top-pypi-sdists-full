@@ -27,6 +27,7 @@ __all__ = (
     "CertificateStatusTypeType",
     "CertificateTypeType",
     "CertificateUsageTypeType",
+    "CommunicationModeType",
     "CompressionEnumType",
     "ConnectorEgressTypeType",
     "ConnectorStatusType",
@@ -92,6 +93,7 @@ As2TransportType = Literal["HTTP"]
 CertificateStatusTypeType = Literal["ACTIVE", "INACTIVE", "PENDING_ROTATION"]
 CertificateTypeType = Literal["CERTIFICATE", "CERTIFICATE_WITH_PRIVATE_KEY"]
 CertificateUsageTypeType = Literal["ENCRYPTION", "SIGNING", "TLS"]
+CommunicationModeType = Literal["CLIENT_TALK_FIRST", "SERVER_TALK_FIRST"]
 CompressionEnumType = Literal["DISABLED", "ZLIB"]
 ConnectorEgressTypeType = Literal["SERVICE_MANAGED", "VPC_LATTICE"]
 ConnectorStatusType = Literal["ACTIVE", "ERRORED", "PENDING"]
@@ -238,6 +240,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -312,6 +315,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -435,6 +439,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

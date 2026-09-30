@@ -106,6 +106,9 @@ class GetMetricsResponse(_message.Message):
         "namespace_wide_table_row_counts",
         "wide_table_layouts",
         "namespace_wide_table_config_fingerprints",
+        "non_mfv_backed_skinny_tables_bytes",
+        "query_log_bytes",
+        "query_values_bytes",
     )
     SKINNY_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
     WIDE_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
@@ -116,6 +119,9 @@ class GetMetricsResponse(_message.Message):
     NAMESPACE_WIDE_TABLE_ROW_COUNTS_FIELD_NUMBER: _ClassVar[int]
     WIDE_TABLE_LAYOUTS_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_WIDE_TABLE_CONFIG_FINGERPRINTS_FIELD_NUMBER: _ClassVar[int]
+    NON_MFV_BACKED_SKINNY_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
+    QUERY_LOG_BYTES_FIELD_NUMBER: _ClassVar[int]
+    QUERY_VALUES_BYTES_FIELD_NUMBER: _ClassVar[int]
     skinny_tables_bytes: int
     wide_tables_bytes: int
     wide_mapping_table_bytes: int
@@ -127,6 +133,9 @@ class GetMetricsResponse(_message.Message):
     namespace_wide_table_config_fingerprints: _containers.RepeatedCompositeFieldContainer[
         NamespaceWideTableConfigFingerprint
     ]
+    non_mfv_backed_skinny_tables_bytes: int
+    query_log_bytes: int
+    query_values_bytes: int
     def __init__(
         self,
         skinny_tables_bytes: _Optional[int] = ...,
@@ -140,4 +149,7 @@ class GetMetricsResponse(_message.Message):
         namespace_wide_table_config_fingerprints: _Optional[
             _Iterable[_Union[NamespaceWideTableConfigFingerprint, _Mapping]]
         ] = ...,
+        non_mfv_backed_skinny_tables_bytes: _Optional[int] = ...,
+        query_log_bytes: _Optional[int] = ...,
+        query_values_bytes: _Optional[int] = ...,
     ) -> None: ...

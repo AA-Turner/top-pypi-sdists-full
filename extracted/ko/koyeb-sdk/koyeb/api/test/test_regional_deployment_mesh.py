@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api.models.regional_deployment_mesh import RegionalDeploymentMesh
 
+
 class TestRegionalDeploymentMesh(unittest.TestCase):
     """RegionalDeploymentMesh unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestRegionalDeploymentMesh(unittest.TestCase):
         """Test RegionalDeploymentMesh"""
         # inst = RegionalDeploymentMesh()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

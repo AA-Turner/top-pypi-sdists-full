@@ -1,8 +1,8 @@
 # THIS FILE IS GENERATED FROM ORANGE-WIDGET-BASE SETUP.PY
-short_version = '4.27.0'
-version = '4.27.0'
-full_version = '4.27.0'
-git_revision = 'e26e6d661d7e31997f3406a21089cdb417d6df3e'
+short_version = '4.28.0'
+version = '4.28.0'
+full_version = '4.28.0'
+git_revision = '28eae0bc3fa0acdfdc73191d30f09cb80aac2188'
 release = True
 
 if not release:

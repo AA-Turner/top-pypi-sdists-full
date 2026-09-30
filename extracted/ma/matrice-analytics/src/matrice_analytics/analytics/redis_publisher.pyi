@@ -3,7 +3,9 @@ from typing import Any, Dict, Optional
 
 # Constants
 AGG_STREAM: str
+DEFAULT_STREAM_MAXLEN: int
 INCIDENT_STREAM: str
+STREAM_MAXLEN_ENV: str
 logger: Any
 
 # Classes

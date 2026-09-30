@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class HasUnpaidInvoicesReply(BaseModel):
     """
     HasUnpaidInvoicesReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     has_unpaid_invoices: Optional[StrictBool] = None
     __properties: ClassVar[List[str]] = ["has_unpaid_invoices"]
 
@@ -36,7 +38,6 @@ class HasUnpaidInvoicesReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -61,8 +62,7 @@ class HasUnpaidInvoicesReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -80,9 +80,7 @@ class HasUnpaidInvoicesReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "has_unpaid_invoices": obj.get("has_unpaid_invoices")
-        })
+        _obj = cls.model_validate(
+            {"has_unpaid_invoices": obj.get("has_unpaid_invoices")}
+        )
         return _obj
-
-

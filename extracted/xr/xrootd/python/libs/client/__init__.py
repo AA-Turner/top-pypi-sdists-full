@@ -6,6 +6,7 @@ from .file import File
 from pyxrootd.client import setXAttrAdler32_cpp as setXAttrAdler32
 from .url import URL
 from .copyprocess import CopyProcess
+from .tape import TapeClient
 from .env import EnvPutString
 from .env import EnvGetString
 from .env import EnvDelString
@@ -16,5 +17,12 @@ from ._version import __version__
 from .env import EnvGetDefault
 from .env import SetLogLevel
 from .env import SetLogMask
+from .responses import XRootDError
+from .responses import XRootDNotFoundError
+from .responses import XRootDAuthorizationError
+from .responses import XRootDTimeoutError
+from .responses import XRootDChecksumError
+from .responses import XRootDOperationError
+from .responses import raise_on_error
 
 import XRootD.client.finalize

@@ -30,6 +30,10 @@ class LTReporter:
 
     async def begin_test(self, name):
         self._step_num = 0
+        # A step-variable buffer left over from a previous test would be
+        # attributed to this test's first step.
+        from testmu._step_variables import reset_step_variables
+        reset_step_variables()
         _log.info("[TEST START] %s", name)
 
     async def pass_test(self):
@@ -69,7 +73,8 @@ class LTReporter:
                 pass
         await self._evaluate_action("lambda-testCase-start", args)
 
-    async def end_step(self, description, ok, error=None, instruction_id=None):
+    async def end_step(self, description, ok, error=None, instruction_id=None,
+                       on_failure=None):
         if not ok:
             _log.error("  [STEP %d FAIL] %s", self._step_num, error)
         args = {"name": description, "status": "passed" if ok else "failed"}
@@ -78,6 +83,22 @@ class LTReporter:
         # auto_heal: whether any action in this step fell to the heal cascade.
         from testmu._step import get_step_autoheal
         args["auto_heal"] = get_step_autoheal()
+        # Report the values this step ran with, not just the names. The
+        # buffer is DRAINED unconditionally (even when the hook itself is a no-op)
+        # so one step's reads cannot leak into the next step's payload.
+        from testmu._step_variables import pop_step_variables
+        step_variables = pop_step_variables()
+        if step_variables:
+            args["variables"] = step_variables
+            _log.info("  [STEP %d] variables=%s", self._step_num, sorted(step_variables))
+        # Carry WHY a failed step failed so HPS can show the per-step
+        # disposition. Only on a failure — meaningless for a passing step, and
+        # the source omits it there too.
+        if not ok:
+            from testmu._step import wire_failure_condition
+            wire_condition = wire_failure_condition(on_failure)
+            if wire_condition:
+                args["failure_condition"] = wire_condition
         await self._evaluate_action("lambda-testCase-end", args)
 
     async def warn_step(self, description, error):

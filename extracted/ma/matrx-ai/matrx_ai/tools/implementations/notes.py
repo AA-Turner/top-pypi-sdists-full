@@ -83,8 +83,9 @@ async def note_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 "folder_name": n.get("folder_name"),
                 "content": n.get("content"),
                 "tags": n.get("tags", []),
-                "visibility": n.get("visibility"),
-                "is_public": n.get("visibility") == "public",
+                "published_to_web": bool(n.get("published_to_web")),
+                "shown_to": n.get("shown_to"),
+                "is_public": bool(n.get("published_to_web")),
                 "created_at": n.get("created_at"),
                 "updated_at": n.get("updated_at"),
             },
@@ -231,7 +232,7 @@ async def _note_update_as_the_person(args: dict[str, Any], ctx: ToolContext) -> 
                 tool_name="note_update", call_id=ctx.call_id,
             )
         prior = before["note"]
-        result = await notes_manager_instance.update_note(note_id, **updates)
+        result = await notes_manager_instance.update_note(note_id, actor_id=ctx.user_id, **updates)
         if not result.get("success"):
             return ToolResult(
                 success=False,

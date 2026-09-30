@@ -121,7 +121,7 @@ class TestBasicVideoEncoding(TestCase):
             stream = output.add_stream("mpeg4")
             assert stream in output.streams.video
             assert stream.average_rate == Fraction(24, 1)
-            assert stream.time_base is None
+            assert not stream.time_base
 
             # codec context properties
             assert stream.format.height == 480
@@ -196,7 +196,7 @@ class TestBasicAudioEncoding(TestCase):
         with av.open(self.sandboxed("output.mov"), "w") as output:
             stream = output.add_stream("mp2")
             assert stream in output.streams.audio
-            assert stream.time_base is None
+            assert not stream.time_base
 
             # codec context properties
             assert stream.format.name == "s16"
@@ -372,7 +372,7 @@ class TestEncodeStreamSemantics(TestCase):
             assert stream.id == 1
 
             # set time_base
-            assert stream.time_base is None
+            assert not stream.time_base
             stream.time_base = Fraction(1, 48000)
             assert stream.time_base == Fraction(1, 48000)
 
@@ -662,3 +662,57 @@ def test_hardware_encode_honors_sw_format() -> None:
     for packet in stream.encode():
         container.mux(packet)
     container.close()
+
+
+def test_metadata_survives_non_utf8_bytes(tmp_path) -> None:
+    # FFmpeg hands tags back as bytes with no declared encoding, so PyAV reads
+    # them as UTF-8 with surrogateescape. That has to be byte exact both ways,
+    # or a tag written in some other encoding is destroyed by a round trip.
+    raw = "café".encode("latin-1")
+    tag = raw.decode("utf-8", "surrogateescape")
+    path = str(tmp_path / "metadata.mkv")
+
+    with av.open(path, "w") as output:
+        stream = output.add_stream("mpeg4", rate=24)
+        assert isinstance(stream, VideoStream)
+        stream.width = stream.height = 64
+        stream.pix_fmt = "yuv420p"
+        output.metadata["title"] = tag
+        stream.metadata["note"] = tag
+        output.mux(stream.encode(VideoFrame(64, 64, "yuv420p")))
+        output.mux(stream.encode(None))
+
+    with av.open(path) as input_:
+        # Matroska upper cases the keys it does not know.
+        title = input_.metadata["title"]
+        note = input_.streams[0].metadata["NOTE"]
+
+    assert title.encode("utf-8", "surrogateescape") == raw
+    assert note.encode("utf-8", "surrogateescape") == raw
+    assert title.encode("utf-8", "surrogateescape").decode("latin-1") == "café"
+
+
+@pytest.mark.parametrize("method", ["add_stream", "add_mux_stream"])
+def test_rejected_stream_leaves_container_usable(tmp_path, method: str) -> None:
+    # A stream cannot be removed from an AVFormatContext, so anything that can
+    # raise has to be checked before one is created. Otherwise the orphan
+    # desynchronises container.streams and the next valid call fails.
+    with av.open(str(tmp_path / "out.mkv"), "w") as output:
+        add = getattr(output, method)
+        with pytest.raises(TypeError):
+            add("aac", rate=44100.5)
+        assert len(output.streams) == 0
+
+        stream = add("aac", rate=44100)
+        assert stream.index == 0
+        assert len(output.streams) == 1
+
+
+def test_rejected_time_base_leaves_container_usable(tmp_path) -> None:
+    with av.open(str(tmp_path / "out.mkv"), "w") as output:
+        with pytest.raises(AttributeError):
+            output.add_stream("mpeg4", rate=24, time_base="not-a-rational")
+        assert len(output.streams) == 0
+
+        stream = output.add_stream("mpeg4", rate=24)
+        assert stream.index == 0

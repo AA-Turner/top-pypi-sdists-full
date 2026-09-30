@@ -3,6 +3,8 @@ from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.common.v1 import dataset_response_pb2 as _dataset_response_pb2
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
+from chalk._gen.chalk.common.v1 import resources_pb2 as _resources_pb2
+from chalk._gen.chalk.server.v1 import dataplaneworkflows_pb2 as _dataplaneworkflows_pb2
 from chalk._gen.chalk.server.v1 import datasets_pb2 as _datasets_pb2
 from chalk._gen.chalk.server.v1 import performance_summary_pb2 as _performance_summary_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
@@ -238,6 +240,7 @@ class OfflineQueryMeta(_message.Message):
         "stage_timing",
         "input_root_fqns",
         "referencing_workflow_execution_id",
+        "referencing_workflow_execution_status",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
@@ -282,6 +285,7 @@ class OfflineQueryMeta(_message.Message):
     STAGE_TIMING_FIELD_NUMBER: _ClassVar[int]
     INPUT_ROOT_FQNS_FIELD_NUMBER: _ClassVar[int]
     REFERENCING_WORKFLOW_EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]
+    REFERENCING_WORKFLOW_EXECUTION_STATUS_FIELD_NUMBER: _ClassVar[int]
     id: int
     operation_id: str
     environment_id: str
@@ -325,6 +329,7 @@ class OfflineQueryMeta(_message.Message):
     stage_timing: OfflineQueryStageTiming
     input_root_fqns: _containers.RepeatedScalarFieldContainer[str]
     referencing_workflow_execution_id: str
+    referencing_workflow_execution_status: _dataplaneworkflows_pb2.WorkflowExecutionStatus
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -370,6 +375,9 @@ class OfflineQueryMeta(_message.Message):
         stage_timing: _Optional[_Union[OfflineQueryStageTiming, _Mapping]] = ...,
         input_root_fqns: _Optional[_Iterable[str]] = ...,
         referencing_workflow_execution_id: _Optional[str] = ...,
+        referencing_workflow_execution_status: _Optional[
+            _Union[_dataplaneworkflows_pb2.WorkflowExecutionStatus, str]
+        ] = ...,
     ) -> None: ...
 
 class OfflineQueryStageTiming(_message.Message):

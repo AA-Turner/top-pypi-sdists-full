@@ -54,6 +54,7 @@ class GeneralClient:
         from athena import Athena, GeneralAgentConfig, GeneralAgentRequest, InputMessage
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.agents.general.invoke(
@@ -96,6 +97,7 @@ class GeneralClient:
         from athena import Athena, GeneralAgentConfig, GeneralAgentRequest, InputMessage
 
         client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
         client.agents.general.invoke_async(
@@ -164,6 +166,7 @@ class AsyncGeneralClient:
         )
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 
@@ -219,6 +222,7 @@ class AsyncGeneralClient:
         )
 
         client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
             api_key="YOUR_API_KEY",
         )
 

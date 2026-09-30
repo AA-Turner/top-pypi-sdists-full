@@ -35,24 +35,34 @@ def main():
 
         # Rename file
         fs.rename_file("/tmp/file1.txt", "/tmp/renamed_file.txt")
-        print(f"Renamed: {fs.exists('/tmp/renamed_file.txt')}")
+        renamed_exists = fs.exists("/tmp/renamed_file.txt")
+        print(f"Renamed: {renamed_exists}")
+        assert renamed_exists
 
         # Move file
         fs.move_file("/tmp/file2.txt", "/tmp/test_dir/moved_file.txt")
-        print(f"Moved: {fs.exists('/tmp/test_dir/moved_file.txt')}")
+        moved_exists = fs.exists("/tmp/test_dir/moved_file.txt")
+        print(f"Moved: {moved_exists}")
+        assert moved_exists
 
         # Copy file (read + write)
         original_content = fs.read_file("/tmp/renamed_file.txt")
         fs.write_file("/tmp/test_dir/copied_file.txt", original_content.content)
-        print(f"Copied: {fs.exists('/tmp/test_dir/copied_file.txt')}")
+        copied_exists = fs.exists("/tmp/test_dir/copied_file.txt")
+        print(f"Copied: {copied_exists}")
+        assert copied_exists
 
         # Delete file
         fs.rm("/tmp/renamed_file.txt")
-        print(f"Deleted: {not fs.exists('/tmp/renamed_file.txt')}")
+        deleted = not fs.exists("/tmp/renamed_file.txt")
+        print(f"Deleted: {deleted}")
+        assert deleted
 
         # Delete directory
         fs.rm("/tmp/test_dir", recursive=True)
-        print(f"Directory deleted: {not fs.exists('/tmp/test_dir')}")
+        directory_deleted = not fs.exists("/tmp/test_dir")
+        print(f"Directory deleted: {directory_deleted}")
+        assert directory_deleted
 
         return 0
 

@@ -369,7 +369,7 @@ async def _child_coordinator_scope(label: str, child_ctx: Any):
     # cx_message rows it writes FK-depend on ancestor rows the parent already
     # ensured (cx_user_request, cx_conversation). The pending-aware read across
     # the Session stack (matrx_orm.pending_ops_across_stack) makes those ancestor
-    # rows VISIBLE so the child never re-queues a duplicate — but that visibility
+    # rows VISIBLE so the child never re-queues a duplicate — but that guarantee
     # only holds while the parent's INSERT is still pending in an on-stack
     # Session. Once the parent crosses a turn barrier, commit_async ROLLS its
     # Session: the INSERT detaches to a background commit that is no longer on the
@@ -749,12 +749,9 @@ def _queue_or_drop(
 
 
 def queue_conversation_create(*, id: str, **fields: Any) -> str:
-    # Do not delegate this canonical access value to a generated-model default.
-    # A stale production process once injected the retired "private" enum label
-    # after platform.visibility had renamed it to "personal", even though the
-    # queued payload itself was valid. Stamping at the conversation funnel keeps
-    # the durable operation self-contained and replay-safe across model regen.
-    fields.setdefault("visibility", "personal")
+    # chat.conversation is a Private table (access ladder T-13): it carries neither
+    # ``published_to_web`` nor ``shown_to``, and its writers name no row-access word —
+    # the table's own default stands.
 
     # The conversation's organization is the answer every child row of this
     # conversation needs (message, tool_call, observational memory...). Record it

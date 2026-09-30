@@ -255,7 +255,8 @@ class GroqChat:
                 "file_name": envelope.file_name,
                 "mime_type": envelope.mime_type or mime_type,
                 "size_bytes": envelope.size_bytes,
-                "visibility": envelope.visibility,
+                "published_to_web": envelope.published_to_web,
+                "shown_to": envelope.shown_to,
                 "duration_ms": envelope.duration_ms,
                 # The live event carries EXACTLY the persisted part's metadata
                 # (generation + speech_script), so live and reload render alike.

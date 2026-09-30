@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class GetSettingsResponse200DatatableDatatablesAdditionalPropertyDatabaseResourceType(str, Enum):
+    EXTERNAL_INSTANCE = "external_instance"
     INSTANCE = "instance"
     POSTGRESQL = "postgresql"
 

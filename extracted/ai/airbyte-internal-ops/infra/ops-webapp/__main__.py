@@ -61,6 +61,25 @@ AIRBYTE_CONFIG_API_URL = (
 DNS_ZONE_PROJECT = config.get("dns-zone-project") or "airbyte-intranet"
 DNS_ZONE_NAME = config.get("dns-zone-name") or "internal-airbyte-ai"
 
+# Mount path for the AG-UI chat served by the agent-chat-internal stack's
+# BackendServices (looked up by name; that stack must be applied first).
+AGUI_CHAT_PATH_PREFIX = (config.get("agui-chat-path-prefix") or "").strip("/")
+AGUI_SERVER_BACKEND_NAME = config.get("agui-server-backend") or "agui-server-backend"
+AGUI_PLAYGROUND_BACKEND_NAME = (
+    config.get("agui-playground-backend") or "agui-playground-backend"
+)
+# Route the same `/chat` paths on preview.ops.internal.airbyte.ai to the
+# agent-chat-internal preview backends. Off by default: the apply workflow
+# runs changed stacks in parallel, so the lookups below must be enabled only
+# after that stack has created the preview backends.
+AGUI_CHAT_PREVIEW_BACKENDS = config.get_bool("agui-chat-preview-backends") or False
+AGUI_SERVER_PREVIEW_BACKEND_NAME = (
+    config.get("agui-server-preview-backend") or "agui-server-preview-backend"
+)
+AGUI_PLAYGROUND_PREVIEW_BACKEND_NAME = (
+    config.get("agui-playground-preview-backend") or "agui-playground-preview-backend"
+)
+
 AIRBYTE_DOMAIN = "airbyte.io"
 
 OAUTH_CLIENT_SECRET_ID = "ops-webapp-oauth-client-secret"
@@ -527,6 +546,35 @@ def _define_neg_and_backend(
     return backend
 
 
+def _agui_chat_path_rules(
+    prefix: str,
+    server_backend: pulumi.Output[gcp.compute.GetBackendServiceResult],
+    playground_backend: pulumi.Output[gcp.compute.GetBackendServiceResult],
+) -> list[gcp.compute.URLMapPathMatcherPathRuleArgs]:
+    """Build the `/prefix/api*` -> server, `/prefix*` -> playground rules.
+
+    `/{prefix}/api` routes to agui-server untouched (it runs with
+    `PATH_PREFIX=<prefix>`); everything else under the prefix routes to the
+    playground with the prefix rewritten to `/` (the bundle is relative-path
+    safe). GCP picks the longest matching path rule, so the API rule wins.
+    """
+    return [
+        gcp.compute.URLMapPathMatcherPathRuleArgs(
+            paths=[f"/{prefix}/api", f"/{prefix}/api/*"],
+            service=server_backend.self_link,
+        ),
+        gcp.compute.URLMapPathMatcherPathRuleArgs(
+            paths=[f"/{prefix}", f"/{prefix}/*"],
+            service=playground_backend.self_link,
+            route_action=gcp.compute.URLMapPathMatcherPathRuleRouteActionArgs(
+                url_rewrite=gcp.compute.URLMapPathMatcherPathRuleRouteActionUrlRewriteArgs(
+                    path_prefix_rewrite="/",
+                ),
+            ),
+        ),
+    ]
+
+
 def define_load_balancer(
     *,
     webapp_service: gcp.cloudrunv2.Service,
@@ -581,23 +629,66 @@ def define_load_balancer(
         opts=pulumi.ResourceOptions(depends_on=api_services),
     )
 
+    host_rules = [
+        gcp.compute.URLMapHostRuleArgs(
+            hosts=[PREVIEW_DOMAIN],
+            path_matcher="preview",
+        ),
+    ]
+    preview_path_rules: list[gcp.compute.URLMapPathMatcherPathRuleArgs] | None = None
+    if AGUI_CHAT_PATH_PREFIX and AGUI_CHAT_PREVIEW_BACKENDS:
+        preview_path_rules = _agui_chat_path_rules(
+            AGUI_CHAT_PATH_PREFIX,
+            gcp.compute.get_backend_service_output(
+                name=AGUI_SERVER_PREVIEW_BACKEND_NAME,
+                project=PROJECT,
+            ),
+            gcp.compute.get_backend_service_output(
+                name=AGUI_PLAYGROUND_PREVIEW_BACKEND_NAME,
+                project=PROJECT,
+            ),
+        )
+    path_matchers = [
+        gcp.compute.URLMapPathMatcherArgs(
+            name="preview",
+            default_service=preview_backend.self_link,
+            path_rules=preview_path_rules,
+        ),
+    ]
+    if AGUI_CHAT_PATH_PREFIX:
+        agui_server_backend = gcp.compute.get_backend_service_output(
+            name=AGUI_SERVER_BACKEND_NAME,
+            project=PROJECT,
+        )
+        agui_playground_backend = gcp.compute.get_backend_service_output(
+            name=AGUI_PLAYGROUND_BACKEND_NAME,
+            project=PROJECT,
+        )
+        host_rules.append(
+            gcp.compute.URLMapHostRuleArgs(
+                hosts=[DOMAIN],
+                path_matcher="ops",
+            )
+        )
+        path_matchers.append(
+            gcp.compute.URLMapPathMatcherArgs(
+                name="ops",
+                default_service=webapp_backend.self_link,
+                path_rules=_agui_chat_path_rules(
+                    AGUI_CHAT_PATH_PREFIX,
+                    agui_server_backend,
+                    agui_playground_backend,
+                ),
+            )
+        )
+
     url_map = gcp.compute.URLMap(
         f"{SERVICE_NAME}-url-map",
         name=f"{SERVICE_NAME}-url-map",
         project=PROJECT,
         default_service=webapp_backend.self_link,
-        host_rules=[
-            gcp.compute.URLMapHostRuleArgs(
-                hosts=[PREVIEW_DOMAIN],
-                path_matcher="preview",
-            ),
-        ],
-        path_matchers=[
-            gcp.compute.URLMapPathMatcherArgs(
-                name="preview",
-                default_service=preview_backend.self_link,
-            ),
-        ],
+        host_rules=host_rules,
+        path_matchers=path_matchers,
     )
 
     https_proxy = gcp.compute.TargetHttpsProxy(

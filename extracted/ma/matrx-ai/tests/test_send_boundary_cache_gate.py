@@ -51,6 +51,13 @@ def _config(chars: int, count: int = 14) -> SimpleNamespace:
     )
 
 
+def _below_the_floor() -> SimpleNamespace:
+    # 13 turns: ONE eligible 9,000-char result — ~3.1K tokens by the one measured
+    # estimator (2.9 chars/token), under the 5K cache-gate floor. (Two eligible
+    # results are >16,000 chars, which the measured estimator counts above it.)
+    return _config(9_000, count=13)
+
+
 def _cache_state(age_secs: float) -> dict:
     return {
         "last_response_at": (datetime.now(UTC) - timedelta(seconds=age_secs)).isoformat(),
@@ -140,7 +147,7 @@ async def test_live_loop_send_counts_as_a_fresh_cache() -> None:
     assert first.trim_report.blocks_rewritten == 2
 
     second = await prepare_for_send(
-        _config(9_000),
+        _below_the_floor(),
         stage=STAGE_LOOP,
         conversation_id=CONVERSATION_ID,
         request_id=REQUEST_ID,
@@ -187,7 +194,7 @@ async def test_trim_audit_lands_in_the_shape_persistence_reads(monkeypatch) -> N
     # cumulative_trimmable_chars from exactly those reports.
     reset_loop_state(CONVERSATION_ID, REQUEST_ID)
     await prepare_for_send(
-        _config(9_000),
+        _below_the_floor(),
         stage=STAGE_LOOP,
         conversation_id=CONVERSATION_ID,
         request_id=REQUEST_ID,

@@ -34,6 +34,20 @@ class IView(ABC):
     # QD Red: RGB: 183/18/52 & QD "Black": RGB: 30/30/30
     qd_red = '#B71234'
     qd_black = '#1E1E1E'
+    # Every widget must name its colors explicitly.  Anything left unset
+    # falls back to a platform default, and on macOS those defaults are
+    # dynamic system colors that invert under Dark Mode.
+    qd_white = '#FFFFFF'
+    qd_grey = '#808080'
+    # Button colors.  These are the values Windows resolves
+    # SystemButtonFace/Shadow/DisabledText to, so that moving the buttons
+    # onto the cross-platform 'clam' ttk theme leaves the Windows
+    # appearance unchanged while giving macOS the same look.
+    qd_btn_face = '#F0F0F0'
+    qd_btn_active = '#E5F1FB'
+    qd_btn_pressed = '#CCE4F7'
+    qd_btn_border = '#A0A0A0'
+    qd_btn_disabled_text = '#6D6D6D'
 
     @abstractmethod
     def __init__(self, controller):

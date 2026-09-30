@@ -145,7 +145,7 @@ async def test_a_wired_hook_lands_the_parse_as_sections_with_structured_raw_fiel
         "user_id": USER_ID,
     }
     assert landing["original"]["mime_type"] == "application/json"  # the scraper envelope, raw HTML inside
-    assert landing["visibility"] == "internal" and landing["keep"] is False
+    assert landing["published_to_web"] is False and landing["keep"] is False
 
 
 @pytest.mark.asyncio
@@ -318,7 +318,7 @@ async def test_content_save_lands_desktop_captures_as_local_residential(registry
     assert answer["processed_document_id"] == DOC_ID and answer["status"] == "saved"
     prov = hook.calls[0]["provenance"]
     assert (prov["origin_client"], prov["capture_method"], prov["user_id"]) == ("local", "residential", USER_ID)
-    assert hook.calls[0]["visibility"] == "internal"
+    assert hook.calls[0]["published_to_web"] is False
 
 
 @pytest.mark.asyncio

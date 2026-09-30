@@ -62,7 +62,9 @@ def _make_token_counter():
         try:
             return _count_tokens(text or "")
         except Exception:
-            return max(1, len(text or "") // 4)
+            from matrx_ai.config.context_trim import estimate_budget_tokens
+
+            return max(1, estimate_budget_tokens(len(text or ""), "prose"))
 
     return _count
 

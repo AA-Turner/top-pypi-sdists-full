@@ -2,7 +2,6 @@ import cython
 from cython.cimports.av.codec.context import CodecContext, wrap_codec_context
 from cython.cimports.av.container.streams import StreamContainer
 from cython.cimports.av.dictionary import Dictionary
-from cython.cimports.av.error import err_check
 from cython.cimports.av.packet import Packet
 from cython.cimports.av.stream import Stream, wrap_stream
 from cython.cimports.av.utils import avdict_to_dict
@@ -11,7 +10,7 @@ from cython.cimports.libc.stdlib import free, malloc
 
 
 @cython.cfunc
-def close_input(self: InputContainer):
+def close_input(self: InputContainer) -> cython.void:
     self.streams = StreamContainer()
     with cython.nogil:
         if self._myflag & 2:
@@ -29,46 +28,38 @@ class InputContainer(Container):
         stream: cython.pointer[lib.AVStream]
         codec: cython.pointer[cython.const[lib.AVCodec]]
         codec_context: cython.pointer[lib.AVCodecContext]
+        ret: cython.int
 
-        # If we have either the global `options`, or a `stream_options`, prepare
-        # a mashup of those options for each stream.
+        # Hand `options` to every stream that is already known. Only allocate
+        # c_options when they are: some formats (e.g. MPEG) do not expose their
+        # streams until avformat_find_stream_info has run.
         c_options: cython.pointer[cython.pointer[lib.AVDictionary]] = cython.NULL
         base_dict: Dictionary
-        stream_dict: Dictionary
         nb_streams_before: cython.uint = self.ptr.nb_streams
-        if self.stream_options and nb_streams_before == 0:
-            raise ValueError(
-                "stream_options were provided, but this format does not expose "
-                "its streams before avformat_find_stream_info (e.g. MPEG). "
-                "Per-stream options cannot be applied."
-            )
-        # Only allocate c_options when streams are already known.
-        if (self.options or self.stream_options) and nb_streams_before > 0:
+        if self.options and nb_streams_before > 0:
             base_dict = Dictionary(self.options)
             c_options = cython.cast(
                 cython.pointer[cython.pointer[lib.AVDictionary]],
                 malloc(nb_streams_before * cython.sizeof(cython.p_void)),
             )
+            if c_options == cython.NULL:
+                raise MemoryError()
             for i in range(nb_streams_before):
                 c_options[i] = cython.NULL
-                if i < len(self.stream_options) and self.stream_options:
-                    stream_dict = base_dict.copy()
-                    stream_dict.update(self.stream_options[i])
-                    lib.av_dict_copy(cython.address(c_options[i]), stream_dict.ptr, 0)
-                else:
-                    lib.av_dict_copy(cython.address(c_options[i]), base_dict.ptr, 0)
+                lib.av_dict_copy(cython.address(c_options[i]), base_dict.ptr, 0)
 
         self.set_timeout(self.open_timeout)
         self.start_timeout()
         with cython.nogil:
             ret = lib.avformat_find_stream_info(self.ptr, c_options)
         self.set_timeout(None)
-        self.err_check(ret)
 
         if c_options:
             for i in range(nb_streams_before):
                 lib.av_dict_free(cython.address(c_options[i]))
             free(c_options)
+
+        self.err_check(ret)
 
         at_least_one_accelerated_context = False
 
@@ -78,9 +69,12 @@ class InputContainer(Container):
             codec = lib.avcodec_find_decoder(stream.codecpar.codec_id)
             if codec:
                 codec_context = lib.avcodec_alloc_context3(codec)
-                err_check(
-                    lib.avcodec_parameters_to_context(codec_context, stream.codecpar)
-                )
+                if codec_context == cython.NULL:
+                    raise MemoryError()
+                ret = lib.avcodec_parameters_to_context(codec_context, stream.codecpar)
+                if ret < 0:
+                    lib.avcodec_free_context(cython.address(codec_context))
+                    self.err_check(ret)
                 codec_context.pkt_timebase = stream.time_base
                 py_codec_context = wrap_codec_context(
                     codec_context, codec, self.hwaccel
@@ -101,9 +95,7 @@ class InputContainer(Container):
                 "Hardware accelerated decode requested but no stream is compatible"
             )
 
-        self._metadata = avdict_to_dict(
-            self.ptr.metadata, self.metadata_encoding, self.metadata_errors
-        )
+        self._metadata = avdict_to_dict(self.ptr.metadata)
 
     def __dealloc__(self):
         close_input(self)
@@ -141,8 +133,17 @@ class InputContainer(Container):
 
     @property
     def size(self):
+        """Size of the input in bytes, or ``None`` if it cannot be determined.
+
+        A non-seekable input, such as a pipe or a file-like object without
+        ``seek``, has no size to report.
+
+        Wraps :ffmpeg:`avio_size`.
+        """
         self._assert_open()
-        return lib.avio_size(self.ptr.pb)
+        size: int64_t = lib.avio_size(self.ptr.pb)
+        if size >= 0:
+            return size
 
     def close(self):
         close_input(self)
@@ -166,11 +167,12 @@ class InputContainer(Container):
         self._assert_open()
 
         streams: list[Stream] = self.streams.get(*args, **kwargs)
-        if self.ptr.nb_streams == 0:
+        nb_streams: cython.uint = self.ptr.nb_streams
+        if nb_streams == 0:
             return
         include_stream: cython.pointer[uint8_t] = cython.cast(
             cython.pointer[uint8_t],
-            malloc(self.ptr.nb_streams * cython.sizeof(uint8_t)),
+            malloc(nb_streams * cython.sizeof(uint8_t)),
         )
         if include_stream == cython.NULL:
             raise MemoryError()
@@ -182,11 +184,11 @@ class InputContainer(Container):
 
         self.set_timeout(self.read_timeout)
         try:
-            for i in range(self.ptr.nb_streams):
+            for i in range(nb_streams):
                 include_stream[i] = 0
             for stream in streams:
                 i = stream.index
-                if i >= self.ptr.nb_streams:
+                if i >= nb_streams:
                     raise ValueError(f"stream index {i} out of range")
                 include_stream[i] = 1
 
@@ -208,11 +210,14 @@ class InputContainer(Container):
                 except EOFError:
                     break
 
-                if include_stream[read_packet.stream_index]:
-                    # If AVFMTCTX_NOHEADER is set in ctx_flags, then new streams
-                    # may also appear in av_read_frame().
-                    # http://ffmpeg.org/doxygen/trunk/structAVFormatContext.html
-                    # TODO: find better way to handle this
+                # If AVFMTCTX_NOHEADER is set in ctx_flags, then new streams
+                # may also appear in av_read_frame(). They are past the end of
+                # include_stream, and nothing selected them anyway.
+                # http://ffmpeg.org/doxygen/trunk/structAVFormatContext.html
+                if (
+                    read_packet.stream_index < nb_streams
+                    and include_stream[read_packet.stream_index]
+                ):
                     if read_packet.stream_index < len(self.streams):
                         # Move the encoded data out of the read buffer into a
                         # fresh Packet for the caller.
@@ -225,7 +230,7 @@ class InputContainer(Container):
                         yield packet
 
             # Flush!
-            for i in range(self.ptr.nb_streams):
+            for i in range(nb_streams):
                 if include_stream[i]:
                     packet = Packet()
                     packet._stream = self.streams[i]
@@ -314,12 +319,12 @@ class InputContainer(Container):
         stream_index: cython.int = stream.index if stream else -1
         with cython.nogil:
             ret = lib.av_seek_frame(self.ptr, stream_index, c_offset, flags)
-        err_check(ret)
+        self.err_check(ret)
 
         self.flush_buffers()
 
     @cython.cfunc
-    def flush_buffers(self):
+    def flush_buffers(self) -> cython.void:
         self._assert_open()
 
         stream: Stream

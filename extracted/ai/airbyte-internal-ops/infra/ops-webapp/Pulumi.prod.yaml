@@ -15,3 +15,9 @@ config:
   ops-webapp:oauth-issuer: https://cloud.airbyte.com/auth/realms/airbyte
   ops-webapp:oauth-client-id: airbyte-ops-webapp-client
   ops-webapp:airbyte-config-api-url: https://cloud.airbyte.com/api/v1
+  # Mount path for the AG-UI chat served by the agent-chat-internal stack
+  # (`ops.internal.airbyte.ai/chat`). Empty = no path rules added.
+  ops-webapp:agui-chat-path-prefix: chat
+  # Route `preview.ops.internal.airbyte.ai/chat*` to the agui-*-preview
+  # backends (requires the agent-chat-internal preview resources to exist).
+  ops-webapp:agui-chat-preview-backends: "true"

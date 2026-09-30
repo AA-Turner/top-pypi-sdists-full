@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.1
 Name: peft
-Version: 0.21.0
+Version: 0.21.1
 Summary: Parameter-Efficient Fine-Tuning (PEFT)
 Home-page: https://github.com/huggingface/peft
 Author: The HuggingFace team
@@ -68,18 +68,6 @@ Requires-Dist: scikit-learn; extra == "test"
 Requires-Dist: protobuf; extra == "test"
 Requires-Dist: sentencepiece; extra == "test"
 Requires-Dist: torchvision; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <!---
 Copyright 2023 The HuggingFace Team. All rights reserved.

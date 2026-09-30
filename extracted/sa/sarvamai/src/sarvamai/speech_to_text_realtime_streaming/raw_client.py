@@ -40,6 +40,7 @@ class RawSpeechToTextRealtimeStreamingClient:
         stream_type: typing.Optional[SpeechToTextRealtimeStreamingStreamType] = None,
         mode: typing.Optional[SpeechToTextRealtimeStreamingMode] = None,
         prompt: typing.Optional[str] = None,
+        keyterms: typing.Optional[str] = None,
         endpointing: typing.Optional[SpeechToTextRealtimeStreamingEndpointing] = None,
         encoding: typing.Optional[SpeechToTextRealtimeStreamingEncoding] = None,
         sample_rate: typing.Optional[str] = None,
@@ -120,6 +121,14 @@ class RawSpeechToTextRealtimeStreamingClient:
             Optional context/terminology hint to bias decoding. Applied on the
             final transcript.
 
+        keyterms : typing.Optional[str]
+            JSON-encoded array of up to 50 domain-specific terms (names, places,
+            brands, technical terms) to bias recognition toward, e.g.
+            `keyterms=["Sarvam","New Delhi","Vistaar"]`. Each keyterm can contain
+            up to 64 characters. Applied to the transcripts for the whole
+            session; **only supported with `model="saaras:v4"`**. Do not use the
+            older `keyterm` or `hotwords` fields.
+
         endpointing : typing.Optional[SpeechToTextRealtimeStreamingEndpointing]
             Turn detection strategy.
 
@@ -178,6 +187,7 @@ class RawSpeechToTextRealtimeStreamingClient:
                         "stream_type": stream_type,
                         "mode": mode,
                         "prompt": prompt,
+                        "keyterms": keyterms,
                         "endpointing": endpointing,
                         "encoding": encoding,
                         "sample_rate": sample_rate,
@@ -233,6 +243,7 @@ class AsyncRawSpeechToTextRealtimeStreamingClient:
         stream_type: typing.Optional[SpeechToTextRealtimeStreamingStreamType] = None,
         mode: typing.Optional[SpeechToTextRealtimeStreamingMode] = None,
         prompt: typing.Optional[str] = None,
+        keyterms: typing.Optional[str] = None,
         endpointing: typing.Optional[SpeechToTextRealtimeStreamingEndpointing] = None,
         encoding: typing.Optional[SpeechToTextRealtimeStreamingEncoding] = None,
         sample_rate: typing.Optional[str] = None,
@@ -313,6 +324,14 @@ class AsyncRawSpeechToTextRealtimeStreamingClient:
             Optional context/terminology hint to bias decoding. Applied on the
             final transcript.
 
+        keyterms : typing.Optional[str]
+            JSON-encoded array of up to 50 domain-specific terms (names, places,
+            brands, technical terms) to bias recognition toward, e.g.
+            `keyterms=["Sarvam","New Delhi","Vistaar"]`. Each keyterm can contain
+            up to 64 characters. Applied to the transcripts for the whole
+            session; **only supported with `model="saaras:v4"`**. Do not use the
+            older `keyterm` or `hotwords` fields.
+
         endpointing : typing.Optional[SpeechToTextRealtimeStreamingEndpointing]
             Turn detection strategy.
 
@@ -371,6 +390,7 @@ class AsyncRawSpeechToTextRealtimeStreamingClient:
                         "stream_type": stream_type,
                         "mode": mode,
                         "prompt": prompt,
+                        "keyterms": keyterms,
                         "endpointing": endpointing,
                         "encoding": encoding,
                         "sample_rate": sample_rate,

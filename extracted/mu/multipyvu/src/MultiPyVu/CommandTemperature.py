@@ -10,14 +10,22 @@ Created on Tue May 18 13:14:28 2021
 import time
 from abc import abstractmethod
 from enum import IntEnum
+from sys import platform
 from typing import Dict, List, Tuple, Union
 
 from .check_windows_esc import _check_windows_esc
-from .exceptions import MultiPyVuError
+from .exceptions import MultiPyVuError, PythoncomImportError
 from .ICommand import (ICommand, ICommandImp, ICommandObserverSim,
-                       ISimulateChange, catch_thread_error, floats_equal)
+                       ISimulateChange)
 from .IEventManager import IObserver
 from .project_vars import CLOCK_TIME
+
+if platform == 'win32':
+    try:
+        import pythoncom
+        import win32com.client as win32
+    except ImportError:
+        raise PythoncomImportError
 
 
 class ApproachEnum(IntEnum):
@@ -38,6 +46,54 @@ STATE_DICT = {
     15: "General Failure",
 }
 
+# The status codes MultiVu treats as "still moving."
+#
+# This mirrors IMultiVuPpmsServer::CheckStability(), which is what
+# MultiVu's own WaitFor() uses.  Two things about it are worth knowing,
+# because both differ from what this file used to do:
+#
+#   - It is a blacklist, not a whitelist.  Every code not listed here
+#     counts as settled, including the error states (13 Diagnostic,
+#     14 Impedance Control Error, 15 General Failure) and 10 Standby.
+#     MultiVu does that on purpose; its comment reads "set to TRUE so
+#     the task does not block on an unknown or error situation."
+#     Waiting for "Stable" alone means a failed system never releases
+#     the wait, and with the default timeout of 0 that is forever.
+#   - It compares nothing against the set point.  MultiVu trusts the
+#     status code by itself.
+#
+# Verified identical in all four MultiVu flavors in this working copy
+# (Dynacool, OptiCool, SQUIDVsm, Versalab), so one list is correct for
+# every flavor.  The PPMS is the one supported flavor whose MultiVu
+# source is not in this working copy and so could not be checked.
+#
+# One thing to know about dropping the set point comparison:  it was
+# also, accidentally, protecting against a race.  Right after a
+# set_temperature() the controller may still be reporting the previous
+# "Stable" while it takes up the new set point, and a status-only test
+# would call that settled.  The old comparison could not be fooled that
+# way, because the reading was still far from the new set point.
+#
+# Two things stand in its way instead of a tolerance:  the
+# time.sleep(CLOCK_TIME) wait_for() does before its first check, and
+# REQUIRED_SETTLED_POLLS in CommandWaitFor.py, which makes a settled
+# reading repeat before it is believed.  See the comment on that
+# constant -- it is the reachable stand-in for the busy-flag handshake
+# MultiVu uses on the field in CMagnetBase::IsFieldStableForWait().
+#
+# Note this is a status-only test by design.  If a wait is ever seen
+# ending early on real hardware, raise REQUIRED_SETTLED_POLLS rather
+# than bringing back a set point tolerance:  the tolerances that used
+# to live here were fitted to observed behavior, not to anything
+# MultiVu actually does.
+UNSTABLE_STATE_CODES = (
+    0,      # unknown, which MultiVu treats as a transition state
+    2,      # tracking
+    5,      # near
+    6,      # chasing
+    7,      # pot fill
+)
+
 
 units = 'K'
 
@@ -50,7 +106,7 @@ units = 'K'
 
 class CommandTemperatureBase(ICommand):
     _set_point: float = 300.0
-    _val: float = 300.0
+    _current_val: float = 300.0
     _state: int = 1
     _rate: float = 1.0
     _approach: ApproachEnum = ApproachEnum.fast_settle
@@ -63,11 +119,11 @@ class CommandTemperatureBase(ICommand):
 
     @property
     def current_val(self):
-        return CommandTemperatureBase._val
+        return CommandTemperatureBase._current_val
 
     @current_val.setter
     def current_val(self, new):
-        CommandTemperatureBase._val = new
+        CommandTemperatureBase._current_val = new
 
     @property
     def set_point(self):
@@ -195,6 +251,9 @@ class CommandTemperatureBase(ICommand):
             for mode in self.approach_mode:
                 err_msg += f'\n\t{mode.value}: approach_mode.{mode.name}'
             return err_msg
+
+        # Hand on the enum member, the way CommandField does, so
+        # that the approach mode does not travel as a bare int.
         set_approach = ApproachEnum(set_approach_number)
 
         err = self._set_state_imp(temperature,
@@ -252,6 +311,23 @@ class CommandTemperatureImp(ICommandImp, CommandTemperatureBase):
 
         return self.current_val, self.state
 
+    def _read_set_point(self) -> float:
+        """
+        The temperature set point MultiVu currently reports.
+
+        Used by ._confirm_set_point() to tell a set point MultiVu has
+        adopted from one it has not.  The import is local because
+        CommandTempSetPoints imports this module, so a top-level import
+        would be circular.
+        """
+        from .CommandTempSetPoints import CommandTempSetpointsImp
+        t_set = CommandTempSetpointsImp(self.instrument_name, self._mvu)
+        (reported, _, _), _ = t_set.get_state_server(
+            win32.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_R8, 0.0),
+            win32.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0),
+            )
+        return reported
+
     def _set_state_imp(self,
                        temperature: float,
                        set_rate_per_min: float,
@@ -265,6 +341,13 @@ class CommandTemperatureImp(ICommandImp, CommandTemperatureBase):
         self.rate = set_rate_per_min
         self.approach = set_approach
 
+        if can_error <= 1:
+            self._confirm_set_point(temperature,
+                                    self._read_set_point,
+                                    'temperature',
+                                    ' K',
+                                    )
+
         if self.instrument_name in ('PPMS', 'MPMS3'):
             if can_error > 1:
                 raise MultiPyVuError('Error when calling SetTemperature()')
@@ -275,37 +358,22 @@ class CommandTemperatureImp(ICommandImp, CommandTemperatureBase):
             raise MultiPyVuError('Error when calling SetTemperature()')
         return can_error
 
-    def _temperature_at_setpoint(self) -> bool:
-        # find the percentage off, and exit if within specs
-        if self.set_point < 20.0:
-            # brochure says 0.1%, so I am going a little higher
-            return floats_equal(self.current_val,
-                                self.set_point,
-                                1e-3,
-                                self.set_point * 0.001,
-                                )
-        else:
-            # brochure says 0.02%, but MultiVu breaks out earlier
-            # the breakout value here was determined by unit tests
-            return floats_equal(self.current_val,
-                                self.set_point,
-                                1e-3,
-                                self.set_point * 0.0002,
-                                )
-
     def test(self) -> bool:
         """
-        This method is used to monitor the temperature. It waits for
-        the status to become 'stable' at the set point
+        Report whether the temperature has stopped moving.
+
+        This asks the same question MultiVu's own WaitFor() asks, in the
+        same way:  the status code alone decides, and every code outside
+        UNSTABLE_STATE_CODES counts as settled.  See the comment on that
+        constant for why it is a blacklist and why no set point
+        comparison happens here.
 
         Returns:
         --------
         bool
         """
         self._get_values()
-        state_name = self.convert_state_dictionary(self.state)
-        steady = (state_name == 'Stable' and self._temperature_at_setpoint())
-        return steady
+        return int(self.state) not in UNSTABLE_STATE_CODES
 
 
 ############################
@@ -314,15 +382,20 @@ class CommandTemperatureImp(ICommandImp, CommandTemperatureBase):
 #
 ############################
 
-@catch_thread_error
 class SimulateTemperatureChange(ISimulateChange):
-    # class variables
+    # These are class variables, not instance variables, so that the
+    # simulated instrument keeps its condition from one change
+    # thread to the next.  See ISimulateChange for the reasoning.
     _stop_flag: bool = False
-    _val: float
-    _state: str
-    _set_point: float
-    _rate: float
-    _approach: Union[ApproachEnum, int] = ApproachEnum.fast_settle
+    _state_dict = STATE_DICT
+    # The starting values come from the Command*Base class so that
+    # the scaffolding and the real implementation begin in the
+    # same place.
+    _current_val: float = CommandTemperatureBase._current_val
+    _state: int = CommandTemperatureBase._state
+    _set_point: float = CommandTemperatureBase._set_point
+    _rate: float = CommandTemperatureBase._rate
+    _approach: ApproachEnum = ApproachEnum.fast_settle
     _observers: List[IObserver] = []
 
     def __init__(self):
@@ -330,11 +403,11 @@ class SimulateTemperatureChange(ISimulateChange):
 
     @property
     def current_val(self):
-        return SimulateTemperatureChange._val
+        return SimulateTemperatureChange._current_val
 
     @current_val.setter
     def current_val(self, new):
-        SimulateTemperatureChange._val = new
+        SimulateTemperatureChange._current_val = new
 
     @property
     def set_point(self):
@@ -377,7 +450,7 @@ class SimulateTemperatureChange(ISimulateChange):
         This private method is used to simulate the temperature change.
         """
         starting_temp = self.current_val
-        self.state = STATE_DICT[1]
+        self.state = 1
         self.notify_observers(self.current_val, self.state)
 
         # simulate a pause before changing the temperature
@@ -397,7 +470,7 @@ class SimulateTemperatureChange(ISimulateChange):
         rate_per_sec *= -1 if delta_temp < 0 else 1
         rate_time = delta_temp / rate_per_sec
         ramp_start_time = time.time()
-        self.state = STATE_DICT[2]
+        self.state = 2
         self.notify_observers(self.current_val, self.state)
 
         # simulate the ramp
@@ -424,7 +497,7 @@ class SimulateTemperatureChange(ISimulateChange):
 
         # set the final values
         self.current_val = self.set_point
-        self.state = STATE_DICT[5]
+        self.state = 5
         self.notify_observers(self.current_val, self.state)
         stable_start_time = time.time()
         # simulate coming to stability
@@ -435,7 +508,7 @@ class SimulateTemperatureChange(ISimulateChange):
             # check the escape key
             self.check_esc()
 
-        self.state = STATE_DICT[1]
+        self.state = 1
         self.notify_observers(self.current_val, self.state)
 
         # unsubscribe from all observers before exiting
@@ -467,11 +540,10 @@ class CommandTemperatureSim(CommandTemperatureBase,
                        ) -> Union[str, int]:
         # Get an instance of SimulateTemperatureChange.
         self.change_thread: SimulateTemperatureChange = self.get_sim_instance()
-        state_string = STATE_DICT[self.state]
         self.change_thread.set_params(self.current_val,
                                       temperature,
                                       set_rate_per_min,
-                                      state_string,
+                                      self.state,
                                       )
         self.set_point = temperature
         self.rate = set_rate_per_min
@@ -485,7 +557,4 @@ class CommandTemperatureSim(CommandTemperatureBase,
 
     def update(self, value, state):
         self.current_val = value
-        for state_number, state_str in STATE_DICT.items():
-            if state_str == state:
-                self.state = state_number
-                break
+        self.state = state

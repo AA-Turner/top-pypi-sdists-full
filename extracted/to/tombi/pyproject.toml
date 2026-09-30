@@ -2,9 +2,9 @@
 
 [project]
 name = "tombi"
-version = "1.5.8"  # We use git tags for versioning. This is just a placeholder.
+version = "1.6.1"  # We use git tags for versioning. This is just a placeholder.
 description = "🦅 TOML Toolkit 🦅"
-readme = "python/tombi/README.md"
+readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
   "Environment :: Console",
@@ -30,17 +30,6 @@ dependencies = []
 [project.urls]
 GitHub = "https://github.com/tombi-toml/tombi"
 
-[dependency-groups]
-dev = [
-  "maturin>=1.5,<2.0",
-  "pytest>=9.0.3",
-  "ruff>=0.7.4",
-  { include-group = "stub" },
-]
-stub = [
-  "pytest-stub>=1.1.0",
-]
-
 [build-system]
 requires = [
   "maturin>=1.5,<2.0",
@@ -49,20 +38,14 @@ build-backend = "maturin"
 
 [tool.maturin]
 bindings = "bin"
+# `LICENSE` and the schemas embedded by `tombi-schema-store` with `include_str!`,
+# so that the sdist builds on its own. `include` can't reach outside this
+# directory, so these are symlinks to the repository root.
 include = [
   { format = "sdist", path = "LICENSE" },
   { format = "sdist", path = "www.schemastore.org/**/*.json" },
-  { format = "sdist", path = "www.tombi.dev/**/*.json" },
+  { format = "sdist", path = "www.schemastore.tombi/**/*.json" },
 ]
-manifest-path = "rust/tombi-cli/Cargo.toml"
 module-name = "tombi"
-python-source = "python/tombi/src"
-
-[tool.pytest]
-addopts = ["-v"]
-
-[tool.uv.workspace]
-members = [
-  "python/tombi-beta",
-  "python/tombi-lib",
-]
+manifest-path = "rust/tombi-cli/Cargo.toml"
+python-source = "src"

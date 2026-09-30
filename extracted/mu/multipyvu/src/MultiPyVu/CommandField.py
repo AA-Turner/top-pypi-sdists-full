@@ -10,14 +10,23 @@ Created on Tue May 18 13:14:28 2021
 import time
 from abc import abstractmethod
 from enum import IntEnum
-from typing import Dict, List, Tuple, Union
+from sys import platform
+from typing import Dict, List, Optional, Tuple, Union
 
 from .check_windows_esc import _check_windows_esc
-from .exceptions import MultiPyVuError
+from .CommandVectorMagnet import CommandVectorImp
+from .exceptions import MultiPyVuError, PythoncomImportError
 from .ICommand import (ICommand, ICommandImp, ICommandObserverSim,
-                       ISimulateChange, catch_thread_error, floats_equal)
+                       ISimulateChange, floats_equal)
 from .IEventManager import IObserver
 from .project_vars import CLOCK_TIME
+
+if platform == 'win32':
+    try:
+        import pythoncom
+        import win32com.client as win32
+    except ImportError:
+        raise PythoncomImportError
 
 
 class ApproachEnum(IntEnum):
@@ -30,10 +39,6 @@ class ApproachEnum(IntEnum):
 class drivenEnum(IntEnum):
     persistent = 0
     driven = 1
-
-    @classmethod
-    def _missing_(cls, value):
-        return drivenEnum.driven
 
 
 # Field state code dictionary
@@ -68,9 +73,12 @@ units = 'Oe'
 
 class CommandFieldBase(ICommand):
     # class variables
-    _set_point: float = 0.0
+    # NaN means no set point has been established yet.  The MPMS3
+    # cannot read the set point back from the instrument, so it has
+    # no other way to tell "never set" from "set to zero".
+    _set_point: float = float('nan')
     _current_val: float = 0.0
-    _rate: float = 1
+    _rate: float = 1.0
     _state: int = 1
     _approach: ApproachEnum = ApproachEnum.no_overshoot
     _driven: drivenEnum = drivenEnum.driven
@@ -160,8 +168,8 @@ class CommandFieldBase(ICommand):
     def prepare_query(self,
                       set_point: float,
                       rate_per_sec: float,
-                      approach: IntEnum,
-                      mode=None) -> str:
+                      approach: ApproachEnum,
+                      mode: drivenEnum = drivenEnum.driven) -> str:
         try:
             set_point = float(set_point)
         except ValueError:
@@ -175,9 +183,6 @@ class CommandFieldBase(ICommand):
             err_msg = 'rate_per_sec must be a float '
             err_msg += f'(rate_per_sec = \'{rate_per_sec}\')'
             raise ValueError(err_msg)
-
-        # driven is default because it is used by all but the PPMS
-        mode = drivenEnum.driven.value if mode is None else mode.value
 
         return f'{set_point},{rate_per_sec},{approach.value},{mode}'
 
@@ -212,7 +217,7 @@ class CommandFieldBase(ICommand):
         field, rate, approach, driven = arg_string.split(',')
         field = float(field)
         set_rate_per_sec = float(rate)
-        set_approach = int(approach)
+
         set_approach_number = int(approach)
         if set_approach_number > len(ApproachEnum) - 1:
             err_msg = f'The approach, {set_approach_number}, is out of bounds.'
@@ -220,28 +225,30 @@ class CommandFieldBase(ICommand):
             for mode in ApproachEnum:
                 err_msg += f'\n\t{mode.value}: {mode.name}'
             raise MultiPyVuError(err_msg)
-        set_approach = ApproachEnum(set_approach_number)
-
-        set_driven_number = int(driven)
-        if self.instrument_name != 'PPMS':
-            set_driven = drivenEnum(set_driven_number)
-            if set_driven == drivenEnum.persistent:
-                err_msg = f'{self.instrument_name} can only drive the magnet '
-                err_msg += 'in driven mode.'
-                raise MultiPyVuError(err_msg)
-        else:
-            if set_driven_number > len(drivenEnum) - 1:
-                err_msg = f'The driven mode, {set_driven_number}, is out of '
-                err_msg += 'bounds. Must be one of the following:'
-                for mode in drivenEnum:
-                    err_msg += f'\n\t{mode.value}: {mode.name}'
-                raise MultiPyVuError(err_msg)
-            set_driven = drivenEnum(set_driven_number)
         if self.instrument_name == 'VERSALAB':
-            if set_approach == ApproachEnum.no_overshoot:
+            if set_approach_number == ApproachEnum.no_overshoot.value:
                 err_msg = f'{self.instrument_name} does not support the '
                 err_msg += 'no_overshoot approach mode.'
                 raise MultiPyVuError(err_msg)
+        set_approach = ApproachEnum(set_approach_number)
+
+        set_driven_number = int(driven)
+        # The bounds check comes before the flavor check so that an
+        # invalid mode is reported as invalid for every flavor, not
+        # just the PPMS.  Testing for membership rather than an upper
+        # bound also rejects negative numbers.
+        if set_driven_number not in [mode.value for mode in drivenEnum]:
+            err_msg = f'The driven mode, {set_driven_number}, is out of '
+            err_msg += 'bounds. Must be one of the following:'
+            for mode in drivenEnum:
+                err_msg += f'\n\t{mode.value}: {mode.name}'
+            raise MultiPyVuError(err_msg)
+        if self.instrument_name != 'PPMS':
+            if set_driven_number == drivenEnum.persistent.value:
+                err_msg = f'{self.instrument_name} can only drive the magnet '
+                err_msg += 'in driven mode.'
+                raise MultiPyVuError(err_msg)
+        set_driven = drivenEnum(set_driven_number)
 
         error = self._set_state_imp(field,
                                     set_rate_per_sec,
@@ -291,17 +298,52 @@ class CommandFieldImp(ICommandImp, CommandFieldBase):
         Tuple(str, int)
             The value and state number
         """
-        can_error = self._mvu.GetField(value_variant, state_variant)
+        can_error: int = self._mvu.GetField(value_variant, state_variant)
+        self.current_val = value_variant.value
+        self.state = int(state_variant.value)
+        # If this is an OptiCool, the above command returns the total field,
+        # but this class is only worried about the Z direction.
+        if self.instrument_name == 'OPTICOOL':
+            vector = CommandVectorImp(self._mvu, self.instrument_name, cartesian_coord=True)
+            try:
+                field, self.state = vector.get_state_server(value_variant,
+                                                            state_variant)
+                x, y, self.current_val = field
+            except AttributeError:
+                # Must not have the vector magnet
+                pass
         # On 6/10/25, I found that the PPMS was returning something greater
         # than 1 with the GetTemperature() command.  After talking with Mark,
         # I have decided to only check for a value greater than 1 for all
         # systems.
         if can_error > 1:
             raise MultiPyVuError('Error when calling GetField()')
-        self.current_val = value_variant.value
-        self.state = int(state_variant.value)
 
         return self.current_val, self.state
+
+    def _read_set_point(self) -> Optional[float]:
+        """
+        The field set point MultiVu currently reports.
+
+        Used by ._confirm_set_point() to tell a set point MultiVu has
+        adopted from one it has not.
+
+        Returns None for the MPMS3, whose OLE surface has no
+        field-setpoint getter under any name -- so there is nothing to
+        confirm against there, and the caller treats that as
+        "unconfirmable" rather than as a failure.
+        """
+        if self.instrument_name == 'MPMS3':
+            return None
+        # Imported here, not at module scope:  CommandFieldSetPoints
+        # imports this module, so a top-level import would be circular.
+        from .CommandFieldSetPoints import CommandFieldSetPointsImp
+        h_set = CommandFieldSetPointsImp(self.instrument_name, self._mvu)
+        (reported, _, _, _), _ = h_set.get_state_server(
+            win32.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_R8, 0.0),
+            win32.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0),
+            )
+        return reported
 
     def _set_state_imp(self,
                        field: float,
@@ -309,23 +351,48 @@ class CommandFieldImp(ICommandImp, CommandFieldBase):
                        set_approach: ApproachEnum,
                        set_driven: drivenEnum
                        ) -> Union[str, int]:
-        can_error = self._mvu.setField(field,
-                                       set_rate_per_sec,
-                                       set_approach,
-                                       set_driven,
-                                       )
         self.set_point = field
         self.rate = set_rate_per_sec
         self.approach = set_approach
         self.driven = drivenEnum(set_driven)
 
+        # If this is an OptiCool with a vector magnet, then use this
+        if self.instrument_name == 'OPTICOOL':
+            vector = CommandVectorImp(self._mvu, self.instrument_name, cartesian_coord=True)
+            query = vector.prepare_query((0, 0, field), set_rate_per_sec, set_approach)
+            try:
+                return vector.set_state_server(query)
+            except AttributeError:
+                # Must not have the vector magnet
+                pass
+
+        can_error = self._mvu.setField(field,
+                                       set_rate_per_sec,
+                                       set_approach,
+                                       set_driven,
+                                       )
+
         if can_error > 1:
             raise MultiPyVuError('Error when calling SetField()')
+
+        # Wait for MultiVu to report the set point back, for the same
+        # reason set_temperature() does; see
+        # ICommandImp._confirm_set_point().  The field needs it more
+        # than the temperature does:  .test() judges field stability
+        # against a set point that wait_for() reads once, at the start
+        # of the wait, so a stale read there means the whole wait is
+        # measured against the previous target.
+        self._confirm_set_point(field,
+                                self._read_set_point,
+                                'field',
+                                f' {units}',
+                                )
+
         # It is odd that sometimes a can_error of 1 is okay.  So far I have
         # only seen this behavior with a few flavors.
         if self.instrument_name in ('PPMS', 'MPMS3'):
-                # returning this string makes CommandMultiVu_base happy
-                return 'Call was successful'
+            # returning this string makes CommandMultiVu_base happy
+            return 'Call was successful'
         return can_error
 
     def test(self) -> bool:
@@ -358,14 +425,21 @@ class CommandFieldImp(ICommandImp, CommandFieldBase):
 #
 ############################
 
-@catch_thread_error
 class SimulateFieldChange(ISimulateChange):
-    # class variables
+    # These are class variables, not instance variables, so that the
+    # simulated instrument keeps its condition from one change
+    # thread to the next.  See ISimulateChange for the reasoning.
     _stop_flag: bool = False
-    _val: float
-    _state: str
-    _set_point: float
-    _rate: float
+    _state_dict = STATE_DICT
+    # The starting values come from the Command*Base class so that
+    # the scaffolding and the real implementation begin in the
+    # same place.
+    _current_val: float = CommandFieldBase._current_val
+    _state: int = CommandFieldBase._state
+    # Not inherited from CommandFieldBase, whose default is NaN:  the
+    # simulated ramp needs a real number to compute against.
+    _set_point: float = 0.0
+    _rate: float = CommandFieldBase._rate
     _approach: ApproachEnum = ApproachEnum.no_overshoot
     _driven: drivenEnum = drivenEnum.persistent
     _observers: List[IObserver] = []
@@ -375,11 +449,11 @@ class SimulateFieldChange(ISimulateChange):
 
     @property
     def current_val(self):
-        return SimulateFieldChange._val
+        return SimulateFieldChange._current_val
 
     @current_val.setter
     def current_val(self, new):
-        SimulateFieldChange._val = new
+        SimulateFieldChange._current_val = new
 
     @property
     def set_point(self):
@@ -421,7 +495,7 @@ class SimulateFieldChange(ISimulateChange):
 
     def _monitor(self):
         starting_field = self.current_val
-        self.state = STATE_DICT[1]
+        self.state = 1
         self.notify_observers(self.current_val, self.state)
 
         # simulate a pause before changing the field
@@ -442,7 +516,7 @@ class SimulateFieldChange(ISimulateChange):
 
         # set state to ramping
         start_time = time.time()
-        self.state = STATE_DICT[6]
+        self.state = 6
         self.notify_observers(self.current_val, self.state)
 
         # simulate the ramp
@@ -469,7 +543,7 @@ class SimulateFieldChange(ISimulateChange):
 
         # set the final values
         self.current_val = self.set_point
-        self.state = STATE_DICT[5]
+        self.state = 5
         self.notify_observers(self.current_val, self.state)
         start_time = time.time()
         # simulate coming to stability
@@ -481,10 +555,11 @@ class SimulateFieldChange(ISimulateChange):
 
         # at the set point
         if (self.driven_mode == drivenEnum.driven):
-            state_number = drivenEnum(4)
+            # Holding (driven)
+            self.state = 4
         else:
-            state_number = drivenEnum(1)
-        self.state = STATE_DICT[state_number]
+            # Stable
+            self.state = 1
         self.notify_observers(self.current_val, self.state)
         # unsubscribe from all observers before exiting
         for o in self._observers:
@@ -512,11 +587,10 @@ class CommandFieldSim(CommandFieldBase,
                        set_driven: drivenEnum
                        ) -> Union[str, int]:
         self.change_thread: SimulateFieldChange = self.get_sim_instance()
-        state_string = STATE_DICT[self.state]
         self.change_thread.set_params(self.current_val,
                                       field,
                                       set_rate_per_sec,
-                                      state_string,
+                                      self.state,
                                       )
         self.set_point = field
         self.rate = set_rate_per_sec
@@ -532,7 +606,4 @@ class CommandFieldSim(CommandFieldBase,
 
     def update(self, value, state):
         self.current_val = value
-        for state_number, state_str in STATE_DICT.items():
-            if state == state_str:
-                self.state = state_number
-                break
+        self.state = state

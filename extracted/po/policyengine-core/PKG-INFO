@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: policyengine-core
-Version: 3.32.8
+Version: 3.32.11
 Summary: Core microsimulation engine enabling country-specific policy models.
 Project-URL: Homepage, https://github.com/policyengine/policyengine-core
 Author-email: PolicyEngine <hello@policyengine.org>
@@ -25,7 +25,7 @@ Requires-Dist: numpy<3,>=2.1.0
 Requires-Dist: pandas>=1
 Requires-Dist: plotly<6,>=5
 Requires-Dist: psutil<7,>=6
-Requires-Dist: pytest<9,>=8
+Requires-Dist: pytest<10,>=8
 Requires-Dist: pyvis>=0.3.2
 Requires-Dist: requests<3,>=2
 Requires-Dist: sortedcontainers<3

@@ -14,14 +14,20 @@ from chalk._gen.chalk.server.v1.dashboard_service_pb2 import (
     DeleteDashboardResponse,
     ExportDashboardRequest,
     ExportDashboardResponse,
+    GetContextualDashboardRequest,
+    GetContextualDashboardResponse,
     GetDashboardRequest,
     GetDashboardResponse,
     ImportDashboardRequest,
     ImportDashboardResponse,
     ListDashboardsRequest,
     ListDashboardsResponse,
+    ResetContextualDashboardRequest,
+    ResetContextualDashboardResponse,
     UpdateDashboardRequest,
     UpdateDashboardResponse,
+    UpsertContextualDashboardRequest,
+    UpsertContextualDashboardResponse,
 )
 from grpc import (
     Channel,
@@ -59,6 +65,18 @@ class DashboardServiceStub:
     ImportDashboard: UnaryUnaryMultiCallable[
         ImportDashboardRequest,
         ImportDashboardResponse,
+    ]
+    GetContextualDashboard: UnaryUnaryMultiCallable[
+        GetContextualDashboardRequest,
+        GetContextualDashboardResponse,
+    ]
+    UpsertContextualDashboard: UnaryUnaryMultiCallable[
+        UpsertContextualDashboardRequest,
+        UpsertContextualDashboardResponse,
+    ]
+    ResetContextualDashboard: UnaryUnaryMultiCallable[
+        ResetContextualDashboardRequest,
+        ResetContextualDashboardResponse,
     ]
 
 class DashboardServiceServicer(metaclass=ABCMeta):
@@ -104,5 +122,23 @@ class DashboardServiceServicer(metaclass=ABCMeta):
         request: ImportDashboardRequest,
         context: ServicerContext,
     ) -> ImportDashboardResponse: ...
+    @abstractmethod
+    def GetContextualDashboard(
+        self,
+        request: GetContextualDashboardRequest,
+        context: ServicerContext,
+    ) -> GetContextualDashboardResponse: ...
+    @abstractmethod
+    def UpsertContextualDashboard(
+        self,
+        request: UpsertContextualDashboardRequest,
+        context: ServicerContext,
+    ) -> UpsertContextualDashboardResponse: ...
+    @abstractmethod
+    def ResetContextualDashboard(
+        self,
+        request: ResetContextualDashboardRequest,
+        context: ServicerContext,
+    ) -> ResetContextualDashboardResponse: ...
 
 def add_DashboardServiceServicer_to_server(servicer: DashboardServiceServicer, server: Server) -> None: ...

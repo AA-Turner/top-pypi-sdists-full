@@ -2,10 +2,12 @@ import logging
 from praisonaiagents._logging import get_logger
 import os
 import copy
+import contextvars
 import warnings
 import re
 import inspect
 import asyncio
+import threading
 import contextvars
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union, Literal, Callable, TYPE_CHECKING, Protocol
@@ -26,7 +28,7 @@ import xml.etree.ElementTree as ET
 from ..errors import AgentErrorKind, FailoverDecision, IdleTimeoutBreaker, ToolExecutionError
 from ..model_harness.guard import check_model_request
 # Gap 2: Tool call execution imports
-from ..tools.call_executor import ToolCall, create_tool_call_executor, _durable_iteration_kwargs
+from ..tools.call_executor import ToolCall, create_tool_call_executor
 from ..tools.schema import build_tool_definition
 
 
@@ -35,13 +37,40 @@ from ..tools.schema import build_tool_definition
 # It is distinct from {} ("no arguments"): {} would silently execute the tool
 # with the WRONG arguments and report success. Callers must detect this sentinel
 # and surface a tool-error so the model can re-emit the call instead.
-# Shared with the chat_mixin.py tool-dispatch paths via agent.tool_execution so
-# both use ONE object identity — an `is` check only works against the same object.
-from ..agent.tool_execution import (
-    _TOOL_ARGUMENTS_PARSE_FAILED,
-    tool_arguments_parse_failed as _shared_tool_arguments_parse_failed,
-    tool_parse_error_message as _shared_tool_parse_error_message,
-)
+_TOOL_ARGUMENTS_PARSE_FAILED = object()
+
+
+# ``litellm.success_callback``/``_async_success_callback``/``callbacks`` are
+# process-global lists shared by every LLM instance. Guard the read-modify-write
+# in ``_setup_event_tracking`` so concurrent instances don't corrupt them.
+_EVENT_TRACKING_LOCK = threading.Lock()
+
+
+def _ollama_tool_result_is_successful(tool_result: Any) -> bool:
+    """Return whether a raw Ollama callback result is safe to chain.
+
+    The sync executor exposes failures as ``ToolResult.error`` while direct
+    callbacks use an ``{"error": ...}`` payload.  Keep the guard at every
+    recording call site so custom provider adapters cannot accidentally turn a
+    failed first call into a value for a dependent call.
+    """
+    if getattr(tool_result, "error", None) is not None:
+        return False
+    if isinstance(tool_result, dict):
+        return "error" not in tool_result
+    if (
+        isinstance(tool_result, list)
+        and tool_result
+        and isinstance(tool_result[0], dict)
+    ):
+        return "error" not in tool_result[0]
+    return True
+
+
+def _durable_iteration_kwargs(execute_tool_fn: Callable, index: int) -> Dict[str, int]:
+    if getattr(execute_tool_fn, "_accepts_durable_iteration", False):
+        return {"_durable_iteration_index": index}
+    return {}
 
 
 async def _dispatch_async_tool(
@@ -193,6 +222,24 @@ class LLM:
     
     # Class-level flag for one-time logging configuration
     _logging_configured = False
+
+    # Current agent name for per-call token/cost attribution is stored in a
+    # PER-INSTANCE ContextVar (see __init__: self._current_agent_name_var).
+    #
+    # ContextVar, not a plain attribute: a single LLM instance can back two
+    # different Agents (Agent(llm=<shared LLM>) is supported), and
+    # PraisonAIAgents.arun_all_tasks dispatches tasks concurrently via
+    # asyncio.gather on one thread. With a plain attribute, task A sets
+    # "Researcher", awaits the network call, task B sets "Writer" on the SAME
+    # object, and when A's response returns it reads "Writer" -- A's tokens get
+    # attributed to B. A ContextVar is copied per task at gather/create_task
+    # time, so each concurrently-gathered coroutine keeps its own value across
+    # the await (same reasoning as _tools_scope_depths in agents/agents.py).
+    #
+    # Per-instance (not class-level): two distinct LLM instances -- including an
+    # original and its clone -- must keep independent attribution state within
+    # the same context, otherwise the last writer's agent name leaks across LLMs.
+
     
     # Class-level cache for LiteLLM module (avoids repeated import overhead)
     _litellm_module = None
@@ -552,11 +599,16 @@ Respond with ONLY a valid JSON tool call in this format:
         # Token tracking
         self.last_token_metrics: Optional[TokenMetrics] = None
         self.session_token_metrics: Optional[TokenMetrics] = None
-        # ContextVar, not a plain attribute: this LLM instance can be shared
-        # across agents in a team, and asyncio.gather runs their tasks on one
-        # thread, so a plain attribute lets one task's agent name clobber another's.
-        self._current_agent_name_var: "contextvars.ContextVar[Optional[str]]" = (
-            contextvars.ContextVar(f"praisonai_current_agent_name_{id(self)}", default=None)
+        # Agent attribution is task-local: a single LLM instance is shared by
+        # concurrent agents (gateway channels, asyncio.gather), so a plain
+        # attribute would let one agent's set_current_agent() overwrite another's
+        # while it is still awaiting its own completion, misattributing tokens
+        # (issue #5052). A ContextVar isolates the value per async task/context.
+        self._current_agent_name_var: contextvars.ContextVar[Optional[str]] = (
+            contextvars.ContextVar("current_agent_name", default=None)
+        )
+        self._current_agent_id_var: contextvars.ContextVar[Optional[str]] = (
+            contextvars.ContextVar("current_agent_id", default=None)
         )
 
         # Rate limiting and retry settings
@@ -893,8 +945,8 @@ Respond with ONLY a valid JSON tool call in this format:
         # Billing/quota issues (must be checked before generic 429/rate-limit)
         if any(indicator in error_str for indicator in [
             "insufficient quota", "quota exceeded", "billing", "credit",
-            "payment required", "subscription", "subscription required",
-            "subscription expired", "plan limit"
+            "payment required", "subscription required", "subscription expired",
+            "plan limit"
         ]):
             return "billing"
         
@@ -920,11 +972,19 @@ Respond with ONLY a valid JSON tool call in this format:
         ]):
             return "model_not_found"
         
-        # Empty or malformed responses
+        # Format errors (checked before empty_response so "malformed response"
+        # and "*parse error*" are classified as format rather than empty output)
+        if any(indicator in error_str for indicator in [
+            "validation error", "invalid format", "parse error", "parsing error",
+            "malformed", "invalid json", "schema error", "decode error"
+        ]):
+            return "format_error"
+        
+        # Empty or missing response content
         if any(indicator in error_str for indicator in [
             "empty response", "no response", "no content", "blank output",
-            "null response", "json decode error", "unexpected end of json",
-            "invalid response format"
+            "null response", "invalid response format",
+            "json decode error", "unexpected end of json"
         ]):
             return "empty_response"
         
@@ -947,7 +1007,7 @@ Respond with ONLY a valid JSON tool call in this format:
         if any(indicator in error_str for indicator in [
             "validation error", "invalid format", "parse error",
             "parsing error", "decode error", "malformed",
-            "malformed response", "invalid json", "schema error"
+            "invalid json", "schema error"
         ]):
             return "format_error"
         
@@ -1033,7 +1093,9 @@ Respond with ONLY a valid JSON tool call in this format:
                 is_retryable=True
             )
         
-        # Auth errors - try profile rotation if available
+        # Auth errors - try profile rotation if available, else surface.
+        # Without a failover manager there is no alternate credential to try,
+        # so blind retry cannot succeed — surface the auth failure immediately.
         if error_kind == "auth":
             if self._failover_manager:
                 return FailoverDecision(
@@ -1042,11 +1104,6 @@ Respond with ONLY a valid JSON tool call in this format:
                     backoff_ms=1000,  # Brief delay before trying new profile
                     is_retryable=True
                 )
-            # Without a failover manager there is no rotation to attempt, and
-            # replaying the same rejected credential cannot start working. This
-            # fell through to the generic retry below, so an auth failure burned
-            # every remaining attempt and delayed the real error by the whole
-            # backoff schedule. Surface it now.
             return FailoverDecision(
                 action="surface_error",
                 reason=error_kind,
@@ -1128,6 +1185,33 @@ Respond with ONLY a valid JSON tool call in this format:
         else:
             model = getattr(response, "model", None)
         return model or self.model
+
+    def _select_active_profile(self, kwargs: dict):
+        """Pick the profile a fresh call should start on, honoring rotation.
+
+        Defaults to the construction-time ``self._current_profile`` so existing
+        behaviour and multi-agent safety are unchanged (the shared instance
+        state is never mutated). Only when the manager is configured with
+        ``rotate_on_success`` do we re-select via ``get_next_profile()`` so a
+        long-lived, shared ``LLM`` actually spreads successful traffic across
+        the equal-priority tier instead of pinning its first profile forever.
+        The chosen profile travels in per-call kwargs, never on ``self``.
+        """
+        profile = self._current_profile
+        manager = self._failover_manager
+        if manager is None:
+            return profile, kwargs
+        rotate = getattr(getattr(manager, "config", None), "rotate_on_success", False)
+        if not rotate:
+            return profile, kwargs
+        try:
+            rotated = manager.get_next_profile()
+        except Exception:  # pragma: no cover - defensive
+            return profile, kwargs
+        if rotated and rotated != profile:
+            profile = rotated
+            kwargs = self._apply_profile_to_kwargs(rotated, kwargs)
+        return profile, kwargs
 
     def _apply_profile_to_kwargs(self, profile: "AuthProfile", kwargs: dict) -> dict:
         """Return a new kwargs dict with profile overrides applied.
@@ -1367,8 +1451,10 @@ Respond with ONLY a valid JSON tool call in this format:
         last_error = None
         # Track the failover profile per call (never self._current_profile) so
         # concurrent calls on one shared LLM cannot corrupt each other's
-        # failover bookkeeping (issue #3613 gap 2).
-        active_profile = self._current_profile
+        # failover bookkeeping (issue #3613 gap 2). When rotate_on_success is
+        # configured, pick the next profile in the tier so a shared instance
+        # actually rotates instead of pinning its construction-time profile.
+        active_profile, kwargs = self._select_active_profile(kwargs)
 
         for attempt in range(self._max_retries + 1):
             try:
@@ -1451,8 +1537,10 @@ Respond with ONLY a valid JSON tool call in this format:
         last_error = None
         # Track the failover profile per call (never self._current_profile) so
         # concurrent coroutines on one shared LLM cannot corrupt each other's
-        # failover bookkeeping (issue #3613 gap 2).
-        active_profile = self._current_profile
+        # failover bookkeeping (issue #3613 gap 2). When rotate_on_success is
+        # configured, pick the next profile in the tier so a shared instance
+        # actually rotates instead of pinning its construction-time profile.
+        active_profile, kwargs = self._select_active_profile(kwargs)
 
         for attempt in range(self._max_retries + 1):
             try:
@@ -1792,6 +1880,112 @@ Respond with ONLY a valid JSON tool call in this format:
             adapter = OllamaAdapter()
         return adapter.format_tool_result_message(function_name, tool_result)
 
+    def _ollama_correlation_id(self) -> str:
+        """Return the active trace/session id for Ollama chaining diagnostics."""
+        try:
+            from ..trace.context_events import get_context_emitter
+
+            session_id = getattr(get_context_emitter(), "_session_id", None)
+            if session_id:
+                return str(session_id)
+        except Exception:
+            pass
+        # A stable per-LLM fallback still lets interleaved debug logs be grouped.
+        return f"llm:{id(self):x}"
+
+    def _resolve_ollama_chained_args(
+        self,
+        arguments: Dict[str, Any],
+        tool_result_mapping: Dict[str, Any],
+        function_name: Optional[str] = None,
+        tools: Optional[List] = None,
+    ) -> Dict[str, Any]:
+        """Delegate Ollama function-name substitution to the provider adapter.
+
+        When ``function_name``/``tools`` are supplied, a parameter the target
+        tool declares as string-accepting is left untouched even if its literal
+        value happens to match an earlier tool's name (e.g. ``city="get_weather"``).
+        Otherwise a legitimate string argument would be silently overwritten with
+        an unrelated prior result. The substitution only ever targets values the
+        model meant as result references, never declared string inputs.
+        """
+        adapter = getattr(self, "_provider_adapter", None)
+        if adapter is not None:
+            try:
+                resolved = adapter.resolve_chained_arguments(
+                    arguments,
+                    tool_result_mapping,
+                    correlation_id=self._ollama_correlation_id(),
+                )
+            except (AttributeError, TypeError):
+                # Keep compatibility with lightweight test/custom adapters.
+                resolver = getattr(adapter, "resolve_chained_arguments", None)
+                if resolver is not None:
+                    resolved = resolver(arguments, tool_result_mapping)
+                else:
+                    resolved = None
+            if resolved is not None:
+                return self._preserve_declared_string_args(
+                    arguments, resolved, tool_result_mapping, function_name, tools
+                )
+        from .adapters import resolve_ollama_chained_arguments
+
+        resolved = resolve_ollama_chained_arguments(
+            arguments,
+            tool_result_mapping,
+            correlation_id=self._ollama_correlation_id(),
+        )
+        return self._preserve_declared_string_args(
+            arguments, resolved, tool_result_mapping, function_name, tools
+        )
+
+    def _preserve_declared_string_args(
+        self,
+        original: Dict[str, Any],
+        resolved: Dict[str, Any],
+        tool_result_mapping: Dict[str, Any],
+        function_name: Optional[str],
+        tools: Optional[List],
+    ) -> Dict[str, Any]:
+        """Undo result-reference substitution for declared string parameters.
+
+        Only acts when schema info is available and a value was actually changed
+        by the resolver. A no-op for callers that pass no tools (backward
+        compatible with every existing call site).
+        """
+        if not function_name or not tools or resolved is original:
+            return resolved
+        for arg_name, orig_value in original.items():
+            if not (isinstance(orig_value, str) and orig_value in tool_result_mapping):
+                continue
+            if resolved.get(arg_name) is orig_value:
+                continue  # resolver left it alone already
+            if self._param_accepts_string(function_name, arg_name, tools):
+                resolved[arg_name] = orig_value
+        return resolved
+
+    def _record_ollama_tool_result(
+        self,
+        tool_result_mapping: Dict[str, Any],
+        function_name: str,
+        tool_result: Any,
+    ) -> None:
+        """Delegate exact Ollama result recording to the provider adapter."""
+        adapter = getattr(self, "_provider_adapter", None)
+        if adapter is not None:
+            try:
+                adapter.record_tool_result(
+                    tool_result_mapping, function_name, tool_result
+                )
+                return
+            except AttributeError:
+                # Lightweight custom adapters may not implement this optional
+                # hook; retain the module-level fallback below.
+                pass
+        from .adapters import record_ollama_tool_result
+
+        record_ollama_tool_result(tool_result_mapping, function_name, tool_result)
+
     def _try_append_multimodal_tool_result(
         self,
         messages: List[Dict[str, Any]],
@@ -1920,8 +2114,9 @@ Respond with ONLY a valid JSON tool call in this format:
         as _force_tool_usage_message.
         """
         repair_attempt_count = getattr(self, '_current_repair_count', 0)
-        if not (tool_calls and self.max_tool_repairs > 0
-                and repair_attempt_count < self.max_tool_repairs):
+        max_tool_repairs = getattr(self, 'max_tool_repairs', 0)
+        if not (tool_calls and max_tool_repairs > 0
+                and repair_attempt_count < max_tool_repairs):
             return None
         validation_errors = [e for e in
                              (self._validate_tool_call(tc, formatted_tools) for tc in tool_calls)
@@ -1932,7 +2127,7 @@ Respond with ONLY a valid JSON tool call in this format:
         tool_schemas = self._get_tool_schemas_for_prompt(formatted_tools)
         logging.debug(
             f"[OLLAMA_RELIABILITY] Tool call repair attempt "
-            f"{repair_attempt_count + 1}/{self.max_tool_repairs}: {error_msg}")
+            f"{repair_attempt_count + 1}/{max_tool_repairs}: {error_msg}")
         self._current_repair_count = repair_attempt_count + 1
         return self.TOOL_CALL_REPAIR_PROMPT.format(
             error=error_msg, tool_schemas=tool_schemas)
@@ -1949,15 +2144,92 @@ Respond with ONLY a valid JSON tool call in this format:
             return False
         if tool_calls:
             return False
-        
-        if self.force_tool_usage == 'never':
+
+        force_tool_usage = getattr(self, 'force_tool_usage', 'never')
+        if force_tool_usage == 'never':
             return False
-        elif self.force_tool_usage == 'always':
+        elif force_tool_usage == 'always':
             return True
-        elif self.force_tool_usage == 'auto':
+        elif force_tool_usage == 'auto':
             # Auto mode: only for Ollama on first iteration when model ignores tools
             return self._is_ollama_provider() and iteration_count == 0
         return False
+
+    def _force_tool_usage_message(self, response_text: str, tool_calls: Optional[List], formatted_tools: Optional[List], iteration_count: int) -> Optional[str]:
+        """Return the force-tool-usage nudge, or None when no nudge is due.
+
+        Shared by both the sync and async tool loops so a `force_tool_usage`
+        setting an agent accepted is honoured identically whether it calls or
+        awaits. Returns the user-message content string (containing the tool
+        names) when the model ignored the tools, else None.
+        """
+        if not self._should_force_tool_usage(response_text, tool_calls, formatted_tools, iteration_count):
+            return None
+        tool_names = self._get_tool_names_for_prompt(formatted_tools)
+        return self.FORCE_TOOL_USAGE_PROMPT.format(tool_names=tool_names)
+
+    def _tool_repair_message(self, tool_calls: Optional[List], formatted_tools: Optional[List]) -> Optional[str]:
+        """Return a repair nudge for malformed tool calls, or None.
+
+        Charges the `max_tool_repairs` budget once per repair attempt (via
+        `_current_repair_count`). Returns None when the budget is spent or the
+        tool calls validate cleanly. Shared by the sync and async loops.
+        """
+        max_tool_repairs = getattr(self, 'max_tool_repairs', 0)
+        if not tool_calls or max_tool_repairs <= 0:
+            return None
+        repair_attempt_count = getattr(self, '_current_repair_count', 0)
+        if repair_attempt_count >= max_tool_repairs:
+            return None
+        validation_errors = []
+        for tc in tool_calls:
+            error = self._validate_tool_call(tc, formatted_tools)
+            if error:
+                validation_errors.append(error)
+        if not validation_errors:
+            return None
+        error_msg = "; ".join(validation_errors)
+        tool_schemas = self._get_tool_schemas_for_prompt(formatted_tools)
+        self._current_repair_count = repair_attempt_count + 1
+        return self.TOOL_CALL_REPAIR_PROMPT.format(error=error_msg, tool_schemas=tool_schemas)
+
+    @staticmethod
+    def _param_accepts_string(tool_name: str, param: str, formatted_tools: Optional[List]) -> bool:
+        """True if the named parameter's declared schema accepts a string.
+
+        Used to narrow `tool_result_mapping` substitution: a declared string
+        parameter must keep the value the model sent, even when that value
+        happens to match a prior tool's name. Recognises plain `type`,
+        list-typed `type` unions, and `anyOf` unions. Never raises on a
+        malformed schema - an unreadable schema simply returns False.
+        """
+        try:
+            if not formatted_tools:
+                return False
+            for tool in formatted_tools:
+                if not isinstance(tool, dict):
+                    continue
+                func = tool.get('function')
+                if not isinstance(func, dict) or func.get('name') != tool_name:
+                    continue
+                props = func.get('parameters', {}).get('properties', {})
+                schema = props.get(param)
+                if not isinstance(schema, dict):
+                    return False
+                ptype = schema.get('type')
+                if ptype == 'string':
+                    return True
+                if isinstance(ptype, list) and 'string' in ptype:
+                    return True
+                any_of = schema.get('anyOf')
+                if isinstance(any_of, list):
+                    for member in any_of:
+                        if isinstance(member, dict) and member.get('type') == 'string':
+                            return True
+                return False
+            return False
+        except Exception:
+            return False
 
     def _validate_tool_call(self, tool_call: Dict, formatted_tools: Optional[List]) -> Optional[str]:
         """
@@ -2063,60 +2335,6 @@ Respond with ONLY a valid JSON tool call in this format:
             
         return function_name, arguments, tool_call_id
 
-    def _resolve_ollama_chained_args(self, arguments: Dict[str, Any], tool_result_mapping: Dict[str, Any],
-                                     function_name: Optional[str] = None, tools: Optional[List] = None) -> Dict[str, Any]:
-        """Resolve Ollama tool-chaining references in tool call arguments.
-
-        Weak local models (via Ollama) sometimes emit a later tool call that
-        references a *previous* tool's result by that tool's function name
-        (e.g. ``second_tool(x="first_tool")``) instead of the resolved value.
-        This replaces any argument value that matches a recorded function name
-        with its stored result so the reference resolves instead of being
-        dispatched literally. Shared by ``get_response``, ``get_response_stream``
-        and ``get_response_async`` so behaviour is identical across all three.
-
-        When ``function_name`` and ``tools`` are supplied, a value is only
-        substituted if the target parameter cannot legitimately hold that
-        string: a genuine argument like ``city="get_weather"`` (where ``city``
-        is declared a string) is kept, so it is not silently overwritten by a
-        number scraped out of an earlier result.
-        """
-        if not tool_result_mapping:
-            return arguments
-        for arg_name, arg_value in list(arguments.items()):
-            if not (isinstance(arg_value, str) and arg_value in tool_result_mapping):
-                continue
-            if function_name is not None and tools is not None and \
-                    self._param_accepts_string(function_name, arg_name, tools):
-                logging.debug(
-                    f"[OLLAMA_FIX] Kept {arg_name}={arg_value!r} for {function_name}: "
-                    "the parameter is declared as a string, so the value is "
-                    "legitimate rather than a result reference")
-                continue
-            arguments[arg_name] = tool_result_mapping[arg_value]
-            logging.debug(
-                f"[OLLAMA_FIX] Replaced {arg_value} with "
-                f"{tool_result_mapping[arg_value]} in arguments"
-            )
-        return arguments
-
-    def _record_ollama_tool_result(self, tool_result_mapping: Dict[str, Any], function_name: str, tool_result: Any) -> None:
-        """Record a tool result by function name for later Ollama chaining.
-
-        Stores numeric results directly; for string results, extracts a leading
-        integer if present (matching the original inline logic) so a downstream
-        tool call referencing this function name resolves to a usable value.
-        """
-        if isinstance(tool_result, (int, float)):
-            tool_result_mapping[function_name] = tool_result
-        elif isinstance(tool_result, str):
-            import re
-            match = re.search(r'\b(\d+)\b', tool_result)
-            if match:
-                tool_result_mapping[function_name] = int(match.group(1))
-            else:
-                tool_result_mapping[function_name] = tool_result
-
     def _validate_and_filter_ollama_arguments(self, function_name: str, arguments: Dict[str, Any], available_tools: List) -> Dict[str, Any]:
         """
         Validate and filter tool call arguments for Ollama provider.
@@ -2186,10 +2404,24 @@ Respond with ONLY a valid JSON tool call in this format:
                 logging.debug(f"[OLLAMA_FIX] Filtered arguments: {filtered_args}")
                 
             return filtered_args
-            
+
         except Exception as e:
             logging.debug(f"[OLLAMA_FIX] Error validating arguments for {function_name}: {e}")
             return arguments
+
+    def _filter_ollama_dispatch_arguments(
+        self, function_name: str, arguments: Dict[str, Any], available_tools: List
+    ) -> Dict[str, Any]:
+        """Re-validate arguments after same-turn result substitution.
+
+        The streaming fallback resolves dependent arguments immediately before
+        each sequential dispatch. Keep this wrapper separate so the source has
+        one obvious pre-dispatch filter per streaming/fallback phase while the
+        post-substitution pass still enforces the target signature.
+        """
+        return self._validate_and_filter_ollama_arguments(
+            function_name, arguments, available_tools
+        )
 
     def _handle_ollama_sequential_logic(self, iteration_count: int, accumulated_tool_results: List[Any], 
                                       response_text: str, messages: List[Dict]) -> tuple:
@@ -3174,9 +3406,7 @@ Respond with ONLY a valid JSON tool call in this format:
                             # Create appropriate executor based on parallel_tool_calls setting
                             executor = create_tool_call_executor(parallel=parallel_tool_calls)
                             
-                            # Execute batch (forward optional per-tool timeout
-                            # and the cancel token so a Stop/interrupt during
-                            # the tool phase short-circuits pending calls).
+                            # Execute batch (forward optional per-tool timeout)
                             tool_results_batch = executor.execute_batch(
                                 tool_calls_batch, execute_tool_fn,
                                 timeout_ms=self.tool_timeout_ms,
@@ -3799,13 +4029,12 @@ Respond with ONLY a valid JSON tool call in this format:
                                 logging.debug(f"Parsed {len(tool_calls)} tool call(s) from XML format")
                     
                     # Force tool usage logic: if model ignores tools but should use them
-                    if self._should_force_tool_usage(response_text, tool_calls, formatted_tools, iteration_count):
-                        tool_names = self._get_tool_names_for_prompt(formatted_tools)
-                        force_prompt = self.FORCE_TOOL_USAGE_PROMPT.format(tool_names=tool_names)
-                        logging.debug(f"[OLLAMA_RELIABILITY] Force tool usage triggered. Adding prompt for tools: {tool_names}")
+                    _force = self._force_tool_usage_message(response_text, tool_calls, formatted_tools, iteration_count)
+                    if _force is not None:
+                        logging.debug(f"[OLLAMA_RELIABILITY] Force tool usage triggered. Adding prompt for tools: {self._get_tool_names_for_prompt(formatted_tools)}")
                         messages.append({
                             "role": "user",
-                            "content": force_prompt
+                            "content": _force
                         })
                         iteration_count += 1
                         continue
@@ -3820,32 +4049,16 @@ Respond with ONLY a valid JSON tool call in this format:
                         continue
                     
                     # Tool call repair logic: validate and repair malformed tool calls
-                    repair_attempt_count = getattr(self, '_current_repair_count', 0)
-                    if tool_calls and self.max_tool_repairs > 0 and repair_attempt_count < self.max_tool_repairs:
-                        # Validate each tool call
-                        validation_errors = []
-                        for tc in tool_calls:
-                            error = self._validate_tool_call(tc, formatted_tools)
-                            if error:
-                                validation_errors.append(error)
-                        
-                        if validation_errors:
-                            # Tool call is invalid, attempt repair
-                            error_msg = "; ".join(validation_errors)
-                            tool_schemas = self._get_tool_schemas_for_prompt(formatted_tools)
-                            repair_prompt = self.TOOL_CALL_REPAIR_PROMPT.format(
-                                error=error_msg,
-                                tool_schemas=tool_schemas
-                            )
-                            logging.debug(f"[OLLAMA_RELIABILITY] Tool call repair attempt {repair_attempt_count + 1}/{self.max_tool_repairs}: {error_msg}")
-                            messages.append({
-                                "role": "user",
-                                "content": repair_prompt
-                            })
-                            self._current_repair_count = repair_attempt_count + 1
-                            iteration_count += 1
-                            tool_calls = None  # Clear invalid tool calls
-                            continue
+                    _repair = self._tool_repair_message(tool_calls, formatted_tools)
+                    if _repair is not None:
+                        logging.debug(f"[OLLAMA_RELIABILITY] Tool call repair attempt {self._current_repair_count}/{self.max_tool_repairs}")
+                        messages.append({
+                            "role": "user",
+                            "content": _repair
+                        })
+                        iteration_count += 1
+                        tool_calls = None  # Clear invalid tool calls
+                        continue
                     
                     # Reset repair count on successful tool call
                     self._current_repair_count = 0
@@ -3917,14 +4130,14 @@ Respond with ONLY a valid JSON tool call in this format:
                                 messages.append(self._tool_parse_error_message(function_name, tool_call_id))
                                 continue
 
+                            # First resolve any reference to a previous tool
+                            # result, then filter unknown argument keys.
+                            if is_ollama:
+                                arguments = self._resolve_ollama_chained_args(
+                                    arguments, tool_result_mapping, function_name, tools
+                                )
                             # Validate and filter arguments for Ollama provider
                             if is_ollama and tools:
-                                # First resolve any argument that references a previous tool result.
-                                # The guard (a genuine string arg matching a tool name must be kept)
-                                # lives inside the shared helper so all three paths honour it.
-                                arguments = self._resolve_ollama_chained_args(
-                                    arguments, tool_result_mapping,
-                                    function_name=function_name, tools=tools)
                                 arguments = self._validate_and_filter_ollama_arguments(function_name, arguments, tools)
 
                             logging.debug(f"[TOOL_EXEC_DEBUG] About to execute tool {function_name} with args: {arguments}")
@@ -3960,8 +4173,10 @@ Respond with ONLY a valid JSON tool call in this format:
                             accumulated_tool_results.append(tool_result)  # Accumulate across iterations
                             
                             # For Ollama, store the result for potential chaining
-                            if is_ollama:
-                                self._record_ollama_tool_result(tool_result_mapping, function_name, tool_result)
+                            if is_ollama and _ollama_tool_result_is_successful(tool_result):
+                                self._record_ollama_tool_result(
+                                    tool_result_mapping, function_name, tool_result
+                                )
 
                             if verbose:
                                 display_message = f"Agent {agent_name} called function '{function_name}' with arguments: {arguments}\n"
@@ -4011,8 +4226,8 @@ Respond with ONLY a valid JSON tool call in this format:
                         if _deferred_media_followups:
                             messages.extend(_deferred_media_followups)
 
-                        # If we should continue, increment iteration and continue loop
-                        if should_continue:
+                        # Continuations must still reach the budget finalizer on the last step.
+                        if should_continue and iteration_count + 1 < max_iterations:
                             iteration_count += 1
                             continue
 
@@ -4035,9 +4250,6 @@ Respond with ONLY a valid JSON tool call in this format:
                             # Reset interaction_displayed to ensure final summary is shown
                             interaction_displayed = False
                             break
-                        elif tool_summary_text is None and iteration_count > self.OLLAMA_SUMMARY_ITERATION_THRESHOLD:
-                            # Continue iteration after adding final answer prompt
-                            continue
                         
                         # Safety check: prevent infinite loops for any provider
                         if iteration_count + 1 >= max_iterations:
@@ -4362,7 +4574,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                              agent_name=agent_name, agent_role=agent_role, agent_tools=agent_tools,
                                              task_name=task_name, task_description=task_description, task_id=task_id)
                             interaction_displayed = True
-                        return response_text
+                        return _prepare_return_value(response_text)
 
                     if reflection_count >= max_reflect - 1:
                         if verbose and not interaction_displayed:
@@ -4371,7 +4583,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                              agent_name=agent_name, agent_role=agent_role, agent_tools=agent_tools,
                                              task_name=task_name, task_description=task_description, task_id=task_id)
                             interaction_displayed = True
-                        return response_text
+                        return _prepare_return_value(response_text)
 
                     reflection_count += 1
                     messages.extend([
@@ -4541,6 +4753,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 try:
                     tool_calls = []
                     response_text = ""
+                    ollama_tool_result_mapping: Dict[str, Any] = {}
                     consecutive_errors = 0
                     max_consecutive_errors = 3  # Fallback to non-streaming after 3 consecutive errors
                     
@@ -4662,12 +4875,14 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                     self._tool_parse_error_message(function_name, tool_call_id)
                                 )
                                 continue
-                            # Validate and filter arguments for Ollama provider.
-                            # Pre-dispatch, so this is streaming-safe: nothing has
-                            # been yielded that would need retracting. Weak local
-                            # models routinely emit arguments belonging to a
-                            # different function, and dispatching those calls the
-                            # user's tool with parameters it never declared.
+                            # Resolve any same-turn result reference first.
+                            if is_ollama:
+                                arguments = self._resolve_ollama_chained_args(
+                                    arguments, ollama_tool_result_mapping, function_name, tools
+                                )
+                            # Validate and filter before dispatch. Nothing has
+                            # been yielded yet, so streaming consumers remain
+                            # framed even when a weak model emits extra keys.
                             if is_ollama and tools:
                                 arguments = self._validate_and_filter_ollama_arguments(
                                     function_name, arguments, tools)
@@ -4689,11 +4904,54 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         # here; use a distinct alias.
                         from time import perf_counter as _perf_counter
                         _batch_started = _perf_counter()
-                        tool_results = executor.execute_batch(
-                            tool_calls_batch, execute_tool_fn,
-                            timeout_ms=self.tool_timeout_ms,
-                            cancel_token=cancel_token,
-                        )
+                        if is_ollama and not parallel_tool_calls:
+                            # Ollama models commonly emit a later call whose
+                            # argument is the name of an earlier call. Execute
+                            # these calls one at a time so each result can be
+                            # resolved before the next dispatch.
+                            tool_results = []
+                            for _tool_call in tool_calls_batch:
+                                _tool_call.arguments = self._resolve_ollama_chained_args(
+                                    _tool_call.arguments, ollama_tool_result_mapping,
+                                    _tool_call.function_name, tools
+                                )
+                                # The batch-preparation filter above has
+                                # already removed unknown keys. Re-validate
+                                # after substitution so dependent values follow
+                                # the same signature contract as other paths.
+                                _tool_call.arguments = self._filter_ollama_dispatch_arguments(
+                                    _tool_call.function_name,
+                                    _tool_call.arguments,
+                                    tools,
+                                )
+                                _result = executor.execute_batch(
+                                    [_tool_call], execute_tool_fn,
+                                    timeout_ms=self.tool_timeout_ms,
+                                    cancel_token=cancel_token,
+                                )
+                                tool_results.extend(_result)
+                                if _result and _result[0].error is None:
+                                    self._record_ollama_tool_result(
+                                        ollama_tool_result_mapping,
+                                        _tool_call.function_name,
+                                        _result[0].result,
+                                    )
+                        else:
+                            tool_results = executor.execute_batch(
+                                tool_calls_batch, execute_tool_fn,
+                                timeout_ms=self.tool_timeout_ms,
+                                cancel_token=cancel_token,
+                            )
+                            if is_ollama:
+                                for _tool_call, _result in zip(
+                                    tool_calls_batch, tool_results
+                                ):
+                                    if _result.error is None:
+                                        self._record_ollama_tool_result(
+                                            ollama_tool_result_mapping,
+                                            _tool_call.function_name,
+                                            _result.result,
+                                        )
                         _batch_elapsed = _perf_counter() - _batch_started
                         
                         for tool_result in tool_results:
@@ -4748,15 +5006,25 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         for _err_msg in parse_error_messages:
                             messages.append(_err_msg)
 
-                        # If a Stop/interrupt fired during the tool batch, the
-                        # executor already short-circuited pending calls; do not
-                        # spend another model request on the cancelled turn
-                        # (Issue #5073), matching the non-streaming loop.
+                        # A cancellation may arrive while the tool batch is
+                        # running.  The executor returns promptly with
+                        # cancellation results, but must not trigger another
+                        # model request for a turn the caller has already
+                        # stopped (Issue #5073).
                         if _stream_is_cancelled():
+                            reason = _stream_cancel_reason()
                             logging.debug(
-                                "Streaming tool loop cancelled after tool batch: "
-                                f"{_stream_cancel_reason()}")
+                                "Streaming LLM cancelled before follow-up: %s",
+                                reason,
+                            )
+                            yield f"Task interrupted: {reason}"
                             return
+                         
+                        # Trim the conversation before the follow-up request so
+                        # the stream loop bounds its context like the sync and
+                        # async loops do (each tool turn appends an assistant
+                        # message plus one tool reply per call).
+                        messages = self._manage_context_in_loop(messages)
 
                         # Continue conversation after tool execution - get follow-up response
                         try:
@@ -4821,23 +5089,13 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     tool_call_count = 0
                     last_tool_call_fingerprint = None
                     stall_reason = None
-                    tool_result_mapping = {}  # Store function results by name for Ollama chaining
                     max_fallback_iterations = kwargs.pop("max_iterations", self.max_iter)
                     while fallback_iterations < max_fallback_iterations:
-                        # Honour a Stop/interrupt between fallback iterations so
-                        # a cancelled turn does not issue another model request
-                        # (Issue #5073).
-                        if _stream_is_cancelled():
-                            logging.debug(
-                                "Streaming fallback loop cancelled: "
-                                f"{_stream_cancel_reason()}")
-                            break
-                        # In-loop context management, as the other two paths do. Without it
-                        # this loop appended an assistant turn and a tool reply every
-                        # iteration with nothing ever trimming them, so a long tool chain
-                        # grew `messages` until the server truncated the head silently.
-                        messages = self._manage_context_in_loop(messages)
                         fallback_iterations += 1
+                        messages = self._manage_context_in_loop(messages)
+                        # Chaining references are scoped to one assistant turn;
+                        # do not let a later turn reuse an earlier result.
+                        ollama_tool_result_mapping = {}
                         response = self._completion_with_retry(
                             **self._build_completion_params(
                                 messages=messages,
@@ -4915,14 +5173,6 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 f"within limit of {max_tool_calls_per_turn}.")
 
                         for tool_call in tool_calls:
-                            # Skip pending calls once a Stop/interrupt fires so
-                            # the fallback path honours cancellation like the
-                            # executor-backed paths do (Issue #5073).
-                            if _stream_is_cancelled():
-                                logging.debug(
-                                    "Streaming fallback tool dispatch cancelled: "
-                                    f"{_stream_cancel_reason()}")
-                                break
                             tool_call_count += 1
                             function_name, arguments, tool_call_id = (
                                 self._extract_tool_call_info(tool_call, is_ollama))
@@ -4938,8 +5188,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                             # user's tool with parameters it never declared.
                             if is_ollama and tools:
                                 arguments = self._resolve_ollama_chained_args(
-                                    arguments, tool_result_mapping,
-                                    function_name=function_name, tools=tools)
+                                    arguments, ollama_tool_result_mapping, function_name, tools
+                                )
                                 arguments = self._validate_and_filter_ollama_arguments(
                                     function_name, arguments, tools)
                             try:
@@ -4950,9 +5200,12 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 logging.warning(
                                     f"Tool '{function_name}' failed: {tool_error}")
                                 tool_result = {"error": str(tool_error)}
-                            if is_ollama:
+                            if is_ollama and _ollama_tool_result_is_successful(tool_result):
                                 self._record_ollama_tool_result(
-                                    tool_result_mapping, function_name, tool_result)
+                                    ollama_tool_result_mapping,
+                                    function_name,
+                                    tool_result,
+                                )
                             try:
                                 _get_display_functions()['execute_sync_callback'](
                                     'tool_call',
@@ -5056,8 +5309,9 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         max_tool_calls_per_turn: int = 10,  # Loop guardrails
         stream: bool = True,
         parallel_tool_calls: bool = False,
+        return_token_usage: bool = False,
         **kwargs
-    ) -> str:
+    ) -> Union[str, tuple[str, TokenUsage]]:
         """Async version of get_response with identical functionality."""
         # G2: Cooperative cancellation - honour InterruptController between tool iterations
         # so /stop (and cancellation generally) halts mid-flight runs on every provider.
@@ -5190,9 +5444,22 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
             iteration_count = 0
             tool_call_count = 0  # Track total tool calls for guardrails
             final_response_text = ""
+            # Track the final raw LLM response so return_token_usage can extract
+            # usage, mirroring the sync get_response path.
+            _final_llm_response = None
+
+            def _prepare_return_value(text: str) -> Union[str, tuple]:
+                if not return_token_usage:
+                    return text
+                token_usage = (
+                    self._extract_token_usage(_final_llm_response)
+                    if _final_llm_response else None
+                )
+                if token_usage is None:
+                    token_usage = TokenUsage()
+                return text, token_usage
             stored_reasoning_content = None  # Store reasoning content from tool execution
             accumulated_tool_results = []  # Store all tool results across iterations
-            tool_result_mapping = {}  # Store function results by name for Ollama chaining
             # Structured stop reason (unified with the OpenAI-native path).
             self._last_stop_reason = "completed"
 
@@ -5202,7 +5469,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 if _is_cancelled():
                     reason = _cancel_reason()
                     logging.debug(f"Async LLM tool loop cancelled: {reason}")
-                    return f"Task interrupted: {reason}"
+                    return _prepare_return_value(f"Task interrupted: {reason}")
                 # G2: Mid-run steering - drain any pending steering notes and inject
                 # them as user messages so the model sees them on its next step.
                 _inject_steering(messages)
@@ -5212,6 +5479,9 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 response_text = ""
                 reasoning_content = None
                 tool_calls = []
+                # Chaining references are scoped to one assistant turn;
+                # do not let a later turn reuse an earlier result.
+                ollama_tool_result_mapping: Dict[str, Any] = {}
                 
                 # ── Responses API path (async) ──────────────────────────
                 if self._supports_responses_api():
@@ -5235,9 +5505,11 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         # usage from the final response.completed event.
                         if stream_response is not None:
                             self._track_token_usage(stream_response, self.model)
+                            _final_llm_response = stream_response
                     else:
                         resp = await self._call_responses_api_async(**responses_params)
                         response_text, tool_calls, _reasoning = self._extract_from_responses_output(resp)
+                        _final_llm_response = resp
 
                     # Build Chat-Completions-compatible final_response
                     final_response = {
@@ -5278,7 +5550,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         if _is_cancelled():
                             reason = _cancel_reason()
                             logging.debug(f"Async LLM tool loop cancelled before tool dispatch: {reason}")
-                            return f"Task interrupted: {reason}"
+                            return _prepare_return_value(f"Task interrupted: {reason}")
                         serializable_tool_calls = self._serialize_tool_calls(tool_calls)
                         messages.append({
                             "role": "assistant",
@@ -5355,6 +5627,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         )
                     )
                     self._record_finish_reason(resp)
+                    _final_llm_response = resp
                     reasoning_content = resp["choices"][0]["message"].get("provider_specific_fields", {}).get("reasoning_content")
                     response_text = resp["choices"][0]["message"]["content"]
                     
@@ -5464,6 +5737,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                             )
                         )
                         self._record_finish_reason(tool_response)
+                        _final_llm_response = tool_response
                         # Handle None content from Gemini
                         response_content = tool_response.choices[0].message.get("content")
                         response_text = response_content if response_content is not None else ""
@@ -5481,12 +5755,12 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 tool_calls = recovered
                                 logging.debug(
                                     f"Recovered tool calls from response text: {tool_calls}")
-
+                        
                         # Debug logging for Gemini responses
                         if self._is_gemini_model():
                             logging.debug(f"Gemini response content: {response_content} -> {response_text}")
                             logging.debug(f"Gemini tool calls: {tool_calls}")
-
+                        
                         if verbose and not interaction_displayed:
                             # Display the complete response at once
                             _get_display_functions()['display_interaction'](
@@ -5504,25 +5778,32 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                             )
                             interaction_displayed = True
 
-                    # Apply the same tool-reliability policy the sync path uses. Both lived
-                    # inline in get_response only, so `max_tool_repairs` and `force_tool_usage`
-                    # were accepted from the caller -- and set by OllamaAdapter for every Ollama
-                    # LLM -- then silently ignored the moment the agent was awaited.
-                    # Placed after the streaming/non-streaming branches converge (as the sync
-                    # path does) so a streaming-with-tools provider that sets a repair budget
-                    # (e.g. LocalOpenAIAdapter) is not skipped.
-                    _force = self._force_tool_usage_message(
-                        response_text, tool_calls, formatted_tools, iteration_count)
-                    if _force:
-                        messages.append({"role": "user", "content": _force})
+                    # Force tool usage / repair: applied AFTER both the streaming
+                    # and non-streaming branches converge so a streaming-with-tools
+                    # provider still honours the policy the sync path applies. Both
+                    # lived inline in get_response only, so `max_tool_repairs` and
+                    # `force_tool_usage` were accepted from the caller -- and set by
+                    # OllamaAdapter for every Ollama LLM -- then silently ignored the
+                    # moment the agent was awaited.
+                    _force = self._force_tool_usage_message(response_text, tool_calls, formatted_tools, iteration_count)
+                    if _force is not None:
+                        logging.debug(f"[OLLAMA_RELIABILITY] Force tool usage triggered (async). Adding prompt for tools: {self._get_tool_names_for_prompt(formatted_tools)}")
+                        messages.append({
+                            "role": "user",
+                            "content": _force
+                        })
                         iteration_count += 1
                         continue
 
                     _repair = self._tool_repair_message(tool_calls, formatted_tools)
-                    if _repair:
-                        messages.append({"role": "user", "content": _repair})
+                    if _repair is not None:
+                        logging.debug(f"[OLLAMA_RELIABILITY] Tool call repair attempt (async) {self._current_repair_count}/{self.max_tool_repairs}")
+                        messages.append({
+                            "role": "user",
+                            "content": _repair
+                        })
                         iteration_count += 1
-                        tool_calls = None
+                        tool_calls = None  # Clear invalid tool calls
                         continue
                     self._current_repair_count = 0
 
@@ -5542,7 +5823,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     if _is_cancelled():
                         reason = _cancel_reason()
                         logging.debug(f"Async LLM tool loop cancelled before tool dispatch: {reason}")
-                        return f"Task interrupted: {reason}"
+                        return _prepare_return_value(f"Task interrupted: {reason}")
                     # Convert tool_calls to a serializable format for all providers
                     serializable_tool_calls = self._serialize_tool_calls(tool_calls)
                     # Check if it's Ollama provider
@@ -5584,9 +5865,10 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     # parallel_tool_calls is set) while preserving call order.
                     _call_plan = []  # ('error', msg) | ('call', fn, args, tc_id)
                     _dispatch_specs = []
-                    is_ollama = self._is_ollama_provider()
+                    _batch_results = []
                     for tool_call in tool_calls:
                         # Handle both object and dict access patterns
+                        is_ollama = self._is_ollama_provider()
                         function_name, arguments, tool_call_id = self._extract_tool_call_info(tool_call, is_ollama)
 
                         if self._tool_arguments_parse_failed(arguments):
@@ -5594,47 +5876,65 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                             _call_plan.append(('error', self._tool_parse_error_message(function_name, tool_call_id)))
                             continue
 
-                        # For Ollama, defer chained-arg resolution/validation to
-                        # dispatch time so a producing call earlier in THIS batch
-                        # has its result recorded before a dependent call resolves
-                        # (matches the sync / streaming sequential loops).
-                        if not (is_ollama and tools):
-                            _dispatch_specs.append((function_name, arguments, tool_call_id))
+                        # Validate and filter arguments for Ollama provider.
+                        # In the sequential Ollama path, defer resolution and
+                        # validation until immediately before dispatch; this
+                        # lets a later call consume an earlier result from the
+                        # same assistant turn.
+                        if is_ollama and tools:
+                            if parallel_tool_calls:
+                                arguments = self._resolve_ollama_chained_args(
+                                    arguments, ollama_tool_result_mapping, function_name, tools
+                                )
+                                arguments = self._validate_and_filter_ollama_arguments(
+                                    function_name, arguments, tools
+                                )
+
+                        if is_ollama and not parallel_tool_calls:
+                            arguments = self._resolve_ollama_chained_args(
+                                arguments, ollama_tool_result_mapping, function_name, tools
+                            )
+                            if tools:
+                                arguments = self._validate_and_filter_ollama_arguments(
+                                    function_name, arguments, tools
+                                )
 
                         _call_plan.append(('call', function_name, arguments, tool_call_id))
+                        if is_ollama and not parallel_tool_calls:
+                            _batch_results.append(await _dispatch_async_tool(
+                                execute_tool_fn,
+                                function_name,
+                                arguments,
+                                tool_call_id,
+                                iteration_count,
+                            ))
+                            if _ollama_tool_result_is_successful(_batch_results[-1]):
+                                self._record_ollama_tool_result(
+                                    ollama_tool_result_mapping, function_name,
+                                    _batch_results[-1],
+                                )
+                        else:
+                            _dispatch_specs.append((function_name, arguments, tool_call_id))
 
-                    # Ollama chained calls must run sequentially (a later call may
-                    # reference an earlier call's result by function name), so skip
-                    # the concurrent batch and dispatch inside the consumption loop.
-                    if is_ollama and tools:
-                        _result_iter = None
-                    else:
-                        _batch_results = await _dispatch_tool_batch(_dispatch_specs, iteration_count)
-                        _result_iter = iter(_batch_results)
+                    if not (is_ollama and not parallel_tool_calls):
+                        _batch_results = await _dispatch_tool_batch(
+                            _dispatch_specs, iteration_count
+                        )
+                    _result_iter = iter(_batch_results)
                     for _plan in _call_plan:
                         if _plan[0] == 'error':
                             messages.append(_plan[1])
                             continue
                         _, function_name, arguments, tool_call_id = _plan
-                        if _result_iter is None:
-                            # Ollama: resolve against results recorded so far, then
-                            # execute this single call before moving to the next.
-                            arguments = self._resolve_ollama_chained_args(
-                                arguments, tool_result_mapping,
-                                function_name=function_name, tools=tools)
-                            arguments = self._validate_and_filter_ollama_arguments(function_name, arguments, tools)
-                            tool_result = (await _dispatch_tool_batch(
-                                [(function_name, arguments, tool_call_id)], iteration_count
-                            ))[0]
-                        else:
-                            tool_result = next(_result_iter)
+                        tool_result = next(_result_iter)
                         tool_call_count += 1  # Increment tool call counter for guardrails
                         tool_results.append(tool_result)  # Store the result
                         accumulated_tool_results.append(tool_result)  # Accumulate across iterations
 
-                        # For Ollama, store the result for potential chaining
-                        if is_ollama:
-                            self._record_ollama_tool_result(tool_result_mapping, function_name, tool_result)
+                        if is_ollama and _ollama_tool_result_is_successful(tool_result):
+                            self._record_ollama_tool_result(
+                                ollama_tool_result_mapping, function_name, tool_result
+                            )
 
                         if verbose:
                             display_message = f"Agent {agent_name} called function '{function_name}' with arguments: {arguments}\n"
@@ -5690,6 +5990,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                             )
                         )
                         self._record_finish_reason(resp)
+                        _final_llm_response = resp
                         reasoning_content = resp["choices"][0]["message"].get("provider_specific_fields", {}).get("reasoning_content")
                         response_text = resp["choices"][0]["message"]["content"]
                         
@@ -5742,6 +6043,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 )
                             )
                             self._record_finish_reason(resp)
+                            _final_llm_response = resp
                             response_text = resp["choices"][0]["message"].get("content") or ""
                             # If the response also contains new tool_calls, treat this as a
                             # tool-calling round rather than a final answer (Anthropic pattern)
@@ -5813,9 +6115,6 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         # Reset interaction_displayed to ensure final summary is shown
                         interaction_displayed = False
                         break
-                    elif tool_summary_text is None and iteration_count > self.OLLAMA_SUMMARY_ITERATION_THRESHOLD:
-                        # Continue iteration after adding final answer prompt
-                        continue
                     
                     # Safety check: prevent infinite loops for any provider
                     if iteration_count + 1 >= max_iterations:
@@ -5852,6 +6151,9 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         final_response_text = response_text.strip()
                     break
 
+            # Preserve tool-loop finalization for structured output and reflection.
+            response_text = final_response_text or response_text
+
             # Handle output formatting
             if output_json or output_pydantic:
                 self.chat_history.append({"role": "user", "content": original_prompt})
@@ -5862,7 +6164,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                      agent_name=agent_name, agent_role=agent_role, agent_tools=agent_tools,
                                      task_name=task_name, task_description=task_description, task_id=task_id)
                     interaction_displayed = True
-                return response_text
+                return _prepare_return_value(response_text)
 
             if not self_reflect:
                 # Use final_response_text if we went through tool iterations
@@ -5893,8 +6195,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 
                 # Return reasoning content if reasoning_steps is True and we have it
                 if reasoning_steps and stored_reasoning_content:
-                    return stored_reasoning_content
-                return display_text
+                    return _prepare_return_value(stored_reasoning_content)
+                return _prepare_return_value(display_text)
 
             # Handle self-reflection
             reflection_prompt = f"""
@@ -6009,7 +6311,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                              agent_name=agent_name, agent_role=agent_role, agent_tools=agent_tools,
                                              task_name=task_name, task_description=task_description, task_id=task_id)
                             interaction_displayed = True
-                        return response_text
+                        return _prepare_return_value(response_text)
 
                     if reflection_count >= max_reflect - 1:
                         if verbose and not interaction_displayed:
@@ -6018,7 +6320,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                              agent_name=agent_name, agent_role=agent_role, agent_tools=agent_tools,
                                              task_name=task_name, task_description=task_description, task_id=task_id)
                             interaction_displayed = True
-                        return response_text
+                        return _prepare_return_value(response_text)
 
                     reflection_count += 1
                     messages.extend([
@@ -6032,7 +6334,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 except json.JSONDecodeError:
                     reflection_count += 1
                     if reflection_count >= max_reflect:
-                        return response_text
+                        return _prepare_return_value(response_text)
                     continue  # Now properly in a loop
             
         except Exception as error:
@@ -6088,11 +6390,16 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
     def _setup_event_tracking(self, events: List[Any]) -> None:
         """Setup callback functions for tracking model usage.
 
-        ``litellm.callbacks`` is a process-global list shared by every LLM
-        instance. Overwriting it wipes callbacks registered by other concurrent
-        agents, so we merge into it instead: only the callbacks *this* instance
-        previously registered are removed, and unrelated instances' callbacks
-        are never touched. An empty ``events`` list is a no-op.
+        ``litellm.success_callback``, ``litellm._async_success_callback`` and
+        ``litellm.callbacks`` are process-global lists shared by every LLM
+        instance. Overwriting (or type-based stripping of) them wipes callbacks
+        registered by other concurrent agents — or by the application itself via
+        litellm's documented ``litellm.success_callback.append(...)`` extension
+        point. So we merge into each list instead: only the callbacks *this*
+        instance previously registered are removed, and unrelated instances'
+        callbacks are never touched. An empty ``events`` list is a no-op. The
+        whole read-modify-write is guarded by a module-level lock so concurrent
+        instances can't corrupt the shared lists.
         """
         if not events:
             return
@@ -6105,29 +6412,37 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 "Please install it with: pip install 'praisonaiagents[llm]'"
             )
 
-        event_types = [type(event) for event in events]
-        
-        # Remove old events of same type
-        for event in litellm.success_callback[:]:
-            if type(event) in event_types:
-                litellm.success_callback.remove(event)
-                
-        for event in litellm._async_success_callback[:]:
-            if type(event) in event_types:
-                litellm._async_success_callback.remove(event)
+        with _EVENT_TRACKING_LOCK:
+            # Only remove the success callbacks *this* instance registered on a
+            # prior call — never strip by type, which would delete another
+            # instance's or the application's own callbacks of the same class
+            # (e.g. an app-registered ``litellm.success_callback.append(...)``).
+            for cb in getattr(self, "_registered_success_callbacks", []):
+                if cb in litellm.success_callback:
+                    litellm.success_callback.remove(cb)
+            for cb in getattr(self, "_registered_async_success_callbacks", []):
+                if cb in litellm._async_success_callback:
+                    litellm._async_success_callback.remove(cb)
+            for event in events:
+                if event not in litellm.success_callback:
+                    litellm.success_callback.append(event)
+                if event not in litellm._async_success_callback:
+                    litellm._async_success_callback.append(event)
+            self._registered_success_callbacks = list(events)
+            self._registered_async_success_callbacks = list(events)
 
-        # Merge into the global list rather than replacing it. Only remove the
-        # callbacks this instance registered on a prior call, then append the
-        # current ones, preserving other instances' callbacks.
-        if litellm.callbacks is None:
-            litellm.callbacks = []
-        for cb in getattr(self, "_registered_callbacks", []):
-            if cb in litellm.callbacks:
-                litellm.callbacks.remove(cb)
-        for event in events:
-            if event not in litellm.callbacks:
-                litellm.callbacks.append(event)
-        self._registered_callbacks = list(events)
+            # Merge into the global list rather than replacing it. Only remove the
+            # callbacks this instance registered on a prior call, then append the
+            # current ones, preserving other instances' callbacks.
+            if litellm.callbacks is None:
+                litellm.callbacks = []
+            for cb in getattr(self, "_registered_callbacks", []):
+                if cb in litellm.callbacks:
+                    litellm.callbacks.remove(cb)
+            for event in events:
+                if event not in litellm.callbacks:
+                    litellm.callbacks.append(event)
+            self._registered_callbacks = list(events)
 
     def _track_token_usage(self, response: Any, model: str) -> Optional[TokenMetrics]:
         """Extract and track token usage from LLM response."""
@@ -6209,7 +6524,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 metadata={
                     "provider": provider,
                     "stream": False
-                }
+                },
+                agent_id=self.current_agent_id,
             )
             
             return metrics
@@ -6274,29 +6590,31 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
             
             if not usage:
                 return None
-            
-            # Extract token counts with support for both dict and object access
-            if isinstance(usage, dict):
-                return TokenUsage(
-                    prompt_tokens=usage.get("prompt_tokens", 0),
-                    completion_tokens=usage.get("completion_tokens", 0),
-                    total_tokens=usage.get("total_tokens", 0),
-                    cached_tokens=usage.get("cached_tokens", 0),
-                    reasoning_tokens=usage.get("reasoning_tokens", 0),
-                    audio_input_tokens=usage.get("audio_input_tokens", 0),
-                    audio_output_tokens=usage.get("audio_output_tokens", 0),
-                )
-            else:
-                # Object-style access
-                return TokenUsage(
-                    prompt_tokens=getattr(usage, 'prompt_tokens', 0) or 0,
-                    completion_tokens=getattr(usage, 'completion_tokens', 0) or 0,
-                    total_tokens=getattr(usage, 'total_tokens', 0) or 0,
-                    cached_tokens=getattr(usage, 'cached_tokens', 0) or 0,
-                    reasoning_tokens=getattr(usage, 'reasoning_tokens', 0) or 0,
-                    audio_input_tokens=getattr(usage, 'audio_input_tokens', 0) or 0,
-                    audio_output_tokens=getattr(usage, 'audio_output_tokens', 0) or 0,
-                )
+
+            # Read a value under any of the given names, supporting both dict and
+            # object usage. The Responses API reports input_tokens/output_tokens
+            # instead of prompt_tokens/completion_tokens, so accept both spellings
+            # (mirroring _track_token_usage) to avoid returning zero counts.
+            def _usage_value(*names: str) -> int:
+                for name in names:
+                    value = (
+                        usage.get(name)
+                        if isinstance(usage, dict)
+                        else getattr(usage, name, None)
+                    )
+                    if value is not None:
+                        return int(value or 0)
+                return 0
+
+            return TokenUsage(
+                prompt_tokens=_usage_value("prompt_tokens", "input_tokens"),
+                completion_tokens=_usage_value("completion_tokens", "output_tokens"),
+                total_tokens=_usage_value("total_tokens"),
+                cached_tokens=_usage_value("cached_tokens"),
+                reasoning_tokens=_usage_value("reasoning_tokens"),
+                audio_input_tokens=_usage_value("audio_input_tokens"),
+                audio_output_tokens=_usage_value("audio_output_tokens"),
+            )
                 
         except Exception as e:
             if self.verbose:
@@ -6305,49 +6623,82 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
     
     @property
     def current_agent_name(self) -> Optional[str]:
-        """Agent name to attribute the next tracked completion to.
+        """The agent name attributed to the current async task/context.
 
-        Isolated per asyncio task via a ContextVar: asyncio.gather copies the
-        context into each task it creates, so this survives an await and is
-        never visible to a sibling task running concurrently on this instance.
+        Backed by a per-instance ContextVar (issue #5052) so concurrent agents
+        sharing one LLM instance keep independent, task-local attribution and do
+        not clobber each other's value while awaiting their own completions.
         """
-        return self._current_agent_name_var.get()
+        var = getattr(self, "_current_agent_name_var", None)
+        if var is None:
+            return None
+        return var.get()
 
     @current_agent_name.setter
     def current_agent_name(self, agent_name: Optional[str]) -> None:
-        self._current_agent_name_var.set(agent_name)
+        var = getattr(self, "_current_agent_name_var", None)
+        if var is None:
+            var = contextvars.ContextVar(
+                "current_agent_name", default=None
+            )
+            self._current_agent_name_var = var
+        var.set(agent_name)
 
-    def set_current_agent(self, agent_name: Optional[str]):
-        """Set the current agent name for token tracking."""
+    @property
+    def current_agent_id(self) -> Optional[str]:
+        """Stable per-agent identity for token aggregation (issue #5052)."""
+        var = getattr(self, "_current_agent_id_var", None)
+        if var is None:
+            return None
+        return var.get()
+
+    @current_agent_id.setter
+    def current_agent_id(self, agent_id: Optional[str]) -> None:
+        var = getattr(self, "_current_agent_id_var", None)
+        if var is None:
+            var = contextvars.ContextVar("current_agent_id", default=None)
+            self._current_agent_id_var = var
+        var.set(agent_id)
+
+    def set_current_agent(
+        self,
+        agent_name: Optional[str],
+        agent_id: Optional[str] = None,
+    ) -> None:
+        """Set task-local agent attribution for token tracking."""
         self.current_agent_name = agent_name
+        self.current_agent_id = agent_id
 
-    def __deepcopy__(self, memo: dict) -> "LLM":
-        """Custom deepcopy that gives the clone its own ContextVar.
+    def __deepcopy__(self, memo):
+        """Deep-copy the LLM while giving the clone fresh attribution ContextVars.
 
-        ``contextvars.ContextVar`` cannot be deep-copied (it has no
-        ``__deepcopy__``/``__reduce__`` support), so the default
-        ``copy.deepcopy`` walk raises ``TypeError`` as soon as it reaches
-        ``_current_agent_name_var``. That attribute only holds task-local,
-        runtime attribution state anyway - it is meaningless to carry across
-        a clone - so this hook allocates a fresh ContextVar (default
-        ``None``, same as ``__init__``) for the copy instead of copying the
-        original one.
+        ``contextvars.ContextVar`` has no ``__deepcopy__``/``__reduce__`` and is
+        not copyable, so ``Agent.__deepcopy__`` (which recursively copies
+        ``_llm_instance``) would raise ``TypeError: cannot pickle ContextVar``.
+        Thread locks on LLM subclasses get fresh locks (issue #1746 / #5052).
         """
         cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            if k == "_current_agent_name_var":
-                object.__setattr__(
-                    result,
-                    k,
-                    contextvars.ContextVar(
-                        f"praisonai_current_agent_name_{id(result)}", default=None
-                    ),
+        new = cls.__new__(cls)
+        memo[id(self)] = new
+        for key, value in self.__dict__.items():
+            if key == "_current_agent_name_var":
+                new.__dict__[key] = contextvars.ContextVar(
+                    "current_agent_name", default=None
                 )
-            else:
-                object.__setattr__(result, k, copy.deepcopy(v, memo))
-        return result
+                continue
+            if key == "_current_agent_id_var":
+                new.__dict__[key] = contextvars.ContextVar(
+                    "current_agent_id", default=None
+                )
+                continue
+            if type(value) is type(threading.RLock()):
+                new.__dict__[key] = threading.RLock()
+                continue
+            if type(value) is type(threading.Lock()):
+                new.__dict__[key] = threading.Lock()
+                continue
+            new.__dict__[key] = copy.deepcopy(value, memo)
+        return new
 
     def _resolve_openai_compatible_model(self) -> str:
         """Route a bare model name through the OpenAI-compatible client.
@@ -7337,21 +7688,26 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
 
     @staticmethod
     def _tool_arguments_parse_failed(arguments) -> bool:
-        """True when tool-call arguments could not be parsed (vs. legitimately empty).
-
-        Thin delegate to the shared helper in ``agent.tool_execution`` so the
-        agent and language-model dispatch paths keep exactly one source of truth.
-        """
-        return _shared_tool_arguments_parse_failed(arguments)
+        """True when tool-call arguments could not be parsed (vs. legitimately empty)."""
+        return arguments is _TOOL_ARGUMENTS_PARSE_FAILED
 
     @staticmethod
     def _tool_parse_error_message(function_name: str, tool_call_id: str) -> Dict[str, str]:
         """Build a tool-role message telling the model its arguments were lost.
 
-        Thin delegate to the shared helper in ``agent.tool_execution`` so the
-        agent and language-model dispatch paths keep exactly one source of truth.
+        Surfacing this instead of dispatching with {} converts a silent
+        wrong-action-reported-as-success into a visible, retryable error.
         """
-        return _shared_tool_parse_error_message(function_name, tool_call_id)
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "content": (
+                f"Error: arguments for tool '{function_name}' could not be parsed "
+                f"(the argument string was invalid or truncated). "
+                f"The tool was NOT executed. Please re-emit the tool call with "
+                f"complete, valid JSON arguments."
+            ),
+        }
 
     # Response without tool calls
     def response(

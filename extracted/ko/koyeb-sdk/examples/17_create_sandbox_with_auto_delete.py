@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from koyeb import Sandbox
-from koyeb.sandbox.utils import get_api_clients
+from koyeb.sandbox.clients import get_api_clients
 
 
 class TimingTracker:
@@ -81,7 +81,9 @@ def service_exists(api_token: str, service_id: str) -> bool:
         return False
 
 
-def wait_for_deletion(api_token: str, service_id: str, name: str, timeout: int = 600) -> float:
+def wait_for_deletion(
+    api_token: str, service_id: str, name: str, timeout: int = 600
+) -> float:
     """Wait for a service to be deleted. Returns time waited."""
     start = time.time()
     print(f"    Waiting for {name} to be auto-deleted...")
@@ -108,7 +110,9 @@ def main():
     print()
     print("This example creates two sandboxes with different auto-delete configs:")
     print("  1. delete_after_delay (delete 60s after creation)")
-    print("  2. idle_timeout + delete_after_inactivity_delay (sleep after idle, then delete)")
+    print(
+        "  2. idle_timeout + delete_after_inactivity_delay (sleep after idle, then delete)"
+    )
     print()
 
     api_token = os.getenv("KOYEB_API_TOKEN")
@@ -132,7 +136,9 @@ def main():
         delete_after_delay_1 = 60  # Delete 60s after creation
 
         print("  → Creating sandbox 1...")
-        print(f"    - delete_after_delay: {delete_after_delay_1}s (delete after creation)")
+        print(
+            f"    - delete_after_delay: {delete_after_delay_1}s (delete after creation)"
+        )
         print(f"    → Expected deletion: ~{delete_after_delay_1}s after creation")
 
         create_start = time.time()
@@ -151,14 +157,17 @@ def main():
         # Verify lifecycle settings
         lifecycle1 = get_service_lifecycle(api_token, sandbox1.service_id)
         if lifecycle1:
-            print(f"    Lifecycle: delete_after_sleep={lifecycle1.delete_after_sleep}s, "
-                  f"delete_after_create={lifecycle1.delete_after_create}s")
+            print(
+                f"    Lifecycle: delete_after_sleep={lifecycle1.delete_after_sleep}s, "
+                f"delete_after_create={lifecycle1.delete_after_create}s"
+            )
 
         # Quick health check
         print("  → Verifying sandbox 1 is healthy...")
         assert sandbox1.is_healthy(), "Sandbox 1 should be healthy"
         result = sandbox1.exec("echo 'Sandbox 1 ready'")
         print(f"    ✓ {result.stdout.strip()}")
+        assert result.exit_code == 0, result.stderr
         print()
 
         # =====================================================================
@@ -174,8 +183,12 @@ def main():
 
         print("  → Creating sandbox 2...")
         print(f"    - idle_timeout: {idle_timeout_2}s (sleep after idle)")
-        print(f"    - delete_after_inactivity_delay: {delete_after_inactivity_2}s (delete after sleep)")
-        print(f"    → Expected total time to deletion: ~{idle_timeout_2 + delete_after_inactivity_2}s")
+        print(
+            f"    - delete_after_inactivity_delay: {delete_after_inactivity_2}s (delete after sleep)"
+        )
+        print(
+            f"    → Expected total time to deletion: ~{idle_timeout_2 + delete_after_inactivity_2}s"
+        )
 
         create_start = time.time()
         sandbox2 = Sandbox.create(
@@ -194,14 +207,17 @@ def main():
         # Verify lifecycle settings
         lifecycle2 = get_service_lifecycle(api_token, sandbox2.service_id)
         if lifecycle2:
-            print(f"    Lifecycle: delete_after_sleep={lifecycle2.delete_after_sleep}s, "
-                  f"delete_after_create={lifecycle2.delete_after_create}s")
+            print(
+                f"    Lifecycle: delete_after_sleep={lifecycle2.delete_after_sleep}s, "
+                f"delete_after_create={lifecycle2.delete_after_create}s"
+            )
 
         # Quick health check
         print("  → Verifying sandbox 2 is healthy...")
         assert sandbox2.is_healthy(), "Sandbox 2 should be healthy"
         result = sandbox2.exec("echo 'Sandbox 2 ready'")
         print(f"    ✓ {result.stdout.strip()}")
+        assert result.exit_code == 0, result.stderr
         print()
 
         # =====================================================================
@@ -213,7 +229,9 @@ def main():
         print()
         print("  Waiting for both sandboxes to be auto-deleted...")
         print(f"  Sandbox 1: should delete ~{delete_after_delay_1}s after creation")
-        print(f"  Sandbox 2: should sleep after {idle_timeout_2}s, then delete after {delete_after_inactivity_2}s more")
+        print(
+            f"  Sandbox 2: should sleep after {idle_timeout_2}s, then delete after {delete_after_inactivity_2}s more"
+        )
         print()
 
         # Track which sandboxes are still alive
@@ -229,14 +247,18 @@ def main():
             elapsed = time.time() - wait_start
 
             # Check sandbox 1
-            if not sandbox1_deleted and not service_exists(api_token, sandbox1.service_id):
+            if not sandbox1_deleted and not service_exists(
+                api_token, sandbox1.service_id
+            ):
                 sandbox1_deleted = True
                 sandbox1_delete_time = elapsed
                 print(f"  ✓ Sandbox 1 auto-deleted at {elapsed:.1f}s")
                 tracker.record("Sandbox 1 auto-deletion wait", elapsed, "auto-delete")
 
             # Check sandbox 2
-            if not sandbox2_deleted and not service_exists(api_token, sandbox2.service_id):
+            if not sandbox2_deleted and not service_exists(
+                api_token, sandbox2.service_id
+            ):
                 sandbox2_deleted = True
                 sandbox2_delete_time = elapsed
                 print(f"  ✓ Sandbox 2 auto-deleted at {elapsed:.1f}s")
@@ -252,7 +274,9 @@ def main():
             if int(elapsed) % 30 == 0 and int(elapsed) > 0:
                 status1 = "deleted" if sandbox1_deleted else "alive"
                 status2 = "deleted" if sandbox2_deleted else "alive"
-                print(f"    ... {elapsed:.0f}s elapsed (sandbox1: {status1}, sandbox2: {status2})")
+                print(
+                    f"    ... {elapsed:.0f}s elapsed (sandbox1: {status1}, sandbox2: {status2})"
+                )
 
             time.sleep(5)
         else:
@@ -262,6 +286,9 @@ def main():
                 print("    - Sandbox 1 was not deleted")
             if not sandbox2_deleted:
                 print("    - Sandbox 2 was not deleted")
+
+        assert sandbox1_deleted, "Sandbox 1 was not auto-deleted"
+        assert sandbox2_deleted, "Sandbox 2 was not auto-deleted"
 
         # Clear sandbox references so finally block doesn't try to delete them
         if sandbox1_deleted:
@@ -275,11 +302,17 @@ def main():
         print("-" * 70)
         print()
         if sandbox1_delete_time:
-            print(f"  Sandbox 1 (delete_after_delay): deleted after {sandbox1_delete_time:.1f}s")
+            print(
+                f"  Sandbox 1 (delete_after_delay): deleted after {sandbox1_delete_time:.1f}s"
+            )
             print(f"    Expected: ~{delete_after_delay_1}s after creation")
         if sandbox2_delete_time:
-            print(f"  Sandbox 2 (idle_timeout + delete_after_inactivity): deleted after {sandbox2_delete_time:.1f}s")
-            print(f"    Expected: ~{idle_timeout_2 + delete_after_inactivity_2}s (idle + delete delay)")
+            print(
+                f"  Sandbox 2 (idle_timeout + delete_after_inactivity): deleted after {sandbox2_delete_time:.1f}s"
+            )
+            print(
+                f"    Expected: ~{idle_timeout_2 + delete_after_inactivity_2}s (idle + delete delay)"
+            )
         return 0
 
     finally:
@@ -289,14 +322,18 @@ def main():
             print("  → Manually deleting sandbox 1 (wasn't auto-deleted)...")
             delete_start = time.time()
             sandbox1.delete()
-            tracker.record("Sandbox 1 manual deletion", time.time() - delete_start, "cleanup")
+            tracker.record(
+                "Sandbox 1 manual deletion", time.time() - delete_start, "cleanup"
+            )
 
         if sandbox2:
             print()
             print("  → Manually deleting sandbox 2 (wasn't auto-deleted)...")
             delete_start = time.time()
             sandbox2.delete()
-            tracker.record("Sandbox 2 manual deletion", time.time() - delete_start, "cleanup")
+            tracker.record(
+                "Sandbox 2 manual deletion", time.time() - delete_start, "cleanup"
+            )
 
         print()
         print("✓ Demo completed")

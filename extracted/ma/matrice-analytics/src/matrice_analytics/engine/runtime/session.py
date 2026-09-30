@@ -911,7 +911,7 @@ class Session:
             if isinstance(stage, CustomConfig):
                 impl = self._custom[stage.stage_name]
                 pipeline[stage.stage_name] = _CustomStage(
-                    stage.stage_name, impl.obj, impl.config, scope
+                    stage.stage_name, impl.obj, impl.config, scope, stage.window_outputs
                 )
                 continue
             pipeline[stage.stage_name] = _construct(
@@ -2367,14 +2367,37 @@ class _CustomStage:
     ``agg_type`` is applied by this engine at all (§6b coupling 4).
 
     ``reset`` is optional and is forwarded when present.
+
+    ``window`` is optional too, and forwarded only when the manifest declares the keys it
+    publishes (``custom.window_outputs``). Those keys are then published verbatim, exactly as a
+    registered primitive's are, so their ``agg_type`` drives only the backend rollup; every
+    other key still collapses from its per-frame samples. It exists for values whose window
+    answer is not any ``agg_type`` of the frame samples -- an interval rate, whose in-window
+    reading is the running ratio at the boundary (``last``) but whose rollup across windows is
+    an average (``mean``). One ``agg_type`` cannot say both.
     """
 
-    __slots__ = ("_impl", "_name", "_state")
+    __slots__ = ("_impl", "_name", "_state", "_window_outputs")
 
-    def __init__(self, name: str, impl: type[Any], config: BaseModel, state: StateStore) -> None:
+    def __init__(
+        self,
+        name: str,
+        impl: type[Any],
+        config: BaseModel,
+        state: StateStore,
+        window_outputs: Sequence[str] = (),
+    ) -> None:
         self._name = name
         self._state = state
         self._impl = impl(config, state)
+        self._window_outputs = tuple(window_outputs)
+        if self._window_outputs and not callable(getattr(self._impl, "window", None)):
+            raise SessionError(
+                f"custom stage {name!r} declares window_outputs "
+                f"{list(self._window_outputs)} but {impl.__name__} defines no window() method. "
+                "Implement window(frames) -> WindowOutput, or remove window_outputs so the "
+                "runtime collapses those values with their agg_type."
+            )
 
     def process(self, ctx: FrameContext) -> PrimitiveOutput:
         output = self._impl.process(ctx)
@@ -2386,8 +2409,22 @@ class _CustomStage:
         return output
 
     def window(self, frames: Sequence[PrimitiveOutput]) -> WindowOutput:
-        del frames
-        return WindowOutput()
+        if not self._window_outputs:
+            del frames
+            return WindowOutput()
+        output = self._impl.window(frames)
+        if not isinstance(output, WindowOutput):
+            raise SessionError(
+                f"custom stage {self._name!r} returned {type(output).__name__} from window(); "
+                "it must return a WindowOutput."
+            )
+        # Only the declared keys: an undeclared one would silently switch its metric from the
+        # agg_type collapse to a verbatim window value the manifest never said existed.
+        return WindowOutput(
+            values={
+                key: value for key, value in output.values.items() if key in self._window_outputs
+            }
+        )
 
     def reset(self) -> None:
         reset = getattr(self._impl, "reset", None)

@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "torchgeo"
-version = "0.10.0"
+version = "0.10.1"
 description = "TorchGeo: datasets, samplers, transforms, and pre-trained models for geospatial data"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -112,7 +112,7 @@ style = [
     "ruff>=0.16",
     "ty>=0.0.62",
     "types-geopandas>=1.0",
-    "types-rasterio>=1.5.0.20260728",
+    "types-rasterio>=1.5.1",
     "types-requests>=2.25",
     "types-shapely>=2.0.2",
 ]
@@ -121,6 +121,7 @@ tests = [
     "packaging>=21",
     "pytest>=7.3.2",
     "pytest-cov>=4",
+    "pytest-xdist>=3.0.2",
     "pytest-socket>=0.3.4",
 ]
 all = ["torchgeo[datasets,docs,models,style,tests]"]
@@ -158,7 +159,10 @@ filterwarnings = [
     "ignore:divide by zero encountered in oriented_envelope:RuntimeWarning",
     "ignore:invalid value encountered in oriented_envelope:RuntimeWarning",
 ]
-markers = ["slow: marks tests as slow"]
+markers = [
+    "slow: marks tests as slow",
+    "xdist_group: marks tests to run on the same pytest-xdist worker",
+]
 norecursedirs = [
     ".ipynb_checkpoints",
     "data",

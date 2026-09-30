@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ListRegionsReply(BaseModel):
     """
     ListRegionsReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     regions: Optional[List[RegionListItem]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
@@ -40,7 +42,6 @@ class ListRegionsReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +66,7 @@ class ListRegionsReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,9 +77,10 @@ class ListRegionsReply(BaseModel):
         _items = []
         if self.regions:
             for _item_regions in self.regions:
-                if _item_regions:
-                    _items.append(_item_regions.to_dict())
-            _dict['regions'] = _items
+                _items.append(
+                    _item_regions.to_dict() if _item_regions is not None else None
+                )
+            _dict["regions"] = _items
         return _dict
 
     @classmethod
@@ -91,12 +92,14 @@ class ListRegionsReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "regions": [RegionListItem.from_dict(_item) for _item in obj["regions"]] if obj.get("regions") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset"),
-            "count": obj.get("count")
-        })
+        _obj = cls.model_validate(
+            {
+                "regions": [RegionListItem.from_dict(_item) for _item in obj["regions"]]
+                if obj.get("regions") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+                "count": obj.get("count"),
+            }
+        )
         return _obj
-
-

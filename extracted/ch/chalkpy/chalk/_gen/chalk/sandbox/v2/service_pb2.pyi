@@ -27,6 +27,7 @@ class SandboxStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SANDBOX_STATUS_TERMINATED: _ClassVar[SandboxStatus]
     SANDBOX_STATUS_ERROR: _ClassVar[SandboxStatus]
     SANDBOX_STATUS_UNKNOWN: _ClassVar[SandboxStatus]
+    SANDBOX_STATUS_SUSPENDED: _ClassVar[SandboxStatus]
 
 class SandboxSortColumn(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -39,6 +40,16 @@ class SandboxSortOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SANDBOX_SORT_ORDER_DESC: _ClassVar[SandboxSortOrder]
     SANDBOX_SORT_ORDER_ASC: _ClassVar[SandboxSortOrder]
 
+class SandboxResourceKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SANDBOX_RESOURCE_KIND_UNSPECIFIED: _ClassVar[SandboxResourceKind]
+    SANDBOX_RESOURCE_KIND_NOTEBOOK: _ClassVar[SandboxResourceKind]
+    SANDBOX_RESOURCE_KIND_CHALKCOMPUTE_FUNCTION: _ClassVar[SandboxResourceKind]
+    SANDBOX_RESOURCE_KIND_ONLINE_QUERY: _ClassVar[SandboxResourceKind]
+    SANDBOX_RESOURCE_KIND_OFFLINE_QUERY: _ClassVar[SandboxResourceKind]
+    SANDBOX_RESOURCE_KIND_SQL_QUERY: _ClassVar[SandboxResourceKind]
+    SANDBOX_RESOURCE_KIND_STORED_ARTIFACT: _ClassVar[SandboxResourceKind]
+
 SANDBOX_STATUS_UNSPECIFIED: SandboxStatus
 SANDBOX_STATUS_PENDING: SandboxStatus
 SANDBOX_STATUS_RUNNING: SandboxStatus
@@ -47,14 +58,34 @@ SANDBOX_STATUS_FAILED: SandboxStatus
 SANDBOX_STATUS_TERMINATED: SandboxStatus
 SANDBOX_STATUS_ERROR: SandboxStatus
 SANDBOX_STATUS_UNKNOWN: SandboxStatus
+SANDBOX_STATUS_SUSPENDED: SandboxStatus
 SANDBOX_SORT_COLUMN_UNSPECIFIED: SandboxSortColumn
 SANDBOX_SORT_COLUMN_CREATED_AT: SandboxSortColumn
 SANDBOX_SORT_ORDER_UNSPECIFIED: SandboxSortOrder
 SANDBOX_SORT_ORDER_DESC: SandboxSortOrder
 SANDBOX_SORT_ORDER_ASC: SandboxSortOrder
+SANDBOX_RESOURCE_KIND_UNSPECIFIED: SandboxResourceKind
+SANDBOX_RESOURCE_KIND_NOTEBOOK: SandboxResourceKind
+SANDBOX_RESOURCE_KIND_CHALKCOMPUTE_FUNCTION: SandboxResourceKind
+SANDBOX_RESOURCE_KIND_ONLINE_QUERY: SandboxResourceKind
+SANDBOX_RESOURCE_KIND_OFFLINE_QUERY: SandboxResourceKind
+SANDBOX_RESOURCE_KIND_SQL_QUERY: SandboxResourceKind
+SANDBOX_RESOURCE_KIND_STORED_ARTIFACT: SandboxResourceKind
 
 class SandboxInfo(_message.Message):
-    __slots__ = ("id", "name", "status", "status_message", "spec", "created_at", "finished_at", "web_url")
+    __slots__ = (
+        "id",
+        "name",
+        "status",
+        "status_message",
+        "spec",
+        "created_at",
+        "finished_at",
+        "web_url",
+        "region",
+        "created_by",
+        "status_details",
+    )
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
@@ -63,6 +94,9 @@ class SandboxInfo(_message.Message):
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     FINISHED_AT_FIELD_NUMBER: _ClassVar[int]
     WEB_URL_FIELD_NUMBER: _ClassVar[int]
+    REGION_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     status: SandboxStatus
@@ -71,6 +105,9 @@ class SandboxInfo(_message.Message):
     created_at: _timestamp_pb2.Timestamp
     finished_at: _timestamp_pb2.Timestamp
     web_url: str
+    region: str
+    created_by: str
+    status_details: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -81,6 +118,9 @@ class SandboxInfo(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         finished_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         web_url: _Optional[str] = ...,
+        region: _Optional[str] = ...,
+        created_by: _Optional[str] = ...,
+        status_details: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateSandboxRequest(_message.Message):
@@ -114,18 +154,21 @@ class GetSandboxResponse(_message.Message):
     def __init__(self, sandbox: _Optional[_Union[SandboxInfo, _Mapping]] = ...) -> None: ...
 
 class ListSandboxesFilters(_message.Message):
-    __slots__ = ("names", "statuses", "images")
+    __slots__ = ("names", "statuses", "images", "created_by")
     NAMES_FIELD_NUMBER: _ClassVar[int]
     STATUSES_FIELD_NUMBER: _ClassVar[int]
     IMAGES_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     names: _containers.RepeatedScalarFieldContainer[str]
     statuses: _containers.RepeatedScalarFieldContainer[SandboxStatus]
     images: _containers.RepeatedScalarFieldContainer[str]
+    created_by: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         names: _Optional[_Iterable[str]] = ...,
         statuses: _Optional[_Iterable[_Union[SandboxStatus, str]]] = ...,
         images: _Optional[_Iterable[str]] = ...,
+        created_by: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListSandboxesRequest(_message.Message):
@@ -195,3 +238,81 @@ class TerminateSandboxRequest(_message.Message):
 class TerminateSandboxResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class SandboxResource(_message.Message):
+    __slots__ = ("id", "sandbox_id", "kind", "resource_id", "version_id", "created_at", "agent_id", "name")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    SANDBOX_ID_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    VERSION_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    sandbox_id: str
+    kind: SandboxResourceKind
+    resource_id: str
+    version_id: str
+    created_at: _timestamp_pb2.Timestamp
+    agent_id: str
+    name: str
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        sandbox_id: _Optional[str] = ...,
+        kind: _Optional[_Union[SandboxResourceKind, str]] = ...,
+        resource_id: _Optional[str] = ...,
+        version_id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        agent_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListSandboxResourcesFilters(_message.Message):
+    __slots__ = ("kinds", "resource_ids", "created_after", "created_before")
+    KINDS_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_IDS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AFTER_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BEFORE_FIELD_NUMBER: _ClassVar[int]
+    kinds: _containers.RepeatedScalarFieldContainer[SandboxResourceKind]
+    resource_ids: _containers.RepeatedScalarFieldContainer[str]
+    created_after: _timestamp_pb2.Timestamp
+    created_before: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        kinds: _Optional[_Iterable[_Union[SandboxResourceKind, str]]] = ...,
+        resource_ids: _Optional[_Iterable[str]] = ...,
+        created_after: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        created_before: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListSandboxResourcesRequest(_message.Message):
+    __slots__ = ("sandbox_id", "filters", "page_size", "page_token")
+    SANDBOX_ID_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    sandbox_id: str
+    filters: ListSandboxResourcesFilters
+    page_size: int
+    page_token: str
+    def __init__(
+        self,
+        sandbox_id: _Optional[str] = ...,
+        filters: _Optional[_Union[ListSandboxResourcesFilters, _Mapping]] = ...,
+        page_size: _Optional[int] = ...,
+        page_token: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListSandboxResourcesResponse(_message.Message):
+    __slots__ = ("resources", "next_page_token")
+    RESOURCES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    resources: _containers.RepeatedCompositeFieldContainer[SandboxResource]
+    next_page_token: str
+    def __init__(
+        self,
+        resources: _Optional[_Iterable[_Union[SandboxResource, _Mapping]]] = ...,
+        next_page_token: _Optional[str] = ...,
+    ) -> None: ...

@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class GetMetricsReplyMetric(BaseModel):
     """
     GetMetricsReplyMetric
-    """ # noqa: E501
+    """  # noqa: E501
+
     labels: Optional[Dict[str, StrictStr]] = None
     samples: Optional[List[Sample]] = None
     __properties: ClassVar[List[str]] = ["labels", "samples"]
@@ -38,7 +40,6 @@ class GetMetricsReplyMetric(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,8 +64,7 @@ class GetMetricsReplyMetric(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -75,9 +75,10 @@ class GetMetricsReplyMetric(BaseModel):
         _items = []
         if self.samples:
             for _item_samples in self.samples:
-                if _item_samples:
-                    _items.append(_item_samples.to_dict())
-            _dict['samples'] = _items
+                _items.append(
+                    _item_samples.to_dict() if _item_samples is not None else None
+                )
+            _dict["samples"] = _items
         return _dict
 
     @classmethod
@@ -89,10 +90,12 @@ class GetMetricsReplyMetric(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "labels": obj.get("labels"),
-            "samples": [Sample.from_dict(_item) for _item in obj["samples"]] if obj.get("samples") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "labels": obj.get("labels"),
+                "samples": [Sample.from_dict(_item) for _item in obj["samples"]]
+                if obj.get("samples") is not None
+                else None,
+            }
+        )
         return _obj
-
-

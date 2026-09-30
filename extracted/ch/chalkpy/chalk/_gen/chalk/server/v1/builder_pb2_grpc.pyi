@@ -172,6 +172,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     UpsertChalkMachineTypeOverrideResponse,
     ValidateNamedQueriesRequest,
     ValidateNamedQueriesResponse,
+    ValidateProjectSettingsRequest,
+    ValidateProjectSettingsResponse,
 )
 from grpc import (
     Channel,
@@ -269,6 +271,14 @@ class BuilderServiceStub:
     ListEngineBaseImages: UnaryUnaryMultiCallable[
         ListEngineBaseImagesRequest,
         ListEngineBaseImagesResponse,
+    ]
+    """Admin-only debug endpoint. Do not build load-bearing product functionality on it:
+    it is registry introspection, and it is very slow — a cold call fans out across the
+    whole engine-base variant matrix in the environment's registry.
+    """
+    ValidateProjectSettings: UnaryUnaryMultiCallable[
+        ValidateProjectSettingsRequest,
+        ValidateProjectSettingsResponse,
     ]
     GetClusterTimescaleDB: UnaryUnaryMultiCallable[
         GetClusterTimescaleDBRequest,
@@ -660,7 +670,17 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         self,
         request: ListEngineBaseImagesRequest,
         context: ServicerContext,
-    ) -> ListEngineBaseImagesResponse: ...
+    ) -> ListEngineBaseImagesResponse:
+        """Admin-only debug endpoint. Do not build load-bearing product functionality on it:
+        it is registry introspection, and it is very slow — a cold call fans out across the
+        whole engine-base variant matrix in the environment's registry.
+        """
+    @abstractmethod
+    def ValidateProjectSettings(
+        self,
+        request: ValidateProjectSettingsRequest,
+        context: ServicerContext,
+    ) -> ValidateProjectSettingsResponse: ...
     @abstractmethod
     def GetClusterTimescaleDB(
         self,

@@ -44,7 +44,7 @@ autoclass_content = 'both'
 copybutton_exclude = '.linenos, .gp, .go'
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['../../_templates']
+# templates_path = ['_templates']
 
 # The suffix of source filenames.
 source_suffix = {'.rst': 'restructuredtext'}
@@ -79,12 +79,9 @@ release = version
 # Else, today_fmt is used as the format for a strftime call.
 #today_fmt = '%B %d, %Y'
 
-# List of documents that shouldn't be included in the build.
-#unused_docs = []
-
-# List of directories, relative to source directory, that shouldn't be searched
-# for source files.
-exclude_trees = ['_build', 'build', 'flufl.lock.egg-info', 'distribute-0.6.10']
+# List of patterns, relative to source directory, that match files and
+# directories to ignore when looking for source files.
+exclude_patterns = ['_build', 'build', 'eggs', '.tox']
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 #default_role = None
@@ -105,6 +102,18 @@ pygments_style = 'sphinx'
 
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
+
+
+# -- Options for the linkcheck builder -----------------------------------------
+
+# These two redirect on purpose and the URLs we publish are the right ones to publish.  The clone
+# URL has to keep its .git suffix to be usable with git, even though a browser gets sent to the
+# project page, and the bare Read the Docs URL is version agnostic, so it sends readers to
+# whichever version is current rather than pinning the docs to today's.
+linkcheck_allowed_redirects = {
+    r'https://gitlab\.com/flufl/flufl\.lock\.git': r'https://gitlab\.com/flufl/flufl\.lock',
+    r'https://flufllock\.readthedocs\.io': r'https://flufllock\.readthedocs\.io/en/stable/',
+}
 
 
 # -- Options for HTML output ---------------------------------------------------
@@ -197,8 +206,7 @@ htmlhelp_basename = 'flufllockdoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('README.rst', 'flufllock.tex', 'flufl.lock Documentation',
-   author, 'manual'),
+    ('index', 'flufllock.tex', 'flufl.lock Documentation', author, 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

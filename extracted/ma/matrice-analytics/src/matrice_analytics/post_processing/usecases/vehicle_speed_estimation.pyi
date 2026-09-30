@@ -1,13 +1,18 @@
 """Auto-generated stub for module: vehicle_speed_estimation."""
 from typing import Any, Dict, Optional
 
+from ..advanced_tracker.rtp_clock import RtpClock
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from ..utils import apply_category_mapping
+from ..utils.incident_manager_utils import INCIDENT_MANAGER, IncidentManagerFactory
 from ..utils.speed_box3d_utils import Box3DFallback
 from ..utils.speed_fit_utils import baseline_slope, over_limit_pct, severity_for, uncertainty_pct
 from ..utils.speed_geometry_utils import RoadPlane
 from ..utils.speed_paint_calibration_utils import SelfCalibrator
 from .vehicle_speed_estimation_config import FACTORS, UNIT_LABELS, VEHICLE_SPEED_ESTIMATION_SCHEMA, VehicleSpeedEstimationConfig
+
+# Constants
+INCIDENT_TYPE: str
 
 # Classes
 class VehicleSpeedEstimationUseCase:

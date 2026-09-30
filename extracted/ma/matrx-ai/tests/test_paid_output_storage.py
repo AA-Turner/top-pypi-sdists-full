@@ -97,7 +97,8 @@ class _StorageStub:
             file_name="file-123",
             mime_type=mime_type or "audio/mpeg",
             size_bytes=3,
-            visibility="public",
+            published_to_web=True,
+            shown_to=None,
         )
 
 

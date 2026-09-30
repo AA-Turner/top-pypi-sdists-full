@@ -131,6 +131,8 @@ jobs:
               - 'infra/agent-chat-internal/**'
             internal-mcp-servers:
               - 'infra/internal-mcp-servers/**'
+            airmux-control-plane:
+              - 'infra/airmux-control-plane/**'
             workflow:
               - '.github/workflows/pulumi-apply-command.yml'
 
@@ -157,6 +159,8 @@ jobs:
               - 'infra/agent-chat-internal/**'
             internal-mcp-servers:
               - 'infra/internal-mcp-servers/**'
+            airmux-control-plane:
+              - 'infra/airmux-control-plane/**'
             workflow:
               - '.github/workflows/pulumi-apply-command.yml'
 
@@ -170,6 +174,7 @@ jobs:
           OPS_WEBAPP_CHANGED: ${{ steps['changes-push'].outputs['ops-webapp'] || steps['changes-pr'].outputs['ops-webapp'] || 'false' }}
           AGENT_CHAT_INTERNAL_CHANGED: ${{ steps['changes-push'].outputs['agent-chat-internal'] || steps['changes-pr'].outputs['agent-chat-internal'] || 'false' }}
           INTERNAL_MCP_SERVERS_CHANGED: ${{ steps['changes-push'].outputs['internal-mcp-servers'] || steps['changes-pr'].outputs['internal-mcp-servers'] || 'false' }}
+          AIRMUX_CONTROL_PLANE_CHANGED: ${{ steps['changes-push'].outputs['airmux-control-plane'] || steps['changes-pr'].outputs['airmux-control-plane'] || 'false' }}
           WORKFLOW_CHANGED: ${{ steps['changes-push'].outputs.workflow || steps['changes-pr'].outputs.workflow || 'false' }}
         run: |
           all_stacks="$(
@@ -184,13 +189,15 @@ jobs:
               --arg ops_webapp "$OPS_WEBAPP_CHANGED" \
               --arg agent_chat_internal "$AGENT_CHAT_INTERNAL_CHANGED" \
               --arg internal_mcp_servers "$INTERNAL_MCP_SERVERS_CHANGED" \
+              --arg airmux_control_plane "$AIRMUX_CONTROL_PLANE_CHANGED" \
               --arg workflow "$WORKFLOW_CHANGED" \
               '[
                 {name: "sentry", dir: "infra/sentry", changed: ($sentry == "true" or $workflow == "true")},
                 {name: "agent-message-bus", dir: "infra/agent-message-bus", changed: ($agent_message_bus == "true" or $workflow == "true")},
                 {name: "ops-webapp", dir: "infra/ops-webapp", changed: ($ops_webapp == "true" or $workflow == "true")},
                 {name: "agent-chat-internal", dir: "infra/agent-chat-internal", changed: ($agent_chat_internal == "true" or $workflow == "true")},
-                {name: "internal-mcp-servers", dir: "infra/internal-mcp-servers", changed: ($internal_mcp_servers == "true" or $workflow == "true")}
+                {name: "internal-mcp-servers", dir: "infra/internal-mcp-servers", changed: ($internal_mcp_servers == "true" or $workflow == "true")},
+                {name: "airmux-control-plane", dir: "infra/airmux-control-plane", changed: ($airmux_control_plane == "true" or $workflow == "true")}
               ] | map(select(.changed)) | map(del(.changed))'
           )"
           json="$(jq -c -n --arg event "$EVENT_NAME" --arg pr "$PR_NUMBER" --argjson all "$all_stacks" --argjson changed "$changed_stacks" 'if $event == "workflow_dispatch" and $pr == "" then $all else $changed end')"

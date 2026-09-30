@@ -26,15 +26,13 @@ class ServiceType(str, Enum):
     """
     allowed enum values
     """
-    INVALID_TYPE = 'INVALID_TYPE'
-    WEB = 'WEB'
-    WORKER = 'WORKER'
-    DATABASE = 'DATABASE'
-    SANDBOX = 'SANDBOX'
+    INVALID_TYPE = "INVALID_TYPE"
+    WEB = "WEB"
+    WORKER = "WORKER"
+    DATABASE = "DATABASE"
+    SANDBOX = "SANDBOX"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of ServiceType from a JSON string"""
         return cls(json.loads(json_str))
-
-

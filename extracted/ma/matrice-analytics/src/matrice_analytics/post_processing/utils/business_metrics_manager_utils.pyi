@@ -1,6 +1,9 @@
 """Auto-generated stub for module: business_metrics_manager_utils."""
 from typing import Any, Dict, Optional
 
+from ...clients import identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.bootstrap import get_action_id
 from .business_metrics_aggregation_utils import AGGREGATION_TYPES, BUSINESS_METRICS_MANAGER, DEFAULT_AGGREGATION_INTERVAL, DEFAULT_METRICS_CONFIG, CameraMetricsState, MetricAggregator
 from .public_ip import resolve_public_ip_once
 
@@ -30,9 +33,15 @@ class BusinessMetricsManagerFactory:
     # Handles session initialization and Redis/Kafka client creation
     # following the same pattern as IncidentManagerFactory.
 
-    def __init__(self: Any, logger: Optional[Any.Any] = None) -> None: ...
-
-    ACTION_ID_PATTERN: Any
+    def __init__(self: Any, logger: Optional[Any.Any] = None, client: Optional[Any] = None) -> None:
+        """
+        Args:
+            logger: Python logger instance.
+            client: The platform client to make calls through. Absent one, a client is built
+                on the session this factory already resolves, so a caller that passes nothing
+                sends exactly the requests it sent before.
+        """
+        ...
 
     def business_metrics_manager(self: Any) -> Optional[Any]: ...
 

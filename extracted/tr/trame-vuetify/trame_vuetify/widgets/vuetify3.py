@@ -1,6 +1,6 @@
 ##########################################################
 # DO NOT EDIT: GENERATED FILE
-# => instead run: $ROOT/vue-components/generate_python.py
+# => instead run: $ROOT/js-libs/v3/generate_python.py
 ##########################################################
 
 # ruff: noqa: E501

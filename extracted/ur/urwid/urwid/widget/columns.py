@@ -1,3 +1,5 @@
+"""Columns: a container that places widgets side by side."""
+
 from __future__ import annotations
 
 import typing
@@ -64,9 +66,7 @@ class Columns(
         ]
     ],
 ):
-    """
-    Widgets arranged horizontally in columns from left to right
-    """
+    """Widgets arranged horizontally in columns from left to right."""
 
     def sizing(self) -> frozenset[Sizing]:
         """Sizing supported by widget.
@@ -242,7 +242,8 @@ class Columns(
         min_width: int = 1,
         box_columns: Iterable[int] | None = None,
     ):
-        """
+        """Initialize a new Columns instance.
+
         :param widget_list: iterable of flow or box widgets
         :param dividechars: number of blank characters between columns
         :param focus_column: index into widget_list of column in focus or focused widget instance,
@@ -368,6 +369,7 @@ class Columns(
         return remove_defaults(attrs, Columns.__init__)
 
     def __rich_repr__(self) -> Iterator[tuple[str | None, typing.Any] | typing.Any]:
+        """Yield this widget's constructor arguments as `(name, value)` pairs, for `rich`'s repr protocol."""
         # We do not care about exact typing here: used only for debug purposes
         widget_list: list[
             AbstractWidget
@@ -395,13 +397,11 @@ class Columns(
         yield "box_columns", box_columns
 
     def __len__(self) -> int:
+        """Return the number of columns."""
         return len(self._contents)
 
     def _contents_modified(self) -> None:
-        """
-        Recalculate whether this widget should be selectable whenever the
-        contents has been changed.
-        """
+        """Recalculate whether this widget should be selectable whenever the contents has been changed."""
         self._selectable = any(w.selectable() for w, o in self.contents)
         self._invalidate()
 
@@ -575,9 +575,7 @@ class Columns(
 
     @property
     def box_columns(self) -> MonitoredList[int]:
-        """
-        A list of the indexes of the columns that are to be treated as box widgets
-        when the Columns is treated as a flow widget.
+        """Return the indexes of the columns that are treated as box widgets when Columns is a flow widget.
 
         .. deprecated:: 1.1.0
             Use the standard container property :attr:`contents` instead.
@@ -628,10 +626,9 @@ class Columns(
             tuple[Literal[WHSettings.GIVEN], int, bool] | tuple[Literal[WHSettings.WEIGHT], int | float, bool],
         ]
     ]:
-        """
-        The contents of this Columns as a list of `(widget, options)` tuples.
-        This list may be modified like a normal list and the Columns
-        widget will update automatically.
+        """Return the contents of this Columns as a list of `(widget, options)` tuples.
+
+        This list may be modified like a normal list and the Columns widget will update automatically.
 
         .. seealso:: Create new options tuples with the :meth:`options` method
         """
@@ -759,7 +756,7 @@ class Columns(
 
     @property
     def focus(self) -> AbstractWidget | None:
-        """the child widget in focus or None when Columns is empty"""
+        """The child widget in focus or None when Columns is empty."""
         if not self.contents:
             return None
         return self.contents[self.focus_position][0]
@@ -785,8 +782,8 @@ class Columns(
 
     @property
     def focus_position(self) -> int:
-        """
-        index of child widget in focus.
+        """Return the index of the child widget in focus.
+
         Raises :exc:`IndexError` if read when Columns is empty, or when set to an invalid index.
 
         :raises IndexError: the Columns is empty.
@@ -956,7 +953,7 @@ class Columns(
         self,
         focus: bool = False,
     ) -> tuple[tuple[int, ...], tuple[int, ...], tuple[tuple[int, int] | tuple[int] | tuple[()], ...]]:
-        """Get column widths, heights and render size parameters
+        """Get column widths, heights and render size parameters.
 
         :raises ColumnsError: a child widget does not support a sizing mode this Columns needs, or no child can provide
             a height.
@@ -1046,7 +1043,7 @@ class Columns(
         size: tuple[int, int] | tuple[int] | tuple[()],
         focus: bool = False,
     ) -> tuple[tuple[int, ...], tuple[int, ...], tuple[tuple[int, int] | tuple[int] | tuple[()], ...]]:
-        """Get column widths, heights and render size parameters"""
+        """Get column widths, heights and render size parameters."""
         if not size:
             return self._get_fixed_column_sizes(focus=focus)
 
@@ -1253,10 +1250,7 @@ class Columns(
         row: int,
         focus: bool,
     ) -> bool | None:
-        """
-        Send event to appropriate column.
-        May change focus on button 1 press.
-        """
+        """Send event to appropriate column. May change focus on button 1 press."""
         widths, _, size_args = self.get_column_sizes(size, focus=focus)
 
         x = 0
@@ -1314,8 +1308,8 @@ class Columns(
         return typing.cast("Literal['left', 'right', Align.LEFT, Align.RIGHT] | int | None", col)
 
     def rows(self, size: tuple[int], focus: bool = False) -> int:
-        """
-        Return the number of rows required by the columns.
+        """Return the number of rows required by the columns.
+
         This only makes sense if :attr:`widget_list` contains flow widgets.
 
         see :meth:`Widget.rows` for details

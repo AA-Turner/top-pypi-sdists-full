@@ -1,6 +1,6 @@
 [project]
 name = "rapidata"
-version = "3.25.9"
+version = "3.25.11"
 description = "Rapidata package containing the Rapidata Python Client to interact with the Rapidata Web API in an easy way."
 authors = [{ name = "Rapidata AG", email = "info@rapidata.ai" }]
 requires-python = ">=3.10,<4"
@@ -26,6 +26,9 @@ dependencies = [
     "hatchling>=1.28.0",
     "qrcode>=8.0,<9",
 ]
+
+[project.scripts]
+rapidata = "rapidata.__main__:main"
 
 [dependency-groups]
 dev = [

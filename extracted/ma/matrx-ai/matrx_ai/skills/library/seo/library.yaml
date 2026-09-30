@@ -14,7 +14,7 @@
 
 set_id: ai-matrx-seo
 title: "SEO skills (AI Matrx)"
-visibility: public
+published_to_web: true
 skill_type: workflow
 parent_pack: every-app-seo-skills
 

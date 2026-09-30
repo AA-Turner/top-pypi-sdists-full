@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ConfigFile(BaseModel):
     """
     ConfigFile
-    """ # noqa: E501
+    """  # noqa: E501
+
     path: Optional[StrictStr] = None
     permissions: Optional[StrictStr] = None
     content: Optional[StrictStr] = None
@@ -38,7 +40,6 @@ class ConfigFile(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,8 +64,7 @@ class ConfigFile(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -82,11 +82,11 @@ class ConfigFile(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "path": obj.get("path"),
-            "permissions": obj.get("permissions"),
-            "content": obj.get("content")
-        })
+        _obj = cls.model_validate(
+            {
+                "path": obj.get("path"),
+                "permissions": obj.get("permissions"),
+                "content": obj.get("content"),
+            }
+        )
         return _obj
-
-

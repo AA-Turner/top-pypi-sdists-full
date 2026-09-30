@@ -21,9 +21,11 @@ import re
 import string
 import time
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Any
 
 from testmu_selenium._errors import TestmuConfigError
+from testmu_selenium._step_variables import record_variable
 
 _log = logging.getLogger(__name__)
 
@@ -71,11 +73,13 @@ def set_var(name: str, value: Any) -> None:
         # reads this — without the upsert it returns the authoring-time value
         # baked into configure(global_variables=[...]).
         _update_session_variable_value(bare, value)
+        record_variable(bare, value)  # report on this step's end hook
         from testmu_selenium import _config
         if _config.lt_auth:
             _atms_persist_global_variable(bare, value)
     else:
         _variable_store[name] = value
+        record_variable(name, value)  # report on this step's end hook
 
 
 def _parse_if_string(value: Any) -> Any:
@@ -154,17 +158,27 @@ def _resolve_single(name: str) -> Any:
     global/environment/totp may raise TestmuConfigError on hard failure.
     """
     parts = name.split(".")
+    # Each branch records its own read, so the two credential
+    # namespaces below (secrets → a live credential, totp → a one-time code)
+    # stay out of the step-variable buffer BY CONSTRUCTION — the buffer is
+    # shipped to the hub and written into the run's artefacts.
     if parts[0] == "secrets" and len(parts) >= 2:
         return os.getenv(parts[-1], "")
     if parts[0] == "global" and len(parts) >= 2:
-        return _resolve_global(parts[1])
+        return record_read(name, _resolve_global(parts[1]))
     if parts[0] == "environment" and len(parts) >= 2:
-        return _resolve_environment(parts[1])
+        return record_read(name, _resolve_environment(parts[1]))
     if parts[0] == "totp" and len(parts) >= 2:
         return _resolve_totp(parts[1])
     if parts[0] == "smart" and len(parts) == 2:
-        return _resolve_smart(parts[1])
+        return record_read(name, _resolve_smart(parts[1]))
     return _SENTINEL
+
+
+def record_read(name: str, value: Any) -> Any:
+    """Record a variable this step read and return it unchanged."""
+    record_variable(name, value)
+    return value
 
 
 def _resolve_global(name: str) -> str:
@@ -263,12 +277,144 @@ def _resolve_totp(name: str) -> str:
 # Smart variable resolution
 # ---------------------------------------------------------------------------
 
-def _resolve_smart(name: str) -> str:
+#: The device- and app-scoped smart variables, and the env key each is seeded
+#: under. Meaningless on a desktop session, where nothing seeds them and they
+#: resolve exactly as they did before they were listed here.
+_SESSION_SMART_ENV = {
+    "device_name": "smart_device_name",
+    "device_os": "smart_device_os",
+    "device_os_version": "smart_device_os_version",
+    "app_package_name": "smart_app_package_name",
+    "app_version": "smart_app_version",
+}
+
+
+def _read_device_orientation() -> str:
+    """The session's current orientation, or "" when nothing can answer.
+
+    Asked of the live driver rather than read from a session-start snapshot:
+    orientation is the only smart value that changes while a run is in
+    progress, so a rotate-then-assert test has to see the rotation. A session
+    with no orientation — every desktop one — answers "".
+    """
+    try:
+        from testmu_selenium._helpers.driver import get_driver
+
+        driver = get_driver()
+        # Only a mobile session can answer. A desktop WebDriver carries an
+        # `orientation` property too, but asking costs a round trip every
+        # browser rejects — so this stays free on the sessions that cannot
+        # have one.
+        if driver is None or not type(driver).__module__.startswith("appium"):
+            return ""
+        orientation = getattr(driver, "orientation", None)
+        return str(orientation) if orientation else ""
+    except Exception:  # noqa: BLE001 — a missing orientation is not a failure
+        return ""
+
+
+# A device-selection FILTER is not a device name. The caller may ask the hub for
+# e.g. ``"^(?!.*(Tab|Fold)).*"`` or ``"iPhone.*"``; the hub picks a concrete
+# device and the test must assert against THAT, not against the filter it was
+# chosen by. These tokens are the ones a selection regex actually uses in
+# practice — a deliberately narrow list, since a false positive here would
+# suppress a legitimate device name.
+_DEVICE_REGEX_TOKENS = ("(?!", ".*", "^(", "iPhone.")
+
+
+def is_value_regex(value: Any) -> bool:
+    """True when ``value`` looks like a device-selection regex rather than a name."""
+    return bool(value) and any(token in str(value) for token in _DEVICE_REGEX_TOKENS)
+
+
+def device_name_from_capabilities(capabilities: Any) -> str:
+    """Recover the hub-allocated device name from live session capabilities.
+
+    The hub resolves the device-selection regex to a concrete device before the
+    session starts and echoes the friendly name back in
+    ``capabilities["desired"]["deviceName"]`` (e.g. ``"Galaxy S23"``). The
+    top-level ``deviceName``/``deviceModel`` are the serial / model code on a
+    real device (``"RFCW31WRCVT"``, ``"SM-S911U"``), so those are accepted only
+    when they look like a real name — i.e. contain a space.
+
+    Returns ``""`` when nothing usable is present; never raises.
+    """
+    try:
+        caps = capabilities or {}
+        desired = caps.get("desired") if isinstance(caps.get("desired"), dict) else {}
+        primary = (desired or {}).get("deviceName")
+        if primary and not is_value_regex(primary):
+            return str(primary)
+        for value in (caps.get("deviceName"), caps.get("deviceModel")):
+            if value and " " in str(value) and not is_value_regex(value):
+                return str(value)
+    except Exception:  # noqa: BLE001 — a caps probe must never fail a step
+        pass
+    return ""
+
+
+def resolve_real_device_name() -> str:
+    """Resolve ``{{smart.device_name}}`` to the ACTUAL allocated device.
+
+    Order: a concrete device already in the environment (a live or pinned run)
+    wins; otherwise the value recovered from the live session capabilities at
+    session start (``smart_device_name``, written by ``_export_smart_env_from_session``).
+    If neither yields anything better, the environment value is returned
+    unchanged — including a regex — so behaviour never regresses to empty.
+    """
+    env_value = os.getenv("device_name", "") or os.getenv("deviceName", "")
+    if env_value and not is_value_regex(env_value):
+        return env_value
+    from_session = os.getenv("smart_device_name", "")
+    if from_session:
+        return from_session
+    return env_value
+
+
+# Date/time smart variables must resolve in the TEST's timezone, not
+# the runner VM's local clock. A test authored for a non-UTC org otherwise gets
+# {{smart.current_date}} from wherever the worker happens to run — off by a day
+# around midnight (the Jonas Club report).
+#
+# KANE_SESSION_TIMEZONE carries the session's zone; UTC is the default, matching
+# the source. An unknown/malformed zone falls back to UTC rather than raising —
+# a bad env var must not fail the step.
+_DEFAULT_SESSION_TIMEZONE = "UTC"
+
+
+def _session_timezone() -> tuple[str, "ZoneInfo"]:
+    """The session's EFFECTIVE timezone as ``(name, tzinfo)``.
+
+    Returns the zone actually used, so ``{{smart.current_timezone}}`` can never
+    disagree with the clock the other date/time variables were computed from —
+    an unknown zone reports UTC because UTC is what it fell back to.
+    """
+    requested = os.getenv("KANE_SESSION_TIMEZONE") or _DEFAULT_SESSION_TIMEZONE
+    try:
+        return requested, ZoneInfo(requested)
+    except Exception:  # noqa: BLE001 — a bad env var must not fail a step
+        _log.warning(
+            "Unknown KANE_SESSION_TIMEZONE %r; falling back to %s",
+            requested, _DEFAULT_SESSION_TIMEZONE,
+        )
+        return _DEFAULT_SESSION_TIMEZONE, ZoneInfo(_DEFAULT_SESSION_TIMEZONE)
+
+
+def _session_timezone_name() -> str:
+    """The effective session timezone name."""
+    return _session_timezone()[0]
+
+
+def _session_now() -> datetime:
+    """``datetime.now()`` in the session's timezone."""
+    return datetime.now(_session_timezone()[1])
+
+def _resolve_smart(name: str) -> Any:
     """Resolve {{smart.x}} — computed smart variables.
 
     Matches the smart-variable contract defined by the code exporter.
     """
-    now = datetime.now()
+    now = _session_now()
 
     # Date/time variables
     if name == "current_date":
@@ -288,7 +434,7 @@ def _resolve_smart(name: str) -> str:
     if name == "current_timestamp":
         return now.strftime("%Y-%m-%d %H:%M:%S")
     if name == "current_timezone":
-        return time.strftime("%Z")
+        return _session_timezone_name()
 
     # Date calculations
     if name == "next_day":
@@ -330,6 +476,10 @@ def _resolve_smart(name: str) -> str:
     if name == "ip_address":
         return "143.110.182.88"
 
+    # Device info — resolved against the LIVE session, not the requested caps.
+    if name == "device_name":
+        return resolve_real_device_name()
+
     # Environment/system info (from SmartVariableArgConst)
     if name == "user_name":
         return os.getenv("LT_USERNAME", "")
@@ -341,6 +491,28 @@ def _resolve_smart(name: str) -> str:
         return os.getenv("smart_browser_name", "")
     if name == "browser_version":
         return os.getenv("smart_browser_version", "")
+
+    # Device/app facts of the session under test. Seeded by
+    # `_session._export_smart_env_from_session` when this binding opens the
+    # session itself, which is the standalone/exported case.
+    if name in _SESSION_SMART_ENV:
+        seeded = os.getenv(_SESSION_SMART_ENV[name], "")
+        if seeded:
+            return seeded
+    elif name == "device_orientation":
+        orientation = _read_device_orientation()
+        if orientation:
+            return orientation
+
+    # Nothing computed it. A HOST runtime that owns the session — and so never
+    # runs the seeding above — supplies these under the flat key
+    # `smart.<name>` instead, so the store gets the last word before this gives
+    # up. Without it a session-scoped name is unresolvable by construction: it
+    # cannot be computed here, and answering "" made every assertion that
+    # referenced one compare against an empty string.
+    supplied = _variable_store.get(f"smart.{name}")
+    if supplied is not None:
+        return supplied
 
     _log.warning(f"Unknown smart variable: smart.{name}")
     return ""
@@ -364,13 +536,20 @@ def _atms_auth_headers() -> dict:
 _ATMS_DEFAULT_URL = "https://test-manager-api.lambdatest.com"
 
 
-def _atms_get_variable(variable_name: str, environment_id: int = 0) -> dict:
+def _atms_get_variable(variable_name: str, environment_id: int = 0,
+                       variable_type: str = "variable") -> dict:
     """GET {ATMS_URL}/api/v1/variables/{name} — returns the data dict."""
     import requests
     # Bug-D1 fix: default to the production test-manager URL (matches PW sibling).
     # "" causes "No scheme supplied" errors when ATMS_URL env var is unset.
     atms_url = os.getenv("ATMS_URL", _ATMS_DEFAULT_URL)
-    url = f"{atms_url}/api/v1/variables/{variable_name}?environment_id={environment_id}"
+    # variable_type disambiguates same-named variables across scopes.
+    # Without it ATMS can resolve a name to the wrong scope's value (the
+    # 1800flowers.com report). "variable" is the regular-variable scope and the
+    # only value the runtime sends today; the parameter is threaded through so a
+    # caller can widen it without touching the URL builder.
+    url = (f"{atms_url}/api/v1/variables/{variable_name}"
+           f"?environment_id={environment_id}&variable_type={variable_type}")
     resp = requests.get(url=url, headers=_atms_auth_headers())
     if resp.status_code != 200:
         raise RuntimeError(f"ATMS variable lookup failed ({resp.status_code}): {resp.text}")
@@ -476,12 +655,12 @@ def var(template: Any, default: Any = None) -> Any:
         # ${name}: test_params FIRST, then store/traverse. No namespace dispatch.
         if full_match.group("lead") == "${":
             if name in _test_params:
-                return _test_params[name]
+                return record_read(name, _test_params[name])
             if name in _variable_store:
-                return _variable_store[name]
+                return record_read(name, _variable_store[name])
             traversed = _traverse_store(name)
             if traversed is not None:
-                return traversed
+                return record_read(name, traversed)
             if fallback is not None:
                 return fallback
             if default is not None:
@@ -491,10 +670,10 @@ def var(template: Any, default: Any = None) -> Any:
         if ns is not _SENTINEL:
             return ns
         if name in _variable_store:
-            return _variable_store[name]
+            return record_read(name, _variable_store[name])
         traversed = _traverse_store(name)
         if traversed is not None:
-            return traversed
+            return record_read(name, traversed)
         if fallback is not None:
             return fallback
         if default is not None:
@@ -508,12 +687,12 @@ def var(template: Any, default: Any = None) -> Any:
         # ${name}: test_params FIRST, then store/traverse. No namespace dispatch.
         if m.group("lead") == "${":
             if name in _test_params:
-                return str(_test_params[name])
+                return str(record_read(name, _test_params[name]))
             if name in _variable_store:
-                return str(_variable_store[name])
+                return str(record_read(name, _variable_store[name]))
             traversed = _traverse_store(name)
             if traversed is not None:
-                return str(traversed)
+                return str(record_read(name, traversed))
             if fallback is not None:
                 return fallback
             return m.group(0)  # leave literal if unresolved
@@ -521,10 +700,10 @@ def var(template: Any, default: Any = None) -> Any:
         if ns is not _SENTINEL:
             return str(ns)
         if name in _variable_store:
-            return str(_variable_store[name])
+            return str(record_read(name, _variable_store[name]))
         traversed = _traverse_store(name)
         if traversed is not None:
-            return str(traversed)
+            return str(record_read(name, traversed))
         if fallback is not None:
             return fallback
         return m.group(0)  # leave literal if unresolved

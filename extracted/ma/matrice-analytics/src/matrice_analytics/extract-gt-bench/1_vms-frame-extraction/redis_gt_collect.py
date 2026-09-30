@@ -43,7 +43,6 @@ import sys
 import time
 
 import redis as redis_lib
-
 from rtp_map import LoopMapper, build_pts_reference
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -76,8 +75,8 @@ def parse_payload(values: dict) -> dict | None:
         "frame_id": fid,
         "counter": counter,
         "capture_timestamp_ns": p.get("capture_timestamp_ns"),
-        "detections": p.get("detections") or [],          # top-level (most apps)
-        "agg_summary": p.get("agg_summary") or {},         # tracking-stats apps
+        "detections": p.get("detections") or [],  # top-level (most apps)
+        "agg_summary": p.get("agg_summary") or {},  # tracking-stats apps
     }
 
 
@@ -129,7 +128,12 @@ def run_collection(
         if saved % log_every == 0:
             log.info(
                 "[COLLECT] saved=%d covered=%d/%d loop=%d mode=%s src_idx=%d",
-                saved, len(coverage), ref.n_frames, res.loop_index, mapper.mode or "pre", res.src_idx,
+                saved,
+                len(coverage),
+                ref.n_frames,
+                res.loop_index,
+                mapper.mode or "pre",
+                res.src_idx,
             )
 
         elapsed = res.cont_ticks - first_cont
@@ -202,6 +206,7 @@ def redis_messages(r, key: str, max_seconds: float, start_id: str = "$"):
 
 
 if __name__ == "__main__":
+
     def req(name: str) -> str:
         v = os.environ.get(name)
         if not v:
@@ -228,7 +233,10 @@ if __name__ == "__main__":
     ref = build_pts_reference(source_video)
     log.info(
         "Source: %d frames @ %.3f fps, frame_interval=%d ticks, loop_span=%d ticks (%.2fs)",
-        ref.n_frames, ref.fps, ref.frame_interval_ticks, ref.loop_span_ticks,
+        ref.n_frames,
+        ref.fps,
+        ref.frame_interval_ticks,
+        ref.loop_span_ticks,
         ref.loop_span_ticks / 90000,
     )
 
@@ -238,10 +246,20 @@ if __name__ == "__main__":
     key = stream_key(cam, dep)
     r = redis_lib.Redis(host=host, port=port, password=password, decode_responses=True)
     log.info("Connecting to Redis %s:%s — PING %s", host, port, r.ping())
-    log.info("Tailing %s (loops=%d mode=%s max_seconds=%.0f start_id=%s)",
-             key, loops, mode, max_seconds, start_id)
+    log.info(
+        "Tailing %s (loops=%d mode=%s max_seconds=%.0f start_id=%s)",
+        key,
+        loops,
+        mode,
+        max_seconds,
+        start_id,
+    )
     if from_start:
-        log.info("[COLLECT] GT_FROM_START=1 -> reading from oldest entry; first output "
-                 "should be ~source frame 0 (start the camera just before this).")
+        log.info(
+            "[COLLECT] GT_FROM_START=1 -> reading from oldest entry; first output "
+            "should be ~source frame 0 (start the camera just before this)."
+        )
 
-    run_collection(redis_messages(r, key, max_seconds, start_id), ref, out_dir, loops=loops, mode=mode)
+    run_collection(
+        redis_messages(r, key, max_seconds, start_id), ref, out_dir, loops=loops, mode=mode
+    )

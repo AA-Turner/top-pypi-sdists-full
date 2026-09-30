@@ -81,7 +81,22 @@ class HookEvent(str, Enum):
     # the event that is actually emitted.
     BEFORE_MESSAGE = "message_received"
     AFTER_MESSAGE = "message_sending"
-    
+
+    # Inbound platform events (non-message): the gateway hearing more than text.
+    # A user reacting/editing/deleting a message, joining/leaving a channel, or a
+    # thread being created are delivered by the platform SDK but previously
+    # dropped before reaching the agent or a hook. Adapters normalise the native
+    # event into a ``PlatformEvent`` and emit it via
+    # ``MessageHookMixin.fire_platform_event`` (praisonai-bot); platforms that
+    # cannot deliver a given event simply never emit it (capability-gated,
+    # opt-in). Payload: ``PlatformEventInput`` (Issue #5161).
+    REACTION_RECEIVED = "reaction_received"
+    MESSAGE_EDITED = "message_edited"
+    MESSAGE_DELETED = "message_deleted"
+    MEMBER_JOINED = "member_joined"
+    MEMBER_LEFT = "member_left"
+    THREAD_CREATED = "thread_created"
+
     # Gateway lifecycle
     GATEWAY_START = "gateway_start"
     GATEWAY_STOP = "gateway_stop"
@@ -301,6 +316,8 @@ class HookDefinition:
     name: Optional[str] = None
     description: Optional[str] = None
     timeout: float = 60.0  # Timeout in seconds
+    priority: int = 100  # Execution order (lower runs earlier)
+    _seq: int = field(default=0, repr=False)  # Registration order for stable ties
     
     def matches(self, target: str) -> bool:
         """Check if this hook matches the target (tool name, etc.)."""

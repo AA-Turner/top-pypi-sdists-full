@@ -25,10 +25,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class QueryLogsReply(BaseModel):
     """
     QueryLogsReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     data: Optional[List[LogEntry]] = None
     pagination: Optional[QueryLogsReplyPagination] = None
     __properties: ClassVar[List[str]] = ["data", "pagination"]
@@ -39,7 +41,6 @@ class QueryLogsReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +65,7 @@ class QueryLogsReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -76,12 +76,11 @@ class QueryLogsReply(BaseModel):
         _items = []
         if self.data:
             for _item_data in self.data:
-                if _item_data:
-                    _items.append(_item_data.to_dict())
-            _dict['data'] = _items
+                _items.append(_item_data.to_dict() if _item_data is not None else None)
+            _dict["data"] = _items
         # override the default output from pydantic by calling `to_dict()` of pagination
         if self.pagination:
-            _dict['pagination'] = self.pagination.to_dict()
+            _dict["pagination"] = self.pagination.to_dict()
         return _dict
 
     @classmethod
@@ -93,10 +92,14 @@ class QueryLogsReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "data": [LogEntry.from_dict(_item) for _item in obj["data"]] if obj.get("data") is not None else None,
-            "pagination": QueryLogsReplyPagination.from_dict(obj["pagination"]) if obj.get("pagination") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "data": [LogEntry.from_dict(_item) for _item in obj["data"]]
+                if obj.get("data") is not None
+                else None,
+                "pagination": QueryLogsReplyPagination.from_dict(obj["pagination"])
+                if obj.get("pagination") is not None
+                else None,
+            }
+        )
         return _obj
-
-

@@ -18,14 +18,11 @@
 # Urwid web site: https://urwid.org/
 
 
-"""
-Urwid web application display module
-"""
+"""Urwid web application display module."""
 
 from __future__ import annotations
 
 import dataclasses
-import functools
 import glob
 import html
 import os
@@ -44,7 +41,7 @@ from email.message import Message
 from urwid.str_util import calc_text_pos, calc_width, move_next_char
 from urwid.util import StoppingContext, get_encoding
 
-from .common import AttrSpec, BaseScreen
+from .common import AttrSpec, BaseScreen, attr_spec_to_css
 
 if typing.TYPE_CHECKING:
     from types import FrameType
@@ -122,7 +119,10 @@ _default_background = "light gray"
 
 
 class Screen(BaseScreen):
+    """Screen backend that renders to a browser client over the web server's polling/streaming connection."""
+
     def __init__(self) -> None:
+        """Initialize an unstarted screen defaulting to true color."""
         super().__init__()
         self.has_color = True
         self._started = False
@@ -134,6 +134,7 @@ class Screen(BaseScreen):
 
     @property
     def started(self) -> bool:
+        """Return whether this screen has been started."""
         return self._started
 
     def set_terminal_properties(
@@ -181,14 +182,13 @@ class Screen(BaseScreen):
         return True
 
     def set_mouse_tracking(self, enable: bool = True) -> None:
-        """Not yet implemented"""
+        """Not yet implemented."""
 
     def tty_signal_keys(self, *args: typing.Any, **vargs: typing.Any) -> None:
         """Do nothing."""
 
     def start(self, *args: typing.Any, **kwargs: typing.Any) -> StoppingContext:
-        """
-        This function reads the initial screen size, generates a unique id and handles cleanup when fn exits.
+        """Read the initial screen size, generate a unique id and handle cleanup when fn exits.
 
         web_display.set_preferences(..) must be called before calling this function for the preferences to take effect
 
@@ -244,9 +244,7 @@ class Screen(BaseScreen):
         return StoppingContext(self)
 
     def stop(self) -> None:
-        """
-        Restore settings and clean up.
-        """
+        """Restore settings and clean up."""
         if not self._started:
             return
 
@@ -283,7 +281,6 @@ class Screen(BaseScreen):
 
     def _set_screen_size(self, cols: int, rows: int) -> None:
         """Set the screen size (within max size)."""
-
         cols = min(cols, MAX_COLS)
         rows = min(rows, MAX_ROWS)
         self.screen_size = cols, rows
@@ -293,7 +290,6 @@ class Screen(BaseScreen):
 
         :raises ValueError: *canvas* does not have the number of rows given by *size*.
         """
-
         (cols, rows) = size
         encoding = get_encoding()
 
@@ -383,16 +379,14 @@ class Screen(BaseScreen):
         signal.alarm(ALARM_DELAY)
 
     def clear(self) -> None:
-        """
-        Force the screen to be completely repainted on the next
-        call to draw_screen().
+        """Force the screen to be completely repainted on the next call to draw_screen().
 
         (does nothing for web_display)
         """
 
     def _fork_child(self) -> None:
-        """
-        Fork a child to run CGI disconnected for polling update method.
+        """Fork a child to run CGI disconnected for polling update method.
+
         Force parent process to exit.
         """
         daemonize(f"{self.pipe_name}.err")
@@ -470,48 +464,14 @@ class Screen(BaseScreen):
         return pending_input
 
 
-#: default RGB values substituted for a palette entry's 'default' foreground/background,
-#: matching the black-on-light-gray page background declared in _web.css
-_default_aspec = AttrSpec(_default_foreground, _default_background)
-_d_fg_rgb = _default_aspec.get_rgb_values()[:3]
-_d_bg_rgb = _default_aspec.get_rgb_values()[3:]
-
 # the separator between a span's inline CSS and its text content in the wire format;
 # safe because control characters in the text have already been replaced by _trans_table
 _STYLE_SEP = "\x01"
 
 
-@functools.cache
-def _span_style(aspec: AttrSpec) -> tuple[str, str, str]:
-    """Return the (foreground, background, extra CSS) for *aspec*, with standout applied."""
-    fg_r, fg_g, fg_b, bg_r, bg_g, bg_b = aspec.get_rgb_values()
-    if fg_r is None:
-        fg_r, fg_g, fg_b = _d_fg_rgb
-    if bg_r is None:
-        bg_r, bg_g, bg_b = _d_bg_rgb
-    fg = f"#{fg_r:02x}{fg_g:02x}{fg_b:02x}"
-    bg = f"#{bg_r:02x}{bg_g:02x}{bg_b:02x}"
-    if aspec.standout:
-        fg, bg = bg, fg
-
-    decoration = [name for name, on in (("underline", aspec.underline), ("line-through", aspec.strikethrough)) if on]
-
-    extra = ""
-    if decoration:
-        extra += f";text-decoration:{' '.join(decoration)}"
-    if aspec.bold:
-        extra += ";font-weight:bold"
-    if aspec.italics:
-        extra += ";font-style:italic"
-    if aspec.blink:
-        extra += ";animation:urwid-blink 1s step-start infinite"
-    if aspec.faint:
-        extra += ";opacity:0.5"
-    return fg, bg, extra
-
-
 def code_span(s: str, aspec: AttrSpec, cursor: int = -1) -> str:
-    fg, bg, extra = _span_style(aspec)
+    """Return `s` wrapped in an HTML ``<code>`` span styled per `aspec`, with the cursor column highlighted."""
+    fg, bg, extra = attr_spec_to_css(aspec)
 
     def _piece(fg_: str, bg_: str, text: str) -> str:
         return f"color:{fg_};background-color:{bg_}{extra}{_STYLE_SEP}{text}\n"
@@ -526,9 +486,7 @@ def code_span(s: str, aspec: AttrSpec, cursor: int = -1) -> str:
 
 
 def is_web_request() -> bool:
-    """
-    Return True if this is a CGI web request.
-    """
+    """Return True if this is a CGI web request."""
     return "REQUEST_METHOD" in os.environ
 
 
@@ -539,14 +497,13 @@ def _request_charset() -> str:
 
 
 def handle_short_request() -> bool:
-    """
-    Handle short requests such as passing keystrokes to the application
-    or sending the initial HTML page.  If returns True, then this
-    function recognized and handled a short request, and the calling
+    """Handle short requests such as passing keystrokes to the application or sending the initial HTML page.
+
+    If returns True, then this function recognized and handled a short request, and the calling
     script should immediately exit.
 
     web_display.set_preferences(..) should be called before calling this
-    function for the preferences to take effect
+    function for the preferences to take effect.
     """
     if not is_web_request():
         return False
@@ -653,18 +610,20 @@ def set_preferences(
 
 
 class ErrorLog:
+    """File-like object that appends written text to the given error log file."""
+
     def __init__(self, errfile: str | pathlib.PurePath) -> None:
+        """Wrap the error log file at `errfile`."""
         self.errfile = errfile
 
     def write(self, err: str) -> None:
+        """Append `err` to the error log file."""
         with open(self.errfile, "a", encoding="utf-8") as f:
             f.write(err)
 
 
 def daemonize(errfile: str) -> None:
-    """
-    Detach process and become a daemon.
-    """
+    """Detach process and become a daemon."""
     if os.fork():
         os._exit(0)
 

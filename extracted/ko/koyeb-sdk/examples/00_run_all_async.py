@@ -40,14 +40,12 @@ def filter_flows(all_files, flows_spec):
 
         if include_patterns:
             included = any(
-                name == p or name.startswith(p.rstrip("*"))
-                for p in include_patterns
+                name == p or name.startswith(p.rstrip("*")) for p in include_patterns
             )
 
         if skip_patterns:
             skipped = any(
-                name == p or name.startswith(p.rstrip("*"))
-                for p in skip_patterns
+                name == p or name.startswith(p.rstrip("*")) for p in skip_patterns
             )
             if skipped:
                 included = False
@@ -105,7 +103,7 @@ async def run_example(example_file, timeout):
                 "name": example_name,
                 "status": "TIMEOUT",
                 "time": elapsed_time,
-                "error": "Script exceeded 60 second timeout"
+                "error": f"Script exceeded {timeout} second timeout",
             }
 
         elapsed_time = time.time() - start_time
@@ -120,20 +118,16 @@ async def run_example(example_file, timeout):
             if stderr:
                 print("STDERR:")
                 print(stderr.decode())
-            
+
             return {
                 "name": example_name,
                 "status": "FAILED",
                 "time": elapsed_time,
-                "error": stderr.decode() if stderr else "Non-zero exit code"
+                "error": stderr.decode() if stderr else "Non-zero exit code",
             }
         else:
             print(f"✓ Completed in {elapsed_time:.2f}s")
-            return {
-                "name": example_name,
-                "status": "PASSED",
-                "time": elapsed_time
-            }
+            return {"name": example_name, "status": "PASSED", "time": elapsed_time}
 
     except Exception as e:
         elapsed_time = time.time() - start_time
@@ -143,7 +137,7 @@ async def run_example(example_file, timeout):
             "name": example_name,
             "status": "ERROR",
             "time": elapsed_time,
-            "error": str(e)
+            "error": str(e),
         }
 
 
@@ -173,17 +167,16 @@ async def main():
     examples_dir = Path(__file__).parent
 
     # Find all async Python files, excluding this script
-    all_example_files = sorted([
-        f for f in examples_dir.glob("*_async.py")
-        if f.name != "00_run_all_async.py"
-    ])
+    all_example_files = sorted(
+        [f for f in examples_dir.glob("*_async.py") if f.name != "00_run_all_async.py"]
+    )
 
     # Filter flows based on specification
     example_files = filter_flows(all_example_files, args.flows)
 
     if not example_files:
         print("No async example files match the specified flows")
-        return 0
+        return 1
 
     # Build flow timeout mapping
     flow_timeouts = build_flow_timeouts(args.flow_timeout)
@@ -230,10 +223,12 @@ def print_summary(results, total_time):
             "PASSED": "✓",
             "FAILED": "❌",
             "TIMEOUT": "⏱",
-            "ERROR": "❌"
+            "ERROR": "❌",
         }.get(result["status"], "?")
 
-        print(f"{status_symbol} {result['name']:40s} {result['time']:>6.2f}s  {result['status']}")
+        print(
+            f"{status_symbol} {result['name']:40s} {result['time']:>6.2f}s  {result['status']}"
+        )
 
         if "error" in result:
             error_preview = result["error"].split("\n")[0][:50]

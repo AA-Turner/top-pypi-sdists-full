@@ -6,6 +6,9 @@ import os
 import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.models import Camera
+from ...clients.response import CallFailure
 from ..core.base import (
     BaseProcessor,
     ConfigProtocol,
@@ -51,6 +54,71 @@ def normalize_location_id(value: Any) -> str:
     return text
 
 
+def _to_str(value: Any) -> str:
+    """Return ``value`` as a stripped string, or ``""`` when it carries no scalar."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, dict):
+        return ""
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            s = _to_str(item)
+            if s:
+                return s
+        return ""
+    try:
+        return str(value).strip()
+    except Exception:  # noqa: BLE001 - a __str__ that raises must not fail identifier reading
+        return ""
+
+
+def _dict_get_str(d: Any, *keys: str) -> str:
+    """Return the first of ``keys`` in ``d`` that carries a non-empty string."""
+    if not isinstance(d, dict):
+        return ""
+    for k in keys:
+        val = _to_str(d.get(k))
+        if val:
+            return val
+    return ""
+
+
+def _extract_camera_id_from_topic(topic_val: Any) -> str:
+    """Return the camera id a Kafka topic name is built from, or ``""``."""
+    topic = _to_str(topic_val)
+    if not topic:
+        return ""
+    for suffix in ("_input_topic", "_input-topic"):
+        if topic.endswith(suffix):
+            return topic[: -len(suffix)].strip()
+    for marker in ("_input_topic", "_input-topic"):
+        if marker in topic:
+            return topic.split(marker)[0].strip()
+    return ""
+
+
+def _extract_camera_id_from_frame_id(frame_id_val: Any) -> str:
+    """Return the camera id embedded in a ``legacy_`` frame id, or ``""``."""
+    fid = _to_str(frame_id_val)
+    if not fid or not fid.startswith("legacy_"):
+        return ""
+    parts = fid.split("_")
+    if len(parts) >= 3:
+        candidate = parts[1].strip()
+        if candidate and re.fullmatch(r"[0-9a-f]{8,}", candidate, re.IGNORECASE):
+            return candidate
+    return ""
+
+
+def _camera_id_from_camera_info(ci: Dict[str, Any]) -> str:
+    """Return the camera id carried by a ``camera_info`` block, or ``""``."""
+    return _dict_get_str(ci, "camera_id", "cameraId", "_id", "id")
+
+
 class _DeploymentIdHelper(BaseProcessor):
     """Minimal BaseProcessor subclass only to use extract_deployment_ids from base (no logic duplication)."""
 
@@ -80,23 +148,52 @@ class PostProcessingConfigClient:
         secret_key: Optional[str] = None,
         account_number: Optional[str] = None,
         logger: Optional[logging.Logger] = None,
+        client: Optional[AnalyticsClient] = None,
     ) -> None:
+        """
+        Args:
+            session: An open ``matrice_common`` session. Absent one, a session is built
+                from the access/secret keys when both are available.
+            access_key: Matrice access key; falls back to ``MATRICE_ACCESS_KEY_ID``.
+            secret_key: Matrice secret key; falls back to ``MATRICE_SECRET_ACCESS_KEY``.
+            account_number: The account whose cameras this client reads; falls back to
+                ``MATRICE_ACCOUNT_NUMBER``, then to the session's own.
+            logger: Python logger instance.
+            client: The platform client to make calls through. Absent one, a client is
+                built on the session resolved here, so a caller that passes nothing sends
+                exactly the requests it sent before.
+        """
         self.logger = logger or logging.getLogger(__name__)
         self._session: Optional[Any] = session
+        self._client = client
         self._access_key = access_key or os.getenv("MATRICE_ACCESS_KEY_ID", "")
         self._secret_key = secret_key or os.getenv("MATRICE_SECRET_ACCESS_KEY", "")
         self._account_number = account_number or os.getenv("MATRICE_ACCOUNT_NUMBER", "") or ""
 
+        # The container's own credentials mean the container's own session: ride the process
+        # one rather than opening another. Credentials passed in explicitly may belong to
+        # someone else, so those still get a session of their own.
+        own_credentials = access_key is None and secret_key is None and account_number is None
         if self._session is None and (self._access_key and self._secret_key):
             try:
-                from matrice_common.session import Session
+                if own_credentials:
+                    from ...clients.bootstrap import get_session
 
-                self._session = Session(
-                    access_key=self._access_key,
-                    secret_key=self._secret_key,
-                    account_number=self._account_number,
-                )
-                self.logger.info("Initialized Matrice session for post-processing config client")
+                    self._session = get_session("the post-processing config client")
+                    self.logger.info(
+                        "Using the process Matrice session for post-processing config client"
+                    )
+                else:
+                    from matrice_common.session import Session
+
+                    self._session = Session(
+                        access_key=self._access_key,
+                        secret_key=self._secret_key,
+                        account_number=self._account_number,
+                    )
+                    self.logger.info(
+                        "Initialized Matrice session for post-processing config client"
+                    )
             except Exception as exc:
                 self.logger.error(
                     "Failed to initialize Matrice session for post-processing config client: %s",
@@ -107,7 +204,9 @@ class PostProcessingConfigClient:
         elif self._session is not None:
             self._access_key = getattr(self._session, "access_key", None) or self._access_key
             self._secret_key = getattr(self._session, "secret_key", None) or self._secret_key
-            self._account_number = getattr(self._session, "account_number", None) or self._account_number
+            self._account_number = (
+                getattr(self._session, "account_number", None) or self._account_number
+            )
         elif not self._access_key or not self._secret_key:
             self.logger.warning(
                 "Missing Matrice credentials; cannot initialize session for post-processing config client"
@@ -122,6 +221,18 @@ class PostProcessingConfigClient:
         if self._session is None:
             raise RuntimeError("Session not initialized")
         return self._session
+
+    def _platform(self) -> AnalyticsClient:
+        """The client every platform call in this class goes through.
+
+        The caller's when one was injected, otherwise one riding this client's own
+        session -- so the requests are the same either way. Built on :attr:`session`
+        rather than on ``self._session``, so a client with no session refuses here
+        instead of opening a process-wide one nobody asked for.
+        """
+        if self._client is None:
+            self._client = AnalyticsClient(session=self.session)
+        return self._client
 
     def _to_pixel(self, normalized: Any, dimension_size: int) -> int:
         """Convert a single normalized value (0–1) to integer pixel coordinate."""
@@ -180,7 +291,9 @@ class PostProcessingConfigClient:
             )
         return result
 
-    def _denormalize_zone_config(self, zone_config: Dict[str, Any], width: int, height: int) -> Dict[str, Any]:
+    def _denormalize_zone_config(
+        self, zone_config: Dict[str, Any], width: int, height: int
+    ) -> Dict[str, Any]:
         """Convert zone_config lines and zones from normalized to integer pixel coords.
 
         Each polygon is checked individually: if its points are already in pixel
@@ -204,7 +317,9 @@ class PostProcessingConfigClient:
             }
         return out
 
-    def get_stream_identifiers(self, stream_info: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+    def get_stream_identifiers(
+        self, stream_info: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, str]:
         """Return camera_id, application_id, and app_deployment_id from stream_info."""
         result: Dict[str, str] = {
             "camera_id": "",
@@ -217,58 +332,6 @@ class PostProcessingConfigClient:
         deployment = self._deployment_id_helper.extract_deployment_ids(stream_info)
         result["application_id"] = (deployment.get("application_id") or "").strip()
         result["app_deployment_id"] = (deployment.get("app_deployment_id") or "").strip()
-
-        def _to_str(value: Any) -> str:
-            if value is None:
-                return ""
-            if isinstance(value, str):
-                return value.strip()
-            if isinstance(value, (int, float)):
-                return str(value)
-            if isinstance(value, dict):
-                return ""
-            if isinstance(value, (list, tuple, set)):
-                for item in value:
-                    s = _to_str(item)
-                    if s:
-                        return s
-                return ""
-            try:
-                return str(value).strip()
-            except Exception:
-                return ""
-
-        def _dict_get_str(d: Any, *keys: str) -> str:
-            if not isinstance(d, dict):
-                return ""
-            for k in keys:
-                val = _to_str(d.get(k))
-                if val:
-                    return val
-            return ""
-
-        def _extract_camera_id_from_topic(topic_val: Any) -> str:
-            topic = _to_str(topic_val)
-            if not topic:
-                return ""
-            for suffix in ("_input_topic", "_input-topic"):
-                if topic.endswith(suffix):
-                    return topic[: -len(suffix)].strip()
-            for marker in ("_input_topic", "_input-topic"):
-                if marker in topic:
-                    return topic.split(marker)[0].strip()
-            return ""
-
-        def _extract_camera_id_from_frame_id(frame_id_val: Any) -> str:
-            fid = _to_str(frame_id_val)
-            if not fid or not fid.startswith("legacy_"):
-                return ""
-            parts = fid.split("_")
-            if len(parts) >= 3:
-                candidate = parts[1].strip()
-                if candidate and re.fullmatch(r"[0-9a-f]{8,}", candidate, re.IGNORECASE):
-                    return candidate
-            return ""
 
         input_settings = stream_info.get("input_settings") or {}
         if not isinstance(input_settings, dict):
@@ -301,12 +364,9 @@ class PostProcessingConfigClient:
                     continue
                 input_stream_candidates.append(inner)
 
-        def _camera_id_from_camera_info(ci: Dict[str, Any]) -> str:
-            return _dict_get_str(ci, "camera_id", "cameraId", "_id", "id")
-
-        topic_camera_id = _extract_camera_id_from_topic(stream_info.get("topic")) or _extract_camera_id_from_topic(
-            input_settings.get("topic")
-        )
+        topic_camera_id = _extract_camera_id_from_topic(
+            stream_info.get("topic")
+        ) or _extract_camera_id_from_topic(input_settings.get("topic"))
         if not topic_camera_id:
             topics_val = stream_info.get("topics")
             if isinstance(topics_val, (list, tuple, set)):
@@ -327,7 +387,9 @@ class PostProcessingConfigClient:
             )
             if not result["camera_id"]:
                 for candidate in input_stream_candidates:
-                    result["camera_id"] = _dict_get_str(candidate, "camera_id", "cameraId", "_id", "id")
+                    result["camera_id"] = _dict_get_str(
+                        candidate, "camera_id", "cameraId", "_id", "id"
+                    )
                     if result["camera_id"]:
                         break
             if not result["camera_id"]:
@@ -343,31 +405,30 @@ class PostProcessingConfigClient:
         self,
         app_deployment_id: str,
     ) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str], Optional[str]]:
-        """Fetch all post-processing configs for an app deployment via Matrice API."""
+        """Fetch all post-processing configs for an app deployment via Matrice API.
+
+        Returns:
+            ``(configs, error, message)``. The configs are the producer's documents as
+            dictionaries, which is the shape :meth:`filter_configs_by_camera_id`,
+            :meth:`set_config_cache_from_api` and :meth:`denormalize_config` all read.
+        """
         try:
-            # Reuse the client's existing Session/RPC instead of building a new
-            # RPC (and its thread pool) on every call. ``self.session`` raises
-            # when no session is configured; that is handled the same way as a
-            # failed RPC init below.
-            rpc = self.session.rpc
-        except Exception as e:
+            platform = self._platform()
+        except RuntimeError as exc:
             self.logger.exception("Session/RPC not available for config fetch")
-            return None, str(e), None
-        path = f"/v1/inference/post_processing_configs/by_app_deployment/{app_deployment_id}"
+            return None, str(exc), None
 
         try:
-            response = rpc.get(path)
-            if isinstance(response, dict) and response.get("success"):
-                return (
-                    response.get("data", []),
-                    None,
-                    response.get("message", "Success"),
-                )
-            err = response.get("message", "Unknown error") if isinstance(response, dict) else str(response)
-            return None, err, None
-        except Exception as e:
+            configs = platform.inference.fetch_post_processing_configs(app_deployment_id)
+        except CallFailure as exc:
+            # Narrowed from `except Exception`: the call itself now raises exactly this,
+            # and a broader catch would also swallow a bug in the dump below it.
             self.logger.exception("get_post_processing_configs_by_app_deployment failed")
-            return None, str(e), None
+            return None, str(exc), None
+
+        # A deployment with no configs and a deployment that does not exist both answer
+        # `[]`, which is what this method already returned for either.
+        return [config.model_dump(by_alias=True) for config in configs], None, "Success"
 
     def filter_configs_by_camera_id(
         self,
@@ -411,87 +472,83 @@ class PostProcessingConfigClient:
                 }
         self.logger.info("Config cache updated from API: %d camera(s)", len(self._config_by_camera))
 
+    def _camera_record(self, camera_id: str, what: str) -> Optional[Camera]:
+        """The account's camera carrying ``camera_id``, or ``None`` when there is none.
+
+        The route has no by-id form, so a caller wanting one camera asks for all of them
+        and filters. That is the producer's shape, not a choice made here.
+
+        Args:
+            camera_id: The camera to find.
+            what: The calling method's name, for the warning it logs when nothing matches.
+
+        Raises:
+            CallFailure: The camera list could not be read.
+            RuntimeError: There is no session to read it with.
+        """
+        if not self._account_number:
+            self.logger.warning("%s: no account number; cannot list cameras", what)
+            return None
+        cameras = self._platform().inference.fetch_camera_streams(self._account_number)
+        if not cameras:
+            self.logger.warning("%s: no cameras on account", what)
+            return None
+        for cam in cameras:
+            if cam.id == camera_id:
+                return cam
+        self.logger.warning("%s: camera_id %s not found", what, camera_id)
+        return None
+
     def get_resolution(self, camera_id: str) -> Tuple[Optional[int], Optional[int]]:
         """Get frame width and height for a camera by its ID."""
         try:
-            from matrice.camera_management import CameraManagement
-        except ImportError:
-            self.logger.warning("matrice.camera_management not available; install py_matrice for get_resolution")
+            cam = self._camera_record(camera_id, "get_resolution")
+        except (CallFailure, RuntimeError):
+            self.logger.exception("get_resolution failed for camera_id=%s", camera_id)
+            return (None, None)
+        if cam is None:
+            return (None, None)
+        width = cam.custom_stream_settings.get("width")
+        height = cam.custom_stream_settings.get("height")
+        if width is None or height is None:
             return (None, None)
         try:
-            camera_mgmt = CameraManagement(self.session)
-            all_cameras, fetch_error, _ = camera_mgmt.get_camera_streams_by_account()
-            if fetch_error or not all_cameras:
-                self.logger.warning("get_resolution: fetch_error=%s or no cameras", fetch_error)
-                return (None, None)
-            for cam in all_cameras:
-                cid = cam.get("id") or cam.get("_id")
-                if cid != camera_id:
-                    continue
-                settings = cam.get("customStreamSettings") or {}
-                if not isinstance(settings, dict):
-                    return (None, None)
-                w = settings.get("width")
-                h = settings.get("height")
-                if w is not None and h is not None:
-                    return (int(w), int(h))
-                return (None, None)
-            self.logger.warning("get_resolution: camera_id %s not found", camera_id)
-            return (None, None)
-        except Exception:
-            self.logger.exception("get_resolution failed for camera_id=%s", camera_id)
+            return (int(width), int(height))
+        except (TypeError, ValueError):
+            self.logger.warning(
+                "get_resolution: non-numeric width/height for camera_id=%s", camera_id
+            )
             return (None, None)
 
     @staticmethod
-    def _metadata_from_camera_record(cam: Dict[str, Any]) -> Dict[str, str]:
-        """Extract display fields from a CameraManagement stream record."""
+    def _metadata_from_camera_record(cam: Camera) -> Dict[str, str]:
+        """Extract display fields from a camera stream record.
 
-        def _get(*keys: str) -> str:
-            for key in keys:
-                val = cam.get(key)
-                if val is not None and str(val).strip():
-                    return str(val).strip()
-            return ""
-
-        location_id = normalize_location_id(_get("locationId", "location_id", "_idLocation"))
-        location = _get("locationName", "location", "location_name")
-        if looks_like_object_id(location):
-            location = ""
+        ``camera_group`` and ``location`` are empty because the record does not carry
+        them: it carries ``cameraGroupId`` and ``locationId``. The location *name* is
+        resolved from its id by :meth:`fetch_location_name`, which is the route that
+        answers it; callers read both keys off this dictionary either way.
+        """
         return {
-            "camera_name": _get("cameraName", "camera_name", "name", "streamName", "displayName"),
-            "camera_group": _get("cameraGroup", "camera_group", "groupName", "group"),
-            "location": location,
-            "location_id": location_id,
+            "camera_name": cam.camera_name.strip(),
+            "camera_group": "",
+            "location": "",
+            "location_id": normalize_location_id(cam.location_id),
         }
 
     def get_camera_metadata(self, camera_id: str) -> Dict[str, str]:
-        """Look up human-readable camera fields by id via CameraManagement API."""
+        """Look up human-readable camera fields by id via the platform API."""
         empty = {"camera_name": "", "camera_group": "", "location": "", "location_id": ""}
         if not camera_id:
             return empty
         try:
-            from matrice.camera_management import CameraManagement
-        except ImportError:
-            self.logger.warning("matrice.camera_management not available; install py_matrice for camera metadata")
-            return empty
-        try:
-            camera_mgmt = CameraManagement(self.session)
-            all_cameras, fetch_error, _ = camera_mgmt.get_camera_streams_by_account()
-            if fetch_error or not all_cameras:
-                self.logger.warning("get_camera_metadata: fetch_error=%s or no cameras", fetch_error)
-                return empty
-            for cam in all_cameras:
-                if not isinstance(cam, dict):
-                    continue
-                cid = str(cam.get("id") or cam.get("_id") or "")
-                if cid != camera_id:
-                    continue
-                return self._metadata_from_camera_record(cam)
-            self.logger.warning("get_camera_metadata: camera_id %s not found", camera_id)
-            return empty
-        except Exception:
+            cam = self._camera_record(camera_id, "get_camera_metadata")
+        except (CallFailure, RuntimeError):
             self.logger.exception("get_camera_metadata failed for camera_id=%s", camera_id)
             return empty
+        if cam is None:
+            return empty
+        return self._metadata_from_camera_record(cam)
 
     def fetch_location_name(self, location_id: str) -> str:
         """Resolve a human-readable location name from a location ObjectId."""
@@ -507,15 +564,15 @@ class PostProcessingConfigClient:
         if not _location_name_cache.should_fetch(location_id):
             return ""
         try:
-            endpoint = f"/v1/inference/get_location/{location_id}"
-            response = self.session.rpc.get(endpoint)
-            if isinstance(response, dict) and response.get("success"):
-                data = response.get("data") or {}
-                name = str(data.get("locationName") or "").strip()
+            site = self._platform().inference.fetch_location(location_id)
+            if site is not None:
+                name = site.location_name.strip()
                 if name:
                     _location_name_cache.store(location_id, name)
                     return name
-        except Exception:
+        except CallFailure:
+            # Narrowed from `except Exception`: the call itself now raises exactly this,
+            # and a broader catch would also swallow a bug in the caching below it.
             self.logger.exception("fetch_location_name failed for location_id=%s", location_id)
         _location_name_cache.note_failure(location_id)
         return ""

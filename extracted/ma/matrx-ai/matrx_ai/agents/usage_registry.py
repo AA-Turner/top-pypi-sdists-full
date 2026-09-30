@@ -27,7 +27,7 @@ ref_kind:
     version  — pinned ``agx_version`` snapshot (drift-proof; the norm)
     agent    — floating ``agx_agent`` master (picks up every edit; drift-prone)
     builtin  — legacy prompt-system id (``Agent.from_builtin``); tracked for
-               visibility only, excluded from agx drift joins.
+               insight only, excluded from agx drift joins.
 """
 
 from __future__ import annotations

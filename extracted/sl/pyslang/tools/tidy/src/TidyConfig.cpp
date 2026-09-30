@@ -11,9 +11,9 @@ namespace fs = std::filesystem;
 TidyConfig::TidyConfig() {
     checkConfigs.clkName = "clk_i";
     checkConfigs.clkNameRegexString = "clk\\S*|clock\\S*";
-    checkConfigs.clkNameRegexPattern = std::regex(checkConfigs.clkNameRegexString);
+    checkConfigs.clkNameRegexPattern = boost::regex(checkConfigs.clkNameRegexString);
     checkConfigs.resetName = "rst_ni";
-    checkConfigs.resetIsActiveHigh = true;
+    checkConfigs.resetIsActiveHigh = false;
     checkConfigs.inputPortSuffix = {"_i"};
     checkConfigs.outputPortSuffix = {"_o"};
     checkConfigs.inoutPortSuffix = {"_io"};
@@ -21,6 +21,21 @@ TidyConfig::TidyConfig() {
     checkConfigs.inputPortPrefix = {""};
     checkConfigs.outputPortPrefix = {""};
     checkConfigs.inoutPortPrefix = {""};
+    checkConfigs.allowNestedAnon = false;
+    checkConfigs.covergroupRegexString = "^cg_\\S*";
+    checkConfigs.covergroupRegexPattern = boost::regex(checkConfigs.covergroupRegexString);
+    checkConfigs.coverpointRegexString = "^cp_\\S*";
+    checkConfigs.coverpointRegexPattern = boost::regex(checkConfigs.coverpointRegexString);
+    checkConfigs.crossRegexString = "^cross_\\S*";
+    checkConfigs.crossRegexPattern = boost::regex(checkConfigs.crossRegexString);
+    checkConfigs.enumRegexString = "[a-z_0-9]+_e";
+    checkConfigs.enumRegexPattern = boost::regex(checkConfigs.enumRegexString);
+    checkConfigs.structRegexString = "[a-z_0-9]+_t";
+    checkConfigs.structRegexPattern = boost::regex(checkConfigs.structRegexString);
+    checkConfigs.unionRegexString = "[a-z_0-9]+_t";
+    checkConfigs.unionRegexPattern = boost::regex(checkConfigs.unionRegexString);
+    checkConfigs.typedefRegexString = "[a-z_0-9]+_t";
+    checkConfigs.typedefRegexPattern = boost::regex(checkConfigs.typedefRegexString);
 
     auto styleChecks = std::unordered_map<std::string, CheckOptions>();
     styleChecks.emplace("AlwaysCombNonBlocking", CheckOptions());
@@ -36,6 +51,17 @@ TidyConfig::TidyConfig() {
     styleChecks.emplace("GenerateNamed", CheckOptions());
     styleChecks.emplace("NoDotVarInPortConnection", CheckOptions());
     styleChecks.emplace("NoLegacyGenerate", CheckOptions());
+    styleChecks.emplace("NoCaseX", CheckOptions());
+    styleChecks.emplace("NoDefParam", CheckOptions());
+    styleChecks.emplace("TypedefEnums", CheckOptions());
+    styleChecks.emplace("TypedefStructUnion", CheckOptions());
+    styleChecks.emplace("CovergroupName", CheckOptions{CheckStatus::DISABLED});
+    styleChecks.emplace("CoverpointName", CheckOptions{CheckStatus::DISABLED});
+    styleChecks.emplace("CrossName", CheckOptions{CheckStatus::DISABLED});
+    styleChecks.emplace("EnumName", CheckOptions());
+    styleChecks.emplace("StructName", CheckOptions());
+    styleChecks.emplace("UnionName", CheckOptions());
+    styleChecks.emplace("TypedefName", CheckOptions());
     checkKinds.insert({slang::TidyKind::Style, styleChecks});
 
     auto synthesisChecks = std::unordered_map<std::string, CheckOptions>();
@@ -48,6 +74,7 @@ TidyConfig::TidyConfig() {
     synthesisChecks.emplace("UnusedSensitiveSignal", CheckOptions());
     synthesisChecks.emplace("UndrivenRange", CheckOptions());
     synthesisChecks.emplace("LoopBeforeResetCheck", CheckOptions());
+    synthesisChecks.emplace("StructFieldsInSameProcess", CheckOptions());
     checkKinds.insert({slang::TidyKind::Synthesis, synthesisChecks});
 }
 

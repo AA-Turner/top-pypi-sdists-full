@@ -7,11 +7,13 @@ ReactJS - ipywidgets relation:
 
 """
 
+import collections
 import contextlib
 import copy
 import functools
 import inspect
 import logging
+import os
 import sys
 import threading
 import traceback
@@ -24,6 +26,7 @@ from typing import (
     Any,
     Callable,
     ContextManager,
+    Deque,
     Dict,
     Generic,
     List,
@@ -207,6 +210,10 @@ def _event_handler_exception_wrapper(f):
             # we add it to exceptions_children, not exception_self
             # this allows a component to catch the exception of a direct child
             context.exceptions_children.append(e)
+            # force_update walks the whole tree, but when another thread is rendering it
+            # only sets a flag that this render may clear: mark the path to this context
+            # so the fast renderer does not skip it on the next render
+            _mark_needs_render_ancestors(context)
             rc.force_update()
 
     return wrapper
@@ -231,8 +238,12 @@ def same_component(c1, c2):
 
 def _mark_needs_render_ancestors(context: "ComponentContext"):
     """Let the render phase find its way down to a context that needs work, without walking subtrees that do not."""
+    # walk up to the root: stopping at the first ancestor that is already marked would
+    # assume its ancestors are marked too, which does not hold for a subtree that is
+    # being removed (it can carry a flag from before), so the live ancestors above it
+    # would stay unmarked and skip e.g. a cleanup exception
     parent = context.parent
-    while parent is not None and not parent.needs_render_descendant:
+    while parent is not None:
         parent.needs_render_descendant = True
         parent = parent.parent
 
@@ -252,6 +263,34 @@ def _values_identical(a, b):
         return len(a) == len(b) and all(x is y or _values_identical(x, y) for x, y in zip(a, b))
     if type_a is dict:
         return len(a) == len(b) and all(k in b and (v is b[k] or _values_identical(v, b[k])) for k, v in a.items())
+    return False
+
+
+_missing = object()
+
+
+def _widget_holds_values(widget: widgets.Widget, kwargs: Dict[str, Any]) -> bool:
+    """Does the widget already hold these (resolved) kwargs, so that setting them is a no-op?
+
+    Only for the same element as last render: its event listeners are the same callbacks,
+    and no argument was dropped. Compares by identity, where a list and a tuple with the
+    same items count as the same (a Tuple trait stores a list as a tuple).
+    """
+    for name, value in kwargs.items():
+        if name.startswith("on_") and not widget.has_trait(name):
+            continue
+        if not _value_held(value, getattr(widget, name, _missing)):
+            return False
+    return True
+
+
+def _value_held(value, held) -> bool:
+    if value is held:
+        return True
+    if isinstance(value, (list, tuple)):
+        return type(held) in (list, tuple) and len(value) == len(held) and all(_value_held(x, y) for x, y in zip(value, held))
+    if type(value) is dict:
+        return type(held) is dict and len(value) == len(held) and all(k in held and _value_held(v, held[k]) for k, v in value.items())
     return False
 
 
@@ -1166,6 +1205,11 @@ class ComponentContext:
     # the render phase skipped this whole subtree (nothing changed), so the
     # reconciliation phase can reuse the previous result without walking
     clean_subtree: bool = False
+    # Fast renderer only: stale component effect cleanups are run at the same
+    # point where the default renderer removes stale elements, while widget
+    # closing stays deferred to the fast renderer's stale sweep.
+    fast_stale_effect_keys: Optional[List[str]] = None
+    fast_stale_effects_cleaned: Set[str] = field(default_factory=set)
 
     # elements created in this context go there
     owns: Set[Element] = field(default_factory=set)
@@ -1224,6 +1268,8 @@ def _teardown_component_context(context: ComponentContext):
     context.exceptions_self = []
     context.exceptions_children = []
     context.context_managers = []
+    context.fast_stale_effect_keys = None
+    context.fast_stale_effects_cleaned = set()
 
 
 @dataclass
@@ -1260,6 +1306,31 @@ class Effect:
 
 class _RenderContext:
     context: Optional[ComponentContext] = None
+    # the element that reconciliation removes because the new tree replaced it by an element
+    # of another type, or no longer has it, and its context (see _remove_outgoing)
+    _outgoing: Optional[Tuple[ComponentContext, Element]] = None
+
+    def _remove_outgoing(self, el: Element, key: str, parent_key: str):
+        """Remove the element at key, which the new tree replaced or no longer has."""
+        assert self.context is not None
+        outgoing = self._outgoing
+        self._outgoing = (self.context, el)
+        try:
+            self._remove_element(el, key, parent_key=parent_key)
+        finally:
+            self._outgoing = outgoing
+
+    def _keep_keyed_child(self, context: ComponentContext, el: Element, key: str) -> bool:
+        # An explicit key is the same in any container of a component, so a child with an
+        # explicit key that the new tree still uses (it moved out of the outgoing element, for
+        # instance a wrapper that went away, or stays under the element that replaces it) is
+        # not removed with the outgoing element: reconciliation updates it where the new tree
+        # has it. Shared elements keep the old behavior: their bookkeeping (_shared_elements,
+        # _shared_widgets) needs the removal.
+        outgoing = self._outgoing
+        return (
+            outgoing is not None and context is outgoing[0] and el is not outgoing[1] and el._key is not None and not el.is_shared and key in context.used_keys
+        )
 
     def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
         self.element = element
@@ -1274,7 +1345,11 @@ class _RenderContext:
         self.last_root_widget: widgets.Widget = None
         self._is_rendering = False
         self._rerender_needed = False
-        self._rerender_needed_reasons: List[RerenderReason] = []
+        # the reasons are only read for the "too many renders" error message, and a reason
+        # holds the previous and next state value: keeping all of them kept every old state
+        # value alive until close(). REACTON_RERENDER_REASONS keeps more, for debugging.
+        max_reasons = max(1, int(os.environ.get("REACTON_RERENDER_REASONS", "2")))
+        self._rerender_needed_reasons: Deque[RerenderReason] = collections.deque(maxlen=max_reasons)
         self.thread_lock = threading.Lock()
         self._closing = False
         self.tracebacks: List[TracebackType] = []
@@ -1654,10 +1729,10 @@ class _RenderContext:
                                         f += f"Triggered at: {''.join(reason.trigger_stack)}\n"
                                     return f
 
-                                self._rerender_needed_reasons[-1]
                                 msg = f"Too many renders triggered, your render loop does not stop\nLast reason: {format(self._rerender_needed_reasons[-1])}\n"
                                 if len(self._rerender_needed_reasons) >= 2:
-                                    msg += f"Previous reasons: {format(self._rerender_needed_reasons[-2])}\n"
+                                    previous = reversed(list(self._rerender_needed_reasons)[:-1])
+                                    msg += f"Previous reasons: {''.join(format(reason) for reason in previous)}\n"
                                 raise RuntimeError(msg)
                             logger.info("Entering nested render phase: %r", self._rerender_needed_reasons[-1])
                             self._rerender_needed = False
@@ -1760,6 +1835,10 @@ class _RenderContext:
             finally:
                 local.rc = prev_rc  # type: ignore
                 self._is_rendering = False
+                # clear before the lock is released: a stale _lock_thread makes the
+                # recursion guard above fire for a thread that merely rendered last,
+                # while a *different* thread holds the lock (false "Recursive render")
+                self._lock_thread = None
                 assert self.context is self.context_root
 
         exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
@@ -2040,7 +2119,7 @@ class _RenderContext:
         try:
             if isinstance(el.component, ComponentFunction):
                 if el_prev and isinstance(el_prev.component, ComponentWidget):
-                    self._remove_element(el_prev, default_key=key, parent_key=parent_key)
+                    self._remove_outgoing(el_prev, key, parent_key=parent_key)
                 new_parent_key = join_key(parent_key, key)
                 try:
                     # TODO: test suite passes when this block if commented out
@@ -2086,7 +2165,7 @@ class _RenderContext:
                     if removed:
                         for key_remove in removed:
                             el_remove = elements[key_remove]
-                            self._remove_element(el_remove, key_remove, parent_key)
+                            self._remove_outgoing(el_remove, key_remove, parent_key)
                     for effect_index, effect in enumerate(child_context.effects):
                         if effect.next:
                             # if we have a next, it means that effect itself is executed
@@ -2101,6 +2180,7 @@ class _RenderContext:
                                     try:
                                         effect.cleanup()
                                     except BaseException as e:
+                                        logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                                         context.exceptions_self.append(e)
                                         self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
                                         self._rerender_needed = True
@@ -2112,6 +2192,7 @@ class _RenderContext:
                                         continue
                                     effect()
                                 except BaseException as e:
+                                    logger.exception("Effect %r raised exception %r", effect.callable, e)
                                     context.exceptions_self.append(e)
                                     self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
                                     self._rerender_needed = True
@@ -2123,6 +2204,7 @@ class _RenderContext:
                                     continue
                                 effect()
                             except BaseException as e:
+                                logger.exception("Effect %r raised exception %r", effect.callable, e)
                                 context.exceptions_self.append(e)
                                 self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
                                 self._rerender_needed = True
@@ -2214,7 +2296,7 @@ class _RenderContext:
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
                     logger.debug("Replacing widget: %r → %r %r", el_prev, el, key)
-                    self._remove_element(el_prev, key, parent_key=parent_key)
+                    self._remove_outgoing(el_prev, key, parent_key=parent_key)
                     kwargs = reconsolidate_children()
                     widget = None
                     if not context.exceptions_children:
@@ -2291,7 +2373,7 @@ class _RenderContext:
             if extra:
                 for key in list(extra):
                     if key in self.context.elements:
-                        self._remove_element(self.context.elements[key], key, parent_key=parent_key)
+                        self._remove_outgoing(self.context.elements[key], key, parent_key=parent_key)
 
             # keeping this for debugging
             # logger.debug("Current:")
@@ -2309,6 +2391,9 @@ class _RenderContext:
         assert self.context is not None
         context = self.context
         logger.debug("Remove: (%s, %s) %r", parent_key, key, el)
+
+        if self._keep_keyed_child(context, el, key):
+            return
 
         if el.is_shared:
             if el not in self._shared_elements:
@@ -2336,6 +2421,7 @@ class _RenderContext:
                         if not effect._cleaned_up:
                             effect.cleanup()
                     except BaseException as e:
+                        logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                         child_context.exceptions_self.append(e)
                         self._rerender_needed_reasons.append(RerenderReason(reason="Exception ocurred during effect"))
                         self._rerender_needed = True
@@ -2446,9 +2532,19 @@ class _RenderContextFast(_RenderContext):
     # without walking either.
     # ------------------------------------------------------------------
 
+    # > 0 while the render phase walks the new children of a widget, or the arguments of a
+    # shared element, that replaces an element of another type (see _render_arguments)
+    _replacing = 0
+
     def _set_rerender_needed(self, reason: str):
         self._rerender_needed_reasons.append(RerenderReason(reason=reason))
         self._rerender_needed = True
+
+    def _has_effect_work(self, context: "ComponentContext") -> bool:
+        for effect in context.effects:
+            if not effect.executed or effect.next is not None:
+                return True
+        return False
 
     def _render(self, element: Element, default_key: str, parent_key: str):
         if not isinstance(element, Element):
@@ -2462,6 +2558,8 @@ class _RenderContextFast(_RenderContext):
             # the root element of a component determines which keys are in use,
             # everything else is stale and gets removed during reconciliation
             context.used_keys.clear()
+            context.fast_stale_effect_keys = None
+            context.fast_stale_effects_cleaned.clear()
 
         el = element
         key = el._key
@@ -2494,7 +2592,7 @@ class _RenderContextFast(_RenderContext):
                 del context.children_next[key]
             # the element arguments are part of this component's element tree
             if el.kwargs:
-                self._visit_children(el, key, parent_key, self._render)
+                self._render_arguments(el, key, parent_key)
             return
 
         assert isinstance(el.component, ComponentFunction)
@@ -2502,7 +2600,7 @@ class _RenderContextFast(_RenderContext):
             # arguments of a shared element belong to the context it is rendered in;
             # for non-shared component elements the component function decides
             # what ends up in the tree
-            self._visit_children(el, key, parent_key, self._render)
+            self._render_arguments(el, key, parent_key)
 
         context_previous = context.children_next.get(key)
         if context_previous is None:
@@ -2512,10 +2610,12 @@ class _RenderContextFast(_RenderContext):
             not self._walk_all
             and el is el_prev
             and not el.is_shared
+            and not self._replacing
             and context_previous is not None
             and context.children.get(key) is context_previous
             and not context_previous.needs_render
             and not context_previous.needs_render_descendant
+            and not self._has_effect_work(context_previous)
             and not context_previous.exceptions_self
             and not context_previous.exceptions_children
             and context_previous.root_element is not None
@@ -2697,7 +2797,7 @@ class _RenderContextFast(_RenderContext):
 
                 if el_prev and isinstance(el_prev.component, ComponentWidget):
                     # a widget element was replaced by a component element at this key
-                    self._remove_element(el_prev, default_key=key, parent_key=parent_key)
+                    self._remove_outgoing(el_prev, key, parent_key=parent_key)
                 new_parent_key = join_key(parent_key, key)
                 try:
                     if el.is_shared and (el.args or el.kwargs):
@@ -2733,7 +2833,7 @@ class _RenderContextFast(_RenderContext):
                         logger.info("elements to be removed: %r", stale_keys)
                         for stale_key in stale_keys:
                             if stale_key in child_context.elements:
-                                self._remove_element(child_context.elements[stale_key], stale_key, new_parent_key)
+                                self._remove_outgoing(child_context.elements[stale_key], stale_key, new_parent_key)
 
                     self._process_effects(child_context, context)
 
@@ -2790,20 +2890,22 @@ class _RenderContextFast(_RenderContext):
                     # update the existing widget in place
                     kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
                     if not context.exceptions_children:
-                        if el is not el_prev or not _values_identical(kwargs, el.kwargs):
+                        # the same element whose kwargs hold no elements: nothing can have changed.
+                        # With elements (a container), the kwargs resolve to widgets, so compare
+                        # them with what the widget holds: equal means setting them is a no-op
+                        # (and a value changed from the frontend is still set back)
+                        if el is not el_prev or not (_values_identical(kwargs, el.kwargs) or _widget_holds_values(widget_previous, kwargs)):
                             try:
                                 el._update_widget(widget_previous, el_prev, kwargs)
                             except BaseException as e:
                                 context.exceptions_self.append(e)
                                 self._set_rerender_needed("Exception ocurred during reconciliation (updating widget)")
                                 _mark_needs_render_ancestors(context)
-                        # else: identical element and all children reconciled to the
-                        # same widgets, nothing can have changed
                     self._store_widget(context, el, key, widget_previous)
                 else:
                     assert el_prev is not None, "widget_previous is not None, but el_prev is"
                     # a different widget type at the same key: replace
-                    self._remove_element(el_prev, key, parent_key=parent_key)
+                    self._remove_outgoing(el_prev, key, parent_key=parent_key)
                     kwargs = self._visit_children_values(el.kwargs, key, parent_key, self._reconsolidate)
                     widget = None
                     if not context.exceptions_children:
@@ -2858,6 +2960,7 @@ class _RenderContextFast(_RenderContext):
                 self._shared_elements.add(el)
                 assert el in self._shared_elements_next
                 self._shared_elements_next.remove(el)
+            self._cleanup_stale_effects_for_context(context, parent_key)
 
     def _process_effects(self, child_context: "ComponentContext", context: "ComponentContext"):
         # NOTE: effect/cleanup exceptions are recorded on the context of the
@@ -2876,6 +2979,7 @@ class _RenderContextFast(_RenderContext):
                     try:
                         effect.cleanup()
                     except BaseException as e:
+                        logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                         context.exceptions_self.append(e)
                         self._set_rerender_needed("Exception ocurred during effect")
                         _mark_needs_render_ancestors(context)
@@ -2887,6 +2991,7 @@ class _RenderContextFast(_RenderContext):
             try:
                 effect()
             except BaseException as e:
+                logger.exception("Effect %r raised exception %r", effect.callable, e)
                 context.exceptions_self.append(e)
                 self._set_rerender_needed("Exception ocurred during effect")
                 _mark_needs_render_ancestors(context)
@@ -2898,6 +3003,74 @@ class _RenderContextFast(_RenderContext):
         else:
             context.widgets[key] = widget
 
+    def _cleanup_stale_effects_for_context(self, context: "ComponentContext", parent_key: str):
+        if context.fast_stale_effect_keys is None:
+            # reversed, so we can pop from the end and still go in sorted order
+            context.fast_stale_effect_keys = sorted(set(context.elements) - context.used_keys, reverse=True)
+        context_prev = self.context
+        try:
+            while context.fast_stale_effect_keys:
+                stale_key = context.fast_stale_effect_keys.pop()
+                if stale_key not in context.elements or stale_key in context.fast_stale_effects_cleaned:
+                    continue
+                self.context = context
+                el = context.elements[stale_key]
+                # keyed children that the new tree still uses stay, with their effects
+                # (see _keep_keyed_child)
+                outgoing = self._outgoing
+                self._outgoing = (context, el)
+                try:
+                    self._cleanup_stale_effects(el, stale_key, parent_key)
+                finally:
+                    self._outgoing = outgoing
+        finally:
+            self.context = context_prev
+
+    def _cleanup_stale_effects(self, el: Element, default_key: str, parent_key: str):
+        key = el._key
+        if key is None:
+            key = default_key
+        assert key is not None
+        context = self.context
+        assert context is not None
+        if key in context.fast_stale_effects_cleaned:
+            return
+        if self._keep_keyed_child(context, el, key):
+            return
+        if el.is_shared and (el in self._shared_elements_next or el not in self._shared_elements):
+            return
+        context.fast_stale_effects_cleaned.add(key)
+
+        if isinstance(el.component, ComponentFunction):
+            if el.is_shared:
+                self._visit_children(el, key, parent_key, self._cleanup_stale_effects)
+            child_context = context.children.get(key)
+            if child_context is None:
+                return
+            try:
+                self.context = child_context
+                child_context.exceptions_self = []
+                child_context.exceptions_children = []
+                for effect in child_context.effects:
+                    try:
+                        if not effect._cleaned_up:
+                            effect.cleanup()
+                    except BaseException as e:
+                        effect._cleaned_up = True
+                        logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
+                        child_context.exceptions_self.append(e)
+                        self._set_rerender_needed("Exception ocurred during effect")
+                        _mark_needs_render_ancestors(child_context)
+                assert child_context.root_element is not None
+                self._cleanup_stale_effects(child_context.root_element, "/", parent_key=join_key(parent_key, key))
+            finally:
+                self.context = context
+            if child_context.exceptions_self or child_context.exceptions_children and not child_context.exception_handler:
+                context.exceptions_children.extend(child_context.exceptions_self)
+                context.exceptions_children.extend(child_context.exceptions_children)
+        else:
+            self._visit_children(el, key, parent_key, self._cleanup_stale_effects)
+
     def _remove_element(self, el: Element, default_key: str, parent_key):
         key = el._key
         if key is None:
@@ -2905,6 +3078,9 @@ class _RenderContextFast(_RenderContext):
         assert key is not None
         context = self.context
         assert context is not None
+
+        if self._keep_keyed_child(context, el, key):
+            return
 
         if el.is_shared:
             if el not in self._shared_elements:
@@ -2930,6 +3106,7 @@ class _RenderContextFast(_RenderContext):
                         if not effect._cleaned_up:
                             effect.cleanup()
                     except BaseException as e:
+                        logger.exception("Effect cleanup %r raised exception %r", effect.callable, e)
                         child_context.exceptions_self.append(e)
                         self._set_rerender_needed("Exception ocurred during effect")
                         _mark_needs_render_ancestors(child_context)
@@ -3001,18 +3178,31 @@ class _RenderContextFast(_RenderContext):
         else:
             return value
 
+    def _render_arguments(self, el: Element, key: str, parent_key: str):
+        """Render the elements in the arguments of a widget element or a shared element."""
+        assert self.context is not None
+        el_reconciled = self.context.elements.get(key)
+        replaced = el_reconciled is not None and el_reconciled.component != el.component
+        if replaced:
+            # a different component at this key: reconciliation removes the old element and
+            # everything below it, so nothing below the new one may be skipped as clean
+            self._replacing += 1
+        try:
+            self._visit_children(el, key, parent_key, self._render)
+        finally:
+            if replaced:
+                self._replacing -= 1
+
     def _remove_stale_root_elements(self, parent_key):
         # remove stale elements of the root context itself
         # (child contexts are swept during their reconciliation)
         stale_keys = sorted(set(self.context_root.elements) - self.context_root.used_keys)
         for stale_key in stale_keys:
             if stale_key in self.context_root.elements:
-                self._remove_element(self.context_root.elements[stale_key], stale_key, parent_key)
+                self._remove_outgoing(self.context_root.elements[stale_key], stale_key, parent_key)
 
 
 def _render_context_class():
-    import os
-
     return _RenderContextFast if os.environ.get("REACTON_FAST") == "1" else _RenderContext
 
 

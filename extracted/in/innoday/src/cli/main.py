@@ -225,7 +225,7 @@ def create_parser() -> argparse.ArgumentParser:
         epilog=f"""
 Examples:
   innoday login                          # Authenticate the CLI (device flow)
-  innoday status                         # Check connectivity, identity, orgs, tickets
+  innoday status                         # Am I OK, and is this project OK?
   innoday init hs/pf                     # Onboard a project workspace by alias
   innoday join hs                        # Join an org and onboard, in one step
   innoday refresh                        # Re-onboard the current project (cwd)
@@ -586,7 +586,10 @@ For more help: innoday <command> --help
     # Utility commands (ping, version)
     for cmd_name, cmd_help in [
         ("ping", "Test connectivity"),
-        ("health", "API health: status, database, version, environment"),
+        (
+            "health",
+            "Is InnoDay and this CLI OK: API, database, versions, PATH, sign-in",
+        ),
         ("version", "Show version information"),
     ]:
         cmd_parser = subparsers.add_parser(cmd_name, help=cmd_help)
@@ -619,6 +622,9 @@ async def execute_command(args: argparse.Namespace) -> int:
             "health",
         }
         _legacy_ok = _upgrade_cmds | _legacy_tolerant
+        from src.cli.utils.presentation import configure_progress, header_enabled
+
+        configure_progress(header_enabled(args))
         config = CLIConfig(
             config_path=args.config,
             profile=getattr(args, "profile", None),

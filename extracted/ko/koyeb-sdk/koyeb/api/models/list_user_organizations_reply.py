@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ListUserOrganizationsReply(BaseModel):
     """
     ListUserOrganizationsReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     organizations: Optional[List[Organization]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
@@ -40,7 +42,6 @@ class ListUserOrganizationsReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,8 +66,7 @@ class ListUserOrganizationsReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,9 +77,12 @@ class ListUserOrganizationsReply(BaseModel):
         _items = []
         if self.organizations:
             for _item_organizations in self.organizations:
-                if _item_organizations:
-                    _items.append(_item_organizations.to_dict())
-            _dict['organizations'] = _items
+                _items.append(
+                    _item_organizations.to_dict()
+                    if _item_organizations is not None
+                    else None
+                )
+            _dict["organizations"] = _items
         return _dict
 
     @classmethod
@@ -91,12 +94,16 @@ class ListUserOrganizationsReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "organizations": [Organization.from_dict(_item) for _item in obj["organizations"]] if obj.get("organizations") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset"),
-            "has_next": obj.get("has_next")
-        })
+        _obj = cls.model_validate(
+            {
+                "organizations": [
+                    Organization.from_dict(_item) for _item in obj["organizations"]
+                ]
+                if obj.get("organizations") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+                "has_next": obj.get("has_next"),
+            }
+        )
         return _obj
-
-

@@ -8,11 +8,14 @@ from panel_material_ui.base import MaterialComponent
 logger = logging.getLogger(__name__)
 
 NO_REFENCE_GUIDE_NEEDED = [
+    "ArrayInput",
     "DatetimeInput",
+    "DatetimeRangeInput",
     "DictInput",
     "ListInput",
     "NumberInput",
     "NotificationArea",
+    "ToggleGroup",
     "TupleInput",
     "Column",
     "Row",

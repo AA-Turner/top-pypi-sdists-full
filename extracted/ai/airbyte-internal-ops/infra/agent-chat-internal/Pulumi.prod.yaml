@@ -13,19 +13,30 @@ config:
   # Required. `apply` fails until an immutable tag is pinned after bootstrap
   # (see BOOTSTRAP.md). `latest` tracks the newest stable GitHub release;
   # prod should pin an immutable `<version>` or `main-<sha>` tag.
-  agent-chat-internal:server-image-tag: "main-ed119b6"
-  agent-chat-internal:playground-image-tag: "main-7f22187"
+  agent-chat-internal:server-image-tag: "main-607c26d"
+  agent-chat-internal:playground-image-tag: "main-3d11889"
   agent-chat-internal:mcp-url: https://mcp.internal.airbyte.ai/ops-mcp
-  agent-chat-internal:agent-model: ""
+  agent-chat-internal:agent-model: claude-sonnet-4-5
   agent-chat-internal:chat-enabled: "true"
   agent-chat-internal:mcp-ui: "true"
-  # Expected IAP JWT audience for the agui-server backend; copy the
-  # `server_iap_audience` stack output here after the first apply.
-  agent-chat-internal:server-iap-audience: ""
+  # URL path prefix when mounted under the Ops Webapp host
+  # (`ops.internal.airbyte.ai/chat`). Empty = standalone host only.
+  agent-chat-internal:path-prefix: chat
+  # `user_session` forwards the caller's Ops Webapp session token to MCP
+  # servers; `bearer` uses the shared service-client credentials.
+  agent-chat-internal:mcp-auth-mode: user_session
+  # Expected IAP JWT audience for the agui-server backend; set from
+  # `gcloud compute backend-services describe agui-server-backend --global` after
+  # the first apply (BOOTSTRAP.md step 7).
+  agent-chat-internal:server-iap-audience: /projects/351139268520/global/backendServices/8466316661624362398
+  # Same for the `agui-server-preview` backend; set from
+  # `gcloud compute backend-services describe agui-server-preview-backend
+  # --global` after the first apply (BOOTSTRAP.md step 7).
+  agent-chat-internal:preview-server-iap-audience: /projects/351139268520/global/backendServices/5096825134700190392
   agent-chat-internal:min-instances: "0"
   agent-chat-internal:max-instances: "5"
   # Secret container IDs (pre-existing; empty = env var omitted).
-  agent-chat-internal:anthropic-secret-id: ""
+  agent-chat-internal:anthropic-secret-id: agui-server-anthropic-api-key
   agent-chat-internal:mcp-client-id-secret-id: ""
   agent-chat-internal:mcp-client-secret-id: ""
   agent-chat-internal:oauth-secret-id: ops-webapp-oauth-client-secret

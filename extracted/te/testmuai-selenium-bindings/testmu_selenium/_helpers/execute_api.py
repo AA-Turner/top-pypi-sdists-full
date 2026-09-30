@@ -18,7 +18,7 @@ import os
 import time
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlparse, parse_qsl, urlencode
+from urllib.parse import urlparse, parse_qsl, quote, unquote, urlencode
 
 _log = logging.getLogger("testmu_selenium")
 
@@ -29,6 +29,29 @@ _BINARY_CONTENT_TYPES = {
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
+
+
+def _deep_unwrap_json(node):
+    """Recursively parse JSON that arrived as a string inside a JSON payload.
+
+    V2: APIs routinely return a field whose value is itself a
+    serialised JSON object (``{"data": "{\"id\": 7}"}``). Only the top level
+    was parsed, so the nested value stayed a string and could not be addressed
+    as ``data.id`` when saving it to a variable. Anything that does not look
+    like JSON, or fails to parse, is returned unchanged.
+    """
+    if isinstance(node, dict):
+        return {k: _deep_unwrap_json(v) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_deep_unwrap_json(v) for v in node]
+    if isinstance(node, str):
+        s = node.strip()
+        if s and s[0] in "{[":
+            try:
+                return _deep_unwrap_json(json.loads(s))
+            except (ValueError, TypeError):
+                return node
+    return node
 
 
 def _is_binary_content_type(content_type: str) -> bool:
@@ -78,6 +101,42 @@ def _get_api_proxy_url() -> Optional[str]:
     return None
 
 
+
+def _reencode_urlencoded_body(body: str) -> str:
+    """Normalise an ``application/x-www-form-urlencoded`` body, keeping a literal ``+``.
+
+    the previous implementation round-tripped through
+    ``parse_qsl``/``urlencode``, which is *plus-decoding* — an unencoded ``+``
+    is read as a space. That is correct for a hand-authored body, but wrong for
+    a value that arrived from variable resolution: ``{{phone}}`` holding an
+    E.164 number resolves to ``+919876543210`` and the ``+`` is data, not a
+    space. The number reached the API with a leading space instead.
+
+    So decoding uses ``unquote`` (percent-decoding only, ``+`` left alone) and
+    encoding uses ``quote`` (which escapes ``+`` to ``%2B``). The deliberate
+    trade-off: a hand-authored ``a+b`` meaning "a b" now travels as a literal
+    ``a+b``. Values come from variables far more often than bodies rely on
+    ``+``-as-space, and a corrupted phone number is a silent data bug while
+    a literal ``+`` is visible.
+
+    Malformed input is returned unchanged rather than raising — an API step must
+    not die in the encoder.
+    """
+    try:
+        out_pairs = []
+        for pair in body.split("&"):
+            if not pair:
+                continue
+            key, sep, value = pair.partition("=")
+            key = quote(unquote(key), safe="")
+            if sep:
+                out_pairs.append(f"{key}={quote(unquote(value), safe='')}")
+            else:
+                out_pairs.append(key)
+        return "&".join(out_pairs)
+    except Exception:  # noqa: BLE001 — never fail a request in the encoder
+        return body
+
 def execute_api(
     method,
     url,
@@ -110,12 +169,14 @@ def execute_api(
 
     Returns:
         Response dict with keys: status, headers, cookies, body/response_body, time.
-        On a request failure (network error, proxy/connect stall, or timeout) the
-        request fails OPEN with a soft {"status": 400, "message": "API request
-        failed ..."} dict (V2 parity) so the test continues.
+        On any other request failure (e.g. timeout) the request fails OPEN with
+        a soft {"status": 400, "message": "API request failed ..."} dict (V2
+        parity) so the test continues.
 
     Raises:
         RuntimeError: On invalid URL or unsupported method (input validation).
+        httpx.ProxyError / httpx.ConnectError: The server was never reached
+            (V2 parity) — the step fails naming the cause.
     """
     import httpx as _httpx
 
@@ -133,13 +194,20 @@ def execute_api(
             _headers = {}
     _headers = _deep_resolve(_headers)
 
-    _params = params or {}
+    # httpx >= 0.28 treats an EMPTY params dict as "replace the query
+    # string", so passing {} strips a ?key=value the caller baked into the URL
+    # (reported as an API returning 401 instead of 302). None means "leave the
+    # URL alone". pyproject allows httpx>=0.27.0, so both behaviours are in range
+    # — normalise the empty case to None rather than pinning the dependency.
+    _params = params or None
     if isinstance(_params, str):
         try:
             _params = json.loads(_params)
         except (json.JSONDecodeError, TypeError):
-            _params = {}
-    _params = _deep_resolve(_params)
+            _params = None
+    _params = _deep_resolve(_params) if _params else None
+    if not _params:
+        _params = None
 
     _settings = settings or {}
     follow_redirects = _settings.get("automatically_follow_redirect", True)
@@ -153,11 +221,20 @@ def execute_api(
     _timeout_sec = _timeout / 1000 if _timeout and _timeout > 100 else (_timeout or 30)
 
     # -- Normalise headers ---------------------------------------------------
-    # Strip multipart/form-data Content-Type so httpx auto-generates boundary
+    # V2: a multipart request needs a real multipart body, and the
+    # boundary must come from the client — so record multipart-ness, then drop the
+    # authored Content-Type. Matched by prefix: authored headers usually carry
+    # `; boundary=...`, which an exact comparison missed entirely.
+    _is_multipart = False
     if isinstance(_headers, dict):
+        _is_multipart = any(
+            str(k).lower() == "content-type"
+            and str(v).lower().startswith("multipart/form-data")
+            for k, v in _headers.items()
+        )
         _headers = {
             k: v for k, v in _headers.items()
-            if not (str(k).lower() == "content-type" and v == "multipart/form-data")
+            if not (str(k).lower() == "content-type" and _is_multipart)
         }
 
     if isinstance(_headers, dict) and "User-Agent" not in _headers:
@@ -173,23 +250,20 @@ def execute_api(
         if hval == "text/event-stream":
             raise RuntimeError("SSE not supported")
 
+    # Resolve templates in body string. Dict/list bodies are walked
+    # recursively by _deep_resolve after the JSON parse below.
+    #
+    # This MUST run before the urlencoded re-encode below. The old
+    # order re-encoded first, which percent-encoded the template's own braces
+    # ("phone={{phone}}" -> "phone=%7B%7Bphone%7D%7D") so the resolver could
+    # never match them and the literal encoded braces went to the API.
+    _body = _resolve_templates(body)
+
     # -- Handle URL-encoded body ---------------------------------------------
     if isinstance(_headers, dict):
         ct = _headers.get("Content-Type") or _headers.get("content-type") or ""
-        if str(ct).lower() == "application/x-www-form-urlencoded" and body and isinstance(body, str):
-            try:
-                pairs = parse_qsl(body, keep_blank_values=True, strict_parsing=False)
-                _body = urlencode(pairs, doseq=True)
-            except Exception:
-                _body = body
-        else:
-            _body = body
-    else:
-        _body = body
-
-    # Resolve templates in body string. Dict/list bodies are walked
-    # recursively by _deep_resolve after the JSON parse below.
-    _body = _resolve_templates(_body)
+        if str(ct).lower() == "application/x-www-form-urlencoded" and _body and isinstance(_body, str):
+            _body = _reencode_urlencoded_body(_body)
 
     # -- Handle binary body (file_url / file_path → bytes) -------------------
     # Port of the V2 effective-body resolution. Handles double-json-encoded
@@ -299,11 +373,25 @@ def execute_api(
 
     # -- Build request kwargs ------------------------------------------------
     # Match V2 behaviour: only json.dumps when Content-Type is
-    # application/json. For form-data/urlencoded (or stripped multipart CT),
-    # pass the dict directly so httpx form-encodes it.
+    # application/json. For form-data/urlencoded, pass the dict directly so
+    # httpx form-encodes it. A multipart dict body goes out as files= below.
     _method = method.upper()
     data_kwarg = None
-    if _body is not None and _body != "" and _body != {}:
+    files_kwarg = None
+    if _is_multipart and isinstance(_body, dict) and _body:
+        # Stripping the Content-Type alone left httpx form-URL-encoding the dict,
+        # so a multipart API received application/x-www-form-urlencoded. files=
+        # with (None, value) tuples sends real multipart/form-data fields.
+        # V2: httpx calls .read() on anything that is not str or
+        # bytes, so values substituted from earlier captures (ints, dicts) must be
+        # coerced to text first or the request crashes before it is sent.
+        files_kwarg = {
+            k: (None, v if isinstance(v, (str, bytes))
+                else json.dumps(v) if isinstance(v, (dict, list))
+                else str(v))
+            for k, v in _body.items()
+        }
+    elif _body is not None and _body != "" and _body != {}:
         if isinstance(_body, dict):
             _ct = (_headers.get("Content-Type") or _headers.get("content-type") or "").lower() if isinstance(_headers, dict) else ""
             if "application/json" in _ct:
@@ -317,9 +405,9 @@ def execute_api(
 
     try:
         if _method == "GET":
-            if data_kwarg is not None:
+            if data_kwarg is not None or files_kwarg:
                 response = _httpx.request(
-                    method="GET", url=url, headers=_headers, data=data_kwarg,
+                    method="GET", url=url, headers=_headers, data=data_kwarg, files=files_kwarg,
                     params=_params, timeout=_timeout_sec, proxy=proxy,
                     verify=verify, follow_redirects=follow_redirects,
                 )
@@ -330,20 +418,20 @@ def execute_api(
                 )
         elif _method == "POST":
             response = _httpx.post(
-                url, headers=_headers, data=data_kwarg, params=_params,
+                url, headers=_headers, data=data_kwarg, files=files_kwarg, params=_params,
                 timeout=_timeout_sec, proxy=proxy, verify=verify,
                 follow_redirects=follow_redirects,
             )
         elif _method == "PUT":
             response = _httpx.put(
-                url, headers=_headers, data=data_kwarg, params=_params,
+                url, headers=_headers, data=data_kwarg, files=files_kwarg, params=_params,
                 timeout=_timeout_sec, proxy=proxy, verify=verify,
                 follow_redirects=follow_redirects,
             )
         elif _method == "DELETE":
-            if data_kwarg is not None:
+            if data_kwarg is not None or files_kwarg:
                 response = _httpx.request(
-                    method="DELETE", url=url, headers=_headers, data=data_kwarg,
+                    method="DELETE", url=url, headers=_headers, data=data_kwarg, files=files_kwarg,
                     params=_params, timeout=_timeout_sec, proxy=proxy,
                     verify=verify, follow_redirects=follow_redirects,
                 )
@@ -354,7 +442,7 @@ def execute_api(
                 )
         elif _method == "PATCH":
             response = _httpx.patch(
-                url, headers=_headers, data=data_kwarg, params=_params,
+                url, headers=_headers, data=data_kwarg, files=files_kwarg, params=_params,
                 timeout=_timeout_sec, proxy=proxy, verify=verify,
                 follow_redirects=follow_redirects,
             )
@@ -362,10 +450,21 @@ def execute_api(
             raise RuntimeError(f"Unsupported HTTP method: {_method!r}")
     except RuntimeError:
         raise
+    # V2: proxy and connect failures are NOT soft. The server
+    # was never reached, so there is no response for the author's status
+    # assertion to judge — V2 fails the step with a message that names the
+    # cause. Order matters: these must precede the generic handler below.
+    except _httpx.ProxyError as e:
+        raise _httpx.ProxyError(
+            f"API request failed — proxy could not reach the server: {e}"
+        ) from e
+    except _httpx.ConnectError as e:
+        raise _httpx.ConnectError(
+            f"API request failed — could not connect to the server: {e}"
+        ) from e
     except Exception as e:
-        # V2 parity (V2 source execute_api): a request failure —
-        # including proxy/connect stalls through the HyperExecute proxy and
-        # ReadTimeout — fails OPEN, returning a soft {status:400} result so the
+        # V2 parity (V2 source execute_api): any OTHER request failure (e.g.
+        # ReadTimeout) fails OPEN, returning a soft {status:400} result so the
         # test continues and the author's own status assertion can handle it,
         # instead of hard-failing the test. Input-validation errors (invalid URL,
         # unsupported method) are raised as RuntimeError above and still propagate.
@@ -396,7 +495,12 @@ def execute_api(
                         resp[key] = []
                     else:
                         try:
-                            resp["response_body"] = json.loads(decoded)
+                            _parsed = json.loads(decoded)
+                            # V2: opt-in, as in V2 — the author enables
+                            # the JSON splitter per API step.
+                            if _settings.get("enable_json_splitter", False):
+                                _parsed = _deep_unwrap_json(_parsed)
+                            resp["response_body"] = _parsed
                         except (TypeError, ValueError):
                             resp["response_body"] = decoded
                             resp[key] = list(decoded)

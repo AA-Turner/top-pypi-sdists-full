@@ -3,6 +3,8 @@ from __future__ import annotations
 import textwrap
 from typing import Any
 
+from matrx_utils.row_access import publish_columns
+
 from matrx_ai.db._registry import get_base, get_model
 from matrx_ai.db.content_types.patch_utils import PatchError, apply_patch
 
@@ -78,10 +80,10 @@ _IMMUTABLE_FIELDS = frozenset(
     }
 )
 
-# Fields the LLM is allowed to set/update. ``visibility`` is the canonical
-# replacement for the dropped ``is_public`` boolean (enum: 'public' is public,
-# default 'internal'); the ``is_public`` create/update affordance is translated
-# to it in this module so the agent-facing tool contract stays stable.
+# Fields the LLM is allowed to set/update. ``published_to_web`` (+ its stamps) is
+# the canonical replacement for the dropped ``is_public`` boolean; ``shown_to`` is
+# the list filter. The ``is_public`` create/update affordance is translated in this
+# module so the agent-facing tool contract stays stable.
 _MUTABLE_FIELDS = frozenset(
     {
         "label",
@@ -89,7 +91,10 @@ _MUTABLE_FIELDS = frozenset(
         "folder_name",
         "tags",
         "metadata",
-        "visibility",
+        "published_to_web",
+        "published_to_web_at",
+        "published_to_web_by",
+        "shown_to",
         "position",
     }
 )
@@ -285,8 +290,8 @@ class NotesManager(NotesBase):
         cannot accidentally pass immutable fields like id or created_at.
 
         ``user_id`` stamps the canonical owner column ``created_by``; the
-        ``is_public`` affordance maps to ``visibility`` ('public' vs the
-        default 'internal').
+        ``is_public`` affordance maps to ``published_to_web``, always written
+        explicitly (never the table default).
         """
         try:
             note = await self.create_notes(
@@ -296,7 +301,7 @@ class NotesManager(NotesBase):
                 folder_name=folder_name,
                 tags=tags or [],
                 metadata=metadata or {},
-                visibility="public" if is_public else "internal",
+                **publish_columns(is_public, user_id),
             )
             return _ok(note)
         except Exception as e:
@@ -306,7 +311,9 @@ class NotesManager(NotesBase):
     # Update (full field replacement — strips immutable fields automatically)
     # ------------------------------------------------------------------
 
-    async def update_note(self, note_id: str, **updates: Any) -> dict[str, Any]:
+    async def update_note(
+        self, note_id: str, *, actor_id: str | None = None, **updates: Any
+    ) -> dict[str, Any]:
         """
         Update any combination of mutable fields on a note.
 
@@ -317,12 +324,12 @@ class NotesManager(NotesBase):
         Unknown fields are also stripped and reported in the response so
         the caller knows what was ignored.
 
-        The legacy ``is_public`` boolean affordance is translated to the
-        canonical ``visibility`` enum ('public' when true, 'internal' when
-        false) — unless ``visibility`` was passed explicitly, which wins.
+        The ``is_public`` boolean affordance is translated to ``published_to_web``
+        (+ its ``_at`` / ``_by`` stamps, ``actor_id`` = the acting person) —
+        unless ``published_to_web`` was passed explicitly, which wins.
         """
-        if "is_public" in updates and "visibility" not in updates:
-            updates["visibility"] = "public" if updates.pop("is_public") else "internal"
+        if "is_public" in updates and "published_to_web" not in updates:
+            updates.update(publish_columns(bool(updates.pop("is_public")), actor_id))
         else:
             updates.pop("is_public", None)
 

@@ -65,7 +65,7 @@ def sync_detailed(
      Returns the flat list of all item paths visible to the caller across
     scripts, flows, apps, raw apps, variables, and resources. Intended to
     feed an entirely client-side path autocomplete UI: the frontend fetches
-    once (server caches per workspace for 60s) and performs all prefix/segment
+    once (server caches per caller for 60s) and performs all prefix/segment
     computation locally. Capped at 20,000 paths (5,000 per table).
 
     Args:
@@ -103,7 +103,7 @@ def sync(
      Returns the flat list of all item paths visible to the caller across
     scripts, flows, apps, raw apps, variables, and resources. Intended to
     feed an entirely client-side path autocomplete UI: the frontend fetches
-    once (server caches per workspace for 60s) and performs all prefix/segment
+    once (server caches per caller for 60s) and performs all prefix/segment
     computation locally. Capped at 20,000 paths (5,000 per table).
 
     Args:
@@ -136,7 +136,7 @@ async def asyncio_detailed(
      Returns the flat list of all item paths visible to the caller across
     scripts, flows, apps, raw apps, variables, and resources. Intended to
     feed an entirely client-side path autocomplete UI: the frontend fetches
-    once (server caches per workspace for 60s) and performs all prefix/segment
+    once (server caches per caller for 60s) and performs all prefix/segment
     computation locally. Capped at 20,000 paths (5,000 per table).
 
     Args:
@@ -172,7 +172,7 @@ async def asyncio(
      Returns the flat list of all item paths visible to the caller across
     scripts, flows, apps, raw apps, variables, and resources. Intended to
     feed an entirely client-side path autocomplete UI: the frontend fetches
-    once (server caches per workspace for 60s) and performs all prefix/segment
+    once (server caches per caller for 60s) and performs all prefix/segment
     computation locally. Capped at 20,000 paths (5,000 per table).
 
     Args:

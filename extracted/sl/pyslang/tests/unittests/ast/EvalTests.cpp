@@ -608,6 +608,23 @@ TEST_CASE("Dynamic arrays -- out of bounds") {
     CHECK(diags[5].code == diag::ConstEvalEmptyQueue);
 }
 
+TEST_CASE("Queue read at the append index") {
+    // Reading a queue at index == size() (the append slot) is out of bounds; it
+    // must warn and return the element default rather than crash. Writing that
+    // slot is still allowed and appends.
+    ScriptSession session;
+    session.eval("int q[$] = '{10, 20, 30};");
+    CHECK(session.eval("q[3]").integer() == 0);
+    CHECK(session.eval("q[2]").integer() == 30);
+
+    session.eval("q[3] = 40;");
+    CHECK(session.eval("q[3]").integer() == 40);
+
+    auto diags = session.getDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::ConstEvalDynamicArrayIndex);
+}
+
 TEST_CASE("Associative array eval") {
     ScriptSession session;
     session.eval("integer arr[string] = '{\"Hello\":4, \"World\":8, default:-1};");
@@ -1247,6 +1264,62 @@ TEST_CASE("sformatf with real conversion") {
     CHECK(session.eval("$sformatf(\"%0d\", 3.14)"s).str() == "3");
 }
 
+TEST_CASE("Raw format specifiers (%u/%z) on an unpacked union") {
+    // Regression: %u and %z on an unpacked union previously aborted with an internal
+    // error (std::get on the wrong ConstantValue variant). The active member's raw
+    // representation must be emitted -- identical to formatting that member directly.
+    ScriptSession session;
+    session.eval(R"(
+typedef union { byte a; byte b; } u_t;
+typedef struct { u_t u; byte c; } s_t;
+typedef struct { byte a; byte c; } s2_t;
+function automatic bit chk_u();
+    u_t u; u.a = 8'h41;
+    return ($sformatf("%u", u) == $sformatf("%u", byte'(8'h41)));
+endfunction
+function automatic bit chk_z();
+    u_t u; u.a = 8'h41;
+    return ($sformatf("%z", u) == $sformatf("%z", byte'(8'h41)));
+endfunction
+function automatic bit chk_struct();
+    // A struct containing a union must format the same as the struct with the
+    // union replaced by its (byte) active member.
+    s_t s;
+    s2_t s2;
+    s.u.a = 8'h41; s.c = 8'h42;
+    s2.a = 8'h41; s2.c = 8'h42;
+    return ($sformatf("%u", s) == $sformatf("%u", s2));
+endfunction
+)");
+    CHECK(session.eval("chk_u()").integer() == 1);
+    CHECK(session.eval("chk_z()").integer() == 1);
+    CHECK(session.eval("chk_struct()").integer() == 1);
+    NO_SESSION_ERRORS;
+}
+
+TEST_CASE("Integer format specifiers on null literal or chandle") {
+    // Regression: %d/%h/%x/%o/%b/%c on the null literal or a chandle previously aborted
+    // with an internal error (std::get on an invalid ConstantValue variant). The
+    // format-string checker permits these types for the integer specifiers, so they
+    // must format as their numeric value (zero for a null handle).
+    ScriptSession session;
+    CHECK(session.eval("$sformatf(\"%0d\", null)"s).str() == "0");
+    CHECK(session.eval("$sformatf(\"%0x\", null)"s).str() == "0");
+    CHECK(session.eval("$sformatf(\"%0o\", null)"s).str() == "0");
+    CHECK(session.eval("$sformatf(\"%0b\", null)"s).str() == "0");
+    CHECK(session.eval("$sformatf(\"%0h\", null)"s).str() == "0");
+    CHECK(session.eval("$sformatf(\"%c\", null)"s).str() == std::string(1, '\0'));
+
+    session.eval(R"(
+function automatic string f_chandle();
+    chandle ch = null;
+    return $sformatf("%0x", ch);
+endfunction
+)");
+    CHECK(session.eval("f_chandle()").str() == "0");
+    NO_SESSION_ERRORS;
+}
+
 TEST_CASE("Concat assignments") {
     ScriptSession session;
     session.eval("logic [2:0] foo;");
@@ -1542,6 +1615,47 @@ TEST_CASE("Eval string methods") {
 
     session.eval("asdf.realtoa(3.14159);");
     CHECK(session.eval("asdf").str() == "3.141590");
+
+    NO_SESSION_ERRORS;
+}
+
+TEST_CASE("Eval string to integer conversions") {
+    ScriptSession session;
+    auto conv = [&](auto str, auto method) {
+        return session.eval("string'(\""s + str + "\")." + method).integer();
+    };
+
+    // Values of 2^31 and above keep their low 32 bits in every base.
+    CHECK_THAT(conv("7fffffff", "atohex"), exactlyEquals("32'sh7fffffff"_si));
+    CHECK_THAT(conv("80000000", "atohex"), exactlyEquals("32'sh80000000"_si));
+    CHECK_THAT(conv("deadbeef", "atohex"), exactlyEquals("32'shdeadbeef"_si));
+    CHECK_THAT(conv("123456789", "atohex"), exactlyEquals("32'sh23456789"_si));
+    CHECK_THAT(conv("2147483648", "atoi"), exactlyEquals("32'sh80000000"_si));
+    CHECK_THAT(conv("4294967295", "atoi"), exactlyEquals("32'shffffffff"_si));
+    CHECK_THAT(conv("4294967296", "atoi"), exactlyEquals("32'sh0"_si));
+    CHECK_THAT(conv("37777777777", "atooct"), exactlyEquals("32'shffffffff"_si));
+    CHECK_THAT(conv("11111111111111111111111111111111", "atobin"),
+               exactlyEquals("32'shffffffff"_si));
+
+    // A leading minus is accepted, and the negated value is truncated the same way.
+    CHECK_THAT(conv("-5", "atoi"), exactlyEquals("32'shfffffffb"_si));
+    CHECK_THAT(conv("-ff", "atohex"), exactlyEquals("32'shffffff01"_si));
+    CHECK_THAT(conv("-2147483648", "atoi"), exactlyEquals("32'sh80000000"_si));
+    CHECK_THAT(conv("-2147483649", "atoi"), exactlyEquals("32'sh7fffffff"_si));
+
+    // Anything else ends the scan: a plus sign, a second minus, a space, and x or z digits.
+    CHECK_THAT(conv("+5", "atoi"), exactlyEquals("32'sh0"_si));
+    CHECK_THAT(conv("-", "atoi"), exactlyEquals("32'sh0"_si));
+    CHECK_THAT(conv("--5", "atoi"), exactlyEquals("32'sh0"_si));
+    CHECK_THAT(conv(" 5", "atoi"), exactlyEquals("32'sh0"_si));
+    CHECK_THAT(conv("0x1f", "atohex"), exactlyEquals("32'sh0"_si));
+    CHECK_THAT(conv("1z", "atohex"), exactlyEquals("32'sh1"_si));
+    CHECK_THAT(conv("19", "atooct"), exactlyEquals("32'sh1"_si));
+    CHECK_THAT(conv("102", "atobin"), exactlyEquals("32'sh2"_si));
+
+    // Underscores are skipped wherever they appear.
+    CHECK_THAT(conv("_5", "atoi"), exactlyEquals("32'sh5"_si));
+    CHECK_THAT(conv("-_5", "atoi"), exactlyEquals("32'shfffffffb"_si));
 
     NO_SESSION_ERRORS;
 }
@@ -2043,6 +2157,22 @@ localparam logic[7:0] value6 = {<<4{ {<<2{value5}} }};
     CHECK(diags[1].code == diag::BadStreamSize);
 }
 
+TEST_CASE("Streaming concat with irregular packed slice boundary") {
+    // Regression: a right-to-left streaming concatenation whose packed layout
+    // makes a slice land exactly on an element boundary used to crash reOrder
+    // (the packing iterator ran past the end of the packed list). Streaming is
+    // a bit permutation, so the population count must be preserved.
+    ScriptSession session;
+    session.eval("localparam logic [2:0] a = 3'h5;");
+    session.eval("localparam logic b = 1'b1;");
+    session.eval("localparam logic [15:0] s = {<<3{a, a, a, a, a, b}};");
+    CHECK(session.eval("$countones(s)").integer() == 11);
+
+    session.eval("localparam logic [15:0] c = 16'hCAFE;");
+    session.eval("localparam logic [15:0] p = {<<3{ {<<3{c}} }};");
+    CHECK(session.eval("$countones(p)").integer() == session.eval("$countones(c)").integer());
+}
+
 TEST_CASE("streaming operator target evaluation") {
     ScriptSession session;
     session.eval(R"(
@@ -2199,6 +2329,40 @@ endfunction
     CHECK(queue4[0].integer() == 0);
     CHECK(queue4[1].integer() == 0);
     CHECK(queue4[2].integer() == "8'sh12"_si);
+
+    NO_SESSION_ERRORS;
+}
+
+TEST_CASE("Streaming 'with' range starting past the array extent") {
+    // Regression: a source-side streaming 'with' range may begin beyond the current
+    // queue/dynamic-array size; the nonexistent elements are streamed as the default
+    // value (IEEE 1800-2017 11.4.14.3). Previously this crashed with an internal error
+    // because the range's lower bound was not clamped to the array size.
+    ScriptSession session;
+    session.eval(R"(
+    function automatic bit [63:0] f_empty_queue();
+        int q[$];
+        return {>>{q with [1:2]}};      // empty queue, indices 1,2 nonexistent -> 0
+    endfunction
+    function automatic bit [63:0] f_empty_dynarray();
+        int d[];
+        return {>>{d with [1:2]}};      // empty dynamic array, indices 1,2 nonexistent -> 0
+    endfunction
+    function automatic bit [63:0] f_small_queue();
+        int q[$] = {7};
+        return {>>{q with [3:4]}};      // size 1, indices 3,4 nonexistent -> 0
+    endfunction
+    function automatic bit [95:0] f_partial();
+        int q[$] = {10, 20, 30};
+        return {>>{q with [1:3]}};      // 20, 30, then default 0 for nonexistent index 3
+    endfunction
+)");
+
+    CHECK(session.eval("f_empty_queue()").integer() == 0);
+    CHECK(session.eval("f_empty_dynarray()").integer() == 0);
+    CHECK(session.eval("f_small_queue()").integer() == 0);
+    CHECK(session.eval("f_partial()").integer() ==
+          session.eval("{32'd20, 32'd30, 32'd0}").integer());
 
     NO_SESSION_ERRORS;
 }
@@ -2375,6 +2539,20 @@ TEST_CASE("Tagged union eval") {
     CHECK(diags[1].code == diag::ConstEvalTaggedUnion);
     CHECK(diags[2].code == diag::ConstEvalTaggedUnion);
     CHECK(diags[3].code == diag::ConstEvalTaggedUnion);
+}
+
+TEST_CASE("Tagged union eval with unknown tag") {
+    // Accessing a member of a 4-state packed tagged union whose tag bits are
+    // unknown must report a tagged-union access error, not crash: the tag slice
+    // has no known value, so it can never match a member's tag.
+    ScriptSession session;
+    session.eval("union tagged packed { logic [7:0] a; logic [7:0] b; } v;");
+    session.eval("v = 'x;");
+    session.eval("v.a");
+
+    auto diags = session.getDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::ConstEvalTaggedUnion);
 }
 
 TEST_CASE("Assignment pattern eval") {

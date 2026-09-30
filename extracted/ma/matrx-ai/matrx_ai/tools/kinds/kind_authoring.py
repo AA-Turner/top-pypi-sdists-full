@@ -24,8 +24,13 @@ class KindDefinitionSummary(KindSubModel):
     label: str | None = None
     authoring_owner: str | None = None
     version: int | None = None
-    is_active: bool = False
+    # Retained for payloads written before row-access migration.  New writers
+    # emit the two canonical fields below, but historical result blocks remain
+    # valid at the published kind boundary.
     visibility: str | None = None
+    is_active: bool = False
+    published_to_web: bool | None = None
+    shown_to: str | None = None
     organization_id: str | None = None
     created_by: str | None = None
     emitted_fingerprint: str | None = None
@@ -90,7 +95,7 @@ class KindSurfaceSummary(KindSubModel):
             "authoring_owner": "platform",
             "version": 3,
             "is_active": True,
-            "visibility": "public",
+            "published_to_web": True,
             "organization_id": None,
             "created_by": None,
             "emitted_fingerprint": "abc123",
@@ -156,7 +161,7 @@ class ComponentAuthoringBundle(KindSubModel):
         "label": "Invoice Summary",
         "version": 1,
         "organization_id": "bb22bb22-0000-4000-8000-000000000000",
-        "visibility": "private",
+        "published_to_web": False,
         "platform_kind": False,
         "is_active": False,
         "canonical_example_id": "cc33cc33-0000-4000-8000-000000000000",
@@ -181,7 +186,11 @@ class KindCreateResult(KindModel):
     label: str | None = None
     version: int | None = None
     organization_id: str | None = None
+    # Compatibility input for receipts emitted before T-13.  Do not remove
+    # this until the published kind itself has a deliberate breaking migration.
     visibility: str | None = None
+    published_to_web: bool | None = None
+    shown_to: str | None = None
     platform_kind: bool = False
     is_active: bool = False
     canonical_example_id: str | None = None

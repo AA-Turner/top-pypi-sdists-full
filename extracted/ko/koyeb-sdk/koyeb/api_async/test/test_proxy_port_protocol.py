@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api_async.models.proxy_port_protocol import ProxyPortProtocol
 
+
 class TestProxyPortProtocol(unittest.TestCase):
     """ProxyPortProtocol unit test stubs"""
 
@@ -29,5 +30,6 @@ class TestProxyPortProtocol(unittest.TestCase):
         """Test ProxyPortProtocol"""
         # inst = ProxyPortProtocol()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

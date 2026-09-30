@@ -1,12 +1,16 @@
 Metadata-Version: 2.4
 Name: Scweet
-Version: 5.8.0
+Version: 5.8.1
 Summary: Scrape tweets, profiles, followers and more from Twitter/X — no API key needed
 Home-page: https://github.com/Altimis/Scweet
-Download-URL: https://github.com/Altimis/Scweet/archive/v5.8.0.tar.gz
+Download-URL: https://github.com/Altimis/Scweet/archive/v5.8.1.tar.gz
 Author: Yassine AIT JEDDI
 Author-email: aitjeddiyassine@gmail.com
 License: MIT
+Project-URL: Documentation, https://altimis.github.io/Scweet/
+Project-URL: Source, https://github.com/Altimis/Scweet
+Project-URL: Changelog, https://github.com/Altimis/Scweet/blob/master/CHANGELOG.md
+Project-URL: Issues, https://github.com/Altimis/Scweet/issues
 Keywords: twitter,x,scraper,twitter-scraper,x-scraper,tweets,tweet-search,twitter-search,followers,following,twitter-api-alternative,graphql,web-scraping,social-media,data-collection,python
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -38,6 +42,7 @@ Dynamic: download-url
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: project-url
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
@@ -49,7 +54,8 @@ Dynamic: summary
 <p align="center">
   <strong>Scrape Twitter / X without the official API.</strong>
   <br>
-  Hosted on Apify with no cookies or proxies, or run locally with Python and CLI.
+  Tweets, profiles, followers, trends and more.
+  <br>
 </p>
 
 <p align="center">
@@ -62,7 +68,7 @@ Dynamic: summary
   <a href="#cli">
     <img alt="CLI Quickstart" src="https://img.shields.io/badge/CLI-Quickstart-111111?logo=gnu-bash&logoColor=white">
   </a>
-  <a href="#documentation">
+  <a href="https://altimis.github.io/Scweet/">
     <img alt="Documentation" src="https://img.shields.io/badge/Docs-Full%20Reference-0A66C2">
   </a>
 </p>
@@ -90,54 +96,47 @@ Dynamic: summary
 
 
 ---
+
+## Two ways to run it
+
+### 1. Hosted : nothing to manage ⭐
+
+Runs on Apify. **You do not need X accounts, cookies or proxies.**
+
+- Configure and run **from your browser**, no code needed, or drive it from code with the [Python API](https://apify.com/altimis/scweet/api/python)
+- **Search** tweets, profile timelines, follower / following lists
+- **Export** in different formats (**JSON, CSV or XLSX**)
+- **Free tier included**; pay-as-you-go pricing is on the Actor page
+
 <p align="center">
-<strong>Scrape tweets, profile timelines, followers and more from Twitter/X. Use the hosted Apify Actor when you do not want to manage cookies or proxies, or run locally with your own browser cookies and account pool.</strong>
+  <a href="https://apify.com/altimis/scweet?fpr=a40q9&fp_sid=jeb97">
+    <img height="44" alt="Run Scweet on Apify - free tier" src="https://img.shields.io/badge/%20Run%20Scweet%20on%20Apify-Free%20tier-246DFF?style=for-the-badge&logoColor=white&logo=data:image/svg%2Bxml;base64,PHN2ZyB3aWR0aD0iMTA4MCIgaGVpZ2h0PSIxMDgwIiB2aWV3Qm94PSIwIDAgMTA4MCAxMDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cGF0aCBkPSJNNjA3Ljg1OSA3OC4yMjE4SDk4Ny43ODVDOTk1LjUxMyA3OC4yMjE4IDEwMDEuNzggODQuNDg2OCAxMDAxLjc4IDkyLjIxNTFWNjcyLjgzNEMxMDAxLjc4IDY4Ni43NDIgOTgzLjY5IDY5Mi4xMzQgOTc2LjA3NSA2ODAuNDk2TDU5Ni4xNSA5OS44NzdDNTkwLjA2IDkwLjU3MDMgNTk2LjczNyA3OC4yMjE4IDYwNy44NTkgNzguMjIxOFoiIGZpbGw9IiMyNDZERkYiLz4KPHBhdGggZD0iTTQ3Mi4xNDEgNzguMjIxOEg5Mi4yMTVDODQuNDg2NyA3OC4yMjE4IDc4LjIyMTcgODQuNDg2OCA3OC4yMjE3IDkyLjIxNTFWNjcyLjgzNEM3OC4yMjE3IDY4Ni43NDIgOTYuMzA5NCA2OTIuMTM0IDEwMy45MjQgNjgwLjQ5Nkw0ODMuODUgOTkuODc3QzQ4OS45NCA5MC41NzAzIDQ4My4yNjMgNzguMjIxOCA0NzIuMTQxIDc4LjIyMThaIiBmaWxsPSIjMjBBMzRFIi8+CjxwYXRoIGQ9Ik01MzMuNDkxIDU0My4wODZMMTAxLjg5NSA5NzcuOTI3QzkzLjEzMDIgOTg2Ljc1OCA5OS4zODQ5IDEwMDEuNzggMTExLjgyNiAxMDAxLjc4SDk2OC41MjlDOTgwLjkxOSAxMDAxLjc4IDk4Ny4xOTcgOTg2Ljg2MyA5NzguNTM1IDk3OC4wMDNMNTUzLjQyOSA1NDMuMTYxQzU0Ny45NjkgNTM3LjU3NiA1MzguOTkzIDUzNy41NDIgNTMzLjQ5MSA1NDMuMDg2WiIgZmlsbD0iI0Y4NjYwNiIvPgo8L3N2Zz4K">
+  </a>
 </p>
+
+### 2. Self-hosted : full control
+
+Bring your own X accounts and proxies. Run it from Python or the CLI, inside your own infrastructure.
+
+```python
+from Scweet import Scweet
+
+s = Scweet(auth_token="YOUR_AUTH_TOKEN")
+tweets = s.search("bitcoin", limit=100)
+```
+
+Both give you the same data. Self-hosted: you run the code, and you manage the accounts and the proxies. Hosted: you press a button and get the results.
 
 ---
 
-**What you can scrape:**
+## What you can scrape
+
 - [**Tweets**](DOCUMENTATION.md#search-api) — by keyword, hashtag, user, date range, engagement filters, language, location
 - [**Profile timelines**](DOCUMENTATION.md#profile-tweets) — a user's full tweet history, with replies and media tabs
 - [**Tweets by id**](DOCUMENTATION.md#tweet-lookup--replies) — full data for known tweet ids, their replies, and who reposted them
 - [**Followers / Following**](DOCUMENTATION.md#followers--following) — full account lists at scale, verified followers included
 - [**User profiles**](DOCUMENTATION.md#user-info) — bio, follower count, verification status, by handle or by id
 - [**People search & trends**](DOCUMENTATION.md#search-users) — find accounts by keyword, read what is trending now
-
----
-
-## Hosted alternative — no setup needed
-
-<table>
-<tr>
-<td>
-
-<p>
-Use the hosted Apify Actor when you want Scweet results without running the local Python library or managing Twitter/X cookies, proxies, local accounts, rate limits, retries, or infrastructure.
-</p>
-
-<p>
-This runs on Apify instead of your machine. Use the local library below when you want full Python/CLI control.
-</p>
-
-<p align="center">
-  <a href="https://apify.com/altimis/scweet?fpr=a40q9&fp_sid=jeb97">
-    <img alt="Run Scweet on Apify" src="https://img.shields.io/badge/Run%20Scweet%20on-Apify-246DFF?style=for-the-badge&logo=apify&logoColor=white">
-  </a>
-</p>
-
-<ul>
-  <li>No code required: configure and run from the Apify Console</li>
-  <li>Prefer code? Use the Actor through Apify's <a href="https://apify.com/altimis/scweet/api/python">Python API guide</a></li>
-  <li>No Twitter/X cookies or proxies to provide</li>
-  <li>Search tweets, profile timelines, and follower / following lists</li>
-  <li>Export results as JSON, CSV, or XLSX from the Apify dataset</li>
-  <li>Free tier included; current usage pricing is shown on the Apify Actor page</li>
-</ul>
-
-</td>
-</tr>
-</table>
 
 ---
 
@@ -292,19 +291,29 @@ s = Scweet(cookies_file="cookies.json")  # proxies are read from the file, one p
 
 ## Why Scweet?
 
-| | twint | snscrape | twscrape | **Scweet** |
-|---|---|---|---|---|
-| **Works in 2026** | ❌ unmaintained | ❌ broken | ✅ | ✅ |
-| Cookie / token auth | ❌ | ❌ | ✅ | ✅ |
-| Multi-account pooling | ❌ | ❌ | ✅ | ✅ |
-| Proxy support | ❌ | ❌ | ✅ | ✅ |
-| Resume interrupted scrapes | ❌ | ❌ | ❌ | ✅ |
-| Built-in CSV / JSON output | ✅ | ✅ | ❌ | ✅ |
-| Sync + async API | ❌ | ❌ | Async only | ✅ both |
-| Hosted, no-setup option | ❌ | ❌ | ❌ | ✅ Apify |
-| Active maintenance | ❌ | ❌ | ⚠️ | ✅ |
+One page of X is easy to fetch. 10,000 tweets is not, because accounts get rate-limited, cookies expire, and X changes its API.
 
-[twint](https://github.com/twintproject/twint) has been unmaintained since 2023. [snscrape](https://github.com/JustAnotherArchivist/snscrape) broke after X's backend changes. [twscrape](https://github.com/vladkens/twscrape) is the closest active alternative — worth knowing, but async-only, no built-in file output, and no resume support.
+**Your run finishes**
+- A wide date range is split into intervals that run in parallel. If X stops one interval early, the others still fill.
+- If X ends a page chain early, Scweet continues from the oldest tweet it received.
+- If a run stops, `resume=True` continues from the last saved point instead of starting again.
+
+**Your accounts stay usable**
+- Scweet reads the rate-limit headers of X and stops each account 2 requests before its limit, so X does not block it.
+- Scweet identifies the cause of each error. A bad request, an old query id and a dead session are handled differently, so a small error does not cost you an account.
+- Scweet records the state of each account (locked, suspended, rate-limited) and waits the needed time before it uses that account again.
+
+**It keeps working when X changes**
+- X changes the ids of its internal API without notice. Scweet reads the new ids from the JavaScript files of X, at startup or when you call `refresh_manifest()`.
+
+**It is easy to work with**
+- 12 read operations, one consistent row shape, sync **and** async, a real CLI, and CSV/JSON output built in.
+- 25 fields per tweet, including view counts, quotes, bookmarks, language and the nested quoted or retweeted post.
+
+**Or let us run it for you**
+- The [hosted version](https://apify.com/altimis/scweet?fpr=a40q9) does all of the above on our accounts and proxies. Free tier included.
+
+> Also on [twint](https://github.com/twintproject/twint) and [snscrape](https://github.com/JustAnotherArchivist/snscrape): both are unmaintained and no longer work against X's current backend. If you are migrating from either, Scweet covers the same ground and more.
 
 ---
 
@@ -325,7 +334,9 @@ s = Scweet(cookies_file="cookies.json")  # proxies are read from the file, one p
 
 ## Documentation
 
-Full API reference, config options, structured search filters, async patterns, resume, proxies, and troubleshooting:
+Full API reference, config options, structured search filters, async patterns, resume, proxies, and troubleshooting.
+
+**Read it as a site: [altimis.github.io/Scweet](https://altimis.github.io/Scweet/)** — the same text, with search and a navigation menu.
 
 - [Account setup](DOCUMENTATION.md#account-setup)
 - [Search API](DOCUMENTATION.md#search-api)
@@ -369,7 +380,7 @@ Never use your personal account — use dedicated accounts only. To reduce risk 
 No. Only publicly visible content is accessible.
 
 **Does it still work in 2025 / 2026?**
-Yes — last verified with the 5.8.0 release (2026-09-15) against X's current GraphQL API.
+Yes — last verified with the 5.8.1 release (2026-09-28) against X's current GraphQL API.
 
 </details>
 

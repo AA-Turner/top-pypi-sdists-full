@@ -24,14 +24,15 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class CreateApp(BaseModel):
     """
     CreateApp
-    """ # noqa: E501
+    """  # noqa: E501
+
     name: Optional[StrictStr] = None
     life_cycle: Optional[AppLifeCycle] = None
-    project_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["name", "life_cycle", "project_id"]
+    __properties: ClassVar[List[str]] = ["name", "life_cycle"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -39,7 +40,6 @@ class CreateApp(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +64,7 @@ class CreateApp(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -74,7 +73,7 @@ class CreateApp(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of life_cycle
         if self.life_cycle:
-            _dict['life_cycle'] = self.life_cycle.to_dict()
+            _dict["life_cycle"] = self.life_cycle.to_dict()
         return _dict
 
     @classmethod
@@ -86,11 +85,12 @@ class CreateApp(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "life_cycle": AppLifeCycle.from_dict(obj["life_cycle"]) if obj.get("life_cycle") is not None else None,
-            "project_id": obj.get("project_id")
-        })
+        _obj = cls.model_validate(
+            {
+                "name": obj.get("name"),
+                "life_cycle": AppLifeCycle.from_dict(obj["life_cycle"])
+                if obj.get("life_cycle") is not None
+                else None,
+            }
+        )
         return _obj
-
-

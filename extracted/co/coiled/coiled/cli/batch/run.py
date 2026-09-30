@@ -7,12 +7,14 @@ import logging
 import os
 import re
 import shlex
+from contextlib import nullcontext
 
 import click
 import dask.config
 from dask.utils import format_bytes, format_time, parse_timedelta
 from rich.console import Console
 from rich.panel import Panel
+from typing_extensions import Literal
 
 import coiled
 from coiled.cli.batch.util import load_sidecar_spec
@@ -524,7 +526,13 @@ def batch_run_cli(ctx, **kwargs):
         )
 
 
-def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
+def _batch_run(
+    default_kwargs,
+    logger=None,
+    from_cli=False,
+    cloud: coiled.Cloud[Literal[False]] | None = None,
+    **kwargs,
+) -> dict:
     command = kwargs["command"]
     user_files = []
 
@@ -868,8 +876,9 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         "max_retries": kwargs.get("max_retries") or 0,
     }
 
-    with coiled.Cloud(workspace=kwargs["workspace"]) as cloud:
+    with coiled.Cloud(workspace=kwargs["workspace"]) if cloud is None else nullcontext(cloud) as cloud:
         job_spec["workspace"] = cloud.default_workspace
+        cluster_kwargs["workspace"] = cloud.default_workspace
 
         compressed_data = gzip.compress(json.dumps(job_spec).encode())
         if len(compressed_data) > 2_400_000:
@@ -914,6 +923,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
                 names=[in_fs_name, out_fs_name],
                 workspace=job_spec["workspace"],
                 region=kwargs["region"],
+                cloud=cloud,
             )
 
             in_fs = filestores[0]
@@ -929,6 +939,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
                     fs=in_fs,
                     local_dir=kwargs.get("local_upload_path") or kwargs.get("local_sync_path"),
                     file_buffers=kwargs.get("buffers_to_upload"),
+                    cloud=cloud,
                 )
 
         # Run the job on a cluster
@@ -944,6 +955,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
             FilestoreManager.attach_filestores_to_cluster(
                 cluster_id=cluster.cluster_id,
                 attachments=filestores_to_attach,
+                cloud=cloud,
             )
 
         if logger:

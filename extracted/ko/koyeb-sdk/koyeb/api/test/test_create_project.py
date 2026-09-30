@@ -16,6 +16,7 @@ import unittest
 
 from koyeb.api.models.create_project import CreateProject
 
+
 class TestCreateProject(unittest.TestCase):
     """CreateProject unit test stubs"""
 
@@ -27,9 +28,9 @@ class TestCreateProject(unittest.TestCase):
 
     def make_instance(self, include_optional) -> CreateProject:
         """Test CreateProject
-            include_optional is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_optional is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # uncomment below to create an instance of `CreateProject`
         """
         model = CreateProject()
@@ -48,5 +49,6 @@ class TestCreateProject(unittest.TestCase):
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

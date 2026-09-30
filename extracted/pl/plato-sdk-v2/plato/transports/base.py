@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shlex
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
@@ -45,23 +44,3 @@ class Transport(ABC):
 
     async def prepare(self) -> None:
         """Prepare this workspace's path on the world VM (e.g., NFS bind mount)."""
-
-    async def collect_audit_log(
-        self,
-        hostname: str,
-        audit_key: str | None = None,
-    ) -> str | None:
-        del hostname, audit_key
-        return None
-
-
-def build_auditctl_commands(remote: str, audit_key: str) -> list[str]:
-    """Return shell commands to install auditd (if needed) and add FS audit rules."""
-    remote_quoted = shlex.quote(remote)
-    audit_key_quoted = shlex.quote(audit_key)
-    return [
-        "(which auditctl > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq auditd > /dev/null 2>&1))",
-        "(service auditd start 2>/dev/null || true)",
-        f"auditctl -a always,exit -F arch=b64 -F dir={remote_quoted} -F perm=rwa -k {audit_key_quoted}",
-        f"auditctl -a always,exit -F arch=b64 -S mkdir,mkdirat -F dir={remote_quoted} -k {audit_key_quoted}",
-    ]

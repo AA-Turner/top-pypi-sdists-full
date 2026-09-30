@@ -37,6 +37,7 @@ async def main():
         # Read file
         file_info = await fs.read_file("/tmp/hello.txt")
         print(file_info.content)
+        assert file_info.content == content
 
         # Write Python script
         python_code = "#!/usr/bin/env python3\nprint('Hello from Python!')\n"
@@ -44,6 +45,8 @@ async def main():
         await sandbox.exec("chmod +x /tmp/script.py")
         result = await sandbox.exec("/tmp/script.py")
         print(result.stdout.strip())
+        assert result.exit_code == 0, result.stderr
+        assert result.stdout.strip() == "Hello from Python!"
 
         return 0
 

@@ -26,14 +26,12 @@ class KgitproxyGithubInstallationStatus(str, Enum):
     """
     allowed enum values
     """
-    INVALID = 'INVALID'
-    INSTALLED = 'INSTALLED'
-    SUSPENDED = 'SUSPENDED'
-    DELETED = 'DELETED'
+    INVALID = "INVALID"
+    INSTALLED = "INSTALLED"
+    SUSPENDED = "SUSPENDED"
+    DELETED = "DELETED"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of KgitproxyGithubInstallationStatus from a JSON string"""
         return cls(json.loads(json_str))
-
-

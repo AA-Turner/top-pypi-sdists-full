@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DiscourseAuthRequest(BaseModel):
     """
     DiscourseAuthRequest
-    """ # noqa: E501
+    """  # noqa: E501
+
     payload: Optional[StrictStr] = None
     sig: Optional[StrictStr] = None
     __properties: ClassVar[List[str]] = ["payload", "sig"]
@@ -37,7 +39,6 @@ class DiscourseAuthRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class DiscourseAuthRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,10 +81,7 @@ class DiscourseAuthRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "payload": obj.get("payload"),
-            "sig": obj.get("sig")
-        })
+        _obj = cls.model_validate(
+            {"payload": obj.get("payload"), "sig": obj.get("sig")}
+        )
         return _obj
-
-

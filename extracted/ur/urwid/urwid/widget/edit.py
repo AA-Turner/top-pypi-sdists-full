@@ -1,3 +1,5 @@
+"""Edit: a text editing widget, and IntEdit for integers."""
+
 from __future__ import annotations
 
 import string
@@ -7,7 +9,7 @@ from urwid import text_layout
 from urwid.canvas import CompositeCanvas, apply_text_layout
 from urwid.command_map import Command
 from urwid.split_repr import remove_defaults
-from urwid.str_util import is_wide_char, move_next_char, move_prev_char
+from urwid.str_util import calc_width, is_wide_char, move_next_char, move_prev_char
 from urwid.util import decompose_tagmarkup
 
 from .constants import Align, Sizing, WrapMode
@@ -24,14 +26,13 @@ if typing.TYPE_CHECKING:
 
 
 class EditError(TextError):
-    pass
+    """Edit related errors."""
 
 
 class Edit(WidgetWrap[Text]):
-    """
-    Text editing widget implements cursor movement, text insertion and
-    deletion.  A caption may prefix the editing area.  Uses text class
-    for text layout.
+    """Text editing widget implements cursor movement, text insertion and deletion.
+
+    A caption may prefix the editing area.  Uses text class for text layout.
 
     Users of this class may listen for ``"change"`` or ``"postchange"``
     events.  See :func:``connect_signal``.
@@ -56,7 +57,7 @@ class Edit(WidgetWrap[Text]):
 
     def valid_char(self, ch: str) -> bool:
         """
-        Filter for text that may be entered into this widget by the user
+        Filter for text that may be entered into this widget by the user.
 
         :param ch: character to be inserted
 
@@ -75,17 +76,22 @@ class Edit(WidgetWrap[Text]):
         edit_pos: int | None = None,
         layout: text_layout.TextLayout | None = None,
         mask: str | None = None,
+        *,
+        expand_tabs: bool = True,
     ) -> None:
-        """
+        """Create the Edit widget.
+
         :param caption: markup for caption preceding edit_text, see :class:`Text` for description of text markup.
         :param edit_text: initial text for editing, type (bytes or str) must match the text in the caption
         :param multiline: ``True``: :kbd:`enter` inserts a newline, ``False``: return it
         :param align: typically 'left', 'center' or 'right'
         :param wrap: typically 'space', 'any' or 'clip'
-        :param allow_tab: ``True``: :kbd:`tab` inserts 1-8 spaces, ``False``: return it
+        :param allow_tab: ``True``: :kbd:`tab` is inserted, ``False``: return it
         :param edit_pos: initial position for cursor, None:end of edit_text
         :param layout: defaults to a shared :class:`StandardTextLayout` instance
         :param mask: hide text entered with this character, None:disable mask
+        :param expand_tabs: ``True``: an inserted tab is spaces up to the next tab stop of the line,
+            ``False``: a tab character
 
         >>> Edit()
         <Edit selectable flow widget '' edit_pos=0>
@@ -99,6 +105,7 @@ class Edit(WidgetWrap[Text]):
         super().__init__(Text("", align, wrap, layout))
         self.multiline = multiline
         self.allow_tab = allow_tab
+        self.expand_tabs = expand_tabs
         self._edit_pos = 0
         self._caption, self._attrib = decompose_tagmarkup(caption)
         self._edit_text = ""
@@ -113,7 +120,7 @@ class Edit(WidgetWrap[Text]):
         self.set_mask(mask)
 
     def selectable(self) -> bool:
-        """Selectable mark.
+        """Return True: this widget is always selectable.
 
         Wrapped Text widget is not selectable while the edit widget has to be selectable.
         """
@@ -151,9 +158,9 @@ class Edit(WidgetWrap[Text]):
         self._w._invalidate()
 
     def get_text(self) -> tuple[str | bytes, list[tuple[Hashable, int]]]:
-        """
-        Returns ``(text, display attributes)``. See :meth:`Text.get_text`
-        for details.
+        """Return ``(text, display attributes)``.
+
+        See :meth:`Text.get_text` for details.
 
         Text returned includes the caption and edit_text, possibly masked.
 
@@ -164,7 +171,6 @@ class Edit(WidgetWrap[Text]):
         >>> Edit("password:", "seekrit", mask="*").get_text()
         ('password:*******', [])
         """
-
         if self._mask is None:
             return self._caption + self._edit_text, self._attrib  # type: ignore[operator]  # type normalised
 
@@ -172,31 +178,24 @@ class Edit(WidgetWrap[Text]):
 
     @property
     def text(self) -> str | bytes:
-        """
-        Read-only property returning the complete bytes/unicode content
-        of this widget (caption plus edit_text, possibly masked).
+        """Read-only property returning the complete bytes/unicode content of this widget.
+
+        Includes caption plus edit_text, possibly masked.
         """
         return self.get_text()[0]
 
     @property
     def attrib(self) -> list[tuple[Hashable, int]]:
-        """
-        Read-only property returning the run-length encoded display
-        attributes of this widget.
-        """
+        """Read-only property returning the run-length encoded display attributes of this widget."""
         return self.get_text()[1]
 
     def set_align_mode(self, mode: Literal["left", "center", "right"] | Align) -> None:
-        """
-        Set text alignment mode. See :meth:`Text.set_align_mode` for details.
-        """
+        """Set text alignment mode. See :meth:`Text.set_align_mode` for details."""
         self._w.set_align_mode(mode)
         self._invalidate()
 
     def set_wrap_mode(self, mode: Literal["space", "any", "clip", "ellipsis"] | WrapMode) -> None:
-        """
-        Set text wrapping mode. See :meth:`Text.set_wrap_mode` for details.
-        """
+        """Set text wrapping mode. See :meth:`Text.set_wrap_mode` for details."""
         self._w.set_wrap_mode(mode)
         self._invalidate()
 
@@ -206,8 +205,8 @@ class Edit(WidgetWrap[Text]):
         wrap: Literal["space", "any", "clip", "ellipsis"] | WrapMode,
         layout: text_layout.TextLayout | None = None,
     ) -> None:
-        """
-        Set the text layout object, alignment and wrapping modes at the same time.
+        """Set the text layout object, alignment and wrapping modes at the same time.
+
         See :meth:`Text.set_layout` for details.
         """
         self._w.set_layout(align, wrap, layout)
@@ -218,13 +217,13 @@ class Edit(WidgetWrap[Text]):
 
     @property
     def layout(self) -> text_layout.TextLayout:
+        """Return the :class:`TextLayout` instance used to lay out and wrap this widget's text."""
         return self._w.layout
 
     def get_pref_col(self, size: tuple[int]) -> int:
-        """
-        Return the preferred column for the cursor, or the
-        current cursor x value.  May also return ``'left'`` or ``'right'``
-        to indicate the leftmost or rightmost column available.
+        r"""Return the preferred column for the cursor, or the current cursor x value.
+
+        May also return ``'left'`` or ``'right'`` to indicate the leftmost or rightmost column available.
 
         This method is used internally and by other widgets when
         moving the cursor up or down between widgets so that the
@@ -242,7 +241,7 @@ class Edit(WidgetWrap[Text]):
         >>> e.keypress(size, "end")
         >>> e.get_pref_col(size)
         <Align.RIGHT: 'right'>
-        >>> e = Edit("", "2\\nwords")
+        >>> e = Edit("", "2\nwords")
         >>> e.keypress(size, "left")
         >>> e.keypress(size, "up")
         >>> e.get_pref_col(size)
@@ -284,14 +283,12 @@ class Edit(WidgetWrap[Text]):
 
     @property
     def caption(self) -> str | bytes:
-        """
-        Read-only property returning the caption for this widget.
-        """
+        """Read-only property returning the caption for this widget."""
         return self._caption
 
     def set_edit_pos(self, pos: int) -> None:
-        """
-        Set the cursor position with a self.edit_text offset.
+        """Set the cursor position with a self.edit_text offset.
+
         Clips pos to [0, len(edit_text)].
 
         :param pos: cursor position
@@ -328,8 +325,9 @@ class Edit(WidgetWrap[Text]):
         Set the character for masking text away.
 
         :param mask: hide text entered with this character, None:disable mask
+        :param expand_tabs: ``True``: an inserted tab is spaces up to the next tab stop of the line,
+            ``False``: a tab character
         """
-
         self._mask = mask
         self._sync_wrapped()
         self._invalidate()
@@ -383,8 +381,8 @@ class Edit(WidgetWrap[Text]):
     )
 
     def insert_text(self, text: str) -> None:
-        """
-        Insert text at the cursor position and update cursor.
+        """Insert text at the cursor position and update cursor.
+
         This method is used by the keypress() method when inserting
         one or more characters into edit_text.
 
@@ -407,7 +405,7 @@ class Edit(WidgetWrap[Text]):
         self.highlight = None
 
     def _normalize_to_caption(self, text: str | bytes) -> str | bytes:
-        """Return text converted to the same type as self.caption (bytes or unicode)"""
+        """Return text converted to the same type as self.caption (bytes or unicode)."""
         tu = isinstance(text, str)
         cu = isinstance(self._caption, str)
         if tu == cu:
@@ -417,15 +415,14 @@ class Edit(WidgetWrap[Text]):
         return text.decode("ascii")  # type: ignore[union-attr]
 
     def insert_text_result(self, text: str) -> tuple[str | bytes, int]:
-        """
-        Return result of insert_text(text) without actually performing the
-        insertion.  Handy for pre-validation.
+        """Return result of insert_text(text) without actually performing the insertion.
+
+        Handy for pre-validation.
 
         :param text: text for inserting, type (bytes or unicode)
                      must match the text in the caption
         :raises ValueError: *text* cannot be inserted at the current edit position.
         """
-
         # if there's highlighted text, it'll get replaced by the new text
         text = self._normalize_to_caption(text)  # type: ignore[assignment]
         if self.highlight:
@@ -477,8 +474,21 @@ class Edit(WidgetWrap[Text]):
             return None
 
         if key == "tab" and self.allow_tab:
-            key = " " * (8 - (self.edit_pos % 8))
-            self.insert_text(key)
+            if not self.expand_tabs:
+                self.insert_text("\t")
+                return None
+            layout = self._w.layout
+            if not isinstance(layout, text_layout.StandardTextLayout):
+                layout = text_layout.default_layout  # a custom layout has no tab stops
+            text = self._edit_text
+            tab, nl = ("\t", "\n") if isinstance(text, str) else (b"\t", b"\n")
+            column = 0
+            for idx, chunk in enumerate(text[text.rfind(nl, 0, pos) + 1 : pos].split(tab)):
+                if idx:
+                    column = layout.next_tab_stop(column)
+                column += calc_width(chunk, 0, len(chunk))
+            if spaces := layout.next_tab_stop(column) - column:
+                self.insert_text(" " * spaces)
             return None
 
         if key == "enter" and self.multiline:
@@ -559,12 +569,12 @@ class Edit(WidgetWrap[Text]):
         x: int | Literal[Align.LEFT, Align.RIGHT],
         y: int,
     ) -> bool:
-        """
-        Set the cursor position with (x,y) coordinates.
+        r"""Set the cursor position with (x,y) coordinates.
+
         Returns True if move succeeded, False otherwise.
 
         >>> size = (10,)
-        >>> e = Edit("", "edit\\ntext")
+        >>> e = Edit("", "edit\ntext")
         >>> e.move_cursor_to_coords(size, 5, 0)
         True
         >>> e.edit_pos
@@ -613,10 +623,7 @@ class Edit(WidgetWrap[Text]):
         return False
 
     def _delete_highlighted(self) -> bool:
-        """
-        Delete all highlighted text and update cursor position, if any
-        text is highlighted.
-        """
+        """Delete all highlighted text and update cursor position, if any text is highlighted."""
         if not self.highlight:
             return False
         start, stop = self.highlight
@@ -631,9 +638,9 @@ class Edit(WidgetWrap[Text]):
         size: tuple[int],
         focus: bool = False,
     ) -> TextCanvas | CompositeCanvas:
-        """
-        Render edit widget and return canvas.  Include cursor when in
-        focus.
+        """Render edit widget and return canvas.
+
+        Include cursor when in focus.
 
         >>> edit = Edit("? ", "yes")
         >>> c = edit.render((10,), focus=True)
@@ -664,6 +671,7 @@ class Edit(WidgetWrap[Text]):
         maxcol: int,
         ta: tuple[str | bytes, list[tuple[Hashable, int]]] | None = None,
     ) -> list[list[tuple[int, int, int | bytes] | tuple[int, int | None]]]:
+        """Return the line translation for `ta`, shifted to keep the cursor visible if needed."""
         trans = self._w.get_line_translation(maxcol, ta)
         if not self._shift_view_to_cursor:
             return trans
@@ -699,10 +707,7 @@ class Edit(WidgetWrap[Text]):
         return self.position_coords(maxcol, self.edit_pos)
 
     def position_coords(self, maxcol: int, pos: int) -> tuple[int, int]:
-        """
-        Return (*x*, *y*) coordinates for an offset into self.edit_text.
-        """
-
+        """Return (*x*, *y*) coordinates for an offset into self.edit_text."""
         p = pos + len(self.caption)
         trans = self.get_line_translation(maxcol)
         x, y = text_layout.calc_coords(self.get_text()[0], trans, p)
@@ -710,16 +715,15 @@ class Edit(WidgetWrap[Text]):
 
 
 class IntEdit(Edit):
-    """Edit widget for integer values"""
+    """Edit widget for integer values."""
 
     def valid_char(self, ch: str) -> bool:
-        """
-        Return true for decimal digits.
-        """
+        """Return true for decimal digits."""
         return len(ch) == 1 and ch in string.digits
 
     def __init__(self, caption: _TagMarkup = "", default: int | str | None = None) -> None:
-        """
+        """Create the IntEdit widget.
+
         :param caption: caption markup
         :param default: default edit value
 

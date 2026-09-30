@@ -42,6 +42,28 @@ def get_step_autoheal() -> bool:
     return _step_autoheal.get()
 
 
+# The step end hook must carry WHY a failed step failed, so HPS can map
+# a step to its commands and show the per-step failure disposition. The wire
+# vocabulary is the runtime's FailureCondition enum, which each binding names
+# differently — map explicitly rather than sending the binding's own token.
+#
+# A step with no on_failure fails the test immediately, so None maps to
+# FAIL_TEST_IMMEDIATELY rather than being omitted.
+_WIRE_FAILURE_CONDITION = {
+    None: "FAIL_TEST_IMMEDIATELY",
+    "": "FAIL_TEST_IMMEDIATELY",
+    "fail": "FAIL_TEST_IMMEDIATELY",
+    "fail-continue": "FAIL_BUT_CONTINUE_EXECUTING",
+    "warn-continue": "WARN_BUT_CONTINUE_EXECUTING",
+}
+
+
+def wire_failure_condition(on_failure) -> str:
+    """Map the binding's on_failure token to the runtime's FailureCondition name."""
+    if on_failure is None:
+        return _WIRE_FAILURE_CONDITION[None]
+    return _WIRE_FAILURE_CONDITION.get(str(on_failure).strip().lower(), "")
+
 class _Step:
     __slots__ = (
         "description",
@@ -96,6 +118,7 @@ class _Step:
             ok=ok,
             error=exc_val,
             instruction_id=self.instruction_id,
+            on_failure=self.on_failure,
         )
         if self._cache_token is not None:
             reset_cache(self._cache_token)

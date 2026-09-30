@@ -151,12 +151,13 @@ class TestGarminClient:
 
     async def test_fetch_activity_data_includes_scheduled_workouts(self):
         """fetch_activity_data surfaces workout-type calendar items only,
-        across this month and next (home-assistant-garmin_connect#521).
+        across this month and next.
 
         Real calendarItems mix several unrelated event types under
-        `itemType` (weigh-ins, naps, workouts); only "workout" is a Coach /
-        adaptive-plan session or self-scheduled workout. Past items and
-        other item types must not leak through.
+        `itemType` (weigh-ins, naps, workouts); only scheduled sessions
+        ("workout" here; "fbtAdaptiveWorkout" is covered below) are a
+        Coach / adaptive-plan session or self-scheduled workout. Past items
+        and other item types must not leak through.
         """
         auth = _make_auth()
         client = GarminClient(auth)
@@ -248,8 +249,238 @@ class TestGarminClient:
         assert data["trainingPlanGoalEvent"]["trainingPlanType"] == "COACH_ATP"
         assert data["trainingPlanGoalEvent"]["projectedRaceTimeDurationSeconds"] == 1829
 
+    @staticmethod
+    def _calendar_request_router(
+        calendar_items_by_month: dict[tuple[int, int], list[dict]],
+        goal_events: list[dict] | None = None,
+        events_params: list[dict] | None = None,
+    ):
+        """Fake `_request` that answers only the calendar endpoints.
+
+        Everything above the HTTP layer (get_scheduled_workouts,
+        get_calendar_events_for_plan, the filtering in fetch_activity_data)
+        runs for real. Other endpoints fetch_activity_data touches get [].
+        """
+        from ha_garmin.const import CALENDAR_EVENTS_URL, CALENDAR_URL
+
+        month_url = re.compile(re.escape(CALENDAR_URL) + r"/(\d+)/month/(\d+)$")
+
+        async def fake_request(method, url, params=None):
+            match = month_url.match(url)
+            if match:
+                year, zero_based_month = int(match[1]), int(match[2])
+                items = calendar_items_by_month.get((year, zero_based_month + 1), [])
+                return {"calendarItems": items}
+            if url == CALENDAR_EVENTS_URL:
+                if events_params is not None:
+                    events_params.append(params)
+                return goal_events or []
+            return []
+
+        return fake_request
+
+    async def test_fetch_activity_data_includes_fbt_adaptive_workout(self):
+        """A Daily Suggested / adaptive session is a scheduled workout
+        too.
+
+        calendar-service reports it with itemType "fbtAdaptiveWorkout", not
+        "workout". The item below is a real one, with only its date moved
+        to today so the upcoming-only filter keeps it.
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        today = date.today()
+        today_str = today.isoformat()
+        fbt_item = {
+            "id": 1789814567000,
+            "trainingPlanId": 45489509,
+            "itemType": "fbtAdaptiveWorkout",
+            "title": "Basis",
+            "date": "2026-09-19",
+            "sportTypeKey": "running",
+        }
+        fbt_today = {**fbt_item, "date": today_str}
+
+        events_params: list[dict] = []
+        fake_request = self._calendar_request_router(
+            {(today.year, today.month): [fbt_today]}, events_params=events_params
+        )
+        with patch.object(client, "_request", side_effect=fake_request):
+            data = await client.fetch_activity_data()
+
+        expected = {
+            "id": 1789814567000,
+            "trainingPlanId": 45489509,
+            "title": "Basis",
+            "date": today_str,
+            "sportTypeKey": "running",
+        }
+        assert data["scheduledWorkouts"] == [expected]
+        assert data["todayScheduledWorkout"] == expected
+        assert data["nextScheduledWorkout"] == expected
+        # No atpPlanId on the item, so there is no goal event to look up.
+        assert events_params == []
+        assert data["trainingPlanGoalEvent"] == {}
+
+    async def test_fetch_activity_data_goal_event_survives_fbt_first(self):
+        """The goal event's plan id comes from the first upcoming item that
+        carries an atpPlanId, not only from the next/today item.
+
+        fbtAdaptiveWorkout items have been seen without an atpPlanId. With
+        such an item today and an ATP "workout" later, the next item is the fbt
+        one; the ATP plan's goal event must still be fetched from the later
+        item.
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        today = date.today()
+        today_str = today.isoformat()
+        tomorrow_str = (today + timedelta(days=1)).isoformat()
+        fbt_today = {
+            "id": 1789814567000,
+            "trainingPlanId": 45489509,
+            "itemType": "fbtAdaptiveWorkout",
+            "title": "Basis",
+            "date": today_str,
+            "sportTypeKey": "running",
+        }
+        atp_tomorrow = {
+            "id": 1789814568000,
+            "itemType": "workout",
+            "title": "Benchmark Run",
+            "date": tomorrow_str,
+            "sportTypeKey": "running",
+            "workoutId": 111,
+            "atpPlanId": 222,
+        }
+        goal_events = [
+            {
+                "eventName": "5K Plan",
+                "date": "2026-11-21",
+                "completionTarget": {"value": 5.0, "unit": "kilometer"},
+                "eventCustomization": {"trainingPlanType": "COACH_ATP"},
+            }
+        ]
+
+        events_params: list[dict] = []
+        fake_request = self._calendar_request_router(
+            {(today.year, today.month): [atp_tomorrow, fbt_today]},
+            goal_events=goal_events,
+            events_params=events_params,
+        )
+        with patch.object(client, "_request", side_effect=fake_request):
+            data = await client.fetch_activity_data()
+
+        assert [w["title"] for w in data["scheduledWorkouts"]] == [
+            "Basis",
+            "Benchmark Run",
+        ]
+        assert data["todayScheduledWorkout"]["title"] == "Basis"
+        assert data["nextScheduledWorkout"]["title"] == "Basis"
+        assert events_params == [{"trainingPlanId": 222}]
+        assert data["trainingPlanGoalEvent"]["eventName"] == "5K Plan"
+        assert data["trainingPlanGoalEvent"]["trainingPlanType"] == "COACH_ATP"
+
+    @staticmethod
+    def _race_item(title: str, day: date, primary: bool) -> dict:
+        return {
+            "itemType": "event",
+            "title": title,
+            "date": day.isoformat(),
+            "isRace": True,
+            "primaryEvent": primary,
+            "completionTarget": {
+                "value": 42195.0,
+                "unit": "meter",
+                "unitType": "distance",
+            },
+        }
+
+    async def test_fetch_activity_data_goal_event_falls_back_to_primary_race(self):
+        """Without a plan goal event, the calendar's race stands in for it.
+
+        The primary race wins over a sooner non-primary one; past races and
+        non-race events are ignored. No extra request is made.
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        today = date.today()
+        items = [
+            self._race_item("Old Race", today - timedelta(days=1), primary=True),
+            self._race_item("Parkrun", today, primary=False),
+            self._race_item("TCS Amsterdam Marathon", today + timedelta(days=2), True),
+            {**self._race_item("Club Social", today, False), "isRace": False},
+        ]
+        events_params: list[dict] = []
+        fake_request = self._calendar_request_router(
+            {(today.year, today.month): items}, events_params=events_params
+        )
+        with patch.object(client, "_request", side_effect=fake_request):
+            data = await client.fetch_activity_data()
+
+        goal = data["trainingPlanGoalEvent"]
+        assert goal["eventName"] == "TCS Amsterdam Marathon"
+        assert goal["date"] == (today + timedelta(days=2)).isoformat()
+        assert goal["targetDistance"] == 42195.0
+        assert goal["targetDistanceUnit"] == "meter"
+        assert goal["primaryEvent"] is True
+        assert goal["trainingPlanType"] is None
+        assert events_params == []
+        # Races are not scheduled workouts.
+        assert data["scheduledWorkouts"] == []
+
+    async def test_fetch_activity_data_race_fallback_soonest_without_primary(self):
+        """With no primary race, the soonest upcoming race is used."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        today = date.today()
+        items = [
+            self._race_item("Later", today + timedelta(days=3), primary=False),
+            self._race_item("Sooner", today + timedelta(days=1), primary=False),
+        ]
+        fake_request = self._calendar_request_router({(today.year, today.month): items})
+        with patch.object(client, "_request", side_effect=fake_request):
+            data = await client.fetch_activity_data()
+
+        assert data["trainingPlanGoalEvent"]["eventName"] == "Sooner"
+        assert data["trainingPlanGoalEvent"]["primaryEvent"] is False
+
+    async def test_fetch_activity_data_plan_goal_event_beats_calendar_race(self):
+        """A plan's own goal event (with projections) takes precedence."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        today = date.today()
+        atp_workout = {
+            "id": 1,
+            "itemType": "workout",
+            "title": "Easy Run",
+            "date": today.isoformat(),
+            "atpPlanId": 222,
+        }
+        race = self._race_item("Some Race", today + timedelta(days=1), primary=True)
+        goal_events = [
+            {
+                "eventName": "Plan Marathon",
+                "date": "2026-11-21",
+                "eventCustomization": {"trainingPlanType": "COACH_ATP"},
+            }
+        ]
+        fake_request = self._calendar_request_router(
+            {(today.year, today.month): [atp_workout, race]}, goal_events=goal_events
+        )
+        with patch.object(client, "_request", side_effect=fake_request):
+            data = await client.fetch_activity_data()
+
+        assert data["trainingPlanGoalEvent"]["eventName"] == "Plan Marathon"
+        assert "primaryEvent" not in data["trainingPlanGoalEvent"]
+
     async def test_fetch_activity_data_uses_recency_not_window(self):
-        """Test fetch_activity_data returns lastActivity even for old activities (#519)."""
+        """Test fetch_activity_data returns lastActivity even for old activities."""
         auth = _make_auth()
         client = GarminClient(auth)
 
@@ -284,7 +515,7 @@ class TestGarminClient:
         assert len(data["lastActivities"]) == 1
 
     async def test_fetch_activity_data_returns_more_than_ten_recent(self):
-        """lastActivities must not be capped at 10 (home-assistant-garmin_connect#567).
+        """lastActivities must not be capped at 10.
 
         A consumer that derives a rolling-7-day count from `lastActivities`
         needs the pool itself to hold more than a week's worth of activities
@@ -326,7 +557,7 @@ class TestGarminClient:
         assert len(data["lastActivities"]) == 15
 
     async def test_fetch_activity_data_merges_ebike_fields(self):
-        """Test fetch_activity_data merges e-bike fields from the summary endpoint (#527)."""
+        """Test fetch_activity_data merges e-bike fields from the summary endpoint."""
         auth = _make_auth()
         client = GarminClient(auth)
 
@@ -373,7 +604,7 @@ class TestGarminClient:
         assert "eBikeAssistModeInfoDTOList" not in data["lastActivity"]
 
     async def test_fetch_activity_data_ebike_fields_retry_after_empty_poll(self):
-        """Test an empty e-bike summary is not cached negatively forever (#527).
+        """Test an empty e-bike summary is not cached negatively forever.
 
         A new activity's summary can lag behind Garmin's backend, so the
         first poll may come back without e-bike fields even though the
@@ -477,7 +708,7 @@ class TestGarminClient:
         assert mock_summary.await_count == retry_limit
 
     async def test_get_ebike_fields_concurrent_calls_do_not_race(self):
-        """Overlapping callers must not let one clobber the other's result (#527).
+        """Overlapping callers must not let one clobber the other's result.
 
         Regression test: two callers racing on the same activity_id used to
         both see an empty cache, both fetch, and whichever wrote last (even
@@ -860,7 +1091,11 @@ class TestGarminClient:
                 },
                 "sleepScores": {"overall": {"value": 85}},
                 "averageRespirationValue": 14.2,
-            }
+            },
+            "skinTempDataExists": True,
+            "avgSkinTempDeviationC": 0.2,
+            "avgSkinTempDeviationF": 0.3,
+            "skinTempCalibrationDays": 19,
         }
 
         responses = [
@@ -898,9 +1133,11 @@ class TestGarminClient:
         assert data["wakeTime"] == datetime(2026, 4, 12, 3, 57, 47, tzinfo=UTC)
         assert data["optimalWakeTime"] == datetime(2026, 4, 13, 4, 30, tzinfo=UTC)
         assert data["avgSleepRespirationValue"] == 14.2
+        assert data["avgSkinTempDeviationC"] == 0.2
+        assert data["skinTempCalibrationDays"] == 19
 
     async def test_fetch_core_data_bedtime_uses_gmt_local_delta_for_offset(self):
-        """bedtime/wake_time must not silently assume UTC+0 (home-assistant-garmin_connect#564).
+        """bedtime/wake_time must not silently assume UTC+0.
 
         Real-world payloads have been seen with no explicit timezoneOffset
         field in dailySleepDTO and no SLEEP event in
@@ -958,13 +1195,16 @@ class TestGarminClient:
         # conversion correctly lands back on 22:44 / 07:06, not 00:44 / 09:06.
         assert data["bedtime"] == gmt_start
         assert data["wakeTime"] == gmt_end
+        # No skin temperature sensor data in this payload.
+        assert data["avgSkinTempDeviationC"] is None
+        assert data["skinTempCalibrationDays"] is None
 
     async def test_fetch_core_data_transient_error_does_not_use_yesterday(self):
         """Test a transient 502/503 does not get papered over with yesterday's summary.
 
-        Regression test for cyberjunky/home-assistant-garmin_connect#536: a
-        transient API failure while fetching today's summary must not be
-        treated the same as "today's data isn't ready yet", or fast-changing
+        Regression test: a transient API failure while fetching today's
+        summary must not be treated the same as "today's data isn't ready
+        yet", or fast-changing
         fields like body battery briefly flip to a stale, day-old value.
         """
         auth = _make_auth()
@@ -1112,6 +1352,41 @@ class TestGarminClient:
         assert result["weight"] == 86000.0
         assert result["bmi"] == 25.5
 
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            (2177427894000, None),  # ms timestamp seen from a third-party scale
+            (38, 38),
+            (None, None),
+        ],
+    )
+    async def test_get_body_composition_drops_impossible_metabolic_age(
+        self, raw, expected
+    ):
+        """metabolicAge is only passed through when it can be an age in years."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        payload = {
+            "dailyWeightSummaries": [
+                {
+                    "summaryDate": "2026-04-03",
+                    "latestWeight": {
+                        "calendarDate": "2026-04-03",
+                        "weight": 87000.0,
+                        "metabolicAge": raw,
+                    },
+                },
+            ],
+        }
+
+        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+            mock_thread.return_value = _mock_response(payload)
+            result = await client.get_body_composition()
+
+        assert result["metabolicAge"] == expected
+        assert result["weight"] == 87000.0
+
     async def test_add_computed_fields_burned_kilocalories_computed(self):
         """Test _add_computed_fields computes burnedKilocalories from bmr+active when null."""
         from ha_garmin.client import _add_computed_fields
@@ -1186,6 +1461,95 @@ class TestGarminClient:
 
         assert "powerToWeight" in data
         assert data["powerToWeight"] == ptw_payload
+
+    @staticmethod
+    def _vo2_safe_call(responses: dict, calls: list[str]):
+        """Fake _safe_call answering by method name; everything else is {}."""
+
+        async def fake(func, *args, **kwargs):
+            calls.append(func.__name__)
+            return responses.get(func.__name__, {})
+
+        return fake
+
+    @pytest.mark.parametrize(
+        ("most_recent", "expected", "expected_precise"),
+        [
+            # Cycling-only account: generic is null.
+            (
+                {
+                    "generic": None,
+                    "cycling": {"vo2MaxValue": 52.0, "vo2MaxPreciseValue": 51.7},
+                },
+                52.0,
+                51.7,
+            ),
+            # Both present: generic (running) wins.
+            (
+                {
+                    "generic": {"vo2MaxValue": 36.0, "vo2MaxPreciseValue": 35.6},
+                    "cycling": {"vo2MaxValue": 52.0, "vo2MaxPreciseValue": 51.7},
+                },
+                36.0,
+                35.6,
+            ),
+        ],
+    )
+    async def test_fetch_training_data_vo2max_generic_then_cycling(
+        self, most_recent, expected, expected_precise
+    ):
+        """VO2 Max comes from generic, else cycling, without extra requests."""
+        client = GarminClient(_make_auth())
+        calls: list[str] = []
+        client._safe_call = self._vo2_safe_call(
+            {"get_training_status": {"mostRecentVO2Max": most_recent}}, calls
+        )
+
+        data = await client.fetch_training_data()
+
+        assert data["vo2MaxValue"] == expected
+        assert data["vo2MaxPreciseValue"] == expected_precise
+        assert "get_user_settings" not in calls
+        assert "get_activities" not in calls
+
+    @pytest.mark.parametrize(
+        ("user_data", "expected"),
+        [
+            ({"vo2MaxRunning": 36.0, "vo2MaxCycling": None}, 36.0),
+            ({"vo2MaxRunning": None, "vo2MaxCycling": 52.0}, 52.0),
+        ],
+    )
+    async def test_fetch_training_data_vo2max_falls_back_to_user_settings(
+        self, user_data, expected
+    ):
+        """No VO2 Max in training status: the profile's own value is used."""
+        client = GarminClient(_make_auth())
+        calls: list[str] = []
+        client._safe_call = self._vo2_safe_call(
+            {"get_user_settings": {"userData": user_data}}, calls
+        )
+
+        data = await client.fetch_training_data()
+
+        assert data["vo2MaxValue"] == expected
+        assert "get_activities" not in calls
+
+    async def test_fetch_training_data_vo2max_activities_last_resort(self):
+        """Neither training status nor profile: last activities' value."""
+        client = GarminClient(_make_auth())
+        calls: list[str] = []
+        client._safe_call = self._vo2_safe_call(
+            {
+                "get_user_settings": {"userData": {"vo2MaxRunning": None}},
+                "get_activities": [{"vO2MaxValue": None}, {"vO2MaxValue": 41.0}],
+            },
+            calls,
+        )
+
+        data = await client.fetch_training_data()
+
+        assert data["vo2MaxValue"] == 41.0
+        assert calls.index("get_user_settings") < calls.index("get_activities")
 
     async def test_fetch_training_data_power_to_weight_yesterday_fallback(self):
         """Test fetch_training_data falls back to yesterday for powerToWeight."""
@@ -1768,7 +2132,7 @@ class TestSecurityAuditHardening:
             await client.get_gear_defaults("1/../../admin")
 
     async def test_fetch_gear_data_includes_sensors(self):
-        """fetch_gear_data must surface paired ANT+/BLE sensors (home-assistant-garmin_connect#535)."""
+        """fetch_gear_data must surface paired ANT+/BLE sensors."""
         auth = _make_auth()
         client = GarminClient(auth)
 
@@ -1808,8 +2172,7 @@ class TestSecurityAuditHardening:
 
         The latest reading alone reflects only the moment of the last sync,
         which is way off from the day as a whole -- e.g. syncing in the
-        evening reads near 0% even on a sunny day
-        (home-assistant-garmin_connect#508).
+        evening reads near 0% even on a sunny day.
         """
         auth = _make_auth()
         client = GarminClient(auth)

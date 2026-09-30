@@ -12,6 +12,8 @@ from setuptools.errors import ExecError, PlatformError
 
 from setuptools_protobuf import (
     Protobuf,
+    _expand_protobuf_patterns,
+    _protoc_plugin_works,
     build_protobuf,
     clean_protobuf,
     find_executable,
@@ -44,9 +46,47 @@ class TestProtobuf(unittest.TestCase):
         """Test explicit mypy flag configuration."""
         pb = Protobuf("foo.proto", mypy=True)
         assert pb.mypy is True
+        assert pb.mypy_auto_detected is False
 
         pb = Protobuf("foo.proto", mypy=False)
         assert pb.mypy is False
+        assert pb.mypy_auto_detected is False
+
+    def test_protobuf_mypy_autodetect_missing(self):
+        """Auto-detection should disable mypy when the plugin is absent."""
+        with patch("setuptools_protobuf.find_executable", return_value=None):
+            pb = Protobuf("foo.proto")
+        assert pb.mypy is False
+        assert pb.mypy_auto_detected is True
+
+    def test_protobuf_mypy_autodetect_broken_plugin(self):
+        """Auto-detection should disable mypy when the plugin cannot import."""
+        import io
+
+        with (
+            patch(
+                "setuptools_protobuf.find_executable", return_value="/x/protoc-gen-mypy"
+            ),
+            patch("setuptools_protobuf._protoc_plugin_works", return_value=False),
+            patch("setuptools_protobuf.sys.stderr", new_callable=io.StringIO) as err,
+        ):
+            pb = Protobuf("foo.proto")
+        assert pb.mypy is False
+        assert pb.mypy_auto_detected is True
+        assert "fails to run" in err.getvalue()
+        assert "/x/protoc-gen-mypy" in err.getvalue()
+
+    def test_protobuf_mypy_autodetect_working_plugin(self):
+        """Auto-detection should enable mypy when the plugin runs."""
+        with (
+            patch(
+                "setuptools_protobuf.find_executable", return_value="/x/protoc-gen-mypy"
+            ),
+            patch("setuptools_protobuf._protoc_plugin_works", return_value=True),
+        ):
+            pb = Protobuf("foo.proto")
+        assert pb.mypy is True
+        assert pb.mypy_auto_detected is True
 
     def test_protobuf_nested_path(self):
         """Test Protobuf with nested directory path."""
@@ -310,6 +350,54 @@ class TestGetProtoc(unittest.TestCase):
                 assert result == str(protoc_file)
 
 
+class TestProtocPluginWorks(unittest.TestCase):
+    """Tests for the protoc-plugin runnability probe."""
+
+    def test_plugin_runs_cleanly(self):
+        """Plugin exiting 0 is considered working."""
+        with patch("setuptools_protobuf.subprocess.run") as run:
+            run.return_value = MagicMock(returncode=0, stderr=b"")
+            assert _protoc_plugin_works("/x/protoc-gen-mypy") is True
+
+    def test_plugin_module_not_found(self):
+        """Plugin failing with ModuleNotFoundError is considered broken."""
+        with patch("setuptools_protobuf.subprocess.run") as run:
+            run.return_value = MagicMock(
+                returncode=1,
+                stderr=(
+                    b"Traceback (most recent call last):\n"
+                    b'  File "/usr/bin/protoc-gen-mypy", line 5, in <module>\n'
+                    b"    from mypy_protobuf.main import main\n"
+                    b"ModuleNotFoundError: No module named 'mypy_protobuf'\n"
+                ),
+            )
+            assert _protoc_plugin_works("/x/protoc-gen-mypy") is False
+
+    def test_plugin_other_nonzero_exit_is_ok(self):
+        """A non-zero exit without an import error still counts as runnable."""
+        with patch("setuptools_protobuf.subprocess.run") as run:
+            run.return_value = MagicMock(
+                returncode=1,
+                stderr=b"protoc-gen-mypy: expected CodeGeneratorRequest on stdin\n",
+            )
+            assert _protoc_plugin_works("/x/protoc-gen-mypy") is True
+
+    def test_plugin_oserror(self):
+        """OSError while invoking the plugin counts as broken."""
+        with patch("setuptools_protobuf.subprocess.run", side_effect=OSError("boom")):
+            assert _protoc_plugin_works("/x/protoc-gen-mypy") is False
+
+    def test_plugin_timeout(self):
+        """A timeout counts as broken."""
+        with patch(
+            "setuptools_protobuf.subprocess.run",
+            side_effect=__import__("subprocess").TimeoutExpired(
+                cmd="protoc-gen-mypy", timeout=10
+            ),
+        ):
+            assert _protoc_plugin_works("/x/protoc-gen-mypy") is False
+
+
 class TestHasProtobuf(unittest.TestCase):
     """Test cases for the has_protobuf function."""
 
@@ -396,6 +484,133 @@ class TestLoadPyprojectConfig(unittest.TestCase):
         load_pyproject_config(dist, cfg)
 
         assert dist.protobufs[0].mypy is False
+
+
+class TestExpandProtobufPatterns(unittest.TestCase):
+    """Test cases for wildcard expansion and auto-discovery."""
+
+    def _make_tree(self, tmpdir: str) -> None:
+        """Populate ``tmpdir`` with a few .proto files and one non-proto."""
+        (Path(tmpdir) / "a.proto").write_text("")
+        (Path(tmpdir) / "b.proto").write_text("")
+        sub = Path(tmpdir) / "sub"
+        sub.mkdir()
+        (sub / "c.proto").write_text("")
+        (Path(tmpdir) / "not_a_proto.txt").write_text("")
+
+    def test_no_wildcards_passes_through(self):
+        """Non-wildcard entries are returned unchanged."""
+        result = _expand_protobuf_patterns(["a.proto", "b.proto"], None)
+        assert result == ["a.proto", "b.proto"]
+
+    def test_glob_expansion(self):
+        """A ``*.proto`` pattern expands to matching files in the root."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_tree(tmpdir)
+            orig_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                result = _expand_protobuf_patterns(["*.proto"], None)
+                assert result == ["a.proto", "b.proto"]
+            finally:
+                os.chdir(orig_cwd)
+
+    def test_recursive_glob(self):
+        """A ``**/*.proto`` pattern descends into subdirectories."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_tree(tmpdir)
+            orig_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                result = _expand_protobuf_patterns(["**/*.proto"], None)
+                assert result == ["a.proto", "b.proto", "sub/c.proto"]
+            finally:
+                os.chdir(orig_cwd)
+
+    def test_autodiscover_when_none(self):
+        """None means: discover every .proto under the search root."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_tree(tmpdir)
+            orig_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                result = _expand_protobuf_patterns(None, None)
+                assert result == ["a.proto", "b.proto", "sub/c.proto"]
+            finally:
+                os.chdir(orig_cwd)
+
+    def test_glob_relative_to_proto_path(self):
+        """Patterns are resolved relative to ``proto_path`` when set."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            protos = Path(tmpdir) / "protos"
+            protos.mkdir()
+            (protos / "x.proto").write_text("")
+            (protos / "y.proto").write_text("")
+            nested = protos / "n"
+            nested.mkdir()
+            (nested / "z.proto").write_text("")
+
+            result = _expand_protobuf_patterns(["**/*.proto"], str(protos))
+            assert result == ["n/z.proto", "x.proto", "y.proto"]
+
+    def test_autodiscover_relative_to_proto_path(self):
+        """Auto-discovery stays inside ``proto_path`` when set."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            protos = Path(tmpdir) / "protos"
+            protos.mkdir()
+            (protos / "x.proto").write_text("")
+            (Path(tmpdir) / "outside.proto").write_text("")
+
+            result = _expand_protobuf_patterns(None, str(protos))
+            assert result == ["x.proto"]
+
+    def test_dedup(self):
+        """A file listed both explicitly and via a glob appears only once."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_tree(tmpdir)
+            orig_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                result = _expand_protobuf_patterns(["a.proto", "*.proto"], None)
+                assert result == ["a.proto", "b.proto"]
+            finally:
+                os.chdir(orig_cwd)
+
+
+class TestLoadPyprojectConfigWildcards(unittest.TestCase):
+    """Test wildcard and auto-discovery support in load_pyproject_config."""
+
+    def test_wildcards_expanded(self):
+        """Wildcards in ``protobufs`` are expanded before Protobuf objects are built."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "one.proto").write_text("")
+            (Path(tmpdir) / "two.proto").write_text("")
+            orig_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                dist = Distribution()
+                load_pyproject_config(dist, {"protobufs": ["*.proto"]})
+                paths = sorted(pb.path for pb in dist.protobufs)
+                assert paths == ["one.proto", "two.proto"]
+            finally:
+                os.chdir(orig_cwd)
+
+    def test_missing_protobufs_autodiscovers(self):
+        """Omitting ``protobufs`` triggers recursive auto-discovery."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "one.proto").write_text("")
+            sub = Path(tmpdir) / "sub"
+            sub.mkdir()
+            (sub / "two.proto").write_text("")
+            orig_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                dist = Distribution()
+                load_pyproject_config(dist, {"mypy": False})
+                paths = sorted(pb.path for pb in dist.protobufs)
+                assert paths == ["one.proto", "sub/two.proto"]
+            finally:
+                os.chdir(orig_cwd)
 
 
 class TestPyprojecttomlConfig(unittest.TestCase):

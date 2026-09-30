@@ -1,4 +1,5 @@
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
+from chalk._gen.chalk.common.v1 import resources_pb2 as _resources_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -52,6 +53,8 @@ class CronQuery(_message.Message):
         "observed_at_lower_bound",
         "observed_at_upper_bound",
         "data_quality_check_specs",
+        "env_overrides",
+        "use_metaplanner",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -120,7 +123,7 @@ class CronQuery(_message.Message):
     input_sql: str
     unload_resolvers: _containers.RepeatedCompositeFieldContainer[_offline_query_pb2.UnloadResolverSpec]
     max_retries: int
-    resources: _offline_query_pb2.ResourceRequests
+    resources: _resources_pb2.ResourceRequests
     environment_override: str
     dataset_name: str
     write_to: _offline_query_pb2.OfflineQueryWriteTo
@@ -152,7 +155,7 @@ class CronQuery(_message.Message):
         input_sql: _Optional[str] = ...,
         unload_resolvers: _Optional[_Iterable[_Union[_offline_query_pb2.UnloadResolverSpec, _Mapping]]] = ...,
         max_retries: _Optional[int] = ...,
-        resources: _Optional[_Union[_offline_query_pb2.ResourceRequests, _Mapping]] = ...,
+        resources: _Optional[_Union[_resources_pb2.ResourceRequests, _Mapping]] = ...,
         environment_override: _Optional[str] = ...,
         dataset_name: _Optional[str] = ...,
         write_to: _Optional[_Union[_offline_query_pb2.OfflineQueryWriteTo, _Mapping]] = ...,

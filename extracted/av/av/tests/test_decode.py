@@ -10,6 +10,7 @@ import pytest
 
 import av
 from av.sidedata.encparams import VideoEncParams
+from av.sidedata.sidedata import Type
 from av.subtitles.subtitle import SubtitleSet
 
 from .common import TestCase, fate_suite
@@ -93,6 +94,24 @@ class TestDecode(TestCase):
 
         assert frame_count == video_stream.frames
 
+    def test_flushed_frames_keep_time_base(self) -> None:
+        # `decode()` with no packet has no packet to take the time base from;
+        # it must fall back to the one the container set on the context.
+        container = av.open(fate_suite("h264/interlaced_crop.mp4"))
+        stream = container.streams.video[0]
+        ctx = stream.codec_context
+        assert ctx is not None
+
+        for packet in container.demux(stream):
+            if packet.dts is None:  # the dummy flush packet
+                break
+            ctx.decode(packet)
+
+        flushed = ctx.decode()
+        assert flushed
+        for frame in flushed:
+            assert frame.time_base == stream.time_base
+
     def test_decode_audio_corrupt(self) -> None:
         # write an empty file
         path = self.sandboxed("empty.flac")
@@ -164,6 +183,24 @@ class TestDecode(TestCase):
             else:
                 assert vectors is not None and len(vectors) > 0
                 return
+
+    def test_motion_vector_index_bounds(self) -> None:
+        container = av.open(fate_suite("h264/interlaced_crop.mp4"))
+        stream = container.streams.video[0]
+        stream.codec_context.options = {"flags2": "+export_mvs"}
+
+        for frame in container.decode(stream):
+            vectors = frame.side_data.get("MOTION_VECTORS")
+            if vectors is None or not len(vectors):
+                continue
+
+            # Negative indices count from the end rather than reading off the
+            # front of the buffer.
+            assert vectors[-1].source == vectors[len(vectors) - 1].source
+            for bad in (len(vectors), -len(vectors) - 1, -(10**9)):
+                with pytest.raises(IndexError):
+                    vectors[bad]
+            return
 
     def test_decoded_motion_vectors_no_flag(self) -> None:
         container = av.open(fate_suite("h264/interlaced_crop.mp4"))
@@ -256,11 +293,48 @@ class TestDecode(TestCase):
         assert output_count < input_count
 
         for frame in video_stream.decode(None):
-            # The Frame._time_base is not set by PyAV
-            assert frame.time_base is None
+            # Flushing has no packet to take the time base from, so it comes
+            # from the context.
+            assert frame.time_base == video_stream.time_base
             output_count += 1
 
         assert output_count == input_count
+
+    def test_side_data_mapping_protocol(self) -> None:
+        container = av.open(fate_suite("h264/interlaced_crop.mp4"))
+        stream = container.streams.video[0]
+        stream.codec_context.options = {"flags2": "+export_mvs"}
+
+        for frame in container.decode(stream):
+            side_data = frame.side_data
+            if not len(side_data):
+                continue
+
+            # Iteration yields keys, so the Mapping mixins work off it.
+            keys = list(side_data)
+            assert all(isinstance(key, Type) for key in keys)
+            assert keys == list(side_data.keys())
+            assert len(keys) == len(side_data)
+            assert list(side_data.items()) == [(k, side_data[k]) for k in keys]
+            assert list(side_data.values()) == [side_data[k] for k in keys]
+            assert side_data == dict(side_data)
+            assert keys[0] in side_data
+
+            # Values stay reachable positionally.
+            assert side_data[0] is side_data[keys[0]]
+            assert list(side_data[:]) == list(side_data.values())
+            return
+
+    def test_side_data_type_unknown(self) -> None:
+        """A type only a newer FFmpeg names must not take Type() down."""
+        unknown = Type(1 << 20)
+        assert unknown.name == "UNKNOWN_1048576"
+        assert unknown.value == 1 << 20
+        assert Type(1 << 20) is unknown
+        assert "UNKNOWN_1048576" not in Type.__members__
+
+        with pytest.raises(ValueError):
+            Type("not a side data type")  # type: ignore[arg-type]
 
     def test_no_side_data(self) -> None:
         container = av.open(fate_suite("h264/interlaced_crop.mp4"))
@@ -301,6 +375,25 @@ class TestDecode(TestCase):
             frame_count += 1
 
         assert frame_count == video_stream.frames
+
+    def test_hardware_create_keeps_flags(self) -> None:
+        hwdevices_available = av.codec.hwaccel.hwdevices_available()
+        if "HWACCEL_DEVICE_TYPE" not in os.environ:
+            pytest.skip(
+                "Set the HWACCEL_DEVICE_TYPE to run this test. "
+                f"Options are {' '.join(hwdevices_available)}"
+            )
+
+        HWACCEL_DEVICE_TYPE = os.environ["HWACCEL_DEVICE_TYPE"]
+        assert HWACCEL_DEVICE_TYPE in hwdevices_available, (
+            f"{HWACCEL_DEVICE_TYPE} not available"
+        )
+
+        # AV_CUDA_USE_PRIMARY_CONTEXT. It is the only flag FFmpeg defines for
+        # device creation, and every other device type ignores it.
+        hwaccel = av.codec.hwaccel.HWAccel(device_type=HWACCEL_DEVICE_TYPE, flags=1)
+        created = hwaccel.create(av.Codec("h264", "r"))
+        assert created.flags == 1
 
 
 @pytest.mark.parametrize("is_hw_owned", [False, True])

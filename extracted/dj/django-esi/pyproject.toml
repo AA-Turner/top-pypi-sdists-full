@@ -31,11 +31,11 @@ classifiers = [
 ]
 dynamic = [ "description", "version" ]
 dependencies = [
-    "aiopenapi3>=0.10",
+    "aiopenapi3<0.11",
     "celery>=5.2,<6",
     "django>=5.2,<7",
     "django-redis>=5.2",
-    "httpx[brotli,http2,zstd]",
+    "httpx[brotli,http2,zstd]", # Python 3.14+ ships with zstd, does nothing if
     "python-jose>=3.3",
     "requests>=2.26",
     "requests-oauthlib>=0.8",

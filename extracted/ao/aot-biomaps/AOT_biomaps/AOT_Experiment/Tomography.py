@@ -379,35 +379,27 @@ class Tomography(Experiment):
 
     def select_angles(self, angles):
         """
-        Select acoustic fields and AO signals based on specified angles.
-
-        Parameters:
-            angles (list): List of angles to select.
+        Select acoustic fields and patterns based on specified angles.
+        Works even if AcousticFields or AO signals are None.
         """
-        newAcousticFields = []
+        if self.patterns is None:
+            raise ValueError("[AOT-biomaps] patterns is not initialized.")
+
         index = []
-        for i, field in enumerate(self.AcousticFields):
-            if field.angle in angles:
-                newAcousticFields.append(field)
+        for i, p in enumerate(self.patterns):
+            angle = get_angle(p["fileName"]) if "fileName" in p else p.get("angle")
+            if angle in angles:
                 index.append(i)
-        if self.AOsignal_withTumor is not None:
-            self.AOsignal_withTumor = self.AOsignal_withTumor[:, index]
-        if self.AOsignal_withoutTumor is not None:
-            self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, index]
-        self.AcousticFields = newAcousticFields
-        self.theta = [field.angle for field in newAcousticFields]
-        self.decimations = [field.f_s for field in newAcousticFields]
-        self.DelayLaw = [self.DelayLaw[i] for i in index]
-        self.ActiveList = [self.ActiveList[i] for i in index]
+
+        self._apply_selection_indices(index)
 
     def select_shifts(self, shifts):
         """
-        Select patterns based on their phase shift parameters.
-        Possible values for shifts: "0", "pi/2", "pi", "3pi/2" or "0", "90", "180", "270" (in degrees).
-
-        Parameters:
-            shifts (list): List of shift values to select.
+        Select patterns based on their phase shift parameters (in radians or degrees).
         """
+        if self.patterns is None:
+            raise ValueError("[AOT-biomaps] patterns is not initialized.")
+
         # Convert shifts to radians if needed
         shift_rads = []
         for shift in shifts:
@@ -421,95 +413,91 @@ class Tomography(Experiment):
             else:
                 shift_rads.append(shift)
 
-        newAcousticFields = []
+        n_piezos = self.params.acoustic['probe']['num_elements']
         index = []
-        for i, field in enumerate(self.AcousticFields):
-            phase = get_phase_deterministic(hex_to_binary_profile(field.get_name_field()[6:-4], self.params.acoustic['probe']['num_elements']))
-            if phase in shift_rads:
-                newAcousticFields.append(field)
-                index.append(i)
+        for i, p in enumerate(self.patterns):
+            hex_part = p["fileName"].split('_')[0] if "fileName" in p else None
+            if hex_part:
+                profile = hex_to_binary_profile(hex_part, n_piezos)
+                phase = get_phase_deterministic(profile)
+                if any(np.isclose(phase, sr, atol=1e-3) for sr in shift_rads):
+                    index.append(i)
 
-        if self.AOsignal_withTumor is not None:
-            self.AOsignal_withTumor = self.AOsignal_withTumor[:, index]
-        if self.AOsignal_withoutTumor is not None:
-            self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, index]
-
-        self.AcousticFields = newAcousticFields
-        self.theta = [field.angle for field in newAcousticFields]
-        self.decimations = [field.f_s for field in newAcousticFields]
-        self.DelayLaw = [self.DelayLaw[i] for i in index]
-        self.ActiveList = [self.ActiveList[i] for i in index]
+        self._apply_selection_indices(index)
 
     def select_decimations(self, decimations):
         """
-        Select acoustic fields and AO signals based on specified decimation factors.
-
-        Parameters:
-            decimations (list): List of decimation factors to select.
+        Select patterns based on decimation factors (spatial frequencies).
         """
-        newAcousticFields = []
+        if self.patterns is None:
+            raise ValueError("[AOT-biomaps] patterns is not initialized.")
+
+        n_piezos = self.params.acoustic['probe']['num_elements']
+        width = self.params.acoustic['probe']['element_width']
+        
         index = []
-        for i, field in enumerate(self.AcousticFields):
-            if field.f_s in decimations:
-                newAcousticFields.append(field)
-                index.append(i)
-        if self.AOsignal_withTumor is not None:
-            self.AOsignal_withTumor = self.AOsignal_withTumor[:, index]
-        if self.AOsignal_withoutTumor is not None:
-            self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, index]
-        self.AcousticFields = newAcousticFields
-        self.decimations = [field.f_s for field in newAcousticFields]
-        self.theta = [field.angle for field in newAcousticFields]
-        self.DelayLaw = [self.DelayLaw[i] for i in index]
-        self.ActiveList = [self.ActiveList[i] for i in index]
+        for i, p in enumerate(self.patterns):
+            if "fileName" in p:
+                f_s = get_frequency(p["fileName"], n_piezos, width)
+                if f_s in decimations:
+                    index.append(i)
+
+        self._apply_selection_indices(index)
 
     def select_patterns(self, pattern_names):
         """
-        Select acoustic fields and AO signals based on specified pattern names.
-
-        Parameters:
-            pattern_names (list): List of pattern names to select.
+        Select patterns based on a specified list of file names or identifiers.
         """
-        newAcousticFields = []
+        if self.patterns is None:
+            raise ValueError("[AOT-biomaps] patterns is not initialized.")
+
         index = []
-        for i, field in enumerate(self.AcousticFields):
-            if field.pattern.activeList in pattern_names:
-                newAcousticFields.append(field)
+        for i, p in enumerate(self.patterns):
+            fname = p.get("fileName")
+            if fname in pattern_names:
                 index.append(i)
+
+        self._apply_selection_indices(index)
+
+    def select_random(self, N):
+        """
+        Randomly select N patterns and associated data.
+        """
+        if self.patterns is None:
+            raise ValueError("[AOT-biomaps] patterns is not initialized.")
+        if N > len(self.patterns):
+            raise ValueError("[AOT-biomaps] N is larger than the number of available patterns.")
+
+        indices = np.random.choice(len(self.patterns), size=N, replace=False)
+        indices = sorted(indices.tolist())
+        self._apply_selection_indices(indices)
+
+    def _apply_selection_indices(self, index):
+        """
+        Internal method to filter all class attributes according to a list of indices.
+        Gracefully handles potentially None attributes.
+        """
+        # 1. Filter base pattern attributes
+        self.patterns = [self.patterns[i] for i in index]
+        self.theta = [self.theta[i] for i in index] if self.theta else []
+        self.decimations = [self.decimations[i] for i in index] if self.decimations else []
+        self.ActiveList = [self.ActiveList[i] for i in index] if self.ActiveList else []
+        self.DelayLaw = [self.DelayLaw[i] for i in index] if self.DelayLaw else []
+
+        # 2. Filter AcousticFields if initialized
+        if self.AcousticFields is not None:
+            if len(self.AcousticFields) >= max(index, default=-1) + 1:
+                self.AcousticFields = [self.AcousticFields[i] for i in index]
+            else:
+                self.AcousticFields = None
+                print("[AOT-biomaps] Warning: AcousticFields has been reset because indices no longer match.")
+
+        # 3. Filter AO signals if initialized
         if self.AOsignal_withTumor is not None:
             self.AOsignal_withTumor = self.AOsignal_withTumor[:, index]
         if self.AOsignal_withoutTumor is not None:
             self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, index]
-        self.AcousticFields = newAcousticFields
-        self.decimations = [field.f_s for field in newAcousticFields]
-        self.theta = [field.angle for field in newAcousticFields]
-        self.DelayLaw = [self.DelayLaw[i] for i in index]
-        self.ActiveList = [self.ActiveList[i] for i in index]
-
-    def select_random(self, N):
-        """
-        Randomly select N acoustic fields and corresponding AO signals.
-
-        Parameters:
-            N (int): Number of fields to select.
-
-        Raises:
-            ValueError: If N > number of available fields.
-        """
-        if N > len(self.AcousticFields):
-            raise ValueError("[AOT-biomaps] N is larger than the number of available AcousticFields.")
-        indices = np.random.choice(len(self.AcousticFields), size=N, replace=False)
-        newAcousticFields = [self.AcousticFields[i] for i in indices]
-        if self.AOsignal_withTumor is not None:
-            self.AOsignal_withTumor = self.AOsignal_withTumor[:, indices]
-        if self.AOsignal_withoutTumor is not None:
-            self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, indices]
-        self.AcousticFields = newAcousticFields
-        self.decimations = [field.f_s for field in newAcousticFields]
-        self.theta = [field.angle for field in newAcousticFields]
-        self.DelayLaw = [self.DelayLaw[i] for i in indices]
-        self.ActiveList = [self.ActiveList[i] for i in indices]
-
+            
     def _generate_patterns_from_decimations(self, decimations, angles):
         """
         Generate patterns from specified decimations and angles.

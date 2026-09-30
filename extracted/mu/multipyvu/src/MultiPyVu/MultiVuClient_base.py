@@ -93,9 +93,11 @@ class ClientBase():
             msg += f'(using {self.address}).'
             self._logger.info(msg)
             e.args = (msg,)
-            raise self.__exit__(*sys.exc_info())
+            self.__exit__(*sys.exc_info())
+            raise
         except BaseException:
-            raise self.__exit__(*sys.exc_info())
+            self.__exit__(*sys.exc_info())
+            raise
         self._logger.debug(f'MultiPyVu Version: {mpv_version}')
         self._logger.info(f'Starting connection to {self.address}')
         # send a request to the sever to confirm a connection
@@ -109,6 +111,8 @@ class ClientBase():
             msg = 'Failed to connect to the server'
             raise ServerCloseError(msg)
 
+        # _ClientMessage._process_start() rewrites this result to name
+        # the MultiVu flavor and version.
         self._logger.info(response['result'])
         self._instr = self._message.instr
         self.instrument_name = self._message.instr.name
@@ -127,7 +131,7 @@ class ClientBase():
         self._number_of_server_connections += 1
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_traceback) -> BaseException:
+    def __exit__(self, exc_type, exc_value, exc_traceback) -> bool:
         """
         Because this class is a context manager, this method is called when
         exiting the 'with' block.  It cleans up all of the connections and
@@ -199,7 +203,11 @@ class ClientBase():
 
         self._reset_client_state(send_close)
 
-        return exc_value
+        # False tells Python the exception was not handled here, so it
+        # keeps propagating.  Returning the exception itself is truthy,
+        # which told Python it had been dealt with and silently skipped
+        # the rest of the caller's 'with' block.
+        return False
 
     ###########################
     #  Client Methods
@@ -233,7 +241,7 @@ class ClientBase():
         # Add delay to allow socket TIME_WAIT state to resolve
         sleep(1)
 
-    def __close_and_exit(self) -> BaseException:
+    def __close_and_exit(self) -> bool:
         """
         calls the __exit__() method
         """
@@ -287,6 +295,27 @@ class ClientBase():
             return self._message.server_version
         else:
             return mpv_version
+
+    def get_multivu_version(self) -> str:
+        """
+        Returns the version number of the MultiVu the server is
+        connected to.
+
+        This is informational only.  Unlike the MultiPyVu version, the
+        MultiVu version is not required to match anything, so it is not
+        checked when the client connects.
+
+        Returns:
+        --------
+        str
+            The MultiVu version number.  This is an empty string if the
+            client is not connected, or if MultiVu did not supply the
+            information.
+        """
+        if self._message:
+            return self._message.mvu_version
+        else:
+            return ''
 
     def force_quit_server(self) -> str:
         """
@@ -482,8 +511,9 @@ class ClientBase():
             self._logger.debug(msg)
             request_dict = self._message.create_request(action, query)
             response_dict = self._message.send_and_receive(request_dict)
-        except MultiPyVuError as e:
-            raise self.__close_and_exit() from e
+        except MultiPyVuError:
+            self.__close_and_exit()
+            raise
         except ServerCloseError:
             self.__close_and_exit()
             raise

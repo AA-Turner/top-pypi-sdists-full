@@ -12,7 +12,7 @@ from contextlib import suppress
 from datetime import datetime, timedelta
 from enum import Enum
 from logging import NullHandler
-from typing import Final, Literal, Union, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Final, Literal, cast
 
 from psutil import pid_exists
 from public import public
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
 
-Interval = Union[timedelta, int]
+Interval = timedelta | int
 
 DEFAULT_LOCK_LIFETIME: Final = timedelta(seconds=15)
 # Allowable a bit of clock skew.
@@ -42,7 +42,7 @@ ERRORS: Final = (errno.ENOENT, errno.ESTALE)
 log = logging.getLogger('flufl.lock')
 
 # Install a null handler to avoid warnings when applications don't set their
-# own flufl.lock logger.  See http://docs.python.org/library/logging.html
+# own flufl.lock logger.  See https://docs.python.org/3/library/logging.html
 logging.getLogger('flufl.lock').addHandler(NullHandler())
 
 
@@ -217,7 +217,7 @@ class Lock:
             raise
         # Rearrange for signature.
         try:
-            lockfile, hostname, pid, random_ignored = filename.split(self._separator)
+            lockfile, hostname, pid, _random = filename.split(self._separator)
         except ValueError as error:
             raise NotLockedError('Details are unavailable') from error
         return hostname, int(pid), lockfile
@@ -231,7 +231,7 @@ class Lock:
         except FileNotFoundError:
             return LockState.unlocked
         try:
-            lockfile, hostname, pid_str, _random_ignored = filename.split(self._separator)
+            _lockfile, hostname, pid_str, _random = filename.split(self._separator)
             pid = int(pid_str)
         except (ValueError, TypeError):
             # The contents of the lock file is corrupt, so we can't know
@@ -617,11 +617,11 @@ class Lock:
         time.sleep(interval)
 
     def _now(self) -> datetime:
-        """Hook for subclasses to influence the clock lookup.
+        """Return the current time.
 
-        This is useful if you're synchronizing locks across NFS servers that
-        cannot properly synchronize their clocks.  Override to add any custom
-        necessary custom logic.
+        This is a hook subclasses can use to influence the current clock time lookup.  It is useful
+        if you're synchronizing locks across NFS servers that cannot properly synchronize their
+        clocks.  Override to add any necessary custom logic.
         """
         return datetime.now()
 

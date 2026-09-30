@@ -54,7 +54,7 @@ def sync_detailed(
     client: Union[AuthenticatedClient, Client],
     json_body: CreateInstanceDatatableRoleJsonBody,
 ) -> Response[CreateInstanceDatatableRoleResponse200]:
-    """create a data table role on the instance's Postgres cluster
+    """create a data table role on a Windmill-managed Postgres cluster
 
     Args:
         json_body (CreateInstanceDatatableRoleJsonBody):
@@ -83,7 +83,7 @@ def sync(
     client: Union[AuthenticatedClient, Client],
     json_body: CreateInstanceDatatableRoleJsonBody,
 ) -> Optional[CreateInstanceDatatableRoleResponse200]:
-    """create a data table role on the instance's Postgres cluster
+    """create a data table role on a Windmill-managed Postgres cluster
 
     Args:
         json_body (CreateInstanceDatatableRoleJsonBody):
@@ -107,7 +107,7 @@ async def asyncio_detailed(
     client: Union[AuthenticatedClient, Client],
     json_body: CreateInstanceDatatableRoleJsonBody,
 ) -> Response[CreateInstanceDatatableRoleResponse200]:
-    """create a data table role on the instance's Postgres cluster
+    """create a data table role on a Windmill-managed Postgres cluster
 
     Args:
         json_body (CreateInstanceDatatableRoleJsonBody):
@@ -134,7 +134,7 @@ async def asyncio(
     client: Union[AuthenticatedClient, Client],
     json_body: CreateInstanceDatatableRoleJsonBody,
 ) -> Optional[CreateInstanceDatatableRoleResponse200]:
-    """create a data table role on the instance's Postgres cluster
+    """create a data table role on a Windmill-managed Postgres cluster
 
     Args:
         json_body (CreateInstanceDatatableRoleJsonBody):

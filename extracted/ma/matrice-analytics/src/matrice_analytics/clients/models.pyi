@@ -1,6 +1,8 @@
 """Auto-generated stub for module: models."""
 from typing import Any
 
+from .transport import _report_failure
+
 # Constants
 Bool: Any
 Float: Any
@@ -12,6 +14,41 @@ Str: Any
 StrList: Any
 
 # Functions
+def build_detection(payload: Any[str, Any] | None = None, **fields: Any) -> Any:
+    """
+    A :class:`CreateDetectionRequest` from a mapping or from keywords.
+    """
+    ...
+def build_people_activity(payload: Any[str, Any] | None = None, **fields: Any) -> Any:
+    """
+    A :class:`PeopleActivityRequest` from a mapping or from keywords.
+    """
+    ...
+def build_service_shutdown(payload: Any[str, Any] | None = None, **fields: Any) -> Any:
+    """
+    A :class:`ServiceShutdownRequest` from a mapping or from keywords.
+    """
+    ...
+def build_similar_face_search(payload: Any[str, Any] | None = None, **fields: Any) -> Any:
+    """
+    A :class:`SimilarFaceSearchRequest` from a mapping or from keywords.
+    """
+    ...
+def build_staff_enroll(payload: Any[str, Any] | None = None, **fields: Any) -> Any:
+    """
+    A :class:`StaffEnrollRequest` from a mapping or from keywords.
+    """
+    ...
+def build_staff_image_update(payload: Any[str, Any] | None = None, **fields: Any) -> Any:
+    """
+    A :class:`StaffImageUpdateRequest` from a mapping or from keywords.
+    """
+    ...
+def build_unknown_person_enroll(payload: Any[str, Any] | None = None, **fields: Any) -> Any:
+    """
+    An :class:`UnknownPersonEnrollRequest` from a mapping or from keywords.
+    """
+    ...
 def looks_like_object_id(value: Any) -> bool:
     """
     True when ``value`` is 24 hex characters, the shape of a Mongo id.
@@ -306,11 +343,16 @@ class StaffImageUpdateResult:
 class UnknownPersonEnrollRequest:
     # Endpoint 21 -- ``POST /v1/facial_recognition/enroll_unknown_person``.
     #
-    #     UNVERIFIED: no published schema.
+    #     UNVERIFIED: no published schema. What this route accepts cannot be checked from here;
+    #     what it has been receiving can, and that is what these defaults reproduce.
     #
-    #     ``timestamp`` is unlike the other optional fields: the caller substitutes the
-    #     current UTC time when none is given, so it is always sent. ``image_source`` and
-    #     ``location`` are omitted when empty.
+    #     ``timestamp`` is unlike the other optional fields: it is **always sent**, so the
+    #     default has to be a usable value rather than a blank. ``exclude_none`` drops ``None``
+    #     and keeps ``""``, so a default of ``""`` would not omit the key -- it would put an
+    #     empty string on the wire, which the sidecar cannot tell from a deliberate blank. The
+    #     factory generates the same value the caller would have had to remember to pass, which
+    #     is why it lives here and not in a docstring asking them to. A caller who supplies one
+    #     is not overridden. ``image_source`` and ``location`` are omitted when empty.
 
     ...
 class UnknownPersonEnrollResult:

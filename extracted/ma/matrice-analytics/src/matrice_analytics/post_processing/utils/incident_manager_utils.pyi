@@ -2,6 +2,10 @@
 from typing import Any, Dict, List, Optional, Set
 
 from ...analytics.engine_session import resolve_camera_fields_from_stream_info
+from ...clients import identity
+from ...clients.analytics_client import AnalyticsClient
+from ...clients.bootstrap import get_action_id
+from ...clients.response import CallFailure
 from .incident_res_format import _pick_str, build_incident_res_message
 from .incident_res_format import is_valid_incident_end_time, normalize_incident_timestamp, utc_now_iso_z
 from .incident_res_format import utc_now_iso_z
@@ -21,6 +25,7 @@ DEFAULT_THRESHOLDS: List[Any]
 LOITERING_DEFAULT_THRESHOLDS: List[Any]
 OVERCROWDING_DEFAULT_THRESHOLDS: List[Any]
 SEVERITY_LEVELS: List[Any]
+SPEEDING_DEFAULT_THRESHOLDS: List[Any]
 WEAPON_DEFAULT_THRESHOLDS: List[Any]
 
 # Functions
@@ -169,9 +174,17 @@ class IncidentManagerFactory:
     # Handles session initialization and Redis/Kafka client creation
     # following the same pattern as license_plate_monitoring.py.
 
-    def __init__(self: Any, logger: Optional[Any.Any] = None) -> None: ...
-
-    ACTION_ID_PATTERN: Any
+    def __init__(self: Any, logger: Optional[Any.Any] = None, client: Optional[Any] = None) -> None:
+        """
+        Args:
+            logger: Python logger instance.
+            client: The platform client to make calls through. Optional: absent it, one is
+                built on the session this factory already resolves, so a caller that passes
+                nothing sends exactly the requests it sent before. It exists so a test can
+                drive this class without a platform, and so a caller that already holds a
+                client does not open a second session.
+        """
+        ...
 
     def incident_manager(self: Any) -> Optional[Any]: ...
 

@@ -50,6 +50,7 @@ from typing import Any
 from uuid import UUID
 
 from matrx_utils import vcprint
+from matrx_utils.row_access import is_published, publish_columns, reconcile_row_access
 
 _YAML_FENCE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
@@ -207,7 +208,7 @@ class ParsedSkill:
         "version",
         "source_hash",
         "source_path",
-        "visibility",
+        "published_to_web",
         "ingested_from",
         "extra_config",
         "parent_ref",
@@ -229,7 +230,7 @@ class ParsedSkill:
         version: str | None,
         source_hash: str,
         source_path: str,
-        visibility: str | None = None,
+        published_to_web: bool | None = None,
         ingested_from: str | None = None,
         extra_config: dict[str, Any] | None = None,
         parent_ref: dict[str, str] | None = None,
@@ -249,8 +250,8 @@ class ParsedSkill:
         self.source_path = source_path
         # Optional per-skill overrides used by non-repo sources (outside skill
         # packs, see ``packs.py``). ``None`` keeps the repo-mirror defaults:
-        # visibility ``internal`` and ``ingested_from`` derived from the path.
-        self.visibility = visibility
+        # not published to the web and ``ingested_from`` derived from the path.
+        self.published_to_web = published_to_web
         self.ingested_from = ingested_from
         self.extra_config = dict(extra_config or {})
         # The skill this one derives from (``skill.definition.parent_skill_id``),
@@ -895,7 +896,7 @@ def walk_paths(
 #
 #   * 143 ``render_block`` rows (the kind/content-IR catalog, DB-native).
 #   * hand-authored ``reference`` rows the platform serves to agents —
-#     ``credential-login`` (the canonical Vault sign-in flow, visibility=public),
+#     ``credential-login`` (the canonical Vault sign-in flow, published to the web),
 #     ``cms-authoring``, ``content-plan-actions``, ``pronunciation-authoring``,
 #     ``flashcard-generation``, ``matrx-db-canonical-data-model``.
 #   * ``workflow`` rows authored in the skill editor.
@@ -903,7 +904,7 @@ def walk_paths(
 # A repo folder can carry the SAME skill_id as one of those rows —
 # ``aidream/.claude/skills/credential-login/`` is exactly that case. Before this
 # guard, ingesting it would have overwritten the live row's body, replaced its
-# whole ``config``, and flipped visibility public → internal, because the only
+# whole ``config``, and unpublished it, because the only
 # lookup key was ``skill_id``.
 #
 # So: a row is ingest-owned ONLY when it already carries ``config.ingested_from``.
@@ -939,13 +940,6 @@ def _source_repo(source_path: str) -> str | None:
         head = norm[:idx]
         return head.rsplit("/", 1)[-1] or None
     return None
-
-
-def _enum_value(value: Any) -> str | None:
-    """ORM enums stringify as ``Class.MEMBER``; compare on ``.value``."""
-    if value is None:
-        return None
-    return str(getattr(value, "value", value))
 
 
 def resolve_parent_ref(ref: dict[str, str], rows: list[Any]) -> str:
@@ -1074,10 +1068,27 @@ async def ingest_filesystem(
     )
 
 
+def declared_published_to_web(raw: dict[str, Any], where: str) -> bool:
+    """A declared source's web lane: ``published_to_web: true|false`` (absent = not published).
+
+    A manifest that still names the retiring single level word is reconciled —
+    and logged by name — never refused; an unknown word raises ``ValueError``.
+    """
+    if "published_to_web" in raw:
+        value = raw["published_to_web"]
+        if not isinstance(value, bool):
+            raise ValueError(f"{where}: published_to_web must be true or false, got {value!r}")
+        return value
+    legacy = raw.get("visibility")  # T-13 transitional wire input (older manifests)
+    if legacy is None:
+        return False
+    return reconcile_row_access(legacy_level=str(legacy), boundary=where).published_to_web
+
+
 async def ensure_skill_category(
     category: dict[str, Any],
     *,
-    visibility: str,
+    published_to_web: bool,
     extra_metadata: dict[str, Any],
     admin_user_id: str,
     dry_run: bool,
@@ -1088,11 +1099,11 @@ async def ensure_skill_category(
     Shared by every declared source (outside packs, platform library sets).
     Mirrors the existing platform skill categories: system organization,
     ``dimension='skill'``, and ``metadata.is_active`` / ``metadata.category_key``
-    (what the library UI reads). The category's own ``visibility`` column is the
-    declared visibility — the column defaults to ``internal``, and a public skill
-    under an internal category was hidden-by-default while its metadata claimed
-    ``public`` (2026-09-27). An existing category is never rewritten, except that
-    a visibility differing from the declared one is reconciled.
+    (what the library UI reads). The category's own ``published_to_web`` column is
+    the declared web lane, always written explicitly — a published skill under an
+    unpublished category was hidden-by-default while its metadata claimed public
+    (2026-09-27). An existing category is never rewritten, except that a web lane
+    differing from the declared one is reconciled.
     """
     from matrx_orm.session.fallback import SYSTEM_ORGANIZATION_ID
 
@@ -1105,15 +1116,15 @@ async def ensure_skill_category(
     ]
     if existing:
         row = existing[0]
-        current = str(getattr(getattr(row, "visibility", None), "value", getattr(row, "visibility", None)))
-        if current != visibility:
+        current = is_published(row)
+        if current != published_to_web:
             if not dry_run:
-                await cat_mgr.update_item(str(row.id), visibility=visibility)
+                await cat_mgr.update_item(str(row.id), **publish_columns(published_to_web, admin_user_id))
             return {
                 "slug": slug,
-                "status": "would_fix_visibility" if dry_run else "visibility_fixed",
+                "status": "would_fix_published_to_web" if dry_run else "published_to_web_fixed",
                 "id": str(row.id),
-                "visibility": f"{current} -> {visibility}",
+                "published_to_web": f"{current} -> {published_to_web}",
             }
         return {"slug": slug, "status": "exists", "id": str(row.id)}
     if dry_run:
@@ -1121,7 +1132,7 @@ async def ensure_skill_category(
     created = await cat_mgr.create_item(
         organization_id=SYSTEM_ORGANIZATION_ID,
         dimension="skill",
-        visibility=visibility,
+        **publish_columns(published_to_web, admin_user_id),
         name=str(category["name"]),
         slug=slug,
         icon=category.get("icon"),
@@ -1130,7 +1141,6 @@ async def ensure_skill_category(
         created_by=admin_user_id,
         metadata={
             "is_active": True,
-            "visibility": visibility,
             "description": str(category.get("description") or "").strip(),
             "category_key": slug,
             **extra_metadata,
@@ -1248,7 +1258,7 @@ async def upsert_parsed_skills(
                 entry["id"] = str(row.id)
                 entry["reason"] = (
                     f"DB-native row (skill_type={getattr(row, 'skill_type', '?')}, "
-                    f"visibility={getattr(row, 'visibility', '?')}) carries no "
+                    f"published_to_web={getattr(row, 'published_to_web', '?')}) carries no "
                     f"config.ingested_from — not a repo mirror. Pass adopt=True to claim it."
                 )
                 vcprint(
@@ -1312,15 +1322,14 @@ async def upsert_parsed_skills(
                 "category_id": category_id,
                 "is_system": is_system,
                 # Filesystem-ingested skills are admin/dev tooling, never
-                # the same catalog end users get — force `internal` on every
-                # write (create AND update) so a row can't stay/become
-                # publicly visible just because it happened to exist with
-                # visibility='public' before this ingest run touched it.
-                # Promoting a skill to user-facing is a deliberate, separate
-                # admin action via the skill editor, not an ingest side effect.
-                # An outside pack declares its own visibility deliberately in
-                # its reviewed manifest (``packs.py``); a repo mirror never can.
-                "visibility": p.visibility or "internal",
+                # the same catalog end users get — ``published_to_web`` is
+                # written on every write (create AND update, below) so a row
+                # can't stay/become published just because it happened to be
+                # published before this ingest run touched it. Promoting a
+                # skill to user-facing is a deliberate, separate admin action
+                # via the skill editor, not an ingest side effect. An outside
+                # pack declares its own web lane deliberately in its reviewed
+                # manifest (``packs.py``); a repo mirror never can.
                 "is_active": True,
                 "created_by": admin_id,
                 # Only a source that declares a parent writes the column (None is
@@ -1329,6 +1338,11 @@ async def upsert_parsed_skills(
             }
             # Drop None values that would violate FK constraints.
             row_data = {k: v for k, v in row_data.items() if v is not None}
+            want_published = bool(p.published_to_web)
+            if row is None or is_published(row) != want_published:
+                row_data.update(publish_columns(want_published, admin_id))
+            else:
+                row_data["published_to_web"] = want_published
 
             if row is not None:
                 entry["id"] = str(row.id)
@@ -1348,7 +1362,7 @@ async def upsert_parsed_skills(
                     and existing_cfg.get("ingested_at")
                     and existing_cfg.get("source_repo")
                     and all(existing_cfg.get(k) == v for k, v in p.extra_config.items())
-                    and _enum_value(getattr(row, "visibility", None)) == (p.visibility or "internal")
+                    and is_published(row) == bool(p.published_to_web)
                     and (
                         parent_id is None
                         or str(getattr(row, "parent_skill_id", None) or "") == parent_id

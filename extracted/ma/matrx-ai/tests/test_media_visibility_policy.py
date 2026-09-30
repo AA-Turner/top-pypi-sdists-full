@@ -1,14 +1,14 @@
-"""Regression tests for the born-durable media visibility policy (frontend D1).
+"""Regression tests for the born-durable media publishing policy (frontend D1).
 
-Guards the bug where agent-generated chat audio was persisted
-``visibility="personal"``, so the FE received an expiring signed S3 URL that
+Guards the bug where agent-generated chat audio was persisted unpublished
+(shown only to its maker), so the FE received an expiring signed S3 URL that
 silently broke playback days later.
 
 Invariants locked in:
-  - feature="ai_audio" with no explicit visibility → born PUBLIC (durable CDN)
-  - every other feature with no explicit visibility → stays PRIVATE
+  - feature="ai_audio" with no explicit ``published_to_web`` → born PUBLISHED (durable CDN)
+  - every other feature with no explicit ``published_to_web`` → stays unpublished
     (flipping images/video/documents public would be a privacy regression)
-  - an explicit ``visibility=`` argument always wins over the feature default
+  - an explicit ``published_to_web=`` argument always wins over the feature default
 
 Plus the ``public_media_scope()`` half (2026-08-11): a PUBLISHING pipeline opts
 its own media fan-out into born-public persistence, because a feature can be
@@ -29,23 +29,29 @@ from matrx_ai.media.media_persistence import (
     BORN_PUBLIC_FEATURES,
     public_media_scope,
     public_media_scope_active,
-    resolve_default_visibility,
+    resolve_published_to_web,
+    resolve_shown_to,
 )
 
 
 def test_ai_audio_is_born_public() -> None:
-    assert resolve_default_visibility("ai_audio", None) == "public"
+    assert resolve_published_to_web("ai_audio", None) is True
 
 
 def test_non_audio_features_stay_private() -> None:
     for feature in ("ai_images", "ai_video", "ai_documents", "unknown_feature", ""):
-        assert resolve_default_visibility(feature, None) == "personal", feature
+        assert resolve_published_to_web(feature, None) is False, feature
 
 
-def test_explicit_visibility_always_wins() -> None:
-    assert resolve_default_visibility("ai_audio", "personal") == "personal"
-    assert resolve_default_visibility("ai_audio", "shared") == "shared"
-    assert resolve_default_visibility("ai_images", "public") == "public"
+def test_explicit_published_to_web_always_wins() -> None:
+    assert resolve_published_to_web("ai_audio", False) is False
+    assert resolve_published_to_web("ai_images", True) is True
+
+
+def test_unpublished_media_is_shown_only_to_its_maker() -> None:
+    assert resolve_shown_to(False, None) == "only_me"
+    assert resolve_shown_to(True, None) is None  # the type's knob decides
+    assert resolve_shown_to(False, "my_team") == "my_team"
 
 
 def test_born_public_scope_is_audio_only() -> None:
@@ -61,9 +67,9 @@ def test_born_public_scope_is_audio_only() -> None:
 
 def test_scope_makes_images_and_video_born_public() -> None:
     for feature in ("ai_images", "ai_video", "ai_documents", "anything"):
-        assert resolve_default_visibility(feature, None) == "personal", feature
+        assert resolve_published_to_web(feature, None) is False, feature
         with public_media_scope():
-            assert resolve_default_visibility(feature, None) == "public", feature
+            assert resolve_published_to_web(feature, None) is True, feature
 
 
 def test_scope_does_not_leak_after_exit() -> None:
@@ -71,7 +77,7 @@ def test_scope_does_not_leak_after_exit() -> None:
     with public_media_scope():
         assert public_media_scope_active()
     assert not public_media_scope_active()
-    assert resolve_default_visibility("ai_images", None) == "personal"
+    assert resolve_published_to_web("ai_images", None) is False
 
 
 def test_scope_restores_on_exception() -> None:
@@ -81,11 +87,11 @@ def test_scope_restores_on_exception() -> None:
     assert not public_media_scope_active()
 
 
-def test_explicit_visibility_beats_the_scope() -> None:
+def test_explicit_unpublished_beats_the_scope() -> None:
     # The privacy escape hatch: a caller inside a publishing pipeline that
     # KNOWS an asset must stay private can still say so.
     with public_media_scope():
-        assert resolve_default_visibility("ai_images", "personal") == "personal"
+        assert resolve_published_to_web("ai_images", False) is False
 
 
 def test_scope_is_inherited_by_tasks_created_inside_it() -> None:
@@ -96,19 +102,19 @@ def test_scope_is_inherited_by_tasks_created_inside_it() -> None:
     it must still see the scope when it actually persists its image.
     """
 
-    async def _seen() -> str:
+    async def _seen() -> bool:
         await asyncio.sleep(0)
-        return resolve_default_visibility("ai_images", None)
+        return resolve_published_to_web("ai_images", None)
 
-    async def _run() -> tuple[str, str]:
+    async def _run() -> tuple[bool, bool]:
         with public_media_scope():
             inside = asyncio.create_task(_seen())
         outside = asyncio.create_task(_seen())
         return await inside, await outside
 
     inside, outside = asyncio.run(_run())
-    assert inside == "public"
-    assert outside == "personal"
+    assert inside is True
+    assert outside is False
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-quickjs
-Version: 0.3.7
+Version: 0.3.8
 Summary: JavaScript REPL middleware for deepagents
 Project-URL: Homepage, https://github.com/langchain-ai/deepagents/tree/main/libs/partners/quickjs
 Project-URL: Repository, https://github.com/langchain-ai/deepagents
@@ -18,15 +18,15 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <4.0,>=3.11
 Requires-Dist: bsdiff4<2.0.0,>=1.2.6
 Requires-Dist: deepagents<0.8.0,>=0.7.0
-Requires-Dist: langchain-core<2.0.0,>=1.6.1
-Requires-Dist: langchain<2.0.0,>=1.4.0
-Requires-Dist: langgraph<2.0.0,>=1.2.11
+Requires-Dist: langchain-core<2.0.0,>=1.6.6
+Requires-Dist: langchain<2.0.0,>=1.4.3
+Requires-Dist: langgraph<2.0.0,>=1.2.12
 Requires-Dist: quickjs-rs<0.3.0,>=0.2.5
 Description-Content-Type: text/markdown
 
 # langchain-quickjs
 
-A [`deepagents`](../deepagents) middleware that gives an agent a persistent, sandboxed **JavaScript REPL** tool, backed by [`quickjs-rs`](../../../quickjs-wasm) (QuickJS embedded via PyO3 + rquickjs).
+A [`deepagents`](../../deepagents) middleware that gives an agent a persistent, sandboxed **JavaScript REPL** tool, backed by `quickjs-rs` (QuickJS embedded via PyO3 + rquickjs).
 
 Instead of issuing N serial tool calls, the model can write one block of JavaScript that orchestrates work in-loop — variables and functions defined in one call survive into the next, `Promise.all` runs concurrent work, configured subagents are dispatchable as `await task({...})`, and (opt-in) agent tools are callable from inside the REPL as `await tools.<name>(...)`.
 

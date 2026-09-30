@@ -23,14 +23,29 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeploymentScalingTargetSleepIdleDelay(BaseModel):
     """
     DeploymentScalingTargetSleepIdleDelay
-    """ # noqa: E501
-    value: Optional[StrictInt] = Field(default=None, description="DEPRECATED: use deep_sleep_value instead. Delay in seconds after which a service which received 0 request is put to deep sleep.")
-    deep_sleep_value: Optional[StrictInt] = Field(default=None, description="Delay in seconds after which a service which received 0 request is put to deep sleep.")
-    light_sleep_value: Optional[StrictInt] = Field(default=None, description="Delay in seconds after which a service which received 0 request is put to light sleep.")
-    __properties: ClassVar[List[str]] = ["value", "deep_sleep_value", "light_sleep_value"]
+    """  # noqa: E501
+
+    value: Optional[StrictInt] = Field(
+        default=None,
+        description="DEPRECATED: use deep_sleep_value instead. Delay in seconds after which a service which received 0 request is put to deep sleep.",
+    )
+    deep_sleep_value: Optional[StrictInt] = Field(
+        default=None,
+        description="Delay in seconds after which a service which received 0 request is put to deep sleep.",
+    )
+    light_sleep_value: Optional[StrictInt] = Field(
+        default=None,
+        description="Delay in seconds after which a service which received 0 request is put to light sleep.",
+    )
+    __properties: ClassVar[List[str]] = [
+        "value",
+        "deep_sleep_value",
+        "light_sleep_value",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -38,7 +53,6 @@ class DeploymentScalingTargetSleepIdleDelay(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,8 +77,7 @@ class DeploymentScalingTargetSleepIdleDelay(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -82,11 +95,11 @@ class DeploymentScalingTargetSleepIdleDelay(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "value": obj.get("value"),
-            "deep_sleep_value": obj.get("deep_sleep_value"),
-            "light_sleep_value": obj.get("light_sleep_value")
-        })
+        _obj = cls.model_validate(
+            {
+                "value": obj.get("value"),
+                "deep_sleep_value": obj.get("deep_sleep_value"),
+                "light_sleep_value": obj.get("light_sleep_value"),
+            }
+        )
         return _obj
-
-

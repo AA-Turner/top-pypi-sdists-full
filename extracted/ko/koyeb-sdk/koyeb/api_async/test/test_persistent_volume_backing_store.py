@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.persistent_volume_backing_store import PersistentVolumeBackingStore
+from koyeb.api_async.models.persistent_volume_backing_store import (
+    PersistentVolumeBackingStore,
+)
+
 
 class TestPersistentVolumeBackingStore(unittest.TestCase):
     """PersistentVolumeBackingStore unit test stubs"""
@@ -29,5 +32,6 @@ class TestPersistentVolumeBackingStore(unittest.TestCase):
         """Test PersistentVolumeBackingStore"""
         # inst = PersistentVolumeBackingStore()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

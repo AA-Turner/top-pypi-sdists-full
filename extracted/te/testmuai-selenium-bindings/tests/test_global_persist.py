@@ -20,6 +20,7 @@ import requests
 
 from testmu_selenium import _config
 from testmu_selenium._vars import (
+    _atms_get_variable,
     set_var,
     var,
     clear_state,
@@ -189,3 +190,49 @@ class TestGlobalSetVarResolvesBareReference:
         monkeypatch.setattr(_config, "lt_auth", False)
         set_var("global.js_randomInt", "NEW")
         assert var("{{js_randomInt}}") == "NEW"
+
+
+# ---------------------------------------------------------------------------
+# The ATMS lookup must carry variable_type
+#
+# Without it ATMS can resolve a name to the WRONG scope's value when the same
+# name exists as both a regular and an environment variable (1800flowers.com:
+# "Issue with environment variables").
+# ---------------------------------------------------------------------------
+
+class TestAtmsLookupCarriesVariableType:
+    def _capture_url(self, monkeypatch, **kwargs):
+        seen = {}
+
+        class _Resp:
+            status_code = 200
+            text = "{}"
+
+            @staticmethod
+            def json():
+                return {"data": {"value": "v", "is_persist": True}}
+
+        def _fake_get(url, headers=None, timeout=None, **_kw):
+            seen["url"] = url
+            return _Resp()
+
+        import requests
+        monkeypatch.setattr(requests, "get", _fake_get)
+        _atms_get_variable("api_key", **kwargs)
+        return seen["url"]
+
+    def test_variable_type_is_sent(self, monkeypatch):
+        url = self._capture_url(monkeypatch, environment_id=7)
+        assert "variable_type=variable" in url
+
+    def test_environment_id_is_still_sent(self, monkeypatch):
+        url = self._capture_url(monkeypatch, environment_id=7)
+        assert "environment_id=7" in url
+
+    def test_both_params_are_on_the_query_string(self, monkeypatch):
+        url = self._capture_url(monkeypatch, environment_id=0)
+        assert url.endswith("?environment_id=0&variable_type=variable"), url
+
+    def test_type_is_overridable_without_touching_the_url_builder(self, monkeypatch):
+        url = self._capture_url(monkeypatch, environment_id=1, variable_type="environment")
+        assert "variable_type=environment" in url

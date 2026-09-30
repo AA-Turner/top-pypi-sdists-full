@@ -4,10 +4,72 @@ pytest.importorskip('playwright')
 
 from panel import Column
 from panel.tests.util import serve_component, wait_until
-from panel_material_ui.widgets import MultiSelect, NestedSelect, Select
 from playwright.sync_api import expect
 
+from panel_material_ui.widgets import CheckButtonGroup, CrossSelector, MultiSelect, NestedSelect, RadioButtonGroup, Select
+
 pytestmark = pytest.mark.ui
+
+
+def test_radio_button_group_classic_variant(page):
+    """Classic solid and outline styles render differently on selected buttons."""
+    widget = RadioButtonGroup(options=['A', 'B'], value='A', variant='solid')
+    serve_component(page, widget)
+    selected = page.locator('.MuiToggleButton-root.Mui-selected')
+    expect(selected).to_have_css('background-color', 'rgb(25, 118, 210)')
+    widget.variant = 'outlined'
+    expect(selected).not_to_have_css('background-color', 'rgb(25, 118, 210)')
+
+
+def test_radio_button_group_active_jslink(page):
+    """Clicking a Material radio button updates active on the client for jslink."""
+    from panel.widgets import IntInput
+
+    widget = RadioButtonGroup(options=['A', 'B'], value='A')
+    target = IntInput(value=0)
+    widget.jslink(target, active='value')
+    serve_component(page, Column(widget, target))
+
+    page.get_by_role('button', name='B').click()
+    expect(page.locator('input.bk-input')).to_have_value('1')
+    wait_until(lambda: widget.active == 1, page)
+
+
+def test_check_button_group_active_jslink(page):
+    """Non-exclusive selections update the active index list in JavaScript."""
+    from panel.widgets import TextInput
+
+    widget = CheckButtonGroup(options=['A', 'B', 'C'], value=['C'])
+    target = TextInput(value='2')
+    widget.jslink(target, code={'active': 'target.value = source.active.join(",")'})
+    serve_component(page, Column(widget, target))
+
+    page.get_by_role('button', name='A').click()
+    expect(page.locator('input.bk-input')).to_have_value('0,2')
+    wait_until(lambda: widget.active == [0, 2], page)
+
+    page.get_by_role('button', name='C').click()
+    expect(page.locator('input.bk-input')).to_have_value('0')
+    wait_until(lambda: widget.active == [0], page)
+
+
+def test_cross_selector_custom_filter_and_selection_order(page):
+    """Server-side search uses filter_fn; selection order can differ from option order."""
+    widget = CrossSelector(
+        options={'Alpha': 1, 'Beta': 2, 'Alpine': 3}, definition_order=False,
+        filter_fn=lambda query, label: label.startswith(query),
+    )
+    serve_component(page, widget)
+    left = page.get_by_role('list').first
+    right = page.get_by_role('list').last
+    left.get_by_text('Beta').click()
+    page.get_by_role('button', name='move selected right').click()
+    left.get_by_text('Alpha').click()
+    page.get_by_role('button', name='move selected right').click()
+    expect(right.get_by_role('listitem')).to_have_text(['Beta', 'Alpha'])
+
+    page.get_by_placeholder('Search...').first.fill('Al')
+    expect(left.get_by_role('listitem')).to_have_text(['Alpine'])
 
 
 @pytest.mark.parametrize('variant', ["filled", "outlined", "standard"])
@@ -35,6 +97,17 @@ def test_select_disabled_options(page):
     page.locator(".select").click(force=True)
     expect(page.locator(".MuiMenuItem-root")).to_have_count(3)
     expect(page.locator(".MuiMenuItem-root.Mui-disabled")).to_have_text("Option 2")
+
+@pytest.mark.parametrize('kwargs', [
+    {'options': {'Label A': 'a', 'Label B': 'b'}},
+    {'groups': {'Group': {'Label A': 'a', 'Label B': 'b'}}},
+])
+def test_select_dict_disabled_options(page, kwargs):
+    widget = Select(label='Select test', disabled_options=['b'], **kwargs)
+    serve_component(page, widget)
+
+    page.locator(".select").click(force=True)
+    expect(page.locator(".MuiMenuItem-root.Mui-disabled")).to_have_text("Label B")
 
 def test_select_basic_functionality(page):
     widget = Select(label='Select test', options=["Option 1", "Option 2", "Option 3"])
@@ -95,6 +168,47 @@ def test_select_groups(page):
     # Select option from second group
     page.locator(".MuiMenuItem-root").nth(3).click()
     wait_until(lambda: widget.value == "Option 4", page)
+
+def test_select_groups_dict_labels(page):
+    widget = Select(
+        label='Select test',
+        groups={
+            "Group 1": {"Label A": "a", "Label B": "b"},
+            "Group 2": {"Label C": "c"},
+        }
+    )
+    serve_component(page, widget)
+
+    page.locator(".select").click()
+
+    items = page.locator(".MuiMenuItem-root")
+    expect(items).to_have_text(["Label A", "Label B", "Label C"])
+
+    items.nth(2).click()
+    wait_until(lambda: widget.value == "c", page)
+    expect(page.locator(".select")).to_contain_text("Label C")
+
+def test_select_groups_searchable(page):
+    widget = Select(
+        label='Select test',
+        groups={
+            "Group 1": {"Apple": "a", "Banana": "b"},
+            "Group 2": {"Cherry": "c", "Apricot": "d"},
+        },
+        searchable=True,
+        filter_on_search=True,
+    )
+    serve_component(page, widget)
+
+    page.locator(".select").click()
+    page.locator("input[placeholder='Search...']").fill("ap")
+
+    items = page.locator(".MuiMenuItem-root[data-matched]")
+    expect(items).to_have_text(["Apple", "Apricot"])
+    expect(page.locator(".MuiListSubheader-root")).to_have_text(["Group 1", "Group 2"])
+
+    items.nth(1).click()
+    wait_until(lambda: widget.value == "d", page)
 
 @pytest.mark.parametrize('color', ["primary", "secondary", "error", "info", "success", "warning"])
 def test_select_colors(page, color):

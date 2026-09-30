@@ -119,7 +119,15 @@ def input_value(
             return
 
         # Element path.
-        _clear(driver, element)
+        #
+        # Skip _clear() when the field is ALREADY empty. _clear starts
+        # with element.click(), and that pointer move fires mouseleave on the
+        # parent trigger of a hover-opened popup — dismissing the very overlay
+        # the field lives in (reported on codewalla.com). Read the value with JS
+        # rather than calling _clear and letting it decide, because the click
+        # happens before _clear ever looks at the value.
+        if _needs_clear(driver, element):
+            _clear(driver, element)
 
         try:
             # Reuse monkey-patched clickElement from click.py for the
@@ -151,11 +159,19 @@ def input_value(
                 focused_element.send_keys(year)
             elif (focused_element_pattern and "[0-9]{2}" in focused_element_pattern) or (
                 max_length == "1" and len(value) > 1
-            ):
+            ) or (_is_numeric_input(value) and element_type != "date"):
                 # Char-by-char send_keys, following auto-advance focus between
-                # fields. Covers numeric-segment inputs (pattern "[0-9]{2}") and
+                # fields. Covers numeric-segment inputs (pattern "[0-9]{2}"),
                 # multi-box OTP/PIN widgets where each box is maxlength=1 and the
-                # widget moves focus to the next box on input.
+                # Widget moves focus to the next box on input, and —
+                # — numeric values (phone/OTP/date) so masked inputs
+                # accept them.
+                #
+                # type=date is excluded, as in V2: "2030-01-01" reads as numeric,
+                # but feeding it to a date input one key at a time lands the
+                # digits in the wrong mm/dd/yyyy segments. Such a value belongs in
+                # the else branch, whose write-back check sets it through the
+                # native setter in the ISO form the element actually accepts.
                 for index, char in enumerate(value):
                     focused_element.send_keys(char)
                     if index == len(value) - 1:
@@ -229,9 +245,44 @@ def add_input_value_to_webelement():
 
 
 def _is_numeric_input(text):
-    """True if text is phone/card/date-like (digits + [+-/.] only)."""
-    return bool(text) and bool(re.fullmatch(r"[\d\+\-\/\.]+", text))
+    """True if text is phone/card/date-like (digits + [+-/.] + whitespace only)."""
+    # V2: V2's pattern includes whitespace ("0412 345 678").
+    return bool(text) and bool(re.fullmatch(r"[\d\+\-\/\.\s]+", text))
 
+
+def _contenteditable_has_text(driver, element) -> bool:
+    """True when a contenteditable holds any text.
+
+    the Selection reset below (selectNodeContents + DELETE) wipes the
+    editor's *pending toolbar marks* — a user who clicks Bold on an empty editor
+    has formatting armed but no text, and re-selecting the range drops it. On an
+    already-empty editor the clear achieves nothing anyway, so skip it.
+
+    A probe failure returns True so the clear still runs: leaving stale text
+    behind would corrupt the typed value, which is worse than losing a mark.
+    """
+    try:
+        return bool(driver.execute_script(
+            "return ((arguments[0].textContent || '').length > 0);", element))
+    except Exception:  # noqa: BLE001 — probe failure must not skip a needed clear
+        return True
+
+
+def _needs_clear(driver, element) -> bool:
+    """True when the field holds something worth clearing.
+
+    Covers both shapes: a native input's ``value`` and a contenteditable's text.
+    On any probe failure it returns True — clearing a field that was already
+    empty is harmless, whereas skipping a clear that was needed would leave the
+    old value in place and corrupt the typed result.
+    """
+    try:
+        current_value = driver.execute_script("return arguments[0].value;", element)
+        is_contenteditable = element.get_attribute("contenteditable") == "true"
+        current_text = element.text if is_contenteditable else None
+    except Exception:  # noqa: BLE001 — probe failure must not skip a needed clear
+        return True
+    return bool(current_value) or bool(current_text)
 
 def _clear(driver, element):
     """Focus element, then backspace-clear value; handle contenteditable via range+DELETE."""
@@ -254,7 +305,8 @@ def _clear(driver, element):
             for _ in range(len(current_value)):
                 element.send_keys(Keys.BACKSPACE)
 
-        if element.get_attribute("contenteditable") == "true":
+        if element.get_attribute("contenteditable") == "true" and \
+                _contenteditable_has_text(driver, element):
             driver.execute_script(
                 """
                 const element = arguments[0];

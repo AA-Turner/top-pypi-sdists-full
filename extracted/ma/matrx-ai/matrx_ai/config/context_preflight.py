@@ -33,7 +33,7 @@ from typing import Any
 
 from matrx_utils import vcprint
 
-from matrx_ai.config.context_trim import CHARS_PER_TOKEN_ESTIMATE
+from matrx_ai.config.context_trim import estimate_budget_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -148,22 +148,23 @@ def _chars(value: Any) -> int:
 def estimate_prompt_tokens(config: Any) -> int:
     """Rough token count of everything this config puts on the wire.
 
-    System instruction + messages + tool definitions, at
-    ``CHARS_PER_TOKEN_ESTIMATE`` chars per token — the same divisor the trim
-    gate uses, so the two systems never disagree about how big something is.
+    System instruction + messages as prose, tool definitions as structured
+    payload — through the ONE estimator (``estimate_budget_tokens``, the measured
+    ratios the client and the Source input use). An under-count here promises a
+    fit the provider then refuses, so the textbook 4 chars/token (27% low on a
+    measured run) is never used.
     """
-    total = _chars(getattr(config, "system_instruction", None))
+    prose = _chars(getattr(config, "system_instruction", None))
     messages = getattr(config, "messages", None)
     if messages is not None:
         try:
             for message in messages:
-                total += _chars(message)
+                prose += _chars(message)
         except TypeError:  # not iterable — measure it whole
-            total += _chars(messages)
+            prose += _chars(messages)
     tools = getattr(config, "tools", None)
-    if tools:
-        total += _chars(tools)
-    return int(total / CHARS_PER_TOKEN_ESTIMATE)
+    structured = _chars(tools) if tools else 0
+    return estimate_budget_tokens(prose, "prose") + estimate_budget_tokens(structured, "structured")
 
 
 def _declared_window(model_ref: str) -> int | None:

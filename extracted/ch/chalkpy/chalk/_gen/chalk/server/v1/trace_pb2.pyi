@@ -259,6 +259,8 @@ class ChalkTraceSummary(_message.Message):
         "span_count",
         "root_span_names",
         "session_id",
+        "principal_id",
+        "principal_display_name",
     )
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -268,6 +270,8 @@ class ChalkTraceSummary(_message.Message):
     SPAN_COUNT_FIELD_NUMBER: _ClassVar[int]
     ROOT_SPAN_NAMES_FIELD_NUMBER: _ClassVar[int]
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    PRINCIPAL_ID_FIELD_NUMBER: _ClassVar[int]
+    PRINCIPAL_DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     trace_id: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -276,6 +280,8 @@ class ChalkTraceSummary(_message.Message):
     span_count: int
     root_span_names: _containers.RepeatedScalarFieldContainer[str]
     session_id: str
+    principal_id: str
+    principal_display_name: str
     def __init__(
         self,
         trace_id: _Optional[str] = ...,
@@ -286,6 +292,8 @@ class ChalkTraceSummary(_message.Message):
         span_count: _Optional[int] = ...,
         root_span_names: _Optional[_Iterable[str]] = ...,
         session_id: _Optional[str] = ...,
+        principal_id: _Optional[str] = ...,
+        principal_display_name: _Optional[str] = ...,
     ) -> None: ...
 
 class ChalkSessionSummary(_message.Message):
@@ -297,6 +305,15 @@ class ChalkSessionSummary(_message.Message):
         "trace_count",
         "span_count",
         "first_root_span_name",
+        "llm_call_count",
+        "tool_call_count",
+        "token_count",
+        "estimated_cost_usd",
+        "llm_duration",
+        "input_preview",
+        "output_preview",
+        "principal_id",
+        "principal_display_name",
     )
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -305,6 +322,15 @@ class ChalkSessionSummary(_message.Message):
     TRACE_COUNT_FIELD_NUMBER: _ClassVar[int]
     SPAN_COUNT_FIELD_NUMBER: _ClassVar[int]
     FIRST_ROOT_SPAN_NAME_FIELD_NUMBER: _ClassVar[int]
+    LLM_CALL_COUNT_FIELD_NUMBER: _ClassVar[int]
+    TOOL_CALL_COUNT_FIELD_NUMBER: _ClassVar[int]
+    TOKEN_COUNT_FIELD_NUMBER: _ClassVar[int]
+    ESTIMATED_COST_USD_FIELD_NUMBER: _ClassVar[int]
+    LLM_DURATION_FIELD_NUMBER: _ClassVar[int]
+    INPUT_PREVIEW_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_PREVIEW_FIELD_NUMBER: _ClassVar[int]
+    PRINCIPAL_ID_FIELD_NUMBER: _ClassVar[int]
+    PRINCIPAL_DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     session_id: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -312,6 +338,15 @@ class ChalkSessionSummary(_message.Message):
     trace_count: int
     span_count: int
     first_root_span_name: str
+    llm_call_count: int
+    tool_call_count: int
+    token_count: int
+    estimated_cost_usd: float
+    llm_duration: _duration_pb2.Duration
+    input_preview: str
+    output_preview: str
+    principal_id: str
+    principal_display_name: str
     def __init__(
         self,
         session_id: _Optional[str] = ...,
@@ -321,6 +356,15 @@ class ChalkSessionSummary(_message.Message):
         trace_count: _Optional[int] = ...,
         span_count: _Optional[int] = ...,
         first_root_span_name: _Optional[str] = ...,
+        llm_call_count: _Optional[int] = ...,
+        tool_call_count: _Optional[int] = ...,
+        token_count: _Optional[int] = ...,
+        estimated_cost_usd: _Optional[float] = ...,
+        llm_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        input_preview: _Optional[str] = ...,
+        output_preview: _Optional[str] = ...,
+        principal_id: _Optional[str] = ...,
+        principal_display_name: _Optional[str] = ...,
     ) -> None: ...
 
 class TraceCallGraphAiInfo(_message.Message):
@@ -1153,15 +1197,21 @@ class GetSpanFacetValuesRequest(_message.Message):
     ) -> None: ...
 
 class SpanFacetValue(_message.Message):
-    __slots__ = ("value", "count", "values")
+    __slots__ = ("value", "count", "values", "display_value")
     VALUE_FIELD_NUMBER: _ClassVar[int]
     COUNT_FIELD_NUMBER: _ClassVar[int]
     VALUES_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_VALUE_FIELD_NUMBER: _ClassVar[int]
     value: str
     count: int
     values: _containers.RepeatedScalarFieldContainer[str]
+    display_value: str
     def __init__(
-        self, value: _Optional[str] = ..., count: _Optional[int] = ..., values: _Optional[_Iterable[str]] = ...
+        self,
+        value: _Optional[str] = ...,
+        count: _Optional[int] = ...,
+        values: _Optional[_Iterable[str]] = ...,
+        display_value: _Optional[str] = ...,
     ) -> None: ...
 
 class GetSpanFacetValuesResponse(_message.Message):

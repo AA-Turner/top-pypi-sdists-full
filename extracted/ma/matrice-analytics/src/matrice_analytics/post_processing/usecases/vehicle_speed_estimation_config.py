@@ -52,6 +52,7 @@ class VehicleSpeedEstimationConfig(BaseConfig):
         box3d_min_tracks: int = 20,
         box3d_min_corner_conf: float = 0.5,
         box3d_min_footprint_px: float = 12.0,
+        label_with_speed: bool = True,
         **kwargs: Any,
     ) -> None:
         super().__init__(usecase=usecase, category=category, **kwargs)
@@ -98,6 +99,10 @@ class VehicleSpeedEstimationConfig(BaseConfig):
         self.box3d_min_tracks = box3d_min_tracks
         self.box3d_min_corner_conf = box3d_min_corner_conf
         self.box3d_min_footprint_px = box3d_min_footprint_px
+        #: Put each measured vehicle's speed in its label in the tracking stats
+        #: ("car 127 km/h"), keeping the plain class in ``base_category``. On by default:
+        #: the label is what a VMS draws, so the speed shows up with no frontend change.
+        self.label_with_speed = label_with_speed
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise every field, not only the ones ``BaseConfig`` declares.
@@ -213,6 +218,14 @@ VEHICLE_SPEED_ESTIMATION_SCHEMA: Dict[str, Any] = {
             "minimum": 0.1,
             "default": 4.5,
             "description": "Assumed car footprint length; fallback speeds are linear in it.",
+        },
+        "label_with_speed": {
+            "type": "boolean",
+            "default": True,
+            "description": (
+                'Label each measured vehicle with its speed ("car 127 km/h"); the plain '
+                "class stays in base_category."
+            ),
         },
     },
 }

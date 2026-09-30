@@ -1829,6 +1829,7 @@ class ToProtoConverter:
             observation_sampling_strategy=observation_sampling_strategy,
             background_compaction=view.background_compaction,
             plannable=view.plannable,
+            resource_group=(view.resource_group or None),
         )
         if view.features is not None:
             kwargs["features"] = list(view.features)

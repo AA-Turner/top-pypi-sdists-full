@@ -42,6 +42,11 @@ from selenium.webdriver.common.by import By
 
 from testmu_selenium import _config
 from testmu_selenium._helpers._http import make_http_request_with_retry
+from testmu_selenium._helpers.a11y_flatten import capture_a11y_flatten
+from testmu_selenium._helpers._page_ready import (
+    new_request_id,
+    retry_on_page_not_ready,
+)
 from testmu_selenium._helpers._png import _png_dimensions
 from testmu_selenium._helpers._screenshot import (
     _take_screenshot,
@@ -355,6 +360,7 @@ class Heal:
             f"{self.automind_url}/v1/heal/textual_query",
             headers=headers,
             data=payload,
+            retry_on_server_error=True,  # no tier-level retry here
         )
         return response
 
@@ -364,16 +370,19 @@ class Heal:
         Extracted from V2 source.
         Simplification: duplicate "version" key in V2 payload collapsed to single
         entry — second value wins in Python; ported as single entry.
-        """
-        attempt = 1
-        max_attempt = 2
 
-        while attempt <= max_attempt:
-            attempt += 1
+        Wrapped in the ``page_not_ready`` budget (V2 parity): automind
+        answers 409 whenever the VQE saw a loader, and each retry re-enters
+        ``_attempt`` so the screenshot is retaken against a fresher page.
+        """
+        def _attempt() -> httpx.Response:
             screenshot = self._take_screenshot()
 
             payload = json.dumps({
                 "code_export_id": self.code_export_id,
+                # Fresh per attempt so each page_not_ready retry saves to its own
+                # automind VQE folder ({org_id}/vqe/{request_id}).
+                "request_id": new_request_id(),
                 "current_action": self.current_action,
                 "commit_id": self.commit_id,
                 "test_id": self.test_id,
@@ -390,15 +399,15 @@ class Heal:
 
             _log.info("Heal Vision Query V2... code_export_id: %s", self.code_export_id)
             _log.info("Kane Version: %s", self.version)
-            response = make_http_request_with_retry(
+            return make_http_request_with_retry(
                 "POST",
                 url=f"{self.automind_url}/v1/heal/vision",
                 headers=headers,
                 data=payload,
+                retry_on_server_error=True,  # no tier-level retry here
             )
-            return response
 
-        return None
+        return retry_on_page_not_ready(_attempt, label="Heal Vision Query V2")
 
     def vision_query(self) -> Optional[httpx.Response]:
         """POST to /v1/heal/vision to ANSWER a vision query (presence / visibility
@@ -409,30 +418,43 @@ class Heal:
         answer is returned in the response's ``vision_query`` field. The natural-
         language query travels in current_action.operation_intent with
         operation_type == "VISION_QUERY".
+
+        Wrapped in the ``page_not_ready`` budget (V2 parity): when the
+        VQE sees an active loader automind answers 409, and each retry re-enters
+        ``_attempt`` so the screenshot is retaken against a fresher page. The
+        final 409 is returned as-is — the caller raises from its body so
+        ``loader_reason`` survives into the step error.
         """
-        screenshot = self._take_screenshot()
-        payload = json.dumps({
-            "code_export_id": self.code_export_id,
-            "current_action": self.current_action,
-            "commit_id": self.commit_id,
-            "test_id": self.test_id,
-            "billing_run_id": _billing_run_id(),
-            "username": self.username,
-            "accesskey": self.accesskey,
-            "org_id": self.org_id,
-            "session_id": self.driver.session_id,
-            "untagged_image_base64": screenshot,
-            "use_query_v2": True,
-            "version": self.version,
-        })
-        headers = self._make_auth_headers()
-        _log.info("Heal Vision Query (answer)... code_export_id: %s", self.code_export_id)
-        return make_http_request_with_retry(
-            "POST",
-            url=f"{self.automind_url}/v1/heal/vision",
-            headers=headers,
-            data=payload,
-        )
+        def _attempt() -> httpx.Response:
+            screenshot = self._take_screenshot()
+            payload = json.dumps({
+                "code_export_id": self.code_export_id,
+                # Fresh per attempt so each page_not_ready retry saves to its own
+                # automind VQE folder ({org_id}/vqe/{request_id}).
+                "request_id": new_request_id(),
+                "current_action": self.current_action,
+                "commit_id": self.commit_id,
+                "test_id": self.test_id,
+                "billing_run_id": _billing_run_id(),
+                "username": self.username,
+                "accesskey": self.accesskey,
+                "org_id": self.org_id,
+                "session_id": self.driver.session_id,
+                "untagged_image_base64": screenshot,
+                "use_query_v2": True,
+                "version": self.version,
+            })
+            headers = self._make_auth_headers()
+            _log.info("Heal Vision Query (answer)... code_export_id: %s", self.code_export_id)
+            return make_http_request_with_retry(
+                "POST",
+                url=f"{self.automind_url}/v1/heal/vision",
+                headers=headers,
+                data=payload,
+                retry_on_server_error=True,  # no tier-level retry here
+            )
+
+        return retry_on_page_not_ready(_attempt, label="Heal Vision Query")
 
     def desktop_locate(self, drop_aware: bool = False) -> tuple[int, int]:
         """POST to /v2/locate/desktop (viewport screenshot) → (css_x, css_y).
@@ -537,7 +559,11 @@ class Heal:
                 "screen_height": viewport_height,
                 "drop_aware": drop_aware,
                 "request_id": request_id,
-                "a11y_flatten": [],
+                # V2 parity: /v2/locate/desktop grounds on screenshot + a11y tree.
+                # This was hardcoded [] on every browser, so V3 sent no a11y at all.
+                # capture_a11y_flatten never raises — it returns [] if capture fails,
+                # because a locate call must not die on a11y.
+                "a11y_flatten": capture_a11y_flatten(self.driver, viewport_only=True),
                 "test_id": self.test_id,
                 "billing_run_id": _billing_run_id(),
                 "instruction_id": str((self.current_action or {}).get("instruction_id", "") or ""),
@@ -669,7 +695,9 @@ class Heal:
                 "screen_height": 0,
                 "drop_aware": False,
                 "request_id": request_id,
-                "a11y_flatten": [],
+                # Full-page step: the whole document, not just the viewport
+                # (V2 passes viewport_only=False on its step-1 capture).
+                "a11y_flatten": capture_a11y_flatten(self.driver, viewport_only=False),
                 "test_id": self.test_id,
                 "billing_run_id": _billing_run_id(),
                 "instruction_id": str((self.current_action or {}).get("instruction_id", "") or ""),

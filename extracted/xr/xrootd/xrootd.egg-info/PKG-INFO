@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: xrootd
-Version: 6.1.1
+Version: 6.2.0
 Summary: eXtended ROOT daemon
 Home-page: https://xrootd.org
-Download-URL: https://github.com/xrootd/xrootd/archive/v6.1.1.tar.gz
+Download-URL: https://github.com/xrootd/xrootd/archive/v6.2.0.tar.gz
 Author: XRootD Developers
 Author-email: xrootd-dev@slac.stanford.edu
 License: LGPL-3.0-or-later

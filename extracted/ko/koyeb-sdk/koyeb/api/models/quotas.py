@@ -28,10 +28,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class Quotas(BaseModel):
     """
     Quotas
-    """ # noqa: E501
+    """  # noqa: E501
+
     apps: Optional[StrictStr] = None
     services: Optional[StrictStr] = None
     domains: Optional[StrictStr] = None
@@ -55,7 +57,31 @@ class Quotas(BaseModel):
     lifecycle: Optional[LifecycleQuotas] = None
     max_projects: Optional[StrictStr] = None
     instance_snapshots: Optional[InstanceSnapshotQuotas] = None
-    __properties: ClassVar[List[str]] = ["apps", "services", "domains", "services_by_app", "service_provisioning_concurrency", "memory_mb", "instance_types", "regions", "max_organization_members", "max_instances_by_type", "persistent_volumes_by_region", "custom_domains", "domains_load_balancer", "metrics_retention", "logs_retention", "access_reserved_subdomains", "proxy_ports", "scale_to_zero", "archives", "archive_max_size_mb", "lifecycle", "max_projects", "instance_snapshots"]
+    __properties: ClassVar[List[str]] = [
+        "apps",
+        "services",
+        "domains",
+        "services_by_app",
+        "service_provisioning_concurrency",
+        "memory_mb",
+        "instance_types",
+        "regions",
+        "max_organization_members",
+        "max_instances_by_type",
+        "persistent_volumes_by_region",
+        "custom_domains",
+        "domains_load_balancer",
+        "metrics_retention",
+        "logs_retention",
+        "access_reserved_subdomains",
+        "proxy_ports",
+        "scale_to_zero",
+        "archives",
+        "archive_max_size_mb",
+        "lifecycle",
+        "max_projects",
+        "instance_snapshots",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -63,7 +89,6 @@ class Quotas(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -88,8 +113,7 @@ class Quotas(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -100,21 +124,29 @@ class Quotas(BaseModel):
         _field_dict = {}
         if self.persistent_volumes_by_region:
             for _key_persistent_volumes_by_region in self.persistent_volumes_by_region:
-                if self.persistent_volumes_by_region[_key_persistent_volumes_by_region]:
-                    _field_dict[_key_persistent_volumes_by_region] = self.persistent_volumes_by_region[_key_persistent_volumes_by_region].to_dict()
-            _dict['persistent_volumes_by_region'] = _field_dict
+                _field_dict[_key_persistent_volumes_by_region] = (
+                    self.persistent_volumes_by_region[
+                        _key_persistent_volumes_by_region
+                    ].to_dict()
+                    if self.persistent_volumes_by_region[
+                        _key_persistent_volumes_by_region
+                    ]
+                    is not None
+                    else None
+                )
+            _dict["persistent_volumes_by_region"] = _field_dict
         # override the default output from pydantic by calling `to_dict()` of domains_load_balancer
         if self.domains_load_balancer:
-            _dict['domains_load_balancer'] = self.domains_load_balancer.to_dict()
+            _dict["domains_load_balancer"] = self.domains_load_balancer.to_dict()
         # override the default output from pydantic by calling `to_dict()` of scale_to_zero
         if self.scale_to_zero:
-            _dict['scale_to_zero'] = self.scale_to_zero.to_dict()
+            _dict["scale_to_zero"] = self.scale_to_zero.to_dict()
         # override the default output from pydantic by calling `to_dict()` of lifecycle
         if self.lifecycle:
-            _dict['lifecycle'] = self.lifecycle.to_dict()
+            _dict["lifecycle"] = self.lifecycle.to_dict()
         # override the default output from pydantic by calling `to_dict()` of instance_snapshots
         if self.instance_snapshots:
-            _dict['instance_snapshots'] = self.instance_snapshots.to_dict()
+            _dict["instance_snapshots"] = self.instance_snapshots.to_dict()
         return _dict
 
     @classmethod
@@ -126,36 +158,50 @@ class Quotas(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "apps": obj.get("apps"),
-            "services": obj.get("services"),
-            "domains": obj.get("domains"),
-            "services_by_app": obj.get("services_by_app"),
-            "service_provisioning_concurrency": obj.get("service_provisioning_concurrency"),
-            "memory_mb": obj.get("memory_mb"),
-            "instance_types": obj.get("instance_types"),
-            "regions": obj.get("regions"),
-            "max_organization_members": obj.get("max_organization_members"),
-            "max_instances_by_type": obj.get("max_instances_by_type"),
-            "persistent_volumes_by_region": dict(
-                (_k, PersistentVolumeQuotas.from_dict(_v))
-                for _k, _v in obj["persistent_volumes_by_region"].items()
-            )
-            if obj.get("persistent_volumes_by_region") is not None
-            else None,
-            "custom_domains": obj.get("custom_domains"),
-            "domains_load_balancer": DomainLoadBalancerQuotas.from_dict(obj["domains_load_balancer"]) if obj.get("domains_load_balancer") is not None else None,
-            "metrics_retention": obj.get("metrics_retention"),
-            "logs_retention": obj.get("logs_retention"),
-            "access_reserved_subdomains": obj.get("access_reserved_subdomains"),
-            "proxy_ports": obj.get("proxy_ports"),
-            "scale_to_zero": ScaleToZeroQuotas.from_dict(obj["scale_to_zero"]) if obj.get("scale_to_zero") is not None else None,
-            "archives": obj.get("archives"),
-            "archive_max_size_mb": obj.get("archive_max_size_mb"),
-            "lifecycle": LifecycleQuotas.from_dict(obj["lifecycle"]) if obj.get("lifecycle") is not None else None,
-            "max_projects": obj.get("max_projects"),
-            "instance_snapshots": InstanceSnapshotQuotas.from_dict(obj["instance_snapshots"]) if obj.get("instance_snapshots") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "apps": obj.get("apps"),
+                "services": obj.get("services"),
+                "domains": obj.get("domains"),
+                "services_by_app": obj.get("services_by_app"),
+                "service_provisioning_concurrency": obj.get(
+                    "service_provisioning_concurrency"
+                ),
+                "memory_mb": obj.get("memory_mb"),
+                "instance_types": obj.get("instance_types"),
+                "regions": obj.get("regions"),
+                "max_organization_members": obj.get("max_organization_members"),
+                "max_instances_by_type": obj.get("max_instances_by_type"),
+                "persistent_volumes_by_region": dict(
+                    (_k, PersistentVolumeQuotas.from_dict(_v))
+                    for _k, _v in obj["persistent_volumes_by_region"].items()
+                )
+                if obj.get("persistent_volumes_by_region") is not None
+                else None,
+                "custom_domains": obj.get("custom_domains"),
+                "domains_load_balancer": DomainLoadBalancerQuotas.from_dict(
+                    obj["domains_load_balancer"]
+                )
+                if obj.get("domains_load_balancer") is not None
+                else None,
+                "metrics_retention": obj.get("metrics_retention"),
+                "logs_retention": obj.get("logs_retention"),
+                "access_reserved_subdomains": obj.get("access_reserved_subdomains"),
+                "proxy_ports": obj.get("proxy_ports"),
+                "scale_to_zero": ScaleToZeroQuotas.from_dict(obj["scale_to_zero"])
+                if obj.get("scale_to_zero") is not None
+                else None,
+                "archives": obj.get("archives"),
+                "archive_max_size_mb": obj.get("archive_max_size_mb"),
+                "lifecycle": LifecycleQuotas.from_dict(obj["lifecycle"])
+                if obj.get("lifecycle") is not None
+                else None,
+                "max_projects": obj.get("max_projects"),
+                "instance_snapshots": InstanceSnapshotQuotas.from_dict(
+                    obj["instance_snapshots"]
+                )
+                if obj.get("instance_snapshots") is not None
+                else None,
+            }
+        )
         return _obj
-
-

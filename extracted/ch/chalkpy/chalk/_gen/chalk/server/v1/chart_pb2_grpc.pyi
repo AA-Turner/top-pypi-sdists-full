@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.chart_pb2 import (
     CreateChartAnnotationResponse,
     CreateChartRequest,
     CreateChartResponse,
+    DecompileMetricConfigRequest,
+    DecompileMetricConfigResponse,
     DeleteChartAnnotationRequest,
     DeleteChartAnnotationResponse,
     DeleteChartRequest,
@@ -64,11 +66,16 @@ class ChartsServiceStub:
         ListRawMetricsRequest,
         ListRawMetricsResponse,
     ]
-    """ListRawMetrics, GetRawMetricLabelValues and QueryRawMetrics expose the raw
-    VictoriaMetrics series behind an environment's charts. They are gated on
-    PERMISSION_CHALK_ADMIN (granted implicitly to @chalk.ai agents) because VM
-    series names and labels are an internal implementation detail rather than a
-    stable customer-facing surface.
+    """The three introspection RPCs below expose the raw VictoriaMetrics series
+    behind an environment's charts. VM series names and labels are an internal
+    implementation detail rather than a stable customer-facing surface, but the
+    surface is useful enough to hand to a customer on request, so it carries
+    MONITORING_READ and the handlers scope every lookup to the caller's own
+    environment. Unscoped access — the whole instance, including cluster-scoped
+    series that carry no environment_id — needs either a self-hosted metadata plane
+    or PERMISSION_CHALK_ADMIN (granted implicitly to @chalk.ai agents). On Chalk's
+    shared plane one telemetry deployment serves many customers, so that scoping is
+    the tenant boundary, not a convenience.
     """
     GetRawMetricLabelNames: UnaryUnaryMultiCallable[
         GetRawMetricLabelNamesRequest,
@@ -82,6 +89,13 @@ class ChartsServiceStub:
         QueryRawMetricsRequest,
         QueryRawMetricsResponse,
     ]
+    """QueryRawMetrics evaluates caller-authored MetricsQL, which Chalk cannot rewrite to
+    carry an environment scope. It therefore needs unscoped raw access, which the
+    handler grants on a self-hosted metadata plane (the VictoriaMetrics instance holds
+    only that customer's data) or to PERMISSION_CHALK_ADMIN. The annotation is
+    MONITORING_READ because on a self-hosted plane that is genuinely the bar; a caller
+    who does not clear the handler's check gets PermissionDenied.
+    """
     ListCharts: UnaryUnaryMultiCallable[
         ListChartsRequest,
         ListChartsResponse,
@@ -109,6 +123,10 @@ class ChartsServiceStub:
     UpdateMetricConfig: UnaryUnaryMultiCallable[
         UpdateMetricConfigRequest,
         UpdateMetricConfigResponse,
+    ]
+    DecompileMetricConfig: UnaryUnaryMultiCallable[
+        DecompileMetricConfigRequest,
+        DecompileMetricConfigResponse,
     ]
     CreateChart: UnaryUnaryMultiCallable[
         CreateChartRequest,
@@ -158,11 +176,16 @@ class ChartsServiceServicer(metaclass=ABCMeta):
         request: ListRawMetricsRequest,
         context: ServicerContext,
     ) -> ListRawMetricsResponse:
-        """ListRawMetrics, GetRawMetricLabelValues and QueryRawMetrics expose the raw
-        VictoriaMetrics series behind an environment's charts. They are gated on
-        PERMISSION_CHALK_ADMIN (granted implicitly to @chalk.ai agents) because VM
-        series names and labels are an internal implementation detail rather than a
-        stable customer-facing surface.
+        """The three introspection RPCs below expose the raw VictoriaMetrics series
+        behind an environment's charts. VM series names and labels are an internal
+        implementation detail rather than a stable customer-facing surface, but the
+        surface is useful enough to hand to a customer on request, so it carries
+        MONITORING_READ and the handlers scope every lookup to the caller's own
+        environment. Unscoped access — the whole instance, including cluster-scoped
+        series that carry no environment_id — needs either a self-hosted metadata plane
+        or PERMISSION_CHALK_ADMIN (granted implicitly to @chalk.ai agents). On Chalk's
+        shared plane one telemetry deployment serves many customers, so that scoping is
+        the tenant boundary, not a convenience.
         """
     @abstractmethod
     def GetRawMetricLabelNames(
@@ -181,7 +204,14 @@ class ChartsServiceServicer(metaclass=ABCMeta):
         self,
         request: QueryRawMetricsRequest,
         context: ServicerContext,
-    ) -> QueryRawMetricsResponse: ...
+    ) -> QueryRawMetricsResponse:
+        """QueryRawMetrics evaluates caller-authored MetricsQL, which Chalk cannot rewrite to
+        carry an environment scope. It therefore needs unscoped raw access, which the
+        handler grants on a self-hosted metadata plane (the VictoriaMetrics instance holds
+        only that customer's data) or to PERMISSION_CHALK_ADMIN. The annotation is
+        MONITORING_READ because on a self-hosted plane that is genuinely the bar; a caller
+        who does not clear the handler's check gets PermissionDenied.
+        """
     @abstractmethod
     def ListCharts(
         self,
@@ -224,6 +254,12 @@ class ChartsServiceServicer(metaclass=ABCMeta):
         request: UpdateMetricConfigRequest,
         context: ServicerContext,
     ) -> UpdateMetricConfigResponse: ...
+    @abstractmethod
+    def DecompileMetricConfig(
+        self,
+        request: DecompileMetricConfigRequest,
+        context: ServicerContext,
+    ) -> DecompileMetricConfigResponse: ...
     @abstractmethod
     def CreateChart(
         self,

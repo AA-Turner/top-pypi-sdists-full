@@ -1,6 +1,8 @@
+import pytest
 from parsel import Selector
 
 from itemloaders import ItemLoader
+from itemloaders.processors import MapCompose
 
 
 class TestSubselectorLoader:
@@ -114,3 +116,53 @@ class TestSubselectorLoader:
         nested_css = loader.nested_css("bar")
         assert isinstance(nested_css, ItemLoader)
         nested_css.add_css("foo", "foo")
+
+
+@pytest.mark.parametrize(
+    ("method", "expression"), [("nested_xpath", "//footer"), ("nested_css", "footer")]
+)
+def test_nested_context_inheritance(method: str, expression: str) -> None:
+    marker = object()
+    loader = ItemLoader(
+        selector=TestSubselectorLoader.selector, marker=marker, prefix="parent"
+    )
+    original_context = dict(loader.context)
+    child = getattr(loader, method)(expression, prefix="child")
+    sibling = getattr(loader, method)(expression)
+    grandchild = child.nested_css("a")
+    for nested in (child, sibling, grandchild):
+        assert nested.context["marker"] is marker
+        assert nested.context["item"] is loader.item
+        assert nested.context["selector"] is nested.selector
+        assert nested.context is not loader.context
+    assert child.context["prefix"] == grandchild.context["prefix"] == "child"
+    assert sibling.context["prefix"] == "parent"
+    assert loader.context == original_context
+    child.context["new"] = True
+    assert "new" not in loader.context
+    assert "new" not in sibling.context
+
+    grandchild.default_input_processor = MapCompose(
+        lambda value, loader_context: loader_context["prefix"] + ":" + value
+    )
+    grandchild.add_css("name", "::text")
+    assert loader.load_item()["name"] == ["child:homepage"]
+
+
+@pytest.mark.parametrize(
+    ("method", "expression"), [("nested_xpath", "//div"), ("nested_css", "div")]
+)
+def test_nested_scrapy_response_context(method: str, expression: str) -> None:
+    scrapy_loader = pytest.importorskip("scrapy.loader")
+    scrapy_http = pytest.importorskip("scrapy.http")
+    response = scrapy_http.HtmlResponse(
+        url="https://example.com/", body=b'<div><a href="/target">link</a></div>'
+    )
+    loader = scrapy_loader.ItemLoader(item={}, response=response)
+    nested = getattr(loader, method)(expression)
+    nested.default_input_processor = MapCompose(
+        lambda value, loader_context: loader_context["response"].urljoin(value)
+    )
+    nested.add_css(method, "a::attr(href)")
+    assert nested.context["response"] is response
+    assert loader.load_item()[method] == ["https://example.com/target"]

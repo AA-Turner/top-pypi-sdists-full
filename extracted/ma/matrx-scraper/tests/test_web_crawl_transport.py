@@ -474,7 +474,7 @@ async def test_standalone_filesystem_supports_parser_and_canonical_persistence(
                     storage_uri=f"s3://canonical/{file_id}",
                     version_number=1,
                     is_new=True,
-                    visibility="internal",
+                    published_to_web=False,
                 )
             }
 
@@ -609,10 +609,11 @@ async def test_standalone_filesystem_supports_parser_and_canonical_persistence(
     prune.assert_awaited_once()
     assert prune.await_args.kwargs["keys"] == {(str(page_id), "full")}
     # Crawl output belongs to the ORGANIZATION, never one person: every stored
-    # artifact is requested org-internal and stamped with the crawl's org.
-    assert [(u["visibility"], u["organization_id"]) for u in uploads] == [
-        ("internal", state.organization_id),
-        ("internal", state.organization_id),
+    # artifact is requested unpublished, never kept to one person, and stamped
+    # with the crawl's org.
+    assert [(u["published_to_web"], u.get("shown_to"), u["organization_id"]) for u in uploads] == [
+        (False, None, state.organization_id),
+        (False, None, state.organization_id),
     ]
 
 
@@ -653,7 +654,7 @@ async def test_canonical_persister_archives_xml_with_its_real_format_and_mime(
         storage_uri="s3://canonical/xml-body-file",
         version_number=1,
         is_new=True,
-        visibility="internal",
+        published_to_web=False,
     )
     write = AsyncMock(return_value=body_result)
     persister._write_artifact = write  # type: ignore[method-assign]
@@ -742,21 +743,21 @@ async def test_failed_persistence_purges_every_new_artifact_by_exact_identity() 
         storage_uri="s3://canonical/body-file",
         version_number=1,
         is_new=True,
-        visibility="internal",
+        published_to_web=False,
     )
     markdown = SyncResult(
         file_id="markdown-file",
         storage_uri="s3://canonical/markdown-file",
         version_number=1,
         is_new=True,
-        visibility="internal",
+        published_to_web=False,
     )
     screenshot = SyncResult(
         file_id="screenshot-file",
         storage_uri="s3://canonical/screenshot-file",
         version_number=1,
         is_new=True,
-        visibility="internal",
+        published_to_web=False,
     )
     purge = AsyncMock()
     file_manager = SimpleNamespace(sync_engine=SimpleNamespace(hard_delete_and_purge_async=purge))

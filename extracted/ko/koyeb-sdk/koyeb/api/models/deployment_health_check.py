@@ -25,17 +25,26 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class DeploymentHealthCheck(BaseModel):
     """
     DeploymentHealthCheck
-    """ # noqa: E501
+    """  # noqa: E501
+
     grace_period: Optional[StrictInt] = None
     interval: Optional[StrictInt] = None
     restart_limit: Optional[StrictInt] = None
     timeout: Optional[StrictInt] = None
     tcp: Optional[TCPHealthCheck] = None
     http: Optional[HTTPHealthCheck] = None
-    __properties: ClassVar[List[str]] = ["grace_period", "interval", "restart_limit", "timeout", "tcp", "http"]
+    __properties: ClassVar[List[str]] = [
+        "grace_period",
+        "interval",
+        "restart_limit",
+        "timeout",
+        "tcp",
+        "http",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -43,7 +52,6 @@ class DeploymentHealthCheck(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -68,8 +76,7 @@ class DeploymentHealthCheck(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -78,10 +85,10 @@ class DeploymentHealthCheck(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of tcp
         if self.tcp:
-            _dict['tcp'] = self.tcp.to_dict()
+            _dict["tcp"] = self.tcp.to_dict()
         # override the default output from pydantic by calling `to_dict()` of http
         if self.http:
-            _dict['http'] = self.http.to_dict()
+            _dict["http"] = self.http.to_dict()
         return _dict
 
     @classmethod
@@ -93,14 +100,18 @@ class DeploymentHealthCheck(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "grace_period": obj.get("grace_period"),
-            "interval": obj.get("interval"),
-            "restart_limit": obj.get("restart_limit"),
-            "timeout": obj.get("timeout"),
-            "tcp": TCPHealthCheck.from_dict(obj["tcp"]) if obj.get("tcp") is not None else None,
-            "http": HTTPHealthCheck.from_dict(obj["http"]) if obj.get("http") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "grace_period": obj.get("grace_period"),
+                "interval": obj.get("interval"),
+                "restart_limit": obj.get("restart_limit"),
+                "timeout": obj.get("timeout"),
+                "tcp": TCPHealthCheck.from_dict(obj["tcp"])
+                if obj.get("tcp") is not None
+                else None,
+                "http": HTTPHealthCheck.from_dict(obj["http"])
+                if obj.get("http") is not None
+                else None,
+            }
+        )
         return _obj
-
-

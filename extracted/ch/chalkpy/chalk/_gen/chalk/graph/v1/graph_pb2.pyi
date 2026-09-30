@@ -240,6 +240,7 @@ class MaterializedFeatureView(_message.Message):
         "background_compaction",
         "features",
         "plannable",
+        "resource_group",
     )
     NAMESPACES_FIELD_NUMBER: _ClassVar[int]
     TIME_RESOLUTION_FIELD_NUMBER: _ClassVar[int]
@@ -251,6 +252,7 @@ class MaterializedFeatureView(_message.Message):
     BACKGROUND_COMPACTION_FIELD_NUMBER: _ClassVar[int]
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     PLANNABLE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     namespaces: _containers.RepeatedScalarFieldContainer[str]
     time_resolution: _duration_pb2.Duration
     update_cadence: str
@@ -261,6 +263,7 @@ class MaterializedFeatureView(_message.Message):
     background_compaction: bool
     features: _containers.RepeatedScalarFieldContainer[str]
     plannable: bool
+    resource_group: str
     def __init__(
         self,
         namespaces: _Optional[_Iterable[str]] = ...,
@@ -273,6 +276,7 @@ class MaterializedFeatureView(_message.Message):
         background_compaction: bool = ...,
         features: _Optional[_Iterable[str]] = ...,
         plannable: bool = ...,
+        resource_group: _Optional[str] = ...,
     ) -> None: ...
 
 class OverlayGraph(_message.Message):

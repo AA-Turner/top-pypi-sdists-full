@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class LogEntry(BaseModel):
     """
     LogEntry
-    """ # noqa: E501
+    """  # noqa: E501
+
     msg: Optional[StrictStr] = None
     created_at: Optional[datetime] = None
     labels: Optional[Dict[str, Any]] = None
@@ -39,7 +41,6 @@ class LogEntry(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +65,7 @@ class LogEntry(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,11 +83,11 @@ class LogEntry(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "msg": obj.get("msg"),
-            "created_at": obj.get("created_at"),
-            "labels": obj.get("labels")
-        })
+        _obj = cls.model_validate(
+            {
+                "msg": obj.get("msg"),
+                "created_at": obj.get("created_at"),
+                "labels": obj.get("labels"),
+            }
+        )
         return _obj
-
-

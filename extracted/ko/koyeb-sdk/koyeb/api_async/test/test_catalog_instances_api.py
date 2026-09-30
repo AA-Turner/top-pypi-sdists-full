@@ -41,5 +41,5 @@ class TestCatalogInstancesApi(unittest.IsolatedAsyncioTestCase):
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

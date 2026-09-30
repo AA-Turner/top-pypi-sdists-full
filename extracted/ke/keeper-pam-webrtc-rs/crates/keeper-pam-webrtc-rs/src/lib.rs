@@ -44,6 +44,14 @@ mod webrtc_data_channel;
 pub mod webrtc_data_tap;
 mod webrtc_errors;
 mod webrtc_network_monitor;
+// Handler-mode tube messages, for native Rust consumers of the tube API.
+//
+// The underlying enum is spelled `PythonHandlerMessage` internally for
+// historical reasons — the Python bindings were its first caller — but it is
+// plain Rust with no PyO3 involvement and is available with
+// `--no-default-features`. Only the neutral alias is exported so Rust callers
+// never have to name a Python-flavoured type.
+pub use channel::PythonHandlerMessage as HandlerMessage;
 pub use tube::*;
 pub use video_sender::VideoSender;
 pub use webrtc_core::*;

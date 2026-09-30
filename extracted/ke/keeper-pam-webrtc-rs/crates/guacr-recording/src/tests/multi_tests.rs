@@ -401,6 +401,7 @@ fn test_full_ssh_session_recording() {
     );
 }
 
+#[cfg(feature = "zmq-transport")]
 #[test]
 fn test_zmq_only_recorder_is_active() {
     let config = RecordingConfig {

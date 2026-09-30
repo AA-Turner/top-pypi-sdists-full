@@ -15,7 +15,7 @@ from typing import Dict, Tuple, Union
 
 from .CommandTemperature import CommandTemperatureSim
 from .exceptions import MultiPyVuError, PythoncomImportError
-from .ICommand import ICommand
+from .ICommand import ICommand, setpoint_read_failed
 
 if platform == 'win32':
     try:
@@ -74,7 +74,8 @@ class CommandTempSetpointsBase(ICommand):
         --------
         Tuple of value, rate, and approach mode.
         """
-        search_str = r'\(([0-9.\-]*),[ ]?([0-9.\-]*),[ ]?([0-9]*)\),[ ]?([a-zA-Z]*),[ ]?([ a-zA-Z]*)'
+        num = r'[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?'
+        search_str = rf'\(({num}),[ ]?({num}),[ ]?([0-9]*)\),[ ]?([a-zA-Z]*),[ ]?([ a-zA-Z]*)'
         r = re.findall(search_str, response['result'])
         if len(r[0]) != 5:
             msg = f'Invalid response: {response}'
@@ -194,7 +195,10 @@ class CommandTempSetpointsImp(CommandTempSetpointsBase):
                                                   )
             response = string_variant.value.split(',')
             if len(response) != 3:
-                error = error_variant.value
+                # Strip out any garbage/non-ASCII bytes so this stays
+                # safely printable/loggable. This can happen on a PPMS
+                # in simulation mode with no Model6000 attached.
+                error = error_variant.value.encode('ascii', errors='backslashreplace').decode('ascii')
                 err_msg = 'Invalid response while getting '
                 err_msg += f'temperature setpoints: "{response}"'
                 err_msg += f' error = "{error}"'
@@ -217,11 +221,16 @@ class CommandTempSetpointsImp(CommandTempSetpointsBase):
                 can_error = self._mvu.GetTemperatureSetpoints(value_variant,
                                                               rate_variant,
                                                               state_variant)
-        # On 6/10/25, I found that the PPMS was returning something greater
-        # than 1 with commands.  After talking with Mark, I have decided
-        # to only check for a value greater than 1 for all systems.
-        if can_error > 1:
-            raise MultiPyVuError('Error when calling GetTemperatureSetpoints()')
+        # The set point getters do not use the same success value on
+        # every flavor; see setpoint_read_failed() for the per-flavor
+        # table and why.  The PPMS never reaches here -- its branch
+        # above returns -- so this cannot reintroduce the PPMS false
+        # negatives that motivated the old 'can_error > 1' test.
+        if setpoint_read_failed(self.instrument_name, can_error):
+            err_msg = 'Error when calling GetTemperatureSetpoints() '
+            err_msg += f'(returned {can_error}).  The set point could not '
+            err_msg += 'be read, so it must not be used.'
+            raise MultiPyVuError(err_msg)
         set_point = value_variant.value
         rate = rate_variant.value
         approach = state_variant.value

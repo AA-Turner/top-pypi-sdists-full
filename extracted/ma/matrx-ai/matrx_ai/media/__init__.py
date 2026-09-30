@@ -14,7 +14,7 @@ from .media_persistence import (
     persist_media_blobs_async,
     public_media_scope,
     public_media_scope_active,
-    resolve_default_visibility,
+    resolve_published_to_web,
     save_media,
     save_media_envelope_async,
 )
@@ -37,7 +37,7 @@ __all__ = [
     "AIMediaHandler",
     "BORN_PUBLIC_FEATURES",
     "MediaPersistResult",
-    "resolve_default_visibility",
+    "resolve_published_to_web",
     "EXTENSION_MIME_MAP",
     "detect_mime_type",
     "fetch_media",

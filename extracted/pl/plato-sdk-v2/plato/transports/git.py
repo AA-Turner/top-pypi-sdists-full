@@ -24,7 +24,7 @@ from plato.git_ops import (
     trust_git_directory,
 )
 from plato.markers import WorkspaceMarker
-from plato.transports.base import Transport, build_auditctl_commands
+from plato.transports.base import Transport
 from plato.utils.subprocess import run_local, run_ssh
 
 if TYPE_CHECKING:
@@ -602,17 +602,6 @@ class GitTransport(Transport):
         if mount.git_sync is not None and mount.git_sync.mode == "none":
             await self._install_readonly_hook(hostname, remote)
 
-        audit_key = mount.audit_key
-        tracked = mount.tracked
-        if tracked and audit_key:
-            audit_cmd = " && ".join(build_auditctl_commands(remote, audit_key))
-            exit_code, _, stderr = await run_ssh(self.ssh_key_path, hostname, audit_cmd, timeout=30)
-            if exit_code != 0:
-                raise RuntimeError(
-                    f"Failed to enable filesystem audit on agent VM for {remote} (key={audit_key}): {stderr}"
-                )
-            logger.info("Filesystem audit enabled on agent VM for %s (key=%s)", remote, audit_key)
-
         logger.info(
             "GitTransport.setup_agent: done on %s (clone=%.1fs, total=%.1fs): %s -> %s",
             hostname,
@@ -1076,26 +1065,6 @@ class GitTransport(Transport):
 
     async def refresh_exports(self) -> None:
         """No-op for git transport."""
-
-    async def collect_audit_log(
-        self,
-        hostname: str,
-        audit_key: str | None = None,
-    ) -> str | None:
-        try:
-            key = audit_key or "plato_workspace"
-            exit_code, stdout, _ = await run_ssh(
-                self.ssh_key_path,
-                hostname,
-                f"ausearch -if /var/log/audit/audit.log --format raw -k {shlex.quote(key)} 2>/dev/null || true",
-                timeout=30,
-            )
-            if exit_code != 0 or not stdout.strip():
-                return None
-            return stdout
-        except Exception:
-            logger.warning("Failed to collect audit log from agent VM", exc_info=True)
-            return None
 
     async def prepare(self) -> None:
         await self._setup_workspace_path(self.path)

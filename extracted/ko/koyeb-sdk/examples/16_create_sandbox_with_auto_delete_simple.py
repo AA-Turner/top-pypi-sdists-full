@@ -9,7 +9,7 @@ import time
 import random
 import string
 from koyeb import Sandbox
-from koyeb.sandbox.utils import get_api_clients
+from koyeb.sandbox.clients import get_api_clients
 
 
 def service_exists(api_token: str, service_id: str) -> bool:
@@ -81,7 +81,7 @@ def main():
             elapsed = time.time() - start
             print(f"  ... still waiting ({elapsed:.0f}s elapsed)")
         else:
-            print(f"✗ Timeout waiting for sandbox to be deleted")
+            raise AssertionError("Timeout waiting for sandbox to be deleted")
 
         return 0
 

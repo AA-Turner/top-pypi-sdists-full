@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Integration (not unit) tests for pylast.py
 """
@@ -54,6 +53,6 @@ class TestPyLastTag(TestPyLastWithLastFm):
         assert "pylast.Tag" in tag_repr
         assert "blues" in tag_repr
         assert "blues" == name
-        assert tag1 == tag1
+        assert tag1 == pylast.Tag("blues", self.network)
         assert tag1 != tag2
         assert url == "https://www.last.fm/tag/blues"

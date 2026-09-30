@@ -23,15 +23,28 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class OAuthCallbackRequest(BaseModel):
     """
     OAuthCallbackRequest
-    """ # noqa: E501
+    """  # noqa: E501
+
     state: Optional[StrictStr] = None
     code: Optional[StrictStr] = None
-    setup_action: Optional[StrictStr] = Field(default=None, description="setup_action is populated in the context of a GitHub app installation request. For logins and signups, it is not set.")
-    installation_id: Optional[StrictStr] = Field(default=None, description="installation_id is populated in the context of a GitHub app installation request. For logins and signups, it is not set.")
-    __properties: ClassVar[List[str]] = ["state", "code", "setup_action", "installation_id"]
+    setup_action: Optional[StrictStr] = Field(
+        default=None,
+        description="setup_action is populated in the context of a GitHub app installation request. For logins and signups, it is not set.",
+    )
+    installation_id: Optional[StrictStr] = Field(
+        default=None,
+        description="installation_id is populated in the context of a GitHub app installation request. For logins and signups, it is not set.",
+    )
+    __properties: ClassVar[List[str]] = [
+        "state",
+        "code",
+        "setup_action",
+        "installation_id",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -39,7 +52,6 @@ class OAuthCallbackRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,8 +76,7 @@ class OAuthCallbackRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,12 +94,12 @@ class OAuthCallbackRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "state": obj.get("state"),
-            "code": obj.get("code"),
-            "setup_action": obj.get("setup_action"),
-            "installation_id": obj.get("installation_id")
-        })
+        _obj = cls.model_validate(
+            {
+                "state": obj.get("state"),
+                "code": obj.get("code"),
+                "setup_action": obj.get("setup_action"),
+                "installation_id": obj.get("installation_id"),
+            }
+        )
         return _obj
-
-

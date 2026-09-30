@@ -24,16 +24,24 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ListServicesReply(BaseModel):
     """
     ListServicesReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     services: Optional[List[ServiceListItem]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
     count: Optional[StrictInt] = None
     has_next: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = ["services", "limit", "offset", "count", "has_next"]
+    __properties: ClassVar[List[str]] = [
+        "services",
+        "limit",
+        "offset",
+        "count",
+        "has_next",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -41,7 +49,6 @@ class ListServicesReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,8 +73,7 @@ class ListServicesReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -78,9 +84,10 @@ class ListServicesReply(BaseModel):
         _items = []
         if self.services:
             for _item_services in self.services:
-                if _item_services:
-                    _items.append(_item_services.to_dict())
-            _dict['services'] = _items
+                _items.append(
+                    _item_services.to_dict() if _item_services is not None else None
+                )
+            _dict["services"] = _items
         return _dict
 
     @classmethod
@@ -92,13 +99,17 @@ class ListServicesReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "services": [ServiceListItem.from_dict(_item) for _item in obj["services"]] if obj.get("services") is not None else None,
-            "limit": obj.get("limit"),
-            "offset": obj.get("offset"),
-            "count": obj.get("count"),
-            "has_next": obj.get("has_next")
-        })
+        _obj = cls.model_validate(
+            {
+                "services": [
+                    ServiceListItem.from_dict(_item) for _item in obj["services"]
+                ]
+                if obj.get("services") is not None
+                else None,
+                "limit": obj.get("limit"),
+                "offset": obj.get("offset"),
+                "count": obj.get("count"),
+                "has_next": obj.get("has_next"),
+            }
+        )
         return _obj
-
-

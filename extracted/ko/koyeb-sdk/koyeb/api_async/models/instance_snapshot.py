@@ -26,10 +26,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class InstanceSnapshot(BaseModel):
     """
     InstanceSnapshot
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
     created_at: Optional[datetime] = None
@@ -42,11 +44,32 @@ class InstanceSnapshot(BaseModel):
     deployment_id: Optional[StrictStr] = None
     regional_deployment_id: Optional[StrictStr] = None
     instance_id: Optional[StrictStr] = None
-    status: Optional[InstanceSnapshotStatus] = InstanceSnapshotStatus.INSTANCE_SNAPSHOT_STATUS_INVALID
-    type: Optional[InstanceSnapshotType] = InstanceSnapshotType.INSTANCE_SNAPSHOT_TYPE_INVALID
+    status: Optional[
+        InstanceSnapshotStatus
+    ] = InstanceSnapshotStatus.INSTANCE_SNAPSHOT_STATUS_INVALID
+    type: Optional[
+        InstanceSnapshotType
+    ] = InstanceSnapshotType.INSTANCE_SNAPSHOT_TYPE_INVALID
     version: Optional[StrictStr] = None
     messages: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["id", "name", "created_at", "updated_at", "available_at", "deleted_at", "organization_id", "project_id", "service_id", "deployment_id", "regional_deployment_id", "instance_id", "status", "type", "version", "messages"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "name",
+        "created_at",
+        "updated_at",
+        "available_at",
+        "deleted_at",
+        "organization_id",
+        "project_id",
+        "service_id",
+        "deployment_id",
+        "regional_deployment_id",
+        "instance_id",
+        "status",
+        "type",
+        "version",
+        "messages",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -54,7 +77,6 @@ class InstanceSnapshot(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -79,8 +101,7 @@ class InstanceSnapshot(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -98,24 +119,28 @@ class InstanceSnapshot(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "name": obj.get("name"),
-            "created_at": obj.get("created_at"),
-            "updated_at": obj.get("updated_at"),
-            "available_at": obj.get("available_at"),
-            "deleted_at": obj.get("deleted_at"),
-            "organization_id": obj.get("organization_id"),
-            "project_id": obj.get("project_id"),
-            "service_id": obj.get("service_id"),
-            "deployment_id": obj.get("deployment_id"),
-            "regional_deployment_id": obj.get("regional_deployment_id"),
-            "instance_id": obj.get("instance_id"),
-            "status": obj.get("status") if obj.get("status") is not None else InstanceSnapshotStatus.INSTANCE_SNAPSHOT_STATUS_INVALID,
-            "type": obj.get("type") if obj.get("type") is not None else InstanceSnapshotType.INSTANCE_SNAPSHOT_TYPE_INVALID,
-            "version": obj.get("version"),
-            "messages": obj.get("messages")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "name": obj.get("name"),
+                "created_at": obj.get("created_at"),
+                "updated_at": obj.get("updated_at"),
+                "available_at": obj.get("available_at"),
+                "deleted_at": obj.get("deleted_at"),
+                "organization_id": obj.get("organization_id"),
+                "project_id": obj.get("project_id"),
+                "service_id": obj.get("service_id"),
+                "deployment_id": obj.get("deployment_id"),
+                "regional_deployment_id": obj.get("regional_deployment_id"),
+                "instance_id": obj.get("instance_id"),
+                "status": obj.get("status")
+                if obj.get("status") is not None
+                else InstanceSnapshotStatus.INSTANCE_SNAPSHOT_STATUS_INVALID,
+                "type": obj.get("type")
+                if obj.get("type") is not None
+                else InstanceSnapshotType.INSTANCE_SNAPSHOT_TYPE_INVALID,
+                "version": obj.get("version"),
+                "messages": obj.get("messages"),
+            }
+        )
         return _obj
-
-

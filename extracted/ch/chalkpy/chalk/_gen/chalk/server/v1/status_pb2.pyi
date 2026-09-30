@@ -1,4 +1,5 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.server.v1 import kube_cluster_health_pb2 as _kube_cluster_health_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf.internal import containers as _containers
@@ -87,6 +88,7 @@ class HealthCheckName(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     HEALTH_CHECK_NAME_CLICKHOUSE_USAGE: _ClassVar[HealthCheckName]
     HEALTH_CHECK_NAME_DATAPLANE_API_SERVER: _ClassVar[HealthCheckName]
     HEALTH_CHECK_NAME_INFRASTRUCTURE_NODEPOOL: _ClassVar[HealthCheckName]
+    HEALTH_CHECK_NAME_ONLINE_NODEPOOL: _ClassVar[HealthCheckName]
 
 HEALTH_CHECK_STATUS_UNSPECIFIED: HealthCheckStatus
 HEALTH_CHECK_STATUS_OK: HealthCheckStatus
@@ -155,6 +157,7 @@ HEALTH_CHECK_NAME_MCP_GATEWAY: HealthCheckName
 HEALTH_CHECK_NAME_CLICKHOUSE_USAGE: HealthCheckName
 HEALTH_CHECK_NAME_DATAPLANE_API_SERVER: HealthCheckName
 HEALTH_CHECK_NAME_INFRASTRUCTURE_NODEPOOL: HealthCheckName
+HEALTH_CHECK_NAME_ONLINE_NODEPOOL: HealthCheckName
 
 class HealthCheck(_message.Message):
     __slots__ = ("name", "status", "message", "latency", "kube_data", "metadata")

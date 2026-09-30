@@ -18,6 +18,8 @@
 # Urwid web site: https://urwid.org/
 
 
+"""Helpers for building a readable ``repr`` of widgets."""
+
 from __future__ import annotations
 
 import typing
@@ -28,9 +30,8 @@ if typing.TYPE_CHECKING:
 
 
 def split_repr(self: Widget) -> str:
-    """
-    Return a helpful description of the object using self._repr_words() and self._repr_attrs()
-    to add to the description.
+    """Return a helpful description of the object using self._repr_words() and self._repr_attrs().
+
     This function may be used by adding code to your class like this:
 
     >>> class Foo(object):
@@ -66,7 +67,7 @@ def split_repr(self: Widget) -> str:
 
 def normalize_repr(v: object) -> str:
     """
-    Return dictionary repr sorted by keys, leave others unchanged
+    Return dictionary repr sorted by keys, leave others unchanged.
 
     >>> normalize_repr({1: 2, 3: 4, 5: 6, 7: 8})
     '{1: 2, 3: 4, 5: 6, 7: 8}'
@@ -82,10 +83,9 @@ def normalize_repr(v: object) -> str:
 
 
 def remove_defaults(d: dict[str, object], fn: object) -> dict[str, object]:
-    """
-    Remove keys in d that are set to the default values from
-    fn.  This method is used to unclutter the _repr_attrs()
-    return value.
+    """Remove keys in d that are set to the default values from fn.
+
+    This method is used to unclutter the _repr_attrs() return value.
 
     d will be modified by this function.
 

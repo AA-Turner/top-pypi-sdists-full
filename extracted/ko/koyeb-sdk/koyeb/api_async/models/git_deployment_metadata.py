@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class GitDeploymentMetadata(BaseModel):
     """
     GitDeploymentMetadata
-    """ # noqa: E501
+    """  # noqa: E501
+
     last_provisioned_deployment_id: Optional[StrictStr] = None
     git_env: Optional[GitEnvDeploymentMetadata] = None
     __properties: ClassVar[List[str]] = ["last_provisioned_deployment_id", "git_env"]
@@ -38,7 +40,6 @@ class GitDeploymentMetadata(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,8 +64,7 @@ class GitDeploymentMetadata(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -73,7 +73,7 @@ class GitDeploymentMetadata(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of git_env
         if self.git_env:
-            _dict['git_env'] = self.git_env.to_dict()
+            _dict["git_env"] = self.git_env.to_dict()
         return _dict
 
     @classmethod
@@ -85,10 +85,14 @@ class GitDeploymentMetadata(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "last_provisioned_deployment_id": obj.get("last_provisioned_deployment_id"),
-            "git_env": GitEnvDeploymentMetadata.from_dict(obj["git_env"]) if obj.get("git_env") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "last_provisioned_deployment_id": obj.get(
+                    "last_provisioned_deployment_id"
+                ),
+                "git_env": GitEnvDeploymentMetadata.from_dict(obj["git_env"])
+                if obj.get("git_env") is not None
+                else None,
+            }
+        )
         return _obj
-
-

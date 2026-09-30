@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class CreatePaymentAuthorizationReply(BaseModel):
     """
     CreatePaymentAuthorizationReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     payment_method: Optional[PaymentMethod] = None
     __properties: ClassVar[List[str]] = ["payment_method"]
 
@@ -37,7 +39,6 @@ class CreatePaymentAuthorizationReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class CreatePaymentAuthorizationReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -72,7 +72,7 @@ class CreatePaymentAuthorizationReply(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of payment_method
         if self.payment_method:
-            _dict['payment_method'] = self.payment_method.to_dict()
+            _dict["payment_method"] = self.payment_method.to_dict()
         return _dict
 
     @classmethod
@@ -84,9 +84,11 @@ class CreatePaymentAuthorizationReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "payment_method": PaymentMethod.from_dict(obj["payment_method"]) if obj.get("payment_method") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "payment_method": PaymentMethod.from_dict(obj["payment_method"])
+                if obj.get("payment_method") is not None
+                else None
+            }
+        )
         return _obj
-
-

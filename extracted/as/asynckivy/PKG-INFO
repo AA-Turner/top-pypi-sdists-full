@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: asynckivy
-Version: 0.11.1
+Version: 0.12.0
 Summary: Async library for Kivy
 Keywords: async,kivy
 Author: Nattōsai Mitō
 Author-email: Nattōsai Mitō <flow4re2c@gmail.com>
 License-Expression: MIT
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Libraries

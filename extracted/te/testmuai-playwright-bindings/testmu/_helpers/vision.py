@@ -28,6 +28,14 @@ except ImportError:  # pragma: no cover - Pillow is a declared dependency
 
 from testmu import _config
 from testmu._helpers._http import create_session
+from testmu._helpers._page_ready import (
+    PAGE_NOT_READY_STATUS,
+    is_page_not_ready_body,
+    new_request_id,
+    page_not_ready_message,
+    retry_on_page_not_ready,
+)
+from testmu._helpers._credits import raise_if_insufficient_credits
 from testmu._helpers._screenshot import take_screenshot
 from testmu._helpers._dom_capture import (
     build_flat_dom as _build_flat_dom,
@@ -294,50 +302,67 @@ async def vision_query(
         # inside operation_dict; the outer payload carries use_query_v2 alongside
         # version.
         from testmu._vars import var
-        description = var(description)
+        from testmu._helpers._vision_fence import fence_templates
+        # Fence substituted values: a multi-line captured value spliced
+        # inline makes the model bind the predicate to its last line only.
+        description = fence_templates(description, var)
         base_url = _configure.get("automind_url", "")
         if not base_url:
             _log_v3.warning("[vision_query] no heal endpoint configured")
             return None
-        screenshot_b64 = await _capture_screenshot_b64(page)
-        current_action = {
-            "operation_type": "VISION_QUERY",
-            "operation_intent": description,
-            "instruction_id": "",
-            "operation_id": "",
-            "use_query_v2": True,
-            "version": "v3",
-            "selector": [],
-            "frame_info": [],
-            "sub_instruction_obj": {
-                "operation_dict": {
-                    "queried_value": description,
-                    "result_type": return_type,
-                },
-            },
-        }
-        payload = _normalize_v3_payload_types({
-            "code_export_id": _configure.get("code_export_id", ""),
-            "current_action": current_action,
-            "commit_id": _configure.get("commit_id", ""),
-            "test_id": _configure.get("test_id", ""),
-            "billing_run_id": _configure.billing_run_id(),
-            "username": _configure.get("username", ""),
-            "accesskey": _configure.get("accesskey", ""),
-            "org_id": _configure.get("org_id", ""),
-            "session_id": _configure.get("session_id", ""),
-            "untagged_image_base64": screenshot_b64,
-            "use_query_v2": True,
-            "version": "v3",
-        })
         url = f"{base_url}{V3_HEAL_VISION_PATH}"
         headers = _v3_auth_headers()
+
+        async def _attempt() -> dict:
+            # Screenshot INSIDE the attempt: the page_not_ready budget only means
+            # anything if each retry observes a fresher page.
+            screenshot_b64 = await _capture_screenshot_b64(page)
+            current_action = {
+                "operation_type": "VISION_QUERY",
+                "operation_intent": description,
+                "instruction_id": "",
+                "operation_id": "",
+                "use_query_v2": True,
+                "version": "v3",
+                "selector": [],
+                "frame_info": [],
+                "sub_instruction_obj": {
+                    "operation_dict": {
+                        "queried_value": description,
+                        "result_type": return_type,
+                    },
+                },
+            }
+            payload = _normalize_v3_payload_types({
+                "code_export_id": _configure.get("code_export_id", ""),
+                # Fresh per attempt so each page_not_ready retry saves to its own
+                # automind VQE folder ({org_id}/vqe/{request_id}).
+                "request_id": new_request_id(),
+                "current_action": current_action,
+                "commit_id": _configure.get("commit_id", ""),
+                "test_id": _configure.get("test_id", ""),
+                "billing_run_id": _configure.billing_run_id(),
+                "username": _configure.get("username", ""),
+                "accesskey": _configure.get("accesskey", ""),
+                "org_id": _configure.get("org_id", ""),
+                "session_id": _configure.get("session_id", ""),
+                "untagged_image_base64": screenshot_b64,
+                "use_query_v2": True,
+                "version": "v3",
+            })
+            return await _post_v3_vision(url, payload, headers)
+
         try:
-            result = await _post_v3_vision(url, payload, headers)
+            result = await retry_on_page_not_ready(_attempt, label="[vision_query]")
         except Exception as e:
             _log_v3.warning("[vision_query] '%s': %s", description[:80], e)
             raise RuntimeError(f"vision_query failed: {e}") from e
         if isinstance(result, dict) and result.get("error"):
+            # page_not_ready survived the budget — the page was still loading, the
+            # action did not fail. Keep loader_reason (and the literal
+            # "page_not_ready" substring auteur's code_generation routes on).
+            if is_page_not_ready_body(result):
+                raise RuntimeError(page_not_ready_message("vision_query failed", result))
             raise RuntimeError(f"vision_query failed: {result['error']}")
         raw = result.get("vision_query") if isinstance(result, dict) else None
         if raw is None:
@@ -722,7 +747,7 @@ V3_HEAL_TEXTUAL_QUERY_PATH = "/v1/heal/textual_query"
 _CSS_PROPERTIES = [
     "color", "background-color", "border-color",
     "font-size", "font-family", "font-weight", "font-style",
-    "display", "visibility", "opacity",
+    "display", "visibility", "opacity", "position", "z-index",
 ]
 
 # Payload fields that must be coerced to str (None -> "") to match the
@@ -912,6 +937,26 @@ async def _post_v3_vision(url: str, payload: dict, headers: dict) -> dict:
     import httpx as _httpx
     async with _httpx.AsyncClient(timeout=30.0) as client:
         r = await client.post(url, json=payload, headers=headers)
+        # Terminal before any other interpretation: once credits are exhausted every
+        # Subsequent call is refused, so the run must stop rather than retry.
+        try:
+            _credits_body = r.json()
+        except Exception:  # noqa: BLE001 — a non-JSON 403 is not a credits refusal
+            _credits_body = None
+        raise_if_insufficient_credits(r.status_code, _credits_body)
+        # 409 page_not_ready is a CONTRACTED answer, not a transport failure: the
+        # VQE saw a loader and hands the retry budget to the client. Return the
+        # body verbatim so the caller's retry loop can re-screenshot, and so the
+        # terminal error keeps loader_reason. raise_for_status() here would
+        # destroy both.
+        if r.status_code == PAGE_NOT_READY_STATUS:
+            try:
+                body = r.json()
+            except Exception:  # noqa: BLE001 — a non-JSON 409 is not a loader signal
+                body = None
+            if is_page_not_ready_body(body):
+                _log_v3.info("[v3 vision] HTTP 409 page_not_ready — loader still visible")
+                return body
         if r.status_code >= 400:
             _log_v3.error("[v3 vision] HTTP %d body=%s", r.status_code, r.text[:1000])
         r.raise_for_status()
@@ -944,6 +989,9 @@ def _build_v3_vision_payload(description: str, screenshot_b64: str, method_name:
     }
     return _normalize_v3_payload_types({
         "code_export_id": _configure.get("code_export_id", ""),
+        # Fresh per call so each page_not_ready retry saves to its own automind
+        # VQE folder ({org_id}/vqe/{request_id}).
+        "request_id": new_request_id(),
         "current_action": current_action,
         "commit_id": _configure.get("commit_id", ""),
         "test_id": _configure.get("test_id", ""),
@@ -1208,10 +1256,44 @@ async def _capture_v3_snapshots_with_cdp(page) -> tuple[dict, dict]:
         dom_snapshot = await cdp.send("DOMSnapshot.captureSnapshot", {
             "computedStyles": _CSS_PROPERTIES,
             "includeDOMRects": True,
+            "includePaintOrder": True,
         })
+        # V2: the frame-less AX tree is main-frame only; graft each
+        # iframe's tree in so iframe-resident controls reach the endpoint.
+        try:
+            await _merge_iframe_a11y(cdp, a11y_snapshot, dom_snapshot)
+        except Exception as e:  # noqa: BLE001 — never fatal to the capture
+            _log_v3.info("[iframe-a11y] merge skipped: %s", e)
     finally:
         await cdp.detach()
     return a11y_snapshot, dom_snapshot
+
+
+async def _merge_iframe_a11y(cdp, a11y_snapshot, dom_snapshot):
+    from testmu._helpers import iframe_a11y
+    if len((dom_snapshot or {}).get("documents") or []) < 2:
+        return
+
+    async def send(cmd, params=None):
+        try:
+            return await cdp.send(cmd, params or {})
+        except PlaywrightError as e:
+            _log_v3.info("[iframe-a11y] %s failed: %s", cmd, e)
+            return {}
+
+    frames = iframe_a11y.frame_ids_with_parents(await send("Page.getFrameTree"))
+    if len(frames) < 2:
+        return
+    frame_ax = {frames[0][0]: a11y_snapshot}
+    for fid, _ in frames[1:]:
+        frame_ax[fid] = await send("Accessibility.getFullAXTree", {"frameId": fid})
+    owners = iframe_a11y.owners_from_parent_ax(frames, frame_ax)
+    for fid, _ in frames[1:]:
+        if fid not in owners:
+            bid = (await send("DOM.getFrameOwner", {"frameId": fid})).get("backendNodeId")
+            if bid is not None:
+                owners[fid] = bid
+    iframe_a11y.merge_iframe_a11y(a11y_snapshot, dom_snapshot, frames, frame_ax, owners)
 
 
 async def _capture_v3_server_snapshots(page) -> tuple[dict, dict]:
@@ -1313,6 +1395,11 @@ async def get_v3_vision_target(page, description: str, method_name: str = "click
     Returns the raw response dict, or None on config/transport failure. The
     automind_url check fires BEFORE the screenshot call so an unconfigured
     environment doesn't take a screenshot it will throw away.
+
+    Runs under the ``page_not_ready`` budget: a loader-blocked heal retries with
+    a fresh screenshot instead of counting as an immediate tier miss. A budget
+    that exhausts returns the loader body, which the cascade reads as a miss
+    (``resp.get("error")`` → None) exactly as before.
     """
     try:
         from testmu import _configure
@@ -1320,11 +1407,18 @@ async def get_v3_vision_target(page, description: str, method_name: str = "click
         if not base_url:
             _log_v3.warning("[v3 vision] no automind_url configured")
             return None
-        snapshot_b64 = await _capture_screenshot_b64(page)
-        payload = _build_v3_vision_payload(description, snapshot_b64, method_name=method_name)
         url = f"{base_url}{V3_HEAL_VISION_PATH}"
         headers = _v3_auth_headers()
-        return await _post_v3_vision(url, payload, headers)
+
+        async def _attempt() -> dict:
+            # Screenshot INSIDE the attempt so each retry sees a fresher page.
+            snapshot_b64 = await _capture_screenshot_b64(page)
+            payload = _build_v3_vision_payload(
+                description, snapshot_b64, method_name=method_name
+            )
+            return await _post_v3_vision(url, payload, headers)
+
+        return await retry_on_page_not_ready(_attempt, label="[v3 vision]")
     except Exception as e:
         _log_v3.warning(f"[v3 vision] '{description}': {e}")
         return None

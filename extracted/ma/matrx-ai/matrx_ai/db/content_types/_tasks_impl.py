@@ -3,6 +3,8 @@ from __future__ import annotations
 import textwrap
 from typing import Any, Literal
 
+from matrx_utils.row_access import ShownToLiteral, publish_columns
+
 from matrx_ai.db._registry import get_base, get_model
 
 TasksBase = get_base("TasksBase")
@@ -68,8 +70,8 @@ def render_task_snapshot_xml(data: dict[str, Any], template: str = DEFAULT_XML_T
 # ---------------------------------------------------------------------------
 # Fields the LLM must never touch.
 # ---------------------------------------------------------------------------
-# workspace.tasks is a canonical entity: the owner is ``created_by`` and who may
-# see it is ``visibility`` (platform.visibility). ``user_id`` / ``is_public`` are
+# workspace.tasks is a canonical entity: the owner is ``created_by``; the web lane is
+# ``published_to_web`` and the list filter is ``shown_to``. ``user_id`` / ``is_public`` are
 # the retired spellings — writing them makes the ORM refuse the whole call
 # ("Unknown field(s) on Tasks"), which is how the `task` tool died on every action.
 _IMMUTABLE_FIELDS = frozenset(
@@ -97,11 +99,12 @@ _MUTABLE_FIELDS = frozenset(
         "parent_task_id",
         "assignee_id",
         "settings",
-        "visibility",
+        "published_to_web",
+        "published_to_web_at",
+        "published_to_web_by",
+        "shown_to",
     }
 )
-
-TaskVisibility = Literal["personal", "internal", "link", "public"]
 
 TaskStatus = Literal["incomplete", "completed"]
 TaskPriority = Literal["low", "medium", "high", "urgent"]
@@ -397,7 +400,8 @@ class TasksManager(TasksBase):
         priority: TaskPriority | None = None,
         due_date: str | None = None,
         assignee_id: str | None = None,
-        visibility: TaskVisibility | None = None,
+        published_to_web: bool = False,
+        shown_to: ShownToLiteral | None = None,
     ) -> dict[str, Any]:
         """
         Create a new task.  Explicit parameters only — immutable fields
@@ -408,8 +412,8 @@ class TasksManager(TasksBase):
         (``ToolContext.organization_id``); never defaulted here.
 
         ``user_id`` is the person creating the task — written as ``created_by``.
-        ``visibility`` omitted lets the table's own default ('internal': the
-        organization can see it) apply.
+        ``published_to_web`` is always written explicitly (never the table default);
+        ``shown_to`` omitted leaves the type's list-filter knob in charge.
         """
         if not organization_id:
             return {
@@ -424,8 +428,9 @@ class TasksManager(TasksBase):
                 "title": title,
                 "status": status,
             }
-            if visibility:
-                payload["visibility"] = visibility
+            payload.update(publish_columns(published_to_web, user_id))
+            if shown_to:
+                payload["shown_to"] = shown_to
             if description:
                 payload["description"] = description
             if project_id:
@@ -458,7 +463,8 @@ class TasksManager(TasksBase):
         caller knows what was ignored.
 
         Mutable fields: title, description, status, priority, due_date,
-        project_id, parent_task_id, assignee_id, settings, visibility.
+        project_id, parent_task_id, assignee_id, settings, published_to_web
+        (+ its ``_at`` / ``_by`` stamps), shown_to.
         """
         safe = {k: v for k, v in updates.items() if k in _MUTABLE_FIELDS}
         stripped_immutable = [k for k in updates if k in _IMMUTABLE_FIELDS]

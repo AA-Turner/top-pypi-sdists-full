@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pylast
-Version: 7.1.0
+Version: 7.2.0
 Summary: A Python interface to Last.fm and Libre.fm
 Project-URL: Changelog, https://github.com/pylast/pylast/releases
 Project-URL: Homepage, https://github.com/pylast/pylast
@@ -12,7 +12,6 @@ License-File: LICENSE.txt
 Keywords: Last.fm,music,scrobble,scrobbling
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -24,7 +23,7 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: httpx2
 Provides-Extra: tests
 Requires-Dist: flaky; extra == 'tests'

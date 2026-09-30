@@ -42,7 +42,7 @@ PYWIN32_VERSION = py_win_version
 HOST_SERVER = '0.0.0.0'
 HOST_CLIENT = 'localhost'
 # non-privileged ports are 1023 < 65535
-PORT = 5000
+PORT = 27183
 
 SOCKET_RETRIES = 3
 TIMEOUT_LENGTH = 1.0
@@ -53,10 +53,19 @@ CLIENT_NAME = 'MultiVuClient'
 
 MIN_PYWIN32_VERSION = 300
 
+# The MultiVu version number reported while running in scaffolding
+# mode, where there is no MultiVu to ask.
+SIM_MULTIVU_VERSION = 'sim'
+
+# The MultiVu version number is sent to the client during the START
+# handshake using this key so that it is not confused with the
+# single-letter option flags.
+MVU_VERSION_KEY = 'mv='
+
 LOG_NAME = 'QdMultiVu.log'
 
 # Each message starts with a hex number that is this many bytes
 # long.  This number is the length of the json header.
 HEADER_BYTE_LENGTH = 2
-MESSAGE_TYPE = 'text/json',
+MESSAGE_TYPE = 'text/json'
 ENCODING = 'utf-8'

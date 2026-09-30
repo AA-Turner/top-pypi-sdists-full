@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import logging
 import os
 import queue
@@ -15,8 +14,9 @@ except ImportError:
     cv2 = None
 from datetime import datetime, timezone
 
+from ...clients.fr_client import FRClient
+from ...clients.models import build_people_activity
 from ..utils.geometry_utils import bbox_xyxy_pixels
-from .face_recognition_client import FacialRecognitionClient
 
 # The FR server stores the activity ``bbox`` as sent, and the VMS reads it back as pixels on a fixed
 # 640 x 640 grid: fe-analytics ``FrameBboxImage`` with ``{kind: "detector", size:
@@ -26,28 +26,42 @@ from .face_recognition_client import FacialRecognitionClient
 # unchanged (``bbox_xyxy_pixels``), so the legacy path sends exactly what it sent before.
 ACTIVITY_BBOX_GRID = 640
 
+# Pending activity logs per logger. Producers never block: when the FR server falls behind, new
+# items are dropped and counted rather than queued without limit.
+ACTIVITY_QUEUE_MAXSIZE = 256
+# Minimum seconds between two "activity queue full" warnings.
+ACTIVITY_DROP_LOG_INTERVAL_S = 60.0
+
+
+class _NonBlockingQueue(queue.Queue):
+    """Bounded queue whose ``put`` never blocks: a full queue raises ``queue.Full`` at once."""
+
+    def put(self, item: Any, block: bool = False, timeout: float | None = None) -> None:
+        super().put(item, block=block, timeout=timeout)
+
 
 # codeql[py/should-be-context-manager]
 class PeopleActivityLogging:
     """Background logging system for face recognition activity"""
 
-    def __init__(self, face_client: FacialRecognitionClient = None):
+    def __init__(self, face_client: FRClient | None = None):
         self.face_client = face_client
         self.logger = logging.getLogger(__name__)
 
-        # Log project ID information for observability and debugging
-        face_client_project_id = (
-            getattr(self.face_client, "project_id", None) if self.face_client else None
-        )
+        # The client's own project id is deliberately not read here: resolving it calls
+        # the platform, and a constructor is the wrong place to make a network request.
+        # The client warns once on its own when it cannot resolve one.
         env_project_id = os.getenv("MATRICE_PROJECT_ID", "")
         self.logger.info(
             "[PROJECT_ID] PeopleActivityLogging initialized "
-            f"with face_client.project_id='{face_client_project_id}', "
+            f"with face_client={'yes' if self.face_client else 'no'}, "
             f"MATRICE_PROJECT_ID env='{env_project_id}'"
         )
 
-        # Use thread-safe queue for cross-thread communication (Python 3.8 compatibility)
-        self.activity_queue = queue.Queue()
+        # Thread-safe, bounded queue for cross-thread communication
+        self.activity_queue = _NonBlockingQueue(maxsize=ACTIVITY_QUEUE_MAXSIZE)
+        self.dropped_activity_count = 0
+        self._last_drop_log = float("-inf")
 
         # Thread for background processing
         self.processing_thread = None
@@ -67,6 +81,8 @@ class PeopleActivityLogging:
         # cooldown window, and the fallback keeps backward compatibility for
         # detection payloads that don't carry a track_id.
         self.recent_employee_detections: Dict[str, float] = {}
+        # Same cooldown applied before enqueueing, so repeat sightings never reach the queue.
+        self.recent_enqueued_detections: Dict[str, float] = {}
         self.employee_detection_threshold = 10.0  # seconds
 
         # Start background processing
@@ -99,8 +115,8 @@ class PeopleActivityLogging:
         finally:
             try:
                 loop.close()
-            except Exception:
-                # Non-fatal: the loop is being discarded either way; keep the reason in the log.
+            except Exception:  # noqa: BLE001 - a spent loop that will not close is not worth
+                # failing the activity thread over, but the reason belongs in the log.
                 self.logger.error("Failed to close the activity event loop", exc_info=True)
 
     async def _process_activity_queue(self):
@@ -135,7 +151,6 @@ class PeopleActivityLogging:
             activity_data = {
                 "detection_type": detection["recognition_status"],  # known, unknown
                 "detection": detection,
-                "current_frame": current_frame,
                 "location": location,
                 "camera_name": camera_name,
                 "camera_id": camera_id,
@@ -166,10 +181,46 @@ class PeopleActivityLogging:
             self.last_detection_time = time.time()
             self.empty_detection_logged = False
 
-            # Use thread-safe put (no await needed for queue.Queue)
-            self.activity_queue.put(activity_data)
+            self._queue_activity(activity_data)
         except Exception as e:
             self.logger.error(f"Error enqueueing detection: {e}", exc_info=True)
+
+    def _queue_activity(self, activity_data: Dict) -> None:
+        """Queue one activity log: cooldown first, no frame or image, never blocking.
+
+        The item carries neither the frame nor an encoded image. The sidecar's request has no
+        image field and fetches the frame itself from the media server by ``rtpNumber`` and
+        ``camera_id`` (``PeopleActivityRequest``), so either would only inflate the bounded queue.
+        """
+        # Cooldown before the queue: a tracked face seen every frame is enqueued once per window.
+        if "recent_enqueued_detections" not in self.__dict__:
+            self.recent_enqueued_detections = {}
+        if not self._admit_within_cooldown(
+            self.recent_enqueued_detections,
+            activity_data["employee_id"],
+            camera_id=activity_data["camera_id"],
+            track_id=activity_data["track_id"],
+        ):
+            return
+        # Admitted by the cooldown above; the consumer does not apply it a second time.
+        activity_data["cooldown_admitted"] = True
+        try:
+            # _NonBlockingQueue.put raises queue.Full at once instead of blocking the caller.
+            self.activity_queue.put(activity_data)
+        except queue.Full:
+            self._record_dropped_activity()
+
+    def _record_dropped_activity(self) -> None:
+        """Count a dropped activity log; warn at most once per ACTIVITY_DROP_LOG_INTERVAL_S."""
+        self.dropped_activity_count = getattr(self, "dropped_activity_count", 0) + 1
+        now = time.monotonic()
+        if now - getattr(self, "_last_drop_log", float("-inf")) >= ACTIVITY_DROP_LOG_INTERVAL_S:
+            self._last_drop_log = now
+            self.logger.warning(
+                "Activity queue full (maxsize=%s); dropped %d activity logs so far",
+                self.activity_queue.maxsize,
+                self.dropped_activity_count,
+            )
 
     def _should_log_detection(
         self,
@@ -188,6 +239,18 @@ class PeopleActivityLogging:
              employee-level dedupe.
           3. employee_id alone when camera_id is also missing.
         """
+        return self._admit_within_cooldown(
+            self.recent_employee_detections, employee_id, camera_id=camera_id, track_id=track_id
+        )
+
+    def _admit_within_cooldown(
+        self,
+        recent: Dict[str, float],
+        employee_id: str,
+        camera_id: str = "",
+        track_id: str | None = None,
+    ) -> bool:
+        """Cooldown check of ``_should_log_detection`` against the ``recent`` key map."""
         current_time = time.time()
         if track_id:
             dedupe_key = f"track::{track_id}::{camera_id}"
@@ -198,14 +261,14 @@ class PeopleActivityLogging:
 
         expired_keys = [
             key
-            for key, timestamp in self.recent_employee_detections.items()
+            for key, timestamp in recent.items()
             if current_time - timestamp > self.employee_detection_threshold
         ]
         for key in expired_keys:
-            del self.recent_employee_detections[key]
+            del recent[key]
 
-        if dedupe_key in self.recent_employee_detections:
-            last_detection = self.recent_employee_detections[dedupe_key]
+        if dedupe_key in recent:
+            last_detection = recent[dedupe_key]
             if current_time - last_detection < self.employee_detection_threshold:
                 self.logger.debug(
                     "Skipping logging key=%s - detected %.1fs ago",
@@ -214,13 +277,12 @@ class PeopleActivityLogging:
                 )
                 return False
 
-        self.recent_employee_detections[dedupe_key] = current_time
+        recent[dedupe_key] = current_time
         return True
 
     async def _process_activity(self, activity_data: Dict):
         """Process activity data - handle all face detections with embedded image data"""
         detection_type = activity_data["detection_type"]
-        current_frame = activity_data["current_frame"]
         bbox = activity_data["bbox"]
         employee_id = activity_data["employee_id"]
         location = activity_data["location"]
@@ -240,9 +302,12 @@ class PeopleActivityLogging:
                 self.logger.warning("Face client not available for activity logging")
                 return None
 
-            # Check if we should log this detection (avoid duplicates within time window)
+            # Check if we should log this detection (avoid duplicates within time window).
+            # Items enqueue_detection already admitted through the same cooldown skip it here.
             track_id = activity_data.get("track_id")
-            if not self._should_log_detection(employee_id, camera_id=camera_id, track_id=track_id):
+            if not activity_data.get("cooldown_admitted") and not self._should_log_detection(
+                employee_id, camera_id=camera_id, track_id=track_id
+            ):
                 self.logger.debug(
                     "Skipping activity log for employee_id=%s (camera_id=%s, track_id=%s) (within cooldown)",
                     employee_id,
@@ -251,51 +316,34 @@ class PeopleActivityLogging:
                 )
                 return None
 
-            # Encode frame as base64 JPEG
-            image_data = None
-            if current_frame is not None:
-                try:
-                    self.logger.debug(f"Encoding frame as base64 JPEG - employee_id={employee_id}")
-                    _, buffer = cv2.imencode(".jpg", current_frame)
-                    frame_bytes = buffer.tobytes()
-                    image_data = base64.b64encode(frame_bytes).decode("utf-8")
-                    self.logger.debug(
-                        f"Encoded image data - employee_id={employee_id}, size={len(frame_bytes)} bytes"
-                    )
-                except Exception as e:
-                    self.logger.error(
-                        f"Error encoding frame for employee_id={employee_id}: {e}",
-                        exc_info=True,
-                    )
-
-            # Store activity data with embedded image
+            # The frame is not encoded here. The sidecar's request carries no image
+            # field -- it fetches the frame itself from the media server using
+            # rtpNumber and camera_id -- so base64-encoding one per detection only
+            # spent CPU and memory on bytes that were dropped before the wire.
             self.logger.info(
                 f"Processing activity log - type={detection_type}, employee_id={employee_id}, staff_id={staff_id}, location={location}"
             )
-            response = await self.face_client.store_people_activity(
+            request = build_people_activity(
                 staff_id=staff_id,
-                detection_type=detection_type,
-                bbox=bbox,
-                location=location,
-                employee_id=employee_id,
+                type=detection_type,
                 timestamp=timestamp,
-                image_data=image_data,
-                camera_name=camera_name,
-                camera_id=camera_id,
-                application_id=application_id,
-                rtp_number=rtp_number,
-                similarity_score=similarity_score,
+                bbox=bbox,
+                location=location or "",
+                camera_name=camera_name or "",
+                camera_id=camera_id or "",
+                application_id=application_id or "",
+                rtp_number=rtp_number or "",
+                # Mutually exclusive, chosen by whether the person was recognised.
+                employee_id=employee_id if detection_type == "known" and employee_id else None,
+                anonymous_id=employee_id if detection_type == "unknown" and employee_id else None,
+                confidence_score=None if similarity_score is None else float(similarity_score),
             )
+            stored_at = await self.face_client.store_people_activity(request)
 
-            if response and response.get("success", False):
-                self.logger.info(f"Activity log stored successfully for employee_id={employee_id}")
-            else:
-                error_msg = response.get("error", "Unknown error") if response else "No response"
-                self.logger.warning(
-                    f"Failed to store activity log for employee_id={employee_id} - {error_msg}"
-                )
-
-            return response
+            # A blank answer is a success on this route: the activity was recorded, the
+            # sidecar simply had no frame to point at.
+            self.logger.info(f"Activity log stored successfully for employee_id={employee_id}")
+            return stored_at
         except Exception as e:
             self.logger.error(
                 f"Error processing activity log for employee_id={employee_id}: {e}",
@@ -312,7 +360,7 @@ class PeopleActivityLogging:
             self.logger.info(
                 f"Uploading frame to storage - employee_id={employee_id}, size={len(frame_bytes)} bytes"
             )
-            upload_success = await self.face_client.upload_image_to_url(frame_bytes, upload_url)
+            upload_success = await self.face_client.upload_frame(upload_url, frame_bytes)
 
             if upload_success:
                 self.logger.info(f"Frame uploaded successfully for employee_id={employee_id}")
@@ -387,6 +435,6 @@ class PeopleActivityLogging:
         """Cleanup when object is destroyed"""
         try:
             self.stop_background_processing()
-        except Exception:
-            # Non-fatal: the object is going away either way; keep the reason in the log.
+        except Exception:  # noqa: BLE001 - the object is going away either way, but the
+            # reason belongs in the log rather than a silent __del__.
             self.logger.error("Failed to stop activity logging during cleanup", exc_info=True)

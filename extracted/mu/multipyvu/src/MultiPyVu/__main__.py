@@ -18,10 +18,9 @@ from sys import argv
 
 from MultiPyVu.gui.Controller import Controller
 from MultiPyVu.ParseInputs import parse_input
-from MultiPyVu.scripts.helper_scripts import (get_ip,
-                                              run_status,
-                                              is_running,
-                                              force_quit)
+from MultiPyVu.scripts.helper_scripts import get_ip
+from MultiPyVu.scripts.helper_scripts_client import (force_quit, is_running,
+                                                     run_status)
 
 
 def run_gui():

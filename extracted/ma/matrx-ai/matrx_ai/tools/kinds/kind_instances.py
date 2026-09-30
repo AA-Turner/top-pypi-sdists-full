@@ -120,7 +120,11 @@ class KindInstanceRecord(KindSubModel):
     #: The instance payload — carries its OWN root ``__kind`` marker.
     data: JsonValue | None = None
     validated_at: str | None = None
+    # Historical instance payloads carry this retiring projection.  Keeping it
+    # optional makes the row-access fields below an additive evolution.
     visibility: str | None = None
+    published_to_web: bool | None = None
+    shown_to: str | None = None
     created_at: str | None = None
     metadata: dict[str, JsonValue] = {}
 
@@ -141,7 +145,7 @@ class KindInstanceRecord(KindSubModel):
             "kind": "postal_address",
             "data": {"__kind": "postal_address", "street": "1 Main St"},
             "validated_at": "2026-08-26 12:00:00+00:00",
-            "visibility": "private",
+            "published_to_web": False,
             "created_at": "2026-08-26 12:00:00+00:00",
             "metadata": {},
         },

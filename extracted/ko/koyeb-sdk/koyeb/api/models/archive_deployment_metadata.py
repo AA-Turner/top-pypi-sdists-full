@@ -23,10 +23,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class ArchiveDeploymentMetadata(BaseModel):
     """
     ArchiveDeploymentMetadata
-    """ # noqa: E501
+    """  # noqa: E501
+
     last_provisioned_deployment_id: Optional[StrictStr] = None
     __properties: ClassVar[List[str]] = ["last_provisioned_deployment_id"]
 
@@ -36,7 +38,6 @@ class ArchiveDeploymentMetadata(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -61,8 +62,7 @@ class ArchiveDeploymentMetadata(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -80,9 +80,11 @@ class ArchiveDeploymentMetadata(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "last_provisioned_deployment_id": obj.get("last_provisioned_deployment_id")
-        })
+        _obj = cls.model_validate(
+            {
+                "last_provisioned_deployment_id": obj.get(
+                    "last_provisioned_deployment_id"
+                )
+            }
+        )
         return _obj
-
-

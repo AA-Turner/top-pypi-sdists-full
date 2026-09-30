@@ -12,10 +12,12 @@
 """  # noqa: E501
 
 
+import ipaddress
 import io
 import json
 import re
 import ssl
+from urllib.parse import urlparse
 
 import urllib3
 
@@ -35,8 +37,62 @@ def is_socks_proxy_url(url):
         return split_section[0].lower() in SUPPORTED_SOCKS_PROXIES
 
 
-class RESTResponse(io.IOBase):
+def contenttype_matches(contenttype, maintype, subtype):
+    """Matches the given contenttype against the given type and subtype
 
+    :param contenttype: the content type to match
+    :param maintype: the expected maintype
+    :param subtype: the expected subtype
+    :return: `true` when the given content type matches the given type and subtype,
+        regardless of the presence of mime type parameters, otherwise returns `false`.
+    :rtype: bool
+    """
+    pattern = "{type}/(?:[^+;]+\\+)?{subtype}(?:[ \t]*;.*)?".format(
+        type=re.escape(maintype),
+        subtype=re.escape(subtype),
+    )
+    return re.fullmatch(pattern, contenttype, re.IGNORECASE) is not None
+
+
+def should_bypass_proxies(url: str, no_proxy: str) -> bool:
+    """Return whether ``url`` matches the comma-separated ``no_proxy`` rules."""
+    parsed_url = urlparse(url)
+    if not parsed_url.hostname:
+        return True
+
+    host = parsed_url.hostname.lower()
+    host_and_port = parsed_url.netloc.lower()
+    try:
+        host_ip = ipaddress.ip_address(host)
+    except ValueError:
+        host_ip = None
+
+    for entry in (entry.strip().lower() for entry in no_proxy.split(",")):
+        if not entry:
+            continue
+        if entry == "*":
+            return True
+
+        if host_ip is not None:
+            try:
+                if host_ip in ipaddress.ip_network(entry, strict=False):
+                    return True
+            except ValueError:
+                pass
+
+        entry = entry.lstrip(".")
+        if (
+            host == entry
+            or host.endswith("." + entry)
+            or host_and_port == entry
+            or host_and_port.endswith("." + entry)
+        ):
+            return True
+
+    return False
+
+
+class RESTResponse(io.IOBase):
     def __init__(self, resp) -> None:
         self.response = resp
         self.status = resp.status
@@ -63,7 +119,6 @@ class RESTResponse(io.IOBase):
 
 
 class RESTClientObject:
-
     def __init__(self, configuration) -> None:
         # urllib3.PoolManager will pass all kw parameters to connectionpool
         # https://github.com/shazow/urllib3/blob/f9409436f83aeb79fbaf090181cd81b784f1b8ce/urllib3/poolmanager.py#L75  # noqa: E501
@@ -84,35 +139,37 @@ class RESTClientObject:
             "ca_cert_data": configuration.ca_cert_data,
         }
         if configuration.assert_hostname is not None:
-            pool_args['assert_hostname'] = (
-                configuration.assert_hostname
-            )
+            pool_args["assert_hostname"] = configuration.assert_hostname
 
         if configuration.retries is not None:
-            pool_args['retries'] = configuration.retries
+            pool_args["retries"] = configuration.retries
 
         if configuration.tls_server_name:
-            pool_args['server_hostname'] = configuration.tls_server_name
-
+            pool_args["server_hostname"] = configuration.tls_server_name
 
         if configuration.socket_options is not None:
-            pool_args['socket_options'] = configuration.socket_options
+            pool_args["socket_options"] = configuration.socket_options
 
         if configuration.connection_pool_maxsize is not None:
-            pool_args['maxsize'] = configuration.connection_pool_maxsize
+            pool_args["maxsize"] = configuration.connection_pool_maxsize
 
         # https pool manager
         self.pool_manager: urllib3.PoolManager
 
-        if configuration.proxy:
+        if configuration.proxy and not should_bypass_proxies(
+            configuration.host, configuration.no_proxy or ""
+        ):
             if is_socks_proxy_url(configuration.proxy):
                 from urllib3.contrib.socks import SOCKSProxyManager
+
                 pool_args["proxy_url"] = configuration.proxy
                 pool_args["headers"] = configuration.proxy_headers
                 self.pool_manager = SOCKSProxyManager(**pool_args)
             else:
                 pool_args["proxy_url"] = configuration.proxy
                 pool_args["proxy_headers"] = configuration.proxy_headers
+                if configuration.proxy_ssl_context is not None:
+                    pool_args["proxy_ssl_context"] = configuration.proxy_ssl_context
                 self.pool_manager = urllib3.ProxyManager(**pool_args)
         else:
             self.pool_manager = urllib3.PoolManager(**pool_args)
@@ -124,7 +181,7 @@ class RESTClientObject:
         headers=None,
         body=None,
         post_params=None,
-        _request_timeout=None
+        _request_timeout=None,
     ):
         """Perform requests.
 
@@ -141,15 +198,7 @@ class RESTClientObject:
                                  (connection, read) timeouts.
         """
         method = method.upper()
-        assert method in [
-            'GET',
-            'HEAD',
-            'DELETE',
-            'POST',
-            'PUT',
-            'PATCH',
-            'OPTIONS'
-        ]
+        assert method in ["GET", "HEAD", "DELETE", "POST", "PUT", "PATCH", "OPTIONS"]
 
         if post_params and body:
             raise ApiValueError(
@@ -163,25 +212,31 @@ class RESTClientObject:
         if _request_timeout:
             if isinstance(_request_timeout, (int, float)):
                 timeout = urllib3.Timeout(total=_request_timeout)
-            elif (
-                    isinstance(_request_timeout, tuple)
-                    and len(_request_timeout) == 2
-                ):
+            elif isinstance(_request_timeout, tuple) and len(_request_timeout) == 2:
                 timeout = urllib3.Timeout(
-                    connect=_request_timeout[0],
-                    read=_request_timeout[1]
+                    connect=_request_timeout[0], read=_request_timeout[1]
                 )
 
         try:
             # For `POST`, `PUT`, `PATCH`, `OPTIONS`, `DELETE`
-            if method in ['POST', 'PUT', 'PATCH', 'OPTIONS', 'DELETE']:
-
-                # no content type provided or payload is json
-                content_type = headers.get('Content-Type')
-                if (
-                    not content_type
-                    or re.search('json', content_type, re.IGNORECASE)
-                ):
+            if method in ["POST", "PUT", "PATCH", "OPTIONS", "DELETE"]:
+                content_type = headers.get("Content-Type")
+                is_json = not content_type or contenttype_matches(
+                    content_type, "application", "json"
+                )
+                # JSON is valid YAML 1.2, so structured YAML bodies can use
+                # the existing JSON serializer:
+                # https://yaml.org/spec/1.2.2/#13-relation-to-json
+                is_structured_yaml = (
+                    content_type
+                    and (
+                        contenttype_matches(content_type, "application", "yaml")
+                        or contenttype_matches(content_type, "text", "yaml")
+                        or contenttype_matches(content_type, "text", "x-yaml")
+                    )
+                    and not isinstance(body, (str, bytes))
+                )
+                if is_json or is_structured_yaml:
                     request_body = None
                     if body is not None:
                         request_body = json.dumps(body)
@@ -191,9 +246,11 @@ class RESTClientObject:
                         body=request_body,
                         timeout=timeout,
                         headers=headers,
-                        preload_content=False
+                        preload_content=False,
                     )
-                elif content_type == 'application/x-www-form-urlencoded':
+                elif contenttype_matches(
+                    content_type, "application", "x-www-form-urlencoded"
+                ):
                     r = self.pool_manager.request(
                         method,
                         url,
@@ -201,15 +258,18 @@ class RESTClientObject:
                         encode_multipart=False,
                         timeout=timeout,
                         headers=headers,
-                        preload_content=False
+                        preload_content=False,
                     )
-                elif content_type == 'multipart/form-data':
+                elif contenttype_matches(content_type, "multipart", "form-data"):
                     # must del headers['Content-Type'], or the correct
                     # Content-Type which generated by urllib3 will be
                     # overwritten.
-                    del headers['Content-Type']
+                    del headers["Content-Type"]
                     # Ensures that dict objects are serialized
-                    post_params = [(a, json.dumps(b)) if isinstance(b, dict) else (a,b) for a, b in post_params]
+                    post_params = [
+                        (a, json.dumps(b)) if isinstance(b, dict) else (a, b)
+                        for a, b in post_params
+                    ]
                     r = self.pool_manager.request(
                         method,
                         url,
@@ -217,7 +277,7 @@ class RESTClientObject:
                         encode_multipart=True,
                         timeout=timeout,
                         headers=headers,
-                        preload_content=False
+                        preload_content=False,
                     )
                 # Pass a `string` parameter directly in the body to support
                 # other content types than JSON when `body` argument is
@@ -229,9 +289,9 @@ class RESTClientObject:
                         body=body,
                         timeout=timeout,
                         headers=headers,
-                        preload_content=False
+                        preload_content=False,
                     )
-                elif headers['Content-Type'].startswith('text/') and isinstance(body, bool):
+                elif content_type.startswith("text/") and isinstance(body, bool):
                     request_body = "true" if body else "false"
                     r = self.pool_manager.request(
                         method,
@@ -239,7 +299,8 @@ class RESTClientObject:
                         body=request_body,
                         preload_content=False,
                         timeout=timeout,
-                        headers=headers)
+                        headers=headers,
+                    )
                 else:
                     # Cannot generate the request from given parameters
                     msg = """Cannot prepare a request message for provided
@@ -254,7 +315,7 @@ class RESTClientObject:
                     fields={},
                     timeout=timeout,
                     headers=headers,
-                    preload_content=False
+                    preload_content=False,
                 )
         except urllib3.exceptions.SSLError as e:
             msg = "\n".join([type(e).__name__, str(e)])

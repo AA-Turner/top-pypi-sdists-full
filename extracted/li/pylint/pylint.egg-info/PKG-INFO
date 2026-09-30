@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylint
-Version: 4.0.9
+Version: 4.1.1
 Summary: python code static checker
 Author-email: Python Code Quality Authority <code-quality@python.org>
 License-Expression: GPL-2.0-or-later
@@ -8,9 +8,9 @@ Project-URL: Bug Tracker, https://github.com/pylint-dev/pylint/issues
 Project-URL: Discord Server, https://discord.com/invite/Egy6P8AMB5
 Project-URL: Docs: Contributor Guide, https://pylint.readthedocs.io/en/latest/development_guide/contributor_guide/index.html
 Project-URL: Docs: User Guide, https://pylint.readthedocs.io/en/latest/
-Project-URL: homepage, https://github.com/pylint-dev/pylint
 Project-URL: Source Code, https://github.com/pylint-dev/pylint
 Project-URL: What's New, https://pylint.readthedocs.io/en/latest/whatsnew/4/
+Project-URL: homepage, https://github.com/pylint-dev/pylint
 Keywords: lint,linter,python,static code analysis
 Classifier: Development Status :: 6 - Mature
 Classifier: Environment :: Console
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Debuggers
@@ -33,7 +34,7 @@ Requires-Python: >=3.10.0
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: CONTRIBUTORS.txt
-Requires-Dist: astroid<=4.1.dev0,>=4.0.2
+Requires-Dist: astroid<=4.4,>=4.3.2
 Requires-Dist: colorama>=0.4.5; sys_platform == "win32"
 Requires-Dist: dill>=0.2; python_version < "3.11"
 Requires-Dist: dill>=0.3.6; python_version >= "3.11"

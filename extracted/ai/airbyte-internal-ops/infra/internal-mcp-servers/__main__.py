@@ -25,6 +25,9 @@ Keycloak client setup is intentionally out of scope -- see
 
 from __future__ import annotations
 
+from typing import Literal
+from urllib.parse import urlsplit
+
 import pulumi
 import pulumi_gcp as gcp
 
@@ -98,6 +101,35 @@ AGENT_MCP_PUBLIC_URL = f"https://{MCP_DOMAIN}{AGENT_MCP_PATH_PREFIX}"
 AGENT_MCP_PREVIEW_PUBLIC_URL = f"https://{MCP_DOMAIN}{AGENT_MCP_PREVIEW_PATH_PREFIX}"
 
 OPS_MCP_OAUTH_CLIENT_SECRET_ID = "ops-mcp-oauth-client-secret"
+
+OTEL_TRACES_HEADERS_SECRET_ID = "internal-mcp-otel-otlp-traces-headers"
+"""OTLP headers string injected as `OTEL_EXPORTER_OTLP_TRACES_HEADERS`.
+
+The value is the full Datadog OTLP header string
+(`dd-api-key=<key>,dd-otlp-source=llmobs`), shared by the internal MCP
+services (cloud-mcp today; ops-mcp once its runtime lands) so their OTel
+trace exporters authenticate to Datadog. Created during bootstrap; see
+`BOOTSTRAP.md`."""
+
+# OTLP HTTP endpoint the services' OTel trace exporters POST spans to.
+# Datadog's intake endpoint; overridable via Pulumi config but constrained
+# to Datadog intake hosts and https (see the guard below).
+OTEL_TRACES_ENDPOINT = (
+    config.get("otelTracesEndpoint") or "https://otlp.datadoghq.com/v1/traces"
+)
+
+# The `OTEL_EXPORTER_OTLP_TRACES_HEADERS` secret is a Datadog API key, so the
+# endpoint must stay a Datadog OTLP intake host over https -- forwarding the
+# key to an arbitrary collector or a plaintext endpoint would leak it.
+# Pointing anywhere else requires a code change to the vendor/header wiring,
+# not just the config value.
+_otel_url = urlsplit(OTEL_TRACES_ENDPOINT)
+if _otel_url.scheme != "https" or not (_otel_url.hostname or "").endswith(
+    (".datadoghq.com", ".datadoghq.eu", ".ddog-gov.com")
+):
+    raise ValueError(
+        f"otelTracesEndpoint must be an https Datadog OTLP intake URL, got {OTEL_TRACES_ENDPOINT!r}"
+    )
 
 # Backend credential secrets consumed by the Ops MCP server (prod + preview).
 # Created during bootstrap (see `BOOTSTRAP.md`) and looked up read-only here;
@@ -277,7 +309,11 @@ def define_secrets() -> dict[str, SecretRef]:
     looked up here as read-only data sources. Pulumi never creates secrets --
     see `CONTRIBUTING.md` for the ownership rule.
     """
-    secret_ids = [OPS_MCP_OAUTH_CLIENT_SECRET_ID, *OPS_MCP_BACKEND_SECRET_IDS]
+    secret_ids = [
+        OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        *OPS_MCP_BACKEND_SECRET_IDS,
+        OTEL_TRACES_HEADERS_SECRET_ID,
+    ]
     return {
         secret_id: gcp.secretmanager.get_secret(
             secret_id=secret_id,
@@ -410,6 +446,34 @@ def _cloud_mcp_storage_envs(
         gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
             name=FIRESTORE_DATABASE_ENV, value=database.name
         ),
+    ]
+
+
+def _otel_envs(
+    service_name: str,
+    environment: Literal["prod", "preview"],
+) -> list[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs]:
+    """Build the OpenTelemetry export + intent-capture env shared by the cloud-mcp services.
+
+    `OTEL_EXPORTER_OTLP_TRACES_HEADERS` is a Secret Manager secret holding
+    the full `dd-api-key=<key>,dd-otlp-source=llmobs` header string for the
+    Datadog OTLP intake at `OTEL_TRACES_ENDPOINT`, which is constrained to
+    Datadog intake hosts because that secret is a Datadog API key. All vars
+    are inert for images that do not read them (e.g. today's released
+    cloud-mcp image), so wiring them ahead of the runtime instrumentation is
+    safe.
+    """
+    return [
+        _env("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", OTEL_TRACES_ENDPOINT),
+        # Cloud Run injects one secret per env var with no templating, and the
+        # exporter reads this var verbatim, so the secret holds the full header
+        # string, not just the key: `dd-api-key=<key>,dd-otlp-source=llmobs`
+        _secret_env("OTEL_EXPORTER_OTLP_TRACES_HEADERS", OTEL_TRACES_HEADERS_SECRET_ID),
+        _env("OTEL_EXPORTER_OTLP_TRACES_TIMEOUT", "5"),
+        _env("OTEL_SERVICE_NAME", service_name),
+        _env("OTEL_RESOURCE_ATTRIBUTES", f"deployment.environment.name={environment}"),
+        _env("AIRBYTE_MCP_OTEL_VENDOR", "datadog"),
+        _env("AIRBYTE_MCP_INTENT_CAPTURE", "1"),
     ]
 
 
@@ -1079,6 +1143,7 @@ def main() -> None:
         extra_envs=[
             *_cloud_mcp_auth_envs(),
             *_cloud_mcp_storage_envs(cloud_mcp_firestore),
+            *_otel_envs(CLOUD_MCP_SERVICE_NAME, "prod"),
         ],
         extra_depends=[firestore_iam],
         **mcp_common,
@@ -1097,6 +1162,7 @@ def main() -> None:
             # Preview defaults to insiders tools so pre-release features can be demoed
             # and tested without client-side header configuration.
             _env(MCP_INSIDERS_ENV, "true"),
+            *_otel_envs(CLOUD_MCP_PREVIEW_SERVICE_NAME, "preview"),
         ],
         extra_depends=[firestore_iam],
         **mcp_common,

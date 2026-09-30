@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.deploy_pb2 import (
     CreateBranchFromSourceDeploymentRequest,
     CreateBranchFromSourceDeploymentResponse,
+    DeployBranchFromVolumeRequest,
+    DeployBranchFromVolumeResponse,
     DeployBranchRequest,
     DeployBranchResponse,
     GetActiveDeploymentsRequest,
@@ -48,6 +50,13 @@ class DeployServiceStub:
         DeployBranchRequest,
         DeployBranchResponse,
     ]
+    DeployBranchFromVolume: UnaryUnaryMultiCallable[
+        DeployBranchFromVolumeRequest,
+        DeployBranchFromVolumeResponse,
+    ]
+    """Builds a source archive from a volume's contents server-side and deploys
+    it as a branch -- no archive bytes cross the caller.
+    """
     CreateBranchFromSourceDeployment: UnaryUnaryMultiCallable[
         CreateBranchFromSourceDeploymentRequest,
         CreateBranchFromSourceDeploymentResponse,
@@ -100,6 +109,15 @@ class DeployServiceServicer(metaclass=ABCMeta):
         request: DeployBranchRequest,
         context: ServicerContext,
     ) -> DeployBranchResponse: ...
+    @abstractmethod
+    def DeployBranchFromVolume(
+        self,
+        request: DeployBranchFromVolumeRequest,
+        context: ServicerContext,
+    ) -> DeployBranchFromVolumeResponse:
+        """Builds a source archive from a volume's contents server-side and deploys
+        it as a branch -- no archive bytes cross the caller.
+        """
     @abstractmethod
     def CreateBranchFromSourceDeployment(
         self,

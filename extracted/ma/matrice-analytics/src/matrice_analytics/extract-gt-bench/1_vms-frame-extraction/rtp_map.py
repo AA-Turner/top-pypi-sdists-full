@@ -25,10 +25,10 @@ from __future__ import annotations
 
 import bisect
 import json
-import math
 import statistics
 import subprocess
 from dataclasses import dataclass, field
+from itertools import pairwise
 
 # RTP video clock rate (Hz). H.264/H.265 RTP timestamps tick at 90 kHz.
 RTP_CLOCK_HZ = 90_000
@@ -42,13 +42,14 @@ RESET_BACKWARD_TICKS = 3 * RTP_CLOCK_HZ  # 3 s of media
 # Source video PTS reference
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PtsReference:
     """Per-frame presentation-time table for the original source video."""
 
-    pts_ticks: list[int]          # tick offset per source frame, [0] == 0, ascending
+    pts_ticks: list[int]  # tick offset per source frame, [0] == 0, ascending
     fps: float
-    frame_interval_ticks: int     # representative (median) inter-frame ticks
+    frame_interval_ticks: int  # representative (median) inter-frame ticks
     video_path: str = ""
 
     @property
@@ -78,10 +79,15 @@ class PtsReference:
 def _ffprobe_pts_times(video_path: str) -> list[float]:
     """Return per-frame presentation times (seconds), in display order."""
     cmd = [
-        "ffprobe", "-v", "error",
-        "-select_streams", "v:0",
-        "-show_entries", "frame=best_effort_timestamp_time,pts_time",
-        "-of", "json",
+        "ffprobe",
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "frame=best_effort_timestamp_time,pts_time",
+        "-of",
+        "json",
         video_path,
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -117,7 +123,7 @@ def build_pts_reference(video_path: str) -> PtsReference:
     cleaned = [pts_ticks[0]]
     for v in pts_ticks[1:]:
         cleaned.append(v if v > cleaned[-1] else cleaned[-1] + 1)
-    diffs = [b - a for a, b in zip(cleaned, cleaned[1:])]
+    diffs = [b - a for a, b in pairwise(cleaned)]
     interval = int(round(statistics.median(diffs)))
     span_s = times[-1] - t0
     fps = round((len(times) - 1) / span_s, 6) if span_s > 0 else 0.0
@@ -142,14 +148,15 @@ def constant_fps_reference(n_frames: int, fps: float) -> PtsReference:
 # Loop-aware rtp -> source-index mapper
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class MapResult:
-    loop_index: int       # 0-based loop number since the first anchored boundary
-    src_idx: int          # source frame index in [0, N)
-    pos_ticks: int        # media-time offset within the loop
-    boundary: bool        # True if this frame begins a new loop
-    mode: str             # 'reset' (Case A) or 'modulo' (Case B), or 'pre' (unanchored)
-    cont_ticks: int       # continuous (uint32-unwrapped) rtp value of this frame
+    loop_index: int  # 0-based loop number since the first anchored boundary
+    src_idx: int  # source frame index in [0, N)
+    pos_ticks: int  # media-time offset within the loop
+    boundary: bool  # True if this frame begins a new loop
+    mode: str  # 'reset' (Case A) or 'modulo' (Case B), or 'pre' (unanchored)
+    cont_ticks: int  # continuous (uint32-unwrapped) rtp value of this frame
 
 
 @dataclass
@@ -175,7 +182,7 @@ class LoopMapper:
     force_mode: str | None = None
 
     # internal state
-    _offset: int = field(default=0, init=False)          # uint32 wrap offset
+    _offset: int = field(default=0, init=False)  # uint32 wrap offset
     _prev_cont: int | None = field(default=None, init=False)
     _origin_cont: int | None = field(default=None, init=False)
     _loop_start_cont: int | None = field(default=None, init=False)

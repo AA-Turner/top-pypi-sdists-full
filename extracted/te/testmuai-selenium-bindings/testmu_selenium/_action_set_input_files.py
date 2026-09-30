@@ -22,9 +22,11 @@ dom-watcher tagify, absent in the exported runtime). DESKTOP_LOCATE
 tier: we can't send_keys to a pixel, but the coord_runner bridges the healed
 coordinate to the file <input> via _RESOLVE_FILE_INPUT_JS.
 """
+import contextlib
 import logging
 
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.remote.file_detector import UselessFileDetector
 
 from testmu_selenium._action_engine import _ActionSpec, _run_action
 
@@ -143,6 +145,54 @@ def _path_value(ctx):
     return str(ctx.get("file_path"))
 
 
+def _clear_file_input(driver, element):
+    """Reset the input's value before send_keys so a re-used <input> doesn't keep
+    the previous file.
+
+    ``send_keys`` on a file input APPENDS to its FileList rather than replacing
+    it, so a form that reuses one hidden <input> across rows uploads
+    "File A + File B" on the second row instead of "File B".
+    Playwright's set_input_files replaces natively, which is why only the
+    Selenium bindings need this.
+
+    Best-effort: a JS failure must not abort an otherwise valid upload, so the
+    error is logged and the send_keys proceeds (V2 parity).
+    """
+    if driver is None:
+        return
+    try:
+        driver.execute_script("arguments[0].value = '';", element)
+    except Exception as exc:  # noqa: BLE001 — clearing is best-effort
+        _log.info("    [upload] could not clear file input before upload: %s", exc)
+def _upload_send_keys(driver, element, value):
+    """send_keys the upload path(s) with the local-file transfer disabled.
+
+    Selenium-Python's WebDriver defaults to ``LocalFileDetector``, which sees a
+    path that exists on the machine running the test and base64-encodes the whole
+    file into the send_keys command so the grid node can materialise it. In an
+    exported run the file is ALREADY on the node (the bundle downloads
+    ``uploaded_files`` into ~/Downloads before the test), so that transfer is
+    both unnecessary and fatal past ~100MB — chromedriver rejects the oversized
+    command and the upload step fails.
+
+    ``UselessFileDetector`` is the no-op detector: it returns the path unchanged,
+    so send_keys transmits just the string and the node opens its own local copy.
+    Scoped per call via ``file_detector_context`` so the session-wide detector is
+    restored afterwards and non-upload send_keys (type/press_key) keep the
+    default behaviour.
+
+    Selenium-Java needs no equivalent: its RemoteWebDriver already defaults to
+    UselessFileDetector and this binding never calls setFileDetector.
+    """
+    ctx_mgr = (
+        driver.file_detector_context(UselessFileDetector)
+        if driver is not None and hasattr(driver, "file_detector_context")
+        else contextlib.nullcontext()
+    )
+    with ctx_mgr:
+        element.send_keys(value)
+
+
 def _set_input_files_runner(element, ctx):
     """Send the resolved file path(s) to the located <input type="file">.
 
@@ -150,7 +200,8 @@ def _set_input_files_runner(element, ctx):
     (file_paths) wins when both are present; multiple paths are newline-joined
     per Selenium's multi-file upload convention.
     """
-    element.send_keys(_path_value(ctx))
+    _clear_file_input(ctx.get("driver"), element)
+    _upload_send_keys(ctx.get("driver"), element, _path_value(ctx))
     return None
 
 
@@ -163,7 +214,8 @@ def _set_input_files_coord_runner(driver, x, y, ctx):
         raise NoSuchElementException(
             f"set_input_files: no <input type='file'> at/near healed coordinate ({x}, {y})"
         )
-    element.send_keys(_path_value(ctx))
+    _clear_file_input(driver, element)
+    _upload_send_keys(driver, element, _path_value(ctx))
     return None
 
 
@@ -202,7 +254,8 @@ def set_input_files(driver, selector, *, file_path=None, file_paths=None,
         element = _resolve_file_input_dom(driver)
         if element is not None:
             try:
-                element.send_keys(_path_value(
+                _clear_file_input(driver, element)
+                _upload_send_keys(driver, element, _path_value(
                     {'file_path': file_path, 'file_paths': file_paths}))
                 return None
             except Exception:  # noqa: BLE001 — fall back to the heal path

@@ -25,16 +25,24 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class Notification(BaseModel):
     """
     Notification
-    """ # noqa: E501
+    """  # noqa: E501
+
     id: Optional[StrictStr] = None
     activity: Optional[Activity] = None
     is_read: Optional[StrictBool] = None
     is_seen: Optional[StrictBool] = None
     created_at: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["id", "activity", "is_read", "is_seen", "created_at"]
+    __properties: ClassVar[List[str]] = [
+        "id",
+        "activity",
+        "is_read",
+        "is_seen",
+        "created_at",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -42,7 +50,6 @@ class Notification(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -67,8 +74,7 @@ class Notification(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,7 +83,7 @@ class Notification(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of activity
         if self.activity:
-            _dict['activity'] = self.activity.to_dict()
+            _dict["activity"] = self.activity.to_dict()
         return _dict
 
     @classmethod
@@ -89,13 +95,15 @@ class Notification(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "activity": Activity.from_dict(obj["activity"]) if obj.get("activity") is not None else None,
-            "is_read": obj.get("is_read"),
-            "is_seen": obj.get("is_seen"),
-            "created_at": obj.get("created_at")
-        })
+        _obj = cls.model_validate(
+            {
+                "id": obj.get("id"),
+                "activity": Activity.from_dict(obj["activity"])
+                if obj.get("activity") is not None
+                else None,
+                "is_read": obj.get("is_read"),
+                "is_seen": obj.get("is_seen"),
+                "created_at": obj.get("created_at"),
+            }
+        )
         return _obj
-
-

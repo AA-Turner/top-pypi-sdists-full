@@ -24,10 +24,13 @@ import string
 import time
 
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from testmu._errors import TestmuConfigError
 
 _log = logging.getLogger("testmu")
+
+from testmu._step_variables import record_read, record_variable
 
 _variable_store: dict = {}
 _test_params: dict = {}
@@ -96,11 +99,13 @@ def set_var(name, value):
         # value. is_persist only gates whether the ATMS write below survives
         # beyond this run (the server answers 403 for persist-off variables).
         _global_cache[bare] = value
+        record_variable(bare, value)  # report on this step's end hook
         from testmu import _config
         if _config.lt_auth:
             _atms_persist_global_variable(bare, value)
     else:
         _variable_store[name] = value
+        record_variable(name, value)  # report on this step's end hook
 
 
 def var(template, path=None, transform=None):
@@ -157,15 +162,13 @@ def var(template, path=None, transform=None):
         pure_dollar = re.fullmatch(r"\$\{(" + _name + r")\}", template_str)
         if pure_dollar:
             name = pure_dollar.group(1)
-            resolved = _test_params.get(name, _variable_store.get(name, ""))
+            resolved = _dollar_lookup(name)
         else:
             # Embedded template — string interpolation
             resolved = template_str
             resolved = _MUSTACHE_RE.sub(lambda m: str(_resolve_single(m.group(1))), resolved)
             resolved = _DOLLAR_RE.sub(
-                lambda m: str(
-                    _test_params.get(m.group(1), _variable_store.get(m.group(1), ""))
-                ),
+                lambda m: str(_dollar_lookup(m.group(1))),
                 resolved,
             )
 
@@ -199,9 +202,37 @@ def get_variable_value(template, variables=None, *args, **kwargs):
     return var(template)
 
 
+
+def _dollar_lookup(name):
+    """``${x}`` lookup: test params first, then the store — recording only a HIT."""
+    if name in _test_params:
+        return record_read(name, _test_params[name])
+    if name in _variable_store:
+        return record_read(name, _variable_store[name])
+    return ""
+
+
+def _plain_lookup(name):
+    """Direct store lookup, recording the read only on a HIT.
+
+    ``_variable_store.get(name, "")`` cannot distinguish a miss from a stored
+    empty string, so the membership check is what keeps a MISS out of the
+    step-variable buffer — reporting a variable the step never had would be
+    worse than reporting nothing.
+    """
+    if name in _variable_store:
+        return record_read(name, _variable_store[name])
+    return ""
+
+
 def _resolve_single(name):
     """Resolve a single variable name (inside {{...}})."""
     parts = name.split(".")
+
+    # Each branch records its own read, so the two credential
+    # namespaces below (secrets → a live credential, totp → a one-time code)
+    # stay out of the step-variable buffer BY CONSTRUCTION — the buffer is
+    # shipped to the hub and written into the run's artefacts.
 
     # {{secrets.cat.key}} → os.getenv(key)
     if parts[0] == "secrets" and len(parts) >= 2:
@@ -211,12 +242,12 @@ def _resolve_single(name):
     # {{global.x}} → ATMS (when lt_auth) or env fallback
     if parts[0] == "global" and len(parts) >= 2:
         var_name = parts[1]
-        return _resolve_global(var_name)
+        return record_read(name, _resolve_global(var_name))
 
     # {{environment.x}} → ATMS (when lt_auth) or env fallback
     if parts[0] == "environment" and len(parts) >= 2:
         var_name = parts[1]
-        return _resolve_environment(var_name)
+        return record_read(name, _resolve_environment(var_name))
 
     # {{totp.x}} → ATMS seed + pyotp (when lt_auth) or env fallback
     if parts[0] == "totp" and len(parts) >= 2:
@@ -225,7 +256,7 @@ def _resolve_single(name):
 
     # {{smart.x}} → computed smart variable
     if parts[0] == "smart" and len(parts) == 2:
-        return _resolve_smart(parts[1])
+        return record_read(name, _resolve_smart(parts[1]))
 
     # Plain variable — dot-path traversal for names like "response.data.name"
     if "." in name or "[" in name:
@@ -243,17 +274,17 @@ def _resolve_single(name):
                     try:
                         root_val = root_val[idx]
                     except IndexError:
-                        return _variable_store.get(name, "")
+                        return _plain_lookup(name)
                 else:
-                    return _variable_store.get(name, "")
+                    return _plain_lookup(name)
             # Traverse remaining path
             remaining = ".".join(parts[1:])
             if remaining:
-                return _apply_path(root_val, remaining)
-            return root_val
+                return record_read(name, _apply_path(root_val, remaining))
+            return record_read(name, root_val)
 
     # Direct lookup
-    return _variable_store.get(name, "")
+    return _plain_lookup(name)
 
 
 def _resolve_global(name):
@@ -386,12 +417,108 @@ def _resolve_totp(name):
 # ---------------------------------------------------------------------------
 
 
+# A device-selection FILTER is not a device name. The caller may ask the hub for
+# e.g. ``"^(?!.*(Tab|Fold)).*"`` or ``"iPhone.*"``; the hub picks a concrete
+# device and the test must assert against THAT, not against the filter it was
+# chosen by. These tokens are the ones a selection regex actually uses in
+# practice — a deliberately narrow list, since a false positive here would
+# suppress a legitimate device name.
+_DEVICE_REGEX_TOKENS = ("(?!", ".*", "^(", "iPhone.")
+
+
+def is_value_regex(value) -> bool:
+    """True when ``value`` looks like a device-selection regex rather than a name."""
+    return bool(value) and any(token in str(value) for token in _DEVICE_REGEX_TOKENS)
+
+
+def device_name_from_capabilities(capabilities) -> str:
+    """Recover the allocated device name from session capabilities.
+
+    Playwright has no hub-negotiated capability echo (there is no
+    ``driver.capabilities`` on a CDP connection), so the only sources are the
+    caps the binding itself sent: ``LT:Options.deviceName`` and a top-level
+    ``deviceName``/``deviceModel``. A selection regex is rejected — an
+    unresolved filter is worse than nothing, since it would be asserted against
+    verbatim. Returns ``""`` when nothing usable is present; never raises.
+    """
+    try:
+        caps = capabilities or {}
+        lt_options = caps.get("LT:Options") if isinstance(caps.get("LT:Options"), dict) else {}
+        desired = caps.get("desired") if isinstance(caps.get("desired"), dict) else {}
+        for source in (desired, lt_options):
+            primary = (source or {}).get("deviceName")
+            if primary and not is_value_regex(primary):
+                return str(primary)
+        for value in (caps.get("deviceName"), caps.get("deviceModel")):
+            if value and " " in str(value) and not is_value_regex(value):
+                return str(value)
+    except Exception:  # noqa: BLE001 — a caps probe must never fail a step
+        pass
+    return ""
+
+
+def resolve_real_device_name() -> str:
+    """Resolve ``{{smart.device_name}}`` to the ACTUAL allocated device.
+
+    Order: a concrete device already in the environment (a live or pinned run)
+    wins; otherwise the value captured from the session capabilities at session
+    start (``smart_device_name``). If neither yields anything better, the
+    environment value is returned unchanged — including a regex — so behaviour
+    never regresses to empty.
+    """
+    env_value = os.getenv("device_name", "") or os.getenv("deviceName", "")
+    if env_value and not is_value_regex(env_value):
+        return env_value
+    from_session = os.getenv("smart_device_name", "")
+    if from_session:
+        return from_session
+    return env_value
+
+
+# Date/time smart variables must resolve in the TEST's timezone, not
+# the runner VM's local clock. A test authored for a non-UTC org otherwise gets
+# {{smart.current_date}} from wherever the worker happens to run — off by a day
+# around midnight (the Jonas Club report).
+#
+# KANE_SESSION_TIMEZONE carries the session's zone; UTC is the default, matching
+# the source. An unknown/malformed zone falls back to UTC rather than raising —
+# a bad env var must not fail the step.
+_DEFAULT_SESSION_TIMEZONE = "UTC"
+
+
+def _session_timezone() -> tuple[str, "ZoneInfo"]:
+    """The session's EFFECTIVE timezone as ``(name, tzinfo)``.
+
+    Returns the zone actually used, so ``{{smart.current_timezone}}`` can never
+    disagree with the clock the other date/time variables were computed from —
+    an unknown zone reports UTC because UTC is what it fell back to.
+    """
+    requested = os.getenv("KANE_SESSION_TIMEZONE") or _DEFAULT_SESSION_TIMEZONE
+    try:
+        return requested, ZoneInfo(requested)
+    except Exception:  # noqa: BLE001 — a bad env var must not fail a step
+        _log.warning(
+            "Unknown KANE_SESSION_TIMEZONE %r; falling back to %s",
+            requested, _DEFAULT_SESSION_TIMEZONE,
+        )
+        return _DEFAULT_SESSION_TIMEZONE, ZoneInfo(_DEFAULT_SESSION_TIMEZONE)
+
+
+def _session_timezone_name() -> str:
+    """The effective session timezone name."""
+    return _session_timezone()[0]
+
+
+def _session_now() -> datetime:
+    """``datetime.now()`` in the session's timezone."""
+    return datetime.now(_session_timezone()[1])
+
 def _resolve_smart(name):
     """Resolve {{smart.x}} — computed smart variables.
 
     Matches the smart variable resolution in the TestMu generated test pipeline.
     """
-    now = datetime.now()
+    now = _session_now()
 
     # Date/time variables
     if name == "current_date":
@@ -411,7 +538,7 @@ def _resolve_smart(name):
     if name == "current_timestamp":
         return now.strftime("%Y-%m-%d %H:%M:%S")
     if name == "current_timezone":
-        return time.strftime("%Z")
+        return _session_timezone_name()
 
     # Date calculations
     if name == "next_day":
@@ -458,6 +585,10 @@ def _resolve_smart(name):
     if name == "ip_address":
         return "143.110.182.88"
 
+    # Device info — resolved against the session, not a selection regex.
+    if name == "device_name":
+        return resolve_real_device_name()
+
     # Environment/system info (from SmartVariableArgConst)
     if name == "user_name":
         return os.getenv("LT_USERNAME", "")
@@ -490,12 +621,18 @@ def _atms_auth_headers():
     }
 
 
-def _atms_get_variable(variable_name, environment_id=0):
+def _atms_get_variable(variable_name, environment_id=0, variable_type="variable"):
     """GET {ATMS_URL}/api/v1/variables/{name} — returns the data dict."""
     import requests
 
     atms_url = os.getenv("ATMS_URL", "https://test-manager-api.lambdatest.com")
-    url = f"{atms_url}/api/v1/variables/{variable_name}?environment_id={environment_id}"
+    # variable_type disambiguates same-named variables across scopes.
+    # Without it ATMS can resolve a name to the wrong scope's value (the
+    # 1800flowers.com report). "variable" is the regular-variable scope and the
+    # only value the runtime sends today; the parameter is threaded through so a
+    # caller can widen it without touching the URL builder.
+    url = (f"{atms_url}/api/v1/variables/{variable_name}"
+           f"?environment_id={environment_id}&variable_type={variable_type}")
     resp = requests.get(url=url, headers=_atms_auth_headers())
     if resp.status_code != 200:
         raise RuntimeError(

@@ -45,6 +45,7 @@ class IntegrationWarningCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     INTEGRATION_WARNING_CODE_UNSPECIFIED: _ClassVar[IntegrationWarningCode]
     INTEGRATION_WARNING_CODE_SNOWFLAKE_UNLOAD_NOT_CONFIGURED: _ClassVar[IntegrationWarningCode]
+    INTEGRATION_WARNING_CODE_SNOWFLAKE_PASSWORD_AUTHENTICATION: _ClassVar[IntegrationWarningCode]
 
 INTEGRATION_KIND_UNSPECIFIED: IntegrationKind
 INTEGRATION_KIND_ATHENA: IntegrationKind
@@ -69,6 +70,7 @@ INTEGRATION_KIND_MSSQL: IntegrationKind
 INTEGRATION_KIND_HUGGINGFACE: IntegrationKind
 INTEGRATION_WARNING_CODE_UNSPECIFIED: IntegrationWarningCode
 INTEGRATION_WARNING_CODE_SNOWFLAKE_UNLOAD_NOT_CONFIGURED: IntegrationWarningCode
+INTEGRATION_WARNING_CODE_SNOWFLAKE_PASSWORD_AUTHENTICATION: IntegrationWarningCode
 
 class IntegrationWarning(_message.Message):
     __slots__ = ("code", "title", "message", "config_keys")

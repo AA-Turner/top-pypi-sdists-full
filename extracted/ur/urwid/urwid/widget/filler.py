@@ -1,3 +1,5 @@
+"""Filler: a decoration that lets a flow widget be used as a box widget."""
+
 from __future__ import annotations
 
 import typing
@@ -28,7 +30,7 @@ WrappedWidget = typing.TypeVar("WrappedWidget", bound="AbstractWidget")
 
 
 class FillerError(WidgetError):
-    pass
+    """Filler related errors."""
 
 
 class FillerWarning(WidgetWarning):
@@ -36,6 +38,8 @@ class FillerWarning(WidgetWarning):
 
 
 class Filler(WidgetDecoration[WrappedWidget]):
+    """Box widget decoration that vertically aligns a flow or box widget within the available space."""
+
     def __init__(
         self,
         body: WrappedWidget,
@@ -404,9 +408,7 @@ def calculate_top_bottom_filler(
     top: int,
     bottom: int,
 ) -> tuple[int, int]:
-    """
-    Return the amount of filler (or clipping) on the top and
-    bottom part of maxrow rows to satisfy the following:
+    """Return the amount of filler (or clipping) on the top and bottom part of maxrow rows.
 
     :param valign_type: 'top', 'middle', 'bottom', 'relative'
     :param valign_amount: a percentage when align_type=='relative'

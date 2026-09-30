@@ -27,35 +27,25 @@ class TestInstanceSnapshotsApi(unittest.IsolatedAsyncioTestCase):
         await self.api.api_client.close()
 
     async def test_create_instance_snapshot(self) -> None:
-        """Test case for create_instance_snapshot
-
-        """
+        """Test case for create_instance_snapshot"""
         pass
 
     async def test_delete_instance_snapshot(self) -> None:
-        """Test case for delete_instance_snapshot
-
-        """
+        """Test case for delete_instance_snapshot"""
         pass
 
     async def test_get_instance_snapshot(self) -> None:
-        """Test case for get_instance_snapshot
-
-        """
+        """Test case for get_instance_snapshot"""
         pass
 
     async def test_list_instance_snapshot_events(self) -> None:
-        """Test case for list_instance_snapshot_events
-
-        """
+        """Test case for list_instance_snapshot_events"""
         pass
 
     async def test_list_instance_snapshots(self) -> None:
-        """Test case for list_instance_snapshots
-
-        """
+        """Test case for list_instance_snapshots"""
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

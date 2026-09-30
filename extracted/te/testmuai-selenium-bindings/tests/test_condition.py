@@ -310,3 +310,121 @@ class TestAssertionBoolStringEquality:
         gv = _passthrough({"{{s}}": "true"})
         result, _ = Assertion.from_json(self._leaf("equals", "{{s}}", "true")).evaluate({}, gv)
         assert result is True
+
+
+# ---------------------------------------------------------------------------
+# List CONTAINS number is membership, not a substring test
+#
+# Both operands used to be stringified, so the test became a substring match on
+# the list's repr: [12, 3] "contains" 2 and [10, 20] "contains" 0 — false
+# positives that make a FAILING assertion pass silently (Pepsico sub-division
+# columns). Integer-shaped values compare as ints so adjacent integers above
+# 2**53 stay distinct.
+# ---------------------------------------------------------------------------
+
+class TestNumericListContains:
+    def _leaf(self, cond, left, right):
+        from testmu_selenium.condition import Assertion, AssertionCondition
+        inst = Assertion(assertion_operator=AssertionCondition.CONTAINS,
+                         left_operand=left, right_operand=right)
+        return inst._eval_leaf_condition(cond, left, right)
+
+    @pytest.mark.parametrize("left,right,expected", [
+        ([1, 2, 3], 2, True),
+        ([1, 2, 3], 4, False),
+        # The regression: substring matches that were silently passing.
+        ([12, 3], 2, False),
+        ([10, 20], 0, False),
+        # String items coerce (a JSON payload whose numbers arrived as strings).
+        (["2"], 2, True),
+        ([" 7 "], 7, True),
+        (["abc"], 2, False),
+        ([""], 2, False),
+        # Numeric shapes.
+        ([1.0], 1, True),
+        ([1], 1.0, True),
+        ([1.5], 1.5, True),
+        ([1.5], 1, False),
+        # bool is not a number here: True == 1 is a Python accident.
+        ([True], 1, False),
+        # Adjacent integers above 2**53 must not collapse onto one float.
+        ([9007199254740993], 9007199254740992, False),
+        ([9007199254740993], 9007199254740993, True),
+        # Empty list contains nothing.
+        ([], 1, False),
+    ])
+    def test_contains(self, left, right, expected):
+        from testmu_selenium.condition import AssertionCondition
+        assert self._leaf(AssertionCondition.CONTAINS, left, right) is expected
+
+    @pytest.mark.parametrize("left,right,expected", [
+        ([1, 2, 3], 2, False),
+        ([12, 3], 2, True),
+        ([10, 20], 0, True),
+    ])
+    def test_not_contains_is_the_exact_negation(self, left, right, expected):
+        from testmu_selenium.condition import AssertionCondition
+        assert self._leaf(AssertionCondition.NOT_CONTAINS, left, right) is expected
+
+    def test_non_list_left_still_uses_substring_semantics(self):
+        from testmu_selenium.condition import AssertionCondition
+        # A string haystack is unchanged — the numeric path must not hijack it.
+        assert self._leaf(AssertionCondition.CONTAINS, "a123b", 123) is True
+
+    def test_non_numeric_right_still_uses_substring_semantics(self):
+        from testmu_selenium.condition import AssertionCondition
+        assert self._leaf(AssertionCondition.CONTAINS, ["alpha", "beta"], "alpha") is True
+
+    def test_bool_right_is_not_treated_as_numeric(self):
+        from testmu_selenium.condition import AssertionCondition
+        # Falls through to substring semantics rather than matching 1.
+        assert self._leaf(AssertionCondition.CONTAINS, [1], True) is False
+
+
+class TestNumericListContainsQuotedNumber:
+    """ follow-up: a quoted number on the right must behave like a number.
+
+    Authoring emits `contains '1'`, and V3 keeps operand types verbatim, so the
+    right operand reaches the comparison as a string. Without coercion the
+    element-wise path is skipped and CONTAINS substring-matches the list's repr
+    — `['SUB-DIVISION', '1X']` "contains" '1'. These pin the V2 answers, taken
+    from running its evaluator in V2 mode.
+    """
+
+    def _leaf(self, cond, left, right):
+        from testmu_selenium.condition import Assertion
+        inst = Assertion(assertion_operator=cond, left_operand=left, right_operand=right)
+        return inst._eval_leaf_condition(cond, left, right)
+
+    @pytest.mark.parametrize("left,right,expected", [
+        # The reported case: no element is the number 1.
+        (["SUB-DIVISION", "1X", "1O", "1B"], "1", False),
+        (["SUB-DIVISION", "1X", "1O", "1B"], 1, False),
+        # The original false positive, now also reachable with a quoted number.
+        ([12, 3], "2", False),
+        ([10, 20], "0", False),
+        # Genuine members still match, whichever form the needle arrives in.
+        (["1", "1X", "10"], "1", True),
+        (["1", "1X", "10"], "10", True),
+        ([1, 2, 3], "2", True),
+        ([1.5, 2.5], "2.5", True),
+        ([1.5, 2.5], "2", False),
+        # Whitespace and float-equivalent forms, as V2 coerced them.
+        ([" 1 ", "2"], "1", True),
+        (["1.0"], "1", True),
+        # Non-numeric strings are NOT coerced — substring semantics stay.
+        (["SUB-DIVISION", "1X"], "1X", True),
+        (["alpha", "beta"], "alpha", True),
+        (["1", "1X"], "1Z", False),
+        # Empty string is not a number: falls through to substring ("" in anything).
+        (["1"], "", True),
+    ])
+    def test_quoted_number_matches_v2(self, left, right, expected):
+        from testmu_selenium.condition import AssertionCondition
+        assert self._leaf(AssertionCondition.CONTAINS, left, right) is expected
+        assert self._leaf(AssertionCondition.NOT_CONTAINS, left, right) is (not expected)
+
+    def test_scalar_numeric_strings_still_compare_as_strings(self):
+        """The coercion is scoped to a list left operand: "007" != "7" elsewhere."""
+        from testmu_selenium.condition import AssertionCondition
+        assert self._leaf(AssertionCondition.EQUALS, "007", "7") is False

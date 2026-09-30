@@ -9,6 +9,7 @@ Created on Tue May 18 13:14:28 2021
 """
 
 import logging
+import re
 import time
 from enum import Enum, auto
 from os import path
@@ -16,8 +17,10 @@ from sys import platform
 from typing import Tuple
 
 from .__version import __version__ as mpv_version
-from .exceptions import MultiPyVuError, PythoncomImportError
-from .project_vars import MIN_PYWIN32_VERSION, PYWIN32_VERSION, SERVER_NAME
+from .exceptions import (MultiPyVuError, PythoncomImportError,
+                         pywin_com_error)
+from .project_vars import (MIN_PYWIN32_VERSION, PYWIN32_VERSION,
+                           SERVER_NAME, SIM_MULTIVU_VERSION)
 
 if platform == 'win32':
     try:
@@ -73,6 +76,10 @@ class Instrument():
         self.verbose = verbose
 
         if (not self.scaffolding_mode) and (platform == 'win32'):
+            # Version 300 and above of pywin32 fixed a bug in which
+            # the numbers coming back for our commands getting which
+            # get a float and an int were swapped.  Prior versions
+            # of pywin32 would therefor not work in current MultiPyVu.
             if PYWIN32_VERSION < MIN_PYWIN32_VERSION:
                 err_msg = f'Must use pywincom version {MIN_PYWIN32_VERSION} '
                 err_msg += f'or higher (found version {PYWIN32_VERSION})'
@@ -288,7 +295,7 @@ class Instrument():
 
         Raises:
         -------
-        MultiVuExeException
+        MultiPyVuError
             No detected MultiVu running, and initialization failed.
 
         """
@@ -301,6 +308,7 @@ class Instrument():
                         pythoncom.CoInitialize()
                     # Get an instance
                     self.multi_vu = win32.Dispatch(self.class_id)
+                    break
                 except pythoncom.com_error as e:
                     pythoncom_error = vars(e)['strerror']
                     err_msg = ''
@@ -315,9 +323,57 @@ class Instrument():
                         err_msg += f'Quitting script after {attempt + 1} '
                         err_msg += 'failed attempts to detect a running copy '
                         err_msg += 'of MultiVu.'
-                    raise MultiPyVuError(err_msg) from e
-                finally:
-                    break
+                        raise MultiPyVuError(err_msg) from e
+
+    def get_multivu_version(self) -> str:
+        """
+        Queries MultiVu for its version number.  MultiVu declares
+        GetVersionString as an OLE method which takes no arguments and
+        returns a BSTR.  Because it takes no arguments, win32com late
+        binding hands back the string on plain attribute access, but an
+        early-bound (makepy) wrapper hands back a callable, so both are
+        handled.
+
+        This is informational only; unlike the MultiPyVu version, the
+        client and server do not require the MultiVu version to match
+        anything.  Older copies of MultiVu do not have this command,
+        so a failed query is not treated as an error.
+
+        MultiVu reports the number with a word in front of it, such as
+        'Release 2.3.13.15', and only the number itself is returned.
+
+        Returns:
+        --------
+        str
+            The MultiVu version number, for example '2.3.13.15'.  Returns
+            SIM_MULTIVU_VERSION when in scaffolding mode, and an empty
+            string if MultiVu does not supply the information.
+        """
+        if self.scaffolding_mode:
+            return SIM_MULTIVU_VERSION
+        if self.multi_vu is None:
+            return ''
+        try:
+            version = self.multi_vu.GetVersionString
+            # Declared in IMultiVuPpmsServer.h as:
+            #     afx_msg BSTR GetVersionString();
+            # Late binding returns the string on attribute access, while
+            # an early-bound wrapper returns something to be called.
+            if callable(version):
+                version = version()
+        except (AttributeError, pywin_com_error) as e:
+            msg = f'Could not read the MultiVu version number:  {e}'
+            self.logger.debug(msg)
+            return ''
+        # MultiVu prefixes the number with a word; MPMS3, for example,
+        # returns 'Release 2.3.13.15'.  Only the number is wanted.  A
+        # dot is required so that a digit in a word, such as the 3 in
+        # MPMS3, is not mistaken for the version.  If no number is
+        # found, hand back the whole string so that the information
+        # is not lost.
+        raw_version = str(version).strip()
+        number = re.search(r'[0-9]+(?:\.[0-9]+)+', raw_version)
+        return number.group() if number else raw_version
 
     def get_multivu_win32com_instance(self) -> None:
         """

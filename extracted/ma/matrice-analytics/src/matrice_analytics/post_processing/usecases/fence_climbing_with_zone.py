@@ -123,7 +123,7 @@ def _bbox_leg_point(bbox: Any) -> Optional[tuple]:
     """
     if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
         try:
-            x1, y1, x2, y2 = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
+            x1, _y1, x2, y2 = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
         except (TypeError, ValueError):
             return None
         return ((x1 + x2) / 2.0, y2)
@@ -180,7 +180,9 @@ class FenceClimbingWithZoneUseCase(BaseProcessor):
         if self._incident_manager_initialized:
             return
         try:
-            self.logger.info(f"{self._INCIDENT_LOG} Initializing incident manager for fence climbing (zone)...")
+            self.logger.info(
+                f"{self._INCIDENT_LOG} Initializing incident manager for fence climbing (zone)..."
+            )
             if self._incident_manager_factory is None:
                 self._incident_manager_factory = IncidentManagerFactory(logger=self.logger)
             self._incident_manager = self._incident_manager_factory.initialize(config)
@@ -223,7 +225,9 @@ class FenceClimbingWithZoneUseCase(BaseProcessor):
                     )
                 )
                 if published:
-                    self.logger.info(f"{self._INCIDENT_LOG} Incident published for camera: {camera_id}")
+                    self.logger.info(
+                        f"{self._INCIDENT_LOG} Incident published for camera: {camera_id}"
+                    )
             except Exception as e:
                 self.logger.error(
                     f"{self._INCIDENT_LOG} Error publishing incident: {e}",
@@ -331,7 +335,9 @@ class FenceClimbingWithZoneUseCase(BaseProcessor):
             in_zone_detections = self._select_in_zone(detections, polygon)
 
             alerts = self._build_alerts(in_zone_detections, config, frame_id)
-            incidents = self._build_incidents(in_zone_detections, alerts, config, camera_info, frame_id)
+            incidents = self._build_incidents(
+                in_zone_detections, alerts, config, camera_info, frame_id
+            )
 
             # Third flow: multiple people can be in-zone per frame, but the manager
             # tracks one incident lifecycle per camera. Feed it a single
@@ -415,7 +421,9 @@ class FenceClimbingWithZoneUseCase(BaseProcessor):
     ) -> List[Dict[str, Any]]:
         if config.confidence_threshold is not None:
             detections = [
-                d for d in detections if float(d.get("confidence", 0.0)) >= config.confidence_threshold
+                d
+                for d in detections
+                if float(d.get("confidence", 0.0)) >= config.confidence_threshold
             ]
 
         if config.index_to_category:
@@ -423,9 +431,7 @@ class FenceClimbingWithZoneUseCase(BaseProcessor):
 
         if config.target_categories:
             allowed = set(config.target_categories)
-            detections = [
-                d for d in detections if str(d.get("category", "")).lower() in allowed
-            ]
+            detections = [d for d in detections if str(d.get("category", "")).lower() in allowed]
 
         return detections
 
@@ -462,7 +468,7 @@ class FenceClimbingWithZoneUseCase(BaseProcessor):
         ac = config.alert_config
         alert_type = (ac.alert_type if ac else ["Default"]) or ["Default"]
         alert_value = (ac.alert_value if ac else ["JSON"]) or ["JSON"]
-        settings = {t: v for t, v in zip(alert_type, alert_value)}
+        settings = {t: v for t, v in zip(alert_type, alert_value)}  # noqa: B905 - independent config lists, truncation intended
 
         alerts: List[Dict[str, Any]] = []
         for idx, det in enumerate(in_zone, start=1):
@@ -500,7 +506,8 @@ class FenceClimbingWithZoneUseCase(BaseProcessor):
                     "threshold_level": ac.count_thresholds or {},
                     "ascending": True,
                     "settings": {
-                        t: v for t, v in zip(ac.alert_type or ["Default"], ac.alert_value or ["JSON"])
+                        t: v
+                        for t, v in zip(ac.alert_type or ["Default"], ac.alert_value or ["JSON"])  # noqa: B905 - independent config lists, truncation intended
                     },
                 }
             )

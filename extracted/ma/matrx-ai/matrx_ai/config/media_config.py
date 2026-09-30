@@ -259,19 +259,21 @@ def _our_file_id_from_url(url: str) -> str | None:
 
 def _promote_row_facts(result: dict[str, Any], storage_metadata: dict[str, Any]) -> None:
     """Lift the cld_files row facts the block carries in ``metadata`` onto the
-    wire block's own ``visibility`` / ``cdn_url`` slots.
+    wire block's own top-level slots (the old single level word echo + ``cdn_url``).
 
-    The frontend reads the top-level fields first and, for ``visibility``,
+    The frontend reads the top-level fields first and, for the level word,
     used to GUESS "public" when neither was present — which bound the
     authenticated durable ``/files/{id}/download?inline=1`` URL straight to an
-    ``<img>`` (the third-party-cookie lane) for a ``personal`` row: "Image
+    ``<img>`` (the third-party-cookie lane) for an unpublished row: "Image
     unavailable" forever in any browser that blocks third-party cookies
-    (2026-09-16). ``base_media._build_content_block`` stamps both facts from
+    (2026-09-16). ``base_media._build_content_block`` stamps the facts from
     the persistence envelope; this makes them first-class on the wire.
+    ``published_to_web`` / ``shown_to`` stay in ``metadata`` until the client's
+    generated MessagePart guard declares them top-level (access ladder T-13).
     """
-    visibility = storage_metadata.get("visibility")
-    if isinstance(visibility, str) and visibility and "visibility" not in result:
-        result["visibility"] = visibility
+    legacy = storage_metadata.get("visibility")  # T-13 transitional wire echo
+    if isinstance(legacy, str) and legacy:
+        result.setdefault("visibility", legacy)  # T-13 transitional wire echo
     cdn_url = storage_metadata.get("cdn_url")
     if isinstance(cdn_url, str) and cdn_url and "cdn_url" not in result:
         result["cdn_url"] = cdn_url

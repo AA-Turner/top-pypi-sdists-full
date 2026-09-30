@@ -1,3 +1,5 @@
+"""ProgressBar: a flow widget that displays a completion percentage."""
+
 from __future__ import annotations
 
 import typing
@@ -13,6 +15,8 @@ if typing.TYPE_CHECKING:
 
 
 class ProgressBar(Widget):
+    """Flow widget that displays a completion percentage as a bar of Unicode block characters."""
+
     _sizing = frozenset([Sizing.FLOW])
 
     eighths = BAR_SYMBOLS.HORISONTAL[:8]  # Full width line is made by style
@@ -27,7 +31,8 @@ class ProgressBar(Widget):
         done: int = 100,
         satt: Hashable = None,
     ) -> None:
-        """
+        """Build the progress bar with the given display attributes and range.
+
         :param normal: display attribute for incomplete part of progress bar
         :param complete: display attribute for complete part of progress bar
         :param current: current progress
@@ -78,9 +83,7 @@ class ProgressBar(Widget):
         self._render_label: Callable[..., TextCanvas] | None = None
 
     def set_completion(self, current: int) -> None:
-        """
-        :param current: current progress
-        """
+        """:param current: current progress"""
         self._current = current
         self._invalidate()
 
@@ -88,22 +91,22 @@ class ProgressBar(Widget):
 
     @property
     def done(self) -> int:
+        """Return the progress amount that represents 100%."""
         return self._done
 
     @done.setter
     def done(self, done: int) -> None:
-        """
-        :param done: progress amount at 100%
-        """
+        """:param done: progress amount at 100%"""
         self._done = done
         self._invalidate()
 
     def rows(self, size: tuple[int], focus: bool = False) -> int:
+        """Return the number of rows the progress bar occupies, always 1."""
         return 1
 
     def get_text(self) -> str:
-        """
-        Return the progress bar percentage text.
+        """Return the progress bar percentage text.
+
         You can override this method to display custom text.
         """
         percent = min(100, max(0, int(self.current * 100 / self.done)))
@@ -114,9 +117,7 @@ class ProgressBar(Widget):
         size: tuple[int],  # type: ignore[override]
         focus: bool = False,
     ) -> TextCanvas:
-        """
-        Render the progress bar.
-        """
+        """Render the progress bar."""
         # pylint: disable=protected-access
         (maxcol,) = size
         label, render_label = self._label, self._render_label

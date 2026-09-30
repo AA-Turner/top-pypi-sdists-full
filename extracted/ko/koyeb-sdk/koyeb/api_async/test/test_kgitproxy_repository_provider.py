@@ -14,7 +14,10 @@
 
 import unittest
 
-from koyeb.api_async.models.kgitproxy_repository_provider import KgitproxyRepositoryProvider
+from koyeb.api_async.models.kgitproxy_repository_provider import (
+    KgitproxyRepositoryProvider,
+)
+
 
 class TestKgitproxyRepositoryProvider(unittest.TestCase):
     """KgitproxyRepositoryProvider unit test stubs"""
@@ -29,5 +32,6 @@ class TestKgitproxyRepositoryProvider(unittest.TestCase):
         """Test KgitproxyRepositoryProvider"""
         # inst = KgitproxyRepositoryProvider()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

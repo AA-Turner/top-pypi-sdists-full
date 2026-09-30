@@ -20,7 +20,9 @@ from typing import (
     Sequence,
     Tuple,
     Union,
+    cast,
 )
+import warnings
 from uuid import uuid4
 
 from fpdf.drawing_primitives import DeviceCMYK, DeviceGray, DeviceRGB
@@ -84,6 +86,16 @@ class Fragment:
             f"Fragment(characters={self.characters},"
             f" graphics_state={self.graphics_state},"
             f" k={self.k}, link={self.link})"
+        )
+
+    def clone(
+        self, characters: Union[list[str], str] = "", link: Optional[int | str] = None
+    ) -> "Fragment":
+        return self.__class__(
+            characters=characters,
+            graphics_state=self.graphics_state,
+            k=self.k,
+            link=link,
         )
 
     @property
@@ -370,13 +382,20 @@ class Fragment:
             )
 
         char_spacing = self.char_spacing * (self.font_stretching / 100) / self.k
-        for ti in self.font.shape_text(
-            self.string, self.font_size_pt, self.text_shaping_parameters
+        for i, ti in enumerate(
+            self.font.shape_text(
+                self.string, self.font_size_pt, self.text_shaping_parameters
+            )
         ):
             if ti["mapped_char"] is None:  # Missing glyph
                 continue
             char = self.font.escape_text(chr(ti["mapped_char"]))
-            if ti["x_offset"] != 0 or ti["y_offset"] != 0:
+            is_first_char = i == 0
+            if (
+                ti["x_offset"] != 0
+                or ti["y_offset"] != 0
+                or (isinstance(self, TotalPagesSubstitutionFragment) and is_first_char)
+            ):
                 if text:
                     ret += f"({text}) Tj "
                     text = ""
@@ -423,9 +442,43 @@ class TotalPagesSubstitutionFragment(Fragment):
     output is being produced.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *args: Any,
+        dummy_width_string: str = "1",
+        align: Optional[Union[Align, str]] = Align.L,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.uuid = uuid4()
+        self.dummy_width_string = dummy_width_string
+        self.align = Align.coerce(align) if align is not None else Align.L
+        # Use dummy_width_string for layout phase width calculation if characters are not empty (non-cloned)
+        # and text shaping is active.
+        if self.characters and self.graphics_state.text_shaping:
+            self.characters = [dummy_width_string]
+
+    def clone(
+        self, characters: Union[list[str], str] = "", link: Optional[int | str] = None
+    ) -> "TotalPagesSubstitutionFragment":
+        clone_obj = cast(
+            TotalPagesSubstitutionFragment,
+            super().clone(characters=characters, link=link),
+        )
+        clone_obj.dummy_width_string = self.dummy_width_string
+        clone_obj.align = self.align
+        return clone_obj
+
+    def get_width(
+        self,
+        start: int = 0,
+        end: Optional[int] = None,
+        chars: Optional[str] = None,
+        initial_cs: bool = True,
+    ) -> float:
+        if chars is None:
+            chars = self.dummy_width_string
+        return super().get_width(start, end, chars, initial_cs)
 
     def get_placeholder_string(self) -> str:
         """
@@ -447,13 +500,79 @@ class TotalPagesSubstitutionFragment(Fragment):
         self._render_kwargs = kwargs
         return self.get_placeholder_string()
 
+    def _get_alias_shift(self, gap: float) -> float:
+        align = self.align or Align.L
+        if align == Align.J:
+            warnings.warn(
+                "Align.J (justify) is not supported for alias substitution and will fall back to Align.L (left).",
+                UserWarning,
+            )
+            align = Align.L
+        elif align == Align.X:
+            warnings.warn(
+                "Align.X is treated as Align.C (center) for alias substitution.",
+                UserWarning,
+            )
+            align = Align.C
+        if align == Align.R:
+            return gap
+        if align == Align.C:
+            return gap / 2
+        return 0.0
+
     def render_text_substitution(self, replacement_text: str) -> str:
         """
         This method is invoked at the output phase. It calls `render_pdf_text()` from the superclass
         to render the fragment with the preserved rendering state (stored in `_render_args` and `_render_kwargs`)
         and insert the final text in place of the placeholder.
         """
+        alias_name = self.string
         self.characters = list(replacement_text)
+
+        dummy_width = self.get_width(chars=self.dummy_width_string)
+        replacement_width = self.get_width(chars=replacement_text)
+
+        if replacement_width > dummy_width:
+            warnings.warn(
+                f"The total page count '{replacement_text}' is wider than the reserved "
+                f"alias width for '{alias_name}'. Use a longer alias with "
+                "alias_nb_pages() to reserve more space.",
+                UserWarning,
+            )
+
+        shift = self._get_alias_shift(dummy_width - replacement_width)
+
+        if (
+            hasattr(self, "_render_args")
+            and self._render_args
+            and len(self._render_args) > 5
+        ):
+            pos_x, pos_y, h = self._render_args[3:6]
+            reset_tm = (
+                f" 1 0 0 1 {(pos_x + dummy_width) * self.k:.2f} "
+                f"{(h - pos_y) * self.k:.2f} Tm"
+            )
+
+            if self.graphics_state.text_shaping:
+                args = list(self._render_args)
+                args[3] += shift
+                self._render_args = tuple(args)
+                return (
+                    super().render_pdf_text(*self._render_args, **self._render_kwargs)
+                    + reset_tm
+                )
+
+            if shift != 0.0:
+                set_tm = (
+                    f"1 0 0 1 {(pos_x + shift) * self.k:.2f} "
+                    f"{(h - pos_y) * self.k:.2f} Tm "
+                )
+                return (
+                    set_tm
+                    + super().render_pdf_text(*self._render_args, **self._render_kwargs)
+                    + reset_tm
+                )
+
         return super().render_pdf_text(*self._render_args, **self._render_kwargs)
 
 
@@ -567,10 +686,8 @@ class CurrentLine:
         if not self.fragments:
             assert isinstance(original_fragment, Fragment)
             self.fragments.append(
-                original_fragment.__class__(
+                original_fragment.clone(
                     characters="",
-                    graphics_state=original_fragment.graphics_state,
-                    k=original_fragment.k,
                     link=url,
                 )
             )
@@ -584,10 +701,8 @@ class CurrentLine:
                 and url == self.fragments[-1].link
             ):
                 self.fragments.append(
-                    original_fragment.__class__(
+                    original_fragment.clone(
                         characters="",
-                        graphics_state=original_fragment.graphics_state,
-                        k=original_fragment.k,
                         link=url,
                     )
                 )

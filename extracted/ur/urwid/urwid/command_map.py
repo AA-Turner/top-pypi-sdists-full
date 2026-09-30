@@ -17,6 +17,8 @@
 #
 # Urwid web site: https://urwid.org/
 
+"""Mapping of keystrokes to the abstract commands that widgets act on."""
+
 from __future__ import annotations
 
 import enum
@@ -30,6 +32,8 @@ if typing.TYPE_CHECKING:
 
 
 class Command(str, enum.Enum):
+    """Abstract commands that a :class:`CommandMap` maps keystrokes to."""
+
     REDRAW_SCREEN = "redraw screen"
     UP = "cursor up"
     DOWN = "cursor down"
@@ -59,7 +63,7 @@ ACTIVATE: typing.Literal[Command.ACTIVATE] = Command.ACTIVATE
 
 class CommandMap(MutableMapping[str, typing.Union[str, Command, None]]):
     """
-    dict-like object for looking up commands from keystrokes
+    dict-like object for looking up commands from keystrokes.
 
     Default values:
 
@@ -82,9 +86,11 @@ class CommandMap(MutableMapping[str, typing.Union[str, Command, None]]):
     """
 
     def __iter__(self) -> Iterator[str]:
+        """Iterate over the keystrokes currently mapped to a command."""
         return iter(self._command)
 
     def __len__(self) -> int:
+        """Return the number of keystrokes currently mapped to a command."""
         return len(self._command)
 
     _command_defaults: typing.ClassVar[dict[str, str | Command]] = {
@@ -107,12 +113,15 @@ class CommandMap(MutableMapping[str, typing.Union[str, Command, None]]):
     }
 
     def __init__(self) -> None:
+        """Initialize the command map with the class's default key-to-command bindings."""
         self._command = self._command_defaults.copy()
 
     def restore_defaults(self) -> None:
+        """Reset the command map to the class's default key-to-command bindings."""
         self._command = self._command_defaults.copy()
 
     def __getitem__(self, key: str) -> str | Command | None:
+        """Return the command mapped to `key`, or None if unmapped."""
         return self._command.get(key, None)
 
     def __setitem__(self, key: str, command: str | Command | None) -> None:
@@ -121,7 +130,6 @@ class CommandMap(MutableMapping[str, typing.Union[str, Command, None]]):
         :param key: keystroke
         :param command: command aliad. If the alias is `None`, the command is removed from the map.
         """
-
         if command is None:
             if key in self._command:
                 del self._command[key]
@@ -129,18 +137,17 @@ class CommandMap(MutableMapping[str, typing.Union[str, Command, None]]):
         self._command[key] = command
 
     def __delitem__(self, key: str) -> None:
+        """Remove the command mapping for `key`."""
         del self._command[key]
 
     def clear_command(self, command: str | Command) -> None:
+        """Remove every keystroke currently mapped to ``command``."""
         dk = [k for k, v in self._command.items() if v == command]
         for k in dk:
             del self._command[k]
 
     def copy(self) -> Self:
-        """
-        Return a new copy of this CommandMap, likely so we can modify
-        it separate from a shared one.
-        """
+        """Return a new copy of this CommandMap, likely so we can modify it separate from a shared one."""
         c = self.__class__()
         c._command = dict(self._command)  # pylint: disable=protected-access
         return c

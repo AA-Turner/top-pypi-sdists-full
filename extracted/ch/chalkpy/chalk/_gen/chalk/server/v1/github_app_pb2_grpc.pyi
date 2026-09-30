@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.github_app_pb2 import (
     CompleteGitHubAppInstallationResponse,
     CreatePullRequestFromChangesRequest,
     CreatePullRequestFromChangesResponse,
+    CreatePullRequestFromVolumeRequest,
+    CreatePullRequestFromVolumeResponse,
     CreateVolumeFromGitHubRepoRequest,
     CreateVolumeFromGitHubRepoResponse,
     DeleteGitHubAppConfigRequest,
@@ -124,6 +126,14 @@ class GitHubAppServiceStub:
     ]
     """Downloads the repository archive at ref and commits its contents into a
     new volume, server-side -- no archive bytes cross the caller.
+    """
+    CreatePullRequestFromVolume: UnaryUnaryMultiCallable[
+        CreatePullRequestFromVolumeRequest,
+        CreatePullRequestFromVolumeResponse,
+    ]
+    """Diffs a volume's contents against base_branch and opens a pull request
+    making the repository match the volume, server-side -- no file bytes
+    cross the caller.
     """
     LinkProjectToGitHubRepository: UnaryUnaryMultiCallable[
         LinkProjectToGitHubRepositoryRequest,
@@ -238,6 +248,16 @@ class GitHubAppServiceServicer(metaclass=ABCMeta):
     ) -> CreateVolumeFromGitHubRepoResponse:
         """Downloads the repository archive at ref and commits its contents into a
         new volume, server-side -- no archive bytes cross the caller.
+        """
+    @abstractmethod
+    def CreatePullRequestFromVolume(
+        self,
+        request: CreatePullRequestFromVolumeRequest,
+        context: ServicerContext,
+    ) -> CreatePullRequestFromVolumeResponse:
+        """Diffs a volume's contents against base_branch and opens a pull request
+        making the repository match the volume, server-side -- no file bytes
+        cross the caller.
         """
     @abstractmethod
     def LinkProjectToGitHubRepository(

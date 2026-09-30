@@ -5,16 +5,23 @@ from collections.abc import Generator, Iterator
 from dataclasses import dataclass
 from io import StringIO
 import os
+from pathlib import Path
+from threading import Event
 from types import SimpleNamespace
 from typing import Any, Literal, cast
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
+from cli_helpers.tabular_output import TabularOutputFormatter
+from configobj import ConfigObj
 from prompt_toolkit.formatted_text import to_formatted_text, to_plain_text
 import pymysql
 import pytest
 
 import mycli.main_modes.repl as repl_mode
+from mycli.output import OutputMixin
+from mycli.packages.special import iocommands
 from mycli.packages.sqlresult import SQLResult
+from mycli.query_runner import QueryRunner
 
 
 class DummyLogger:
@@ -161,7 +168,13 @@ def make_repl_cli(sqlexecute: Any | None = None) -> Any:
     cli.post_redirect_command = None
     cli.logfile = None
     cli.smart_completion = False
-    cli.config = {'main': {'history_file': '~/.mycli-history-testing'}, 'editor': {'editor_command': ''}}
+    cli.config = ConfigObj({
+        'main': {
+            'history_file': '~/.mycli-history-testing',
+            'show_query_state_interval': 0.5,
+        },
+        'editor': {'editor_command': ''},
+    })
     cli.key_bindings = 'emacs'
     cli.wider_completion_menu = False
     cli.login_path = None
@@ -1037,6 +1050,32 @@ def test_output_results_stops_source_when_pager_exits_early(monkeypatch: pytest.
     assert closed == [True]
 
 
+def test_source_pager_suppresses_query_progress(monkeypatch: pytest.MonkeyPatch) -> None:
+    runner = QueryRunner(0)
+    runner.show_state = True
+    cli = make_repl_cli(SimpleNamespace(query_runner=runner))
+    monkeypatch.setattr(repl_mode.special, 'is_redirected', lambda: False)
+
+    def pager(output: Any) -> None:
+        assert runner._suppressed == 1
+        with runner.rendering():
+            assert runner._render_thread is None
+
+    monkeypatch.setattr(repl_mode.click, 'echo_via_pager', pager)
+
+    # The real paged generator supports close(), including on early pager exit.
+    def paged(*args: Any) -> Generator[str, None, None]:
+        yield 'row'
+
+    monkeypatch.setattr(repl_mode, '_single_paged_output_results', paged)
+    try:
+        results = [SQLResult(command={'name': 'source_page'})]
+        repl_mode._output_results(cli, repl_mode.ReplState(), results, 0.0)
+        assert runner._suppressed == 0
+    finally:
+        runner.close()
+
+
 def test_output_results_redirect_bypasses_source_pager(monkeypatch: pytest.MonkeyPatch) -> None:
     cli = make_repl_cli(SimpleNamespace())
     monkeypatch.setattr(repl_mode.special, 'is_redirected', lambda: True)
@@ -1749,7 +1788,9 @@ def test_one_iteration_runs_polars_transform_and_preserves_full_command(
         plot_scale_factor: float,
         plot_ppi: int,
         plot_theme: str,
+        allow_plots: bool,
     ) -> SQLResult:
+        assert allow_plots
         run_calls.append((received_transform, image_protocol, plot_scale_factor, plot_ppi, plot_theme))
         assert list(results) == [SQLResult(header=['id'], rows=[(1,)])]
         return SQLResult(header=['count'], rows=[(1,)])
@@ -1781,6 +1822,140 @@ def test_one_iteration_runs_polars_transform_and_preserves_full_command(
     assert cli.query_history[-1].query == command
     assert cli.query_history[-1].successful is True
     assert cli.output_calls[-1][1] == SQLResult(header=['count'], rows=[(1,)])
+
+
+@pytest.mark.parametrize('command', ['SELECT 1 .| df', 'SELECT 1 .| df .> result.parquet', 'SELECT 1 .> result.parquet'])
+def test_polars_pipeline_shows_transforming_state(monkeypatch: pytest.MonkeyPatch, command: str) -> None:
+    patch_repl_runtime_defaults(monkeypatch)
+    runner = QueryRunner(0)
+    runner.show_state = True
+    rendered = Event()
+    states: list[str] = []
+
+    def display(elapsed: float, state: str) -> None:
+        states.append(state)
+        rendered.set()
+
+    monkeypatch.setattr(runner, '_display', display)
+    monkeypatch.setattr(repl_mode.special, 'run_post_redirect_hook', lambda *args: None)
+    sql = SimpleNamespace(dbname='db', connection_id=0, query_runner=runner, run=lambda text: iter(()))
+    cli = make_repl_cli(sql)
+    monkeypatch.setattr(repl_mode, 'prepare_polars_transform', lambda *args: object())
+
+    def transform(*args: Any, **kwargs: Any) -> SQLResult:
+        runner.call(lambda: None)
+        assert rendered.wait(2)
+        return SQLResult(header=['id'], rows=[(1,)])
+
+    monkeypatch.setattr(repl_mode, 'run_polars_transform', transform)
+    try:
+        repl_mode._one_iteration(cli, repl_mode.ReplState(), command)
+        assert cli.query_history[-1].successful
+        assert states and all(state == 'transforming' for state in states)
+        assert runner._render_thread is None
+        assert runner._render_state == repl_mode.QueryState.RENDERING
+    finally:
+        runner.close()
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='Uses a POSIX shell pipeline')
+@pytest.mark.parametrize('suffix', ['$| cat $>', '$>', '$>>', '$| cat $>>'])
+def test_transform_shell_redirect_writes_formatted_transformed_rows(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    suffix: str,
+) -> None:
+    patch_repl_runtime_defaults(monkeypatch)
+    monkeypatch.setattr(repl_mode.special, 'is_redirected', iocommands.is_redirected)
+    monkeypatch.setattr(repl_mode.special, 'is_explorer_output', lambda: False)
+    sql = SimpleNamespace(dbname='db', connection_id=0, run=Mock(return_value=iter([SQLResult(header=['id'], rows=[(1,), (2,)])])))
+    cli = make_repl_cli(sql)
+    cli.redirect_formatter = TabularOutputFormatter(format_name='csv')
+    cli.helpers_style = None
+    cli.helpers_warnings_style = None
+    cli.ptoolkit_style = None
+    cli.explicit_pager = False
+    cli.get_output_margin = lambda status: 0
+    cli.format_sqlresult = lambda *args, **kwargs: OutputMixin.format_sqlresult(cli, *args, **kwargs)
+    cli.output = lambda *args, **kwargs: OutputMixin.output(cli, *args, **kwargs)
+    destination = tmp_path / 'result rows.csv'
+    destination.write_text('old\n')
+    hook = Mock()
+    monkeypatch.setattr(iocommands, '_run_post_redirect_hook', hook)
+    command = f'SELECT id FROM orders .| df.head(1) {suffix} "{destination}"'
+
+    repl_mode._one_iteration(cli, repl_mode.ReplState(), command)
+
+    assert cli.query_history[-1].successful, cli.echo_calls
+    sql.run.assert_called_once_with('SELECT id FROM orders')
+    assert cli.log_queries == [command]
+    assert cli.query_history[-1].query == command
+    assert destination.read_text().splitlines() == (['old'] if suffix.endswith('>>') else []) + ['"id"', '"1"'] + (
+        [''] if suffix.startswith('$|') else []
+    )
+    hook.assert_called_once_with(None, str(destination))
+    assert not iocommands.is_redirected()
+
+
+@pytest.mark.parametrize('error', [pymysql.err.InterfaceError(0, ''), pymysql.err.OperationalError(2006, 'lost')])
+def test_transform_redirect_survives_database_reconnect(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    error: Exception,
+) -> None:
+    patch_repl_runtime_defaults(monkeypatch)
+    sql = SimpleNamespace(dbname='db', run=Mock(side_effect=[error, iter([SQLResult(header=['id'], rows=[(1,)])])]))
+    cli = make_repl_cli(sql)
+    cli.reconnect = Mock(return_value=True)
+    output = tmp_path / 'out.csv'
+    command = f'SELECT 1 .| df $> "{output}"'
+
+    repl_mode._one_iteration(cli, repl_mode.ReplState(), command)
+
+    assert cli.query_history[-1].successful, cli.echo_calls
+    assert cli.query_history[-1].query == command
+    assert cli.log_queries == [command, command]
+    assert output.exists()
+    cli.reconnect.assert_called_once_with()
+
+
+@pytest.mark.parametrize('expression', ['1 / 0', 'alt.Chart(df).mark_point()'])
+def test_transform_failure_does_not_start_shell_or_open_file(
+    monkeypatch: pytest.MonkeyPatch,
+    expression: str,
+) -> None:
+    patch_repl_runtime_defaults(monkeypatch)
+    cli = make_repl_cli(SimpleNamespace(dbname='db', run=lambda text: iter([SQLResult(header=['id'], rows=[(1,)])])))
+    redirect = Mock()
+    monkeypatch.setattr(repl_mode, 'temporary_redirect', redirect)
+
+    repl_mode._one_iteration(cli, repl_mode.ReplState(), f'SELECT 1 .| {expression} $| cat $> output.csv')
+
+    redirect.assert_not_called()
+    assert not cli.query_history[-1].successful
+    assert cli.echo_calls
+
+
+@pytest.mark.parametrize('error', [ValueError('format failed'), KeyboardInterrupt()])
+def test_transform_redirect_output_failure_does_not_leak_to_next_query(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    error: BaseException,
+) -> None:
+    patch_repl_runtime_defaults(monkeypatch)
+    cli = make_repl_cli(SimpleNamespace(dbname='db', connection_id=0, run=lambda text: iter([SQLResult(header=['id'], rows=[(1,)])])))
+    cli.output = Mock(side_effect=error)
+    destination = tmp_path / 'output.csv'
+
+    repl_mode._one_iteration(cli, repl_mode.ReplState(), f'SELECT 1 .| df $> "{destination}"')
+
+    assert not cli.query_history[-1].successful
+    assert not iocommands.is_redirected()
+    assert destination.read_text() == ''
+    cli.output = Mock()
+    repl_mode._one_iteration(cli, repl_mode.ReplState(), 'SELECT 2')
+    assert cli.query_history[-1].successful
+    assert destination.read_text() == ''
 
 
 def test_one_iteration_reports_polars_parse_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2086,7 +2261,7 @@ def test_one_iteration_reports_polars_expression_error_without_output(monkeypatc
     monkeypatch.setattr(
         repl_mode,
         'run_polars_transform',
-        lambda transform, results, *, image_protocol, plot_scale_factor, plot_ppi, plot_theme: (_ for _ in ()).throw(
+        lambda transform, results, *, image_protocol, plot_scale_factor, plot_ppi, plot_theme, allow_plots: (_ for _ in ()).throw(
             repl_mode.PolarsTransformError('Polars expression failed')
         ),
     )
@@ -2097,6 +2272,26 @@ def test_one_iteration_reports_polars_expression_error_without_output(monkeypatc
     assert cli.output_calls == []
     assert 'Polars expression failed' in cli.echo_calls
     assert cli.query_history[-1].query == command
+    assert cli.query_history[-1].successful is False
+
+
+@pytest.mark.parametrize('disconnected', [False, True])
+def test_one_iteration_does_not_replay_cancelled_query(monkeypatch: pytest.MonkeyPatch, disconnected: bool) -> None:
+    patch_repl_runtime_defaults(monkeypatch)
+    sql = SimpleNamespace(dbname='db', connection_id=42)
+    cli = make_repl_cli(sql)
+    calls: list[str] = []
+
+    def cancelled(text: str) -> Iterator[SQLResult]:
+        calls.append(text)
+        raise repl_mode.QueryCancelled(disconnected)
+
+    sql.run = cancelled
+    reconnect = Mock(return_value=True)
+    cli.reconnect = reconnect
+    repl_mode._one_iteration(cli, repl_mode.ReplState(), 'SELECT SLEEP(10)')
+    assert calls == ['SELECT SLEEP(10)']
+    assert reconnect.call_count == int(disconnected)
     assert cli.query_history[-1].successful is False
 
 
@@ -2258,6 +2453,64 @@ def test_one_iteration_covers_cancel_paths_and_redirect_error(monkeypatch: pytes
     assert any('Failed to confirm query cancellation' in line for line in cli.echo_calls)
     assert any('Encountered error while cancelling query' in line for line in cli.echo_calls)
     assert 'Did not get a connection id, skip cancelling query' in cli.echo_calls
+
+
+@pytest.mark.parametrize('exit_error', [EOFError(), RuntimeError('iteration failed')], ids=['eof', 'error'])
+def test_main_repl_manages_query_runner_lifecycle(monkeypatch: pytest.MonkeyPatch, exit_error: Exception) -> None:
+    sql = Mock(spec=repl_mode.SQLExecute)
+    cli = make_repl_cli(sql)
+    cli.config['main']['show_query_state_interval'] = '0.25'
+    runner = Mock(spec=QueryRunner)
+    create_runner = Mock(return_value=runner)
+    lifecycle = Mock()
+    lifecycle.attach_mock(sql.set_query_runner, 'set_query_runner')
+    lifecycle.attach_mock(runner.close, 'close')
+    monkeypatch.setattr(repl_mode, 'QueryRunner', create_runner)
+    monkeypatch.setattr(repl_mode, '_configure_editor', Mock())
+    monkeypatch.setattr(repl_mode, '_create_history', Mock(return_value=None))
+    monkeypatch.setattr(repl_mode, 'mycli_bindings', Mock())
+    monkeypatch.setattr(repl_mode, '_show_startup_banner', Mock())
+    monkeypatch.setattr(repl_mode, '_build_prompt_session', Mock())
+    monkeypatch.setattr(repl_mode, 'set_all_external_titles', Mock())
+    monkeypatch.setattr(repl_mode.special, 'close_tee', Mock())
+
+    def iteration(mycli: Any, state: repl_mode.ReplState) -> None:
+        sql.set_query_runner.assert_called_once_with(runner)
+        runner.close.assert_not_called()
+        raise exit_error
+
+    monkeypatch.setattr(repl_mode, '_one_iteration', iteration)
+
+    if isinstance(exit_error, EOFError):
+        repl_mode.main_repl(cli)
+    else:
+        with pytest.raises(RuntimeError, match='iteration failed') as exc_info:
+            repl_mode.main_repl(cli)
+        assert exc_info.value is exit_error
+
+    create_runner.assert_called_once_with(0.25)
+    assert lifecycle.mock_calls == [call.set_query_runner(runner), call.set_query_runner(None), call.close()]
+
+
+def test_output_results_resets_query_progress_before_large_result_confirmation(monkeypatch: pytest.MonkeyPatch) -> None:
+    runner = Mock(spec=QueryRunner)
+    cli = make_repl_cli(SimpleNamespace(query_runner=runner))
+    monkeypatch.setattr(repl_mode, 'Cursor', FakeCursorBase)
+    monkeypatch.setattr(repl_mode.special, 'is_redirected', lambda: False)
+    result = SQLResult(status='select', rows=cast(Any, FakeCursorBase(rowcount=1001)))
+
+    def confirm(message: str) -> bool:
+        runner.reset_progress.assert_called_once_with()
+        assert message == 'Do you want to continue?'
+        return False
+
+    monkeypatch.setattr(repl_mode, 'confirm', confirm)
+
+    repl_mode._output_results(cli, repl_mode.ReplState(), [result], start=0.0)
+
+    runner.reset_progress.assert_called_once_with()
+    assert cli.echo_calls == ['The result set has more than 1000 rows.', 'Aborted!']
+    assert cli.output_calls == []
 
 
 def test_main_repl_covers_setup_loop_and_goodbye(monkeypatch: pytest.MonkeyPatch) -> None:

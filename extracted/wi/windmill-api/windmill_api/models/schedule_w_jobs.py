@@ -77,6 +77,12 @@ class ScheduleWJobs:
         inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
             Read-only — edit them on the folder.
         jobs (Union[Unset, List['ScheduleWJobsJobsItem']]):
+        late_run_streak (Union[Unset, int]): runs in a row, up to the latest, that started or finished after the next
+            occurrence was due, so that occurrence was missed
+        missed_occurrences (Union[Unset, int]): occurrences missed by the latest streak of late runs, kept after it
+            ends; a lower bound once a single late run misses 1000
+        last_missed_at (Union[Unset, datetime.datetime]): latest missed occurrence, kept after the schedule runs on time
+            again; past 1000 misses in one late run, when the miss was detected, at most one period later
     """
 
     path: str
@@ -115,6 +121,9 @@ class ScheduleWJobs:
     is_draft: Union[Unset, bool] = UNSET
     inherited_labels: Union[Unset, List[str]] = UNSET
     jobs: Union[Unset, List["ScheduleWJobsJobsItem"]] = UNSET
+    late_run_streak: Union[Unset, int] = UNSET
+    missed_occurrences: Union[Unset, int] = UNSET
+    last_missed_at: Union[Unset, datetime.datetime] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -187,6 +196,12 @@ class ScheduleWJobs:
 
                 jobs.append(jobs_item)
 
+        late_run_streak = self.late_run_streak
+        missed_occurrences = self.missed_occurrences
+        last_missed_at: Union[Unset, str] = UNSET
+        if not isinstance(self.last_missed_at, Unset):
+            last_missed_at = self.last_missed_at.isoformat()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -254,6 +269,12 @@ class ScheduleWJobs:
             field_dict["inherited_labels"] = inherited_labels
         if jobs is not UNSET:
             field_dict["jobs"] = jobs
+        if late_run_streak is not UNSET:
+            field_dict["late_run_streak"] = late_run_streak
+        if missed_occurrences is not UNSET:
+            field_dict["missed_occurrences"] = missed_occurrences
+        if last_missed_at is not UNSET:
+            field_dict["last_missed_at"] = last_missed_at
 
         return field_dict
 
@@ -387,6 +408,17 @@ class ScheduleWJobs:
 
             jobs.append(jobs_item)
 
+        late_run_streak = d.pop("late_run_streak", UNSET)
+
+        missed_occurrences = d.pop("missed_occurrences", UNSET)
+
+        _last_missed_at = d.pop("last_missed_at", UNSET)
+        last_missed_at: Union[Unset, datetime.datetime]
+        if isinstance(_last_missed_at, Unset):
+            last_missed_at = UNSET
+        else:
+            last_missed_at = isoparse(_last_missed_at)
+
         schedule_w_jobs = cls(
             path=path,
             edited_by=edited_by,
@@ -424,6 +456,9 @@ class ScheduleWJobs:
             is_draft=is_draft,
             inherited_labels=inherited_labels,
             jobs=jobs,
+            late_run_streak=late_run_streak,
+            missed_occurrences=missed_occurrences,
+            last_missed_at=last_missed_at,
         )
 
         schedule_w_jobs.additional_properties = d

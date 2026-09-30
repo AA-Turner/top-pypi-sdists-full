@@ -112,16 +112,16 @@ class GetAlliancesOperation(EsiOperation):
 class GetAlliancesAllianceIdOperation(EsiOperation):
     """EsiOperation, use result()"""
     @overload
-    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AllianceDetail:
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesDetail:
         """Public information about an alliance"""
         ...
 
     @overload
-    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[AllianceDetail, Response]:
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[AlliancesDetail, Response]:
         """Public information about an alliance"""
         ...
 
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AllianceDetail | tuple[AllianceDetail, Response]:
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesDetail | tuple[AlliancesDetail, Response]:
         """Public information about an alliance"""
         ...
 
@@ -2739,49 +2739,49 @@ class GetKillmailsKillmailIdKillmailHashOperation(EsiOperation):
 class GetCharactersCharacterIdLocationOperation(EsiOperation):
     """EsiOperation, use result()"""
     @overload
-    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdLocationGet:
-        """Information about the characters current location. Returns the current solar system id, and also the current station or structure ID if applicable"""
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersLocation:
+        """Get the current location of a character, including the station or structure it is docked in."""
         ...
 
     @overload
-    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdLocationGet, Response]:
-        """Information about the characters current location. Returns the current solar system id, and also the current station or structure ID if applicable"""
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersLocation, Response]:
+        """Get the current location of a character, including the station or structure it is docked in."""
         ...
 
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdLocationGet | tuple[CharactersCharacterIdLocationGet, Response]:
-        """Information about the characters current location. Returns the current solar system id, and also the current station or structure ID if applicable"""
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersLocation | tuple[CharactersLocation, Response]:
+        """Get the current location of a character, including the station or structure it is docked in."""
         ...
 
 class GetCharactersCharacterIdOnlineOperation(EsiOperation):
     """EsiOperation, use result()"""
     @overload
-    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdOnlineGet:
-        """Checks if the character is currently online"""
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersOnline:
+        """Get whether a character is online, and its login statistics."""
         ...
 
     @overload
-    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdOnlineGet, Response]:
-        """Checks if the character is currently online"""
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersOnline, Response]:
+        """Get whether a character is online, and its login statistics."""
         ...
 
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdOnlineGet | tuple[CharactersCharacterIdOnlineGet, Response]:
-        """Checks if the character is currently online"""
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersOnline | tuple[CharactersOnline, Response]:
+        """Get whether a character is online, and its login statistics."""
         ...
 
 class GetCharactersCharacterIdShipOperation(EsiOperation):
     """EsiOperation, use result()"""
     @overload
-    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdShipGet:
-        """Get the current ship type, name and id"""
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersShip:
+        """Get the ship a character is currently in."""
         ...
 
     @overload
-    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdShipGet, Response]:
-        """Get the current ship type, name and id"""
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersShip, Response]:
+        """Get the ship a character is currently in."""
         ...
 
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdShipGet | tuple[CharactersCharacterIdShipGet, Response]:
-        """Get the current ship type, name and id"""
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersShip | tuple[CharactersShip, Response]:
+        """Get the ship a character is currently in."""
         ...
 
 class GetCharactersCharacterIdLoyaltyPointsOperation(EsiOperation):
@@ -4958,7 +4958,7 @@ AlliancesGet = list[int]
 FactionID = int
 
 
-class AllianceDetail(BaseModel):
+class AlliancesDetail(BaseModel):
     creator_corporation_id: CorporationID
     creator_id: CharacterID
     date_founded: datetime
@@ -7142,23 +7142,23 @@ class KillmailsKillmailIdKillmailHashGet(BaseModel):
     war_id: int | None
 
 
-class CharactersCharacterIdLocationGet(BaseModel):
-    solar_system_id: int
-    station_id: int | None
-    structure_id: int | None
+class CharactersLocation(BaseModel):
+    solar_system_id: SolarSystemID
+    station_id: StationID | None
+    structure_id: ItemID | None
 
 
-class CharactersCharacterIdOnlineGet(BaseModel):
+class CharactersOnline(BaseModel):
     last_login: datetime | None
     last_logout: datetime | None
     logins: int | None
     online: bool
 
 
-class CharactersCharacterIdShipGet(BaseModel):
-    ship_item_id: int
+class CharactersShip(BaseModel):
+    ship_item_id: ItemID
     ship_name: str
-    ship_type_id: int
+    ship_type_id: TypeID
 
 
 class CharactersCharacterIdLoyaltyPointsGetItem(BaseModel):
@@ -7429,14 +7429,14 @@ class MetaName(BaseModel):
     history: list[MetaNameEntry]
 
 
-class MetaStatusRoutestatus(BaseModel):
+class MetaStatusRoute(BaseModel):
     method: Literal['GET', 'POST', 'PUT', 'DELETE']
     path: str
     status: Literal['Unknown', 'OK', 'Degraded', 'Down', 'Recovering']
 
 
 class MetaStatus(BaseModel):
-    routes: list[MetaStatusRoutestatus]
+    routes: list[MetaStatusRoute]
 
 
 class CharactersMilitaryCampaignsObjectivesParticipationCharacterobjective(BaseModel):
@@ -9051,15 +9051,15 @@ class ESIClientStub:
 
     class _Location:
         def GetCharactersCharacterIdLocation(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdLocationOperation:
-            """Information about the characters current location. Returns the current solar system id, and also the current station or structure ID if applicable"""
+            """Get the current location of a character, including the station or structure it is docked in."""
             ...
 
         def GetCharactersCharacterIdOnline(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdOnlineOperation:
-            """Checks if the character is currently online"""
+            """Get whether a character is online, and its login statistics."""
             ...
 
         def GetCharactersCharacterIdShip(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdShipOperation:
-            """Get the current ship type, name and id"""
+            """Get the ship a character is currently in."""
             ...
 
 

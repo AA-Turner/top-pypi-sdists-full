@@ -19,12 +19,14 @@ class Interpolation(IntFlag):
     SINC: "Unwindowed Sinc" = SWS_SINC
     LANCZOS: "3-tap sinc/sinc" = SWS_LANCZOS
     SPLINE: "Unwindowed natural cubic spline" = SWS_SPLINE
+    STRICT: "Error out on underspecified conversions" = SWS_STRICT
     PRINT_INFO: "Emit verbose scaler info to the log" = SWS_PRINT_INFO
     FULL_CHR_H_INT: "Full chroma interpolation" = SWS_FULL_CHR_H_INT
     FULL_CHR_H_INP: "Full chroma input" = SWS_FULL_CHR_H_INP
     DIRECT_BGR: "Direct BGR" = SWS_DIRECT_BGR
     ACCURATE_RND: "Accurate rounding" = SWS_ACCURATE_RND
     BITEXACT: "Bit-exact output" = SWS_BITEXACT
+    UNSTABLE: "Prefer experimental code paths (testing only)" = SWS_UNSTABLE
     ERROR_DIFFUSION: "Error diffusion dither" = SWS_ERROR_DIFFUSION
 
 
@@ -78,6 +80,7 @@ class ColorTrc(IntEnum):
     SMPTE2084: "SMPTE 2084 (PQ, HDR10)" = lib.AVCOL_TRC_SMPTE2084
     SMPTE428: "SMPTE 428-1" = lib.AVCOL_TRC_SMPTE428
     ARIB_STD_B67: "ARIB STD-B67 (HLG)" = lib.AVCOL_TRC_ARIB_STD_B67
+    V_LOG: "Panasonic V-Log (not part of H.273)" = lib.AVCOL_TRC_V_LOG
 
 
 class ColorPrimaries(IntEnum):
@@ -98,6 +101,22 @@ class ColorPrimaries(IntEnum):
     SMPTE431: "SMPTE 431-2 (DCI-P3)" = lib.AVCOL_PRI_SMPTE431
     SMPTE432: "SMPTE 432-1 (Display P3)" = lib.AVCOL_PRI_SMPTE432
     EBU3213: "EBU 3213-E / JEDEC P22" = lib.AVCOL_PRI_EBU3213
+    V_GAMUT: "Panasonic V-Gamut (not part of H.273)" = lib.AVCOL_PRI_V_GAMUT
+
+
+class ChromaLocation(IntEnum):
+    """Location of the chroma samples relative to the luma samples.
+
+    Maps to FFmpeg's ``AVChromaLocation``.
+    """
+
+    UNSPECIFIED: "Unspecified" = lib.AVCHROMA_LOC_UNSPECIFIED
+    LEFT: "MPEG-2/4 4:2:0, H.264 default for 4:2:0" = lib.AVCHROMA_LOC_LEFT
+    CENTER: "MPEG-1 4:2:0, JPEG 4:2:0, H.263 4:2:0" = lib.AVCHROMA_LOC_CENTER
+    TOPLEFT: "ITU-R 601, SMPTE 274M/296M, MPEG-2 4:2:2" = lib.AVCHROMA_LOC_TOPLEFT
+    TOP: "Top" = lib.AVCHROMA_LOC_TOP
+    BOTTOMLEFT: "Bottom left" = lib.AVCHROMA_LOC_BOTTOMLEFT
+    BOTTOM: "Bottom" = lib.AVCHROMA_LOC_BOTTOM
 
 
 @cython.cfunc
@@ -132,7 +151,7 @@ def _set_frame_colorspace(
     frame: cython.pointer(lib.AVFrame),
     colorspace: cython.int,
     color_range: cython.int,
-):
+) -> cython.void:
     """Set AVFrame colorspace/range from SWS_CS_* and AVColorRange values."""
     if color_range != lib.AVCOL_RANGE_UNSPECIFIED:
         frame.color_range = cython.cast(lib.AVColorRange, color_range)
@@ -268,9 +287,12 @@ class VideoReformatter:
         dst_color_primaries: cython.int,
         threads: cython.int,
     ):
+        res: cython.int
         if frame.ptr.hw_frames_ctx:
             frame_sw = alloc_video_frame()
-            err_check(lib.av_hwframe_transfer_data(frame_sw.ptr, frame.ptr, 0))
+            with cython.nogil:
+                res = lib.av_hwframe_transfer_data(frame_sw.ptr, frame.ptr, 0)
+            err_check(res)
             frame_sw._copy_internal_attributes(frame, data_layout=False)
             frame_sw._init_user_attributes()
             frame = frame_sw

@@ -2,19 +2,22 @@
 // SPDX-License-Identifier: MIT
 
 #include "Test.h"
-#include <fmt/core.h>
+#include <boost_regex.hpp>
+#include <fmt/format.h>
 #include <fstream>
-#include <regex>
 
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/driver/Driver.h"
+#include "slang/driver/SourceLoader.h"
 #include "slang/text/SourceManager.h"
+#include "slang/util/ScopeGuard.h"
+#include "slang/util/ThreadPool.h"
 
 using namespace slang::driver;
 
 static bool stdoutContains(std::string_view text) {
-    return OS::capturedStdout.find(text) != std::string::npos;
+    return contains(OS::capturedStdout, text);
 }
 
 TEST_CASE("Driver basic") {
@@ -25,6 +28,17 @@ TEST_CASE("Driver basic") {
     const char* argv[] = {"testfoo", filePath.c_str()};
     CHECK(driver.parseCommandLine(2, argv));
     CHECK(driver.processOptions());
+}
+
+TEST_CASE("Driver processOptions can skip input file check") {
+    auto guard = OS::captureOutput();
+
+    Driver driver;
+    driver.addStandardArgs();
+
+    const char* argv[] = {"testfoo"};
+    CHECK(driver.parseCommandLine(1, argv));
+    CHECK(driver.processOptions(false));
 }
 
 TEST_CASE("Driver valid column unit") {
@@ -59,7 +73,7 @@ TEST_CASE("Driver file preprocess -- obfuscation") {
                                  PreprocessOutputFlags::UseFixedObfuscationSeed));
 
     auto output = OS::capturedStdout;
-    output = std::regex_replace(output, std::regex("\r\n"), "\n");
+    output = boost::regex_replace(output, boost::regex("\r\n"), "\n");
 
     CHECK(output.starts_with("\nmodule AOOpUHNpKPjVcKHQ;\n"
                              "    // hello\n"
@@ -95,9 +109,226 @@ TEST_CASE("Driver command files are processed strictly in order") {
     CHECK(std::ranges::is_sorted(fileNames));
 }
 
-static bool contains(std::string_view str, std::string_view value) {
-    return str.find(value) != std::string_view::npos;
+TEST_CASE("Driver tracks command file metadata") {
+    auto guard = OS::captureOutput();
+
+    TempFile fileWithDefs("-D FOO=1\n-D BAR=2\n");
+    TempFile emptyFile("");
+    TempFile extraFile("");
+
+    Driver driver;
+    driver.addStandardArgs();
+    REQUIRE(driver.processCommandFiles(fileWithDefs.path.string(), false, false));
+    REQUIRE(driver.processCommandFiles(emptyFile.path.string(), false, false));
+    {
+        auto guard = driver.setCurrentCommandFile(extraFile.path);
+        const char* argv[] = {"testfoo", "-D", "BAZ=3"};
+        REQUIRE(driver.parseCommandLine(3, argv));
+    }
+    const char* argv[] = {"testfoo", "-D", "NOT_ATTRIBUTED=1"};
+    REQUIRE(driver.parseCommandLine(3, argv));
+
+    std::error_code ec;
+    auto expectedPath = fs::weakly_canonical(fileWithDefs.path, ec);
+    REQUIRE(!ec);
+    auto expectedEmptyPath = fs::weakly_canonical(emptyFile.path, ec);
+    REQUIRE(!ec);
+    auto expectedJsonPath = fs::weakly_canonical(extraFile.path, ec);
+    REQUIRE(!ec);
+
+    auto& commandFileMetadata = driver.getCommandFileMetadata();
+    auto it = commandFileMetadata.find(expectedPath);
+    REQUIRE(it != commandFileMetadata.end());
+    CHECK(it->second.defines == std::vector<std::string>{"FOO=1", "BAR=2"});
+
+    auto emptyIt = commandFileMetadata.find(expectedEmptyPath);
+    REQUIRE(emptyIt != commandFileMetadata.end());
+    CHECK(emptyIt->second.defines.empty());
+
+    auto jsonIt = commandFileMetadata.find(expectedJsonPath);
+    REQUIRE(jsonIt != commandFileMetadata.end());
+    CHECK(jsonIt->second.defines == std::vector<std::string>{"BAZ=3"});
 }
+
+TEST_CASE("SourceLoader doesn't reload names satisfied by later worklist entries") {
+    SourceManager sourceManager;
+
+    auto top = SyntaxTree::fromText(R"(
+module top;
+    leaf leaf();
+    mid mid();
+endmodule
+)",
+                                    sourceManager, "", "load_tree_top.sv");
+
+    SourceLoader::SyntaxTreeList trees;
+    trees.push_back(top);
+
+    flat_hash_map<std::string_view, SourceBuffer> buffers;
+    buffers["mid"] = sourceManager.assignText("load_tree_mid.sv", R"(
+module mid;
+endmodule
+module leaf;
+endmodule
+)");
+
+    int leafLookups = 0;
+    SourceLoader::loadTrees(trees,
+                            [&](std::string_view name) {
+                                if (name == "leaf")
+                                    leafLookups++;
+                                if (auto it = buffers.find(name); it != buffers.end())
+                                    return it->second;
+                                return SourceBuffer();
+                            },
+                            sourceManager, {});
+
+    CHECK(leafLookups == 0);
+    CHECK(trees.size() == 2);
+}
+
+#if defined(SLANG_USE_THREADS)
+TEST_CASE("SourceLoader loads search libraries in parallel depths") {
+    SourceManager sourceManager;
+
+    auto top = SyntaxTree::fromText(R"(
+module top;
+    a a();
+    b b();
+    c c();
+    d d();
+endmodule
+)",
+                                    sourceManager, "", "load_tree_parallel_top.sv");
+
+    SourceLoader::SyntaxTreeList trees;
+    trees.push_back(top);
+
+    flat_hash_map<std::string_view, SourceBuffer> buffers;
+    buffers["a"] = sourceManager.assignText("load_tree_a.sv", "module a; e e(); endmodule");
+    buffers["b"] = sourceManager.assignText("load_tree_b.sv", "module b; f f(); endmodule");
+    buffers["c"] = sourceManager.assignText("load_tree_c.sv", "module c; g g(); endmodule");
+    buffers["d"] = sourceManager.assignText("load_tree_d.sv", "module d; h h(); endmodule");
+    buffers["e"] = sourceManager.assignText("load_tree_e.sv", "module e; endmodule");
+    buffers["f"] = sourceManager.assignText("load_tree_f.sv", "module f; endmodule");
+    buffers["g"] = sourceManager.assignText("load_tree_g.sv", "module g; endmodule");
+    buffers["h"] = sourceManager.assignText("load_tree_h.sv", "module h; endmodule");
+
+    ThreadPool pool(4);
+    SourceLoader::loadTrees(
+        trees,
+        [&](std::string_view name) {
+            if (auto it = buffers.find(name); it != buffers.end())
+                return it->second;
+            return SourceBuffer();
+        },
+        sourceManager, {}, {}, &pool);
+
+    CHECK(trees.size() == 9);
+}
+
+TEST_CASE("SourceLoader skips parallel depth trees satisfied by earlier loads") {
+    SourceManager sourceManager;
+
+    auto top = SyntaxTree::fromText(R"(
+module top;
+    leaf leaf();
+    a a();
+    b b();
+    mid mid();
+endmodule
+)",
+                                    sourceManager, "", "load_tree_parallel_skip_top.sv");
+
+    SourceLoader::SyntaxTreeList trees;
+    trees.push_back(top);
+
+    flat_hash_map<std::string_view, SourceBuffer> buffers;
+    buffers["leaf"] = sourceManager.assignText("load_tree_leaf.sv", "module leaf; endmodule");
+    buffers["mid"] = sourceManager.assignText("load_tree_mid.sv", R"(
+module mid;
+    helper helper();
+endmodule
+)");
+    buffers["helper"] = sourceManager.assignText("load_tree_helper.sv", R"(
+module helper;
+endmodule
+module leaf;
+endmodule
+)");
+    buffers["a"] = sourceManager.assignText("load_tree_a.sv", "module a; endmodule");
+    buffers["b"] = sourceManager.assignText("load_tree_b.sv", "module b; endmodule");
+
+    ThreadPool pool(4);
+    SourceLoader::loadTrees(
+        trees,
+        [&](std::string_view name) {
+            if (auto it = buffers.find(name); it != buffers.end())
+                return it->second;
+            return SourceBuffer();
+        },
+        sourceManager, {}, {}, &pool);
+
+    CHECK(trees.size() == 5);
+
+    Compilation compilation;
+    for (auto& tree : trees)
+        compilation.addSyntaxTree(tree);
+
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Driver libdir search loads parallel dependency depths") {
+    auto guard = OS::captureOutput();
+
+    std::error_code ec;
+    auto root = fs::temp_directory_path(ec);
+    REQUIRE(!ec);
+    root /= fmt::format("slang-libdir-{}", OS::getpid());
+    fs::remove_all(root, ec);
+    fs::create_directories(root, ec);
+    REQUIRE(!ec);
+    ScopeGuard cleanup([&] { fs::remove_all(root, ec); });
+
+    auto writeFile = [](const fs::path& path, std::string_view text) {
+        std::ofstream out(path);
+        REQUIRE(out.good());
+        out << text;
+    };
+
+    writeFile(root / "top.sv", R"(
+module top;
+    a a();
+    b b();
+    c c();
+    d d();
+endmodule
+)");
+    writeFile(root / "a.qv", "module a; e e(); endmodule");
+    writeFile(root / "b.qv", "module b; f f(); endmodule");
+    writeFile(root / "c.qv", "module c; g g(); endmodule");
+    writeFile(root / "d.qv", "module d; h h(); endmodule");
+    writeFile(root / "e.qv", "module e; endmodule");
+    writeFile(root / "f.qv", "module f; endmodule");
+    writeFile(root / "g.qv", "module g; endmodule");
+    writeFile(root / "h.qv", "module h; endmodule");
+
+    Driver driver;
+    driver.addStandardArgs();
+
+    auto args = fmt::format("testfoo \"{}\" --libdir \"{}\" --libext .qv --top top -j 4",
+                            (root / "top.sv").string(), root.string());
+    CHECK(driver.parseCommandLine(args));
+    CHECK(driver.processOptions());
+    CHECK(driver.parseAllSources());
+    CHECK(driver.reportParseDiags());
+    CHECK(driver.syntaxTrees.size() == 9);
+
+    auto compilation = driver.createCompilation();
+    driver.reportCompilation(*compilation, true);
+    CHECK(driver.reportDiagnostics(true));
+}
+#endif
 
 TEST_CASE("Driver library files with explicit name") {
     auto guard = OS::captureOutput();
@@ -291,4 +522,25 @@ TEST_CASE("Driver single-unit gives library files their own tree") {
     }
     CHECK(defaultUnits == 1);
     CHECK(libraryUnits == 1);
+}
+
+TEST_CASE("Driver basic with ParseOptions") {
+    Driver driver;
+    driver.addStandardArgs();
+
+    auto filePath = findTestDir() + "test.sv";
+    const char* argv[] = {"testfoo", filePath.c_str(), "--lint-only", "--lint-only"};
+    slang::CommandLine::ParseOptions parseOptions;
+    parseOptions.ignoreDuplicates = true;
+    CHECK(driver.parseCommandLine(4, argv, parseOptions));
+    CHECK(driver.processOptions());
+}
+
+TEST_CASE("SourceLoader owns strings in uniqueExtensions") {
+    TempFile commandFile("+libext+.v+.h+.V+.sv+\n");
+    Driver driver;
+    driver.addStandardArgs();
+    auto path = commandFile.path.string();
+    const char* argv[] = {"testfoo", "-f", path.c_str(), "-f", path.c_str()};
+    CHECK(driver.parseCommandLine(5, argv));
 }

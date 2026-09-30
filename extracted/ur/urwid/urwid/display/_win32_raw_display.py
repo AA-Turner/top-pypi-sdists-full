@@ -18,9 +18,7 @@
 # Urwid web site: https://urwid.org/
 
 
-"""
-Direct terminal UI implementation
-"""
+"""Direct terminal UI implementation."""
 
 from __future__ import annotations
 
@@ -51,6 +49,8 @@ if typing.TYPE_CHECKING:
 
 
 class Screen(_raw_display_base.Screen):
+    """Raw screen backend that drives a real Windows console."""
+
     _term_input_file: socket.socket
     # Only set for the socket pair created here: an input given by the caller is fed by the caller.
     _send_input: socket.socket | None = None
@@ -62,8 +62,7 @@ class Screen(_raw_display_base.Screen):
         bracketed_paste_mode: bool | None = None,
         focus_reporting: bool | None = None,
     ) -> None:
-        """Initialize a screen that directly prints escape codes to an output
-        terminal.
+        """Initialize a screen that directly prints escape codes to an output terminal.
 
         :param bracketed_paste_mode: enable bracketed paste (`begin`/`end paste` keystrokes).
             None (default) auto-detects via DECRQM and enables it once confirmed supported;
@@ -195,9 +194,7 @@ class Screen(_raw_display_base.Screen):
         super()._stop()  # type: ignore[safe-super]
 
     def unhook_event_loop(self, event_loop: EventLoop) -> None:
-        """
-        Remove any hooks added by hook_event_loop.
-        """
+        """Remove any hooks added by hook_event_loop."""
         if self._input_thread is not None:
             self._input_thread.should_exit = True
 
@@ -218,10 +215,9 @@ class Screen(_raw_display_base.Screen):
         event_loop: EventLoop,
         callback: Callable[[_DecodedInput, list[int]], typing.Any],
     ) -> None:
-        """
-        Register the given callback with the event loop, to be called with new
-        input whenever it's available.  The callback should be passed a list of
-        processed keys and a list of unprocessed keycodes.
+        """Register the given callback with the event loop, to be called with new input whenever it's available.
+
+        The callback should be passed a list of processed keys and a list of unprocessed keycodes.
 
         Subclasses may wish to use parse_input to wrap the callback.
         """
@@ -285,6 +281,8 @@ class Screen(_raw_display_base.Screen):
 
 
 class ReadInputThread(threading.Thread):
+    """Background thread that reads console input events and forwards them over a socket."""
+
     name = "urwid Windows input reader"
     daemon = True
     should_exit: bool = False

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: innoday
-Version: 0.1.375b0
+Version: 0.1.380b0
 Summary: AI-Powered Team Orchestration Platform - Streamline product development and team collaboration with AI
 Author-email: Haviland Software <support@haviland-software.com>
 Maintainer-email: Haviland Software <support@haviland-software.com>
@@ -757,7 +757,7 @@ The full narrative — the six problems it solves, with diagrams and the enforce
 uv tool install innoday          # install the CLI from PyPI
 innoday login --with-token       # paste your idt_… token when prompted
 innoday init hs/pf               # onboard a project workspace (clones + configures repos)
-innoday status                   # verify: identity, resolved project, token, API health
+innoday status                   # verify: identity, token, and this project's GitHub, boards, tickets
 ```
 
 **Full walkthrough — including token handling, working across projects, and the "already used InnoDay before?" upgrade step — is in the [Quickstart](docs/QUICKSTART.md).**

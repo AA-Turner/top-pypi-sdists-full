@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: torchgeo
-Version: 0.10.0
+Version: 0.10.1
 Summary: TorchGeo: datasets, samplers, transforms, and pre-trained models for geospatial data
 Keywords: pytorch,deep learning,machine learning,remote sensing,satellite imagery,earth observation,geospatial
 Author: Adam J. Stewart
@@ -60,13 +60,14 @@ Requires-Dist: pandas-stubs>=2.1.1 ; extra == 'style'
 Requires-Dist: ruff>=0.16 ; extra == 'style'
 Requires-Dist: ty>=0.0.62 ; extra == 'style'
 Requires-Dist: types-geopandas>=1.0 ; extra == 'style'
-Requires-Dist: types-rasterio>=1.5.0.20260728 ; extra == 'style'
+Requires-Dist: types-rasterio>=1.5.1 ; extra == 'style'
 Requires-Dist: types-requests>=2.25 ; extra == 'style'
 Requires-Dist: types-shapely>=2.0.2 ; extra == 'style'
 Requires-Dist: nbmake>=1.4.5 ; extra == 'tests'
 Requires-Dist: packaging>=21 ; extra == 'tests'
 Requires-Dist: pytest>=7.3.2 ; extra == 'tests'
 Requires-Dist: pytest-cov>=4 ; extra == 'tests'
+Requires-Dist: pytest-xdist>=3.0.2 ; extra == 'tests'
 Requires-Dist: pytest-socket>=0.3.4 ; extra == 'tests'
 Maintainer: Adam J. Stewart, Caleb Robinson, Isaac Corley, Nils Lehmann, Ashwin Nair, Robin Cole
 Maintainer-email: Adam J. Stewart <ajstewart426@gmail.com>, Caleb Robinson <Caleb.Robinson@microsoft.com>, Isaac Corley <isaac.corley@proton.me>, Nils Lehmann <n.lehmann@tum.de>, Ashwin Nair <ashnair0007@gmail.com>, Robin Cole <robmarkcole@gmail.com>

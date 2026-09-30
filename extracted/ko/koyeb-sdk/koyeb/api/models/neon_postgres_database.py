@@ -19,22 +19,34 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api.models.neon_postgres_database_neon_database import NeonPostgresDatabaseNeonDatabase
-from koyeb.api.models.neon_postgres_database_neon_role import NeonPostgresDatabaseNeonRole
+from koyeb.api.models.neon_postgres_database_neon_database import (
+    NeonPostgresDatabaseNeonDatabase,
+)
+from koyeb.api.models.neon_postgres_database_neon_role import (
+    NeonPostgresDatabaseNeonRole,
+)
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class NeonPostgresDatabase(BaseModel):
     """
     NeonPostgresDatabase
-    """ # noqa: E501
+    """  # noqa: E501
+
     pg_version: Optional[StrictInt] = None
     region: Optional[StrictStr] = None
     instance_type: Optional[StrictStr] = None
     roles: Optional[List[NeonPostgresDatabaseNeonRole]] = None
     databases: Optional[List[NeonPostgresDatabaseNeonDatabase]] = None
-    __properties: ClassVar[List[str]] = ["pg_version", "region", "instance_type", "roles", "databases"]
+    __properties: ClassVar[List[str]] = [
+        "pg_version",
+        "region",
+        "instance_type",
+        "roles",
+        "databases",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -42,7 +54,6 @@ class NeonPostgresDatabase(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -67,8 +78,7 @@ class NeonPostgresDatabase(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -79,16 +89,18 @@ class NeonPostgresDatabase(BaseModel):
         _items = []
         if self.roles:
             for _item_roles in self.roles:
-                if _item_roles:
-                    _items.append(_item_roles.to_dict())
-            _dict['roles'] = _items
+                _items.append(
+                    _item_roles.to_dict() if _item_roles is not None else None
+                )
+            _dict["roles"] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in databases (list)
         _items = []
         if self.databases:
             for _item_databases in self.databases:
-                if _item_databases:
-                    _items.append(_item_databases.to_dict())
-            _dict['databases'] = _items
+                _items.append(
+                    _item_databases.to_dict() if _item_databases is not None else None
+                )
+            _dict["databases"] = _items
         return _dict
 
     @classmethod
@@ -100,13 +112,23 @@ class NeonPostgresDatabase(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "pg_version": obj.get("pg_version"),
-            "region": obj.get("region"),
-            "instance_type": obj.get("instance_type"),
-            "roles": [NeonPostgresDatabaseNeonRole.from_dict(_item) for _item in obj["roles"]] if obj.get("roles") is not None else None,
-            "databases": [NeonPostgresDatabaseNeonDatabase.from_dict(_item) for _item in obj["databases"]] if obj.get("databases") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "pg_version": obj.get("pg_version"),
+                "region": obj.get("region"),
+                "instance_type": obj.get("instance_type"),
+                "roles": [
+                    NeonPostgresDatabaseNeonRole.from_dict(_item)
+                    for _item in obj["roles"]
+                ]
+                if obj.get("roles") is not None
+                else None,
+                "databases": [
+                    NeonPostgresDatabaseNeonDatabase.from_dict(_item)
+                    for _item in obj["databases"]
+                ]
+                if obj.get("databases") is not None
+                else None,
+            }
+        )
         return _obj
-
-

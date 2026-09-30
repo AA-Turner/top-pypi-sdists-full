@@ -29,7 +29,9 @@ import aiohttp
 
 from testmu._errors import AutohealExhausted
 from testmu._helpers._coordinate_resolver import resolve_coordinate
+from testmu._helpers.a11y_flatten import capture_a11y_flatten
 from testmu._helpers._http import create_session
+from testmu._helpers._credits import raise_if_insufficient_credits
 from testmu._helpers._png import _png_dimensions
 from testmu._helpers.vision import (
     _capture_full_page_screenshot_b64,
@@ -176,7 +178,11 @@ async def get_v3_desktop_locate_target(
                 "screen_height": viewport_height,
                 "drop_aware": drop_aware,
                 "request_id": uuid.uuid4().hex[:16],
-                "a11y_flatten": [],
+                # V2 parity (get_flat_a11y_tree): locate grounds on
+                # screenshot + a11y tree. This was hardcoded [] on every browser.
+                # capture_a11y_flatten returns [] rather than raising if capture
+                # fails — a locate call must not die on a11y.
+                "a11y_flatten": await capture_a11y_flatten(page, viewport_only=True),
             }
 
             result = None
@@ -185,6 +191,15 @@ async def get_v3_desktop_locate_target(
                     endpoint, json=payload, timeout=_LOCATE_TIMEOUT
                 ) as resp:
                     status = resp.status
+                    if status == 403:
+                        # Terminal before the 4xx branch below: once credits are
+                        # exhausted every subsequent call is refused, so the run must
+                        # Stop rather than silently degrade to a tier miss.
+                        try:
+                            _credits_body = await resp.json(content_type=None)
+                        except Exception:  # noqa: BLE001 — non-JSON 403 isn't a credits refusal
+                            _credits_body = None
+                        raise_if_insufficient_credits(status, _credits_body)
                     if 400 <= status < 500:
                         # 4xx: client error — retrying won't help.
                         _log.warning(
@@ -325,6 +340,10 @@ async def get_v3_desktop_locate_full_page_target(
     # ("Page.screenshot: Timeout ... exceeded"). See
     # vision._capture_full_page_screenshot_b64.
     image_b64 = await _capture_full_page_screenshot_b64(page)
+    # Captured once alongside the screenshot, for the same two reasons the
+    # screenshot is: it is an expensive whole-document walk, and it describes
+    # THIS image — recapturing per retry would let tree and image disagree.
+    a11y_flatten = await capture_a11y_flatten(page, viewport_only=False)
     screenshot_bytes = base64.b64decode(image_b64)
 
     # Validate PNG BEFORE any POST — deterministic path, no retry.
@@ -356,7 +375,9 @@ async def get_v3_desktop_locate_full_page_target(
                 "screen_height": 0,
                 "drop_aware": False,
                 "request_id": uuid.uuid4().hex[:16],
-                "a11y_flatten": [],
+                # Full-page step: whole document, not just the viewport
+                # (V2 passes viewport_only=False on its step-1 capture).
+                "a11y_flatten": a11y_flatten,
             }
 
             result = None
@@ -365,6 +386,15 @@ async def get_v3_desktop_locate_full_page_target(
                     endpoint, json=payload, timeout=_LOCATE_TIMEOUT
                 ) as resp:
                     status = resp.status
+                    if status == 403:
+                        # Terminal before the 4xx branch below: once credits are
+                        # exhausted every subsequent call is refused, so the run must
+                        # Stop rather than silently degrade to a tier miss.
+                        try:
+                            _credits_body = await resp.json(content_type=None)
+                        except Exception:  # noqa: BLE001 — non-JSON 403 isn't a credits refusal
+                            _credits_body = None
+                        raise_if_insufficient_credits(status, _credits_body)
                     if 400 <= status < 500:
                         _log.warning(
                             "[heal desktop_locate_full_page] 4xx status=%d for %r — not retrying",

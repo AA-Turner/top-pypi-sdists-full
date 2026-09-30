@@ -24,10 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
+
 class RedeployReply(BaseModel):
     """
     RedeployReply
-    """ # noqa: E501
+    """  # noqa: E501
+
     deployment: Optional[Deployment] = None
     __properties: ClassVar[List[str]] = ["deployment"]
 
@@ -37,7 +39,6 @@ class RedeployReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,8 +63,7 @@ class RedeployReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([
-        ])
+        excluded_fields: Set[str] = set([])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -72,7 +72,7 @@ class RedeployReply(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of deployment
         if self.deployment:
-            _dict['deployment'] = self.deployment.to_dict()
+            _dict["deployment"] = self.deployment.to_dict()
         return _dict
 
     @classmethod
@@ -84,9 +84,11 @@ class RedeployReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "deployment": Deployment.from_dict(obj["deployment"]) if obj.get("deployment") is not None else None
-        })
+        _obj = cls.model_validate(
+            {
+                "deployment": Deployment.from_dict(obj["deployment"])
+                if obj.get("deployment") is not None
+                else None
+            }
+        )
         return _obj
-
-

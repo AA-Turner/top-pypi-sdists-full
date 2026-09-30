@@ -26,12 +26,10 @@ class TriggerGitDeploymentMetadataProvider(str, Enum):
     """
     allowed enum values
     """
-    UNKNOWN = 'UNKNOWN'
-    GITHUB = 'GITHUB'
+    UNKNOWN = "UNKNOWN"
+    GITHUB = "GITHUB"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of TriggerGitDeploymentMetadataProvider from a JSON string"""
         return cls(json.loads(json_str))
-
-

@@ -1,1 +1,0 @@
-import{Ci as e,Ri as t,da as n}from"./lucide-BXc17cy6.js";var r=Symbol(`edited-provider-name`);function i(){let e=n(``);return t(r,e),e}function a(){return e(r,n(``))}export{a as n,i as t};

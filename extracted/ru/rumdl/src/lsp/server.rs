@@ -24,6 +24,20 @@ const MAX_RULE_LIST_SIZE: usize = 100;
 /// Maximum allowed line length value (DoS protection)
 const MAX_LINE_LENGTH: usize = 10_000;
 
+/// Whether a `workspace/didChangeConfiguration` payload names at least one
+/// `RumdlLspConfig` field. Presence decides, not value: a flag set back to its
+/// default (`{"enableAutoFix": false}` after `true`) is as much a server setting
+/// as one moved away from it.
+fn names_lsp_config_field(settings: &serde_json::Value) -> bool {
+    let serde_json::Value::Object(settings) = settings else {
+        return false;
+    };
+    let Ok(serde_json::Value::Object(fields)) = serde_json::to_value(RumdlLspConfig::default()) else {
+        return false;
+    };
+    settings.keys().any(|key| fields.contains_key(key))
+}
+
 /// Merge the keys present in a `workspace/didChangeConfiguration` payload onto the
 /// current LSP config, returning the merged config.
 ///
@@ -311,6 +325,39 @@ impl RumdlLanguageServer {
         let docs = self.documents.read().await;
         docs.get(&uri)
             .and_then(|entry| (!entry.from_disk).then(|| entry.content.clone()))
+    }
+
+    /// Bring the index entry for `path` in line with the file on disk, as the
+    /// workspace scan would record it.
+    ///
+    /// A file the scan skips (outside every root, not Markdown, ignored or
+    /// excluded, unreadable, gone) loses its entry: one indexed before an ignore
+    /// rule began matching it, or from a buffer that was never saved, would
+    /// otherwise keep surfacing in completions and navigation. Removing an entry
+    /// that does not exist is a no-op.
+    async fn reindex_from_disk(&self, path: PathBuf) {
+        let roots = self.workspace_roots.read().await.clone();
+        let (options, includes, excludes) = {
+            let config = self.rumdl_config.read().await;
+            (
+                crate::lsp::index_worker::index_walk_options(&config),
+                config.global.include.clone(),
+                ExcludeMatchers::new(&config.global.exclude),
+            )
+        };
+        let scanned = roots.iter().any(|root| path.starts_with(root))
+            && path.extension().is_some_and(is_markdown_extension)
+            && !crate::lsp::index_worker::path_is_ignored_for_index(&roots, &path, &options, &includes, &excludes);
+        let content = if scanned {
+            crate::lsp::read_markdown_lossy(&path).await.ok()
+        } else {
+            None
+        };
+        let update = match content {
+            Some(content) => IndexUpdate::FileChanged { path, content },
+            None => IndexUpdate::FileRemoved { path },
+        };
+        self.queue_index_update(update).await;
     }
 
     /// The URI a document is stored under, given any spelling that names it.
@@ -712,23 +759,6 @@ impl LanguageServer for RumdlLanguageServer {
             settings_value
         };
 
-        // A settings payload that carries `linkCompletionContentRoots` is a full
-        // RumdlLspConfig even when the list is empty, so clearing it back to the
-        // workspace-root default applies instead of being treated as unknown.
-        let has_content_roots_key = matches!(
-            &rumdl_settings,
-            serde_json::Value::Object(obj) if obj.contains_key("linkCompletionContentRoots")
-        );
-
-        // `enableSymbols` is detected by key presence (not just a non-default value)
-        // so that a bare payload applies symmetrically: both `{"enableSymbols": false}`
-        // and a later `{"enableSymbols": true}` re-enable take effect, rather than the
-        // re-enable deserializing to the default and being dropped as an unknown key.
-        let has_symbols_key = matches!(
-            &rumdl_settings,
-            serde_json::Value::Object(obj) if obj.contains_key("enableSymbols")
-        );
-
         // Track if we successfully applied any configuration
         let mut config_applied = false;
         let mut warnings: Vec<String> = Vec::new();
@@ -769,17 +799,8 @@ impl LanguageServer for RumdlLanguageServer {
             config.settings = Some(rule_settings);
             drop(config);
             config_applied = true;
-        } else if let Ok(full_config) = serde_json::from_value::<RumdlLspConfig>(rumdl_settings.clone())
-            && (full_config.config_path.is_some()
-                || full_config.enable_rules.is_some()
-                || full_config.disable_rules.is_some()
-                || full_config.settings.is_some()
-                || !full_config.enable_linting
-                || full_config.enable_auto_fix
-                || !full_config.enable_link_completions
-                || !full_config.enable_link_navigation
-                || has_symbols_key
-                || has_content_roots_key)
+        } else if names_lsp_config_field(&rumdl_settings)
+            && let Ok(full_config) = serde_json::from_value::<RumdlLspConfig>(rumdl_settings.clone())
         {
             // Validate rule names
             if let Some(ref rules) = full_config.enable_rules {
@@ -826,6 +847,10 @@ impl LanguageServer for RumdlLanguageServer {
             let mut disable = Vec::new();
             let mut enable = Vec::new();
             let mut line_length = None;
+            // Whether any key carried a rule setting. A payload that names none
+            // (another extension's keys, `{}`) says nothing about rule settings,
+            // so it must not replace the ones already in effect.
+            let mut names_a_rule_setting = false;
 
             for (key, value) in obj {
                 match key.as_str() {
@@ -844,6 +869,7 @@ impl LanguageServer for RumdlLanguageServer {
                                 }
                             }
                             disable = d.into_iter().take(MAX_RULE_LIST_SIZE).collect();
+                            names_a_rule_setting = true;
                         }
                         Err(_) => {
                             warnings.push(format!(
@@ -866,6 +892,7 @@ impl LanguageServer for RumdlLanguageServer {
                                 }
                             }
                             enable = e.into_iter().take(MAX_RULE_LIST_SIZE).collect();
+                            names_a_rule_setting = true;
                         }
                         Err(_) => {
                             warnings.push(format!(
@@ -876,7 +903,10 @@ impl LanguageServer for RumdlLanguageServer {
                     "lineLength" | "line_length" | "line-length" => {
                         if let Some(l) = value.as_u64() {
                             match usize::try_from(l) {
-                                Ok(len) if len <= MAX_LINE_LENGTH => line_length = Some(len),
+                                Ok(len) if len <= MAX_LINE_LENGTH => {
+                                    line_length = Some(len);
+                                    names_a_rule_setting = true;
+                                }
                                 Ok(len) => warnings.push(format!(
                                     "Invalid 'lineLength' value: {len} exceeds maximum ({MAX_LINE_LENGTH})"
                                 )),
@@ -893,6 +923,7 @@ impl LanguageServer for RumdlLanguageServer {
                             warnings.push(format!("Unknown rule: {key}"));
                         }
                         rules.insert(normalized, value);
+                        names_a_rule_setting = true;
                     }
                     _ => {
                         // Unknown key - warn and ignore
@@ -908,10 +939,12 @@ impl LanguageServer for RumdlLanguageServer {
                 rules,
             };
 
-            log::info!("Applied Neovim-style rule settings (manual parse)");
-            config.settings = Some(settings);
+            if names_a_rule_setting {
+                log::info!("Applied Neovim-style rule settings (manual parse)");
+                config.settings = Some(settings);
+                config_applied = true;
+            }
             drop(config);
-            config_applied = true;
         } else {
             log::warn!("Could not parse configuration settings: {rumdl_settings:?}");
         }
@@ -1035,8 +1068,22 @@ impl LanguageServer for RumdlLanguageServer {
         let uri = params.text_document.uri;
         let version = params.text_document.version;
 
-        if let Some(change) = params.content_changes.into_iter().next() {
-            let text = change.text;
+        // rumdl advertises full sync, but a client may still send ranged
+        // changes; those apply to the text the server already holds.
+        let base = if params.content_changes.iter().all(|change| change.range.is_some()) {
+            match self.documents.read().await.get(&uri) {
+                Some(entry) => Some(entry.content.clone()),
+                None => {
+                    log::warn!("Ignoring an incremental change to {uri}, which is not open");
+                    return;
+                }
+            }
+        } else {
+            None
+        };
+
+        if !params.content_changes.is_empty() {
+            let text = super::position::apply_content_changes(base.unwrap_or_default(), params.content_changes);
 
             let entry = DocumentEntry {
                 content: text.clone(),
@@ -1123,6 +1170,19 @@ impl LanguageServer for RumdlLanguageServer {
             }
         }
 
+        // The closed buffer was the index's source for this file. What replaces
+        // it is the same file still open under another spelling, or otherwise
+        // whatever the workspace scan would record.
+        if let Some(path) = super::resolve_uri(&params.text_document.uri) {
+            match self.get_open_document_content(&resolved).await {
+                Some(content) => {
+                    self.queue_index_update(IndexUpdate::FileChanged { path, content })
+                        .await;
+                }
+                None => self.reindex_from_disk(path).await,
+            }
+        }
+
         // Always clear diagnostics on close to ensure cleanup
         // (Ruff does this unconditionally as a defensive measure)
         self.client
@@ -1199,37 +1259,7 @@ impl LanguageServer for RumdlLanguageServer {
                                 .await;
                                 continue;
                             }
-                            // Skip files the full scan would ignore (e.g. generated
-                            // output) so filesystem-watch events don't reintroduce
-                            // them.
-                            let roots = self.workspace_roots.read().await.clone();
-                            let (options, includes, excludes) = {
-                                let config = self.rumdl_config.read().await;
-                                (
-                                    crate::lsp::index_worker::index_walk_options(&config),
-                                    config.global.include.clone(),
-                                    ExcludeMatchers::new(&config.global.exclude),
-                                )
-                            };
-                            if crate::lsp::index_worker::path_is_ignored_for_index(
-                                &roots, &path, &options, &includes, &excludes,
-                            ) {
-                                // A file that was indexed before an ignore rule began
-                                // matching it (e.g. just added to .gitignore) must be
-                                // evicted so completions and navigation stop surfacing
-                                // it. The message is a no-op when it was never indexed.
-                                self.queue_index_update(IndexUpdate::FileRemoved { path: path.clone() })
-                                    .await;
-                                continue;
-                            }
-                            // Read file content and update index
-                            if let Ok(content) = crate::lsp::read_markdown_lossy(&path).await {
-                                self.queue_index_update(IndexUpdate::FileChanged {
-                                    path: path.clone(),
-                                    content,
-                                })
-                                .await;
-                            }
+                            self.reindex_from_disk(path.clone()).await;
                         }
                         FileChangeType::DELETED => {
                             self.queue_index_update(IndexUpdate::FileRemoved { path: path.clone() })
@@ -1284,10 +1314,15 @@ impl LanguageServer for RumdlLanguageServer {
                                 action.kind.as_ref().is_some_and(|action_kind| {
                                     let action_kind_str = action_kind.as_str();
                                     kinds.iter().any(|requested| {
-                                        let requested_str = requested.as_str();
-                                        // Match if action kind starts with requested kind
-                                        // e.g., "source.fixAll.rumdl" matches "source.fixAll"
-                                        action_kind_str.starts_with(requested_str)
+                                        // A kind matches itself and the kinds beneath it:
+                                        // "source.fixAll" takes "source.fixAll.rumdl", but
+                                        // "source.fix" takes neither. The empty kind is the
+                                        // root and takes every kind.
+                                        let requested = requested.as_str();
+                                        requested.is_empty()
+                                            || action_kind_str
+                                                .strip_prefix(requested)
+                                                .is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
                                     })
                                 })
                             })
@@ -1313,81 +1348,35 @@ impl LanguageServer for RumdlLanguageServer {
     }
 
     async fn range_formatting(&self, params: DocumentRangeFormattingParams) -> JsonRpcResult<Option<Vec<TextEdit>>> {
-        // For markdown linting, we format the entire document because:
-        // 1. Many markdown rules have document-wide implications (e.g., heading hierarchy, list consistency)
-        // 2. Fixes often need surrounding context to be applied correctly
-        // 3. This approach is common among linters (ESLint, rustfmt, etc. do similar)
-        log::debug!(
-            "Range formatting requested for {:?}, formatting entire document due to rule interdependencies",
-            params.range
-        );
+        let uri = params.text_document.uri;
+        log::debug!("Range formatting request for {uri} {:?}", params.range);
 
-        let formatting_params = DocumentFormattingParams {
-            text_document: params.text_document,
-            options: params.options,
-            work_done_progress_params: params.work_done_progress_params,
+        let Some((text, formatted)) = self.format_document(&uri, &params.options).await else {
+            log::warn!("Document not found: {uri}");
+            return Ok(None);
         };
-
-        self.formatting(formatting_params).await
+        Ok(Some(Self::range_edits(&text, &formatted, params.range)))
     }
 
     async fn formatting(&self, params: DocumentFormattingParams) -> JsonRpcResult<Option<Vec<TextEdit>>> {
         let uri = params.text_document.uri;
-        let options = params.options;
-
         log::debug!("Formatting request for: {uri}");
-        log::debug!(
-            "FormattingOptions: insert_final_newline={:?}, trim_final_newlines={:?}, trim_trailing_whitespace={:?}",
-            options.insert_final_newline,
-            options.trim_final_newlines,
-            options.trim_trailing_whitespace
-        );
 
-        if let Some(text) = self.get_document_content(&uri).await {
-            // FormattingOptions also mutate text, independently of the fix engine.
-            if self.has_unsuppressed_conflict(&uri, &text).await {
-                return Ok(Some(Vec::new()));
-            }
-            // Phase 1: Apply lint rule fixes, iterating to a fixpoint through the
-            // same `FixCoordinator` engine as `rumdl check --fix` and the editor's
-            // fix-all action. A single fix pass can leave cascading fixes
-            // unapplied — e.g. MD030 widening a list marker, which then requires
-            // MD007 to re-indent the nested content and its continuation lines —
-            // which forced "Format Document" to be run several times to converge
-            // (rvben/rumdl-vscode#145). `apply_all_fixes` also handles config
-            // resolution, rule filtering, LSP overrides and excludes for the URI.
-            let mut result = match self.apply_all_fixes(&uri, &text).await {
-                Ok(Some(fixed)) => fixed,
-                Ok(None) => text.clone(),
-                Err(e) => {
-                    log::error!("Failed to apply fixes during formatting: {e}");
-                    text.clone()
-                }
-            };
-
-            // Phase 2: Apply FormattingOptions (standard LSP behavior)
-            // This ensures we respect editor preferences even if lint rules don't catch everything
-            result = Self::apply_formatting_options(result, &options);
-
-            // Return edit if content changed
-            if result != text {
-                log::debug!("Returning formatting edits");
-                let end_position = self.get_end_position(&text);
-                let edit = TextEdit {
-                    range: Range {
-                        start: Position { line: 0, character: 0 },
-                        end: end_position,
-                    },
-                    new_text: result,
-                };
-                return Ok(Some(vec![edit]));
-            }
-
-            Ok(Some(Vec::new()))
-        } else {
+        let Some((text, formatted)) = self.format_document(&uri, &params.options).await else {
             log::warn!("Document not found: {uri}");
-            Ok(None)
+            return Ok(None);
+        };
+        if formatted == text {
+            return Ok(Some(Vec::new()));
         }
+        let edit = TextEdit {
+            range: Range {
+                start: Position { line: 0, character: 0 },
+                end: self.get_end_position(&text),
+            },
+            new_text: formatted,
+        };
+        Ok(Some(vec![edit]))
     }
 
     async fn goto_definition(&self, params: GotoDefinitionParams) -> JsonRpcResult<Option<GotoDefinitionResponse>> {

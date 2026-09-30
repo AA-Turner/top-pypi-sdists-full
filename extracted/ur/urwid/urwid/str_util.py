@@ -18,6 +18,8 @@
 # Urwid web site: https://urwid.org/
 
 
+"""Character width calculation and byte-string decoding for screen layout."""
+
 from __future__ import annotations
 
 import re
@@ -174,7 +176,7 @@ def decode_one(text: bytes | str, pos: int) -> tuple[int, int]:
 
 def decode_one_uni(text: str, i: int) -> tuple[int, int]:
     """
-    decode_one implementation for unicode strings
+    decode_one implementation for unicode strings.
 
     .. deprecated:: 4.1.4
         Not used by the urwid code base; there is no replacement.
@@ -189,8 +191,8 @@ def decode_one_uni(text: str, i: int) -> tuple[int, int]:
 
 
 def decode_one_right(text: bytes, pos: int) -> tuple[int, int] | None:
-    """
-    Return (ordinal at pos, next position) for UTF-8 encoded text.
+    """Return (ordinal at pos, next position) for UTF-8 encoded text.
+
     pos is assumed to be on the trailing byte of a utf-8 sequence.
 
     :raises TypeError: *text* is not a byte string.
@@ -231,13 +233,14 @@ def set_byte_encoding(enc: Literal["utf8", "narrow", "wide"]) -> None:
 
 
 def get_byte_encoding() -> Literal["utf8", "narrow", "wide"]:
+    """Return the byte encoding currently selected by :func:`set_byte_encoding`."""
     return _byte_encoding
 
 
 def calc_string_text_pos(text: str, start_offs: int, end_offs: int, pref_col: int) -> tuple[int, int]:
-    """
-    Calculate the closest position to the screen column pref_col in text
-    where start_offs is the offset into text assumed to be screen column 0
+    """Calculate the closest position to the screen column pref_col in text.
+
+    start_offs is the offset into text assumed to be screen column 0
     and end_offs is the end of the range to search.
 
     Iterates by grapheme clusters for emoji ZWJ sequences, flags,
@@ -266,9 +269,9 @@ def calc_string_text_pos(text: str, start_offs: int, end_offs: int, pref_col: in
 
 
 def calc_text_pos(text: str | bytes, start_offs: int, end_offs: int, pref_col: int) -> tuple[int, int]:
-    """
-    Calculate the closest position to the screen column pref_col in text
-    where start_offs is the offset into text assumed to be screen column 0
+    """Calculate the closest position to the screen column pref_col in text.
+
+    start_offs is the offset into text assumed to be screen column 0
     and end_offs is the end of the range to search.
 
     text may be unicode or a byte string in the target _byte_encoding
@@ -318,7 +321,6 @@ def calc_width(text: str | bytes, start_offs: int, end_offs: int) -> int:
 
     :raises ValueError: *start_offs* is past *end_offs*.
     """
-
     if start_offs > end_offs:
         msg = f"{start_offs=} > {end_offs=}"
         raise ValueError(msg)

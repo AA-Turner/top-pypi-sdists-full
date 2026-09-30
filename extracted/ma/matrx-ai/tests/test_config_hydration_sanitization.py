@@ -84,5 +84,5 @@ def test_hydration_defers_visibility_collapse_but_strict_mode_rejects_it() -> No
 
     messages.sanitize(allow_empty=True)
 
-    with pytest.raises(MessageSanitizationError, match="emptying_pass=visibility"):
+    with pytest.raises(MessageSanitizationError, match="emptying_pass=model_visibility"):
         messages.sanitize()

@@ -997,7 +997,7 @@ def _check_internal_link_equity(facts: PageFacts, site: SiteAggregates) -> Check
             "pass",
             score,
             f"This page is in the {percentile}th percentile of the site's internal "
-            "PageRank distribution — internal links give it strong visibility.",
+            "PageRank distribution — internal links give it strong prominence.",
             evidence=evidence,
         )
     priority_note = (
@@ -1017,11 +1017,52 @@ def _check_internal_link_equity(facts: PageFacts, site: SiteAggregates) -> Check
     )
 
 
+def _latest_fetch_failure(facts: PageFacts) -> str | None:
+    """The failure verdict that already covers a page whose latest fetch failed.
+
+    Only for a URL with no accepted capture (transport facts): we SAW it answer,
+    and the answer was a wall, a rate-limit give-up, an error status, no
+    response, or a redirect loop. None when the page served (or was never tried).
+    """
+    if facts.latest_snapshot_id:
+        return None
+    reason = facts.fetch_blocked_reason
+    if reason in ("RateLimited", "RateLimitTimeout"):
+        return "the site rate-limited our crawler before it could fetch the page"
+    if reason:
+        return f"the site blocked our crawler ({reason}) — see the blocked-page verdict"
+    urls = [hop.get("url") for hop in (facts.redirect_chain or []) if hop.get("url")]
+    if len(urls) != len(set(urls)):
+        return "the URL redirects in a loop — see the redirect loop verdict"
+    status = facts.http_status
+    if status is None:
+        return None
+    if status == 0:
+        return "the server never responded — see the server error verdict"
+    if status >= 500:
+        return f"the page answered HTTP {status} — see the server error verdict"
+    if status >= 400:
+        return f"the page answered HTTP {status} — see the broken page verdict"
+    return None
+
+
 def _check_orphan_pages(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
     census = site.orphans
     blocked = _partial_graph_outcome(site)
     if blocked is not None:
         return blocked
+    failure = _latest_fetch_failure(facts)
+    if failure is not None:
+        # One defect, one verdict (ruling 2026-09-29): a page we SAW fail is
+        # covered by its failure verdict. Whether anything links to it is judged
+        # once it serves a page — and we never claim we "cannot confirm it
+        # exists" about a URL we watched answer.
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"Not judged for orphan status: {failure}. Once the page loads normally, "
+            "this check reports whether anything on the site links to it.",
+        )
     if facts.page_id == site.homepage_page_id:
         return CheckOutcome(
             "pass", 100, "This is the site root — the entry point is never an orphan."

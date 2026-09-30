@@ -51,7 +51,9 @@ class VideoFormat:
         self._init(pix_fmt, width, height)
 
     @cython.cfunc
-    def _init(self, pix_fmt: lib.AVPixelFormat, width: cuint, height: cuint):
+    def _init(
+        self, pix_fmt: lib.AVPixelFormat, width: cuint, height: cuint
+    ) -> cython.void:
         self.pix_fmt = pix_fmt
         self.ptr = lib.av_pix_fmt_desc_get(pix_fmt)
         self.width = width
@@ -144,6 +146,11 @@ class VideoFormat:
 @cython.cclass
 class VideoFormatComponent:
     def __cinit__(self, format: VideoFormat, index: cython.uint):
+        if index >= format.ptr.nb_components:
+            raise ValueError(
+                f"component index {index} out of range for {format!r}, which has "
+                f"{format.ptr.nb_components}"
+            )
         self.format = format
         self.index = index
         self.ptr = cython.address(format.ptr.comp[index])

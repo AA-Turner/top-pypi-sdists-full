@@ -8,7 +8,8 @@ from koyeb.api_async.models.deployment_definition import (
     DeploymentDefinition as AsyncDeploymentDefinition,
 )
 from koyeb.sandbox.sandbox import AsyncSandbox, Sandbox
-from koyeb.sandbox.utils import EgressPolicyError
+from koyeb.sandbox.egress import build_network_policy
+from koyeb.sandbox.errors import EgressPolicyError
 
 
 class TestCreateEgressWiring(unittest.TestCase):
@@ -56,7 +57,7 @@ class TestCreateEgressWiring(unittest.TestCase):
             )
         mock_get_clients.assert_not_called()
 
-    @patch("koyeb.sandbox.utils.get_async_api_clients")
+    @patch("koyeb.sandbox.sandbox.get_async_api_clients")
     def test_async_create_forwards_egress_kwargs(self, mock_get_clients):
         clients = MagicMock()
         clients.apps.create_app = AsyncMock()
@@ -72,7 +73,7 @@ class TestCreateEgressWiring(unittest.TestCase):
         egress = service.definition.network_policy.egress
         self.assertEqual(egress.mode, EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL)
 
-    @patch("koyeb.sandbox.utils.get_async_api_clients")
+    @patch("koyeb.sandbox.sandbox.get_async_api_clients")
     def test_async_mutually_exclusive_fails_before_any_api_call(self, mock_get_clients):
         with self.assertRaises(EgressPolicyError):
             asyncio.run(
@@ -148,13 +149,77 @@ class TestUpdateNetworkPolicy(unittest.TestCase):
 
     @patch("koyeb.sandbox.sandbox.get_api_clients")
     def test_api_failure_wrapped_in_sandbox_error(self, mock_get_clients):
-        from koyeb.sandbox.utils import SandboxError
+        from koyeb.sandbox.errors import SandboxError
 
         clients = _make_clients()
         clients.services.update_service.side_effect = RuntimeError("boom")
         mock_get_clients.return_value = clients
         with self.assertRaises(SandboxError):
             _make_sandbox().update_network_policy(block_network=True)
+
+    @patch("koyeb.sandbox.sandbox.get_api_clients")
+    def test_pins_new_deployment_and_resets_cached_state(self, mock_get_clients):
+        clients = _make_clients()
+        clients.services.update_service.return_value.service.latest_deployment_id = (
+            "new-dep"
+        )
+        mock_get_clients.return_value = clients
+
+        sandbox = _make_sandbox()
+        stale_client = MagicMock()
+        sandbox._deployment_id = "old-dep"
+        sandbox._sandbox_url = ("https://old/koyeb-sandbox", "old-key")
+        sandbox._url = "https://old"
+        sandbox._domain = "old"
+        sandbox._client = stale_client
+
+        sandbox.update_network_policy(block_network=True)
+
+        self.assertEqual(sandbox._deployment_id, "new-dep")
+        self.assertIsNone(sandbox._sandbox_url)
+        self.assertIsNone(sandbox._url)
+        self.assertIsNone(sandbox._domain)
+        self.assertIsNone(sandbox._client)
+        stale_client.close.assert_called_once()
+
+    @patch("koyeb.sandbox.sandbox.get_api_clients")
+    def test_falls_back_to_get_service_when_reply_lacks_deployment_id(
+        self, mock_get_clients
+    ):
+        clients = _make_clients()
+        clients.services.update_service.return_value.service.latest_deployment_id = None
+        clients.services.get_service.return_value.service.latest_deployment_id = (
+            "refetched-dep"
+        )
+        mock_get_clients.return_value = clients
+
+        sandbox = _make_sandbox()
+        sandbox.update_network_policy(block_network=True)
+
+        self.assertEqual(sandbox._deployment_id, "refetched-dep")
+
+    @patch("koyeb.sandbox.sandbox.get_api_clients")
+    def test_resets_state_even_when_new_deployment_id_lookup_fails(
+        self, mock_get_clients
+    ):
+        clients = _make_clients()
+        clients.services.update_service.return_value.service.latest_deployment_id = None
+        # First get_service call is the initial fetch; the fallback lookup after
+        # the successful update fails.
+        clients.services.get_service.side_effect = [
+            clients.services.get_service.return_value,
+            RuntimeError("api down"),
+        ]
+        mock_get_clients.return_value = clients
+
+        sandbox = _make_sandbox()
+        sandbox._deployment_id = "old-dep"
+        sandbox._sandbox_url = ("https://old/koyeb-sandbox", "old-key")
+
+        sandbox.update_network_policy(block_network=True)
+
+        self.assertIsNone(sandbox._deployment_id)
+        self.assertIsNone(sandbox._sandbox_url)
 
 
 def _make_async_clients():
@@ -172,7 +237,7 @@ def _make_async_clients():
 class TestAsyncUpdateNetworkPolicy(unittest.TestCase):
     """Tests for AsyncSandbox.update_network_policy."""
 
-    @patch("koyeb.sandbox.utils.get_async_api_clients")
+    @patch("koyeb.sandbox.sandbox.get_async_api_clients")
     def test_async_block_network(self, mock_get_clients):
         clients = _make_async_clients()
         mock_get_clients.return_value = clients
@@ -183,3 +248,103 @@ class TestAsyncUpdateNetworkPolicy(unittest.TestCase):
             update.definition.network_policy.egress.mode,
             EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL,
         )
+
+    @patch("koyeb.sandbox.sandbox.get_async_api_clients")
+    def test_async_pins_new_deployment_and_resets_cached_state(self, mock_get_clients):
+        clients = _make_async_clients()
+        clients.services.update_service.return_value.service.latest_deployment_id = (
+            "new-dep"
+        )
+        mock_get_clients.return_value = clients
+
+        sandbox = _make_sandbox(AsyncSandbox)
+        stale_async_client = AsyncMock()
+        sandbox._deployment_id = "old-dep"
+        sandbox._sandbox_url = ("https://old/koyeb-sandbox", "old-key")
+        sandbox._url = "https://old"
+        sandbox._async_client = stale_async_client
+
+        asyncio.run(sandbox.update_network_policy(block_network=True))
+
+        self.assertEqual(sandbox._deployment_id, "new-dep")
+        self.assertIsNone(sandbox._sandbox_url)
+        self.assertIsNone(sandbox._url)
+        self.assertIsNone(sandbox._async_client)
+        stale_async_client.close.assert_awaited_once()
+
+
+class TestBuildEgressPolicy(unittest.TestCase):
+    """Tests for build_network_policy validation and normalization."""
+
+    def test_both_unset_returns_none(self):
+        self.assertIsNone(build_network_policy(False, None))
+        self.assertIsNone(build_network_policy())
+
+    def test_both_passed_raises(self):
+        with self.assertRaises(EgressPolicyError):
+            build_network_policy(True, ["1.2.3.4"])
+        with self.assertRaises(EgressPolicyError):
+            build_network_policy(True, [])
+
+    def test_block_network_deny_all_without_allowlist(self):
+        policy = build_network_policy(True, None)
+        self.assertEqual(
+            policy.egress.mode, EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL
+        )
+        self.assertIsNone(policy.egress.allow_list)
+
+    def test_bare_ipv4_normalized_to_slash_32(self):
+        policy = build_network_policy(False, ["1.2.3.4"])
+        self.assertEqual(
+            policy.egress.mode, EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL
+        )
+        self.assertEqual([d.cidr for d in policy.egress.allow_list], ["1.2.3.4/32"])
+
+    def test_bare_ipv6_normalized_to_slash_128(self):
+        policy = build_network_policy(False, ["2001:db8::1"])
+        self.assertEqual(
+            [d.cidr for d in policy.egress.allow_list], ["2001:db8::1/128"]
+        )
+
+    def test_cidr_passthrough(self):
+        policy = build_network_policy(False, ["10.0.0.0/8", "2001:db8::/32"])
+        self.assertEqual(
+            [d.cidr for d in policy.egress.allow_list],
+            ["10.0.0.0/8", "2001:db8::/32"],
+        )
+
+    def test_cidr_host_bits_normalized(self):
+        policy = build_network_policy(False, ["10.0.0.1/8"])
+        self.assertEqual([d.cidr for d in policy.egress.allow_list], ["10.0.0.0/8"])
+
+    def test_invalid_entries_raise(self):
+        for bad in [
+            "example.com",
+            "not-an-ip",
+            "",
+            "  ",
+            "10.0.0.0/33",
+            "1.2.3",
+            "fe80::1%eth0",
+        ]:
+            with self.assertRaises(EgressPolicyError, msg=f"entry: {bad!r}"):
+                build_network_policy(False, [bad])
+
+    def test_empty_allowlist_means_deny_all(self):
+        policy = build_network_policy(False, [])
+        self.assertEqual(
+            policy.egress.mode, EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL
+        )
+        self.assertEqual(policy.egress.allow_list, [])
+
+    def test_error_is_sandbox_error_and_exported(self):
+        import koyeb.sandbox as sandbox_pkg
+        from koyeb.sandbox.errors import SandboxError
+
+        self.assertTrue(issubclass(EgressPolicyError, SandboxError))
+        self.assertIs(sandbox_pkg.EgressPolicyError, EgressPolicyError)
+        self.assertIn("EgressPolicyError", sandbox_pkg.__all__)
+
+
+if __name__ == "__main__":
+    unittest.main()
